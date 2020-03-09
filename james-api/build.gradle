@@ -1,0 +1,57 @@
+buildscript {
+    ext {
+        versionKotlin = '1.3.61'
+    }
+
+    repositories {
+        jcenter()
+        apply plugin: 'idea'
+    }
+    
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$versionKotlin"
+    }
+}
+
+apply plugin: 'kotlin'
+apply plugin: 'application'
+
+group 'de.chrgroth'
+mainClassName = "io.ktor.server.netty.EngineMain"
+
+sourceSets {
+    main.kotlin.srcDirs = main.java.srcDirs = ['src']
+    test.kotlin.srcDirs = test.java.srcDirs = ['test']
+    main.resources.srcDirs = ['resources']
+    test.resources.srcDirs = ['testresources']
+}
+
+repositories {
+    mavenLocal()
+    jcenter()
+    maven { url 'https://kotlin.bintray.com/ktor' }
+}
+
+ext {
+    versionKotlin = '1.3.61'
+
+    versionKtor = '1.3.0'
+    versionLogback = '1.2.1'
+    versionSemVer = '1.1.0'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$versionKtor"
+    implementation "io.ktor:ktor-server-netty:$versionKtor"
+    implementation "io.ktor:ktor-server-core:$versionKtor"
+    implementation "io.ktor:ktor-locations:$versionKtor"
+    implementation "io.ktor:ktor-metrics:$versionKtor"
+    implementation "io.ktor:ktor-server-host-common:$versionKtor"
+    implementation "io.ktor:ktor-jackson:$versionKtor"
+
+    implementation "ch.qos.logback:logback-classic:$versionLogback"
+    implementation "net.swiftzer.semver:semver:$versionSemVer"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin:2.10.+"
+
+    testImplementation "io.ktor:ktor-server-tests:$versionKtor"
+}
