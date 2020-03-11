@@ -14,25 +14,9 @@ import java.util.*
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 const val CONTENT_TYPE_JSON = "application/json"
 
-// TODO split tests and allow to start with a fresh and empty repository
-internal class AppsTest2 {
-    private val engine = TestApplicationEngine(createTestEnvironment())
-
-
-    @BeforeTest
-    fun setup() {
-        engine.start(wait = false) // for now we can't eliminate it
-        engine.application.module(true) // our main module function
-    }
-    @Test
-    fun listApps() {
-        println("oops")
-    }
-}
 internal class AppsTest {
 
     private fun createDelegatingNotFoundAwareInterceptor(delegate: PipelineInterceptor<Unit, ApplicationCall>)
@@ -50,91 +34,6 @@ internal class AppsTest {
         engine.start(wait = false) // for now we can't eliminate it
         engine.application.module(true) // our main module function
         engine.callInterceptor = createDelegatingNotFoundAwareInterceptor(engine.callInterceptor)
-    }
-
-    @Test
-    fun listApps() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps") { call ->
-            val apps = call.response.content!!.asApps()
-            assertTrue(apps.size >= 2)
-        }
-    }
-
-    @Test
-    fun getWelcomeApp() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/0") { call ->
-            val app = call.response.content!!.asApp()
-            assertEquals(0, app.id)
-            assertEquals(2, app.name.values.size)
-            assertEquals("Willkommen", app.name.values[Locale.GERMAN])
-            assertEquals("Welcome", app.name.values[Locale.ENGLISH])
-            assertEquals(3, app.versions.size)
-        }
-    }
-
-    @Test
-    fun getWelcomeAppVersions() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/0/versions") { call ->
-            val versions = call.response.content!!.asAppVersions()
-            assertEquals(3, versions.size)
-        }
-    }
-
-    @Test
-    fun getWelcomeAppVersion01() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/0/versions/0.1.0") { call ->
-            val version = call.response.content!!.asAppVersion()
-            assertEquals("foo", version.dummy)
-        }
-    }
-
-    @Test
-    fun getWelcomeAppVersion011() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/0/versions/0.1.1") { call ->
-            val version = call.response.content!!.asAppVersion()
-            assertEquals("bar", version.dummy)
-        }
-    }
-
-    @Test
-    fun getWelcomeAppVersion02() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/0/versions/0.2.0") { call ->
-            val version = call.response.content!!.asAppVersion()
-            assertEquals("baz", version.dummy)
-        }
-    }
-
-    @Test
-    fun getSportsApp() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/1") { call ->
-            val app = call.response.content!!.asApp()
-            assertEquals(1, app.id)
-            assertEquals(2, app.name.values.size)
-            assertEquals("Sport", app.name.values[Locale.GERMAN])
-            assertEquals("Sports", app.name.values[Locale.ENGLISH])
-            assertEquals(1, app.versions.size)
-        }
-    }
-
-    @Test
-    fun getSportsAppVersions() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/1/versions") { call ->
-            val versions = call.response.content!!.asAppVersions()
-            assertEquals(1, versions.size)
-        }
-    }
-
-    @Test
-    fun getSportsAppVersion01() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/1/versions/0.1.0") { call ->
-            val version = call.response.content!!.asAppVersion()
-            assertEquals("Running only!", version.dummy)
-        }
-    }
-
-    @Test
-    fun getSportsAppVersionNotExistent() {
-        assertHttpResponse(HttpMethod.Get, "/api/apps/1/versions/6.6.6", expectedStatus = HttpStatusCode.NotFound)
     }
 
     @Test
@@ -182,21 +81,100 @@ internal class AppsTest {
                         "it" : "Testo Italiano"
                     }
                 },
-                "versions": { }
+                "versions": { 
+                    "0.1": { "dummy": "dummy" }
+                }
             }""".trimMargin(),
             expectedStatus = HttpStatusCode.Created
-        ) { call ->
-            val returnedApp = call.response.content!!.asApp()
-            assertEquals(2, returnedApp.id)
+        ) { createAppCall ->
+            val returnedApp = createAppCall.response.content!!.asApp()
+            assertEquals(0, returnedApp.id)
             assertEquals("Test", returnedApp.name.values[Locale.GERMAN])
             assertEquals("Testing", returnedApp.name.values[Locale.ENGLISH])
             assertEquals("Testo Italiano", returnedApp.name.values[Locale.ITALIAN])
-            assertEquals(0, returnedApp.versions.size)
+            assertEquals(1, returnedApp.versions.size)
+            assertEquals("dummy", returnedApp.versions["0.1"]?.dummy)
+
+            assertHttpResponse(HttpMethod.Get, "/api/apps") { call ->
+                val apps = call.response.content!!.asApps()
+                assertEquals(apps.size, 1)
+            }
 
             assertHttpResponse(HttpMethod.Get, "/api/apps/${returnedApp.id}") { call ->
                 val detailApp = call.response.content!!.asApp()
                 assertEquals(detailApp, returnedApp)
             }
+
+            assertHttpResponse(HttpMethod.Get, "/api/apps/${returnedApp.id}/versions") { call ->
+                val detailAppVersions = call.response.content!!.asAppVersions()
+                assertEquals(detailAppVersions, returnedApp.versions)
+            }
+
+            assertHttpResponse(HttpMethod.Get, "/api/apps/${returnedApp.id}/versions/0.1") { call ->
+                val detailAppVersion = call.response.content!!.asAppVersion()
+                assertEquals("dummy", detailAppVersion.dummy)
+            }
+
+            assertHttpResponse(
+                HttpMethod.Put, "/api/apps/${returnedApp.id}/versions/0.2",
+                contentType = CONTENT_TYPE_JSON,
+                body = """{ "dummy": "new" }""".trimMargin(),
+                expectedStatus = HttpStatusCode.Created
+            ) { createVersionCall ->
+                val updatedApp = createVersionCall.response.content!!.asApp()
+                assertEquals(returnedApp.id, updatedApp.id)
+                assertEquals(returnedApp.name, updatedApp.name)
+                assertEquals(2, updatedApp.versions.size)
+                assertEquals("dummy", updatedApp.versions["0.1"]?.dummy)
+                assertEquals("new", updatedApp.versions["0.2"]?.dummy)
+
+                assertHttpResponse(
+                    HttpMethod.Delete, "/api/apps/${returnedApp.id}/versions/0.2",
+                    expectedStatus = HttpStatusCode.NoContent
+                ) { deleteVersionCall ->
+                    val updatedApp = deleteVersionCall.response.content!!.asApp()
+                    assertEquals(returnedApp.id, updatedApp.id)
+                    assertEquals(returnedApp.name, updatedApp.name)
+                    assertEquals(1, updatedApp.versions.size)
+                    assertEquals("dummy", updatedApp.versions["0.1"]?.dummy)
+                }
+            }
+
+            assertHttpResponse(
+                    HttpMethod.Put, "/api/apps/${returnedApp.id}/versions/0.1",
+            contentType = CONTENT_TYPE_JSON,
+            body = """{ "dummy": "overwritten" }""".trimMargin(),
+            expectedStatus = HttpStatusCode.Created
+            ) { createVersionCall ->
+                val updatedApp = createVersionCall.response.content!!.asApp()
+                assertEquals(returnedApp.id, updatedApp.id)
+                assertEquals(returnedApp.name, updatedApp.name)
+                assertEquals(1, updatedApp.versions.size)
+                assertEquals("overwritten", updatedApp.versions["0.1"]?.dummy)
+            }
+
+            assertHttpResponse(
+                HttpMethod.Get, "/api/apps/${returnedApp.id}/versions/nonExistent",
+                expectedStatus = HttpStatusCode.NotFound
+            )
+
+            assertHttpResponse(
+                HttpMethod.Delete, "/api/apps/${returnedApp.id}/versions/nonExistent",
+                expectedStatus = HttpStatusCode.NoContent
+            ) { deleteVersionCall ->
+                val updatedApp = deleteVersionCall.response.content!!.asApp()
+                assertEquals(returnedApp.id, updatedApp.id)
+                assertEquals(returnedApp.name, updatedApp.name)
+                assertEquals(1, updatedApp.versions.size)
+                assertEquals("overwritten", updatedApp.versions["0.1"]?.dummy)
+            }
+
+            // TODO overwrite nonexistent
+            // TODO overwrite existent
+            // TODO overwrite existent non matching ids
+            // TODO overwrite existent missing id
+            // TODO delete nonexistent
+            // TODO delete
         }
     }
 

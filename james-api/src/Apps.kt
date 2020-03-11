@@ -4,14 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.http.HttpStatusCode
-import io.ktor.locations.Location
-import io.ktor.locations.get
-import io.ktor.locations.post
+import io.ktor.locations.*
 import io.ktor.request.receiveOrNull
 import io.ktor.response.respond
 import io.ktor.routing.Routing
 import net.swiftzer.semver.SemVer
-import java.util.*
 
 // route definitions
 // TODO check when feature for nested classes is available
@@ -31,22 +28,25 @@ data class AppVersionBySemVer(val appId: Long, val appVersion: String) : Route()
 
 // TODO refactor to generic CRUD controller
 // TODO complete methods: PUT/DELETE app, POST/PUT/DELETE version,
+// TODO returns 404 instead of 405 if route exist but with different method
 fun Routing.apps() {
     get<Apps> { AppsController.apps(call) }
     post<Apps> { AppsController.createApp(call) }
+
     get<AppById> { AppsController.app(call, it) }
-    // PUT
-    // DELETE
+    put<AppById> { AppsController.upsertApp(call, it) }
+    delete<AppById> { AppsController.deleteApp(call, it) }
+
     get<AppVersions> { AppsController.versions(call, it) }
-    // POST
+
     get<AppVersionBySemVer> { AppsController.version(call, it) }
-    // PUT
-    // DELETE
+    put<AppVersionBySemVer> { AppsController.upsertAppVersion(call, it) }
+    delete<AppVersionBySemVer> { AppsController.deleteAppVersion(call, it) }
 }
 
 // this is the web controller
 object AppsController {
-    suspend fun apps(call: ApplicationCall) = call.respond(AppsInMemoryStorage.apps)
+    suspend fun apps(call: ApplicationCall) = call.respond(AppsInMemoryStorage.list())
 
     // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
     suspend fun createApp(call: ApplicationCall) {
@@ -59,11 +59,115 @@ object AppsController {
                 if (storedApp != null) {
                     call.respond(HttpStatusCode.Created, storedApp)
                 } else {
+                    // TODO not sure if this should be a 5xx
                     call.respond(HttpStatusCode.BadRequest, "Unable to store given app!")
                 }
             }
         } catch (e: JsonProcessingException) {
             call.fail(HttpStatusCode.BadRequest, "Unable to deserialize app: ${e.javaClass.simpleName}", e.message)
+        }
+    }
+
+    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
+    suspend fun upsertApp(call: ApplicationCall, params: AppById) {
+        try {
+            val existingApp = loadApp(params.appId)
+            val app = call.receiveOrNull<App>()
+            if (app == null) {
+                call.fail(HttpStatusCode.BadRequest, "No app given!")
+            } else if (existingApp != null && existingApp.id != app.id) {
+                call.fail(HttpStatusCode.BadRequest, "App.id does not match!")
+            } else {
+                val updatedApp = AppsInMemoryStorage.add(app)
+                if (updatedApp != null) {
+                    if (existingApp != null) {
+                        call.respond(HttpStatusCode.OK, updatedApp)
+                    } else {
+                        call.respond(HttpStatusCode.Created, updatedApp)
+                    }
+                } else {
+                    // TODO not sure if this should be a 5xx
+                    call.respond(HttpStatusCode.BadRequest, "Unable to store given app version!")
+                }
+            }
+        } catch (e: JsonProcessingException) {
+            call.fail(
+                HttpStatusCode.BadRequest,
+                "Unable to deserialize app version: ${e.javaClass.simpleName}",
+                e.message
+            )
+        }
+    }
+
+    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
+    suspend fun deleteApp(call: ApplicationCall, params: AppById) {
+        val app = loadApp(params.appId)
+        if (app == null) {
+            // TODO fail or return NoContent?
+            call.respond(HttpStatusCode.NotFound, "App not found!")
+            return
+        }
+
+        val deleted = AppsInMemoryStorage.remove(app)
+        if (deleted) {
+            call.respond(HttpStatusCode.NoContent)
+        } else {
+            // TODO not sure if this should be a 5xx
+            call.respond(HttpStatusCode.BadRequest, "Unable to remove app!")
+        }
+    }
+
+    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
+    suspend fun upsertAppVersion(call: ApplicationCall, params: AppVersionBySemVer) {
+        try {
+            val app = loadApp(params.appId)
+            if (app == null) {
+                call.fail(HttpStatusCode.NotFound, "App not found!")
+                return
+            }
+
+            val appVersion = call.receiveOrNull<AppVersion>()
+            if (appVersion == null) {
+                call.fail(HttpStatusCode.BadRequest, "No app version given!")
+            } else {
+                val updatedApp = AppsInMemoryStorage.addVersion(app, params.appVersion, appVersion)
+                if (updatedApp != null) {
+                    call.respond(HttpStatusCode.Created, updatedApp)
+                } else {
+                    // TODO not sure if this should be a 5xx
+                    call.respond(HttpStatusCode.BadRequest, "Unable to store given app version!")
+                }
+            }
+        } catch (e: JsonProcessingException) {
+            call.fail(
+                HttpStatusCode.BadRequest,
+                "Unable to deserialize app version: ${e.javaClass.simpleName}",
+                e.message
+            )
+        }
+    }
+
+    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
+    suspend fun deleteAppVersion(call: ApplicationCall, params: AppVersionBySemVer) {
+        val app = loadApp(params.appId)
+        if (app == null) {
+            // TODO fail or return NoContent?
+            call.fail(HttpStatusCode.NotFound, "App not found!")
+            return
+        }
+
+        if (app.versions.containsKey(params.appVersion)) {
+            // TODO return the updated app in this case?
+            val updatedApp = AppsInMemoryStorage.removeVersion(app, params.appVersion)
+            if (updatedApp != null) {
+                call.respond(HttpStatusCode.NoContent, updatedApp)
+            } else {
+                // TODO not sure if this should be a 5xx
+                call.respond(HttpStatusCode.BadRequest, "Unable to remove app version!")
+            }
+        } else {
+            // TODO return the app in this case?
+            call.respond(HttpStatusCode.NoContent, app)
         }
     }
 
@@ -81,7 +185,7 @@ object AppsController {
         return versions?.get(params.appVersion)
     }
 
-    private fun loadApp(appId: Long) = AppsInMemoryStorage.apps.firstOrNull { it.id == appId }
+    private fun loadApp(appId: Long) = AppsInMemoryStorage.list().firstOrNull { it.id == appId }
 
     private suspend fun ApplicationCall.respondOrNotFound(item: Any?) =
         if (item != null) {
@@ -95,42 +199,41 @@ object AppsController {
 // this is a mock for 'the database'
 object AppsInMemoryStorage {
 
-    init {
-        println("INITIALIZED!!!")
-    }
-
     private var appIds = 0L
-    private val welcome = App(
-        appIds++,
-        Localized(mapOf(Locale.GERMAN to "Willkommen", Locale.ENGLISH to "Welcome")),
-        mapOf(
-            SemVer.parse("0.1").toString() to AppVersion("foo"),
-            SemVer.parse("0.1.1").toString() to AppVersion("bar"),
-            SemVer.parse("0.2").toString() to AppVersion("baz")
-        )
-    )
+    private val appsInternal = mutableListOf<App>()
 
-    private val sports = App(
-        appIds++,
-        Localized(mapOf(Locale.GERMAN to "Sport", Locale.ENGLISH to "Sports")),
-        mapOf(
-            SemVer.parse("0.1").toString() to AppVersion("Running only!")
-        )
-    )
+    fun list() = appsInternal.toList()
 
     fun add(app: App): App? {
-        val storedApp = app.copy(id = appIds++)
-        val stored = apps.add(storedApp)
+        val storedApp = if(app.id == null) app.copy(id = appIds++) else app
+        appsInternal.removeIf { it.id == storedApp.id }
+        val stored = appsInternal.add(storedApp)
         return if (stored) storedApp else null
     }
 
-    val apps = mutableListOf(welcome, sports)
+    fun remove(app: App) = appsInternal.remove(app)
+
+    fun addVersion(app: App, versionId: String, version: AppVersion): App? {
+        val updatedVersion = app.versions.plus(versionId to version)
+        val updatedApp = app.copy(versions = updatedVersion)
+        appsInternal.removeIf { it.id == updatedApp.id }
+        val stored = appsInternal.add(updatedApp)
+        return if (stored) updatedApp else null
+    }
+
+    fun removeVersion(app: App, versionId: String): App? {
+        val updatedVersion = app.versions.filter { it.key != versionId }
+        val updatedApp = app.copy(versions = updatedVersion)
+        appsInternal.removeIf { it.id == updatedApp.id }
+        val stored = appsInternal.add(updatedApp)
+        return if (stored) updatedApp else null
+    }
 }
 
 // the models
 // TODO distinguish between API model and DB models
 data class App(
-    val id: Long,
+    val id: Long?,
     val name: Localized<String>,
     // TODO change back to semver val versions: Map<SemVer, AppVersion>
     // TODO maybe also register jackson serializer/deserializer for Semver!
