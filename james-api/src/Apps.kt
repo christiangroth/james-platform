@@ -78,7 +78,12 @@ object AppsController {
             } else if (existingApp != null && existingApp.id != app.id) {
                 call.fail(HttpStatusCode.BadRequest, "App.id does not match!")
             } else {
-                val updatedApp = AppsInMemoryStorage.add(app)
+                val updatedApp = AppsInMemoryStorage.add(
+                    if (app.id == null)
+                        app.copy(id = params.appId)
+                    else
+                        app
+                )
                 if (updatedApp != null) {
                     if (existingApp != null) {
                         call.respond(HttpStatusCode.OK, updatedApp)
@@ -205,7 +210,7 @@ object AppsInMemoryStorage {
     fun list() = appsInternal.toList()
 
     fun add(app: App): App? {
-        val storedApp = if(app.id == null) app.copy(id = appIds++) else app
+        val storedApp = if (app.id == null) app.copy(id = appIds++) else app
         appsInternal.removeIf { it.id == storedApp.id }
         val stored = appsInternal.add(storedApp)
         return if (stored) storedApp else null

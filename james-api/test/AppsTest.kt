@@ -14,6 +14,7 @@ import java.util.*
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 const val CONTENT_TYPE_JSON = "application/json"
 
@@ -141,10 +142,10 @@ internal class AppsTest {
             }
 
             assertHttpResponse(
-                    HttpMethod.Put, "/api/apps/${returnedApp.id}/versions/0.1",
-            contentType = CONTENT_TYPE_JSON,
-            body = """{ "dummy": "overwritten" }""".trimMargin(),
-            expectedStatus = HttpStatusCode.Created
+                HttpMethod.Put, "/api/apps/${returnedApp.id}/versions/0.1",
+                contentType = CONTENT_TYPE_JSON,
+                body = """{ "dummy": "overwritten" }""".trimMargin(),
+                expectedStatus = HttpStatusCode.Created
             ) { createVersionCall ->
                 val updatedApp = createVersionCall.response.content!!.asApp()
                 assertEquals(returnedApp.id, updatedApp.id)
@@ -169,12 +170,85 @@ internal class AppsTest {
                 assertEquals("overwritten", updatedApp.versions["0.1"]?.dummy)
             }
 
-            // TODO overwrite nonexistent
-            // TODO overwrite existent
-            // TODO overwrite existent non matching ids
-            // TODO overwrite existent missing id
-            // TODO delete nonexistent
-            // TODO delete
+            assertHttpResponse(
+                HttpMethod.Put, "/api/apps/998",
+                contentType = CONTENT_TYPE_JSON,
+                body = """ { "name" : { "values" : { "en" : "Inserted" } }, "versions": { } } """.trimIndent(),
+                expectedStatus = HttpStatusCode.Created
+            ){ putAppCall ->
+                val detailApp = putAppCall.response.content!!.asApp()
+                assertEquals(998, detailApp.id)
+
+                assertHttpResponse(HttpMethod.Get, "/api/apps/${detailApp.id}") { call ->
+                    val doubleCheckApp = call.response.content!!.asApp()
+                    assertEquals(doubleCheckApp, detailApp)
+                }
+
+                assertHttpResponse(
+                    HttpMethod.Delete, "/api/apps/${detailApp.id}",
+                    expectedStatus = HttpStatusCode.NoContent
+                ) { _ ->
+
+                    assertHttpResponse(HttpMethod.Get, "/api/apps/${detailApp.id}",
+                        expectedStatus = HttpStatusCode.NotFound
+                    )
+
+                    assertHttpResponse(HttpMethod.Get, "/api/apps") { call ->
+                        val apps = call.response.content!!.asApps()
+                        assertEquals(1, apps.size)
+                        assertEquals(returnedApp.id, apps.first().id)
+                    }
+                }
+            }
+
+            assertHttpResponse(
+                HttpMethod.Put, "/api/apps/999",
+                contentType = CONTENT_TYPE_JSON,
+                body = """ { "id": 999, "name" : { "values" : { "en" : "Inserted" } }, "versions": { } } """.trimIndent(),
+                expectedStatus = HttpStatusCode.Created
+            ) { putAppCall ->
+                val detailApp = putAppCall.response.content!!.asApp()
+                assertEquals(999, detailApp.id)
+
+                assertHttpResponse(HttpMethod.Get, "/api/apps/${detailApp.id}") { call ->
+                    val doubleCheckApp = call.response.content!!.asApp()
+                    assertEquals(doubleCheckApp, detailApp)
+                }
+            }
+
+            assertHttpResponse(
+                HttpMethod.Put, "/api/apps/${returnedApp.id}",
+                contentType = CONTENT_TYPE_JSON,
+                body = """ { "id": 999, "name" : { "values" : { "en" : "Overwritten" } }, "versions": { } } """.trimIndent(),
+                expectedStatus = HttpStatusCode.BadRequest
+            )
+
+            assertHttpResponse(
+                HttpMethod.Put, "/api/apps/${returnedApp.id}",
+                contentType = CONTENT_TYPE_JSON,
+                body = """ { "name" : { "values" : { "en" : "Overwritten" } }, "versions": { } } """.trimIndent(),
+                expectedStatus = HttpStatusCode.BadRequest
+            )
+
+            assertHttpResponse(
+                HttpMethod.Put, "/api/apps/${returnedApp.id}",
+                contentType = CONTENT_TYPE_JSON,
+                body = """ { "id": ${returnedApp.id}, "name" : { "values" : { "en" : "Overwritten Again" } }, "versions": { } } """.trimIndent(),
+                expectedStatus = HttpStatusCode.OK
+            ) { putAppCall ->
+                val detailApp = putAppCall.response.content!!.asApp()
+                assertNotNull(detailApp.id)
+
+                assertHttpResponse(HttpMethod.Get, "/api/apps/${detailApp.id}") { call ->
+                    val doubleCheckApp = call.response.content!!.asApp()
+                    assertEquals(doubleCheckApp, detailApp)
+                }
+            }
+
+            assertHttpResponse(
+                HttpMethod.Delete, "/api/apps/666",
+                expectedStatus = HttpStatusCode.NotFound
+            )
         }
     }
 
