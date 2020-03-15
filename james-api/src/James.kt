@@ -1,27 +1,23 @@
 package de.chrgroth
 
-import io.ktor.application.*
-import io.ktor.response.*
-import io.ktor.request.*
-import io.ktor.routing.*
-import io.ktor.http.*
-import io.ktor.locations.*
+import com.fasterxml.jackson.databind.SerializationFeature
+import io.ktor.application.Application
+import io.ktor.application.call
+import io.ktor.application.install
+import io.ktor.application.log
 import io.ktor.features.*
-import org.slf4j.event.*
-import com.fasterxml.jackson.databind.*
-import io.ktor.jackson.*
+import io.ktor.http.HttpStatusCode
+import io.ktor.jackson.jackson
+import io.ktor.locations.Locations
+import io.ktor.request.path
+import io.ktor.routing.routing
+import org.slf4j.event.Level
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
-
-// TODO move somewhere applicable
-data class ResponseError(val code: Int, val message: String, val details: String? = null)
-suspend fun ApplicationCall.fail(code: HttpStatusCode, message: String, details: String? = null) =
-    respond(code, ResponseError(code.value, message, details))
 
 // TODO add metrics
 // TODO add AUTH somehow!
 
-@Suppress("unused") // Referenced in application.conf
 @kotlin.jvm.JvmOverloads
 fun Application.module(testing: Boolean = false) {
 
@@ -29,9 +25,10 @@ fun Application.module(testing: Boolean = false) {
     // https://ktor.io/servers/features/locations.html
     install(Locations) { }
 
-    // TODO need to configure logback.xml for testing / production: https://ktor.io/servers/features/call-logging.html
+    // Logs application calls
+    // https://ktor.io/servers/features/call-logging.html
     install(CallLogging) {
-        level = if (testing) Level.INFO else Level.DEBUG
+        level = if (testing) Level.INFO else Level.TRACE
         filter { call -> call.request.path().startsWith("/") }
     }
 
@@ -55,6 +52,12 @@ fun Application.module(testing: Boolean = false) {
     // TODO check configuration: https://ktor.io/servers/features/content-negotiation.html
     install(ContentNegotiation) {
         jackson {
+
+            // TODO handler for semver?
+
+            // TODO enable validation somehow?
+            println("VALIDATION: $polymorphicTypeValidator")
+
             enable(SerializationFeature.INDENT_OUTPUT)
             // TODO this breaks java.util.Local de/serialization... WTF??!?
             // enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
@@ -62,14 +65,19 @@ fun Application.module(testing: Boolean = false) {
     }
 
     routing {
-        trace { application.log.trace(it.buildText()) }
+        trace { application.log.debug(it.buildText()) }
 
         // apply james routes
         apps()
+        AppsController.routes(this)
 
         install(StatusPages) {
             exception<Throwable> { cause ->
-                call.fail(HttpStatusCode.InternalServerError, "Caught unexpected error: ${cause.javaClass.name}", cause.message)
+                call.fail(
+                    code = HttpStatusCode.InternalServerError,
+                    message = "Caught unexpected error: ${cause.javaClass.name}",
+                    details = cause.message
+                )
             }
         }
     }

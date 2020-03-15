@@ -9,118 +9,41 @@ import io.ktor.request.receiveOrNull
 import io.ktor.response.respond
 import io.ktor.routing.Routing
 import net.swiftzer.semver.SemVer
+import java.util.*
+
+object AppsController: GenericCrudController<App, Long>(App::class, "apps") {
+
+    override fun convertItemIdParameter(paramValue: String?) = paramValue?.toLong() ?: null
+
+    override suspend fun list() = AppsInMemoryStorage.list()
+    override suspend fun get(id: Long?) = AppsInMemoryStorage.list().firstOrNull { it.id == id }
+    override suspend fun getId(item: App) = item.id
+    override suspend fun createCopyWithId(item: App, id: Long) = item.copy(id = id)
+    override suspend fun upsert(item: App)= AppsInMemoryStorage.add(item)
+    override suspend fun remove(item: App) = AppsInMemoryStorage.remove(item)
+}
 
 // route definitions
-// TODO check when feature for nested classes is available
-sealed class Route
-
-@Location("$API_PREFIX/apps")
-object Apps : Route()
-
-@Location("$API_PREFIX/apps/{appId}")
-data class AppById(val appId: Long) : Route()
+sealed class AppRoute
 
 @Location("$API_PREFIX/apps/{appId}/versions")
-data class AppVersions(val appId: Long) : Route()
+data class AppVersions(val appId: Long) : AppRoute()
 
 @Location("${API_PREFIX}/apps/{appId}/versions/{appVersion}")
-data class AppVersionBySemVer(val appId: Long, val appVersion: String) : Route()
+data class AppVersionBySemVer(val appId: Long, val appVersion: String) : AppRoute()
 
-// TODO refactor to generic CRUD controller
-// TODO complete methods: PUT/DELETE app, POST/PUT/DELETE version,
 // TODO returns 404 instead of 405 if route exist but with different method
 fun Routing.apps() {
-    get<Apps> { AppsController.apps(call) }
-    post<Apps> { AppsController.createApp(call) }
+    get<AppVersions> { AppVersionsController.versions(call, it) }
 
-    get<AppById> { AppsController.app(call, it) }
-    put<AppById> { AppsController.upsertApp(call, it) }
-    delete<AppById> { AppsController.deleteApp(call, it) }
-
-    get<AppVersions> { AppsController.versions(call, it) }
-
-    get<AppVersionBySemVer> { AppsController.version(call, it) }
-    put<AppVersionBySemVer> { AppsController.upsertAppVersion(call, it) }
-    delete<AppVersionBySemVer> { AppsController.deleteAppVersion(call, it) }
+    get<AppVersionBySemVer> { AppVersionsController.version(call, it) }
+    put<AppVersionBySemVer> { AppVersionsController.upsertAppVersion(call, it) }
+    delete<AppVersionBySemVer> { AppVersionsController.deleteAppVersion(call, it) }
 }
 
 // this is the web controller
-object AppsController {
-    suspend fun apps(call: ApplicationCall) = call.respond(AppsInMemoryStorage.list())
-
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
-    suspend fun createApp(call: ApplicationCall) {
-        try {
-            val app = call.receiveOrNull<App>()
-            if (app == null) {
-                call.fail(HttpStatusCode.BadRequest, "No app given!")
-            } else {
-                val storedApp = AppsInMemoryStorage.add(app)
-                if (storedApp != null) {
-                    call.respond(HttpStatusCode.Created, storedApp)
-                } else {
-                    // TODO not sure if this should be a 5xx
-                    call.respond(HttpStatusCode.BadRequest, "Unable to store given app!")
-                }
-            }
-        } catch (e: JsonProcessingException) {
-            call.fail(HttpStatusCode.BadRequest, "Unable to deserialize app: ${e.javaClass.simpleName}", e.message)
-        }
-    }
-
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
-    suspend fun upsertApp(call: ApplicationCall, params: AppById) {
-        try {
-            val existingApp = loadApp(params.appId)
-            val app = call.receiveOrNull<App>()
-            if (app == null) {
-                call.fail(HttpStatusCode.BadRequest, "No app given!")
-            } else if (existingApp != null && existingApp.id != app.id) {
-                call.fail(HttpStatusCode.BadRequest, "App.id does not match!")
-            } else {
-                val updatedApp = AppsInMemoryStorage.add(
-                    if (app.id == null)
-                        app.copy(id = params.appId)
-                    else
-                        app
-                )
-                if (updatedApp != null) {
-                    if (existingApp != null) {
-                        call.respond(HttpStatusCode.OK, updatedApp)
-                    } else {
-                        call.respond(HttpStatusCode.Created, updatedApp)
-                    }
-                } else {
-                    // TODO not sure if this should be a 5xx
-                    call.respond(HttpStatusCode.BadRequest, "Unable to store given app version!")
-                }
-            }
-        } catch (e: JsonProcessingException) {
-            call.fail(
-                HttpStatusCode.BadRequest,
-                "Unable to deserialize app version: ${e.javaClass.simpleName}",
-                e.message
-            )
-        }
-    }
-
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
-    suspend fun deleteApp(call: ApplicationCall, params: AppById) {
-        val app = loadApp(params.appId)
-        if (app == null) {
-            // TODO fail or return NoContent?
-            call.respond(HttpStatusCode.NotFound, "App not found!")
-            return
-        }
-
-        val deleted = AppsInMemoryStorage.remove(app)
-        if (deleted) {
-            call.respond(HttpStatusCode.NoContent)
-        } else {
-            // TODO not sure if this should be a 5xx
-            call.respond(HttpStatusCode.BadRequest, "Unable to remove app!")
-        }
-    }
+// TODO refactor to generic CRUD controller
+object AppVersionsController {
 
     // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
     suspend fun upsertAppVersion(call: ApplicationCall, params: AppVersionBySemVer) {
@@ -176,9 +99,6 @@ object AppsController {
         }
     }
 
-    suspend fun app(call: ApplicationCall, params: AppById) =
-        call.respondOrNotFound(loadApp(params.appId))
-
     suspend fun versions(call: ApplicationCall, params: AppVersions) =
         call.respond(loadApp(params.appId)?.versions ?: mapOf<SemVer, AppVersion>())
 
@@ -190,7 +110,7 @@ object AppsController {
         return versions?.get(params.appVersion)
     }
 
-    private fun loadApp(appId: Long) = AppsInMemoryStorage.list().firstOrNull { it.id == appId }
+    private fun loadApp(appId: Long?) = if(appId == null) null else AppsInMemoryStorage.list().firstOrNull { it.id == appId }
 
     private suspend fun ApplicationCall.respondOrNotFound(item: Any?) =
         if (item != null) {
@@ -237,6 +157,9 @@ object AppsInMemoryStorage {
 
 // the models
 // TODO distinguish between API model and DB models
+
+data class Localized<T>(val values: Map<Locale, T>)
+
 data class App(
     val id: Long?,
     val name: Localized<String>,

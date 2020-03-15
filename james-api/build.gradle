@@ -13,6 +13,7 @@ buildscript {
     }
 }
 
+// TODO unable to compile when offline ... why??
 apply plugin: 'kotlin'
 apply plugin: 'application'
 
