@@ -28,10 +28,10 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
     private fun resolveItemIdParameter(call: ApplicationCall) =
         convertItemIdParameter(call.parameters[itemIdPathParameterName])
 
-    private suspend fun respondToList(call: ApplicationCall) = call.respond(list())
+    private suspend fun respondToList(call: ApplicationCall) = call.respond(list(call))
 
     private suspend fun respondToGet(call: ApplicationCall, paramItemId: Id?) {
-        val item = get(paramItemId)
+        val item = get(call, paramItemId)
         if (item != null) {
             call.respond(item)
         } else {
@@ -42,7 +42,7 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
     // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
     private suspend fun respondToUpsert(call: ApplicationCall, paramItemId: Id?) {
         try {
-            val existingItem = get(paramItemId)
+            val existingItem = get(call, paramItemId)
             val payloadItem = call.receiveOrNull(type)
             if (payloadItem == null) {
                 // TODO generic message!
@@ -56,7 +56,7 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
                 else
                     payloadItem
 
-                val persistedItem = upsert(updatedPayloadItem)
+                val persistedItem = upsert(call, updatedPayloadItem)
                 if (persistedItem != null) {
                     if (existingItem != null) {
                         call.respond(HttpStatusCode.OK, persistedItem)
@@ -80,15 +80,15 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
 
     // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
     private suspend fun respondToDelete(call: ApplicationCall, paramItemId: Id?) {
-        val item = get(paramItemId)
+        val item = get(call, paramItemId)
         if (item == null) {
             // TODO generic message!
             // TODO fail or return NoContent?
-            call.respond(HttpStatusCode.NotFound, "Item not found!")
+            call.respond(HttpStatusCode.NoContent)
             return
         }
 
-        val deleted = remove(item)
+        val deleted = remove(call, item)
         if (deleted) {
             call.respond(HttpStatusCode.NoContent)
         } else {
@@ -100,10 +100,10 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
 
     abstract fun convertItemIdParameter(paramValue: String?): Id?
 
-    abstract suspend fun list(): List<Type>
-    abstract suspend fun get(id: Id?): Type?
+    abstract suspend fun list(call: ApplicationCall): List<Type>
+    abstract suspend fun get(call: ApplicationCall, id: Id?): Type?
     abstract suspend fun getId(item: Type): Id?
     abstract suspend fun createCopyWithId(item: Type, id: Id): Type
-    abstract suspend fun upsert(item: Type): Type?
-    abstract suspend fun remove(item: Type): Boolean
+    abstract suspend fun upsert(call: ApplicationCall, item: Type): Type?
+    abstract suspend fun remove(call: ApplicationCall, item: Type): Boolean
 }

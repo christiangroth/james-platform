@@ -1,123 +1,55 @@
 package de.chrgroth
 
-import com.fasterxml.jackson.core.JsonProcessingException
 import io.ktor.application.ApplicationCall
-import io.ktor.application.call
-import io.ktor.http.HttpStatusCode
-import io.ktor.locations.*
-import io.ktor.request.receiveOrNull
-import io.ktor.response.respond
-import io.ktor.routing.Routing
-import net.swiftzer.semver.SemVer
 import java.util.*
 
-object AppsController: GenericCrudController<App, Long>(App::class, "apps") {
+object AppsController : GenericCrudController<App, Long>(App::class, "apps") {
 
     override fun convertItemIdParameter(paramValue: String?) = paramValue?.toLong() ?: null
 
-    override suspend fun list() = AppsInMemoryStorage.list()
-    override suspend fun get(id: Long?) = AppsInMemoryStorage.list().firstOrNull { it.id == id }
+    override suspend fun list(call: ApplicationCall) = AppsInMemoryStorage.list()
+    override suspend fun get(call: ApplicationCall, id: Long?) = AppsInMemoryStorage.list().firstOrNull { it.id == id }
     override suspend fun getId(item: App) = item.id
     override suspend fun createCopyWithId(item: App, id: Long) = item.copy(id = id)
-    override suspend fun upsert(item: App)= AppsInMemoryStorage.add(item)
-    override suspend fun remove(item: App) = AppsInMemoryStorage.remove(item)
+    override suspend fun upsert(call: ApplicationCall, item: App) = AppsInMemoryStorage.add(item)
+    override suspend fun remove(call: ApplicationCall, item: App) = AppsInMemoryStorage.remove(item)
 }
 
-// route definitions
-sealed class AppRoute
+object AppVersionsController : GenericCrudController<AppVersion, String>(AppVersion::class, "apps/{appId}/versions") {
 
-@Location("$API_PREFIX/apps/{appId}/versions")
-data class AppVersions(val appId: Long) : AppRoute()
+    override fun convertItemIdParameter(paramValue: String?) = paramValue
 
-@Location("${API_PREFIX}/apps/{appId}/versions/{appVersion}")
-data class AppVersionBySemVer(val appId: Long, val appVersion: String) : AppRoute()
+    // override fun convertItemIdParameter(paramValue: String?) = if(paramValue != null)
+    //    SemVer.parse(paramValue) else null
 
-// TODO returns 404 instead of 405 if route exist but with different method
-fun Routing.apps() {
-    get<AppVersions> { AppVersionsController.versions(call, it) }
+    override suspend fun list(call: ApplicationCall) = call.loadApp()?.versions?.toList() ?: listOf()
+    override suspend fun get(call: ApplicationCall, id: String?): AppVersion? =
+        call.loadApp()?.versions?.firstOrNull { it.id == id } ?: null
 
-    get<AppVersionBySemVer> { AppVersionsController.version(call, it) }
-    put<AppVersionBySemVer> { AppVersionsController.upsertAppVersion(call, it) }
-    delete<AppVersionBySemVer> { AppVersionsController.deleteAppVersion(call, it) }
-}
+    override suspend fun getId(item: AppVersion) = item.id
+    override suspend fun createCopyWithId(item: AppVersion, id: String) = item.copy(id = id)
+    override suspend fun upsert(call: ApplicationCall, item: AppVersion): AppVersion? {
+        val app = call.loadApp()
 
-// this is the web controller
-// TODO refactor to generic CRUD controller
-object AppVersionsController {
-
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
-    suspend fun upsertAppVersion(call: ApplicationCall, params: AppVersionBySemVer) {
-        try {
-            val app = loadApp(params.appId)
-            if (app == null) {
-                call.fail(HttpStatusCode.NotFound, "App not found!")
-                return
-            }
-
-            val appVersion = call.receiveOrNull<AppVersion>()
-            if (appVersion == null) {
-                call.fail(HttpStatusCode.BadRequest, "No app version given!")
-            } else {
-                val updatedApp = AppsInMemoryStorage.addVersion(app, params.appVersion, appVersion)
-                if (updatedApp != null) {
-                    call.respond(HttpStatusCode.Created, updatedApp)
-                } else {
-                    // TODO not sure if this should be a 5xx
-                    call.respond(HttpStatusCode.BadRequest, "Unable to store given app version!")
-                }
-            }
-        } catch (e: JsonProcessingException) {
-            call.fail(
-                HttpStatusCode.BadRequest,
-                "Unable to deserialize app version: ${e.javaClass.simpleName}",
-                e.message
-            )
-        }
-    }
-
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
-    suspend fun deleteAppVersion(call: ApplicationCall, params: AppVersionBySemVer) {
-        val app = loadApp(params.appId)
-        if (app == null) {
-            // TODO fail or return NoContent?
-            call.fail(HttpStatusCode.NotFound, "App not found!")
-            return
-        }
-
-        if (app.versions.containsKey(params.appVersion)) {
-            // TODO return the updated app in this case?
-            val updatedApp = AppsInMemoryStorage.removeVersion(app, params.appVersion)
-            if (updatedApp != null) {
-                call.respond(HttpStatusCode.NoContent, updatedApp)
-            } else {
-                // TODO not sure if this should be a 5xx
-                call.respond(HttpStatusCode.BadRequest, "Unable to remove app version!")
-            }
+        // TODO how provide app not found message?!
+        return if (app == null) {
+            null
         } else {
-            // TODO return the app in this case?
-            call.respond(HttpStatusCode.NoContent, app)
+            AppsInMemoryStorage.addVersion(app, item)
         }
     }
 
-    suspend fun versions(call: ApplicationCall, params: AppVersions) =
-        call.respond(loadApp(params.appId)?.versions ?: mapOf<SemVer, AppVersion>())
-
-    suspend fun version(call: ApplicationCall, params: AppVersionBySemVer) =
-        call.respondOrNotFound(appVersion(params))
-
-    private fun appVersion(params: AppVersionBySemVer): AppVersion? {
-        val versions = loadApp(params.appId)?.versions
-        return versions?.get(params.appVersion)
-    }
-
-    private fun loadApp(appId: Long?) = if(appId == null) null else AppsInMemoryStorage.list().firstOrNull { it.id == appId }
-
-    private suspend fun ApplicationCall.respondOrNotFound(item: Any?) =
-        if (item != null) {
-            respond(item)
+    override suspend fun remove(call: ApplicationCall, item: AppVersion): Boolean {
+        val app = call.loadApp()
+        return if (app == null) {
+            true
         } else {
-            respond(HttpStatusCode.NotFound)
+            AppsInMemoryStorage.removeVersion(app, item)
         }
+    }
+
+    private fun ApplicationCall.loadApp() = AppsInMemoryStorage.list().firstOrNull { it.id == appId() }
+    private fun ApplicationCall.appId() = parameters["appId"]?.toLong() ?: null
 }
 
 // TODO is there some kind of service type?? need a new instance per test / TestApplicationEngine, maybe use DI for this: https://github.com/ktorio/ktor-samples/tree/master/other/di-kodein
@@ -138,20 +70,23 @@ object AppsInMemoryStorage {
 
     fun remove(app: App) = appsInternal.remove(app)
 
-    fun addVersion(app: App, versionId: String, version: AppVersion): App? {
-        val updatedVersion = app.versions.plus(versionId to version)
-        val updatedApp = app.copy(versions = updatedVersion)
+    fun addVersion(app: App, version: AppVersion): AppVersion? {
+        val updatedVersions = app.versions.plus(version)
+        val updatedApp = app.copy(versions = updatedVersions)
         appsInternal.removeIf { it.id == updatedApp.id }
         val stored = appsInternal.add(updatedApp)
-        return if (stored) updatedApp else null
+        return if (stored) version else null
     }
 
-    fun removeVersion(app: App, versionId: String): App? {
-        val updatedVersion = app.versions.filter { it.key != versionId }
-        val updatedApp = app.copy(versions = updatedVersion)
+    fun removeVersion(app: App, version: AppVersion): Boolean {
+        println(app.versions)
+        val updatedVersions = app.versions.filter { it != version }
+        println(updatedVersions)
+        val updatedApp = app.copy(versions = updatedVersions)
+        println(updatedApp)
         appsInternal.removeIf { it.id == updatedApp.id }
-        val stored = appsInternal.add(updatedApp)
-        return if (stored) updatedApp else null
+        appsInternal.add(updatedApp)
+        return true
     }
 }
 
@@ -165,9 +100,14 @@ data class App(
     val name: Localized<String>,
     // TODO change back to semver val versions: Map<SemVer, AppVersion>
     // TODO maybe also register jackson serializer/deserializer for Semver!
-    val versions: Map<String, AppVersion>
-)
+    val versions: List<AppVersion>
+) {
+    fun versionBySemVer(version: String) = versions.firstOrNull { it.id == version }
+    // fun versionBySemVer(version: SemVer) = versions.firstOrNull { it.id == version }
+}
 
 data class AppVersion(
+    // TODO teach jackson how to handle SemVer
+    val id: String,
     val dummy: String
 )

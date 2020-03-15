@@ -68,8 +68,8 @@ fun Application.module(testing: Boolean = false) {
         trace { application.log.debug(it.buildText()) }
 
         // apply james routes
-        apps()
         AppsController.routes(this)
+        AppVersionsController.routes(this)
 
         install(StatusPages) {
             exception<Throwable> { cause ->

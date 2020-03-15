@@ -83,9 +83,9 @@ internal class AppsTest {
                         "it" : "Testo Italiano"
                     }
                 },
-                "versions": { 
-                    "0.1": { "dummy": "dummy" }
-                }
+                "versions": [ 
+                    { "id" : "0.1", "dummy": "dummy" }
+                ]
             }""".trimMargin(),
             expectedStatus = HttpStatusCode.Created
         ) { createAppCall ->
@@ -95,7 +95,7 @@ internal class AppsTest {
             assertEquals("Testing", returnedApp.name.values[Locale.ENGLISH])
             assertEquals("Testo Italiano", returnedApp.name.values[Locale.ITALIAN])
             assertEquals(1, returnedApp.versions.size)
-            assertEquals("dummy", returnedApp.versions["0.1"]?.dummy)
+            assertEquals("dummy", returnedApp.versionBySemVer("0.1")?.dummy)
 
             assertHttpResponse(HttpMethod.Get, "/api/apps") { call ->
                 val apps = call.response.content!!.asApps()
@@ -120,39 +120,33 @@ internal class AppsTest {
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/${returnedApp.id}/versions/0.2",
                 contentType = CONTENT_TYPE_JSON,
-                body = """{ "dummy": "new" }""".trimMargin(),
+                body = """{ "id": "0.2", "dummy": "new" }""".trimMargin(),
                 expectedStatus = HttpStatusCode.Created
             ) { createVersionCall ->
-                val updatedApp = createVersionCall.response.content!!.asApp()
-                assertEquals(returnedApp.id, updatedApp.id)
-                assertEquals(returnedApp.name, updatedApp.name)
-                assertEquals(2, updatedApp.versions.size)
-                assertEquals("dummy", updatedApp.versions["0.1"]?.dummy)
-                assertEquals("new", updatedApp.versions["0.2"]?.dummy)
+                val updatedAppVersion = createVersionCall.response.content!!.asAppVersion()
+                assertEquals("0.2", updatedAppVersion.id)
+                assertEquals("new", updatedAppVersion.dummy)
 
                 assertHttpResponse(
                     HttpMethod.Delete, "/api/apps/${returnedApp.id}/versions/0.2",
                     expectedStatus = HttpStatusCode.NoContent
-                ) { deleteVersionCall ->
-                    val updatedApp = deleteVersionCall.response.content!!.asApp()
-                    assertEquals(returnedApp.id, updatedApp.id)
-                    assertEquals(returnedApp.name, updatedApp.name)
-                    assertEquals(1, updatedApp.versions.size)
-                    assertEquals("dummy", updatedApp.versions["0.1"]?.dummy)
-                }
+                )
+
+                assertHttpResponse(
+                    HttpMethod.Get, "/api/apps/${returnedApp.id}/versions/0.2",
+                    expectedStatus = HttpStatusCode.NotFound
+                )
             }
 
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/${returnedApp.id}/versions/0.1",
                 contentType = CONTENT_TYPE_JSON,
-                body = """{ "dummy": "overwritten" }""".trimMargin(),
-                expectedStatus = HttpStatusCode.Created
+                body = """{ "id": "0.1", "dummy": "overwritten" }""".trimMargin(),
+                expectedStatus = HttpStatusCode.OK
             ) { createVersionCall ->
-                val updatedApp = createVersionCall.response.content!!.asApp()
-                assertEquals(returnedApp.id, updatedApp.id)
-                assertEquals(returnedApp.name, updatedApp.name)
-                assertEquals(1, updatedApp.versions.size)
-                assertEquals("overwritten", updatedApp.versions["0.1"]?.dummy)
+                val updatedAppVersion = createVersionCall.response.content!!.asAppVersion()
+                assertEquals("0.1", updatedAppVersion.id)
+                assertEquals("overwritten", updatedAppVersion.dummy)
             }
 
             assertHttpResponse(
@@ -163,20 +157,14 @@ internal class AppsTest {
             assertHttpResponse(
                 HttpMethod.Delete, "/api/apps/${returnedApp.id}/versions/nonExistent",
                 expectedStatus = HttpStatusCode.NoContent
-            ) { deleteVersionCall ->
-                val updatedApp = deleteVersionCall.response.content!!.asApp()
-                assertEquals(returnedApp.id, updatedApp.id)
-                assertEquals(returnedApp.name, updatedApp.name)
-                assertEquals(1, updatedApp.versions.size)
-                assertEquals("overwritten", updatedApp.versions["0.1"]?.dummy)
-            }
+            )
 
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/998",
                 contentType = CONTENT_TYPE_JSON,
-                body = """ { "name" : { "values" : { "en" : "Inserted" } }, "versions": { } } """.trimIndent(),
+                body = """ { "name" : { "values" : { "en" : "Inserted" } }, "versions": [ ] } """.trimIndent(),
                 expectedStatus = HttpStatusCode.Created
-            ){ putAppCall ->
+            ) { putAppCall ->
                 val detailApp = putAppCall.response.content!!.asApp()
                 assertEquals(998, detailApp.id)
 
@@ -190,7 +178,8 @@ internal class AppsTest {
                     expectedStatus = HttpStatusCode.NoContent
                 ) { _ ->
 
-                    assertHttpResponse(HttpMethod.Get, "/api/apps/${detailApp.id}",
+                    assertHttpResponse(
+                        HttpMethod.Get, "/api/apps/${detailApp.id}",
                         expectedStatus = HttpStatusCode.NotFound
                     )
 
@@ -205,7 +194,7 @@ internal class AppsTest {
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/999",
                 contentType = CONTENT_TYPE_JSON,
-                body = """ { "id": 999, "name" : { "values" : { "en" : "Inserted" } }, "versions": { } } """.trimIndent(),
+                body = """ { "id": 999, "name" : { "values" : { "en" : "Inserted" } }, "versions": [ ] } """.trimIndent(),
                 expectedStatus = HttpStatusCode.Created
             ) { putAppCall ->
                 val detailApp = putAppCall.response.content!!.asApp()
@@ -220,21 +209,21 @@ internal class AppsTest {
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/${returnedApp.id}",
                 contentType = CONTENT_TYPE_JSON,
-                body = """ { "id": 999, "name" : { "values" : { "en" : "Overwritten" } }, "versions": { } } """.trimIndent(),
+                body = """ { "id": 999, "name" : { "values" : { "en" : "Overwritten" } }, "versions": [ ] } """.trimIndent(),
                 expectedStatus = HttpStatusCode.BadRequest
             )
 
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/${returnedApp.id}",
                 contentType = CONTENT_TYPE_JSON,
-                body = """ { "name" : { "values" : { "en" : "Overwritten" } }, "versions": { } } """.trimIndent(),
+                body = """ { "name" : { "values" : { "en" : "Overwritten" } }, "versions": [ ] } """.trimIndent(),
                 expectedStatus = HttpStatusCode.BadRequest
             )
 
             assertHttpResponse(
                 HttpMethod.Put, "/api/apps/${returnedApp.id}",
                 contentType = CONTENT_TYPE_JSON,
-                body = """ { "id": ${returnedApp.id}, "name" : { "values" : { "en" : "Overwritten Again" } }, "versions": { } } """.trimIndent(),
+                body = """ { "id": ${returnedApp.id}, "name" : { "values" : { "en" : "Overwritten Again" } }, "versions": [ ] } """.trimIndent(),
                 expectedStatus = HttpStatusCode.OK
             ) { putAppCall ->
                 val detailApp = putAppCall.response.content!!.asApp()
@@ -248,7 +237,7 @@ internal class AppsTest {
 
             assertHttpResponse(
                 HttpMethod.Delete, "/api/apps/666",
-                expectedStatus = HttpStatusCode.NotFound
+                expectedStatus = HttpStatusCode.NoContent
             )
         }
     }
@@ -282,6 +271,6 @@ internal class AppsTest {
 
     private fun String.asApps() = jacksonObjectMapper().readValue<List<App>>(this)
     private fun String.asApp() = jacksonObjectMapper().readValue<App>(this)
-    private fun String.asAppVersions() = jacksonObjectMapper().readValue<Map<String, AppVersion>>(this)
+    private fun String.asAppVersions() = jacksonObjectMapper().readValue<List<AppVersion>>(this)
     private fun String.asAppVersion() = jacksonObjectMapper().readValue<AppVersion>(this)
 }
