@@ -1,7 +1,9 @@
-package de.chrgroth
-
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import de.chrgroth.App
+import de.chrgroth.AppVersion
+import de.chrgroth.module
+import de.chrgroth.semVerModule
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.http.HttpHeaders
@@ -10,6 +12,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.response.respond
 import io.ktor.server.testing.*
 import io.ktor.util.pipeline.PipelineInterceptor
+import net.swiftzer.semver.SemVer
 import java.util.*
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -95,7 +98,7 @@ internal class AppsTest {
             assertEquals("Testing", returnedApp.name.values[Locale.ENGLISH])
             assertEquals("Testo Italiano", returnedApp.name.values[Locale.ITALIAN])
             assertEquals(1, returnedApp.versions.size)
-            assertEquals("dummy", returnedApp.versionBySemVer("0.1")?.dummy)
+            assertEquals("dummy", returnedApp.versionBySemVer(SemVer.parse("0.1"))?.dummy)
 
             assertHttpResponse(HttpMethod.Get, "/api/apps") { call ->
                 val apps = call.response.content!!.asApps()
@@ -124,7 +127,7 @@ internal class AppsTest {
                 expectedStatus = HttpStatusCode.Created
             ) { createVersionCall ->
                 val updatedAppVersion = createVersionCall.response.content!!.asAppVersion()
-                assertEquals("0.2", updatedAppVersion.id)
+                assertEquals(SemVer.parse("0.2"), updatedAppVersion.id)
                 assertEquals("new", updatedAppVersion.dummy)
 
                 assertHttpResponse(
@@ -145,7 +148,7 @@ internal class AppsTest {
                 expectedStatus = HttpStatusCode.OK
             ) { createVersionCall ->
                 val updatedAppVersion = createVersionCall.response.content!!.asAppVersion()
-                assertEquals("0.1", updatedAppVersion.id)
+                assertEquals(SemVer.parse("0.1"), updatedAppVersion.id)
                 assertEquals("overwritten", updatedAppVersion.dummy)
             }
 
@@ -269,8 +272,10 @@ internal class AppsTest {
         }
     }
 
-    private fun String.asApps() = jacksonObjectMapper().readValue<List<App>>(this)
-    private fun String.asApp() = jacksonObjectMapper().readValue<App>(this)
-    private fun String.asAppVersions() = jacksonObjectMapper().readValue<List<AppVersion>>(this)
-    private fun String.asAppVersion() = jacksonObjectMapper().readValue<AppVersion>(this)
+    private fun String.asApps() = objectMapper().readValue<List<App>>(this)
+    private fun String.asApp() = objectMapper().readValue<App>(this)
+    private fun String.asAppVersions() = objectMapper().readValue<List<AppVersion>>(this)
+    private fun String.asAppVersion() = objectMapper().readValue<AppVersion>(this)
+
+    private fun objectMapper() = jacksonObjectMapper().registerModule(semVerModule)
 }

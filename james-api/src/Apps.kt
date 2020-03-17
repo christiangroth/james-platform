@@ -1,6 +1,7 @@
 package de.chrgroth
 
 import io.ktor.application.ApplicationCall
+import net.swiftzer.semver.SemVer
 import java.util.*
 
 object AppsController : GenericCrudController<App, Long>(App::class, "apps") {
@@ -15,19 +16,16 @@ object AppsController : GenericCrudController<App, Long>(App::class, "apps") {
     override suspend fun remove(call: ApplicationCall, item: App) = AppsInMemoryStorage.remove(item)
 }
 
-object AppVersionsController : GenericCrudController<AppVersion, String>(AppVersion::class, "apps/{appId}/versions") {
+object AppVersionsController : GenericCrudController<AppVersion, SemVer>(AppVersion::class, "apps/{appId}/versions") {
 
-    override fun convertItemIdParameter(paramValue: String?) = paramValue
-
-    // override fun convertItemIdParameter(paramValue: String?) = if(paramValue != null)
-    //    SemVer.parse(paramValue) else null
+    override fun convertItemIdParameter(paramValue: String?) = paramValue?.toSemVer()
 
     override suspend fun list(call: ApplicationCall) = call.loadApp()?.versions?.toList() ?: listOf()
-    override suspend fun get(call: ApplicationCall, id: String?): AppVersion? =
+    override suspend fun get(call: ApplicationCall, id: SemVer?): AppVersion? =
         call.loadApp()?.versions?.firstOrNull { it.id == id } ?: null
 
     override suspend fun getId(item: AppVersion) = item.id
-    override suspend fun createCopyWithId(item: AppVersion, id: String) = item.copy(id = id)
+    override suspend fun createCopyWithId(item: AppVersion, id: SemVer) = item.copy(id = id)
     override suspend fun upsert(call: ApplicationCall, item: AppVersion): AppVersion? {
         val app = call.loadApp()
 
@@ -98,16 +96,13 @@ data class Localized<T>(val values: Map<Locale, T>)
 data class App(
     val id: Long?,
     val name: Localized<String>,
-    // TODO change back to semver val versions: Map<SemVer, AppVersion>
-    // TODO maybe also register jackson serializer/deserializer for Semver!
     val versions: List<AppVersion>
 ) {
-    fun versionBySemVer(version: String) = versions.firstOrNull { it.id == version }
-    // fun versionBySemVer(version: SemVer) = versions.firstOrNull { it.id == version }
+
+    fun versionBySemVer(version: SemVer) = versions.firstOrNull { it.id == version }
 }
 
 data class AppVersion(
-    // TODO teach jackson how to handle SemVer and change back to semver
-    val id: String,
+    val id: SemVer,
     val dummy: String
 )

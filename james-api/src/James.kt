@@ -33,7 +33,8 @@ fun Application.module(testing: Boolean = false) {
         filter { call -> call.request.path().startsWith("/") }
     }
 
-    // TODO check configuration: https://ktor.io/servers/features/compression.html
+    // Enable payload compression
+    // https://ktor.io/servers/features/compression.html
     install(Compression) {
         gzip {
             priority = 1.0
@@ -44,24 +45,20 @@ fun Application.module(testing: Boolean = false) {
         }
     }
 
-    // TODO check configuration: https://ktor.io/servers/features/conditional-headers.html
-    install(ConditionalHeaders)
-
-    // TODO check configuration: https://ktor.io/servers/features/data-conversion.html
-    install(DataConversion)
-
-    // TODO check configuration: https://ktor.io/servers/features/content-negotiation.html
+    // Jackson configuration
+    // https://ktor.io/servers/features/content-negotiation.html
     install(ContentNegotiation) {
         jackson {
 
-            // TODO handler for semver?
+            // handler for semver
+            registerModule(semVerModule)
 
             // TODO enable validation somehow?
-            println("VALIDATION: $polymorphicTypeValidator")
+            // TODO maybe configure date format??
 
-            enable(SerializationFeature.INDENT_OUTPUT)
-            // TODO this breaks java.util.Local de/serialization... WTF??!?
-            // enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+            if (testing) {
+                enable(SerializationFeature.INDENT_OUTPUT)
+            }
         }
     }
 
