@@ -1,6 +1,5 @@
 package de.chrgroth
 
-import com.fasterxml.jackson.core.JsonProcessingException
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.http.HttpStatusCode
@@ -9,8 +8,6 @@ import io.ktor.response.respond
 import io.ktor.routing.*
 import kotlin.reflect.KClass
 
-// TODO need consumes/produces information??
-// TODO returns 404 instead of 405 if route exist but with different method
 abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KClass<Type>, pathPrefix: String) {
     private val itemIdPathParameterName = "itemId"
     private val pathAllItems = "$API_PREFIX/$pathPrefix"
@@ -39,52 +36,39 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
         }
     }
 
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
+    // TODO 415 Unsupported Media Type (RFC 7231) on invalid payload?
     private suspend fun respondToUpsert(call: ApplicationCall, paramItemId: Id?) {
-        try {
-            val existingItem = get(call, paramItemId)
-            val payloadItem = call.receiveOrNull(type)
-            if (payloadItem == null) {
-                // TODO generic message!
-                call.fail(HttpStatusCode.BadRequest, "No item given!")
-            } else if (existingItem != null && getId(existingItem) != getId(payloadItem)) {
-                // TODO generic message!
-                call.fail(HttpStatusCode.BadRequest, "id value does not match!")
-            } else {
-                val updatedPayloadItem = if (getId(payloadItem) == null && paramItemId != null)
-                    createCopyWithId(payloadItem, paramItemId)
-                else
-                    payloadItem
+        val existingItem = get(call, paramItemId)
+        val payloadItem = call.receiveOrNull(type)
+        if (payloadItem == null) {
+            call.fail(HttpStatusCode.BadRequest, "No item payload given!")
+        } else if (existingItem != null && getId(existingItem) != getId(payloadItem)) {
+            call.fail(HttpStatusCode.BadRequest, "Path and body id value do not match!")
+        } else {
+            val updatedPayloadItem = if (getId(payloadItem) == null && paramItemId != null)
+                createCopyWithId(payloadItem, paramItemId)
+            else
+                payloadItem
 
-                val persistedItem = upsert(call, updatedPayloadItem)
-                if (persistedItem != null) {
-                    if (existingItem != null) {
-                        call.respond(HttpStatusCode.OK, persistedItem)
-                    } else {
-                        call.respond(HttpStatusCode.Created, persistedItem)
-                    }
+            val persistedItem = upsert(call, updatedPayloadItem)
+            if (persistedItem != null) {
+                if (existingItem != null) {
+                    call.respond(HttpStatusCode.OK, persistedItem)
                 } else {
-                    // TODO generic message!
-                    // TODO not sure if this should be a 5xx
-                    call.respond(HttpStatusCode.BadRequest, "Unable to store given item!")
+                    call.respond(HttpStatusCode.Created, persistedItem)
                 }
+            } else {
+                // TODO need more error details!
+                call.respond(HttpStatusCode.InternalServerError, "Unable to store item!")
             }
-        } catch (e: JsonProcessingException) {
-            call.fail(
-                HttpStatusCode.BadRequest,
-                "Unable to deserialize app version: ${e.javaClass.simpleName}",
-                e.message
-            )
         }
     }
 
-    // TODO 415 Unsupported Media Type (RFC 7231) on invalid app?
+    // TODO 415 Unsupported Media Type (RFC 7231) on invalid payload?
     private suspend fun respondToDelete(call: ApplicationCall, paramItemId: Id?) {
         val item = get(call, paramItemId)
         if (item == null) {
-            // TODO generic message!
-            // TODO fail or return NoContent?
-            call.respond(HttpStatusCode.NoContent)
+            call.respond(HttpStatusCode.NotFound)
             return
         }
 
@@ -92,9 +76,8 @@ abstract class GenericCrudController<Type : Any, Id : Any>(private val type: KCl
         if (deleted) {
             call.respond(HttpStatusCode.NoContent)
         } else {
-            // TODO generic message!
-            // TODO not sure if this should be a 5xx
-            call.respond(HttpStatusCode.BadRequest, "Unable to remove item!")
+            // TODO need more error details!
+            call.respond(HttpStatusCode.InternalServerError, "Unable to delete item!")
         }
     }
 

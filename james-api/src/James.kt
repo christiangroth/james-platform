@@ -1,5 +1,6 @@
 package de.chrgroth
 
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.Application
 import io.ktor.application.call
@@ -71,7 +72,15 @@ fun Application.module(testing: Boolean = false) {
         AppsController.routes(this)
         AppVersionsController.routes(this)
 
+        // exception handler
         install(StatusPages) {
+            exception<JsonProcessingException> { cause ->
+                call.fail(
+                    code = HttpStatusCode.BadRequest,
+                    message = "Unable to parse payload: ${cause.javaClass.name}",
+                    details = cause.message
+                )
+            }
             exception<Throwable> { cause ->
                 call.fail(
                     code = HttpStatusCode.InternalServerError,

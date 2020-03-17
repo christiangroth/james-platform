@@ -107,7 +107,7 @@ data class App(
 }
 
 data class AppVersion(
-    // TODO teach jackson how to handle SemVer
+    // TODO teach jackson how to handle SemVer and change back to semver
     val id: String,
     val dummy: String
 )

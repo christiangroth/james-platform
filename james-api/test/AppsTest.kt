@@ -156,7 +156,7 @@ internal class AppsTest {
 
             assertHttpResponse(
                 HttpMethod.Delete, "/api/apps/${returnedApp.id}/versions/nonExistent",
-                expectedStatus = HttpStatusCode.NoContent
+                expectedStatus = HttpStatusCode.NotFound
             )
 
             assertHttpResponse(
@@ -237,7 +237,7 @@ internal class AppsTest {
 
             assertHttpResponse(
                 HttpMethod.Delete, "/api/apps/666",
-                expectedStatus = HttpStatusCode.NoContent
+                expectedStatus = HttpStatusCode.NotFound
             )
         }
     }
