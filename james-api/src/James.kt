@@ -12,6 +12,7 @@ import io.ktor.jackson.jackson
 import io.ktor.locations.Locations
 import io.ktor.request.path
 import io.ktor.routing.routing
+import org.litote.kmongo.id.jackson.IdJacksonModule
 import org.slf4j.event.Level
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
@@ -29,7 +30,7 @@ fun Application.module(testing: Boolean = false) {
     // Logs application calls
     // https://ktor.io/servers/features/call-logging.html
     install(CallLogging) {
-        level = if (testing) Level.INFO else Level.TRACE
+        level = if (testing) Level.INFO else Level.DEBUG
         filter { call -> call.request.path().startsWith("/") }
     }
 
@@ -52,6 +53,7 @@ fun Application.module(testing: Boolean = false) {
 
             // handler for semver
             registerModule(semVerModule)
+            registerModule(IdJacksonModule())
 
             // TODO enable validation somehow?
             // TODO maybe configure date format??

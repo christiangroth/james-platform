@@ -13,6 +13,10 @@ buildscript {
     }
 }
 
+plugins {
+    id 'com.palantir.docker-run' version '0.25.0'
+}
+
 // TODO unable to compile when offline ... why??
 apply plugin: 'kotlin'
 apply plugin: 'application'
@@ -53,6 +57,34 @@ dependencies {
     implementation "ch.qos.logback:logback-classic:$versionLogback"
     implementation "net.swiftzer.semver:semver:$versionSemVer"
     implementation "com.fasterxml.jackson.module:jackson-module-kotlin:2.10.+"
+    implementation 'org.litote.kmongo:kmongo:3.12.+'
 
     testImplementation "io.ktor:ktor-server-tests:$versionKtor"
 }
+
+dockerRun {
+    name 'james-api-test-mongodb'
+    image 'mongo:4.2.3'
+    // volumes 'hostvolume': '/containervolume'
+    ports '27017:27017'
+    daemonize true
+    clean true
+    env 'MONGO_INITDB_ROOT_USERNAME': 'james', 'MONGO_INITDB_ROOT_PASSWORD': 'semaj'
+    // command 'sleep', '100'
+    // arguments '--hostname=custom', '-P'
+
+    // MONGO_INITDB_DATABASE
+    // This variable allows you to specify the name of a database to be used for creation scripts in
+    // /docker-entrypoint-initdb.d/*.js (see Initializing a fresh instance below). MongoDB is fundamentally designed for
+    // "create on first use", so if you do not insert data with your JavaScript files, then no database is created.
+}
+
+task waitAfterDockerStart() {
+    doLast {
+        sleep 5000
+    }
+}
+
+project.tasks.findByPath("dockerRun").finalizedBy("waitAfterDockerStart")
+test.dependsOn("dockerRun")
+test.finalizedBy("dockerStop")
