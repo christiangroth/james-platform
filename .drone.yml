@@ -9,4 +9,6 @@ steps:
   - /var/run/docker.sock:/var/run/docker.sock
   commands:
   - echo listing docker services
+  - docker -v
+  - nohup dockerd &
   - docker stack ls
