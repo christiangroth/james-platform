@@ -4,11 +4,26 @@ name: build and deploy
 
 steps:
 - name: list docker services
-  image: docker
-  volume:
-  - /var/run/docker.sock:/var/run/docker.sock
+  image: docker:dind
+  volumes:
+  - name: dockersock
+    path: /var/run
   commands:
+  - sleep 5 # give docker enough time to start
   - echo listing docker services
   - docker -v
+  - docker ps
   - nohup dockerd &
   - docker stack ls
+
+services:
+- name: docker
+  image: docker:dind
+  privileged: true
+  volumes:
+  - name: dockersock
+    path: /var/run
+
+volumes:
+- name: dockersock
+  temp: {}
