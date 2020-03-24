@@ -3,16 +3,16 @@ type: docker
 name: build and deploy
 
 steps:
-- name: list docker services
-  privileged: true
-  image: docker:dind
-  volumes:
-  - /var/run/docker.sock:/var/run/docker.sock
-  commands:
-  - echo waiting
-  - sleep 5 # give docker enough time to start
-  - echo listing docker services
-  - docker -v
-  - docker ps
-  - nohup dockerd &
-  - docker stack ls
+  - name: list docker services
+    privileged: true
+    image: docker:dind
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+      - echo waiting
+      - sleep 5 # give docker enough time to start
+      - echo listing docker services
+      - docker -v
+      - docker ps
+      - nohup dockerd &
+      - docker stack ls
