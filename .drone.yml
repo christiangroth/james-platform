@@ -1,11 +1,18 @@
 kind: pipeline
 type: docker
-name: default
+name: build and deploy
 
 steps:
-- name: greeting
-  image: alpine
+- name: list docker services
+  image: docker
+  volume:
+  - name: docker-sock
+    path: /var/run/docker.sock
   commands:
-  - echo hello
-  - echo world
+  - echo listing docker services
+  - docker stack ls
 
+volumes:
+- name: docker-sock
+  host:
+    path: /var/run/docker.sock
