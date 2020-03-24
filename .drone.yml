@@ -6,13 +6,7 @@ steps:
 - name: list docker services
   image: docker
   volume:
-  - name: docker-sock
-    path: /var/run/docker.sock
+  - /var/run/docker.sock:/var/run/docker.sock
   commands:
   - echo listing docker services
   - docker stack ls
-
-volumes:
-- name: docker-sock
-  host:
-    path: /var/run/docker.sock
