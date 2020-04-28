@@ -1,0 +1,50 @@
+configuration:
+  rest:
+    basePath: /api/
+rest:
+  app: apps/
+  appVersion: apps/{appId}/versions/
+datamodel:
+  app:
+    key: ["id"]
+    attributes:
+      id:
+        type: "Long"
+        optional: false
+      name:
+        type: "String"
+        optional: false
+      description:
+        type: "String"
+        optional: true
+  appVersion:
+    key: ["appId", "version"]
+    attributes:
+      appId:
+        type: "Long"
+        optional: false
+      version:
+        type: "String" # maybe SemVer??
+        optional: false
+      models:
+        type: "List<ref:appVersionModel>"
+        optional: true
+      views:
+        type: "List<ref:appVersionView>"
+        optional: true
+  appVersionModel:
+    attributes:
+      name:
+        type: String
+        optional: false
+      jsonSchema:
+        type: String
+        optional: false
+  appVersionView:
+    attributes:
+      name:
+        type: String
+        optional: false
+      html:
+        type: String
+        optional: false
