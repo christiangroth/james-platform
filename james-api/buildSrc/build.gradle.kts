@@ -9,6 +9,9 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
+
+    implementation("org.yaml:snakeyaml:1.21")
+    implementation("com.squareup:kotlinpoet:1.5.0")
 }
 
 tasks {

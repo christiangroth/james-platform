@@ -1,50 +1,28 @@
 configuration:
-  rest:
-    basePath: /api/
+  codeGenerationPackage: "de.chrgroth.james.api"
+  restBasePath: "/api/"
 rest:
-  app: apps/
-  appVersion: apps/{appId}/versions/
+  app: "apps/"
+  appVersion: "apps/{appId}/versions/"
 datamodel:
   app:
     key: ["id"]
     attributes:
-      id:
-        type: "Long"
-        optional: false
-      name:
-        type: "String"
-        optional: false
-      description:
-        type: "String"
-        optional: true
+      id: "Long"
+      name: "String"
+      description: "String?"
   appVersion:
     key: ["appId", "version"]
     attributes:
-      appId:
-        type: "Long"
-        optional: false
-      version:
-        type: "String" # maybe SemVer??
-        optional: false
-      models:
-        type: "List<ref:appVersionModel>"
-        optional: true
-      views:
-        type: "List<ref:appVersionView>"
-        optional: true
+      appId: "Long"
+      version: "String" # maybe SemVer??
+      models: "List<ref:appVersionModel>?"
+      views: "List<ref:appVersionView>?"
   appVersionModel:
     attributes:
-      name:
-        type: String
-        optional: false
-      jsonSchema:
-        type: String
-        optional: false
+      name: "String"
+      jsonSchema: "String"
   appVersionView:
     attributes:
-      name:
-        type: String
-        optional: false
-      html:
-        type: String
-        optional: false
+      name: "String"
+      html: "String"
