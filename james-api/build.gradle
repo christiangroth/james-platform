@@ -36,6 +36,7 @@ sourceSets {
 }
 
 repositories {
+    mavenCentral()
     mavenLocal()
     jcenter()
     maven { url 'https://kotlin.bintray.com/ktor' }
@@ -46,7 +47,7 @@ ext {
 
     versionKtor = '1.3.0'
     versionLogback = '1.2.1'
-    versionSemVer = '1.1.0'
+    versionSemVer = '1.1.1'
 }
 
 dependencies {
@@ -68,11 +69,11 @@ dependencies {
 
 task generateRestCrud() {
     group = 'Build'
-    description = 'Generates all sources derived from REST CRUD definitions.'
+    description = 'Generates all sources derived from REST-CRUD definitions.'
 
     doLast {
         def yaml = new Yaml()
-        def obj = yaml.load(new java.io.File("restCrud.yaml").newInputStream())
+        def obj = yaml.load(new java.io.File("rest-crud.yaml").newInputStream())
 
         def datamodel = obj["datamodel"]
         datamodel.keySet().forEach {
