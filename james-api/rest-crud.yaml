@@ -1,9 +1,11 @@
 configuration:
-  codeGenerationPackage: "de.chrgroth.james.api"
+  codeGenerationPackage: "de.chrgroth.james.api.restcrud"
   restBasePath: "/api/"
+
 rest:
   app: "apps/"
   appVersion: "apps/{appId}/versions/"
+
 datamodel:
   app:
     key: ["id"]
@@ -16,8 +18,8 @@ datamodel:
     attributes:
       appId: "Long"
       version: "String" # maybe SemVer??
-      models: "List<ref:appVersionModel>?"
-      views: "List<ref:appVersionView>?"
+      models: "List<AppVersionModel>?"
+      views: "List<AppVersionView>?"
   appVersionModel:
     attributes:
       name: "String"
