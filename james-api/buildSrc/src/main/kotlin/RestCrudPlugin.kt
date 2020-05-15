@@ -69,6 +69,7 @@ class GradlePlugin : Plugin<Project> {
             generateModels(definition, configuration)
             generateControllers(definition, configuration)
             generatePersistence(definition, configuration)
+            generateKtor(definition, configuration)
         }
 
         // TODO typed would be better, but currently we use dynamic property names for datamodel attributes etc
@@ -104,7 +105,8 @@ class GradlePlugin : Plugin<Project> {
 
             // TODO duplicate code
             val folderPath = packageDefinition.replace('.', '/')
-            val modelsSource = "package $packageDefinition\n\n$dataClassesSource"
+            val importsDefinition = "import org.litote.kmongo.Id"
+            val modelsSource = "package $packageDefinition\n\n$importsDefinition\n\n$dataClassesSource"
             extension.generateFile(folderPath, "Models.kt", modelsSource)
         }
 
@@ -119,6 +121,7 @@ class GradlePlugin : Plugin<Project> {
             val attributesMap = (attributes as Map<String, String>)
 
             return """|data class ${name.capitalize()}(
+            |    val _id: Id<${name.capitalize()}>?,
             |    ${attributesMap.map { "val ${it.key}: ${it.value}" }.joinToString(",\n|    ")} 
             |)
             |""".trimMargin()
@@ -169,6 +172,16 @@ class GradlePlugin : Plugin<Project> {
                     }
 
                     private fun resolveItemIdParameter(call: ApplicationCall) = convertItemIdParameter(getItemIdParameter(call))
+                    private fun convertItemIdParameter(paramValue: String?): Id? {
+                        return try {
+                            ObjectId(paramValue).toId<Type>() as Id
+                        } catch (e: IllegalArgumentException) {
+                            // TODO logging
+                            println("Failed to convert ${'$'}paramValue to Id: ${'$'}{e.message}")
+                            null
+                        }
+                    }
+
                     private fun getItemIdParameter(call: ApplicationCall) = call.parameters[itemIdPathParameterName]
 
                     private suspend fun respondToList(call: ApplicationCall) = call.respond(list(call))
@@ -235,8 +248,6 @@ class GradlePlugin : Plugin<Project> {
                         }
                     }
 
-                    abstract fun convertItemIdParameter(paramValue: String?): Id?
-
                     abstract suspend fun list(call: ApplicationCall): List<Type>
                     abstract suspend fun get(call: ApplicationCall, id: Id?): Type?
                     abstract suspend fun getId(item: Type): Id?
@@ -271,7 +282,6 @@ class GradlePlugin : Plugin<Project> {
                 import org.bson.types.ObjectId
                 import org.litote.kmongo.Id
                 import org.litote.kmongo.id.toId
-                import java.util.*
             """.trimIndent()
 
             // TODO duplicate code
@@ -285,15 +295,12 @@ class GradlePlugin : Plugin<Project> {
 
             val type = typeName.capitalize()
             return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "$path") {
-            |
-            |    override fun convertItemIdParameter(paramValue: String?) = paramValue?.toAppId()
-            |
-            |    override suspend fun list(call: ApplicationCall) = MongoDB.listApps()
-            |    override suspend fun get(call: ApplicationCall, id: Id<App>?) = if (id != null) MongoDB.get(id) else null
-            |    override suspend fun getId(item: App) = item._id
-            |    override suspend fun createCopyWithId(item: App, id: Id<App>) = item.copy(_id = id)
-            |    override suspend fun upsert(call: ApplicationCall, item: App) = MongoDB.upsert(item)
-            |    override suspend fun remove(call: ApplicationCall, item: App) = MongoDB.delete(item)
+            |    override suspend fun list(call: ApplicationCall) = MongoDB.list${type}s()
+            |    override suspend fun get(call: ApplicationCall, id: Id<$type>?) = if (id != null) MongoDB.get$type(id) else null
+            |    override suspend fun getId(item: $type) = item._id
+            |    override suspend fun createCopyWithId(item: $type, id: Id<$type>) = item.copy(_id = id)
+            |    override suspend fun upsert(call: ApplicationCall, item: $type) = MongoDB.upsert(item)
+            |    override suspend fun remove(call: ApplicationCall, item: $type) = MongoDB.delete(item)
             |}
             |""".trimMargin()
         }
@@ -400,10 +407,132 @@ class GradlePlugin : Plugin<Project> {
             val typePlural = """${typeName}s"""
             return """|private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeCap>("$typePlural")
                 |fun list${typePlural.capitalize()}() = $typePlural.find().toList()
-                |fun get$typeCap(id: Id<$typeCap>) = apps.findOneById(id)
+                |fun get$typeCap(id: Id<$typeCap>) = $typePlural.findOneById(id)
                 |fun upsert(item: $typeCap) = genericUpsert($typePlural, item)
                 |fun delete(item: $typeCap) = genericDelete($typePlural, $typeCap::_id eq item._id)
                 |""".trimMargin()
+        }
+
+        private fun generateKtor(definition: Map<String, Object>, configuration: Map<String, Object>) {
+            val rest = definition["rest"]
+            if (rest == null || rest !is Map<*, *>) {
+                project.logger.warn("No rest endpoints defined, skipping!")
+                return
+            }
+
+            val routingCalls = rest.entries.map {
+                val key = it.key
+                val value = it.value
+                if (key is String && value is String) {
+                    "${key.capitalize()}Controller.routes(this)"
+                } else {
+                    // TODO error handling or ensure validity beforehand!!
+                    ""
+                }
+            }.joinToString("\n")
+
+            // TODO validate!!
+            val packageDefinition = configuration["codeGenerationPackage"] as String
+
+            val ktorSource = """package $packageDefinition
+
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.SerializationFeature
+import de.chrgroth.james.api.restcrud.AppController
+import de.chrgroth.james.api.restcrud.AppVersionController
+import de.chrgroth.james.api.restcrud.fail
+import io.ktor.application.Application
+import io.ktor.application.call
+import io.ktor.application.install
+import io.ktor.application.log
+import io.ktor.features.*
+import io.ktor.http.HttpStatusCode
+import io.ktor.jackson.jackson
+import io.ktor.locations.Locations
+import io.ktor.request.path
+import io.ktor.routing.routing
+import org.litote.kmongo.id.jackson.IdJacksonModule
+import org.slf4j.event.Level
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+// TODO add metrics
+// TODO add AUTH somehow!
+
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+
+    // Allows type-safe routing using @Location
+    // https://ktor.io/servers/features/locations.html
+    install(Locations) { }
+
+    // Logs application calls
+    // https://ktor.io/servers/features/call-logging.html
+    install(CallLogging) {
+        level = if (testing) Level.INFO else Level.DEBUG
+        filter { call -> call.request.path().startsWith("/") }
+    }
+
+    // Enable payload compression
+    // https://ktor.io/servers/features/compression.html
+    install(Compression) {
+        gzip {
+            priority = 1.0
+        }
+        deflate {
+            priority = 10.0
+            minimumSize(512) // condition
+        }
+    }
+
+    // Jackson configuration
+    // https://ktor.io/servers/features/content-negotiation.html
+    install(ContentNegotiation) {
+        jackson {
+
+            // handler for semver
+            registerModule(IdJacksonModule())
+
+            // TODO enable validation somehow?
+            // TODO maybe configure date format??
+
+            if (testing) {
+                enable(SerializationFeature.INDENT_OUTPUT)
+            }
+        }
+    }
+
+    routing {
+        trace { application.log.debug(it.buildText()) }
+
+        // apply routes
+        $routingCalls
+        
+        // exception handler
+        install(StatusPages) {
+            exception<JsonProcessingException> { cause ->
+                call.fail(
+                    code = HttpStatusCode.BadRequest,
+                    message = "Unable to parse payload: ${'$'}{cause.javaClass.name}",
+                    details = cause.message
+                )
+            }
+            exception<Throwable> { cause ->
+                call.fail(
+                    code = HttpStatusCode.InternalServerError,
+                    message = "Caught unexpected error: ${'$'}{cause.javaClass.name}",
+                    details = cause.message
+                )
+            }
+        }
+    }
+}
+
+""".trimMargin()
+
+            // TODO duplicate code
+            val folderPath = packageDefinition.replace('.', '/')
+            extension.generateFile(folderPath, "Ktor.kt", ktorSource)
         }
     }
 }
