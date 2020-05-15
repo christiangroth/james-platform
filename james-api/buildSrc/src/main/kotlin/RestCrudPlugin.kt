@@ -305,19 +305,19 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generatePersistence(definition: Map<String, Object>, configuration: Map<String, Object>) {
-            val datamodel = definition["datamodel"]
-            if (datamodel == null || datamodel !is Map<*, *>) {
-                project.logger.warn("No datamodel defined, skipping!")
+            val rest = definition["rest"]
+            if (rest == null || rest !is Map<*, *>) {
+                project.logger.warn("No rest endpoints defined, skipping!")
                 return
             }
 
             // TODO validate!!
             val packageDefinition = configuration["codeGenerationPackage"] as String
 
-            val dataClassesMethodsSource = datamodel.entries.map {
+            val dataClassesMethodsSource = rest.entries.map {
                 val key = it.key
                 val value = it.value
-                if (key is String && value is Map<*, *>) {
+                if (key is String) {
                     generatePersistenceFunctionsSource(key)
                 } else {
                     // TODO error handling or ensure validity beforehand!!
@@ -396,7 +396,7 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generatePersistenceFunctionsSource(typeName: String): String {
-            project.logger.info("generating controller for $typeName with path $path")
+            project.logger.info("generating persistence functions for $typeName")
 
             // TODO database name
             // TODO delete filter
