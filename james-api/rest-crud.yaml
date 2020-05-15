@@ -20,6 +20,7 @@ datamodel:
       version: "String" # maybe SemVer??
       models: "List<AppVersionModel>?"
       views: "List<AppVersionView>?"
+  # TODO embedded only, do not generate persistence operations!
   appVersionModel:
     attributes:
       name: "String"
