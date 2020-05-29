@@ -2,22 +2,22 @@
 // TODO unable to compile when offline ... why??
 plugins {
     id("application")
-//    id("com.palantir.docker-run") version "0.25.0"
+    id("com.palantir.docker-run") version "0.25.0"
 
     kotlin("jvm") version "1.3.72"
     id("de.chrgroth.gradle.restcrud") version "0.1.0-SNAPSHOT"
 }
 
+repositories {
+    mavenCentral()
+    // mavenLocal()
+    jcenter()
+    // maven { url "https://kotlin.bintray.com/ktor" }
+}
+
 application {
     group = "de.chrgroth"
     mainClassName = "io.ktor.server.netty.EngineMain"
-}
-
-repositories {
-    mavenCentral()
-    mavenLocal()
-    jcenter()
-    // maven { url "https://kotlin.bintray.com/ktor" }
 }
 
 val versionKtor = "1.3.0"
@@ -41,14 +41,21 @@ dependencies {
     testImplementation("io.ktor:ktor-server-tests:$versionKtor")
 }
 
-/*dockerRun {
-    name 'james-api-test-mongodb'
-    image 'mongo:4.2.3'
-    // volumes 'hostvolume': '/containervolume'
-    ports '27017:27017'
-    daemonize true
-    clean true
-    env 'MONGO_INITDB_ROOT_USERNAME': 'james', 'MONGO_INITDB_ROOT_PASSWORD': 'semaj'
+tasks {
+    compileKotlin {
+        kotlinOptions.jvmTarget = "1.8"
+    }
+}
+
+dockerRun {
+    name = "james-api-test-mongodb"
+    image = "mongo:4.2.3"
+    ports("27017:27017")
+    daemonize = true
+    clean = true
+    env(mapOf("MONGO_INITDB_ROOT_USERNAME" to "james", "MONGO_INITDB_ROOT_PASSWORD" to "semaj"))
+
+    // volumes = "hostvolume": "/containervolume"
     // command 'sleep', '100'
     // arguments '--hostname=custom', '-P'
 
@@ -58,13 +65,7 @@ dependencies {
     // "create on first use", so if you do not insert data with your JavaScript files, then no database is created.
 }
 
-task waitAfterDockerStart() {
-    doLast {
-        sleep 5000
-    }
+tasks {
+    //test.dependsOn("dockerRun")
+    //test.finalizedBy("dockerStop")
 }
-
-project.tasks.findByPath("dockerRun").finalizedBy("waitAfterDockerStart")
-test.dependsOn("dockerRun")
-test.finalizedBy("dockerStop")
-*/
