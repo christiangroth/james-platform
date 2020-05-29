@@ -7,7 +7,6 @@ import org.gradle.api.internal.HasConvention
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
-import org.yaml.snakeyaml.Yaml
 import java.io.File
 
 const val EXTENSION_NAME = "restcrud"
@@ -51,24 +50,23 @@ class RestCrudPlugin : Plugin<Project> {
     open class GenerateTask : DefaultTask() {
 
         private val extension = project.extensions.getByName(EXTENSION_NAME) as RestCrudExtension
-        private val service = RestCrudService(project.logger, extension.fileGenerator)
+        private val service = RestCrudService(extension.fileGenerator)
 
         private val definitionsFile = File(project.projectDir, "rest-crud.yaml")
 
 
         @TaskAction
         fun start() {
-            val definition = service.parse(definitionsFile)
-            // TODO service.validate(definition)
+            val restCrud = YamlUtils.parse(definitionsFile)
+            if(restCrud == null) {
+                logger.error("Could not load any restcrud definitions, aborting.")
+                return
+            }
 
-            // TODO move to service
-            val configuration: Map<String, Object> =
-                definition.getOrDefault("configuration", mapOf<String, Object>()) as Map<String, Object>
-
-            service.generateModels(definition, configuration)
-            service.generateControllers(definition, configuration)
-            service.generatePersistence(definition, configuration)
-            service.generateKtor(definition, configuration)
+            service.generateModels(restCrud)
+            service.generateControllers(restCrud)
+            service.generatePersistence(restCrud)
+            service.generateKtor(restCrud)
         }
     }
 }

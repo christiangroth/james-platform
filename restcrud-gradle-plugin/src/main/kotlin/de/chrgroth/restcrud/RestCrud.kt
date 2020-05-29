@@ -1,75 +1,44 @@
 package de.chrgroth.restcrud
 
-import org.slf4j.Logger
-import org.yaml.snakeyaml.Yaml
-import java.io.File
+import org.slf4j.LoggerFactory
 
-// TODO define datamodel classes
+class RestCrudService(private val fileGenerator: FileGenerator) {
+    private val logger = LoggerFactory.getLogger(RestCrudService::class.java)
 
-class RestCrudService(private val logger: Logger, private val fileGenerator: FileGenerator) {
-
-    // TODO typed would be better, but currently we use dynamic property names for datamodel attributes etc
-    fun parse(definitionsFile: File): Map<String, Object> {
-        logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
-        return if (definitionsFile.exists()) {
-            Yaml().load(definitionsFile.inputStream())
-        } else {
-            mapOf()
-        } 
-    }
-
-    fun generateModels(definition: Map<String, Object>, configuration: Map<String, Object>) {
+    fun generateModels(restCrud: RestCrud) {
         logger.info("generating datamodel...")
 
-        val datamodel = definition["datamodel"]
-        if (datamodel == null || datamodel !is Map<*, *>) {
+        if (restCrud.datamodel.isEmpty()) {
             logger.warn("No datamodel defined, skipping!")
             return
         }
 
-        val dataClassesSource = datamodel.entries.map {
-            val key = it.key
-            val value = it.value
-            if (key is String && value is Map<*, *>) {
-                generateModelSource(key, value)
-            } else {
-                // TODO error handling or ensure validity beforehand!!
-                ""
-            }
-        }.joinToString("\n")
+        val dataClassesSource = restCrud.datamodel.joinToString("\n") { generateModelSource(it) }
 
-        // TODO validate!!
-        val packageDefinition = configuration["codeGenerationPackage"] as String
-
-        // TODO duplicate code
-        val folderPath = packageDefinition.replace('.', '/')
         val importsDefinition = "import org.litote.kmongo.Id"
-        val modelsSource = "package $packageDefinition\n\n$importsDefinition\n\n$dataClassesSource"
-        fileGenerator.generateFile(folderPath, "Models.kt", modelsSource)
+        val modelsSource = "package ${restCrud.packageName}\n\n$importsDefinition\n\n$dataClassesSource"
+        fileGenerator.generateFile(restCrud.packagePath(), "Models.kt", modelsSource)
     }
 
-    fun generateModelSource(name: String, definition: Map<*, *>): String {
-        logger.info("generating data class for $name with $definition")
+    private fun generateModelSource(datamodel: RestCrudDatamodel): String {
+        logger.info("generating data class for $datamodel")
 
-        val attributes = definition["attributes"]
-        if (attributes == null || attributes !is Map<*, *>) {
-            logger.error("Type $name has no defined attributes, skipping!")
+        if (datamodel.attributes.isEmpty()) {
+            logger.error("Type ${datamodel.name} has no defined attributes, skipping!")
+            return ""
         }
 
-        val attributesMap = (attributes as Map<String, String>)
-
-        return """|data class ${name.capitalize()}(
-            |    val _id: Id<${name.capitalize()}>?,
-            |    ${attributesMap.map { "val ${it.key}: ${it.value}" }.joinToString(",\n|    ")} 
+        return """|data class ${datamodel.typeName}(
+            |    val _id: Id<${datamodel.typeName}>?,
+            |    ${datamodel.attributes.joinToString(",\n|    ") { "val ${it.name}: ${it.type}" }} 
             |)
             |""".trimMargin()
     }
 
-    fun generateControllers(definition: Map<String, Object>, configuration: Map<String, Object>) {
+    fun generateControllers(restCrud: RestCrud) {
         logger.info("generating api endpoints...")
 
-        val rest = definition["rest"]
-        if (rest == null || rest !is Map<*, *>) {
+        if (restCrud.endpoints().isEmpty()) {
             logger.warn("No rest endpoints defined, skipping!")
             return
         }
@@ -197,19 +166,9 @@ class RestCrudService(private val logger: Logger, private val fileGenerator: Fil
                 |}
                 |""".trimMargin()
 
-        val controllersSource = rest.entries.map {
-            val key = it.key
-            val value = it.value
-            if (key is String && value is String) {
-                generateControllerSource(key, value)
-            } else {
-                // TODO error handling or ensure validity beforehand!!
-                ""
-            }
-        }.joinToString("\n")
+        val controllersSource = restCrud.endpoints().joinToString("\n") { generateControllerSource(it) }
 
         // TODO validate!!
-        val packageDefinition = configuration["codeGenerationPackage"] as String
         val importDefinitions = """|import io.ktor.application.ApplicationCall
                 |import io.ktor.application.call
                 |import io.ktor.http.HttpStatusCode
@@ -223,17 +182,15 @@ class RestCrudService(private val logger: Logger, private val fileGenerator: Fil
                 |import org.litote.kmongo.id.toId
             """.trimMargin()
 
-        // TODO duplicate code
-        val folderPath = packageDefinition.replace('.', '/')
-        val modelsSource = "package $packageDefinition\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
-        fileGenerator.generateFile(folderPath, "Controllers.kt", modelsSource)
+        val modelsSource = "package ${restCrud.packageName}\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
+        fileGenerator.generateFile(restCrud.packagePath(), "Controllers.kt", modelsSource)
     }
 
-    fun generateControllerSource(typeName: String, path: String): String {
-        logger.info("generating controller object for $typeName using path $path")
+    private fun generateControllerSource(datamodel: RestCrudDatamodel): String {
+        logger.info("generating controller object for $datamodel")
 
-        val type = typeName.capitalize()
-        return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "$path") {
+        val type = datamodel.typeName
+        return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "${datamodel.endpoint}") {
             |    override suspend fun list(call: ApplicationCall) = MongoDB.list${type}s()
             |    override suspend fun get(call: ApplicationCall, id: Id<$type>?) = if (id != null) MongoDB.get$type(id) else null
             |    override suspend fun getId(item: $type) = item._id
@@ -244,32 +201,19 @@ class RestCrudService(private val logger: Logger, private val fileGenerator: Fil
             |""".trimMargin()
     }
 
-    fun generatePersistence(definition: Map<String, Object>, configuration: Map<String, Object>) {
+    fun generatePersistence(restCrud: RestCrud) {
         logger.info("generating persistence...")
 
-        val rest = definition["rest"]
-        if (rest == null || rest !is Map<*, *>) {
+        if (restCrud.endpoints().isEmpty()) {
             logger.warn("No rest endpoints defined, skipping!")
             return
         }
 
-        // TODO validate!!
-        val packageDefinition = configuration["codeGenerationPackage"] as String
-
-        val dataClassesMethodsSource = rest.entries.map {
-            val key = it.key
-            val value = it.value
-            if (key is String) {
-                generatePersistenceFunctionsSource(key)
-            } else {
-                // TODO error handling or ensure validity beforehand!!
-                ""
-            }
-        }.joinToString("\n")
+        val dataClassesMethodsSource =
+            restCrud.endpoints().joinToString("\n") { generatePersistenceFunctionsSource(it) }
 
         // TODO duplicate code
-        val folderPath = packageDefinition.replace('.', '/')
-        val persistenceSource = """|package $packageDefinition
+        val persistenceSource = """|package ${restCrud.packageName}
                 |
                 |import com.mongodb.*
                 |import com.mongodb.client.MongoCollection
@@ -335,48 +279,37 @@ class RestCrudService(private val logger: Logger, private val fileGenerator: Fil
                 |    }
                 |}
                 |""".trimMargin()
-        fileGenerator.generateFile(folderPath, "Persistence.kt", persistenceSource)
+        fileGenerator.generateFile(restCrud.packagePath(), "Persistence.kt", persistenceSource)
     }
 
-    fun generatePersistenceFunctionsSource(typeName: String): String {
-        logger.info("generating KMongo functions for $typeName")
+    private fun generatePersistenceFunctionsSource(datamodel: RestCrudDatamodel): String {
+        logger.info("generating KMongo functions for $datamodel")
 
         // TODO database name
         // TODO delete filter
-        val typeCap = typeName.capitalize()
+        val typeName = datamodel.typeName
         val typePlural = """${typeName}s"""
-        return """|    private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeCap>("$typePlural")
+        return """|    private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeName>("$typePlural")
                 |    fun list${typePlural.capitalize()}() = $typePlural.find().toList()
-                |    fun get$typeCap(id: Id<$typeCap>) = $typePlural.findOneById(id)
-                |    fun upsert(item: $typeCap) = genericUpsert($typePlural, item)
-                |    fun delete(item: $typeCap) = genericDelete($typePlural, $typeCap::_id eq item._id)
+                |    fun get$typeName(id: Id<$typeName>) = $typePlural.findOneById(id)
+                |    fun upsert(item: $typeName) = genericUpsert($typePlural, item)
+                |    fun delete(item: $typeName) = genericDelete($typePlural, $typeName::_id eq item._id)
                 |    """.trimMargin()
     }
 
-    fun generateKtor(definition: Map<String, Object>, configuration: Map<String, Object>) {
+    fun generateKtor(restCrud: RestCrud) {
         logger.info("generating Ktor base application...")
 
-        val rest = definition["rest"]
-        if (rest == null || rest !is Map<*, *>) {
+        if (restCrud.endpoints().isEmpty()) {
             logger.warn("No rest endpoints defined, skipping!")
             return
         }
 
-        val routingCalls = rest.entries.map {
-            val key = it.key
-            val value = it.value
-            if (key is String && value is String) {
-                "        ${key.capitalize()}Controller.routes(this)"
-            } else {
-                // TODO error handling or ensure validity beforehand!!
-                ""
-            }
-        }.joinToString("\n")
+        val routingCalls = restCrud.endpoints().joinToString("\n") {
+            "        ${it.typeName}Controller.routes(this)"
+        }
 
-        // TODO validate!!
-        val packageDefinition = configuration["codeGenerationPackage"] as String
-
-        val ktorSource = """|package $packageDefinition
+        val ktorSource = """|package ${restCrud.packageName}
                 |
                 |import com.fasterxml.jackson.core.JsonProcessingException
                 |import com.fasterxml.jackson.databind.SerializationFeature
@@ -468,8 +401,7 @@ class RestCrudService(private val logger: Logger, private val fileGenerator: Fil
                 |}
                 |""".trimMargin()
 
-        // TODO duplicate code
-        val folderPath = packageDefinition.replace('.', '/')
+        val folderPath = restCrud.packagePath()
         fileGenerator.generateFile(folderPath, "Ktor.kt", ktorSource)
     }
 }
