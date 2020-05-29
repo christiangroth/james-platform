@@ -20,12 +20,9 @@ gradlePlugin {
 }
 
 dependencies {
-    implementation(gradleApi())
-    implementation(kotlin("stdlib"))
+    implementation(kotlin("gradle-plugin", version = "1.3.72"))
     implementation("org.yaml:snakeyaml:1.26")
-
 //    implementation("com.squareup:kotlinpoet:1.4.4")
-//    implementation(kotlin("gradle-plugin", version = "1.3.61"))
 
     testImplementation(gradleTestKit())
 }

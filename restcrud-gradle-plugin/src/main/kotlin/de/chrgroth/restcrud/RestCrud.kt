@@ -1,142 +1,80 @@
 package de.chrgroth.restcrud
 
-import org.gradle.api.DefaultTask
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.api.tasks.TaskAction
+import org.slf4j.Logger
 import org.yaml.snakeyaml.Yaml
 import java.io.File
-import java.nio.charset.StandardCharsets
 
-const val EXTENSION_NAME = "restcrud"
+// TODO define datamodel classes
 
-open class RestCrudExtension(project: Project) {
+class RestCrudService(private val logger: Logger, private val fileGenerator: FileGenerator) {
 
-    val genSrcDir = File(project.buildDir, "gen-src/restcrud")
-
-    init {
-        genSrcDir.mkdirs()
+    // TODO typed would be better, but currently we use dynamic property names for datamodel attributes etc
+    fun parse(definitionsFile: File): Map<String, Object> {
+        logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
+        return if (definitionsFile.exists()) {
+            Yaml().load(definitionsFile.inputStream())
+        } else {
+            mapOf()
+        } 
     }
 
-    fun generateFile(folderPath: String, filename: String, content: String) {
+    fun generateModels(definition: Map<String, Object>, configuration: Map<String, Object>) {
+        logger.info("generating datamodel...")
 
-        val folder = File(genSrcDir, folderPath)
-        folder.mkdirs()
-
-        val file = File(folder, filename)
-        file.writeText(content, StandardCharsets.UTF_8)
-    }
-}
-
-class RestCrudPlugin : Plugin<Project> {
-
-    override fun apply(project: Project) {
-        project.logger.info("Configuring project $project...")
-
-        project.plugins.getPlugin("kotlin") ?: project.plugins.apply("kotlin")
-
-        val extension: RestCrudExtension = project.extensions.create(
-            EXTENSION_NAME,
-            RestCrudExtension::class.java, project
-        )
-
-        project.logger.info("adding directory for generated sources...")
-        val sourceSets = project.properties["sourceSets"] as SourceSetContainer?
-        val srcDirs = sourceSets?.getByName("main")?.allSource?.srcDirs
-        srcDirs?.add(extension.genSrcDir)
-        project.logger.info("source dirs: $srcDirs")
-
-        val task = project.tasks.create("rest-crud", GenerateTask::class.java)
-        project.tasks.getByName("compileKotlin").dependsOn += task
-    }
-
-    open class GenerateTask : DefaultTask() {
-
-        private val extension = project.extensions.getByName(EXTENSION_NAME) as RestCrudExtension
-        private val definitionsFile = File(project.projectDir, "rest-crud.yaml")
-
-        @TaskAction
-        fun start() {
-            val definition = parse()
-            // TODO validate(definition)
-
-            val configuration: Map<String, Object> =
-                definition.getOrDefault("configuration", mapOf<String, Object>()) as Map<String, Object>
-
-            generateModels(definition, configuration)
-            generateControllers(definition, configuration)
-            generatePersistence(definition, configuration)
-            generateKtor(definition, configuration)
+        val datamodel = definition["datamodel"]
+        if (datamodel == null || datamodel !is Map<*, *>) {
+            logger.warn("No datamodel defined, skipping!")
+            return
         }
 
-        // TODO typed would be better, but currently we use dynamic property names for datamodel attributes etc
-        private fun parse(): Map<String, Object> {
-            project.logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
-            return if (definitionsFile.exists()) {
-                Yaml().load(definitionsFile.inputStream())
+        val dataClassesSource = datamodel.entries.map {
+            val key = it.key
+            val value = it.value
+            if (key is String && value is Map<*, *>) {
+                generateModelSource(key, value)
             } else {
-                mapOf()
+                // TODO error handling or ensure validity beforehand!!
+                ""
             }
+        }.joinToString("\n")
+
+        // TODO validate!!
+        val packageDefinition = configuration["codeGenerationPackage"] as String
+
+        // TODO duplicate code
+        val folderPath = packageDefinition.replace('.', '/')
+        val importsDefinition = "import org.litote.kmongo.Id"
+        val modelsSource = "package $packageDefinition\n\n$importsDefinition\n\n$dataClassesSource"
+        fileGenerator.generateFile(folderPath, "Models.kt", modelsSource)
+    }
+
+    fun generateModelSource(name: String, definition: Map<*, *>): String {
+        logger.info("generating data class for $name with $definition")
+
+        val attributes = definition["attributes"]
+        if (attributes == null || attributes !is Map<*, *>) {
+            logger.error("Type $name has no defined attributes, skipping!")
         }
 
-        private fun generateModels(definition: Map<String, Object>, configuration: Map<String, Object>) {
-            project.logger.info("generating datamodel...")
+        val attributesMap = (attributes as Map<String, String>)
 
-            val datamodel = definition["datamodel"]
-            if (datamodel == null || datamodel !is Map<*, *>) {
-                project.logger.warn("No datamodel defined, skipping!")
-                return
-            }
-
-            val dataClassesSource = datamodel.entries.map {
-                val key = it.key
-                val value = it.value
-                if (key is String && value is Map<*, *>) {
-                    generateModelSource(key, value)
-                } else {
-                    // TODO error handling or ensure validity beforehand!!
-                    ""
-                }
-            }.joinToString("\n")
-
-            // TODO validate!!
-            val packageDefinition = configuration["codeGenerationPackage"] as String
-
-            // TODO duplicate code
-            val folderPath = packageDefinition.replace('.', '/')
-            val importsDefinition = "import org.litote.kmongo.Id"
-            val modelsSource = "package $packageDefinition\n\n$importsDefinition\n\n$dataClassesSource"
-            extension.generateFile(folderPath, "Models.kt", modelsSource)
-        }
-
-        private fun generateModelSource(name: String, definition: Map<*, *>): String {
-            project.logger.info("generating data class for $name with $definition")
-
-            val attributes = definition["attributes"]
-            if (attributes == null || attributes !is Map<*, *>) {
-                project.logger.error("Type $name has no defined attributes, skipping!")
-            }
-
-            val attributesMap = (attributes as Map<String, String>)
-
-            return """|data class ${name.capitalize()}(
+        return """|data class ${name.capitalize()}(
             |    val _id: Id<${name.capitalize()}>?,
             |    ${attributesMap.map { "val ${it.key}: ${it.value}" }.joinToString(",\n|    ")} 
             |)
             |""".trimMargin()
+    }
+
+    fun generateControllers(definition: Map<String, Object>, configuration: Map<String, Object>) {
+        logger.info("generating api endpoints...")
+
+        val rest = definition["rest"]
+        if (rest == null || rest !is Map<*, *>) {
+            logger.warn("No rest endpoints defined, skipping!")
+            return
         }
 
-        private fun generateControllers(definition: Map<String, Object>, configuration: Map<String, Object>) {
-            project.logger.info("generating api endpoints...")
-
-            val rest = definition["rest"]
-            if (rest == null || rest !is Map<*, *>) {
-                project.logger.warn("No rest endpoints defined, skipping!")
-                return
-            }
-
-            val genericSource = """|const val API_PREFIX = "/api"
+        val genericSource = """|const val API_PREFIX = "/api"
                 |
                 |data class ResponseError(val code: Int, val message: String, val details: String? = null)
                 |suspend fun ApplicationCall.fail(code: HttpStatusCode, message: String, details: String? = null) =
@@ -259,20 +197,20 @@ class RestCrudPlugin : Plugin<Project> {
                 |}
                 |""".trimMargin()
 
-            val controllersSource = rest.entries.map {
-                val key = it.key
-                val value = it.value
-                if (key is String && value is String) {
-                    generateControllerSource(key, value)
-                } else {
-                    // TODO error handling or ensure validity beforehand!!
-                    ""
-                }
-            }.joinToString("\n")
+        val controllersSource = rest.entries.map {
+            val key = it.key
+            val value = it.value
+            if (key is String && value is String) {
+                generateControllerSource(key, value)
+            } else {
+                // TODO error handling or ensure validity beforehand!!
+                ""
+            }
+        }.joinToString("\n")
 
-            // TODO validate!!
-            val packageDefinition = configuration["codeGenerationPackage"] as String
-            val importDefinitions = """|import io.ktor.application.ApplicationCall
+        // TODO validate!!
+        val packageDefinition = configuration["codeGenerationPackage"] as String
+        val importDefinitions = """|import io.ktor.application.ApplicationCall
                 |import io.ktor.application.call
                 |import io.ktor.http.HttpStatusCode
                 |import io.ktor.request.receiveOrNull
@@ -285,17 +223,17 @@ class RestCrudPlugin : Plugin<Project> {
                 |import org.litote.kmongo.id.toId
             """.trimMargin()
 
-            // TODO duplicate code
-            val folderPath = packageDefinition.replace('.', '/')
-            val modelsSource = "package $packageDefinition\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
-            extension.generateFile(folderPath, "Controllers.kt", modelsSource)
-        }
+        // TODO duplicate code
+        val folderPath = packageDefinition.replace('.', '/')
+        val modelsSource = "package $packageDefinition\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
+        fileGenerator.generateFile(folderPath, "Controllers.kt", modelsSource)
+    }
 
-        private fun generateControllerSource(typeName: String, path: String): String {
-            project.logger.info("generating controller object for $typeName using path $path")
+    fun generateControllerSource(typeName: String, path: String): String {
+        logger.info("generating controller object for $typeName using path $path")
 
-            val type = typeName.capitalize()
-            return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "$path") {
+        val type = typeName.capitalize()
+        return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "$path") {
             |    override suspend fun list(call: ApplicationCall) = MongoDB.list${type}s()
             |    override suspend fun get(call: ApplicationCall, id: Id<$type>?) = if (id != null) MongoDB.get$type(id) else null
             |    override suspend fun getId(item: $type) = item._id
@@ -304,34 +242,34 @@ class RestCrudPlugin : Plugin<Project> {
             |    override suspend fun remove(call: ApplicationCall, item: $type) = MongoDB.delete(item)
             |}
             |""".trimMargin()
+    }
+
+    fun generatePersistence(definition: Map<String, Object>, configuration: Map<String, Object>) {
+        logger.info("generating persistence...")
+
+        val rest = definition["rest"]
+        if (rest == null || rest !is Map<*, *>) {
+            logger.warn("No rest endpoints defined, skipping!")
+            return
         }
 
-        private fun generatePersistence(definition: Map<String, Object>, configuration: Map<String, Object>) {
-            project.logger.info("generating persistence...")
+        // TODO validate!!
+        val packageDefinition = configuration["codeGenerationPackage"] as String
 
-            val rest = definition["rest"]
-            if (rest == null || rest !is Map<*, *>) {
-                project.logger.warn("No rest endpoints defined, skipping!")
-                return
+        val dataClassesMethodsSource = rest.entries.map {
+            val key = it.key
+            val value = it.value
+            if (key is String) {
+                generatePersistenceFunctionsSource(key)
+            } else {
+                // TODO error handling or ensure validity beforehand!!
+                ""
             }
+        }.joinToString("\n")
 
-            // TODO validate!!
-            val packageDefinition = configuration["codeGenerationPackage"] as String
-
-            val dataClassesMethodsSource = rest.entries.map {
-                val key = it.key
-                val value = it.value
-                if (key is String) {
-                    generatePersistenceFunctionsSource(key)
-                } else {
-                    // TODO error handling or ensure validity beforehand!!
-                    ""
-                }
-            }.joinToString("\n")
-
-            // TODO duplicate code
-            val folderPath = packageDefinition.replace('.', '/')
-            val persistenceSource = """|package $packageDefinition
+        // TODO duplicate code
+        val folderPath = packageDefinition.replace('.', '/')
+        val persistenceSource = """|package $packageDefinition
                 |
                 |import com.mongodb.*
                 |import com.mongodb.client.MongoCollection
@@ -350,6 +288,7 @@ class RestCrudPlugin : Plugin<Project> {
                 |        listOf(MongoCredential.createCredential("james", "admin", "semaj".toCharArray())),
                 |        MongoClientOptions.builder()
                 |            .applicationName("james-api")
+                |            // TODO timeout does not work
                 |            .connectTimeout(10000)
                 |            .build()
                 |    )
@@ -396,48 +335,48 @@ class RestCrudPlugin : Plugin<Project> {
                 |    }
                 |}
                 |""".trimMargin()
-            extension.generateFile(folderPath, "Persistence.kt", persistenceSource)
-        }
+        fileGenerator.generateFile(folderPath, "Persistence.kt", persistenceSource)
+    }
 
-        private fun generatePersistenceFunctionsSource(typeName: String): String {
-            project.logger.info("generating KMongo functions for $typeName")
+    fun generatePersistenceFunctionsSource(typeName: String): String {
+        logger.info("generating KMongo functions for $typeName")
 
-            // TODO database name
-            // TODO delete filter
-            val typeCap = typeName.capitalize()
-            val typePlural = """${typeName}s"""
-            return """|    private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeCap>("$typePlural")
+        // TODO database name
+        // TODO delete filter
+        val typeCap = typeName.capitalize()
+        val typePlural = """${typeName}s"""
+        return """|    private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeCap>("$typePlural")
                 |    fun list${typePlural.capitalize()}() = $typePlural.find().toList()
                 |    fun get$typeCap(id: Id<$typeCap>) = $typePlural.findOneById(id)
                 |    fun upsert(item: $typeCap) = genericUpsert($typePlural, item)
                 |    fun delete(item: $typeCap) = genericDelete($typePlural, $typeCap::_id eq item._id)
                 |    """.trimMargin()
+    }
+
+    fun generateKtor(definition: Map<String, Object>, configuration: Map<String, Object>) {
+        logger.info("generating Ktor base application...")
+
+        val rest = definition["rest"]
+        if (rest == null || rest !is Map<*, *>) {
+            logger.warn("No rest endpoints defined, skipping!")
+            return
         }
 
-        private fun generateKtor(definition: Map<String, Object>, configuration: Map<String, Object>) {
-            project.logger.info("generating Ktor base application...")
-
-            val rest = definition["rest"]
-            if (rest == null || rest !is Map<*, *>) {
-                project.logger.warn("No rest endpoints defined, skipping!")
-                return
+        val routingCalls = rest.entries.map {
+            val key = it.key
+            val value = it.value
+            if (key is String && value is String) {
+                "        ${key.capitalize()}Controller.routes(this)"
+            } else {
+                // TODO error handling or ensure validity beforehand!!
+                ""
             }
+        }.joinToString("\n")
 
-            val routingCalls = rest.entries.map {
-                val key = it.key
-                val value = it.value
-                if (key is String && value is String) {
-                    "        ${key.capitalize()}Controller.routes(this)"
-                } else {
-                    // TODO error handling or ensure validity beforehand!!
-                    ""
-                }
-            }.joinToString("\n")
+        // TODO validate!!
+        val packageDefinition = configuration["codeGenerationPackage"] as String
 
-            // TODO validate!!
-            val packageDefinition = configuration["codeGenerationPackage"] as String
-
-            val ktorSource = """|package $packageDefinition
+        val ktorSource = """|package $packageDefinition
                 |
                 |import com.fasterxml.jackson.core.JsonProcessingException
                 |import com.fasterxml.jackson.databind.SerializationFeature
@@ -529,9 +468,8 @@ class RestCrudPlugin : Plugin<Project> {
                 |}
                 |""".trimMargin()
 
-            // TODO duplicate code
-            val folderPath = packageDefinition.replace('.', '/')
-            extension.generateFile(folderPath, "Ktor.kt", ktorSource)
-        }
+        // TODO duplicate code
+        val folderPath = packageDefinition.replace('.', '/')
+        fileGenerator.generateFile(folderPath, "Ktor.kt", ktorSource)
     }
 }
