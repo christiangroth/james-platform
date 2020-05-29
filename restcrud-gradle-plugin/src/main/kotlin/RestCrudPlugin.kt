@@ -9,13 +9,11 @@ import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.nio.charset.StandardCharsets
 
-const val EXTENSION_NAME = "restCrud"
+const val EXTENSION_NAME = "restcrud"
 
 open class RestCrudExtension(project: Project) {
 
-    // TODO change to separate source folder
-    // TODO why is it detected as sources dir in Intellij??
-    val genSrcDir = File(project.projectDir, "src/main/kotlin")
+    val genSrcDir = File(project.buildDir, "gen-src/restcrud")
 
     init {
         genSrcDir.mkdirs()
@@ -31,7 +29,7 @@ open class RestCrudExtension(project: Project) {
     }
 }
 
-class GradlePlugin : Plugin<Project> {
+class RestCrudPlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
         project.logger.info("Configuring project $project...")
@@ -83,6 +81,8 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generateModels(definition: Map<String, Object>, configuration: Map<String, Object>) {
+            project.logger.info("generating datamodel...")
+
             val datamodel = definition["datamodel"]
             if (datamodel == null || datamodel !is Map<*, *>) {
                 project.logger.warn("No datamodel defined, skipping!")
@@ -111,7 +111,7 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generateModelSource(name: String, definition: Map<*, *>): String {
-            project.logger.info("generating datamodel for $name with $definition")
+            project.logger.info("generating data class for $name with $definition")
 
             val attributes = definition["attributes"]
             if (attributes == null || attributes !is Map<*, *>) {
@@ -128,6 +128,8 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generateControllers(definition: Map<String, Object>, configuration: Map<String, Object>) {
+            project.logger.info("generating api endpoints...")
+
             val rest = definition["rest"]
             if (rest == null || rest !is Map<*, *>) {
                 project.logger.warn("No rest endpoints defined, skipping!")
@@ -290,7 +292,7 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generateControllerSource(typeName: String, path: String): String {
-            project.logger.info("generating controller for $typeName with path $path")
+            project.logger.info("generating controller object for $typeName using path $path")
 
             val type = typeName.capitalize()
             return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "$path") {
@@ -305,6 +307,8 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generatePersistence(definition: Map<String, Object>, configuration: Map<String, Object>) {
+            project.logger.info("generating persistence...")
+
             val rest = definition["rest"]
             if (rest == null || rest !is Map<*, *>) {
                 project.logger.warn("No rest endpoints defined, skipping!")
@@ -396,7 +400,7 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generatePersistenceFunctionsSource(typeName: String): String {
-            project.logger.info("generating persistence functions for $typeName")
+            project.logger.info("generating KMongo functions for $typeName")
 
             // TODO database name
             // TODO delete filter
@@ -411,6 +415,8 @@ class GradlePlugin : Plugin<Project> {
         }
 
         private fun generateKtor(definition: Map<String, Object>, configuration: Map<String, Object>) {
+            project.logger.info("generating Ktor base application...")
+
             val rest = definition["rest"]
             if (rest == null || rest !is Map<*, *>) {
                 project.logger.warn("No rest endpoints defined, skipping!")

@@ -1,27 +1,11 @@
-buildscript {
-    ext {
-        versionKotlin = '1.3.61'
-    }
-
-    repositories {
-        jcenter()
-        apply plugin: 'idea'
-    }
-    
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$versionKotlin"
-    }
-}
-
-// TODO plugins block vs apply plugin!?!?
-plugins {
-    id 'com.palantir.docker-run' version '0.25.0'
-}
-
 // TODO unable to compile when offline ... why??
-apply plugin: 'kotlin'
-apply plugin: 'application'
-apply plugin: 'rest-crud'
+plugins {
+    id 'application'
+    id 'com.palantir.docker-run' version '0.25.0'
+
+    id "org.jetbrains.kotlin.jvm" version "1.3.72"
+    id 'de.chrgroth.gradle.restcrud' version '0.1.0-SNAPSHOT'
+}
 
 group 'de.chrgroth'
 mainClassName = "io.ktor.server.netty.EngineMain"
@@ -34,8 +18,6 @@ repositories {
 }
 
 ext {
-    versionKotlin = '1.3.61'
-
     versionKtor = '1.3.0'
     versionLogback = '1.2.1'
     versionSemVer = '1.1.1'
