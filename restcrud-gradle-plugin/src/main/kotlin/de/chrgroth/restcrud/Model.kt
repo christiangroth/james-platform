@@ -1,14 +1,33 @@
 package de.chrgroth.restcrud
 
+import de.chrgroth.restcrud.ApplicationFramework.*
+import de.chrgroth.restcrud.PersistenceFramework.*
+
 // TODO typealiases??
 
 data class Configuration(
-    val packageName: String,
+    val codeGeneration: CodeGeneration,
     val datamodel: List<Datamodel>
 ) {
     // TODO test functions
-    fun packagePath() = packageName.replace('.', '/')
     fun endpoints() = datamodel.filter { it.hasEndpoint() }
+}
+
+sealed class PersistenceFramework {
+    object KMongo: PersistenceFramework()
+}
+
+sealed class ApplicationFramework {
+    object Ktor: ApplicationFramework()
+}
+
+data class CodeGeneration(
+    val packageName: String,
+    val persistenceFramework: PersistenceFramework = KMongo,
+    val applicationFramework: ApplicationFramework = Ktor
+) {
+    // TODO test functions
+    fun packagePath() = packageName.replace('.', '/')
 }
 
 data class Datamodel(

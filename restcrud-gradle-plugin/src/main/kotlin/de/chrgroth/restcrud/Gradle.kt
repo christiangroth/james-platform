@@ -9,12 +9,13 @@ import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import java.io.File
 
-const val EXTENSION_NAME = "restcrud"
+// TODO change handling of gradle project? what to add automatically and what to expect??
+// TODO tests for gradle stuff
 
+const val EXTENSION_NAME = "restcrud"
 const val TASK_NAME_GENERATE = "restcrudGenerate"
 
 open class GradleExtension(project: Project) {
-
     val genSrcDir = project.buildDir.resolve("gen-src/restcrud")
     val fileGenerator = FileGenerator(genSrcDir)
 }

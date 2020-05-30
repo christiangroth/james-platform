@@ -7,6 +7,7 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.IOException
+import java.lang.IllegalArgumentException
 
 // TODO create data classes for raw parsing and for validated model??
 
@@ -28,7 +29,7 @@ data class DatamodelYaml(
     val key: List<String>,
     // TODO typealias, slash handling
     val endpoint: String?,
-    val attributes: List<DatamodelAttributeYaml>
+    val attributes: List<String>
 ) {
 
     // TODO test vals/functions
@@ -36,21 +37,19 @@ data class DatamodelYaml(
     fun hasEndpoint() = endpoint != null
 }
 
-// TODO test vals/functions
-typealias DatamodelAttributeYaml = String
-val DatamodelAttributeYaml.name
-    get() = this.split(" ")[0]
-val DatamodelAttributeYaml.type
-    get() = this.split(" ")[1]
-fun DatamodelAttributeYaml.isOptional() = type.endsWith('?')
-
 object YamlUtils {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    fun load(definitionsFile: File): ConfigurationYaml {
+    data class ValidationResult<T>(val result: T, val errors: List<String>)
+
+    fun load(definitionsFile: File): Configuration {
         val unverifiedConfiguration = parse(definitionsFile)
-        // TODO validate and transform to Configuration
-        return unverifiedConfiguration
+        val validationResult = validate(unverifiedConfiguration)
+        if(validationResult.errors.isNotEmpty()) {
+            validationResult.errors.forEach { logger.error(it) }
+            throw IllegalArgumentException("Configuration is not valid, please see the errors in the log above!")
+        }
+        return validationResult.result
     }
 
     private fun parse(definitionsFile: File): ConfigurationYaml {
@@ -67,6 +66,52 @@ object YamlUtils {
             }
         } else {
             throw IllegalStateException("File ${definitionsFile.absolutePath} does not exist or is not readable!")
+        }
+    }
+
+    private fun validate(input: ConfigurationYaml): ValidationResult<Configuration> {
+        // TODO collect all errors somehow
+        val codeGeneration = convertCodeGenerationConfiguration(input)
+        val datamodel = convertDatamodel(input)
+        return ValidationResult(Configuration(codeGeneration, datamodel), emptyList())
+    }
+
+    private fun convertCodeGenerationConfiguration(input: ConfigurationYaml): CodeGeneration {
+        // TODO validate package name
+        val packageName = input.packageName
+        return CodeGeneration(packageName)
+    }
+
+    private fun convertDatamodel(input: ConfigurationYaml) = input.datamodel.map {
+        if(it == null) {
+            // TODO validation error
+            Datamodel(name = "", endpoint = null, attributes = emptyList())
+        } else {
+            // TODO validate name
+            val name = it.name
+            // TODO validate endpoint
+            val endpoint = it.endpoint
+            val attributes = convertAttributes(it)
+            Datamodel(name, endpoint, attributes)
+        }
+    }
+
+    private fun convertAttributes(input: DatamodelYaml) = input.attributes.map {
+        if(it == null) {
+            // TODO validation error
+            Attribute(name = "", type = "", key = false, optional = false)
+        } else {
+            // TODO validate parts
+            val parts = it.split(" ")
+            // TODO validate name
+            val name = parts[0]
+            // TODO validate type
+            val type = parts[1]
+            // TODO validate combination of key and type
+            // TODO validate combination of key and optional
+            val key = false
+            val optional = type.endsWith('?')
+            Attribute(name, type, key, optional)
         }
     }
 }

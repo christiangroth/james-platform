@@ -2,10 +2,13 @@ package de.chrgroth.restcrud
 
 import org.slf4j.LoggerFactory
 
+// TODO refactor, namings, tests
+// TODO generating Ktor application makes it hard to add a custom controller etc. I maybe need a concept for that!
+
 class Service(private val fileGenerator: FileGenerator) {
     private val logger = LoggerFactory.getLogger(Service::class.java)
 
-    fun generateModels(configuration: ConfigurationYaml) {
+    fun generateModels(configuration: Configuration) {
         logger.info("generating datamodel...")
 
         if (configuration.datamodel.isEmpty()) {
@@ -16,11 +19,11 @@ class Service(private val fileGenerator: FileGenerator) {
         val dataClassesSource = configuration.datamodel.joinToString("\n") { generateModelSource(it) }
 
         val importsDefinition = "import org.litote.kmongo.Id"
-        val modelsSource = "package ${configuration.packageName}\n\n$importsDefinition\n\n$dataClassesSource"
-        fileGenerator.generateFile(configuration.packagePath(), "Models.kt", modelsSource)
+        val modelsSource = "package ${configuration.codeGeneration.packageName}\n\n$importsDefinition\n\n$dataClassesSource"
+        fileGenerator.generateFile(configuration.codeGeneration.packagePath(), "Models.kt", modelsSource)
     }
 
-    private fun generateModelSource(datamodel: DatamodelYaml): String {
+    private fun generateModelSource(datamodel: Datamodel): String {
         logger.info("generating data class for $datamodel")
 
         if (datamodel.attributes.isEmpty()) {
@@ -35,7 +38,7 @@ class Service(private val fileGenerator: FileGenerator) {
             |""".trimMargin()
     }
 
-    fun generateControllers(configuration: ConfigurationYaml) {
+    fun generateControllers(configuration: Configuration) {
         logger.info("generating api endpoints...")
 
         if (configuration.endpoints().isEmpty()) {
@@ -182,11 +185,11 @@ class Service(private val fileGenerator: FileGenerator) {
                 |import org.litote.kmongo.id.toId
             """.trimMargin()
 
-        val modelsSource = "package ${configuration.packageName}\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
-        fileGenerator.generateFile(configuration.packagePath(), "Controllers.kt", modelsSource)
+        val modelsSource = "package ${configuration.codeGeneration.packageName}\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
+        fileGenerator.generateFile(configuration.codeGeneration.packagePath(), "Controllers.kt", modelsSource)
     }
 
-    private fun generateControllerSource(datamodel: DatamodelYaml): String {
+    private fun generateControllerSource(datamodel: Datamodel): String {
         logger.info("generating controller object for $datamodel")
 
         val type = datamodel.typeName
@@ -201,7 +204,7 @@ class Service(private val fileGenerator: FileGenerator) {
             |""".trimMargin()
     }
 
-    fun generatePersistence(configuration: ConfigurationYaml) {
+    fun generatePersistence(configuration: Configuration) {
         logger.info("generating persistence...")
 
         if (configuration.endpoints().isEmpty()) {
@@ -213,7 +216,7 @@ class Service(private val fileGenerator: FileGenerator) {
             configuration.endpoints().joinToString("\n") { generatePersistenceFunctionsSource(it) }
 
         // TODO duplicate code
-        val persistenceSource = """|package ${configuration.packageName}
+        val persistenceSource = """|package ${configuration.codeGeneration.packageName}
                 |
                 |import com.mongodb.*
                 |import com.mongodb.client.MongoCollection
@@ -279,10 +282,10 @@ class Service(private val fileGenerator: FileGenerator) {
                 |    }
                 |}
                 |""".trimMargin()
-        fileGenerator.generateFile(configuration.packagePath(), "Persistence.kt", persistenceSource)
+        fileGenerator.generateFile(configuration.codeGeneration.packagePath(), "Persistence.kt", persistenceSource)
     }
 
-    private fun generatePersistenceFunctionsSource(datamodel: DatamodelYaml): String {
+    private fun generatePersistenceFunctionsSource(datamodel: Datamodel): String {
         logger.info("generating KMongo functions for $datamodel")
 
         // TODO database name
@@ -297,7 +300,7 @@ class Service(private val fileGenerator: FileGenerator) {
                 |    """.trimMargin()
     }
 
-    fun generateKtor(configuration: ConfigurationYaml) {
+    fun generateKtor(configuration: Configuration) {
         logger.info("generating Ktor base application...")
 
         if (configuration.endpoints().isEmpty()) {
@@ -309,7 +312,7 @@ class Service(private val fileGenerator: FileGenerator) {
             "        ${it.typeName}Controller.routes(this)"
         }
 
-        val ktorSource = """|package ${configuration.packageName}
+        val ktorSource = """|package ${configuration.codeGeneration.packageName}
                 |
                 |import com.fasterxml.jackson.core.JsonProcessingException
                 |import com.fasterxml.jackson.databind.SerializationFeature
@@ -401,7 +404,7 @@ class Service(private val fileGenerator: FileGenerator) {
                 |}
                 |""".trimMargin()
 
-        val folderPath = configuration.packagePath()
+        val folderPath = configuration.codeGeneration.packagePath()
         fileGenerator.generateFile(folderPath, "Ktor.kt", ktorSource)
     }
 }
