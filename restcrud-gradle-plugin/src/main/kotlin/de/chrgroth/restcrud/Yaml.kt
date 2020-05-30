@@ -10,10 +10,10 @@ import java.io.IOException
 
 // TODO create data classes for raw parsing and for validated model??
 
-data class RestCrud(
+data class ConfigurationYaml(
     // TODO typealias
     val packageName: String,
-    val datamodel: List<RestCrudDatamodel>
+    val datamodel: List<DatamodelYaml>
 ) {
 
     // TODO test functions
@@ -21,14 +21,14 @@ data class RestCrud(
     fun endpoints() = datamodel.filter { it.hasEndpoint() }
 }
 
-data class RestCrudDatamodel(
+data class DatamodelYaml(
     // TODO typealias
     val name: String,
     // TODO typealias
     val key: List<String>,
     // TODO typealias, slash handling
     val endpoint: String?,
-    val attributes: List<RestCrudDatamodelAttribute>
+    val attributes: List<DatamodelAttributeYaml>
 ) {
 
     // TODO test vals/functions
@@ -37,25 +37,29 @@ data class RestCrudDatamodel(
 }
 
 // TODO test vals/functions
-typealias RestCrudDatamodelAttribute = String
-val RestCrudDatamodelAttribute.name
+typealias DatamodelAttributeYaml = String
+val DatamodelAttributeYaml.name
     get() = this.split(" ")[0]
-val RestCrudDatamodelAttribute.type
+val DatamodelAttributeYaml.type
     get() = this.split(" ")[1]
-fun RestCrudDatamodelAttribute.isOptional() = type.endsWith('?')
+fun DatamodelAttributeYaml.isOptional() = type.endsWith('?')
 
 object YamlUtils {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    // TODO service.validate(definition)
+    fun load(definitionsFile: File): ConfigurationYaml {
+        val unverifiedConfiguration = parse(definitionsFile)
+        // TODO validate and transform to Configuration
+        return unverifiedConfiguration
+    }
 
-    fun parse(definitionsFile: File): RestCrud {
+    private fun parse(definitionsFile: File): ConfigurationYaml {
         logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
         return if (definitionsFile.exists() && definitionsFile.canRead()) {
             try {
             val mapper = ObjectMapper(YAMLFactory())
             mapper.registerModule(KotlinModule())
-            mapper.readValue(definitionsFile, RestCrud::class.java)
+            mapper.readValue(definitionsFile, ConfigurationYaml::class.java)
             } catch(e: JsonProcessingException) {
                 throw IllegalStateException("Error parsing restcrud definitions!", e)
             } catch(e: IOException) {

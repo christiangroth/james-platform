@@ -13,13 +13,13 @@ const val EXTENSION_NAME = "restcrud"
 
 const val TASK_NAME_GENERATE = "restcrudGenerate"
 
-open class RestCrudExtension(project: Project) {
+open class GradleExtension(project: Project) {
 
     val genSrcDir = project.buildDir.resolve("gen-src/restcrud")
     val fileGenerator = FileGenerator(genSrcDir)
 }
 
-class RestCrudPlugin : Plugin<Project> {
+class GradlePlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
         project.logger.info("Verifying project requirements for $project...")
@@ -29,8 +29,8 @@ class RestCrudPlugin : Plugin<Project> {
         }
 
         project.logger.info("Restcrud extension will be available as '$EXTENSION_NAME'.")
-        val extension: RestCrudExtension = project.extensions.create(
-            EXTENSION_NAME, RestCrudExtension::class.java, project
+        val extension: GradleExtension = project.extensions.create(
+            EXTENSION_NAME, GradleExtension::class.java, project
         )
 
         project.logger.info("Creating task $TASK_NAME_GENERATE...")
@@ -49,19 +49,19 @@ class RestCrudPlugin : Plugin<Project> {
 
     open class GenerateTask : DefaultTask() {
 
-        private val extension = project.extensions.getByName(EXTENSION_NAME) as RestCrudExtension
-        private val service = RestCrudService(extension.fileGenerator)
+        private val extension = project.extensions.getByName(EXTENSION_NAME) as GradleExtension
+        private val service = Service(extension.fileGenerator)
 
         private val definitionsFile = File(project.projectDir, "rest-crud.yaml")
 
 
         @TaskAction
         fun start() {
-            val restCrud = YamlUtils.parse(definitionsFile)
-            service.generateModels(restCrud)
-            service.generateControllers(restCrud)
-            service.generatePersistence(restCrud)
-            service.generateKtor(restCrud)
+            val configuration = YamlUtils.load(definitionsFile)
+            service.generateModels(configuration)
+            service.generateControllers(configuration)
+            service.generatePersistence(configuration)
+            service.generateKtor(configuration)
         }
     }
 }

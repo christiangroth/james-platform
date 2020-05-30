@@ -5,39 +5,39 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import java.lang.IllegalStateException
 
-class YamlTests {
+class YamlAndModelTests {
 
     @Test
     fun invalidYaml() {
         assertThrows(IllegalStateException::class.java) {
-            println(YamlUtils.parse(File("src/test/resources/invalid-yaml.yaml")))
+            println(YamlUtils.load(File("src/test/resources/invalid-yaml.yaml")))
         }
     }
 
     @Test
     fun noPackageName() {
         assertThrows(IllegalStateException::class.java) {
-            YamlUtils.parse(File("src/test/resources/no-packageName.yaml"))
+            YamlUtils.load(File("src/test/resources/no-packageName.yaml"))
         }
     }
 
     @Test
     fun noDatamodel() {
         assertThrows(IllegalStateException::class.java) {
-            YamlUtils.parse(File("src/test/resources/no-datamodel.yaml"))
+            YamlUtils.load(File("src/test/resources/no-datamodel.yaml"))
         }
     }
 
     @Test
     fun emptyDatamodel() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/empty-datamodel.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/empty-datamodel.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(0, parseResult.datamodel.size)
     }
 
     @Test
     fun nullDatamodel() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/null-datamodel.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/null-datamodel.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertNull(parseResult.datamodel[0])
@@ -45,7 +45,7 @@ class YamlTests {
 
     @Test
     fun duplicateDatamodel() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/duplicate-datamodel.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/duplicate-datamodel.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(2, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -65,20 +65,20 @@ class YamlTests {
     @Test
     fun noName() {
         assertThrows(IllegalStateException::class.java) {
-            YamlUtils.parse(File("src/test/resources/no-name.yaml"))
+            YamlUtils.load(File("src/test/resources/no-name.yaml"))
         }
     }
 
     @Test
     fun noKey() {
         assertThrows(IllegalStateException::class.java) {
-            YamlUtils.parse(File("src/test/resources/no-key.yaml"))
+            YamlUtils.load(File("src/test/resources/no-key.yaml"))
         }
     }
 
     @Test
     fun emptyKeys() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/empty-key.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/empty-key.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -90,7 +90,7 @@ class YamlTests {
 
     @Test
     fun noEndpoint() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/no-endpoint.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/no-endpoint.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -103,13 +103,13 @@ class YamlTests {
     @Test
     fun noAttributes() {
         assertThrows(IllegalStateException::class.java) {
-            YamlUtils.parse(File("src/test/resources/no-attributes.yaml"))
+            YamlUtils.load(File("src/test/resources/no-attributes.yaml"))
         }
     }
 
     @Test
     fun emptyAttributes() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/empty-attributes.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/empty-attributes.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -120,7 +120,7 @@ class YamlTests {
 
     @Test
     fun invalidAttributeFormat() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/invalid-attribute-format.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/invalid-attribute-format.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -132,7 +132,7 @@ class YamlTests {
 
     @Test
     fun invalidAttributeName() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/invalid-attribute-name.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/invalid-attribute-name.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -144,7 +144,7 @@ class YamlTests {
 
     @Test
     fun invalidAttributeTypePostfix() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/invalid-attribute-type-postfix.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/invalid-attribute-type-postfix.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -156,7 +156,7 @@ class YamlTests {
 
     @Test
     fun duplicateAttribute() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/duplicate-attribute.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/duplicate-attribute.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(1, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)
@@ -169,7 +169,7 @@ class YamlTests {
 
     @Test
     fun fullModel() {
-        val parseResult = YamlUtils.parse(File("src/test/resources/full.yaml"))
+        val parseResult = YamlUtils.load(File("src/test/resources/full.yaml"))
         assertEquals("de.foo.bar", parseResult.packageName)
         assertEquals(2, parseResult.datamodel.size)
         assertEquals("foo", parseResult.datamodel[0].name)

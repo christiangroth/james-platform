@@ -2,25 +2,25 @@ package de.chrgroth.restcrud
 
 import org.slf4j.LoggerFactory
 
-class RestCrudService(private val fileGenerator: FileGenerator) {
-    private val logger = LoggerFactory.getLogger(RestCrudService::class.java)
+class Service(private val fileGenerator: FileGenerator) {
+    private val logger = LoggerFactory.getLogger(Service::class.java)
 
-    fun generateModels(restCrud: RestCrud) {
+    fun generateModels(configuration: ConfigurationYaml) {
         logger.info("generating datamodel...")
 
-        if (restCrud.datamodel.isEmpty()) {
+        if (configuration.datamodel.isEmpty()) {
             logger.warn("No datamodel defined, skipping!")
             return
         }
 
-        val dataClassesSource = restCrud.datamodel.joinToString("\n") { generateModelSource(it) }
+        val dataClassesSource = configuration.datamodel.joinToString("\n") { generateModelSource(it) }
 
         val importsDefinition = "import org.litote.kmongo.Id"
-        val modelsSource = "package ${restCrud.packageName}\n\n$importsDefinition\n\n$dataClassesSource"
-        fileGenerator.generateFile(restCrud.packagePath(), "Models.kt", modelsSource)
+        val modelsSource = "package ${configuration.packageName}\n\n$importsDefinition\n\n$dataClassesSource"
+        fileGenerator.generateFile(configuration.packagePath(), "Models.kt", modelsSource)
     }
 
-    private fun generateModelSource(datamodel: RestCrudDatamodel): String {
+    private fun generateModelSource(datamodel: DatamodelYaml): String {
         logger.info("generating data class for $datamodel")
 
         if (datamodel.attributes.isEmpty()) {
@@ -35,10 +35,10 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
             |""".trimMargin()
     }
 
-    fun generateControllers(restCrud: RestCrud) {
+    fun generateControllers(configuration: ConfigurationYaml) {
         logger.info("generating api endpoints...")
 
-        if (restCrud.endpoints().isEmpty()) {
+        if (configuration.endpoints().isEmpty()) {
             logger.warn("No rest endpoints defined, skipping!")
             return
         }
@@ -166,7 +166,7 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
                 |}
                 |""".trimMargin()
 
-        val controllersSource = restCrud.endpoints().joinToString("\n") { generateControllerSource(it) }
+        val controllersSource = configuration.endpoints().joinToString("\n") { generateControllerSource(it) }
 
         // TODO validate!!
         val importDefinitions = """|import io.ktor.application.ApplicationCall
@@ -182,11 +182,11 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
                 |import org.litote.kmongo.id.toId
             """.trimMargin()
 
-        val modelsSource = "package ${restCrud.packageName}\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
-        fileGenerator.generateFile(restCrud.packagePath(), "Controllers.kt", modelsSource)
+        val modelsSource = "package ${configuration.packageName}\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
+        fileGenerator.generateFile(configuration.packagePath(), "Controllers.kt", modelsSource)
     }
 
-    private fun generateControllerSource(datamodel: RestCrudDatamodel): String {
+    private fun generateControllerSource(datamodel: DatamodelYaml): String {
         logger.info("generating controller object for $datamodel")
 
         val type = datamodel.typeName
@@ -201,19 +201,19 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
             |""".trimMargin()
     }
 
-    fun generatePersistence(restCrud: RestCrud) {
+    fun generatePersistence(configuration: ConfigurationYaml) {
         logger.info("generating persistence...")
 
-        if (restCrud.endpoints().isEmpty()) {
+        if (configuration.endpoints().isEmpty()) {
             logger.warn("No rest endpoints defined, skipping!")
             return
         }
 
         val dataClassesMethodsSource =
-            restCrud.endpoints().joinToString("\n") { generatePersistenceFunctionsSource(it) }
+            configuration.endpoints().joinToString("\n") { generatePersistenceFunctionsSource(it) }
 
         // TODO duplicate code
-        val persistenceSource = """|package ${restCrud.packageName}
+        val persistenceSource = """|package ${configuration.packageName}
                 |
                 |import com.mongodb.*
                 |import com.mongodb.client.MongoCollection
@@ -279,10 +279,10 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
                 |    }
                 |}
                 |""".trimMargin()
-        fileGenerator.generateFile(restCrud.packagePath(), "Persistence.kt", persistenceSource)
+        fileGenerator.generateFile(configuration.packagePath(), "Persistence.kt", persistenceSource)
     }
 
-    private fun generatePersistenceFunctionsSource(datamodel: RestCrudDatamodel): String {
+    private fun generatePersistenceFunctionsSource(datamodel: DatamodelYaml): String {
         logger.info("generating KMongo functions for $datamodel")
 
         // TODO database name
@@ -297,19 +297,19 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
                 |    """.trimMargin()
     }
 
-    fun generateKtor(restCrud: RestCrud) {
+    fun generateKtor(configuration: ConfigurationYaml) {
         logger.info("generating Ktor base application...")
 
-        if (restCrud.endpoints().isEmpty()) {
+        if (configuration.endpoints().isEmpty()) {
             logger.warn("No rest endpoints defined, skipping!")
             return
         }
 
-        val routingCalls = restCrud.endpoints().joinToString("\n") {
+        val routingCalls = configuration.endpoints().joinToString("\n") {
             "        ${it.typeName}Controller.routes(this)"
         }
 
-        val ktorSource = """|package ${restCrud.packageName}
+        val ktorSource = """|package ${configuration.packageName}
                 |
                 |import com.fasterxml.jackson.core.JsonProcessingException
                 |import com.fasterxml.jackson.databind.SerializationFeature
@@ -401,7 +401,7 @@ class RestCrudService(private val fileGenerator: FileGenerator) {
                 |}
                 |""".trimMargin()
 
-        val folderPath = restCrud.packagePath()
+        val folderPath = configuration.packagePath()
         fileGenerator.generateFile(folderPath, "Ktor.kt", ktorSource)
     }
 }

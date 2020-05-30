@@ -13,7 +13,7 @@ gradlePlugin {
     plugins {
         create("restcrud") {
             id = "de.chrgroth.gradle.restcrud"
-            implementationClass = "de.chrgroth.restcrud.RestCrudPlugin"
+            implementationClass = "de.chrgroth.restcrud.GradlePlugin"
         }
     }
 }
