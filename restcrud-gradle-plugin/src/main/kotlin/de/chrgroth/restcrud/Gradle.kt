@@ -58,11 +58,6 @@ class RestCrudPlugin : Plugin<Project> {
         @TaskAction
         fun start() {
             val restCrud = YamlUtils.parse(definitionsFile)
-            if(restCrud == null) {
-                logger.error("Could not load any restcrud definitions, aborting.")
-                return
-            }
-
             service.generateModels(restCrud)
             service.generateControllers(restCrud)
             service.generatePersistence(restCrud)

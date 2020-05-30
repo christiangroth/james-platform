@@ -1,0 +1,7 @@
+packageName: "de.foo.bar"
+
+datamodel:
+  - name: "foo"
+    key: ["id"]
+    attributes:
+      - "id Long"

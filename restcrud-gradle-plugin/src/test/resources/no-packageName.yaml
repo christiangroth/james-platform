@@ -1,0 +1,13 @@
+datamodel:
+  - name: "foo"
+    key: ["id"]
+    endpoint: "foos"
+    attributes:
+      - "id Long"
+      - "description String?"
+  - name: "bar"
+    key: ["id", "version"]
+    endpoint: "bars"
+    attributes:
+      - "id Long"
+      - "version Long"

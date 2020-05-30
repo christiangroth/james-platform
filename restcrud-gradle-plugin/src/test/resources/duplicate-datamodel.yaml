@@ -1,0 +1,15 @@
+packageName: "de.foo.bar"
+
+datamodel:
+  - name: "foo"
+    key: ["id"]
+    endpoint: "foos"
+    attributes:
+      - "id Long"
+      - "description String?"
+  - name: "foo"
+    key: ["id"]
+    endpoint: "foos"
+    attributes:
+      - "id Long"
+      - "description String?"
