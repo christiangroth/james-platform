@@ -31,8 +31,8 @@ class Service(private val fileGenerator: FileGenerator) {
             return ""
         }
 
-        return """|data class ${datamodel.typeName}(
-            |    val _id: Id<${datamodel.typeName}>?,
+        return """|data class ${datamodel.name}(
+            |    val _id: Id<${datamodel.name}>?,
             |    ${datamodel.attributes.joinToString(",\n|    ") { "val ${it.name}: ${it.type}" }} 
             |)
             |""".trimMargin()
@@ -192,7 +192,7 @@ class Service(private val fileGenerator: FileGenerator) {
     private fun generateControllerSource(datamodel: Datamodel): String {
         logger.info("generating controller object for $datamodel")
 
-        val type = datamodel.typeName
+        val type = datamodel.name
         return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "${datamodel.endpoint}") {
             |    override suspend fun list(call: ApplicationCall) = MongoDB.list${type}s()
             |    override suspend fun get(call: ApplicationCall, id: Id<$type>?) = if (id != null) MongoDB.get$type(id) else null
@@ -290,7 +290,7 @@ class Service(private val fileGenerator: FileGenerator) {
 
         // TODO database name
         // TODO delete filter
-        val typeName = datamodel.typeName
+        val typeName = datamodel.name
         val typePlural = """${typeName}s"""
         return """|    private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeName>("$typePlural")
                 |    fun list${typePlural.capitalize()}() = $typePlural.find().toList()
@@ -309,7 +309,7 @@ class Service(private val fileGenerator: FileGenerator) {
         }
 
         val routingCalls = configuration.endpoints().joinToString("\n") {
-            "        ${it.typeName}Controller.routes(this)"
+            "        ${it.name}Controller.routes(this)"
         }
 
         val ktorSource = """|package ${configuration.codeGeneration.packageName}

@@ -9,7 +9,6 @@ data class Configuration(
     val codeGeneration: CodeGeneration,
     val datamodel: List<Datamodel>
 ) {
-    // TODO test functions
     fun endpoints() = datamodel.filter { it.hasEndpoint() }
 }
 
@@ -26,7 +25,6 @@ data class CodeGeneration(
     val persistenceFramework: PersistenceFramework = KMongo,
     val applicationFramework: ApplicationFramework = Ktor
 ) {
-    // TODO test functions
     fun packagePath() = packageName.replace('.', '/')
 }
 
@@ -36,8 +34,6 @@ data class Datamodel(
     val endpoint: String?,
     val attributes: List<Attribute>
 ) {
-    // TODO test vals/functions
-    val typeName = name.capitalize()
     fun hasEndpoint() = endpoint != null
 }
 

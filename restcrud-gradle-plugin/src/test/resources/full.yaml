@@ -1,15 +1,16 @@
 packageName: "de.foo.bar"
 
 datamodel:
-  - name: "foo"
-    key: ["id"]
-    endpoint: "foos"
+  - name: "Foo"
+    endpoint: "/api/foos"
     attributes:
-      - "id Long"
+      - "key id Long"
       - "description String?"
-  - name: "bar"
-    key: ["id", "version"]
-    endpoint: "bars"
+  - name: "Bar"
+    endpoint: "/api/bars"
     attributes:
-      - "id Long"
-      - "version Long"
+      - "key id Long"
+      - "key version Long"
+  - name: Hidden
+    attributes:
+      - "name String"

@@ -1,9 +1,0 @@
-packageName: "de.foo.bar"
-
-datamodel:
-  - name: "foo"
-    key: ["id"]
-    endpoint: "foos"
-    attributes:
-      - "id Long"
-      - "id Long"
