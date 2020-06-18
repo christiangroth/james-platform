@@ -1,0 +1,17 @@
+version: 0
+jobs:
+- name: build
+  image: gradle:jdk11
+  commands:
+  - gradle build
+  retrieveSource: true
+  cpuRequirement: 250m
+  memoryRequirement: 128m
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  timeout: 3600
+  postBuildActions:
+  - !CreateTagAction
+    condition: successful
+    tagName: version/@build_version@-@build_number@
