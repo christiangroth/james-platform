@@ -1,6 +1,6 @@
 version: 0
 jobs:
-- name: build
+- name: build and test
   image: gradle:jdk11
   commands:
   - gradle build

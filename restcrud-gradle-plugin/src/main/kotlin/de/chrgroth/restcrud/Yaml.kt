@@ -7,7 +7,6 @@ import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.IOException
-import java.lang.IllegalArgumentException
 import java.util.regex.Pattern
 
 data class ConfigurationYaml(
@@ -17,96 +16,136 @@ data class ConfigurationYaml(
 
 data class DatamodelYaml(
     val name: String?,
-    // TODO need base api path??
     val endpoint: String?,
     val attributes: List<String?>?
 )
 
+sealed class ValidationResult<T> {
+    fun isSuccess() = errors().isEmpty() && result() != null
+
+    abstract fun result(): T?
+    abstract fun errors(): List<String>
+
+    data class Success<T>(val result: T) : ValidationResult<T>() {
+        override fun result() = result
+        override fun errors() = emptyList<String>()
+    }
+
+    data class Failure<T>(val errors: List<String>) : ValidationResult<T>() {
+        override fun result() = null
+        override fun errors() = errors
+    }
+}
+
+typealias ValidationResults<T> = List<ValidationResult<T>>
+private fun <T> ValidationResults<T>.collectResults() : List<T> = filterIsInstance<ValidationResult.Success<T>>().map { it.result }
+private fun <T> ValidationResults<T>.collectErrors() = filterIsInstance<ValidationResult.Failure<T>>().flatMap { it.errors }
+
 object YamlUtils {
     private val logger = LoggerFactory.getLogger(this::class.java)
+    private val objectMapper = ObjectMapper(YAMLFactory()).registerModule(KotlinModule())
 
-    // TODO add warnings?
-    data class ValidationResult<T>(val result: T, val errors: List<String>)
-
-    // TODO avoid usage of exceptions, return null!
-    fun load(definitionsFile: File): Configuration {
+    fun load(definitionsFile: File): Configuration? {
         val unverifiedConfiguration = parse(definitionsFile)
-        val validationResult = convert(unverifiedConfiguration)
-        if(validationResult.errors.isNotEmpty()) {
-            logger.error("Validating configuration failed:")
-            validationResult.errors.forEach { logger.error("- $it") }
-            throw IllegalArgumentException("Configuration is not valid, please see the errors in the log above!")
-        }
-        return validationResult.result
-    }
+            ?: return null
 
-    // TODO avoid usage of exceptions, return null!
-    private fun parse(definitionsFile: File): ConfigurationYaml {
-        logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
-        return if (definitionsFile.exists() && definitionsFile.canRead()) {
-            try {
-            val mapper = ObjectMapper(YAMLFactory())
-            mapper.registerModule(KotlinModule())
-            mapper.readValue(definitionsFile, ConfigurationYaml::class.java)
-            } catch(e: JsonProcessingException) {
-                throw IllegalStateException("Error parsing restcrud definitions!", e)
-            } catch(e: IOException) {
-                throw IllegalStateException("Error reading definitions file!", e)
+        return when (val validationResult = convert(unverifiedConfiguration)) {
+            is ValidationResult.Success -> validationResult.result
+            is ValidationResult.Failure -> {
+                logger.error("Validating configuration failed:")
+                validationResult.errors.forEach { logger.error("- $it") }
+                null
             }
-        } else {
-            throw IllegalStateException("File ${definitionsFile.absolutePath} does not exist or is not readable!")
         }
     }
 
+    private fun parse(definitionsFile: File): ConfigurationYaml? {
+        logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
+        if (!definitionsFile.exists() || !definitionsFile.canRead()) {
+            logger.error("File ${definitionsFile.absolutePath} does not exist or is not readable!")
+            return null
+        }
+
+        return try {
+            objectMapper.readValue(definitionsFile, ConfigurationYaml::class.java)
+        } catch (e: JsonProcessingException) {
+            logger.error("Error parsing restcrud definitions!", e)
+            null
+        } catch (e: IOException) {
+            logger.error("Error reading definitions file!", e)
+            null
+        }
+    }
+
+    // TODO not sure why I need the explicit type parameters (gradle build will fail, intellij still is green)
     private fun convert(input: ConfigurationYaml): ValidationResult<Configuration> {
         val codeGenerationResult = convertCodeGeneration(input)
-        val datamodelResult = convertDatamodel(input)
+        val codeGenerationResultErrors = codeGenerationResult.errors()
+
+        val datamodelYaml = input.datamodel
+        val datamodelYamlErrors = if(datamodelYaml == null) listOf("No datamodel defined") else emptyList<String>()
+        val datamodelResult = if(datamodelYaml != null) convertDatamodel(datamodelYaml) else emptyList<ValidationResult<Datamodel>>()
+        val datamodelResultErrors = datamodelResult.collectErrors()
+
         // TODO validate duplicate datamodels
-        val allErrors = codeGenerationResult.errors.plus(datamodelResult.flatMap { it.errors })
-        return ValidationResult(Configuration(codeGenerationResult.result, datamodelResult.map { it.result }), allErrors)
+
+        val allErrors = codeGenerationResultErrors.plus(datamodelYamlErrors).plus(datamodelResultErrors)
+        return if (allErrors.isEmpty()) {
+            ValidationResult.Success(
+                Configuration(
+                    (codeGenerationResult as ValidationResult.Success<CodeGeneration>).result,
+                    datamodelResult.collectResults()
+                )
+            )
+        } else {
+            ValidationResult.Failure(allErrors)
+        }
     }
 
     private val packageNamePattern = Pattern.compile("[a-z]+([.][a-z]+)*")
     fun convertCodeGeneration(input: ConfigurationYaml): ValidationResult<CodeGeneration> {
         val packageName = input.packageName?.trim() ?: ""
-        val errors = packageNamePattern.validate(packageName,
-            "Code generation package name '$packageName' must match pattern: $packageNamePattern")
-        return ValidationResult(CodeGeneration(packageName), errors)
+        return if (packageNamePattern.validate(packageName)) {
+            ValidationResult.Success(CodeGeneration(packageName))
+        } else {
+            ValidationResult.Failure(listOf("Code generation package name '$packageName' must match pattern: $packageNamePattern"))
+        }
     }
 
     private val datamodelNamePattern = Pattern.compile("[A-Z][a-zA-Z]*")
     private val datamodelEndpointPattern = Pattern.compile("[/][a-zA-Z]+([/][a-zA-Z]+)*")
-    fun convertDatamodel(input: ConfigurationYaml): List<ValidationResult<Datamodel>> {
-        if(input.datamodel == null) {
-            return listOf(
-                ValidationResult(
-                    Datamodel(name = "", endpoint = null, attributes = emptyList()),
-                    listOf("No datamodel defined")
-                )
-            )
+    fun convertDatamodel(input: List<DatamodelYaml?>) =
+        input.map {
+            if (it == null) {
+                ValidationResult.Failure(listOf("Found null/empty datamodel"))
+            } else {
+                convertDatamodel(it)
+            }
         }
 
-        return input.datamodel.map {
-            if(it == null) {
-                ValidationResult(
-                    Datamodel(name = "", endpoint = null, attributes = emptyList()),
-                    listOf("Found null/empty datamodel")
-                )
-            } else {
-                val name = it.name?.trim() ?: ""
-                val nameErrors = datamodelNamePattern.validate(name,
-                    "Datamodel name '$name' must match pattern: $datamodelNamePattern")
+    // TODO not sure why I need the explicit type parameters (gradle build will fail, intellij still is green)
+    private fun convertDatamodel(input: DatamodelYaml): ValidationResult<Datamodel> {
+        val name = input.name?.trim() ?: ""
+        val nameErrors = if (!datamodelNamePattern.validate(name)) {
+            listOf("Datamodel name '$name' must match pattern: $datamodelNamePattern")
+        } else emptyList<String>()
 
-                val endpoint = it.endpoint?.trim()
-                val processedEndpoint = endpoint?.addLeadingSlash()?.deduplicateSlashes()?.removeTrailingSlash()
-                val endpointErrors = datamodelEndpointPattern.validate(processedEndpoint,
-                    "Datamodel endpoint '$endpoint' (processed to '$processedEndpoint') must match pattern: $datamodelEndpointPattern")
+        val processedEndpoint = input.endpoint?.trim()?.addLeadingSlash()?.deduplicateSlashes()?.removeTrailingSlash()
+        val endpointErrors = if (!datamodelEndpointPattern.validate(processedEndpoint)) {
+            listOf("Datamodel endpoint '${input.endpoint}' (processed to '$processedEndpoint') must match pattern: $datamodelEndpointPattern")
+        } else emptyList<String>()
 
-                val attributesResult = convertAttributes(it)
-                // TODO validate duplicate attributes
-                val allErrors = nameErrors.plus(endpointErrors).plus(attributesResult.flatMap { result -> result.errors })
-                ValidationResult(Datamodel(name, processedEndpoint, attributesResult.map { attribute -> attribute.result }), allErrors)
-            }
+        val attributesResult = if(input.attributes != null) convertAttributes(input.name ?: "", input.attributes) else emptyList<ValidationResult<Attribute>>()
+        val attributeErrors = if(input.attributes == null) listOf("${input.name}: No attributes defined") else attributesResult.collectErrors()
+        val attributes = attributesResult.collectResults()
+
+        // TODO validate duplicate attributes
+
+        val allErrors = nameErrors.plus(endpointErrors).plus(attributeErrors)
+        return if (allErrors.isEmpty()) {
+            ValidationResult.Success(Datamodel(name, processedEndpoint, attributes))
+        } else {
+            ValidationResult.Failure(allErrors)
         }
     }
 
@@ -116,75 +155,50 @@ object YamlUtils {
 
     private const val ATTRIBUTE_KEY = "key"
     private val datamodelAttributeNameAndTypePattern = Pattern.compile("[a-zA-Z]+")
-    fun convertAttributes(input: DatamodelYaml): List<ValidationResult<Attribute>> {
-        if(input.attributes == null) {
-            return listOf(
-                ValidationResult(
-                    Attribute(name = "", type = "", key = false, optional = false),
-                    listOf("${input.name}: No attributes defined")
-                )
-            )
+    fun convertAttributes(typeName: String, input: List<String?>) =
+        input.map {
+            if (it == null) {
+                ValidationResult.Failure(listOf("$typeName: Found null/empty attribute"))
+            } else {
+                convertAttribute(typeName, it)
+            }
         }
 
-        return input.attributes.map {
-            if(it == null) {
-                ValidationResult(
-                    Attribute(name = "", type = "", key = false, optional = false),
-                    listOf("${input.name}: Found null/empty attribute")
-                )
-            } else {
-                val attribute = it.trim()
-                val parts = attribute.split(" ")
-                if(parts.size !in 2..3) {
-                    return@map ValidationResult(
-                        Attribute(name = "", type = "", key = false, optional = false),
-                        listOf("${input.name}: Attribute '$attribute' does not match pattern: [$ATTRIBUTE_KEY] name type[?]")
-                    )
-                }
+    private fun convertAttribute(typeName: String, input: String): ValidationResult<Attribute> {
+        val attribute = input.trim()
+        val parts = attribute.split(" ")
+        if (parts.size !in 2..3) {
+            return ValidationResult.Failure(listOf("$typeName: Attribute '$attribute' does not match pattern: [$ATTRIBUTE_KEY] name type[?]"))
+        }
 
-                val threeParts = parts.size == 3
-                val key = threeParts && ATTRIBUTE_KEY == parts[0]
-                if(threeParts && !key) {
-                    return@map ValidationResult(
-                        Attribute(name = "", type = "", key = false, optional = false),
-                        listOf("${input.name}: When attribute consists of three parts, first part must be '$ATTRIBUTE_KEY': $attribute")
-                    )
-                }
+        val threeParts = parts.size == 3
+        val key = threeParts && ATTRIBUTE_KEY == parts[0]
+        if (threeParts && !key) {
+            return ValidationResult.Failure(listOf("$typeName: When attribute consists of three parts, first part must be '$ATTRIBUTE_KEY': $attribute"))
+        }
 
-                val nameAndTypeOffset = if(threeParts) 1 else 0
-                val name = parts[0 + nameAndTypeOffset].trim()
-                val nameErrors = datamodelAttributeNameAndTypePattern.validate(name,
-                    "${input.name}: Attribute name '$name' must match pattern: $datamodelAttributeNameAndTypePattern")
+        val nameAndTypeOffset = if (threeParts) 1 else 0
+        val name = parts[0 + nameAndTypeOffset].trim()
+        if (!datamodelAttributeNameAndTypePattern.validate(name)) {
+            return ValidationResult.Failure(listOf("$typeName: Attribute name '$name' must match pattern: $datamodelAttributeNameAndTypePattern"))
+        }
 
-                // TODO validate only one of kotlin basic types or other datamodels only??!?
-                val type = parts[1 + nameAndTypeOffset].trim()
-                val optional = type.endsWith('?')
-                val cleanedType = type.trimEnd('?')
-                val typeErrors = datamodelNamePattern.validate(cleanedType,
-                    "${input.name}: Attribute type '$cleanedType' must match pattern: $datamodelNamePattern")
+        // TODO validate only one of kotlin basic types or other datamodels only??!?
+        val type = parts[1 + nameAndTypeOffset].trim()
+        val optional = type.endsWith('?')
+        val cleanedType = type.trimEnd('?')
+        if (!datamodelNamePattern.validate(cleanedType)) {
+            return ValidationResult.Failure(listOf("$typeName: Attribute type '$cleanedType' must match pattern: $datamodelNamePattern"))
+        }
 
-                // TODO validate combination of key and type
+        // TODO validate combination of key and type
 
-                val keyOptionalCombinationErrors = if(key && optional) {
-                    listOf("${input.name}: Key attribute '$name' must not be optional")
-                } else {
-                    emptyList()
-                }
-
-                ValidationResult(
-                    Attribute(name, cleanedType, key, optional),
-                    nameErrors.plus(typeErrors).plus(keyOptionalCombinationErrors)
-                )
-            }
+        return if (key && optional) {
+            ValidationResult.Failure(listOf("$typeName: Key attribute '$name' must not be optional"))
+        } else {
+            ValidationResult.Success(Attribute(name, cleanedType, key, optional))
         }
     }
 
-    private fun Pattern.validate(input: String?, error: String) =
-        when {
-            input == null -> emptyList()
-            matcher(input).matches() -> emptyList()
-            else -> listOf(error)
-        }
-
-    // TODO private fun to combine multiple error lists / strings
+    private fun Pattern.validate(input: String?) = input == null || matcher(input).matches()
 }
