@@ -4,6 +4,8 @@ jobs:
   image: gradle:jdk11
   commands:
   - gradle build
+  triggers:
+  - !BranchUpdateTrigger {}
   retrieveSource: true
   cpuRequirement: 250m
   memoryRequirement: 128m
