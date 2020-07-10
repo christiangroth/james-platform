@@ -10,81 +10,73 @@ import java.io.IOException
 import java.util.regex.Pattern
 
 data class ConfigurationYaml(
-    val packageName: String?,
-    val datamodel: List<DatamodelYaml?>?
+        val packageName: String?,
+        val datamodel: List<DatamodelYaml?>?
 )
 
 data class DatamodelYaml(
-    val name: String?,
-    val endpoint: String?,
-    val attributes: List<String?>?
+        val name: String?,
+        val endpoint: String?,
+        val attributes: List<String?>?
 )
 
 sealed class ValidationResult<T> {
-    fun isSuccess() = errors().isEmpty() && result() != null
+    fun isSuccess() = this is Success<*>
 
-    abstract fun result(): T?
-    abstract fun errors(): List<String>
-
-    data class Success<T>(val result: T) : ValidationResult<T>() {
-        override fun result() = result
-        override fun errors() = emptyList<String>()
-    }
-
-    data class Failure<T>(val errors: List<String>) : ValidationResult<T>() {
-        override fun result() = null
-        override fun errors() = errors
-    }
+    data class Success<T>(val result: T) : ValidationResult<T>()
+    data class Failure<T>(val errors: List<String>) : ValidationResult<T>()
 }
 
 typealias ValidationResults<T> = List<ValidationResult<T>>
-private fun <T> ValidationResults<T>.collectResults() : List<T> = filterIsInstance<ValidationResult.Success<T>>().map { it.result }
+
+private fun <T> ValidationResults<T>.collectResults(): List<T> = filterIsInstance<ValidationResult.Success<T>>().map { it.result }
 private fun <T> ValidationResults<T>.collectErrors() = filterIsInstance<ValidationResult.Failure<T>>().flatMap { it.errors }
 
 object YamlUtils {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val objectMapper = ObjectMapper(YAMLFactory()).registerModule(KotlinModule())
 
-    fun load(definitionsFile: File): Configuration? {
+    fun load(definitionsFile: File): Configuration {
         val unverifiedConfiguration = parse(definitionsFile)
-            ?: return null
 
         return when (val validationResult = convert(unverifiedConfiguration)) {
             is ValidationResult.Success -> validationResult.result
             is ValidationResult.Failure -> {
                 logger.error("Validating configuration failed:")
                 validationResult.errors.forEach { logger.error("- $it") }
-                null
+                throw IllegalStateException("Validating configuration failed!")
             }
         }
     }
 
-    private fun parse(definitionsFile: File): ConfigurationYaml? {
+    private fun parse(definitionsFile: File): ConfigurationYaml {
         logger.info("Trying to load definitions file from ${definitionsFile.absolutePath}...")
         if (!definitionsFile.exists() || !definitionsFile.canRead()) {
             logger.error("File ${definitionsFile.absolutePath} does not exist or is not readable!")
-            return null
+            throw IllegalStateException("File ${definitionsFile.absolutePath} does not exist or is not readable!")
         }
 
         return try {
             objectMapper.readValue(definitionsFile, ConfigurationYaml::class.java)
         } catch (e: JsonProcessingException) {
             logger.error("Error parsing restcrud definitions!", e)
-            null
+            throw IllegalStateException("Error parsing restcrud definitions!", e)
         } catch (e: IOException) {
             logger.error("Error reading definitions file!", e)
-            null
+            throw IllegalStateException("Error reading definitions file!", e)
         }
     }
 
     // TODO not sure why I need the explicit type parameters (gradle build will fail, intellij still is green)
     private fun convert(input: ConfigurationYaml): ValidationResult<Configuration> {
         val codeGenerationResult = convertCodeGeneration(input)
-        val codeGenerationResultErrors = codeGenerationResult.errors()
+        val codeGenerationResultErrors =
+                if (codeGenerationResult.isSuccess()) emptyList()
+                else (codeGenerationResult as ValidationResult.Failure).errors
 
         val datamodelYaml = input.datamodel
-        val datamodelYamlErrors = if(datamodelYaml == null) listOf("No datamodel defined") else emptyList<String>()
-        val datamodelResult = if(datamodelYaml != null) convertDatamodel(datamodelYaml) else emptyList<ValidationResult<Datamodel>>()
+        val datamodelYamlErrors = if (datamodelYaml == null) listOf("No datamodel defined") else emptyList<String>()
+        val datamodelResult = if (datamodelYaml != null) convertDatamodel(datamodelYaml) else emptyList<ValidationResult<Datamodel>>()
         val datamodelResultErrors = datamodelResult.collectErrors()
 
         // TODO validate duplicate datamodels
@@ -92,10 +84,10 @@ object YamlUtils {
         val allErrors = codeGenerationResultErrors.plus(datamodelYamlErrors).plus(datamodelResultErrors)
         return if (allErrors.isEmpty()) {
             ValidationResult.Success(
-                Configuration(
-                    (codeGenerationResult as ValidationResult.Success<CodeGeneration>).result,
-                    datamodelResult.collectResults()
-                )
+                    Configuration(
+                            (codeGenerationResult as ValidationResult.Success<CodeGeneration>).result,
+                            datamodelResult.collectResults()
+                    )
             )
         } else {
             ValidationResult.Failure(allErrors)
@@ -115,13 +107,13 @@ object YamlUtils {
     private val datamodelNamePattern = Pattern.compile("[A-Z][a-zA-Z]*")
     private val datamodelEndpointPattern = Pattern.compile("[/][a-zA-Z]+([/][a-zA-Z]+)*")
     fun convertDatamodel(input: List<DatamodelYaml?>) =
-        input.map {
-            if (it == null) {
-                ValidationResult.Failure(listOf("Found null/empty datamodel"))
-            } else {
-                convertDatamodel(it)
+            input.map {
+                if (it == null) {
+                    ValidationResult.Failure(listOf("Found null/empty datamodel"))
+                } else {
+                    convertDatamodel(it)
+                }
             }
-        }
 
     // TODO not sure why I need the explicit type parameters (gradle build will fail, intellij still is green)
     private fun convertDatamodel(input: DatamodelYaml): ValidationResult<Datamodel> {
@@ -135,8 +127,9 @@ object YamlUtils {
             listOf("Datamodel endpoint '${input.endpoint}' (processed to '$processedEndpoint') must match pattern: $datamodelEndpointPattern")
         } else emptyList<String>()
 
-        val attributesResult = if(input.attributes != null) convertAttributes(input.name ?: "", input.attributes) else emptyList<ValidationResult<Attribute>>()
-        val attributeErrors = if(input.attributes == null) listOf("${input.name}: No attributes defined") else attributesResult.collectErrors()
+        val attributesResult = if (input.attributes != null) convertAttributes(input.name
+                ?: "", input.attributes) else emptyList<ValidationResult<Attribute>>()
+        val attributeErrors = if (input.attributes == null) listOf("${input.name}: No attributes defined") else attributesResult.collectErrors()
         val attributes = attributesResult.collectResults()
 
         // TODO validate duplicate attributes
@@ -156,13 +149,13 @@ object YamlUtils {
     private const val ATTRIBUTE_KEY = "key"
     private val datamodelAttributeNameAndTypePattern = Pattern.compile("[a-zA-Z]+")
     fun convertAttributes(typeName: String, input: List<String?>) =
-        input.map {
-            if (it == null) {
-                ValidationResult.Failure(listOf("$typeName: Found null/empty attribute"))
-            } else {
-                convertAttribute(typeName, it)
+            input.map {
+                if (it == null) {
+                    ValidationResult.Failure(listOf("$typeName: Found null/empty attribute"))
+                } else {
+                    convertAttribute(typeName, it)
+                }
             }
-        }
 
     private fun convertAttribute(typeName: String, input: String): ValidationResult<Attribute> {
         val attribute = input.trim()

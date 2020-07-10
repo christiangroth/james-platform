@@ -59,10 +59,6 @@ class GradlePlugin : Plugin<Project> {
         @TaskAction
         fun start() {
             val configuration = YamlUtils.load(definitionsFile)
-            if(configuration == null) {
-                throw java.lang.IllegalStateException("Unable to load configuration!!")
-            }
-
             service.generateModels(configuration)
             service.generateControllers(configuration)
             service.generatePersistence(configuration)
