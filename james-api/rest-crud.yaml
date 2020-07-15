@@ -1,6 +1,6 @@
 packageName: "de.chrgroth.james.api.restcrud"
 
-datamodel:
+model:
   - name: "app"
     key: ["id"]
     endpoint: "apps/"

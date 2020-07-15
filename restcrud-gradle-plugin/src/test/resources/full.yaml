@@ -1,6 +1,6 @@
 packageName: "de.foo.bar"
 
-datamodel:
+model:
   - name: "Foo"
     endpoint: "/api/foos"
     attributes:

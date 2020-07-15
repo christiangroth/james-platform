@@ -6,9 +6,6 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.IllegalStateException
 
-// TODO test no datamodel at all
-// TODO test no attributes at all
-
 fun <T> ValidationResult<T>.expectSuccess(): Success<T> {
     assertTrue(this is Success<T>)
     return this as Success<T>
@@ -32,32 +29,32 @@ class YamlParsingTests {
     fun fullModel() {
         val parseResult = YamlUtils.load(File("src/test/resources/full.yaml"))
         assertEquals("de.foo.bar", parseResult.codeGeneration.packageName)
-        assertEquals("de/foo/bar", parseResult.codeGeneration.packagePath())
+        assertEquals("de/foo/bar", parseResult.codeGeneration.packagePath)
         assertEquals(ApplicationFramework.Ktor, parseResult.codeGeneration.applicationFramework)
         assertEquals(PersistenceFramework.KMongo, parseResult.codeGeneration.persistenceFramework)
-        assertEquals(3, parseResult.datamodel.size)
-        assertEquals("Foo", parseResult.datamodel[0].name)
-        assertEquals("/api/foos", parseResult.datamodel[0].endpoint)
-        assertEquals(2, parseResult.datamodel[0].attributes.size)
-        assertEquals("id", parseResult.datamodel[0].attributes[0].name)
-        assertEquals("Long", parseResult.datamodel[0].attributes[0].type)
-        assertEquals(true, parseResult.datamodel[0].attributes[0].key)
-        assertEquals(false, parseResult.datamodel[0].attributes[0].optional)
-        assertEquals("description", parseResult.datamodel[0].attributes[1].name)
-        assertEquals("String", parseResult.datamodel[0].attributes[1].type)
-        assertEquals(false, parseResult.datamodel[0].attributes[1].key)
-        assertEquals(true, parseResult.datamodel[0].attributes[1].optional)
-        assertEquals("Bar", parseResult.datamodel[1].name)
-        assertEquals("/api/bars", parseResult.datamodel[1].endpoint)
-        assertEquals(2, parseResult.datamodel[1].attributes.size)
-        assertEquals("id", parseResult.datamodel[1].attributes[0].name)
-        assertEquals("Long", parseResult.datamodel[1].attributes[0].type)
-        assertEquals(true, parseResult.datamodel[1].attributes[0].key)
-        assertEquals(false, parseResult.datamodel[1].attributes[0].optional)
-        assertEquals("version", parseResult.datamodel[1].attributes[1].name)
-        assertEquals("Long", parseResult.datamodel[1].attributes[1].type)
-        assertEquals(true, parseResult.datamodel[1].attributes[1].key)
-        assertEquals(false, parseResult.datamodel[1].attributes[1].optional)
+        assertEquals(3, parseResult.model.size)
+        assertEquals("Foo", parseResult.model[0].name)
+        assertEquals("/api/foos", parseResult.model[0].endpoint)
+        assertEquals(2, parseResult.model[0].attributes.size)
+        assertEquals("id", parseResult.model[0].attributes[0].name)
+        assertEquals("Long", parseResult.model[0].attributes[0].type)
+        assertEquals(true, parseResult.model[0].attributes[0].key)
+        assertEquals(false, parseResult.model[0].attributes[0].optional)
+        assertEquals("description", parseResult.model[0].attributes[1].name)
+        assertEquals("String", parseResult.model[0].attributes[1].type)
+        assertEquals(false, parseResult.model[0].attributes[1].key)
+        assertEquals(true, parseResult.model[0].attributes[1].optional)
+        assertEquals("Bar", parseResult.model[1].name)
+        assertEquals("/api/bars", parseResult.model[1].endpoint)
+        assertEquals(2, parseResult.model[1].attributes.size)
+        assertEquals("id", parseResult.model[1].attributes[0].name)
+        assertEquals("Long", parseResult.model[1].attributes[0].type)
+        assertEquals(true, parseResult.model[1].attributes[0].key)
+        assertEquals(false, parseResult.model[1].attributes[0].optional)
+        assertEquals("version", parseResult.model[1].attributes[1].name)
+        assertEquals("Long", parseResult.model[1].attributes[1].type)
+        assertEquals(true, parseResult.model[1].attributes[1].key)
+        assertEquals(false, parseResult.model[1].attributes[1].optional)
         assertEquals(2, parseResult.endpoints().size)
         assertEquals("Foo", parseResult.endpoints()[0].name)
         assertEquals("Bar", parseResult.endpoints()[1].name)
@@ -93,35 +90,47 @@ class CodeGenerationValidationTests {
     }
 }
 
-class DatamodelValidationTests {
+class ModelValidationTests {
 
-    private fun convert(datamodel: DatamodelYaml?) = convert(listOf(datamodel))[0]
-    private fun convert(datamodel: List<DatamodelYaml?>) = YamlUtils.convertDatamodel(datamodel)
+    private fun convert(model: ModelYaml?) = convert(listOf(model))[0]
+    private fun convert(model: List<ModelYaml?>) = YamlUtils.convertModel(model)
 
     @Test
-    fun nullDatamodel() {
-        val result = convert(null as DatamodelYaml?).expectFailure()
-        assertEquals(listOf("Found null/empty datamodel"), result.errors)
+    fun nullModelList() {
+        val result = YamlUtils.convert(ConfigurationYaml("foo.bar", null)).expectFailure()
+        assertEquals(listOf("No model defined"), result.errors)
+    }
+
+    @Test
+    fun emptyModelList() {
+        val result = YamlUtils.convert(ConfigurationYaml("foo.bar", emptyList())).expectFailure()
+        assertEquals(listOf("No model defined"), result.errors)
+    }
+
+    @Test
+    fun nullModel() {
+        val result = convert(null as ModelYaml?).expectFailure()
+        assertEquals(listOf("Found null/empty model"), result.errors)
     }
 
     @Test
     fun noName() {
-        val result = convert(DatamodelYaml(null, "/foos", listOf("id Long"))).expectFailure()
-        assertEquals(listOf("Datamodel name '' must match pattern: [A-Z][a-zA-Z]*"), result.errors)
+        val result = convert(ModelYaml(null, "/foos", listOf("id Long"))).expectFailure()
+        assertEquals(listOf("Model name '' must match pattern: [A-Z][a-zA-Z]*"), result.errors)
     }
 
     @Test
     fun emptyName() {
-        val result = convert(DatamodelYaml("  ", "/foos", listOf("id Long"))).expectFailure()
-        assertEquals(listOf("Datamodel name '' must match pattern: [A-Z][a-zA-Z]*"), result.errors)
+        val result = convert(ModelYaml("  ", "/foos", listOf("id Long"))).expectFailure()
+        assertEquals(listOf("Model name '' must match pattern: [A-Z][a-zA-Z]*"), result.errors)
     }
 
     @Test
     fun invalidName() {
         listOf("Foo123", "Foo Bar", "foo").forEach { invalidName ->
-            val result = convert(DatamodelYaml(invalidName, "/foos", listOf("id Long"))).expectFailure()
+            val result = convert(ModelYaml(invalidName, "/foos", listOf("id Long"))).expectFailure()
             assertEquals(
-                listOf("Datamodel name '$invalidName' must match pattern: [A-Z][a-zA-Z]*"),
+                listOf("Model name '$invalidName' must match pattern: [A-Z][a-zA-Z]*"),
                 result.errors
             )
         }
@@ -129,57 +138,69 @@ class DatamodelValidationTests {
 
     @Test
     fun noEndpoint() {
-        val result = convert(DatamodelYaml("Foo", null, listOf("id Long"))).expectSuccess()
+        convert(ModelYaml("Foo", null, listOf("id Long"))).expectSuccess()
     }
 
     @Test
     fun emptyEndpoint() {
-        val result = convert(DatamodelYaml("Foo", "", listOf("id Long"))).expectFailure()
-        assertEquals(listOf("Datamodel endpoint '' (processed to '') must match pattern: [/][a-zA-Z]+([/][a-zA-Z]+)*"), result.errors)
+        val result = convert(ModelYaml("Foo", "", listOf("id Long"))).expectFailure()
+        assertEquals(listOf("Model endpoint '' (processed to '') must match pattern: [/][a-zA-Z]+([/][a-zA-Z]+)*"), result.errors)
     }
 
     @Test
     fun missingLeadingSlashIsAdded() {
-        val result = convert(DatamodelYaml("Foo", "api/foos", listOf("id Long"))).expectSuccess()
+        val result = convert(ModelYaml("Foo", "api/foos", listOf("id Long"))).expectSuccess()
         assertEquals("/api/foos", result.result.endpoint)
     }
 
     @Test
     fun leadingDoubleSlashesAreCorrected() {
-        val result = convert(DatamodelYaml("Foo", "//api/foos/", listOf("id Long"))).expectSuccess()
+        val result = convert(ModelYaml("Foo", "//api/foos/", listOf("id Long"))).expectSuccess()
         assertEquals("/api/foos", result.result.endpoint)
     }
 
     @Test
     fun doubleSlashesInBetweenAreCorrected() {
-        val result = convert(DatamodelYaml("Foo", "/api//foos/", listOf("id Long"))).expectSuccess()
+        val result = convert(ModelYaml("Foo", "/api//foos/", listOf("id Long"))).expectSuccess()
         assertEquals("/api/foos", result.result.endpoint)
     }
 
     @Test
     fun trailingDoubleSlashesAreCorrected() {
-        val result = convert(DatamodelYaml("Foo", "/api/foos//", listOf("id Long"))).expectSuccess()
+        val result = convert(ModelYaml("Foo", "/api/foos//", listOf("id Long"))).expectSuccess()
         assertEquals("/api/foos", result.result.endpoint)
     }
 
     @Test
     fun trailingSlashIsRemoved() {
-        val result = convert(DatamodelYaml("Foo", "/api/foos/", listOf("id Long"))).expectSuccess()
+        val result = convert(ModelYaml("Foo", "/api/foos/", listOf("id Long"))).expectSuccess()
         assertEquals("/api/foos", result.result.endpoint)
     }
 
     @Test
     fun valid() {
-        val result = convert(DatamodelYaml("Foo", "/api/foos", listOf("id Long"))).expectSuccess()
+        val result = convert(ModelYaml("Foo", "/api/foos", listOf("id Long"))).expectSuccess()
         assertEquals("Foo", result.result.name)
         assertEquals("/api/foos", result.result.endpoint)
     }
 }
 
-class DatamodelAttributeValidationTests {
+class ModelAttributeValidationTests {
 
     private fun convert(attribute: String?) = convert(listOf(attribute))[0]
     private fun convert(attributes: List<String?>) = YamlUtils.convertAttributes("Type", attributes)
+
+    @Test
+    fun nullAttributes() {
+        val result = YamlUtils.convertModel(ModelYaml("Foo", "/api/foos", null)).expectFailure()
+        assertEquals(listOf("Foo: No attributes defined"), result.errors)
+    }
+
+    @Test
+    fun emptylAttributes() {
+        val result = YamlUtils.convertModel(ModelYaml("Foo", "/api/foos", listOf())).expectFailure()
+        assertEquals(listOf("Foo: No attributes defined"), result.errors)
+    }
 
     @Test
     fun nullAttribute() {

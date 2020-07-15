@@ -9,31 +9,31 @@ class Service(private val fileGenerator: FileGenerator) {
     private val logger = LoggerFactory.getLogger(Service::class.java)
 
     fun generateModels(configuration: Configuration) {
-        logger.info("generating datamodel...")
+        logger.info("generating model...")
 
-        if (configuration.datamodel.isEmpty()) {
-            logger.warn("No datamodel defined, skipping!")
+        if (configuration.model.isEmpty()) {
+            logger.warn("No model defined, skipping!")
             return
         }
 
-        val dataClassesSource = configuration.datamodel.joinToString("\n") { generateModelSource(it) }
+        val dataClassesSource = configuration.model.joinToString("\n") { generateModelSource(it) }
 
         val importsDefinition = "import org.litote.kmongo.Id"
         val modelsSource = "package ${configuration.codeGeneration.packageName}\n\n$importsDefinition\n\n$dataClassesSource"
-        fileGenerator.generateFile(configuration.codeGeneration.packagePath(), "Models.kt", modelsSource)
+        fileGenerator.generateFile(configuration.codeGeneration.packagePath, "Models.kt", modelsSource)
     }
 
-    private fun generateModelSource(datamodel: Datamodel): String {
-        logger.info("generating data class for $datamodel")
+    private fun generateModelSource(model: Model): String {
+        logger.info("generating data class for $model")
 
-        if (datamodel.attributes.isEmpty()) {
-            logger.error("Type ${datamodel.name} has no defined attributes, skipping!")
+        if (model.attributes.isEmpty()) {
+            logger.error("Type ${model.name} has no defined attributes, skipping!")
             return ""
         }
 
-        return """|data class ${datamodel.name}(
-            |    val _id: Id<${datamodel.name}>?,
-            |    ${datamodel.attributes.joinToString(",\n|    ") { "val ${it.name}: ${it.type}" }} 
+        return """|data class ${model.name}(
+            |    val _id: Id<${model.name}>?,
+            |    ${model.attributes.joinToString(",\n|    ") { "val ${it.name}: ${it.type}" }} 
             |)
             |""".trimMargin()
     }
@@ -186,14 +186,14 @@ class Service(private val fileGenerator: FileGenerator) {
             """.trimMargin()
 
         val modelsSource = "package ${configuration.codeGeneration.packageName}\n\n$importDefinitions\n\n$controllersSource\n$genericSource"
-        fileGenerator.generateFile(configuration.codeGeneration.packagePath(), "Controllers.kt", modelsSource)
+        fileGenerator.generateFile(configuration.codeGeneration.packagePath, "Controllers.kt", modelsSource)
     }
 
-    private fun generateControllerSource(datamodel: Datamodel): String {
-        logger.info("generating controller object for $datamodel")
+    private fun generateControllerSource(model: Model): String {
+        logger.info("generating controller object for $model")
 
-        val type = datamodel.name
-        return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "${datamodel.endpoint}") {
+        val type = model.name
+        return """|object ${type}Controller: GenericCrudController<$type, Id<$type>>($type::class, "${model.endpoint}") {
             |    override suspend fun list(call: ApplicationCall) = MongoDB.list${type}s()
             |    override suspend fun get(call: ApplicationCall, id: Id<$type>?) = if (id != null) MongoDB.get$type(id) else null
             |    override suspend fun getId(item: $type) = item._id
@@ -282,15 +282,15 @@ class Service(private val fileGenerator: FileGenerator) {
                 |    }
                 |}
                 |""".trimMargin()
-        fileGenerator.generateFile(configuration.codeGeneration.packagePath(), "Persistence.kt", persistenceSource)
+        fileGenerator.generateFile(configuration.codeGeneration.packagePath, "Persistence.kt", persistenceSource)
     }
 
-    private fun generatePersistenceFunctionsSource(datamodel: Datamodel): String {
-        logger.info("generating KMongo functions for $datamodel")
+    private fun generatePersistenceFunctionsSource(model: Model): String {
+        logger.info("generating KMongo functions for $model")
 
         // TODO database name
         // TODO delete filter
-        val typeName = datamodel.name
+        val typeName = model.name
         val typePlural = """${typeName}s"""
         return """|    private val $typePlural = mongoClient.getDatabase("james-api").getCollection<$typeName>("$typePlural")
                 |    fun list${typePlural.capitalize()}() = $typePlural.find().toList()
@@ -404,7 +404,7 @@ class Service(private val fileGenerator: FileGenerator) {
                 |}
                 |""".trimMargin()
 
-        val folderPath = configuration.codeGeneration.packagePath()
+        val folderPath = configuration.codeGeneration.packagePath
         fileGenerator.generateFile(folderPath, "Ktor.kt", ktorSource)
     }
 }
