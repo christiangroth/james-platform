@@ -5,7 +5,11 @@ import org.slf4j.LoggerFactory
 // TODO refactor, namings, tests
 // TODO generating Ktor application makes it hard to add a custom controller etc. I maybe need a concept for that!
 
-class Service(private val fileGenerator: FileGenerator) {
+// TODO use values for application and persistence framework
+class Service(private val application: ApplicationFramework,
+              private val persistence: PersistenceFramework,
+              private val fileGenerator: FileGenerator) {
+
     private val logger = LoggerFactory.getLogger(Service::class.java)
 
     fun generateModels(configuration: Configuration) {

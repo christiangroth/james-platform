@@ -13,7 +13,7 @@ gradlePlugin {
     plugins {
         create("restcrud") {
             id = "de.chrgroth.gradle.restcrud"
-            implementationClass = "de.chrgroth.restcrud.GradlePlugin"
+            implementationClass = "de.chrgroth.restcrud.RestcrudPlugin"
         }
     }
 }
@@ -27,6 +27,8 @@ dependencies {
 
 //    implementation("com.squareup:kotlinpoet:1.4.4")
 
+    // TODO switch asserts from junit to assertj
+    testImplementation("org.assertj:assertj-core:3.12.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.6.2")
     testImplementation(gradleTestKit())
 }

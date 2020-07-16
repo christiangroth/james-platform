@@ -1,7 +1,5 @@
 package de.chrgroth.restcrud
 
-import de.chrgroth.restcrud.ApplicationFramework.*
-import de.chrgroth.restcrud.PersistenceFramework.*
 import java.util.regex.Pattern
 
 data class Configuration(
@@ -9,14 +7,6 @@ data class Configuration(
     val model: List<Model>
 ) {
     fun endpoints() = model.filter { it.hasEndpoint() }
-}
-
-sealed class PersistenceFramework {
-    object KMongo: PersistenceFramework()
-}
-
-sealed class ApplicationFramework {
-    object Ktor: ApplicationFramework()
 }
 
 val packageNamePattern = Pattern.compile("[a-z]+([.][a-z]+)*").toRegex()
@@ -27,9 +17,7 @@ data class PackageName(val value: String) {
 }
 
 data class CodeGeneration(
-    private val packageNameWrapper: PackageName,
-    val persistenceFramework: PersistenceFramework = KMongo,
-    val applicationFramework: ApplicationFramework = Ktor
+    private val packageNameWrapper: PackageName
 ) {
     val packageName: String
         get() = packageNameWrapper.value

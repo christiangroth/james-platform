@@ -30,8 +30,6 @@ class YamlParsingTests {
         val parseResult = YamlUtils.load(File("src/test/resources/full.yaml"))
         assertEquals("de.foo.bar", parseResult.codeGeneration.packageName)
         assertEquals("de/foo/bar", parseResult.codeGeneration.packagePath)
-        assertEquals(ApplicationFramework.Ktor, parseResult.codeGeneration.applicationFramework)
-        assertEquals(PersistenceFramework.KMongo, parseResult.codeGeneration.persistenceFramework)
         assertEquals(3, parseResult.model.size)
         assertEquals("Foo", parseResult.model[0].name)
         assertEquals("/api/foos", parseResult.model[0].endpoint)
@@ -85,8 +83,6 @@ class CodeGenerationValidationTests {
     fun valid() {
         val result = YamlUtils.convertCodeGeneration(ConfigurationYaml(" foo.bar.baz  ", emptyList())).expectSuccess()
         assertEquals("foo.bar.baz", result.result.packageName)
-        assertEquals(ApplicationFramework.Ktor, result.result.applicationFramework)
-        assertEquals(PersistenceFramework.KMongo, result.result.persistenceFramework)
     }
 }
 
