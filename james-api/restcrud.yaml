@@ -1,28 +1,24 @@
 packageName: "de.chrgroth.james.api.restcrud"
 
 model:
-  - name: "app"
-    key: ["id"]
+  - name: "App"
     endpoint: "apps/"
     attributes:
-      - "id Long"
+      - "key id Long"
       - "name String"
       - "description String?"
-  - name: "appVersion"
-    key: ["appId", "version"]
+  - name: "AppVersion"
     endpoint: "apps/{appId}/versions/"
     attributes:
-      - "appId Long"
-      - "version String" # maybe SemVer??
+      - "key appId Long"
+      - "key version String" # maybe SemVer??
       - "models List<AppVersionModel>?"
       - "views List<AppVersionView>?"
-  - name: "appVersionModel"
-    key: ["name"]
+  - name: "AppVersionModel"
     attributes:
-      - "name String"
+      - "key name String"
       - "jsonSchema String?"
-  - name: "appVersionView"
-    key: ["name"]
+  - name: "AppVersionView"
     attributes:
-      - "name String"
+      - "key name String"
       - "html String?"

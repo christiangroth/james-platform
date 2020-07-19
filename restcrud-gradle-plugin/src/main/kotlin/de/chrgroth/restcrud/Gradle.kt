@@ -21,16 +21,16 @@ sealed class ApplicationFramework {
     object Ktor: ApplicationFramework()
 }
 
-open class RestcrudExtension(project: Project) {
-    private val project = project
+open class RestcrudExtension(private val project: Project) {
 
     val definitionsFilename = "restcrud.yaml"
-    val genSrcDir = "gen-src/restcrud"
+    fun resolveDefinitionsFile() = File(project.projectDir, definitionsFilename)
 
+    val genSrcDir = "gen-src/restcrud"
     fun resolveGenSrcDir() = project.buildDir.resolve(genSrcDir)
 
-    val persistenceFramework = PersistenceFramework.KMongo
-    val applicationFramework = ApplicationFramework.Ktor
+    val persistence = PersistenceFramework.KMongo
+    val application = ApplicationFramework.Ktor
 
     val versionKtor = "1.3.0"
     val versionKMongo = "3.12.+"
@@ -38,7 +38,6 @@ open class RestcrudExtension(project: Project) {
     val versionJacksonKotlin = "2.10.+"
 }
 
-// TODO also generate test sources to ensure generated source are running like expected!
 class RestcrudPlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
@@ -60,7 +59,7 @@ class RestcrudPlugin : Plugin<Project> {
             jcenter()
         }
 
-        when(extension.applicationFramework) {
+        when(extension.application) {
             ApplicationFramework.Ktor -> {
 
                 // TODO test this
@@ -92,7 +91,7 @@ class RestcrudPlugin : Plugin<Project> {
             }
         }
 
-        when(extension.persistenceFramework) {
+        when(extension.persistence) {
             PersistenceFramework.KMongo -> {
 
                 // TODO test this
@@ -117,6 +116,7 @@ class RestcrudPlugin : Plugin<Project> {
         }
     }
 
+    // TODO also generate test sources to ensure generated source are running like expected!
     open class GenerateTask : DefaultTask() {
 
         private val extension = project.extensions.getByName(EXTENSION_NAME) as RestcrudExtension
@@ -128,17 +128,11 @@ class RestcrudPlugin : Plugin<Project> {
 
         @TaskAction
         fun start() {
-            val definitionsFile = File(project.projectDir, extension.definitionsFilename)
-            val configuration = YamlUtils.load(definitionsFile)
-
-            val generationRoot = extension.resolveGenSrcDir()
-            val fileGenerator = FileGenerator(generationRoot)
-            val service = Service(extension.applicationFramework, extension.persistenceFramework, fileGenerator)
-            
-            service.generateModels(configuration)
-            service.generateControllers(configuration)
-            service.generatePersistence(configuration)
-            service.generateKtor(configuration)
+            val configuration = YamlUtils.load(extension.resolveDefinitionsFile())
+            val fileGenerator = CodeGenerator(extension.resolveGenSrcDir(), configuration.codeGeneration)
+            createService(extension.application, extension.persistence, configuration, fileGenerator).apply {
+                generate()
+            }
         }
     }
 }
