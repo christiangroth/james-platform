@@ -74,9 +74,6 @@ class GradleTests {
 
         val result = testProjectDir.executeTask("build")
         assertThat(result.output).contains("BUILD SUCCESSFUL")
-
-        // TODO check expected files and it's content
-        // val expectedResult = "./src/test/resources/expectedResultFullDE.asciidoc".asFile().readText()
     }
 
     private fun Path.createBasicBuildFile(before: String = "", after: String = "") {
