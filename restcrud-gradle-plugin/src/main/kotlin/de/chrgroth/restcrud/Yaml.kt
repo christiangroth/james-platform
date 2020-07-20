@@ -129,7 +129,6 @@ object YamlUtils {
         }
     }
 
-    private const val ATTRIBUTE_KEY = "key"
     fun convertAttributes(typeName: String, input: List<String?>) =
             input.map {
                 if (it == null) {
@@ -142,37 +141,24 @@ object YamlUtils {
     private fun convertAttribute(typeName: String, input: String): ValidationResult<Attribute> {
         val attribute = input.trim()
         val parts = attribute.split(" ")
-        if (parts.size !in 2..3) {
-            return ValidationResult.Failure(listOf("$typeName: Attribute '$attribute' does not match pattern: [$ATTRIBUTE_KEY] name type[?]"))
+        if (parts.size != 2) {
+            return ValidationResult.Failure(listOf("$typeName: Attribute '$attribute' does not match pattern: name type[?]"))
         }
 
-        val threeParts = parts.size == 3
-        val key = threeParts && ATTRIBUTE_KEY == parts[0]
-        if (threeParts && !key) {
-            return ValidationResult.Failure(listOf("$typeName: When attribute consists of three parts, first part must be '$ATTRIBUTE_KEY': $attribute"))
-        }
-
-        val nameAndTypeOffset = if (threeParts) 1 else 0
-        val name = parts[0 + nameAndTypeOffset].trim()
+        val name = parts[0].trim()
         if (!modelAttributeNameAndTypePattern.validate(name)) {
             return ValidationResult.Failure(listOf("$typeName: Attribute name '$name' must match pattern: $modelAttributeNameAndTypePattern"))
         }
 
         // TODO validate only one of kotlin basic types or other models only
-        val type = parts[1 + nameAndTypeOffset].trim()
+        val type = parts[1].trim()
         val optional = type.endsWith('?')
         val cleanedType = type.trimEnd('?')
         if (!modelNamePattern.validate(cleanedType)) {
             return ValidationResult.Failure(listOf("$typeName: Attribute type '$cleanedType' must match pattern: $modelNamePattern"))
         }
 
-        // TODO validate combination of key and type
-
-        return if (key && optional) {
-            ValidationResult.Failure(listOf("$typeName: Key attribute '$name' must not be optional"))
-        } else {
-            ValidationResult.Success(Attribute(AttributeName(name), AttributeType(cleanedType), key, optional))
-        }
+        return ValidationResult.Success(Attribute(AttributeName(name), AttributeType(cleanedType), optional))
     }
 
     private fun Regex.validate(input: String?) = input == null || input.matches(this)

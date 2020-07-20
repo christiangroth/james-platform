@@ -11,7 +11,7 @@ internal object KtorKMongoServiceFactory : ServiceFactory {
 internal class KtorKMongoService(private val configuration: Configuration, private val codeGenerator: CodeGenerator) : Service {
 
     private val kMongoIdProvider: (Model) -> Attribute = {
-        Attribute(AttributeName("_id"), AttributeType("Id<${it.name}>"),false, true)
+        Attribute(AttributeName("_id"), AttributeType("Id<${it.name}>"),true)
     }
 
     override fun generateModels() {

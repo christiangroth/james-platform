@@ -75,8 +75,6 @@ data class AttributeType(val value: String) {
 data class Attribute(
     val nameWrapper: AttributeName,
     val typeWrapper: AttributeType,
-    // TODO not needed right now!?!
-    val key: Boolean,
     val optional: Boolean
 ) {
     val name: String

@@ -4,21 +4,21 @@ model:
   - name: "App"
     endpoint: "apps/"
     attributes:
-      - "key id Long"
+      - "id Long"
       - "name String"
       - "description String?"
   - name: "AppVersion"
     endpoint: "apps/{appId}/versions/"
     attributes:
-      - "key appId Long"
-      - "key version String" # maybe SemVer??
+      - "appId Long"
+      - "version String" # maybe SemVer??
       - "models List<AppVersionModel>?"
       - "views List<AppVersionView>?"
   - name: "AppVersionModel"
     attributes:
-      - "key name String"
+      - "name String"
       - "jsonSchema String?"
   - name: "AppVersionView"
     attributes:
-      - "key name String"
+      - "name String"
       - "html String?"

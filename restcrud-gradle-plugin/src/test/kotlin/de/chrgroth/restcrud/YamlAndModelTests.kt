@@ -36,22 +36,18 @@ class YamlParsingTests {
         assertEquals(2, parseResult.model[0].attributes.size)
         assertEquals("id", parseResult.model[0].attributes[0].name)
         assertEquals("Long", parseResult.model[0].attributes[0].type)
-        assertEquals(true, parseResult.model[0].attributes[0].key)
         assertEquals(false, parseResult.model[0].attributes[0].optional)
         assertEquals("description", parseResult.model[0].attributes[1].name)
         assertEquals("String", parseResult.model[0].attributes[1].type)
-        assertEquals(false, parseResult.model[0].attributes[1].key)
         assertEquals(true, parseResult.model[0].attributes[1].optional)
         assertEquals("Bar", parseResult.model[1].name)
         assertEquals("/api/bars", parseResult.model[1].endpoint)
         assertEquals(2, parseResult.model[1].attributes.size)
         assertEquals("id", parseResult.model[1].attributes[0].name)
         assertEquals("Long", parseResult.model[1].attributes[0].type)
-        assertEquals(true, parseResult.model[1].attributes[0].key)
         assertEquals(false, parseResult.model[1].attributes[0].optional)
         assertEquals("version", parseResult.model[1].attributes[1].name)
         assertEquals("Long", parseResult.model[1].attributes[1].type)
-        assertEquals(true, parseResult.model[1].attributes[1].key)
         assertEquals(false, parseResult.model[1].attributes[1].optional)
         assertEquals(2, parseResult.endpoints().size)
         assertEquals("Foo", parseResult.endpoints()[0].name)
@@ -207,31 +203,25 @@ class ModelAttributeValidationTests {
     @Test
     fun emptyAttribute() {
         val result = convert("  ").expectFailure()
-        assertEquals(listOf("Type: Attribute '' does not match pattern: [key] name type[?]"), result.errors)
+        assertEquals(listOf("Type: Attribute '' does not match pattern: name type[?]"), result.errors)
     }
 
     @Test
     fun onePartAttribute() {
         val result = convert("id").expectFailure()
-        assertEquals(listOf("Type: Attribute 'id' does not match pattern: [key] name type[?]"), result.errors)
+        assertEquals(listOf("Type: Attribute 'id' does not match pattern: name type[?]"), result.errors)
     }
 
     @Test
     fun fourPartAttribute() {
         val result = convert("key id optional Long").expectFailure()
-        assertEquals(listOf("Type: Attribute 'key id optional Long' does not match pattern: [key] name type[?]"), result.errors)
+        assertEquals(listOf("Type: Attribute 'key id optional Long' does not match pattern: name type[?]"), result.errors)
     }
 
     @Test
-    fun threePartAttributeButNotKey() {
-        val result = convert("optional id Long").expectFailure()
-        assertEquals(listOf("Type: When attribute consists of three parts, first part must be 'key': optional id Long"), result.errors)
-    }
-
-    @Test
-    fun optionalKey() {
+    fun threePartAttribute() {
         val result = convert("key id Long?").expectFailure()
-        assertEquals(listOf("Type: Key attribute 'id' must not be optional"), result.errors)
+        assertEquals(listOf("Type: Attribute 'key id Long?' does not match pattern: name type[?]"), result.errors)
     }
 
     @Test
@@ -239,16 +229,6 @@ class ModelAttributeValidationTests {
         val result = convert("id Long").expectSuccess()
         assertEquals("id", result.result.name)
         assertEquals("Long", result.result.type)
-        assertEquals(false, result.result.key)
-        assertEquals(false, result.result.optional)
-    }
-
-    @Test
-    fun validKey() {
-        val result = convert("key id Long").expectSuccess()
-        assertEquals("id", result.result.name)
-        assertEquals("Long", result.result.type)
-        assertEquals(true, result.result.key)
         assertEquals(false, result.result.optional)
     }
 
@@ -257,7 +237,6 @@ class ModelAttributeValidationTests {
         val result = convert("id Long?").expectSuccess()
         assertEquals("id", result.result.name)
         assertEquals("Long", result.result.type)
-        assertEquals(false, result.result.key)
         assertEquals(true, result.result.optional)
     }
 }

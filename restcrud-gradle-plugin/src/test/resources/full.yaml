@@ -4,13 +4,13 @@ model:
   - name: "Foo"
     endpoint: "/api/foos"
     attributes:
-      - "key id Long"
+      - "id Long"
       - "description String?"
   - name: "Bar"
     endpoint: "/api/bars"
     attributes:
-      - "key id Long"
-      - "key version Long"
+      - "id Long"
+      - "version Long"
   - name: Hidden
     attributes:
       - "name String"
