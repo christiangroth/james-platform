@@ -48,12 +48,10 @@ class RestcrudPlugin : Plugin<Project> {
                 EXTENSION_NAME, RestcrudExtension::class.java, project
         )
 
-        // TODO test this
         if (!project.plugins.hasPlugin("kotlin")) {
             project.plugins.apply("kotlin")
         }
 
-        // TODO test this
         project.repositories.apply {
             mavenCentral()
             jcenter()
@@ -62,12 +60,10 @@ class RestcrudPlugin : Plugin<Project> {
         when(extension.application) {
             ApplicationFramework.Ktor -> {
 
-                // TODO test this
                 if (!project.plugins.hasPlugin("application")) {
                     project.plugins.apply("application")
                 }
 
-                // TODO test this
                 project.extensions.getByType(JavaApplication::class.java).apply {
                     mainClassName = "io.ktor.server.netty.EngineMain"
                 }

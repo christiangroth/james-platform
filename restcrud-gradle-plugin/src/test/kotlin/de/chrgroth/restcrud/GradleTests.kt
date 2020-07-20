@@ -3,7 +3,9 @@ package de.chrgroth.restcrud
 import org.assertj.core.api.Assertions.assertThat
 import org.gradle.api.Project
 import org.gradle.api.internal.HasConvention
+import org.gradle.api.internal.artifacts.repositories.DefaultMavenArtifactRepository
 import org.gradle.api.internal.project.ProjectInternal
+import org.gradle.api.plugins.JavaApplication
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.testfixtures.ProjectBuilder
 import org.gradle.testkit.runner.GradleRunner
@@ -45,6 +47,22 @@ class GradleTests {
         assertEquals("3.12.+", extensionyByType.versionKMongo)
         assertEquals("1.2.1", extensionyByType.versionLogback)
         assertEquals("2.10.+", extensionyByType.versionJacksonKotlin)
+    }
+
+    @Test
+    fun `plugin registers correct plugins`() {
+        project.plugins.getPlugin("kotlin")
+        project.plugins.getPlugin("application")
+        assertThat(project.extensions.getByType(JavaApplication::class.java).mainClassName)
+                .isEqualTo("io.ktor.server.netty.EngineMain")
+    }
+
+    @Test
+    fun `plugin registers correct repositories`() {
+        val mavenRepos = project.repositories.filterIsInstance<DefaultMavenArtifactRepository>().map { it.name }
+        assertThat(mavenRepos).hasSize(2)
+        assertThat(mavenRepos).contains("MavenRepo")
+        assertThat(mavenRepos).contains("BintrayJCenter")
     }
 
     @Test
