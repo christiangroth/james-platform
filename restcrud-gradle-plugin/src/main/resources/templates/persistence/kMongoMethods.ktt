@@ -1,5 +1,0 @@
-    private val {typePlural} = mongoClient.getDatabase("james-api").getCollection<{type}>("{typePlural}")
-    fun list{typePluralCapitalized}() = {typePlural}.find().toList()
-    fun get{type}(id: Id<{type}>) = {typePlural}.findOneById(id)
-    fun upsert(item: {type}) = genericUpsert({typePlural}, item)
-    fun delete(item: {type}) = genericDelete({typePlural}, {type}::_id eq item._id)
