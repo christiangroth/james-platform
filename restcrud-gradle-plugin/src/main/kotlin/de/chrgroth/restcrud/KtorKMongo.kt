@@ -42,8 +42,8 @@ internal class KtorKMongoService(private val configuration: Configuration, priva
                         PackageName("org.litote.kmongo.id.toId")
                 ),
                 configuration.endpoints(),
-                "ktorController.kt",
-                "ktorGenericCrud.kt"
+                "ktorController.ktt",
+                "ktorGenericCrud.ktt"
         )
     }
 
@@ -59,8 +59,8 @@ internal class KtorKMongoService(private val configuration: Configuration, priva
                         PackageName("kotlin.collections.toList")
                 ),
                 configuration.endpoints(),
-                "kMongoMethods.kt",
-                "kMongo.kt"
+                "kMongoMethods.ktt",
+                "kMongo.ktt"
         )
     }
 
@@ -84,8 +84,8 @@ internal class KtorKMongoService(private val configuration: Configuration, priva
                         PackageName("org.slf4j.event.Level")
                 ),
                 configuration.endpoints(),
-                "ktorRoutingCall.kt",
-                "ktor.kt"
+                "ktorRoutingCall.ktt",
+                "ktor.ktt"
         )
     }
 }

@@ -33,11 +33,11 @@ class CodeGenerator(private val generationRoot: File, private val config: CodeGe
 
     private fun renderModel(name: String, attributes: List<Attribute>): String {
         val properties = attributes.joinToString(",\n") { renderModelAttribute(it) }
-        return render("templates/model/dataClass.kt", mapOf("name" to name, "properties" to properties))
+        return render("templates/model/dataClass.ktt", mapOf("name" to name, "properties" to properties))
     }
 
     private fun renderModelAttribute(attribute: Attribute): String {
-        return render("templates/model/dataClassProperty.kt", mapOf(
+        return render("templates/model/dataClassProperty.ktt", mapOf(
                 "name" to attribute.name,
                 "type" to attribute.type,
                 "typeOptionalPostfix" to if(attribute.optional) "?" else ""
@@ -124,7 +124,7 @@ class CodeGenerator(private val generationRoot: File, private val config: CodeGe
     }
 
     private fun renderKotlinFile(imports: List<PackageName>, sources: String): String {
-        return render("templates/kotlinFile.kt", mapOf(
+        return render("templates/kotlinFile.ktt", mapOf(
                 "package" to config.packageName,
                 "imports" to imports.joinToString("\n") { "import ${it.value}" },
                 "sources" to sources)
