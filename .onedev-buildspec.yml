@@ -1,0 +1,42 @@
+version: 1
+jobs:
+- name: CI
+  image: gradle:jdk11
+  commands:
+  - set -e
+  - ''
+  - echo "Detecting project version (may require some time while downloading gradle
+    dependencies)..."
+  - 'buildVersion=$(gradle properties | grep ^version: | grep -v unspecified | cut
+    -c10-)'
+  - echo "##onedev[SetBuildVersion '$buildVersion']"
+  - echo
+  - ''
+  - echo "updating git config ..."
+  - git config user.email "chr.groth\@gmx.de"
+  - git config user.name "chris"
+  - ''
+  - echo "changing back from detached head to branch @updated_branch@ ..."
+  - git fetch origin @updated_branch@:@updated_branch@
+  - git checkout @updated_branch@
+  - ''
+  - gradle --no-daemon --info build
+  - '# prepared for later use: gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
+  triggers:
+  - !BranchUpdateTrigger {}
+  retrieveSource: true
+  cloneCredential: !DefaultCredential {}
+  reports:
+  - !JobHtmlReport
+    filePatterns: build/reports/tests/test/**
+    reportName: Unit Test
+    startPage: build/reports/tests/test/index.html
+  cpuRequirement: 250m
+  memoryRequirement: 128m
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  caches:
+  - key: gradle-cache
+    path: /home/gradle/.gradle
+  timeout: 3600
