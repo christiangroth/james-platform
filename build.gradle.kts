@@ -1,5 +1,5 @@
 plugins {
-    id("de.chrgroth.gradle.restcrud") version "0.1.0-SNAPSHOT"
+    id("de.chrgroth.gradle.restcrud") version "0.1.4-SNAPSHOT"
     id("com.palantir.docker-run") version "0.25.0"
 }
 
