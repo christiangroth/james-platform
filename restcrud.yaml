@@ -4,7 +4,7 @@ model:
   - name: "App"
     endpoint: "apps/"
     attributes:
-      - "id Long"
+      # TODO we have kmongo id, right?? - "id Long"
       - "name String"
       - "description String?"
   - name: "AppVersion"
@@ -12,7 +12,7 @@ model:
     # TODO endpoint: "apps/{appId}/versions/"
     attributes:
       - "appId Long"
-      - "version String" # maybe SemVer??
+      - "version String" # TODO maybe SemVer??
       - "models List<AppVersionModel>?"
       - "views List<AppVersionView>?"
   - name: "AppVersionModel"
