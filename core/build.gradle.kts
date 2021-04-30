@@ -1,6 +1,8 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.4.20"
     `java-library`
+    id("org.jetbrains.kotlin.jvm")
 }
 
 repositories {
@@ -14,6 +16,21 @@ dependencies {
 
     implementation("com.github.glwithu06.semver:semver:1.0.1")
 
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
+    testImplementation("org.assertj:assertj-core:3.17.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.7.0")
+    testImplementation(gradleTestKit())
+}
+
+tasks {
+
+    withType<KotlinCompile>().configureEach {
+        kotlinOptions.jvmTarget = "1.8"
+    }
+
+    test {
+        useJUnitPlatform()
+        testLogging {
+            events("passed", "skipped", "failed")
+        }
+    }
 }
