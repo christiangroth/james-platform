@@ -1,15 +1,77 @@
 package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.Either
+import de.chrgroth.james.app.AppServicePort.NewVersionContent
+import de.chrgroth.james.incMajor
+import de.chrgroth.james.incMinor
+import de.chrgroth.james.incPatch
 import java.util.UUID
 
+enum class AppStatus { ACTIVE, DISCONTINUED }
+
+// TODO Set vs List
 // TODO add reference to owner/developer later
 
 data class App(
     val id: UUID,
     val name: String,
     val description: String? = null,
+    val nextVersionDraft: AppVersionDraft? = null,
     val versions: List<AppVersion> = emptyList(),
+    val status: AppStatus = AppStatus.ACTIVE
+) {
+
+    internal fun getVersion(version: Semver) = versions.firstOrNull { it.version == version }
+    internal fun getLatestVersion() = versions.maxByOrNull { it.version }
+
+    internal fun prepareNewVersion(): Either<AppVersionDraft, Exception> {
+        return if (nextVersionDraft != null) {
+            Either.Right(IllegalStateException("Can't prepare new version as a draft already exists!"))
+        } else {
+            getLatestVersion()?.let {
+                Either.Left(AppVersionDraft(models = it.models.toList(), reports = it.reports.toList()))
+            } ?: Either.Left(AppVersionDraft())
+        }
+    }
+
+    internal fun releaseNextVersion(newVersionContent: NewVersionContent, releaseNotes: AppVersionReleaseNotes?): Either<AppVersion, Exception> {
+        return if (nextVersionDraft == null) {
+            Either.Right(IllegalStateException("Can't release new version without a draft!"))
+        } else {
+            Either.Left(AppVersion(
+                version = computeNextVersion(newVersionContent, nextVersionDraft, getLatestVersion()),
+                releaseNotes = releaseNotes,
+                models = nextVersionDraft.models.toList(),
+                reports = nextVersionDraft.reports.toList(),
+            ))
+        }
+    }
+
+    private fun computeNextVersion(newVersionContent: NewVersionContent, draft: AppVersionDraft, latest: AppVersion?): Semver {
+        val latestVersion = latest?.version ?: Semver(0, 0, 0)
+        return if (isBreaking(draft, latest)) {
+            latestVersion.incMajor()
+        } else {
+            when (newVersionContent) {
+                NewVersionContent.FEATURE -> latestVersion.incMinor()
+                NewVersionContent.BUGFIX -> latestVersion.incPatch()
+            }
+        }
+    }
+
+    private fun isBreaking(draft: AppVersionDraft, latest: AppVersion?): Boolean {
+        if (latest == null) {
+            return true
+        }
+
+        TODO()
+    }
+}
+
+data class AppVersionDraft(
+    val models: List<AppModel> = emptyList(),
+    val reports: List<AppReport> = emptyList(),
 )
 
 // TODO add icon/image??
