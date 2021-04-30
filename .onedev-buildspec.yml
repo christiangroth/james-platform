@@ -21,16 +21,17 @@ jobs:
   - git checkout @updated_branch@
   - ''
   - gradle --no-daemon --info build
-  - '# prepared for later use: gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
+  - ''
+  - if [ "@updated_branch@" = "master" ]; then
+  - '  gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
+  - fi
   triggers:
-  - !BranchUpdateTrigger {}
+  - !BranchUpdateTrigger
+    branches: master issue/**
+    paths: -gradle.properties
   retrieveSource: true
-  cloneCredential: !DefaultCredential {}
-  reports:
-  - !JobHtmlReport
-    filePatterns: build/reports/tests/test/**
-    reportName: Unit Test
-    startPage: build/reports/tests/test/index.html
+  cloneCredential: !HttpCredential
+    accessTokenSecret: retrieve-token
   cpuRequirement: 250m
   memoryRequirement: 128m
   retryCondition: never
