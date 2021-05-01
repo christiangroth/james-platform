@@ -7,8 +7,8 @@ import java.util.UUID
 
 enum class AppErrorCodes : ErrorCodeProvider {
     NOT_FOUND,
-    RELEASE_NEW_VERSION_DRAFT_MISSING,
-    PREPARE_NEW_VERSION_DRAFT_EXISTS,
+    RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+    PREPARE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
     DISCONTINUE_STATUS_IS_DISCONTINUED,
     DELETE_STATUS_IS_NOT_DISCONTINUED;
 
@@ -29,22 +29,23 @@ interface AppCommandServicePort {
     fun updateNextVersionDraft(id: UUID, models: Set<AppModel>, reports: Set<AppReport>): Maybe<AppVersionDraft>
     fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersionDescriptor>
     fun discontinue(id: UUID): Maybe<AppDescriptor>
-
-    // TODO not sure about the return type here
-    fun delete(id: UUID): Maybe<AppDescriptor>
+    fun delete(id: UUID): Maybe<Unit>
 }
 
-internal class AppQueryService : AppQueryServicePort {
+internal class AppQueryService(private val persistence: AppPersistencePort) : AppQueryServicePort {
+
     override fun getApp(id: UUID): AppDescriptor? {
-        TODO()
+        return persistence.get(id)?.toDescriptor()
     }
 
     override fun getVersion(id: UUID, version: Semver): AppVersionDescriptor? {
-        TODO()
+        return persistence.get(id)?.let { app ->
+            app.versions.firstOrNull { it.id == version }
+        }?.toDescriptor()
     }
 
     override fun findApps(filter: (AppDescriptor) -> Boolean): Set<AppDescriptor> {
-        TODO()
+        return persistence.find().map { it.toDescriptor() }.filter(filter).toSet()
     }
 }
 
@@ -85,7 +86,7 @@ internal class AppCommandService : AppCommandServicePort {
         TODO()
     }
 
-    override fun delete(id: UUID): Maybe<AppDescriptor> {
+    override fun delete(id: UUID): Maybe<Unit> {
         // TODO change object and save to DB!
         //val app = getApp(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
         //return if (app.status != AppStatus.DISCONTINUED) {

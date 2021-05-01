@@ -15,6 +15,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
     implementation("com.github.glwithu06.semver:semver:1.0.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.2.0")
 
     testImplementation("org.assertj:assertj-core:3.17.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.7.0")

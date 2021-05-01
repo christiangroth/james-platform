@@ -14,7 +14,7 @@ interface AppDescriptor {
     val name: String
     val description: String?
     val versions: List<Semver>
-    val hasActiveDraft: Boolean
+    val hasDevelopmentVersion: Boolean
     val isDiscontinued: Boolean
 
     val latestVersion: Semver?
@@ -33,7 +33,7 @@ internal data class AppDescription(
     override val name: String,
     override val description: String? = null,
     override val versions: List<Semver> = emptyList(),
-    override val hasActiveDraft: Boolean,
+    override val hasDevelopmentVersion: Boolean,
     override val isDiscontinued: Boolean,
 ) : AppDescriptor
 
@@ -42,63 +42,55 @@ internal data class App(
     val name: String,
     val description: String? = null,
     val discontinued: Boolean,
-    val nextVersionDraft: AppVersionDraft? = null,
-    val versionModels: Set<AppVersion> = emptySet(),
+    val developmentVersion: AppVersionDraft? = null,
+    val versions: Set<AppVersion> = emptySet(),
 ) {
 
-    fun createDescriptor() = AppDescription(
-        id = id,
-        name = name,
-        description = description,
-        versions = versionModels.map { it.version }.sortedDescending(),
-        hasActiveDraft = nextVersionDraft != null,
-        isDiscontinued = discontinued
-    )
-
-    internal fun prepareNewVersion(): Maybe<AppVersionDraft> {
-        return if (nextVersionDraft != null) {
-            Maybe.Error(AppErrorCodes.PREPARE_NEW_VERSION_DRAFT_EXISTS)
+    internal fun createDevelopmentVersion() =
+        if (developmentVersion != null) {
+            Maybe.Error(AppErrorCodes.PREPARE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
         } else {
-            getLatestVersionModel()?.let {
+            getLatestVersion()?.let {
                 Maybe.Result(AppVersionDraft(models = it.models.toSet(), reports = it.reports.toSet()))
             } ?: Maybe.Result(AppVersionDraft())
         }
-    }
 
-    internal fun releaseNextVersion(releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion> {
-        return if (nextVersionDraft == null) {
-            Maybe.Error(AppErrorCodes.RELEASE_NEW_VERSION_DRAFT_MISSING)
+    internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
+        if (developmentVersion == null) {
+            Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
         } else {
             Maybe.Result(AppVersion(
-                version = computeNextVersion(releaseNotes, nextVersionDraft, getLatestVersionModel()),
+                version = computeNextVersion(getLatestVersion(), developmentVersion, releaseNotes),
                 releaseNotes = releaseNotes,
-                models = nextVersionDraft.models.toSet(),
-                reports = nextVersionDraft.reports.toSet(),
+                models = developmentVersion.models.toSet(),
+                reports = developmentVersion.reports.toSet(),
             ))
         }
-    }
 
-    private fun getLatestVersionModel() = versionModels.maxByOrNull { it.version }
+    private fun getLatestVersion() = versions.maxByOrNull { it.version }
 
-    private fun computeNextVersion(releaseNotes: AppVersionReleaseNotes, draft: AppVersionDraft, latest: AppVersion?): Semver {
-        val latestVersion = latest?.version ?: Semver(0, 0, 0)
-        return if (isBreaking(draft, latest)) {
-            latestVersion.incMajor()
+    private fun computeNextVersion(latest: AppVersion?, draft: AppVersionDraft, releaseNotes: AppVersionReleaseNotes): Semver {
+        return if(latest == null) {
+            Semver(major = 0, minor = 1, patch = 0)
         } else {
-            when (releaseNotes.changeType) {
-                AppVersionChangeType.BUGFIX -> latestVersion.incPatch()
-                AppVersionChangeType.FEATURE -> latestVersion.incMinor()
-            }
+            val isBreaking = isBreaking(latest, draft)
+            latest.version.computeNext(isBreaking, releaseNotes)
         }
     }
 
-    private fun isBreaking(draft: AppVersionDraft, latest: AppVersion?): Boolean {
-        if (latest == null) {
-            return true
-        }
-
+    private fun isBreaking(latest: AppVersion, draft: AppVersionDraft): Boolean {
         TODO()
     }
+
+    private fun Semver.computeNext(isBreaking: Boolean, releaseNotes: AppVersionReleaseNotes) =
+        if (isBreaking) {
+            incMajor()
+        } else {
+            when (releaseNotes.changeType) {
+                AppVersionChangeType.BUGFIX -> incPatch()
+                AppVersionChangeType.FEATURE -> incMinor()
+            }
+        }
 }
 
 interface AppVersionDescriptor {
