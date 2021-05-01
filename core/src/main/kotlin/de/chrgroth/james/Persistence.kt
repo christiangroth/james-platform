@@ -1,5 +1,6 @@
 package de.chrgroth.james
 
+// TODO maybe move to persistence adapter side??
 interface CrudRepository<Type, Id> {
     fun get(id: Id): Type?
 

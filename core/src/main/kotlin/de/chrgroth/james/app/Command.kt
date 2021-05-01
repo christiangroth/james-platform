@@ -1,32 +1,10 @@
 package de.chrgroth.james.app
 
-import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.CrudRepository
-import de.chrgroth.james.ErrorCodeProvider
 import de.chrgroth.james.Maybe
 import java.util.UUID
 
-enum class AppErrorCodes : ErrorCodeProvider {
-    NOT_FOUND,
-    RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-    PREPARE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
-    DISCONTINUE_STATUS_IS_DISCONTINUED,
-    DELETE_STATUS_IS_NOT_DISCONTINUED;
-
-    override val prefix = "APP"
-    override val id = ordinal.toLong()
-}
-
-// TODO might return Maybes only?? This would allow to catch technical errors
-interface AppQueryServicePort {
-    fun getApp(id: UUID): App?
-    fun getVersion(id: UUID, version: Semver): AppVersion?
-    fun findApps(filter: (App) -> Boolean = { true }): Set<App>
-}
-
-interface AppCommandServicePort {
+interface AppCommandPort {
     fun createApp(name: String, description: String? = null): Maybe<App>
-    fun getNextVersionDraft(id: UUID): Maybe<AppVersionDraft?>
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
     fun updateNextVersionDraft(id: UUID, models: Set<AppModel>, reports: Set<AppReport>): Maybe<AppVersionDraft>
     fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion>
@@ -34,27 +12,7 @@ interface AppCommandServicePort {
     fun delete(id: UUID): Maybe<Unit>
 }
 
-// TODO split query and command??
-interface AppPersistencePort : CrudRepository<App, UUID>
-
-internal class AppQueryService(private val persistence: AppPersistencePort) : AppQueryServicePort {
-
-    override fun getApp(id: UUID): App? {
-        return persistence.get(id)
-    }
-
-    override fun getVersion(id: UUID, version: Semver): AppVersion? {
-        return persistence.get(id)?.let { app ->
-            app.versions.firstOrNull { it.version == version }
-        }
-    }
-
-    override fun findApps(filter: (App) -> Boolean): Set<App> {
-        return persistence.find().filter(filter).toSet()
-    }
-}
-
-internal class AppCommandService(private val persistence: AppPersistencePort) : AppCommandServicePort {
+internal class AppCommandAdapter(private val persistence: AppPersistencePort) : AppCommandPort {
 
     override fun createApp(name: String, description: String?): Maybe<App> {
         val app = App(
@@ -64,11 +22,6 @@ internal class AppCommandService(private val persistence: AppPersistencePort) : 
         )
 
         return persistence.create(app)
-    }
-
-    override fun getNextVersionDraft(id: UUID): Maybe<AppVersionDraft?> {
-        val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
-        return Maybe.Result(app?.developmentVersion)
     }
 
     override fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft> {
