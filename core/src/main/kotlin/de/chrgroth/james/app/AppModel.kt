@@ -9,35 +9,7 @@ import java.util.UUID
 
 enum class AppStatus { DEVELOPMENT, ACTIVE, DISCONTINUED }
 
-interface AppDescriptor {
-    val id: UUID
-    val name: String
-    val description: String?
-    val versions: List<Semver>
-    val hasDevelopmentVersion: Boolean
-    val isDiscontinued: Boolean
-
-    val latestVersion: Semver?
-        get() = versions.firstOrNull()
-
-    val status: AppStatus
-        get() = when {
-            isDiscontinued -> AppStatus.DISCONTINUED
-            versions.isEmpty() -> AppStatus.DEVELOPMENT
-            else -> AppStatus.ACTIVE
-        }
-}
-
-internal data class AppDescription(
-    override val id: UUID,
-    override val name: String,
-    override val description: String? = null,
-    override val versions: List<Semver> = emptyList(),
-    override val hasDevelopmentVersion: Boolean,
-    override val isDiscontinued: Boolean,
-) : AppDescriptor
-
-internal data class App(
+data class App(
     val id: UUID,
     val name: String,
     val description: String? = null,
@@ -46,28 +18,36 @@ internal data class App(
     val versions: Set<AppVersion> = emptySet(),
 ) {
 
-    internal fun createDevelopmentVersion() =
+    private val latestVersion
+        get() = versions.maxByOrNull { it.version }
+
+    val status
+        get() = when {
+            discontinued -> AppStatus.DISCONTINUED
+            versions.isEmpty() -> AppStatus.DEVELOPMENT
+            else -> AppStatus.ACTIVE
+        }
+
+    fun createDevelopmentVersion() =
         if (developmentVersion != null) {
             Maybe.Error(AppErrorCodes.PREPARE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
         } else {
-            getLatestVersion()?.let {
+            latestVersion?.let {
                 Maybe.Result(AppVersionDraft(models = it.models.toSet(), reports = it.reports.toSet()))
             } ?: Maybe.Result(AppVersionDraft())
         }
 
-    internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
+    fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
         if (developmentVersion == null) {
             Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
         } else {
             Maybe.Result(AppVersion(
-                version = computeNextVersion(getLatestVersion(), developmentVersion, releaseNotes),
+                version = computeNextVersion(latestVersion, developmentVersion, releaseNotes),
                 releaseNotes = releaseNotes,
                 models = developmentVersion.models.toSet(),
                 reports = developmentVersion.reports.toSet(),
             ))
         }
-
-    private fun getLatestVersion() = versions.maxByOrNull { it.version }
 
     private fun computeNextVersion(latest: AppVersion?, draft: AppVersionDraft, releaseNotes: AppVersionReleaseNotes): Semver {
         return if(latest == null) {
@@ -93,37 +73,22 @@ internal data class App(
         }
 }
 
-interface AppVersionDescriptor {
-    val version: Semver
-    val releaseNotes: AppVersionReleaseNotes
-}
-
-internal data class AppVersionDescription(
-    override val version: Semver,
-    override val releaseNotes: AppVersionReleaseNotes,
-) : AppVersionDescriptor
-
 interface AppVersionArtifacts {
     val models: Set<AppModel>
     val reports: Set<AppReport>
 }
 
-internal data class AppVersionArtifactsHolder(
+data class AppVersionArtifactsHolder(
     override val models: Set<AppModel> = emptySet(),
     override val reports: Set<AppReport> = emptySet(),
 ) : AppVersionArtifacts
 
 // TODO add icon/image??
-internal data class AppVersion(
+data class AppVersion(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
     val holder: AppVersionArtifacts,
 ) : AppVersionArtifacts by holder {
-
-    fun createDescriptor() = AppVersionDescription(
-        version = version,
-        releaseNotes = releaseNotes,
-    )
 
     constructor(
         version: Semver,
@@ -154,7 +119,7 @@ data class AppVersionReleaseNotes(
 data class AppModel(
     val name: String,
     val version: Long, // TODO need something more complex like Semver here too?
-    val schema: String,
+    val schema: String? = null,
     val description: String? = null,
 )
 
@@ -162,5 +127,5 @@ data class AppModel(
 data class AppReport(
     val name: String,
     val description: String? = null,
-    val source: String,
+    val source: String? = null,
 )
