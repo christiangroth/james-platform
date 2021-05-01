@@ -37,6 +37,9 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
     }
 
     override fun updateNextVersionDraft(id: UUID, models: Set<AppModel>, reports: Set<AppReport>): Maybe<AppVersionDraft> {
+
+        // TODO validate the models, i.e. the JSON schemas
+
         val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
 
         val newDevelopmentVersion = AppVersionDraft(models = models, reports = reports)

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.net.URI
 
 plugins {
     `java-library`
@@ -8,6 +9,9 @@ plugins {
 repositories {
     mavenCentral()
     jcenter()
+    maven {
+        url = URI("https://jitpack.io")
+    }
 }
 
 dependencies {

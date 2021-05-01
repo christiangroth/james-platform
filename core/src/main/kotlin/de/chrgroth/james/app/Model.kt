@@ -5,9 +5,16 @@ import de.chrgroth.james.Maybe
 import de.chrgroth.james.incMajor
 import de.chrgroth.james.incMinor
 import de.chrgroth.james.incPatch
+import org.everit.json.schema.Schema
+import org.everit.json.schema.loader.SchemaLoader
+import org.json.JSONObject
+import org.json.JSONTokener
 import java.util.UUID
 
-enum class AppStatus { DEVELOPMENT, ACTIVE, DISCONTINUED }
+
+enum class AppStatus {
+    DEVELOPMENT, ACTIVE, DISCONTINUED
+}
 
 data class App(
     val id: UUID,
@@ -59,7 +66,20 @@ data class App(
     }
 
     private fun isBreaking(latest: AppVersion, draft: AppVersionDraft): Boolean {
-        TODO()
+        val modelRenamedOrDeleted = latest.models.any { oldModel ->
+            draft.models.none { it.name == oldModel.name }
+        }
+
+        val schemaPairs = latest.models
+            .filter { oldModel -> draft.models.any { it.name == oldModel.name } }
+            .map { oldModel -> oldModel to draft.models.first { it.name == oldModel.name } }
+            .map { it.first.toJsonSchema() to it.second.toJsonSchema()}
+
+        // TODO need some more schema insights
+        // val modelAttributeDeleted = schemaPairs.any { }
+        // val modelAttributeTypeChanged = schemaPairs.any {  }
+
+        return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
     }
 
     private fun Semver.computeNext(isBreaking: Boolean, releaseNotes: AppVersionReleaseNotes) =
@@ -73,7 +93,6 @@ data class App(
         }
 }
 
-// TODO add icon/image??
 data class AppVersion(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
@@ -95,15 +114,17 @@ data class AppVersionReleaseNotes(
     val note: String,
 )
 
-// TODO use https://github.com/everit-org/json-schema for JSON schema validations on data objects, not sure if it can also validate the schema itself
 data class AppModel(
     val name: String,
-    val version: Long, // TODO need something more complex like Semver here too?
+    val version: Long,
     val schema: String? = null,
     val description: String? = null,
-)
+){
+    fun toJsonSchema(): Schema =
+        SchemaLoader.load(JSONObject(JSONTokener(schema)))
+}
 
-// TODO would be great to have some generic reports/graphs, configured based models and attributes
+// TODO would be great to have some generic reports/graphs, configured based on models and their attributes
 data class AppReport(
     val name: String,
     val description: String? = null,
