@@ -1,11 +1,22 @@
 package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Either
+import de.chrgroth.james.Maybe
+import de.chrgroth.james.ErrorCodeProvider
 import java.util.UUID
 
+enum class AppErrorCodes() : ErrorCodeProvider {
+    NOT_FOUND,
+    RELEASE_NEW_VERSION_DRAFT_MISSING,
+    PREPARE_NEW_VERSION_DRAFT_EXISTS,
+    DISCONTINUE_STATUS_IS_DISCONTINUED,
+    DELETE_STATUS_IS_NOT_DISCONTINUED;
+
+    override val prefix = "APP"
+    override val id = ordinal.toLong()
+}
+
 // TODO define business methods
-// TODO Set vs List
 
 interface AppServicePort {
 
@@ -25,40 +36,36 @@ interface AppServicePort {
     fun createApp(name: String, description: String? = null): App
 
     // TODO change object and save to DB!
-    // TODO use some more solid error handling. maybe error codes enum or something alike
-    fun prepareNextVersion(id: UUID): Either<AppVersionDraft, Exception> {
-        return getApp(id)?.prepareNewVersion() ?: return Either.Right(IllegalStateException("App with id $id not found!"))
+    fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft> {
+        return getApp(id)?.prepareNewVersion() ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
     }
 
     enum class NewVersionContent { BUGFIX, FEATURE }
 
     // TODO change object and save to DB!
-    // TODO use some more solid error handling. maybe error codes enum or something alike
-    fun releaseNextVersion(id: UUID, newVersionContent: NewVersionContent, releaseNotes: AppVersionReleaseNotes?): Either<AppVersion, Exception> {
-        return getApp(id)?.releaseNextVersion(newVersionContent, releaseNotes) ?: return Either.Right(IllegalStateException("App with id $id not found!"))
+    fun releaseNextVersion(id: UUID, newVersionContent: NewVersionContent, releaseNotes: AppVersionReleaseNotes?): Maybe<AppVersion> {
+        return getApp(id)?.releaseNextVersion(newVersionContent, releaseNotes) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
     }
 
     // lifecycle
-    // TODO use some more solid error handling. maybe error codes enum or something alike
-    fun discontinue(id: UUID): Either<Boolean, Exception> {
-        val app = getApp(id) ?: return Either.Right(IllegalStateException("App with id $id not found!"))
+    // TODO change object and save to DB!
+    fun discontinue(id: UUID): Maybe<Boolean> {
+        val app = getApp(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
         return if(app.status == AppStatus.ACTIVE) {
-            // TODO change object and save to DB!
-            Either.Left(true)
+            Maybe.Result(true)
         } else {
-            Either.Right(IllegalStateException("App is already discontinued!"))
+            Maybe.Error(AppErrorCodes.DISCONTINUE_STATUS_IS_DISCONTINUED)
         }
     }
 
-    // TODO use some more solid error handling. maybe error codes enum or something alike
-    fun delete(id: UUID): Either<Boolean, Exception> {
-        val app = getApp(id) ?: return Either.Right(IllegalStateException("App with id $id not found!"))
-        return if(app.status == AppStatus.ACTIVE) {
-            Either.Right(IllegalStateException("App in active status cannot be deleted!"))
+    // TODO change object and save to DB!
+    fun delete(id: UUID): Maybe<Boolean> {
+        val app = getApp(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+        return if(app.status != AppStatus.DISCONTINUED) {
+            Maybe.Error(AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)
         } else {
             // TODO check if installations and data exists
-            // TODO change object and save to DB!
-            return Either.Left(true)
+            return Maybe.Result(true)
         }
     }
 }
