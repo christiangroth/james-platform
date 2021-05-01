@@ -50,7 +50,7 @@ data class App(
         }
 
     private fun computeNextVersion(latest: AppVersion?, draft: AppVersionDraft, releaseNotes: AppVersionReleaseNotes): Semver {
-        return if(latest == null) {
+        return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
         } else {
             val isBreaking = isBreaking(latest, draft)
@@ -73,38 +73,18 @@ data class App(
         }
 }
 
-interface AppVersionArtifacts {
-    val models: Set<AppModel>
-    val reports: Set<AppReport>
-}
-
-data class AppVersionArtifactsHolder(
-    override val models: Set<AppModel> = emptySet(),
-    override val reports: Set<AppReport> = emptySet(),
-) : AppVersionArtifacts
-
 // TODO add icon/image??
 data class AppVersion(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
-    val holder: AppVersionArtifacts,
-) : AppVersionArtifacts by holder {
-
-    constructor(
-        version: Semver,
-        releaseNotes: AppVersionReleaseNotes,
-        models: Set<AppModel> = emptySet(),
-        reports: Set<AppReport> = emptySet(),
-    ) : this(version, releaseNotes, AppVersionArtifactsHolder(models, reports))
-}
+    val models: Set<AppModel> = emptySet(),
+    val reports: Set<AppReport> = emptySet(),
+)
 
 data class AppVersionDraft(
-    val holder: AppVersionArtifacts,
-) : AppVersionArtifacts by holder {
-
-    constructor(models: Set<AppModel> = emptySet(), reports: Set<AppReport> = emptySet()) :
-            this(AppVersionArtifactsHolder(models, reports))
-}
+    val models: Set<AppModel> = emptySet(),
+    val reports: Set<AppReport> = emptySet(),
+)
 
 enum class AppVersionChangeType {
     BUGFIX, FEATURE
