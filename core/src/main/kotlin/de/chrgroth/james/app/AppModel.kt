@@ -13,7 +13,7 @@ data class App(
     val id: UUID,
     val name: String,
     val description: String? = null,
-    val discontinued: Boolean,
+    val discontinued: Boolean = false,
     val developmentVersion: AppVersionDraft? = null,
     val versions: Set<AppVersion> = emptySet(),
 ) {
