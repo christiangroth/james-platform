@@ -1,19 +1,20 @@
 package de.chrgroth.james
 
-interface ErrorCodeProvider {
+interface ErrorCode {
     val prefix: String
     val id: Long
 
-    fun toGlobalRepresentation() = "${prefix}_${id.toString().padStart(length = 3, padChar = '0')}"
+    fun toGlobalRepresentation(): String {
+        return "${prefix}_${id.toString().padStart(length = 3, padChar = '0')}_$this"
+    }
 }
 
 sealed class Maybe<Type> {
-    class Result<Type>(val result: Type) : Maybe<Type>()
-    class Error<Type>(val errorCodeProvider: ErrorCodeProvider) : Maybe<Type>()
+    class Result<Type>(val value: Type) : Maybe<Type>()
+    class Error<Type>(val code: ErrorCode) : Maybe<Type>()
 
-    fun isError() = this is Error
     fun <R> map(transformer: (Type) -> R) = when(this) {
-        is Error -> Error(errorCodeProvider)
-        is Result -> Result(transformer.invoke(result))
+        is Error -> Error(code)
+        is Result -> Result(transformer.invoke(value))
     }
 }

@@ -2,15 +2,12 @@ package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.incMajor
-import de.chrgroth.james.incMinor
-import de.chrgroth.james.incPatch
+import de.chrgroth.james.computeNext
 import org.everit.json.schema.Schema
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.util.UUID
-
 
 enum class AppStatus {
     DEVELOPMENT, ACTIVE, DISCONTINUED
@@ -24,72 +21,39 @@ data class App(
     val developmentVersion: AppVersionDraft? = null,
     val versions: Set<AppVersion> = emptySet(),
 ) {
-
-    private val latestVersion
-        get() = versions.maxByOrNull { it.version }
-
-    val status
-        get() = when {
+    val status by lazy {
+        when {
             discontinued -> AppStatus.DISCONTINUED
             versions.isEmpty() -> AppStatus.DEVELOPMENT
             else -> AppStatus.ACTIVE
         }
+    }
 
-    fun createDevelopmentVersion() =
+    internal val latestVersion by lazy {
+        versions.maxByOrNull { it.version }
+    }
+
+    // TODO tests marker
+    internal fun createDevelopmentVersion() =
         if (developmentVersion != null) {
-            Maybe.Error(AppErrorCodes.PREPARE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
+            Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
         } else {
             latestVersion?.let {
                 Maybe.Result(AppVersionDraft(models = it.models.toSet(), reports = it.reports.toSet()))
             } ?: Maybe.Result(AppVersionDraft())
         }
 
-    fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
+    internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
         if (developmentVersion == null) {
             Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
         } else {
+            val nextVersion = developmentVersion.computeVersion(latestVersion, releaseNotes)
             Maybe.Result(AppVersion(
-                version = computeNextVersion(latestVersion, developmentVersion, releaseNotes),
+                version = nextVersion,
                 releaseNotes = releaseNotes,
                 models = developmentVersion.models.toSet(),
                 reports = developmentVersion.reports.toSet(),
             ))
-        }
-
-    private fun computeNextVersion(latest: AppVersion?, draft: AppVersionDraft, releaseNotes: AppVersionReleaseNotes): Semver {
-        return if (latest == null) {
-            Semver(major = 0, minor = 1, patch = 0)
-        } else {
-            val isBreaking = isBreaking(latest, draft)
-            latest.version.computeNext(isBreaking, releaseNotes)
-        }
-    }
-
-    private fun isBreaking(latest: AppVersion, draft: AppVersionDraft): Boolean {
-        val modelRenamedOrDeleted = latest.models.any { oldModel ->
-            draft.models.none { it.name == oldModel.name }
-        }
-
-        val schemaPairs = latest.models
-            .filter { oldModel -> draft.models.any { it.name == oldModel.name } }
-            .map { oldModel -> oldModel to draft.models.first { it.name == oldModel.name } }
-            .map { it.first.toJsonSchema() to it.second.toJsonSchema()}
-
-        // TODO need some more schema insights
-        // val modelAttributeDeleted = schemaPairs.any { }
-        // val modelAttributeTypeChanged = schemaPairs.any {  }
-
-        return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
-    }
-
-    private fun Semver.computeNext(isBreaking: Boolean, releaseNotes: AppVersionReleaseNotes) =
-        if (isBreaking) {
-            incMajor()
-        } else {
-            when (releaseNotes.changeType) {
-                AppVersionChangeType.BUGFIX -> incPatch()
-                AppVersionChangeType.FEATURE -> incMinor()
-            }
         }
 }
 
@@ -103,7 +67,33 @@ data class AppVersion(
 data class AppVersionDraft(
     val models: Set<AppModel> = emptySet(),
     val reports: Set<AppReport> = emptySet(),
-)
+) {
+    internal fun computeVersion(latest: AppVersion?, releaseNotes: AppVersionReleaseNotes): Semver {
+        return if (latest == null) {
+            Semver(major = 0, minor = 1, patch = 0)
+        } else {
+            val isBreaking = isBreaking(latest)
+            latest.version.computeNext(isBreaking, releaseNotes)
+        }
+    }
+
+    internal fun isBreaking(latest: AppVersion): Boolean {
+        val modelRenamedOrDeleted = latest.models.any { oldModel ->
+            models.none { it.name == oldModel.name }
+        }
+
+        val schemaPairs = latest.models
+            .filter { oldModel -> models.any { it.name == oldModel.name } }
+            .map { oldModel -> oldModel to models.first { it.name == oldModel.name } }
+            .map { it.first.toJsonSchema() to it.second.toJsonSchema() }
+
+        // TODO need some more schema insights
+        // val modelAttributeDeleted = schemaPairs.any { }
+        // val modelAttributeTypeChanged = schemaPairs.any {  }
+
+        return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
+    }
+}
 
 enum class AppVersionChangeType {
     BUGFIX, FEATURE
@@ -119,8 +109,8 @@ data class AppModel(
     val version: Long,
     val schema: String? = null,
     val description: String? = null,
-){
-    fun toJsonSchema(): Schema =
+) {
+    internal fun toJsonSchema(): Schema =
         SchemaLoader.load(JSONObject(JSONTokener(schema)))
 }
 

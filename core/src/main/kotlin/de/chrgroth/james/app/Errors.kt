@@ -1,11 +1,11 @@
 package de.chrgroth.james.app
 
-import de.chrgroth.james.ErrorCodeProvider
+import de.chrgroth.james.ErrorCode
 
-enum class AppErrorCodes : ErrorCodeProvider {
+enum class AppErrorCodes : ErrorCode {
     NOT_FOUND,
     RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-    PREPARE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
+    CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
     DISCONTINUE_STATUS_IS_DISCONTINUED,
     DELETE_STATUS_IS_NOT_DISCONTINUED;
 

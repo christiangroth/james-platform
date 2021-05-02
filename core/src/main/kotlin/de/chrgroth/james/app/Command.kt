@@ -12,6 +12,9 @@ interface AppCommandPort {
     fun delete(id: UUID): Maybe<Unit>
 }
 
+// TODO check app status
+// TODO move more logic to app object?
+
 internal class AppCommandAdapter(private val persistence: AppPersistencePort) : AppCommandPort {
 
     override fun createApp(name: String, description: String?): Maybe<App> {
@@ -29,7 +32,7 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
 
         val newDevelopmentVersion = when (val it = app.createDevelopmentVersion()) {
             is Maybe.Error -> return it
-            is Maybe.Result -> it.result
+            is Maybe.Result -> it.value
         }
         val updatedApp = app.copy(developmentVersion = newDevelopmentVersion)
         // TODO we should be able to guarantee that development version it not null here, otherwise update should return an error
@@ -53,7 +56,7 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
 
         val newVersion = when (val it = app.releaseDevelopmentVersion(releaseNotes)) {
             is Maybe.Error -> return it
-            is Maybe.Result -> it.result
+            is Maybe.Result -> it.value
         }
         val updatedApp = app.copy(developmentVersion = null, versions = app.versions.plus(newVersion))
         // TODO may throw ... how to solve this??
