@@ -18,23 +18,23 @@ import java.util.UUID
 class MongoDBAppAdapter : AppQueryPersistencePort, AppCommandPersistencePort {
 
     override fun get(id: UUID): Maybe<App?> {
-        TODO()
+        TODO("#5 implement MongoDB adapter")
     }
 
     override fun find(): Maybe<Set<App>> {
-        TODO()
+        TODO("#5 implement MongoDB adapter")
     }
 
     override fun upsert(item: App): Maybe<App> {
-        TODO()
+        TODO("#5 implement MongoDB adapter")
     }
 
     override fun delete(id: UUID): Maybe<Unit> {
-        TODO()
+        TODO("#5 implement MongoDB adapter")
     }
 }
 
-// TODO maybe store versions and development version separate because embedding increases document size
+// TODO #5 maybe store versions and development version separate because embedding increases document size
 data class AppEntity(
     val id: UUID,
     val name: String,

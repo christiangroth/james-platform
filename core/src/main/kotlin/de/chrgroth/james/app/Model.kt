@@ -59,7 +59,7 @@ data class App(
             else -> developmentVersion.upsert(datatype).map { copy(developmentVersion = it) }
         }
 
-    // TODO implement tests
+    // TODO #2 implement tests
     internal fun removeDevelopmentVersionDatatype(datatypeName: String) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
@@ -74,7 +74,7 @@ data class App(
             else -> developmentVersion.upsert(report).map { copy(developmentVersion = it) }
         }
 
-    // TODO implement tests
+    // TODO #2 implement tests
     internal fun removeDevelopmentVersionReport(reportName: String) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
@@ -146,7 +146,7 @@ data class AppVersionDraft(
     internal fun upsert(datatype: AppDatatypeDraft) =
         when {
             datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
-            // TODO validate schema
+            // TODO #17 validate schema
             else -> Maybe.Result(copy(datatypes = datatypes.upsert(datatype)))
         }
 
@@ -202,7 +202,7 @@ data class AppVersionReleaseNotes(
             .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
         //.map { it.first.schema.toJsonSchema() to it.second.schema.toJsonSchema() }
 
-        // TODO need validated schema and better schema api first
+        // TODO #17 need validated schema and better schema api first
         // val modelAttributeDeleted = schemaPairs.any { }
         // val modelAttributeTypeChanged = schemaPairs.any {  }
 
