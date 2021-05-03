@@ -15,11 +15,11 @@ import java.util.UUID
 
 class MongoDBAppAdapter : AppPersistencePort {
 
-    override fun get(id: UUID): App? {
+    override fun get(id: UUID): Maybe<App?> {
         TODO()
     }
 
-    override fun find(): Set<App> {
+    override fun find(): Maybe<Set<App>> {
         TODO()
     }
 

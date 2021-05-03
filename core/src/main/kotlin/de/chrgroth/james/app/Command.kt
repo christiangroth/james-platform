@@ -12,7 +12,7 @@ interface AppCommandPort {
     fun delete(id: UUID): Maybe<Unit>
 }
 
-// TODO check app status
+// TODO check app status on business operations
 // TODO move more logic to app object?
 
 internal class AppCommandAdapter(private val persistence: AppPersistencePort) : AppCommandPort {
@@ -28,7 +28,10 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
     }
 
     override fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft> {
-        val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+        val app = when(val result = persistence.get(id)) {
+            is Maybe.Error -> return result.convert()
+            is Maybe.Result -> result.value
+        } ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
 
         val newDevelopmentVersion = when (val it = app.createDevelopmentVersion()) {
             is Maybe.Error -> return it
@@ -42,8 +45,10 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
     override fun updateNextVersionDraft(id: UUID, datatypes: Set<AppDatatype>, reports: Set<AppReport>): Maybe<AppVersionDraft> {
 
         // TODO validate the models, i.e. the JSON schemas
-
-        val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+        val app = when(val result = persistence.get(id)) {
+            is Maybe.Error -> return result.convert()
+            is Maybe.Result -> result.value
+        } ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
 
         val newDevelopmentVersion = AppVersionDraft(datatypes = datatypes, reports = reports)
         val updatedApp = app.copy(developmentVersion = newDevelopmentVersion)
@@ -53,7 +58,10 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
 
     // TODO validate note not empty??
     override fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion> {
-        val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+        val app = when(val result = persistence.get(id)) {
+            is Maybe.Error -> return result.convert()
+            is Maybe.Result -> result.value
+        } ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
 
         val newVersion = when (val it = app.releaseDevelopmentVersion(releaseNotes)) {
             is Maybe.Error -> return it
@@ -65,7 +73,11 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
     }
 
     override fun discontinue(id: UUID): Maybe<App> {
-        val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+        val app = when(val result = persistence.get(id)) {
+            is Maybe.Error -> return result.convert()
+            is Maybe.Result -> result.value
+        } ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+
         if (app.status == AppStatus.DISCONTINUED) {
             return Maybe.Error(AppErrorCodes.DISCONTINUE_STATUS_IS_DISCONTINUED)
         }
@@ -75,7 +87,11 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
     }
 
     override fun delete(id: UUID): Maybe<Unit> {
-        val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+        val app = when(val result = persistence.get(id)) {
+            is Maybe.Error -> return result.convert()
+            is Maybe.Result -> result.value
+        } ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
+
         if (app.status != AppStatus.DISCONTINUED) {
             return Maybe.Error(AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)
         }

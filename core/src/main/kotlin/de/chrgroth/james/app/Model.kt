@@ -103,7 +103,6 @@ data class AppVersionReleaseNotes(
     }
 }
 
-// TODO schema needs to be validated before save
 data class AppDatatype(
     val name: String,
     val version: Long,
