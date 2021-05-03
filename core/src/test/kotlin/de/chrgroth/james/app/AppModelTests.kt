@@ -71,21 +71,20 @@ class AppDevelopmentTests {
     @Test
     fun `createDevelopmentVersion with already existing draft`() {
         val app = createApp().copy(developmentVersion = AppVersionDraft())
+        val developmentResult = app.createDevelopmentVersion()
+        assertThat(developmentResult).isInstanceOf(Maybe.Error::class.java)
 
-        val maybeResult = app.createDevelopmentVersion()
-        assertThat(maybeResult).isInstanceOf(Maybe.Error::class.java)
-        val errorCodeProvider = (maybeResult as Maybe.Error).code
+        val errorCodeProvider = (developmentResult as Maybe.Error).code
         assertThat(errorCodeProvider).isEqualTo(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
     }
 
     @Test
     fun `createDevelopmentVersion without latest`() {
         val app = createApp().copy(versions = emptySet())
+        val developmentResult = app.createDevelopmentVersion()
+        assertThat(developmentResult).isInstanceOf(Maybe.Result::class.java)
 
-        val maybeResult = app.createDevelopmentVersion()
-        assertThat(maybeResult).isInstanceOf(Maybe.Result::class.java)
-
-        val developmentVersion = (maybeResult as Maybe.Result).value
+        val developmentVersion = (developmentResult as Maybe.Result).value
         assertThat(developmentVersion.models).isEmpty()
         assertThat(developmentVersion.reports).isEmpty()
     }
@@ -93,18 +92,55 @@ class AppDevelopmentTests {
     @Test
     fun `createDevelopmentVersion`() {
         val app = createApp()
+        val developmentResult = app.createDevelopmentVersion()
+        assertThat(developmentResult).isInstanceOf(Maybe.Result::class.java)
 
-        val maybeResult = app.createDevelopmentVersion()
-        assertThat(maybeResult).isInstanceOf(Maybe.Result::class.java)
-
-        val developmentVersion = (maybeResult as Maybe.Result).value
+        val developmentVersion = (developmentResult as Maybe.Result).value
         assertThat(developmentVersion.models).containsExactly(AppModel(name = "modelOne", version = 1))
         assertThat(developmentVersion.reports).containsExactly(AppReport(name = "reportOne"))
     }
 
-    // TODO releaseDevelopmentVersion
-    // TODO releaseDevelopmentVersion without draft
-    // TODO releaseDevelopmentVersion without latest
+    @Test
+    fun `releaseDevelopmentVersion without draft`() {
+        val app = createApp()
+        val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, "")
+        val releaseResult = app.releaseDevelopmentVersion(releaseNotes)
+        assertThat(releaseResult).isInstanceOf(Maybe.Error::class.java)
+
+        assertThat((releaseResult as Maybe.Error).code).isEqualTo(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+    }
+
+    @Test
+    fun `releaseDevelopmentVersion without latest version`() {
+        val rawApp = createApp().copy(versions = emptySet())
+        val developmentResult = rawApp.createDevelopmentVersion() as Maybe.Result
+        val app = rawApp.copy(developmentVersion = developmentResult.value)
+
+        val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, "")
+        val releaseResult = app.releaseDevelopmentVersion(releaseNotes)
+        assertThat(releaseResult).isInstanceOf(Maybe.Result::class.java)
+
+        val nextVersion = (releaseResult as Maybe.Result).value
+        assertThat(nextVersion.releaseNotes).isEqualTo(releaseNotes)
+        assertThat(nextVersion.models).isEmpty()
+        assertThat(nextVersion.reports).isEmpty()
+    }
+
+    @Test
+    fun `releaseDevelopmentVersion`() {
+        val rawApp = createApp()
+        val developmentResult = rawApp.createDevelopmentVersion() as Maybe.Result
+        val app = rawApp.copy(developmentVersion = developmentResult.value)
+
+        val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, "")
+        val releaseResult = app.releaseDevelopmentVersion(releaseNotes)
+        assertThat(releaseResult).isInstanceOf(Maybe.Result::class.java)
+
+        val nextVersion = (releaseResult as Maybe.Result).value
+        assertThat(nextVersion.releaseNotes).isEqualTo(releaseNotes)
+        assertThat(nextVersion.models).containsExactly(AppModel(name = "modelOne", version = 1))
+        assertThat(nextVersion.reports).containsExactly(AppReport(name = "reportOne"))
+    }
 
     private fun createApp() =
         App(

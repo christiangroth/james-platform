@@ -51,6 +51,7 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
         return persistence.update(updatedApp).map { it.developmentVersion!! }
     }
 
+    // TODO validate note not empty??
     override fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion> {
         val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
 

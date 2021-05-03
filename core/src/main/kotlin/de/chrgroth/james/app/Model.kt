@@ -33,7 +33,6 @@ data class App(
         versions.maxByOrNull { it.version }
     }
 
-    // TODO tests marker
     internal fun createDevelopmentVersion() =
         if (developmentVersion != null) {
             Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
@@ -68,6 +67,7 @@ data class AppVersionDraft(
     val models: Set<AppModel> = emptySet(),
     val reports: Set<AppReport> = emptySet(),
 ) {
+    // TODO tests marker
     internal fun computeVersion(latest: AppVersion?, releaseNotes: AppVersionReleaseNotes): Semver {
         return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
@@ -85,7 +85,7 @@ data class AppVersionDraft(
         val schemaPairs = latest.models
             .filter { oldModel -> models.any { it.name == oldModel.name } }
             .map { oldModel -> oldModel to models.first { it.name == oldModel.name } }
-            .map { it.first.toJsonSchema() to it.second.toJsonSchema() }
+            //.map { it.first.toJsonSchema() to it.second.toJsonSchema() }
 
         // TODO need some more schema insights
         // val modelAttributeDeleted = schemaPairs.any { }
