@@ -85,7 +85,7 @@ class AppDevelopmentTests {
         assertThat(developmentResult).isInstanceOf(Maybe.Result::class.java)
 
         val developmentVersion = (developmentResult as Maybe.Result).value
-        assertThat(developmentVersion.models).isEmpty()
+        assertThat(developmentVersion.datatypes).isEmpty()
         assertThat(developmentVersion.reports).isEmpty()
     }
 
@@ -96,7 +96,7 @@ class AppDevelopmentTests {
         assertThat(developmentResult).isInstanceOf(Maybe.Result::class.java)
 
         val developmentVersion = (developmentResult as Maybe.Result).value
-        assertThat(developmentVersion.models).containsExactly(AppModel(name = "modelOne", version = 1))
+        assertThat(developmentVersion.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1))
         assertThat(developmentVersion.reports).containsExactly(AppReport(name = "reportOne"))
     }
 
@@ -122,7 +122,7 @@ class AppDevelopmentTests {
 
         val nextVersion = (releaseResult as Maybe.Result).value
         assertThat(nextVersion.releaseNotes).isEqualTo(releaseNotes)
-        assertThat(nextVersion.models).isEmpty()
+        assertThat(nextVersion.datatypes).isEmpty()
         assertThat(nextVersion.reports).isEmpty()
     }
 
@@ -138,7 +138,7 @@ class AppDevelopmentTests {
 
         val nextVersion = (releaseResult as Maybe.Result).value
         assertThat(nextVersion.releaseNotes).isEqualTo(releaseNotes)
-        assertThat(nextVersion.models).containsExactly(AppModel(name = "modelOne", version = 1))
+        assertThat(nextVersion.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1))
         assertThat(nextVersion.reports).containsExactly(AppReport(name = "reportOne"))
     }
 
@@ -154,7 +154,7 @@ class AppDevelopmentTests {
                         changeType = AppVersionChangeType.FEATURE,
                         note = "Everything is new"
                     ),
-                    models = setOf(AppModel(name = "modelOne", version = 1)),
+                    datatypes = setOf(AppDatatype(name = "modelOne", version = 1)),
                     reports = setOf(AppReport(name = "reportOne")),
                 ),
                 AppVersion(
@@ -173,4 +173,31 @@ class AppDevelopmentTests {
                 ),
             )
         )
+}
+
+class AppVersionReleaseNotesTests {
+
+    @Test
+    fun `first version as bugfix is 0-1-0`() {
+        assertThat(createBugfix().computeVersion(null, createDraft())).isEqualTo(Semver(0, 1, 0))
+    }
+
+    @Test
+    fun `first version as feature is 0-1-0`() {
+        assertThat(createFeature().computeVersion(null, createDraft())).isEqualTo(Semver(0, 1, 0))
+    }
+
+    // TODO tests for isBreaking()
+
+    private fun createBugfix() = AppVersionReleaseNotes(
+        changeType = AppVersionChangeType.BUGFIX,
+        note = UUID.randomUUID().toString()
+    )
+
+    private fun createFeature() = AppVersionReleaseNotes(
+        changeType = AppVersionChangeType.FEATURE,
+        note = UUID.randomUUID().toString()
+    )
+
+    private fun createDraft() = AppVersionDraft()
 }

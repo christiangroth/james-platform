@@ -6,7 +6,7 @@ import java.util.UUID
 interface AppCommandPort {
     fun createApp(name: String, description: String? = null): Maybe<App>
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
-    fun updateNextVersionDraft(id: UUID, models: Set<AppModel>, reports: Set<AppReport>): Maybe<AppVersionDraft>
+    fun updateNextVersionDraft(id: UUID, datatypes: Set<AppDatatype>, reports: Set<AppReport>): Maybe<AppVersionDraft>
     fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion>
     fun discontinue(id: UUID): Maybe<App>
     fun delete(id: UUID): Maybe<Unit>
@@ -39,13 +39,13 @@ internal class AppCommandAdapter(private val persistence: AppPersistencePort) : 
         return persistence.update(updatedApp).map { it.developmentVersion!! }
     }
 
-    override fun updateNextVersionDraft(id: UUID, models: Set<AppModel>, reports: Set<AppReport>): Maybe<AppVersionDraft> {
+    override fun updateNextVersionDraft(id: UUID, datatypes: Set<AppDatatype>, reports: Set<AppReport>): Maybe<AppVersionDraft> {
 
         // TODO validate the models, i.e. the JSON schemas
 
         val app = persistence.get(id) ?: return Maybe.Error(AppErrorCodes.NOT_FOUND)
 
-        val newDevelopmentVersion = AppVersionDraft(models = models, reports = reports)
+        val newDevelopmentVersion = AppVersionDraft(datatypes = datatypes, reports = reports)
         val updatedApp = app.copy(developmentVersion = newDevelopmentVersion)
         // TODO we should be able to guarantee that development version it not null here, otherwise update should return an error
         return persistence.update(updatedApp).map { it.developmentVersion!! }

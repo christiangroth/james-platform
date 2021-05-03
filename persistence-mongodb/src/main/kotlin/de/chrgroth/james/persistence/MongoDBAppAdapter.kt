@@ -3,7 +3,7 @@ package de.chrgroth.james.persistence
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.app.App
-import de.chrgroth.james.app.AppModel
+import de.chrgroth.james.app.AppDatatype
 import de.chrgroth.james.app.AppPersistencePort
 import de.chrgroth.james.app.AppReport
 import de.chrgroth.james.app.AppVersion
@@ -53,7 +53,7 @@ data class AppEntity(
         versions = versions.map { it.toCoreRepresentation() }.toSet(),
         developmentVersion = if(developmentVersion != null)
             AppVersionDraft(
-                models = developmentVersion.models.map { it.toCoreRepresentation() }.toSet(),
+                datatypes = developmentVersion.models.map { it.toCoreRepresentation() }.toSet(),
                 reports = developmentVersion.reports.map { it.toCoreRepresentation() }.toSet(),
             )
         else null,
@@ -74,7 +74,7 @@ data class AppVersionEntity(
             changeType = if(isBugfix) AppVersionChangeType.BUGFIX else AppVersionChangeType.FEATURE,
             note = note
         ),
-        models = models.map { it.toCoreRepresentation() }.toSet(),
+        datatypes = models.map { it.toCoreRepresentation() }.toSet(),
         reports = reports.map { it.toCoreRepresentation() }.toSet(),
     )
 }
@@ -85,7 +85,7 @@ data class AppModelEntity(
     val schema: String? = null,
     val description: String? = null,
 ) {
-    fun toCoreRepresentation() = AppModel(
+    fun toCoreRepresentation() = AppDatatype(
         name = name,
         version = version,
         schema = schema,

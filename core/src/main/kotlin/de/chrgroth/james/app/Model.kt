@@ -38,7 +38,7 @@ data class App(
             Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
         } else {
             latestVersion?.let {
-                Maybe.Result(AppVersionDraft(models = it.models.toSet(), reports = it.reports.toSet()))
+                Maybe.Result(AppVersionDraft(datatypes = it.datatypes.toSet(), reports = it.reports.toSet()))
             } ?: Maybe.Result(AppVersionDraft())
         }
 
@@ -46,11 +46,11 @@ data class App(
         if (developmentVersion == null) {
             Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
         } else {
-            val nextVersion = developmentVersion.computeVersion(latestVersion, releaseNotes)
+            val nextVersion = releaseNotes.computeVersion(latestVersion, developmentVersion)
             Maybe.Result(AppVersion(
                 version = nextVersion,
                 releaseNotes = releaseNotes,
-                models = developmentVersion.models.toSet(),
+                datatypes = developmentVersion.datatypes.toSet(),
                 reports = developmentVersion.reports.toSet(),
             ))
         }
@@ -59,33 +59,41 @@ data class App(
 data class AppVersion(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
-    val models: Set<AppModel> = emptySet(),
+    val datatypes: Set<AppDatatype> = emptySet(),
     val reports: Set<AppReport> = emptySet(),
 )
 
 data class AppVersionDraft(
-    val models: Set<AppModel> = emptySet(),
+    val datatypes: Set<AppDatatype> = emptySet(),
     val reports: Set<AppReport> = emptySet(),
+)
+
+enum class AppVersionChangeType {
+    BUGFIX, FEATURE
+}
+
+data class AppVersionReleaseNotes(
+    val changeType: AppVersionChangeType,
+    val note: String,
 ) {
-    // TODO tests marker
-    internal fun computeVersion(latest: AppVersion?, releaseNotes: AppVersionReleaseNotes): Semver {
+    internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
         } else {
-            val isBreaking = isBreaking(latest)
-            latest.version.computeNext(isBreaking, releaseNotes)
+            val isBreaking = isBreaking(latest, next)
+            latest.version.computeNext(isBreaking, this)
         }
     }
 
-    internal fun isBreaking(latest: AppVersion): Boolean {
-        val modelRenamedOrDeleted = latest.models.any { oldModel ->
-            models.none { it.name == oldModel.name }
+    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+        val modelRenamedOrDeleted = latest.datatypes.any { oldModel ->
+            next.datatypes.none { it.name == oldModel.name }
         }
 
-        val schemaPairs = latest.models
-            .filter { oldModel -> models.any { it.name == oldModel.name } }
-            .map { oldModel -> oldModel to models.first { it.name == oldModel.name } }
-            //.map { it.first.toJsonSchema() to it.second.toJsonSchema() }
+        val schemaPairs = latest.datatypes
+            .filter { oldModel -> next.datatypes.any { it.name == oldModel.name } }
+            .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
+        //.map { it.first.toJsonSchema() to it.second.toJsonSchema() }
 
         // TODO need some more schema insights
         // val modelAttributeDeleted = schemaPairs.any { }
@@ -95,16 +103,8 @@ data class AppVersionDraft(
     }
 }
 
-enum class AppVersionChangeType {
-    BUGFIX, FEATURE
-}
-
-data class AppVersionReleaseNotes(
-    val changeType: AppVersionChangeType,
-    val note: String,
-)
-
-data class AppModel(
+// TODO schema needs to be validated before save
+data class AppDatatype(
     val name: String,
     val version: Long,
     val schema: String? = null,
