@@ -33,7 +33,6 @@ data class App(
         versions.maxByOrNull { it.version }
     }
 
-    // TODO update tests with discontinued
     internal fun createDevelopmentVersion() =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
@@ -43,61 +42,47 @@ data class App(
             } ?: Maybe.Result(copy(developmentVersion = AppVersionDraft()))
         }
 
-    // TODO update tests with discontinued
+    // TODO add tests
     internal fun updateDevelopmentVersion(datatype: AppDatatype) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            else -> {
-                val upsertResult = developmentVersion?.upsert(datatype)
-                    ?: Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-
-                when(upsertResult) {
-                    is Maybe.Error -> upsertResult.convert()
-                    is Maybe.Result -> Maybe.Result(copy(developmentVersion = upsertResult.value))
-                }
-            }
+            developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            else -> developmentVersion.upsert(datatype).map { copy(developmentVersion = it) }
         }
 
-    // TODO update tests with discontinued
+    // TODO add tests
     internal fun updateDevelopmentVersion(report: AppReport) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            else -> {
-                val upsertResult = developmentVersion?.upsert(report)
-                    ?: Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-
-                when(upsertResult) {
-                    is Maybe.Error -> upsertResult.convert()
-                    is Maybe.Result -> Maybe.Result(copy(developmentVersion = upsertResult.value))
-                }
-            }
+            developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            else -> developmentVersion.upsert(report).map { copy(developmentVersion = it) }
         }
 
-    // TODO update tests with discontinued
+    // TODO validate release notes
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-            // TODO validate release notes
             else -> {
-                val nextVersion = AppVersion(
-                    version = releaseNotes.computeVersion(latestVersion, developmentVersion),
-                    releaseNotes = releaseNotes,
-                    datatypes = developmentVersion.datatypes.toSet(),
-                    reports = developmentVersion.reports.toSet(),
-                )
-                Maybe.Result(copy(developmentVersion = null, versions = versions.plus(nextVersion)))
+                Maybe.Result(copy(
+                    developmentVersion = null,
+                    versions = versions.plus(
+                        AppVersion(
+                            version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                            releaseNotes = releaseNotes,
+                            datatypes = developmentVersion.datatypes.toSet(),
+                            reports = developmentVersion.reports.toSet(),
+                        )
+                    )))
             }
         }
 
-    // TODO add tests
     internal fun discontinue() =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             else -> Maybe.Result(copy(discontinued = true))
         }
 
-    // TODO add tests
     internal fun canBeDeleted() =
         when {
             status != AppStatus.DISCONTINUED -> Maybe.Error(AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)

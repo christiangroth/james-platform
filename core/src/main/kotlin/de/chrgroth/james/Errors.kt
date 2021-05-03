@@ -19,4 +19,9 @@ sealed class Maybe<Type> {
         is Error -> Error(code)
         is Result -> Result(transformer.invoke(value))
     }
+
+    fun <R> transform(transformer: (Type) -> Maybe<R>) = when(this) {
+        is Error -> Error(code)
+        is Result -> transformer.invoke(value)
+    }
 }
