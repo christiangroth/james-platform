@@ -42,7 +42,6 @@ data class App(
             } ?: Maybe.Result(copy(developmentVersion = AppVersionDraft()))
         }
 
-    // TODO add tests
     internal fun updateDevelopmentVersion(datatype: AppDatatype) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
@@ -50,7 +49,6 @@ data class App(
             else -> developmentVersion.upsert(datatype).map { copy(developmentVersion = it) }
         }
 
-    // TODO add tests
     internal fun updateDevelopmentVersion(report: AppReport) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
@@ -58,11 +56,11 @@ data class App(
             else -> developmentVersion.upsert(report).map { copy(developmentVersion = it) }
         }
 
-    // TODO validate release notes
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            releaseNotes.note.isBlank() -> Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK)
             else -> {
                 Maybe.Result(copy(
                     developmentVersion = null,
