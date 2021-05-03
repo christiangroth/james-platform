@@ -17,38 +17,26 @@ internal class AppQueryAdapter(private val persistence: AppPersistencePort) : Ap
         return persistence.get(id)
     }
 
-    override fun getVersion(id: UUID, version: Semver): Maybe<AppVersion?> {
-        val app = when(val result = persistence.get(id)) {
-            is Maybe.Error -> return result.convert()
-            is Maybe.Result -> result.value
+    override fun getVersion(id: UUID, version: Semver) =
+        persistence.get(id).transform { app ->
+            if (app == null) {
+                Maybe.Result(null)
+            } else {
+                Maybe.Result(app.versions.firstOrNull { it.version == version })
+            }
         }
 
-        return if(app != null) {
-            Maybe.Result(app.versions.firstOrNull { it.version == version })
-        } else {
-            Maybe.Result(null)
-        }
-    }
-
-    override fun getNextVersionDraft(id: UUID): Maybe<AppVersionDraft?> {
-        val app = when(val result = persistence.get(id)) {
-            is Maybe.Error -> return result.convert()
-            is Maybe.Result -> result.value
+    override fun getNextVersionDraft(id: UUID) =
+        persistence.get(id).transform { app ->
+            if (app == null) {
+                Maybe.Error(AppErrorCodes.NOT_FOUND)
+            } else {
+                Maybe.Result(app.developmentVersion)
+            }
         }
 
-        return if(app != null) {
-            Maybe.Result(app?.developmentVersion)
-        } else {
-            Maybe.Error(AppErrorCodes.NOT_FOUND)
+    override fun findApps(filter: (App) -> Boolean) =
+        persistence.find().map {
+            it.filter(filter).toSet()
         }
-    }
-
-    override fun findApps(filter: (App) -> Boolean): Maybe<Set<App>> {
-        val apps = when(val result = persistence.find()) {
-            is Maybe.Error -> return result.convert()
-            is Maybe.Result -> result.value
-        }
-
-        return Maybe.Result(apps.filter(filter).toSet())
-    }
 }
