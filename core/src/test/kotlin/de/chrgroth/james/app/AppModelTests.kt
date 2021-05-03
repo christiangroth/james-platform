@@ -278,6 +278,46 @@ class AppDevelopmentTests {
         )
 }
 
+class AppVersionDraftTests {
+
+    @Test
+    fun `upsert datatype name blank`() {
+        val result = createDraft().upsert(AppDatatype(name = "", version = 0))
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
+    }
+
+    @Test
+    fun `upsert datatype version negative`() {
+        val result = createDraft().upsert(AppDatatype(name = "Foos", version = -1))
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_VERSION_NEGATIVE)
+    }
+
+    @Test
+    fun `upsert datatype`() {
+        val result = createDraft().upsert(AppDatatype(name = "Foos", version = 0))
+        assertThat(result).isInstanceOf(Maybe.Result::class.java)
+        assertThat((result as Maybe.Result).value.datatypes).contains(AppDatatype(name = "Foos", version = 0))
+    }
+
+    @Test
+    fun `upsert report name blank`() {
+        val result = createDraft().upsert(AppReport(name = ""))
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK)
+    }
+
+    @Test
+    fun `upsert report`() {
+        val result = createDraft().upsert(AppReport(name = "Foos Report"))
+        assertThat(result).isInstanceOf(Maybe.Result::class.java)
+        assertThat((result as Maybe.Result).value.reports).contains(AppReport(name = "Foos Report"))
+    }
+
+    private fun createDraft() = AppVersionDraft()
+}
+
 class AppVersionReleaseNotesTests {
 
     @Test
@@ -289,8 +329,6 @@ class AppVersionReleaseNotesTests {
     fun `first version as feature is 0-1-0`() {
         assertThat(createFeature().computeVersion(null, createDraft())).isEqualTo(Semver(0, 1, 0))
     }
-
-    // TODO tests for isBreaking()
 
     private fun createBugfix() = AppVersionReleaseNotes(
         changeType = AppVersionChangeType.BUGFIX,

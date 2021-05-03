@@ -100,19 +100,23 @@ data class AppVersionDraft(
     val reports: Set<AppReport> = emptySet(),
 ) {
 
-    // TODO validate datatype and write tests
-    internal fun upsert(datatype: AppDatatype): Maybe<AppVersionDraft> {
-        return Maybe.Result(copy(datatypes = datatypes.upsert(datatype)))
-    }
+    internal fun upsert(datatype: AppDatatype) =
+        when {
+            datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
+            datatype.version < 0 -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_VERSION_NEGATIVE)
+            // TODO validate version not lower than in latest
+            // TODO validate schema
+            else -> Maybe.Result(copy(datatypes = datatypes.upsert(datatype)))
+        }
 
     private fun Set<AppDatatype>.upsert(datatype: AppDatatype) =
         filterNot { it.name == datatype.name }.plus(datatype).toSet()
 
-
-    // TODO validate report and write tests
-    internal fun upsert(report: AppReport): Maybe<AppVersionDraft> {
-        return Maybe.Result(copy(reports = reports.upsert(report)))
-    }
+    internal fun upsert(report: AppReport) =
+        when {
+            report.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK)
+            else -> Maybe.Result(copy(reports = reports.upsert(report)))
+        }
 
     private fun Set<AppReport>.upsert(report: AppReport) =
         filterNot { it.name == report.name }.plus(report).toSet()
@@ -145,7 +149,7 @@ data class AppVersionReleaseNotes(
             .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
         //.map { it.first.toJsonSchema() to it.second.toJsonSchema() }
 
-        // TODO need some more schema insights
+        // TODO need validated schema and better schema api first
         // val modelAttributeDeleted = schemaPairs.any { }
         // val modelAttributeTypeChanged = schemaPairs.any {  }
 
