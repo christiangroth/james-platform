@@ -3,7 +3,6 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.computeNext
-import org.everit.json.schema.Schema
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -38,22 +37,49 @@ data class App(
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion != null -> Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
             else -> latestVersion?.let {
-                Maybe.Result(copy(developmentVersion = AppVersionDraft(datatypes = it.datatypes.toSet(), reports = it.reports.toSet())))
+                Maybe.Result(copy(
+                    developmentVersion = AppVersionDraft(
+                        datatypes = it.datatypes.map { datatype ->
+                            AppDatatypeDraft(
+                                name = datatype.name,
+                                schema = datatype.schema,
+                                description = datatype.description
+                            )
+                        }.toSet(),
+                        reports = it.reports.toSet()
+                    )
+                ))
             } ?: Maybe.Result(copy(developmentVersion = AppVersionDraft()))
         }
 
-    internal fun updateDevelopmentVersion(datatype: AppDatatype) =
+    internal fun updateDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
             else -> developmentVersion.upsert(datatype).map { copy(developmentVersion = it) }
         }
 
-    internal fun updateDevelopmentVersion(report: AppReport) =
+    // TODO implement tests
+    internal fun removeDevelopmentVersionDatatype(datatypeName: String) =
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
+        }
+
+    internal fun updateDevelopmentVersionReport(report: AppReport) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
             else -> developmentVersion.upsert(report).map { copy(developmentVersion = it) }
+        }
+
+    // TODO implement tests
+    internal fun removeDevelopmentVersionReport(reportName: String) =
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            else -> developmentVersion.removeReport(reportName).map { copy(developmentVersion = it) }
         }
 
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
@@ -68,7 +94,7 @@ data class App(
                         AppVersion(
                             version = releaseNotes.computeVersion(latestVersion, developmentVersion),
                             releaseNotes = releaseNotes,
-                            datatypes = developmentVersion.datatypes.toSet(),
+                            datatypes = developmentVersion.createDatatypes(latestVersion),
                             reports = developmentVersion.reports.toSet(),
                         )
                     )))
@@ -96,26 +122,53 @@ data class AppVersion(
 )
 
 data class AppVersionDraft(
-    val datatypes: Set<AppDatatype> = emptySet(),
+    val datatypes: Set<AppDatatypeDraft> = emptySet(),
     val reports: Set<AppReport> = emptySet(),
 ) {
 
-    internal fun upsert(datatype: AppDatatype) =
+    fun createDatatypes(latest: AppVersion?) =
+        datatypes.map { draft ->
+            val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
+            when {
+                existingDatatype == null -> draft.toDatatype(version = 0)
+                existingDatatype.schema == draft.schema -> draft.toDatatype(version = existingDatatype.version)
+                else -> draft.toDatatype(version = existingDatatype.version + 1)
+            }
+        }.toSet()
+
+    private fun AppDatatypeDraft.toDatatype(version: Long) = AppDatatype(
+        name = name,
+        version = version,
+        schema = schema,
+        description = description
+    )
+
+    internal fun upsert(datatype: AppDatatypeDraft) =
         when {
             datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
-            datatype.version < 0 -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_VERSION_NEGATIVE)
-            // TODO validate version not lower than in latest
             // TODO validate schema
             else -> Maybe.Result(copy(datatypes = datatypes.upsert(datatype)))
         }
 
-    private fun Set<AppDatatype>.upsert(datatype: AppDatatype) =
+    internal fun removeDatatype(datatypeName: String) =
+        when {
+            datatypes.none { it.name == datatypeName } -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_DATATYPE_NOT_FOUND)
+            else -> Maybe.Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName }.toSet()))
+        }
+
+    private fun Set<AppDatatypeDraft>.upsert(datatype: AppDatatypeDraft) =
         filterNot { it.name == datatype.name }.plus(datatype).toSet()
 
     internal fun upsert(report: AppReport) =
         when {
             report.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK)
             else -> Maybe.Result(copy(reports = reports.upsert(report)))
+        }
+
+    internal fun removeReport(reportName: String) =
+        when {
+            reports.none { it.name == reportName } -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_REPORT_NOT_FOUND)
+            else -> Maybe.Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
         }
 
     private fun Set<AppReport>.upsert(report: AppReport) =
@@ -147,7 +200,7 @@ data class AppVersionReleaseNotes(
         val schemaPairs = latest.datatypes
             .filter { oldModel -> next.datatypes.any { it.name == oldModel.name } }
             .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
-        //.map { it.first.toJsonSchema() to it.second.toJsonSchema() }
+        //.map { it.first.schema.toJsonSchema() to it.second.schema.toJsonSchema() }
 
         // TODO need validated schema and better schema api first
         // val modelAttributeDeleted = schemaPairs.any { }
@@ -155,19 +208,23 @@ data class AppVersionReleaseNotes(
 
         return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
     }
+
+    private fun String.toJsonSchema() = SchemaLoader.load(JSONObject(JSONTokener(this)))
 }
+
+data class AppDatatypeDraft(
+    val name: String,
+    val schema: String? = null,
+    val description: String? = null,
+)
 
 data class AppDatatype(
     val name: String,
     val version: Long,
     val schema: String? = null,
     val description: String? = null,
-) {
-    internal fun toJsonSchema(): Schema =
-        SchemaLoader.load(JSONObject(JSONTokener(schema)))
-}
+)
 
-// TODO would be great to have some generic reports/graphs, configured based on models and their attributes
 data class AppReport(
     val name: String,
     val description: String? = null,

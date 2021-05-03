@@ -105,14 +105,14 @@ class AppDevelopmentTests {
         assertThat(result).isInstanceOf(Maybe.Result::class.java)
 
         val updatedApp = (result as Maybe.Result).value
-        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1))
+        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatypeDraft(name = "modelOne"))
         assertThat(updatedApp.developmentVersion!!.reports).containsExactly(AppReport(name = "reportOne"))
     }
 
     @Test
     fun `updateDevelopmentVersion with datatype on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        val result = app.updateDevelopmentVersion(AppDatatype("Foos", 0))
+        val result = app.updateDevelopmentVersionDatatype(AppDatatypeDraft("Foos"))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
     }
@@ -120,7 +120,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype without draft`() {
         val app = createApp()
-        val result = app.updateDevelopmentVersion(AppDatatype("Foos", 0))
+        val result = app.updateDevelopmentVersionDatatype(AppDatatypeDraft("Foos"))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
     }
@@ -128,16 +128,16 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype`() {
         val app = (createApp().createDevelopmentVersion() as Maybe.Result).value
-        val result = app.updateDevelopmentVersion(AppDatatype("Foos", 0))
+        val result = app.updateDevelopmentVersionDatatype(AppDatatypeDraft("Foos"))
         assertThat(result).isInstanceOf(Maybe.Result::class.java)
         val developmentVersion = (result as Maybe.Result).value.developmentVersion!!
-        assertThat(developmentVersion.datatypes).contains(AppDatatype("Foos", 0))
+        assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft("Foos"))
     }
 
     @Test
     fun `updateDevelopmentVersion with report on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        val result = app.updateDevelopmentVersion(AppReport("Foos Report"))
+        val result = app.updateDevelopmentVersionReport(AppReport("Foos Report"))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
     }
@@ -145,7 +145,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report without draft`() {
         val app = createApp()
-        val result = app.updateDevelopmentVersion(AppReport("Foos AppReport"))
+        val result = app.updateDevelopmentVersionReport(AppReport("Foos AppReport"))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
     }
@@ -153,7 +153,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report`() {
         val app = (createApp().createDevelopmentVersion() as Maybe.Result).value
-        val result = app.updateDevelopmentVersion(AppReport("Foos AppReport"))
+        val result = app.updateDevelopmentVersionReport(AppReport("Foos AppReport"))
         assertThat(result).isInstanceOf(Maybe.Result::class.java)
         val developmentVersion = (result as Maybe.Result).value.developmentVersion!!
         assertThat(developmentVersion.reports).contains(AppReport("Foos AppReport"))
@@ -282,23 +282,16 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype name blank`() {
-        val result = createDraft().upsert(AppDatatype(name = "", version = 0))
+        val result = createDraft().upsert(AppDatatypeDraft(name = ""))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
     }
 
     @Test
-    fun `upsert datatype version negative`() {
-        val result = createDraft().upsert(AppDatatype(name = "Foos", version = -1))
-        assertThat(result).isInstanceOf(Maybe.Error::class.java)
-        assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_VERSION_NEGATIVE)
-    }
-
-    @Test
     fun `upsert datatype`() {
-        val result = createDraft().upsert(AppDatatype(name = "Foos", version = 0))
+        val result = createDraft().upsert(AppDatatypeDraft(name = "Foos"))
         assertThat(result).isInstanceOf(Maybe.Result::class.java)
-        assertThat((result as Maybe.Result).value.datatypes).contains(AppDatatype(name = "Foos", version = 0))
+        assertThat((result as Maybe.Result).value.datatypes).contains(AppDatatypeDraft(name = "Foos"))
     }
 
     @Test

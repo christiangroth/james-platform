@@ -2,7 +2,7 @@ package de.chrgroth.james.data
 
 data class DataObject(
     val id: Long,
-    // TODO created, lastUpdated, deleted
-    // TODO createdBy, lastUpdatedBy, deletedBy
-    // TODO typeVersion?
+    // TODO #5 created, lastUpdated, deleted
+    // TODO #5 createdBy, lastUpdatedBy, deletedBy
+    // TODO #5 typeVersion?
 )

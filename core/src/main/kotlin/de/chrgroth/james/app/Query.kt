@@ -11,14 +11,14 @@ interface AppQueryPort {
     fun findApps(filter: (App) -> Boolean = { true }): Maybe<Set<App>>
 }
 
-internal class AppQueryAdapter(private val persistence: AppPersistencePort) : AppQueryPort {
+internal class AppQueryAdapter(private val queryPersistence: AppQueryPersistencePort) : AppQueryPort {
 
     override fun getApp(id: UUID): Maybe<App?> {
-        return persistence.get(id)
+        return queryPersistence.get(id)
     }
 
     override fun getVersion(id: UUID, version: Semver) =
-        persistence.get(id).transform { app ->
+        queryPersistence.get(id).transform { app ->
             if (app == null) {
                 Maybe.Result(null)
             } else {
@@ -27,7 +27,7 @@ internal class AppQueryAdapter(private val persistence: AppPersistencePort) : Ap
         }
 
     override fun getNextVersionDraft(id: UUID) =
-        persistence.get(id).transform { app ->
+        queryPersistence.get(id).transform { app ->
             if (app == null) {
                 Maybe.Error(AppErrorCodes.NOT_FOUND)
             } else {
@@ -36,7 +36,7 @@ internal class AppQueryAdapter(private val persistence: AppPersistencePort) : Ap
         }
 
     override fun findApps(filter: (App) -> Boolean) =
-        persistence.find().map {
+        queryPersistence.find().map {
             it.filter(filter).toSet()
         }
 }
