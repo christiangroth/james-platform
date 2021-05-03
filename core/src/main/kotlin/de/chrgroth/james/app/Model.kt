@@ -9,8 +9,8 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import java.util.UUID
 
-enum class AppStatus {
-    DEVELOPMENT, ACTIVE, DISCONTINUED
+enum class AppStatus(val allowsChanges: Boolean) {
+    DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
 
 data class App(
@@ -33,26 +33,75 @@ data class App(
         versions.maxByOrNull { it.version }
     }
 
+    // TODO update tests with discontinued
     internal fun createDevelopmentVersion() =
-        if (developmentVersion != null) {
-            Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
-        } else {
-            latestVersion?.let {
-                Maybe.Result(AppVersionDraft(datatypes = it.datatypes.toSet(), reports = it.reports.toSet()))
-            } ?: Maybe.Result(AppVersionDraft())
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            developmentVersion != null -> Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
+            else -> latestVersion?.let {
+                Maybe.Result(copy(developmentVersion = AppVersionDraft(datatypes = it.datatypes.toSet(), reports = it.reports.toSet())))
+            } ?: Maybe.Result(copy(developmentVersion = AppVersionDraft()))
         }
 
+    // TODO update tests with discontinued
+    internal fun updateDevelopmentVersion(datatype: AppDatatype) =
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            else -> {
+                val upsertResult = developmentVersion?.upsert(datatype)
+                    ?: Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+
+                when(upsertResult) {
+                    is Maybe.Error -> upsertResult.convert()
+                    is Maybe.Result -> Maybe.Result(copy(developmentVersion = upsertResult.value))
+                }
+            }
+        }
+
+    // TODO update tests with discontinued
+    internal fun updateDevelopmentVersion(report: AppReport) =
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            else -> {
+                val upsertResult = developmentVersion?.upsert(report)
+                    ?: Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+
+                when(upsertResult) {
+                    is Maybe.Error -> upsertResult.convert()
+                    is Maybe.Result -> Maybe.Result(copy(developmentVersion = upsertResult.value))
+                }
+            }
+        }
+
+    // TODO update tests with discontinued
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
-        if (developmentVersion == null) {
-            Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-        } else {
-            val nextVersion = releaseNotes.computeVersion(latestVersion, developmentVersion)
-            Maybe.Result(AppVersion(
-                version = nextVersion,
-                releaseNotes = releaseNotes,
-                datatypes = developmentVersion.datatypes.toSet(),
-                reports = developmentVersion.reports.toSet(),
-            ))
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            developmentVersion == null -> Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            // TODO validate release notes
+            else -> {
+                val nextVersion = AppVersion(
+                    version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                    releaseNotes = releaseNotes,
+                    datatypes = developmentVersion.datatypes.toSet(),
+                    reports = developmentVersion.reports.toSet(),
+                )
+                Maybe.Result(copy(developmentVersion = null, versions = versions.plus(nextVersion)))
+            }
+        }
+
+    // TODO add tests
+    internal fun discontinue() =
+        when {
+            !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            else -> Maybe.Result(copy(discontinued = true))
+        }
+
+    // TODO add tests
+    internal fun canBeDeleted() =
+        when {
+            status != AppStatus.DISCONTINUED -> Maybe.Error(AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)
+            else -> Maybe.Result(Unit)
         }
 }
 
@@ -66,7 +115,25 @@ data class AppVersion(
 data class AppVersionDraft(
     val datatypes: Set<AppDatatype> = emptySet(),
     val reports: Set<AppReport> = emptySet(),
-)
+) {
+
+    // TODO validate datatype and write tests
+    internal fun upsert(datatype: AppDatatype): Maybe<AppVersionDraft> {
+        return Maybe.Result(copy(datatypes = datatypes.upsert(datatype)))
+    }
+
+    private fun Set<AppDatatype>.upsert(datatype: AppDatatype) =
+        filterNot { it.name == datatype.name }.plus(datatype).toSet()
+
+
+    // TODO validate report and write tests
+    internal fun upsert(report: AppReport): Maybe<AppVersionDraft> {
+        return Maybe.Result(copy(reports = reports.upsert(report)))
+    }
+
+    private fun Set<AppReport>.upsert(report: AppReport) =
+        filterNot { it.name == report.name }.plus(report).toSet()
+}
 
 enum class AppVersionChangeType {
     BUGFIX, FEATURE
