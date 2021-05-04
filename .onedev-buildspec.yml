@@ -13,7 +13,7 @@ jobs:
   - echo
   - ''
   - echo "updating git config ..."
-  - git config user.email "chr.groth\@gmx.de"
+  - git config user.email "chr.groth@@gmx.de"
   - git config user.name "chris"
   - ''
   - echo "changing back from detached head to branch @updated_branch@ ..."
