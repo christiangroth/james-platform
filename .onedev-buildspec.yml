@@ -1,4 +1,4 @@
-version: 1
+version: 3
 jobs:
 - name: CI
   image: gradle:jdk11
@@ -16,13 +16,13 @@ jobs:
   - git config user.email "chr.groth@@gmx.de"
   - git config user.name "chris"
   - ''
-  - echo "changing back from detached head to branch @updated_branch@ ..."
-  - git fetch origin @updated_branch@:@updated_branch@
-  - git checkout @updated_branch@
+  - echo "changing back from detached head to branch @branch@ ..."
+  - git fetch origin @branch@:@branch@
+  - git checkout @branch@
   - ''
   - gradle --no-daemon --info build
   - ''
-  - if [ "@updated_branch@" = "master" ]; then
+  - if [ "@branch@" = "master" ]; then
   - '  gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
   - fi
   triggers:
