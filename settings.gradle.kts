@@ -1,3 +1,4 @@
 rootProject.name = "james-api"
 
-includeBuild("../restcrud")
+include("core")
+include("persistence-mongodb")
