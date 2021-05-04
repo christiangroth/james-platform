@@ -18,12 +18,8 @@ internal class AppQueryAdapter(private val queryPersistence: AppQueryPersistence
     }
 
     override fun getVersion(id: UUID, version: Semver) =
-        queryPersistence.get(id).transform { app ->
-            if (app == null) {
-                Maybe.Result(null)
-            } else {
-                Maybe.Result(app.versions.firstOrNull { it.version == version })
-            }
+        queryPersistence.get(id).map { app ->
+            app?.versions?.firstOrNull { it.version == version }
         }
 
     override fun getNextVersionDraft(id: UUID) =

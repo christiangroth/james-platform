@@ -3,6 +3,7 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.computeNext
+import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -144,8 +145,11 @@ data class AppVersionDraft(
     internal fun upsert(datatype: AppDatatypeDraft) =
         when {
             datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
-            // TODO #17 validate schema
-            else -> Maybe.Result(copy(datatypes = datatypes.upsert(datatype)))
+            else -> {
+                datatype.parseJsonSchema().map {
+                    copy(datatypes = datatypes.upsert(datatype))
+                }
+            }
         }
 
     internal fun removeDatatype(datatypeName: String) =
@@ -191,37 +195,82 @@ data class AppVersionReleaseNotes(
     }
 
     internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
-        val modelRenamedOrDeleted = latest.datatypes.any { oldModel ->
-            next.datatypes.none { it.name == oldModel.name }
+        val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
+            next.datatypes.none { it.name == existingDatatype.name }
+        }
+        if(modelRenamedOrDeleted) {
+            return true
         }
 
-        val schemaPairs = latest.datatypes
-            .filter { oldModel -> next.datatypes.any { it.name == oldModel.name } }
-            .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
-        //.map { it.first.schema.toJsonSchema() to it.second.schema.toJsonSchema() }
-
-        // TODO #17 need validated schema and better schema api first
-        // val modelAttributeDeleted = schemaPairs.any { }
-        // val modelAttributeTypeChanged = schemaPairs.any {  }
-
-        return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
+        return latest.datatypes.asSequence()
+            .filter { existingDatatype -> next.datatypes.any { it.name == existingDatatype.name } }
+            .map { existingDatatype -> existingDatatype to next.datatypes.first { it.name == existingDatatype.name } }
+            .filter { it.first.schema != it.second.schema }
+            .map { it.first.parseJsonSchema() to it.second.schema.parseJsonSchema() }
+            .filter { it.first is Maybe.Result && it.second is Maybe.Result }
+            .map { (it.first as Maybe.Result).value to (it.second as Maybe.Result).value }
+            .any { it.first.isBreakingChange(it.second) }
     }
 
-    private fun String.toJsonSchema() = SchemaLoader.load(JSONObject(JSONTokener(this)))
+    // TODO #17 define what's breaking
+    internal fun ObjectSchema.isBreakingChange(next: ObjectSchema): Boolean {
+        // - property removed/renamed
+        // - property type changed / more specialized
+        // - property enum value removed
+        // - property regex changed
+        // - property min increased
+        // - property max decreased
+        // - property made required
+        // - property required but default removed
+        // - new required property without default
+        return false
+    }
 }
 
+// TODO #17 schema must not be null ... but how to start a clean datatype?? Maybe further validate all datatypes before release?
 data class AppDatatypeDraft(
     val name: String,
     val schema: String? = null,
     val description: String? = null,
-)
+) {
+    fun parseJsonSchema() = schema.parseJsonSchema()
+}
 
 data class AppDatatype(
     val name: String,
     val version: Long,
     val schema: String? = null,
     val description: String? = null,
-)
+) {
+    fun parseJsonSchema() = schema.parseJsonSchema()
+}
+
+fun String?.parseJsonSchema(): Maybe<ObjectSchema> {
+    if(this == null) {
+        return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
+    }
+
+    val loadSchemaResult = runCatching {
+        SchemaLoader.load(JSONObject(JSONTokener(this)))
+    }
+
+    if(loadSchemaResult.isSuccess) {
+        val schema = loadSchemaResult.getOrNull()
+            ?: return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
+
+        // ignored properties that are not keywords of a schema
+        return when {
+            // TODO #17 pass additional information: schema.unprocessedProperties
+            schema.unprocessedProperties.isNotEmpty() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNKNOWN_PROPERTIES)
+            // TODO #17 pass additional information: schema.javaClass
+            schema !is ObjectSchema -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA)
+            else -> Maybe.Result(schema)
+        }
+    } else {
+        // TODO #17 pass additional information: loadSchemaResult.exceptionOrNull()
+        return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID)
+    }
+}
 
 data class AppReport(
     val name: String,
