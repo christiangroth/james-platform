@@ -59,7 +59,6 @@ data class App(
             else -> developmentVersion.upsert(datatype).map { copy(developmentVersion = it) }
         }
 
-    // TODO #2 implement tests
     internal fun removeDevelopmentVersionDatatype(datatypeName: String) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
@@ -74,7 +73,6 @@ data class App(
             else -> developmentVersion.upsert(report).map { copy(developmentVersion = it) }
         }
 
-    // TODO #2 implement tests
     internal fun removeDevelopmentVersionReport(reportName: String) =
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
