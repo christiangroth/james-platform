@@ -1,6 +1,8 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.app.AppErrorCodes
 import org.assertj.core.api.Assertions.assertThat
+import org.everit.json.schema.StringSchema
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
@@ -80,9 +82,42 @@ class JsonSchemaGenerationTests {
 }
 
 class JsonSchemaParsingTests {
-    // TODO #17 parseJsonSchema
+
+    @Test
+    fun `invalid json schema syntax fails`() {
+        val result = createSchema(",;,;")
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code)
+            .isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID)
+    }
+
+    @Test
+    fun `not object schema (cannot happen when using datatypes api everytime)`() {
+        val result = """{ "type": "string" }""".parseJsonSchema()
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code)
+            .isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA)
+        assertThat(result.details).isEqualTo(StringSchema::class.java)
+    }
+
+    @Test
+    fun `unknown properties are rejected`() {
+        val result = createSchema("""
+            "foo": "bar"
+        """.trimIndent())
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code)
+            .isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNKNOWN_PROPERTIES)
+        assertThat(result.details).isEqualTo(mapOf("foo" to "bar"))
+    }
+
+    private fun createSchema(schemaContent: String) =
+        jsonSchemaFor("TestType", "Some really nice description!", schemaContent).parseJsonSchema()
 }
 
 class JsonSchemaComparisonTests {
     // TODO #17 isBreakingTo
+
+    private fun createSchema(schemaContent: String) =
+        jsonSchemaFor("TestType", "Some really nice description!", schemaContent).parseJsonSchema()
 }

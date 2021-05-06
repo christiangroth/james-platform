@@ -56,7 +56,7 @@ data class App(
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-            else -> developmentVersion.upsertDatatype(id, datatype).map { copy(developmentVersion = it) }
+            else -> developmentVersion.upsertDatatype(datatype).map { copy(developmentVersion = it) }
         }
 
     internal fun removeDevelopmentVersionDatatype(datatypeName: String) =
@@ -90,7 +90,7 @@ data class App(
                     developmentVersion = null,
                     versions = versions.plus(
                         AppVersion(
-                            version = releaseNotes.computeVersion(id, latestVersion, developmentVersion),
+                            version = releaseNotes.computeVersion(latestVersion, developmentVersion),
                             releaseNotes = releaseNotes,
                             datatypes = developmentVersion.createDatatypes(latestVersion),
                             reports = developmentVersion.reports.toSet(),
@@ -140,12 +140,12 @@ data class AppVersionDraft(
             )
         }.toSet()
 
-    internal fun upsertDatatype(appId: UUID, datatype: AppDatatypeDraft) =
+    internal fun upsertDatatype(datatype: AppDatatypeDraft) =
         when {
             datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
             datatype.name.any { !it.isLetter() } -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY)
             else -> {
-                datatype.generateJsonSchema(appId).parseJsonSchema().map {
+                datatype.generateJsonSchema().parseJsonSchema().map {
                     copy(datatypes = datatypes.upsert(datatype))
                 }
             }
@@ -184,16 +184,16 @@ data class AppVersionReleaseNotes(
     val changeType: AppVersionChangeType,
     val note: String,
 ) {
-    internal fun computeVersion(appId: UUID, latest: AppVersion?, next: AppVersionDraft): Semver {
+    internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
         } else {
-            val isBreaking = isBreaking(appId, latest, next)
+            val isBreaking = isBreaking(latest, next)
             latest.version.computeNext(isBreaking, this)
         }
     }
 
-    internal fun isBreaking(appId: UUID, latest: AppVersion, next: AppVersionDraft): Boolean {
+    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
         }
@@ -206,8 +206,8 @@ data class AppVersionReleaseNotes(
             .map { existingDatatype -> existingDatatype to next.datatypes.first { it.name == existingDatatype.name } }
             .filter { it.first.schemaContent != it.second.schemaContent }
             .map {
-                it.first.generateJsonSchema(appId).parseJsonSchema() to
-                        it.second.generateJsonSchema(appId).parseJsonSchema()
+                it.first.generateJsonSchema().parseJsonSchema() to
+                        it.second.generateJsonSchema().parseJsonSchema()
             }
             .filter { it.first is Maybe.Result && it.second is Maybe.Result }
             .map { (it.first as Maybe.Result).value to (it.second as Maybe.Result).value }

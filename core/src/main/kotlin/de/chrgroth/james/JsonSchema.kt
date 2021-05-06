@@ -9,25 +9,24 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import java.util.UUID
 
-fun AppDatatypeDraft.generateJsonSchema(appId: UUID) = jsonSchemaFor(
-    //appId = appId,
-    //version = null,
+fun AppDatatypeDraft.generateJsonSchema(/* TODO #19 appId: UUID */) = jsonSchemaFor(
+    // TODO #19 appId = appId,
+    // TODO #19 version = null,
     name = name,
     description = description ?: "",
     schemaContent = schemaContent ?: "",
 )
 
-fun AppDatatype.generateJsonSchema(appId: UUID) = jsonSchemaFor(
-    //appId = appId,
-    //version = version.toString(),
+fun AppDatatype.generateJsonSchema(/* TODO #19 appId: UUID */) = jsonSchemaFor(
+    // TODO #19 appId = appId,
+    // TODO #19 version = version.toString(),
     name = name,
     description = description ?: "",
     schemaContent = schemaContent ?: "",
 )
 
-// TODO #17 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
-// TODO #17 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
-fun jsonSchemaFor(/*appId: UUID, version: String?, */name: String, description: String, schemaContent: String) = """
+// TODO #19 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
+fun jsonSchemaFor(/* TODO #19 appId: UUID, version: String?, */name: String, description: String, schemaContent: String) = """
 {
   "title": "$name",
   "description": "$description",
@@ -36,14 +35,16 @@ $schemaContent
 }
 """.trimIndent()
 
+// TODO #18 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
 // latest json schema release the library can handle :(
 // latest at all: https://json-schema.org/draft/2020-12/schema
 const val SCHEMA_VERSION = "http://json-schema.org/draft-07/schema"
 
-// TODO #17 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
+// TODO #19 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
 fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
+// TODO #17 some kind of logging would be nice
 fun String.parseJsonSchema(): Maybe<ObjectSchema> {
 
     val loadSchemaResult = runCatching {
