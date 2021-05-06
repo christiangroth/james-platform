@@ -10,18 +10,18 @@ interface ErrorCode {
 }
 
 sealed class Maybe<Type> {
-    class Result<Type>(val value: Type) : Maybe<Type>()
-    class Error<Type>(val code: ErrorCode) : Maybe<Type>() {
+    data class Result<Type>(val value: Type) : Maybe<Type>()
+    data class Error<Type>(val code: ErrorCode, val details: Any? = null) : Maybe<Type>() {
         fun <R> convert() = this as Error<R>
     }
 
     fun <R> map(transformer: (Type) -> R) = when(this) {
-        is Error -> Error(code)
+        is Error -> Error(code, details)
         is Result -> Result(transformer.invoke(value))
     }
 
     fun <R> transform(transformer: (Type) -> Maybe<R>) = when(this) {
-        is Error -> Error(code)
+        is Error -> Error(code, details)
         is Result -> transformer.invoke(value)
     }
 }

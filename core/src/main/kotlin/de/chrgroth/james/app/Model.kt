@@ -3,10 +3,9 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.computeNext
-import org.everit.json.schema.ObjectSchema
-import org.everit.json.schema.loader.SchemaLoader
-import org.json.JSONObject
-import org.json.JSONTokener
+import de.chrgroth.james.generateJsonSchema
+import de.chrgroth.james.isBreakingTo
+import de.chrgroth.james.parseJsonSchema
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -43,7 +42,7 @@ data class App(
                         datatypes = it.datatypes.map { datatype ->
                             AppDatatypeDraft(
                                 name = datatype.name,
-                                schema = datatype.schema,
+                                schemaContent = datatype.schemaContent,
                                 description = datatype.description
                             )
                         }.toSet(),
@@ -57,7 +56,7 @@ data class App(
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-            else -> developmentVersion.upsert(datatype).map { copy(developmentVersion = it) }
+            else -> developmentVersion.upsertDatatype(id, datatype).map { copy(developmentVersion = it) }
         }
 
     internal fun removeDevelopmentVersionDatatype(datatypeName: String) =
@@ -71,7 +70,7 @@ data class App(
         when {
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion == null -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-            else -> developmentVersion.upsert(report).map { copy(developmentVersion = it) }
+            else -> developmentVersion.upsertReport(report).map { copy(developmentVersion = it) }
         }
 
     internal fun removeDevelopmentVersionReport(reportName: String) =
@@ -91,7 +90,7 @@ data class App(
                     developmentVersion = null,
                     versions = versions.plus(
                         AppVersion(
-                            version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                            version = releaseNotes.computeVersion(id, latestVersion, developmentVersion),
                             releaseNotes = releaseNotes,
                             datatypes = developmentVersion.createDatatypes(latestVersion),
                             reports = developmentVersion.reports.toSet(),
@@ -128,25 +127,25 @@ data class AppVersionDraft(
     fun createDatatypes(latest: AppVersion?) =
         datatypes.map { draft ->
             val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
-            when {
-                existingDatatype == null -> draft.toDatatype(version = 0)
-                existingDatatype.schema == draft.schema -> draft.toDatatype(version = existingDatatype.version)
-                else -> draft.toDatatype(version = existingDatatype.version + 1)
-            }
+
+            AppDatatype(
+                name = draft.name,
+                version = when {
+                    existingDatatype == null -> 0
+                    existingDatatype.schemaContent == draft.schemaContent -> existingDatatype.version
+                    else -> existingDatatype.version + 1
+                },
+                schemaContent = draft.schemaContent,
+                description = draft.description
+            )
         }.toSet()
 
-    private fun AppDatatypeDraft.toDatatype(version: Long) = AppDatatype(
-        name = name,
-        version = version,
-        schema = schema,
-        description = description
-    )
-
-    internal fun upsert(datatype: AppDatatypeDraft) =
+    internal fun upsertDatatype(appId: UUID, datatype: AppDatatypeDraft) =
         when {
             datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
+            datatype.name.any { !it.isLetter() } -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY)
             else -> {
-                datatype.parseJsonSchema().map {
+                datatype.generateJsonSchema(appId).parseJsonSchema().map {
                     copy(datatypes = datatypes.upsert(datatype))
                 }
             }
@@ -161,7 +160,7 @@ data class AppVersionDraft(
     private fun Set<AppDatatypeDraft>.upsert(datatype: AppDatatypeDraft) =
         filterNot { it.name == datatype.name }.plus(datatype).toSet()
 
-    internal fun upsert(report: AppReport) =
+    internal fun upsertReport(report: AppReport) =
         when {
             report.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK)
             else -> Maybe.Result(copy(reports = reports.upsert(report)))
@@ -185,92 +184,49 @@ data class AppVersionReleaseNotes(
     val changeType: AppVersionChangeType,
     val note: String,
 ) {
-    internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
+    internal fun computeVersion(appId: UUID, latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
         } else {
-            val isBreaking = isBreaking(latest, next)
+            val isBreaking = isBreaking(appId, latest, next)
             latest.version.computeNext(isBreaking, this)
         }
     }
 
-    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+    internal fun isBreaking(appId: UUID, latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
         }
-        if(modelRenamedOrDeleted) {
+        if (modelRenamedOrDeleted) {
             return true
         }
 
         return latest.datatypes.asSequence()
             .filter { existingDatatype -> next.datatypes.any { it.name == existingDatatype.name } }
             .map { existingDatatype -> existingDatatype to next.datatypes.first { it.name == existingDatatype.name } }
-            .filter { it.first.schema != it.second.schema }
-            .map { it.first.parseJsonSchema() to it.second.schema.parseJsonSchema() }
+            .filter { it.first.schemaContent != it.second.schemaContent }
+            .map {
+                it.first.generateJsonSchema(appId).parseJsonSchema() to
+                        it.second.generateJsonSchema(appId).parseJsonSchema()
+            }
             .filter { it.first is Maybe.Result && it.second is Maybe.Result }
             .map { (it.first as Maybe.Result).value to (it.second as Maybe.Result).value }
-            .any { it.first.isBreakingChange(it.second) }
-    }
-
-    // TODO #17 define what's breaking
-    internal fun ObjectSchema.isBreakingChange(next: ObjectSchema): Boolean {
-        // - property removed/renamed
-        // - property type changed / more specialized
-        // - property enum value removed
-        // - property regex changed
-        // - property min increased
-        // - property max decreased
-        // - property made required
-        // - property required but default removed
-        // - new required property without default
-        return false
+            .any { it.first.isBreakingTo(it.second) }
     }
 }
 
-// TODO #17 schema must not be null ... but how to start a clean datatype?? Maybe further validate all datatypes before release?
 data class AppDatatypeDraft(
     val name: String,
-    val schema: String? = null,
+    val schemaContent: String? = null,
     val description: String? = null,
-) {
-    fun parseJsonSchema() = schema.parseJsonSchema()
-}
+)
 
 data class AppDatatype(
     val name: String,
     val version: Long,
-    val schema: String? = null,
+    val schemaContent: String? = null,
     val description: String? = null,
-) {
-    fun parseJsonSchema() = schema.parseJsonSchema()
-}
-
-fun String?.parseJsonSchema(): Maybe<ObjectSchema> {
-    if(this == null) {
-        return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
-    }
-
-    val loadSchemaResult = runCatching {
-        SchemaLoader.load(JSONObject(JSONTokener(this)))
-    }
-
-    if(loadSchemaResult.isSuccess) {
-        val schema = loadSchemaResult.getOrNull()
-            ?: return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
-
-        // ignored properties that are not keywords of a schema
-        return when {
-            // TODO #17 pass additional information: schema.unprocessedProperties
-            schema.unprocessedProperties.isNotEmpty() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNKNOWN_PROPERTIES)
-            // TODO #17 pass additional information: schema.javaClass
-            schema !is ObjectSchema -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA)
-            else -> Maybe.Result(schema)
-        }
-    } else {
-        // TODO #17 pass additional information: loadSchemaResult.exceptionOrNull()
-        return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID)
-    }
-}
+)
 
 data class AppReport(
     val name: String,

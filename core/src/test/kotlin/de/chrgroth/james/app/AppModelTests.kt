@@ -348,28 +348,35 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype name blank`() {
-        val result = createDraft().upsert(AppDatatypeDraft(name = ""))
+        val result = createDraft().upsertDatatype(UUID.randomUUID(), AppDatatypeDraft(name = ""))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
     }
 
     @Test
+    fun `upsert datatype name conains non letters`() {
+        val result = createDraft().upsertDatatype(UUID.randomUUID(), AppDatatypeDraft(name = "Foo Bar"))
+        assertThat(result).isInstanceOf(Maybe.Error::class.java)
+        assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY)
+    }
+
+    @Test
     fun `upsert datatype`() {
-        val result = createDraft().upsert(AppDatatypeDraft(name = "Foos"))
+        val result = createDraft().upsertDatatype(UUID.randomUUID(), AppDatatypeDraft(name = "Foos"))
         assertThat(result).isInstanceOf(Maybe.Result::class.java)
         assertThat((result as Maybe.Result).value.datatypes).contains(AppDatatypeDraft(name = "Foos"))
     }
 
     @Test
     fun `upsert report name blank`() {
-        val result = createDraft().upsert(AppReport(name = ""))
+        val result = createDraft().upsertReport(AppReport(name = ""))
         assertThat(result).isInstanceOf(Maybe.Error::class.java)
         assertThat((result as Maybe.Error).code).isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK)
     }
 
     @Test
     fun `upsert report`() {
-        val result = createDraft().upsert(AppReport(name = "Foos Report"))
+        val result = createDraft().upsertReport(AppReport(name = "Foos Report"))
         assertThat(result).isInstanceOf(Maybe.Result::class.java)
         assertThat((result as Maybe.Result).value.reports).contains(AppReport(name = "Foos Report"))
     }
@@ -381,12 +388,12 @@ class AppVersionReleaseNotesTests {
 
     @Test
     fun `first version as bugfix is 0-1-0`() {
-        assertThat(createBugfix().computeVersion(null, createDraft())).isEqualTo(Semver(0, 1, 0))
+        assertThat(createBugfix().computeVersion(UUID.randomUUID(), null, createDraft())).isEqualTo(Semver(0, 1, 0))
     }
 
     @Test
     fun `first version as feature is 0-1-0`() {
-        assertThat(createFeature().computeVersion(null, createDraft())).isEqualTo(Semver(0, 1, 0))
+        assertThat(createFeature().computeVersion(UUID.randomUUID(), null, createDraft())).isEqualTo(Semver(0, 1, 0))
     }
 
     private fun createBugfix() = AppVersionReleaseNotes(
