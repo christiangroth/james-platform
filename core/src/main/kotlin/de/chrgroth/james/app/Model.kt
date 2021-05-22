@@ -6,6 +6,7 @@ import de.chrgroth.james.computeNext
 import de.chrgroth.james.generateJsonSchema
 import de.chrgroth.james.isBreakingTo
 import de.chrgroth.james.parseJsonSchema
+import de.chrgroth.james.validateJsonSchema
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -145,7 +146,7 @@ data class AppVersionDraft(
             datatype.name.isBlank() -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
             datatype.name.any { !it.isLetter() } -> Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY)
             else -> {
-                datatype.generateJsonSchema().parseJsonSchema().map {
+                datatype.generateJsonSchema().validateJsonSchema().map {
                     copy(datatypes = datatypes.upsert(datatype))
                 }
             }
@@ -206,8 +207,8 @@ data class AppVersionReleaseNotes(
             .map { existingDatatype -> existingDatatype to next.datatypes.first { it.name == existingDatatype.name } }
             .filter { it.first.schemaContent != it.second.schemaContent }
             .map {
-                it.first.generateJsonSchema().parseJsonSchema() to
-                        it.second.generateJsonSchema().parseJsonSchema()
+                it.first.generateJsonSchema().validateJsonSchema() to
+                        it.second.generateJsonSchema().validateJsonSchema()
             }
             .filter { it.first is Maybe.Result && it.second is Maybe.Result }
             .map { (it.first as Maybe.Result).value to (it.second as Maybe.Result).value }

@@ -115,6 +115,10 @@ class JsonSchemaParsingTests {
         jsonSchemaFor("TestType", "Some really nice description!", schemaContent).parseJsonSchema()
 }
 
+class JsonSchemaValidationTests {
+    // TODO #17 validateJsonSchema
+}
+
 class JsonSchemaComparisonTests {
     // TODO #17 isBreakingTo
 
