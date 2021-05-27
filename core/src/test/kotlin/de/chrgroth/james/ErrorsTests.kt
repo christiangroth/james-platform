@@ -1,5 +1,7 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Result
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -24,17 +26,17 @@ class MaybeTests {
 
     @Test
     fun `a result maybe is mapped correctly`() {
-        val maybe = Maybe.Result("Foo")
+        val maybe = Result("Foo")
         val mapped = maybe.map { it.toUpperCase().reversed() }
-        assertThat(mapped).isInstanceOf(Maybe.Result::class.java)
-        assertThat((mapped as Maybe.Result).value).isEqualTo("OOF")
+        assertThat(mapped).isInstanceOf(Result::class.java)
+        assertThat((mapped as Result).value).isEqualTo("OOF")
     }
 
     @Test
     fun `an error maybe is mapped correctly`() {
-        val maybe = Maybe.Error<Unit>(TestErrors.ZERO)
+        val maybe = Error<Unit>(TestErrors.ZERO)
         val mapped = maybe.map { it }
-        assertThat(mapped).isInstanceOf(Maybe.Error::class.java)
-        assertThat((mapped as Maybe.Error).code).isEqualTo(TestErrors.ZERO)
+        assertThat(mapped).isInstanceOf(Error::class.java)
+        assertThat((mapped as Error).code).isEqualTo(TestErrors.ZERO)
     }
 }

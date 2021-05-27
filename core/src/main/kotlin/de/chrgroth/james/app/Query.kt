@@ -2,6 +2,8 @@ package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Result
 import java.util.UUID
 
 interface AppQueryPort {
@@ -25,9 +27,9 @@ internal class AppQueryAdapter(private val queryPersistence: AppQueryPersistence
     override fun getNextVersionDraft(id: UUID) =
         queryPersistence.get(id).transform { app ->
             if (app == null) {
-                Maybe.Error(AppErrorCodes.NOT_FOUND)
+                Error(AppErrorCodes.NOT_FOUND)
             } else {
-                Maybe.Result(app.developmentVersion)
+                Result(app.developmentVersion)
             }
         }
 

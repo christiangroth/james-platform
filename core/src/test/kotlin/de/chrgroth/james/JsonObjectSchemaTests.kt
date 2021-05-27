@@ -1,5 +1,6 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import org.assertj.core.api.Assertions.assertThat
 import org.everit.json.schema.StringSchema
@@ -69,16 +70,16 @@ class JsonObjectSchemaParsingTests {
     @Test
     fun `invalid json schema syntax fails`() {
         val result = createSchema(",;,;")
-        assertThat(result).isInstanceOf(Maybe.Error::class.java)
-        assertThat((result as Maybe.Error).code)
+        assertThat(result).isInstanceOf(Error::class.java)
+        assertThat((result as Error).code)
             .isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID)
     }
 
     @Test
     fun `not object schema (cannot happen when using datatypes api everytime)`() {
         val result = """{ "type": "string" }""".parseJsonSchema()
-        assertThat(result).isInstanceOf(Maybe.Error::class.java)
-        assertThat((result as Maybe.Error).code)
+        assertThat(result).isInstanceOf(Error::class.java)
+        assertThat((result as Error).code)
             .isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA)
         assertThat(result.details).isEqualTo(StringSchema::class.java)
     }
@@ -88,8 +89,8 @@ class JsonObjectSchemaParsingTests {
         val result = createSchema("""
             "foo": "bar"
         """.trimIndent())
-        assertThat(result).isInstanceOf(Maybe.Error::class.java)
-        assertThat((result as Maybe.Error).code)
+        assertThat(result).isInstanceOf(Error::class.java)
+        assertThat((result as Error).code)
             .isEqualTo(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES)
         assertThat(result.details).isEqualTo(mapOf("foo" to "bar"))
     }

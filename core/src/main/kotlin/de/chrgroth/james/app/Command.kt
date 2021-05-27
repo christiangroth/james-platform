@@ -1,6 +1,7 @@
 package de.chrgroth.james.app
 
 import de.chrgroth.james.Maybe
+import de.chrgroth.james.Maybe.Error
 import java.util.UUID
 
 interface AppCommandPort {
@@ -75,7 +76,7 @@ internal class AppCommandAdapter(
     ) =
         queryPersistence.get(this).transform { app ->
             if (app == null) {
-                Maybe.Error(AppErrorCodes.NOT_FOUND)
+                Error(AppErrorCodes.NOT_FOUND)
             } else {
                 appOperation(app).transform { persistenceOperation(app, it) }
             }

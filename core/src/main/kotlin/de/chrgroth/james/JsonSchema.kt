@@ -1,5 +1,8 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Errors
+import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
@@ -12,6 +15,8 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import java.util.UUID
 
+// TODO #17 move all Json*Schema.kt files to package app.schema or app.jsonschema?? check references
+
 // TODO #18 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
 // latest json schema release the library can handle :(
 // latest at all: https://json-schema.org/draft/2020-12/schema
@@ -23,21 +28,14 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
 
 // see https://github.com/everit-org/json-schema
 internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
-    return parseJsonSchema().transform {
+    return parseJsonSchema().transform { objectSchema ->
 
-        val objectSchemaErrors = it.validate()
-
-        // see: https://json-schema.org/understanding-json-schema/reference/string.html
-        val stringPropertyErrors = it.propertySchemas
-            .filter { propertyDef -> propertyDef.value is StringSchema }
-            .map { propertyDef -> propertyDef.key to propertyDef.value as StringSchema }
-            .mapNotNull { propertyDef ->
-                propertyDef.second.validate(propertyName = propertyDef.first)
-            }
+        val objectSchemaErrors = objectSchema.validate()
+        val stringPropertyErrors = objectSchema.stringProperties().validate()
 
         // TODO #17 validate number properties
         // see: https://json-schema.org/understanding-json-schema/reference/numeric.html
-        val numberProperties = it.propertySchemas
+        val numberProperties = objectSchema.propertySchemas
             .filter { propertyDef -> propertyDef.value is NumberSchema }
             .map { propertyDef -> propertyDef.key to propertyDef.value as NumberSchema }
             .toMap()
@@ -49,7 +47,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
 
         // TODO #17 validate boolean properties
         // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
-        val booleanProperties = it.propertySchemas
+        val booleanProperties = objectSchema.propertySchemas
             .filter { propertyDef -> propertyDef.value is BooleanSchema }
             .map { propertyDef -> propertyDef.key to propertyDef.value as BooleanSchema }
             .toMap()
@@ -60,7 +58,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
 
         // TODO #17 validate enum properties (may be part of everyting!!?!?! how to handle this?)
         // see: https://json-schema.org/understanding-json-schema/reference/generic.html#enumerated-values
-        val enumProperties = it.propertySchemas
+        val enumProperties = objectSchema.propertySchemas
             .filter { propertyDef -> propertyDef.value is EnumSchema }
             .map { propertyDef -> propertyDef.key to propertyDef.value as EnumSchema }
             .toMap()
@@ -73,7 +71,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
 
         // TODO #17 validate array properties
         // see: https://json-schema.org/understanding-json-schema/reference/array.html
-        val arrayProperties = it.propertySchemas
+        val arrayProperties = objectSchema.propertySchemas
             .filter { propertyDef -> propertyDef.value is ArraySchema }
             .map { propertyDef -> propertyDef.key to propertyDef.value as ArraySchema }
             .toMap()
@@ -100,19 +98,13 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         // TODO #17 might be ConstSchema, need similar handling to EnumSchema
         // see: https://json-schema.org/understanding-json-schema/reference/generic.html#constant-values
 
-        // TODO #17 improve this code
-        val errors =
-            (stringPropertyErrors as List<Maybe.Errors<ObjectSchema>> + objectSchemaErrors).combine()
+        val errors = objectSchemaErrors
+            .combine(stringPropertyErrors as Errors<ObjectSchema>)
 
-        if (errors.errors.isEmpty()) {
-            Maybe.Result(it)
-        } else {
-            errors
-        }
+        errors ?: Result(objectSchema)
     }
 }
 
-// TODO #17 some kind of logging would be nice
 internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
 
     val loadSchemaResult = runCatching {
@@ -127,35 +119,29 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
 
     if (loadSchemaResult.isSuccess) {
         val schema = loadSchemaResult.getOrNull()
-            ?: return Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
+            ?: return Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
 
         // ignored properties that are not keywords of a schema
         return when (schema) {
-            !is ObjectSchema -> Maybe.Error(
+            !is ObjectSchema -> Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                 details = schema.javaClass
             )
-            else -> Maybe.Result(schema)
+            else -> Result(schema)
         }
     } else {
-        return Maybe.Error(
+        return Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
             details = loadSchemaResult.exceptionOrNull(),
         )
     }
 }
 
-// TODO #17 tests
-// TODO #17 define what's breaking
-internal fun ObjectSchema.isBreakingTo(next: ObjectSchema): Boolean {
-    // - property removed/renamed
-    // - property type changed / more specialized
-    // - property enum value removed
-    // - property regex changed
-    // - property min increased
-    // - property max decreased
-    // - property made required
-    // - property required but default removed
-    // - new required property without default
-    return false
-}
+private fun ObjectSchema.stringProperties() = filterProperties(StringSchema::class.java)
+private fun List<Pair<String, StringSchema>>.validate() =
+    mapNotNull { it.second.validate(propertyName = it.first) }.combine()
+
+// TODO #17 when to use Class and when to use KClass??
+private fun <PropertyType> ObjectSchema.filterProperties(expectedSchemaType: Class<PropertyType>) = propertySchemas
+    .filter { propertyDef -> propertyDef.value.javaClass == expectedSchemaType }
+    .map { propertyDef -> propertyDef.key to propertyDef.value as PropertyType }

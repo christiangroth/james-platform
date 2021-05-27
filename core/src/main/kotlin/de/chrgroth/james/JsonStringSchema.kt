@@ -1,5 +1,7 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.FormatValidator
 import org.everit.json.schema.StringSchema
@@ -15,61 +17,58 @@ internal val allowedStringPropertyFormats = listOf(
 internal val StringSchema.minLengthNullSafe get() = minLength ?: 0
 internal val StringSchema.maxLengthNullSafe get() = maxLength ?: Int.MAX_VALUE
 
-// see: https://json-schema.org/understanding-json-schema/reference/object.html
-internal fun StringSchema.validate(propertyName: String): Maybe.Errors<Unit>? {
+// see: https://json-schema.org/understanding-json-schema/reference/string.html
+internal fun StringSchema.validate(propertyName: String): Errors<StringSchema>? {
 
-    val minLengthNegativeError: Maybe.Error<Unit>? = if (minLengthNullSafe < 0) {
-        Maybe.Error(
+    val minLengthNegativeError: Error<StringSchema>? = if (minLengthNullSafe < 0) {
+        Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
             details = propertyName
         )
     } else null
 
-    val maxLengthZeroOrNegativeError: Maybe.Error<Unit>? = if(maxLengthNullSafe < 1) {
-        Maybe.Error(
+    val maxLengthZeroOrNegativeError: Error<StringSchema>? = if(maxLengthNullSafe < 1) {
+        Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
             details = propertyName
         )
     } else null
 
-    val maxLengthSmallerMinLengthError: Maybe.Error<Unit>? = if(maxLengthNullSafe < minLengthNullSafe) {
-        Maybe.Error(
+    val maxLengthSmallerMinLengthError: Error<StringSchema>? = if(maxLengthNullSafe < minLengthNullSafe) {
+        Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
             details = propertyName
         )
     } else null
 
-    val patternUsedError: Maybe.Error<Unit>? = if(pattern != null) {
-        Maybe.Error(
+    val patternUsedError: Error<StringSchema>? = if(pattern != null) {
+        Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_PATTERN_INSTEAD_OF_FORMAT_REGEX,
             details = propertyName
         )
     } else null
 
     // TODO #17 seems there is no chance to distinguish between unknown format and no format, we can only detect known but unsupported formats
-    val unsupportedFormatError: Maybe.Error<Unit>? =
+    val unsupportedFormatError: Error<StringSchema>? =
         if (formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName())) {
-            Maybe.Error(
+            Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
                 details = "$propertyName: format=${formatValidator.formatName()}"
             )
         } else null
 
-    val unprocessedPropertiesError: Maybe.Error<Unit>? = if(unprocessedProperties.isNotEmpty()) {
-        Maybe.Error(
+    val unprocessedPropertiesError: Error<StringSchema>? = if(unprocessedProperties.isNotEmpty()) {
+        Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties"
         )
     } else null
 
-    // TODO #17 improve this code
-    val errors = listOfNotNull(
-        minLengthNegativeError,
-        maxLengthZeroOrNegativeError,
-        maxLengthSmallerMinLengthError,
-        patternUsedError,
-        unsupportedFormatError,
-        unprocessedPropertiesError,
-    )
-    return if (errors.isEmpty()) null else Maybe.Errors(errors = errors)
+    return minLengthNegativeError
+        .combine(minLengthNegativeError)
+        .combine(maxLengthZeroOrNegativeError)
+        .combine(maxLengthSmallerMinLengthError)
+        .combine(patternUsedError)
+        .combine(unsupportedFormatError)
+        .combine(unprocessedPropertiesError)
 }

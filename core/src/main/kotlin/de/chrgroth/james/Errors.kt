@@ -1,5 +1,8 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Errors
+
 interface ErrorCode {
     val prefix: String
     val id: Long
@@ -27,5 +30,34 @@ sealed class Maybe<Type> {
     }
 }
 
-fun <Type> List<Maybe.Errors<Type>?>.combine() =
-    Maybe.Errors(errors = this.filterNotNull().flatMap { it.errors })
+fun <Type> List<Errors<Type>?>.combine() =
+    if(this.filterNotNull().isEmpty()) {
+        null
+    } else {
+        Errors(errors = this.filterNotNull().flatMap { it.errors })
+    }
+
+
+fun <Type> Error<Type>?.combine(other: Error<Type>?) =
+    when {
+        this != null && other != null -> Errors(errors = listOf(this, other))
+        this != null && other == null -> Errors(errors = listOf(this))
+        this == null && other != null -> Errors(errors = listOf(other))
+        else -> null
+    }
+
+fun <Type> Errors<Type>?.combine(other: Error<Type>?) =
+    when {
+        this != null && other != null -> Errors(errors = this.errors.plus(other))
+        this != null && other == null -> this
+        this == null && other != null -> Errors(errors = listOf(other))
+        else -> null
+    }
+
+fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
+    when {
+        this != null && other != null -> Errors(errors = this.errors.plus(other.errors))
+        this != null && other == null -> this
+        this == null && other != null -> other
+        else -> null
+    }
