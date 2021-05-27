@@ -6,6 +6,7 @@ import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.EnumSchema
+import org.everit.json.schema.FormatValidator
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.Schema
@@ -37,6 +38,7 @@ fun jsonSchemaFor(/* TODO #19 appId: UUID, version: String?, */name: String, des
   "title": "$name",
   "description": "$description",
   "type": "object",
+  "additionalProperties": false,
 $schemaContent
 }
 """.trimIndent()
@@ -50,14 +52,16 @@ const val SCHEMA_VERSION = "http://json-schema.org/draft-07/schema"
 fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
+// TODO #17 would be nice to get a list of errors??
 // see https://github.com/everit-org/json-schema
 internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
     return parseJsonSchema().transform {
 
+        // TODO #17 tests
         // see: https://json-schema.org/understanding-json-schema/reference/object.html
-        if(it.unprocessedProperties.isNotEmpty()) {
+        if (it.unprocessedProperties.isNotEmpty()) {
             return@transform Maybe.Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNKNOWN_PROPERTIES,
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = it.unprocessedProperties,
             )
         } else if (it.minProperties != null && it.minProperties > 0) {
@@ -74,10 +78,12 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
             )
         }
 
+        // TODO #17 tests
         // only allows plain values for now, add references and objects later
-        val invalidPropertyTypes = it.propertySchemas
-            .filter { propertyDef -> !propertyDef.value.isValidPropertyType() }
-        if(invalidPropertyTypes.isNotEmpty()) {
+        val invalidPropertyTypes = it.propertySchemas.filter { propertyDef ->
+            !propertyDef.value.isValidPropertyType()
+        }
+        if (invalidPropertyTypes.isNotEmpty()) {
             return@transform Maybe.Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE, invalidPropertyTypes.keys)
         }
 
@@ -88,16 +94,73 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         // see: https://json-schema.org/understanding-json-schema/reference/combining.html
         // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html
 
-        // TODO #17 validate string properties
         // see: https://json-schema.org/understanding-json-schema/reference/string.html
         val stringProperties = it.propertySchemas
             .filter { propertyDef -> propertyDef.value is StringSchema }
             .map { propertyDef -> propertyDef.key to propertyDef.value as StringSchema }
             .toMap()
-        stringProperties.any { propertyDef ->
-            propertyDef.value.unprocessedProperties
-            propertyDef.value.requireString()
-            false
+        val stringPropertiesNegativeMinLength = stringProperties.mapNotNull { propertyDef ->
+            if (propertyDef.value.minLengthNullSafe < 0) propertyDef.key else null
+        }
+        if (stringPropertiesNegativeMinLength.isNotEmpty()) {
+            return@transform Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
+                details = stringPropertiesNegativeMinLength
+            )
+        }
+        val stringPropertiesZeroOrNegativeMaxLength = stringProperties.mapNotNull { propertyDef ->
+            if (propertyDef.value.maxLengthNullSafe < 1) propertyDef.key else null
+        }
+        if (stringPropertiesZeroOrNegativeMaxLength.isNotEmpty()) {
+            return@transform Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
+                details = stringPropertiesZeroOrNegativeMaxLength
+            )
+        }
+        val stringPropertiesMaxLengthSmallerMinLength = stringProperties.mapNotNull { propertyDef ->
+            if (propertyDef.value.maxLengthNullSafe < propertyDef.value.minLengthNullSafe) propertyDef.key else null
+        }
+        if (stringPropertiesMaxLengthSmallerMinLength.isNotEmpty()) {
+            return@transform Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
+                details = stringPropertiesMaxLengthSmallerMinLength
+            )
+        }
+        val stringPropertiesWithPattern = stringProperties.mapNotNull { propertyDef ->
+            if (propertyDef.value.pattern != null) propertyDef.key else null
+        }
+        if (stringPropertiesWithPattern.isNotEmpty()) {
+            return@transform Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_PATTERN_INSTEAD_OF_FORMAT_REGEX,
+                details = stringPropertiesWithPattern
+            )
+        }
+        val stringPropertiesUnsupportedFormat = stringProperties.mapNotNull { propertyDef ->
+            val formatValidator = propertyDef.value.formatValidator
+            if (formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName())) {
+                "${propertyDef.key}=${formatValidator.formatName()}"
+            } else {
+                null
+            }
+        }
+        if (stringPropertiesUnsupportedFormat.isNotEmpty()) {
+            return@transform Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
+                details = stringPropertiesUnsupportedFormat
+            )
+        }
+        val stringPropertiesUnprocessedProperties = stringProperties.mapNotNull { propertyDef ->
+            if (propertyDef.value.unprocessedProperties.isNotEmpty()) {
+                propertyDef.key to propertyDef.value.unprocessedProperties
+            } else {
+                null
+            }
+        }.toMap()
+        if (stringPropertiesUnprocessedProperties.isNotEmpty()) {
+            return@transform Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                details = stringPropertiesUnprocessedProperties
+            )
         }
 
         // TODO #17 validate number properties
@@ -109,7 +172,6 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         numberProperties.any { propertyDef ->
             propertyDef.value.unprocessedProperties
             propertyDef.value.requiresInteger()
-            propertyDef.value.isRequiresNumber
             false
         }
 
@@ -170,6 +232,19 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         Maybe.Result(it)
     }
 }
+
+internal val allowedStringPropertyFormats = listOf(
+    "date-time",
+    "date",
+    "time",
+    "email",
+    "uri",
+    "uri-reference",
+    "uri-template",
+    "regex"
+)
+internal val StringSchema.minLengthNullSafe get() = minLength ?: 0
+internal val StringSchema.maxLengthNullSafe get() = maxLength ?: Int.MAX_VALUE
 
 // TODO #17 not sure abut enum schema. may it contain objects?
 // TODO #17 not sure abut const schema
