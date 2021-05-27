@@ -77,10 +77,7 @@ internal class AppCommandAdapter(
             if (app == null) {
                 Maybe.Error(AppErrorCodes.NOT_FOUND)
             } else {
-                when (val result = appOperation(app)) {
-                    is Maybe.Error -> result.convert()
-                    is Maybe.Result -> persistenceOperation(app, result.value)
-                }
+                appOperation(app).transform { persistenceOperation(app, it) }
             }
         }
 }
