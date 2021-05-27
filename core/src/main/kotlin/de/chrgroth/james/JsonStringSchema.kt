@@ -10,8 +10,6 @@ internal val allowedStringPropertyFormats = listOf(
     "time",
     "email",
     "uri",
-    "uri-reference",
-    "uri-template",
     "regex"
 )
 internal val StringSchema.minLengthNullSafe get() = minLength ?: 0
@@ -48,6 +46,7 @@ internal fun StringSchema.validate(propertyName: String): Maybe.Errors<Unit>? {
         )
     } else null
 
+    // TODO #17 seems there is no chance to distinguish between unknown format and no format, we can only detect known but unsupported formats
     val unsupportedFormatError: Maybe.Error<Unit>? =
         if (formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName())) {
             Maybe.Error(
