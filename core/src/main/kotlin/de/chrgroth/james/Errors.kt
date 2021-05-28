@@ -30,6 +30,8 @@ sealed class Maybe<Type> {
     }
 }
 
+// TODO #17 test all the combine methods
+
 fun <Type> List<Errors<Type>?>.combine() =
     if(this.filterNotNull().isEmpty()) {
         null

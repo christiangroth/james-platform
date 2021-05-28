@@ -4,7 +4,12 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.FormatValidator
+import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.StringSchema
+
+internal fun ObjectSchema.validateStringProperties() =
+    filterProperties(StringSchema::class.java)
+        .mapNotNull { it.second.validate(propertyName = it.first) }.combine()
 
 internal val allowedStringPropertyFormats = listOf(
     "date-time",
@@ -14,6 +19,7 @@ internal val allowedStringPropertyFormats = listOf(
     "uri",
     "regex"
 )
+
 internal val StringSchema.minLengthNullSafe get() = minLength ?: 0
 internal val StringSchema.maxLengthNullSafe get() = maxLength ?: Int.MAX_VALUE
 
@@ -27,21 +33,21 @@ internal fun StringSchema.validate(propertyName: String): Errors<StringSchema>? 
         )
     } else null
 
-    val maxLengthZeroOrNegativeError: Error<StringSchema>? = if(maxLengthNullSafe < 1) {
+    val maxLengthZeroOrNegativeError: Error<StringSchema>? = if (maxLengthNullSafe < 1) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
             details = propertyName
         )
     } else null
 
-    val maxLengthSmallerMinLengthError: Error<StringSchema>? = if(maxLengthNullSafe < minLengthNullSafe) {
+    val maxLengthSmallerMinLengthError: Error<StringSchema>? = if (maxLengthNullSafe < minLengthNullSafe) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
             details = propertyName
         )
     } else null
 
-    val patternUsedError: Error<StringSchema>? = if(pattern != null) {
+    val patternUsedError: Error<StringSchema>? = if (pattern != null) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_PATTERN_INSTEAD_OF_FORMAT_REGEX,
             details = propertyName
@@ -57,7 +63,7 @@ internal fun StringSchema.validate(propertyName: String): Errors<StringSchema>? 
             )
         } else null
 
-    val unprocessedPropertiesError: Error<StringSchema>? = if(unprocessedProperties.isNotEmpty()) {
+    val unprocessedPropertiesError: Error<StringSchema>? = if (unprocessedProperties.isNotEmpty()) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties"

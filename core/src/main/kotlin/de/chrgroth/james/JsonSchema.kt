@@ -9,7 +9,6 @@ import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
-import org.everit.json.schema.StringSchema
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -31,43 +30,9 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
     return parseJsonSchema().transform { objectSchema ->
 
         val objectSchemaErrors = objectSchema.validate()
-        val stringPropertyErrors = objectSchema.stringProperties().validate()
-
-        // TODO #17 validate number properties
-        // see: https://json-schema.org/understanding-json-schema/reference/numeric.html
-        val numberProperties = objectSchema.propertySchemas
-            .filter { propertyDef -> propertyDef.value is NumberSchema }
-            .map { propertyDef -> propertyDef.key to propertyDef.value as NumberSchema }
-            .toMap()
-        numberProperties.any { propertyDef ->
-            propertyDef.value.unprocessedProperties
-            propertyDef.value.requiresInteger()
-            false
-        }
-
-        // TODO #17 validate boolean properties
-        // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
-        val booleanProperties = objectSchema.propertySchemas
-            .filter { propertyDef -> propertyDef.value is BooleanSchema }
-            .map { propertyDef -> propertyDef.key to propertyDef.value as BooleanSchema }
-            .toMap()
-        booleanProperties.any { propertyDef ->
-            propertyDef.value.unprocessedProperties
-            false
-        }
-
-        // TODO #17 validate enum properties (may be part of everyting!!?!?! how to handle this?)
-        // see: https://json-schema.org/understanding-json-schema/reference/generic.html#enumerated-values
-        val enumProperties = objectSchema.propertySchemas
-            .filter { propertyDef -> propertyDef.value is EnumSchema }
-            .map { propertyDef -> propertyDef.key to propertyDef.value as EnumSchema }
-            .toMap()
-        enumProperties.any { propertyDef ->
-            propertyDef.value.unprocessedProperties
-            propertyDef.value.possibleValues
-            propertyDef.value.possibleValuesAsList
-            false
-        }
+        val stringPropertyErrors = objectSchema.validateStringProperties()
+        val numberPropertyErrors = objectSchema.validateNumberProperties()
+        val booleanPropertyErrors = objectSchema.validateBooleanProperties()
 
         // TODO #17 validate array properties
         // see: https://json-schema.org/understanding-json-schema/reference/array.html
@@ -86,6 +51,19 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
             false
         }
 
+        // TODO #17 validate enum properties (may be part of everyting!!?!?! how to handle this?)
+        // see: https://json-schema.org/understanding-json-schema/reference/generic.html#enumerated-values
+        val enumProperties = objectSchema.propertySchemas
+            .filter { propertyDef -> propertyDef.value is EnumSchema }
+            .map { propertyDef -> propertyDef.key to propertyDef.value as EnumSchema }
+            .toMap()
+        enumProperties.any { propertyDef ->
+            propertyDef.value.unprocessedProperties
+            propertyDef.value.possibleValues
+            propertyDef.value.possibleValuesAsList
+            false
+        }
+
         // TODO #17 handle title / description?
         // TODO #17 handle default?
         // TODO #17 handle examples?
@@ -100,6 +78,8 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
 
         val errors = objectSchemaErrors
             .combine(stringPropertyErrors as Errors<ObjectSchema>)
+            .combine(numberPropertyErrors as Errors<ObjectSchema>)
+            .combine(booleanPropertyErrors as Errors<ObjectSchema>)
 
         errors ?: Result(objectSchema)
     }
@@ -137,11 +117,7 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
     }
 }
 
-private fun ObjectSchema.stringProperties() = filterProperties(StringSchema::class.java)
-private fun List<Pair<String, StringSchema>>.validate() =
-    mapNotNull { it.second.validate(propertyName = it.first) }.combine()
-
 // TODO #17 when to use Class and when to use KClass??
-private fun <PropertyType> ObjectSchema.filterProperties(expectedSchemaType: Class<PropertyType>) = propertySchemas
+internal fun <PropertyType> ObjectSchema.filterProperties(expectedSchemaType: Class<PropertyType>) = propertySchemas
     .filter { propertyDef -> propertyDef.value.javaClass == expectedSchemaType }
     .map { propertyDef -> propertyDef.key to propertyDef.value as PropertyType }
