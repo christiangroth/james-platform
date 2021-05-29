@@ -5,9 +5,7 @@ import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.ArraySchema
-import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.EnumSchema
-import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
@@ -29,7 +27,7 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
 internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
     return parseJsonSchema().transform { objectSchema ->
 
-        val objectSchemaErrors = objectSchema.validate()
+        val objectSchemaErrors = objectSchema.validateDefinition()
         val stringPropertyErrors = objectSchema.validateStringProperties()
         val numberPropertyErrors = objectSchema.validateNumberProperties()
         val booleanPropertyErrors = objectSchema.validateBooleanProperties()

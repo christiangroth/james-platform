@@ -9,22 +9,20 @@ import kotlin.math.floor
 
 internal fun ObjectSchema.validateNumberProperties() =
     filterProperties(NumberSchema::class.java)
-        .mapNotNull { it.second.validate(propertyName = it.first) }.combine()
+        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 internal val NumberSchema.minimumNullSafe get() = minimum ?: Int.MIN_VALUE
 internal val NumberSchema.exclusiveMinimumLimitNullSafe get() = exclusiveMinimumLimit ?: Int.MIN_VALUE
-internal val NumberSchema.combinedMinimum get() = if (isExclusiveMinimum) exclusiveMinimumLimitNullSafe else minimumNullSafe
+internal val NumberSchema.combinedMinimum get() = if (exclusiveMinimumLimit != null) exclusiveMinimumLimitNullSafe else minimumNullSafe
 
 internal val NumberSchema.maximumNullSafe get() = maximum ?: Int.MAX_VALUE
 internal val NumberSchema.exclusiveMaximumLimitNullSafe get() = exclusiveMaximumLimit ?: Int.MAX_VALUE
-internal val NumberSchema.combinedMaximum get() = if (isExclusiveMaximum) exclusiveMaximumLimitNullSafe else maximumNullSafe
+internal val NumberSchema.combinedMaximum get() = if (exclusiveMaximumLimit != null) exclusiveMaximumLimitNullSafe else maximumNullSafe
 
 internal val NumberSchema.multipleOfNullSafe get() = multipleOf?.toDouble() ?: 0.0
 
-// TODO #17 tests
 // see: https://json-schema.org/understanding-json-schema/reference/numeric.html
-@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-internal fun NumberSchema.validate(propertyName: String): Errors<NumberSchema>? {
+internal fun NumberSchema.validateDefinition(propertyName: String): Errors<NumberSchema>? {
 
     val minAndExclusiveMinError: Error<NumberSchema>? = if (minimum != null && exclusiveMinimumLimit != null) {
         Error(
@@ -54,12 +52,13 @@ internal fun NumberSchema.validate(propertyName: String): Errors<NumberSchema>? 
         )
     } else null
 
-    val floatingPointMultipleOfForIntegerValue: Error<NumberSchema>? = if (requiresInteger() && floor(multipleOfNullSafe) == multipleOfNullSafe) {
-        Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
-            details = propertyName
-        )
-    } else null
+    val floatingPointMultipleOfForIntegerValue: Error<NumberSchema>? =
+        if (requiresInteger() && floor(multipleOfNullSafe) != multipleOfNullSafe) {
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
+                details = propertyName
+            )
+        } else null
 
     val unprocessedPropertiesError: Error<NumberSchema>? = if (unprocessedProperties.isNotEmpty()) {
         Error(

@@ -9,7 +9,7 @@ import org.everit.json.schema.StringSchema
 
 internal fun ObjectSchema.validateStringProperties() =
     filterProperties(StringSchema::class.java)
-        .mapNotNull { it.second.validate(propertyName = it.first) }.combine()
+        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 internal val allowedStringPropertyFormats = listOf(
     "date-time",
@@ -24,8 +24,7 @@ internal val StringSchema.minLengthNullSafe get() = minLength ?: 0
 internal val StringSchema.maxLengthNullSafe get() = maxLength ?: Int.MAX_VALUE
 
 // see: https://json-schema.org/understanding-json-schema/reference/string.html
-@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-internal fun StringSchema.validate(propertyName: String): Errors<StringSchema>? {
+internal fun StringSchema.validateDefinition(propertyName: String): Errors<StringSchema>? {
 
     val minLengthNegativeError: Error<StringSchema>? = if (minLengthNullSafe < 0) {
         Error(

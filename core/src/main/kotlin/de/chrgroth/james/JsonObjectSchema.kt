@@ -52,15 +52,8 @@ $schemaContent
 }
 """.trimIndent()
 
-// TODO #17 tests
 // see: https://json-schema.org/understanding-json-schema/reference/object.html
-internal fun ObjectSchema.validate(): Errors<ObjectSchema>? {
-    val unprocessedPropertiesError: Error<ObjectSchema>? = if (unprocessedProperties.isNotEmpty()) {
-        Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-            details = unprocessedProperties.toString(),
-        )
-    } else null
+internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
 
     val minPropertiesError: Error<ObjectSchema>? = if (minProperties != null && minProperties > 0) {
         Error(
@@ -91,6 +84,13 @@ internal fun ObjectSchema.validate(): Errors<ObjectSchema>? {
         )
     } else null
 
+    val unprocessedPropertiesError: Error<ObjectSchema>? = if (unprocessedProperties.isNotEmpty()) {
+        Error(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            details = unprocessedProperties.toString(),
+        )
+    } else null
+
     // TODO #17 handle id and ref
     // see: https://json-schema.org/understanding-json-schema/structuring.html
 
@@ -98,11 +98,11 @@ internal fun ObjectSchema.validate(): Errors<ObjectSchema>? {
     // see: https://json-schema.org/understanding-json-schema/reference/combining.html
     // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html
 
-    return unprocessedPropertiesError
-        .combine(minPropertiesError)
+    return minPropertiesError
         .combine(maxPropertiesError)
         .combine(additionalPropertiesError)
         .combine(invalidPropertyTypesError)
+        .combine(unprocessedPropertiesError)
 }
 
 // TODO #17 tests

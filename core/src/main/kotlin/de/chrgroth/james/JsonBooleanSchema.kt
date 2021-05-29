@@ -8,19 +8,17 @@ import org.everit.json.schema.ObjectSchema
 
 internal fun ObjectSchema.validateBooleanProperties() =
     filterProperties(BooleanSchema::class.java)
-        .mapNotNull { it.second.validate(propertyName = it.first) }.combine()
+        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
-// TODO #17 tests
 // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
-@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-internal fun BooleanSchema.validate(propertyName: String): Errors<BooleanSchema>? {
-
-    val unprocessedPropertiesError: Errors<BooleanSchema>? = if (unprocessedProperties.isNotEmpty()) {
-        Errors(listOf(Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-            details = "$propertyName: $unprocessedProperties"
-        )))
+internal fun BooleanSchema.validateDefinition(propertyName: String): Errors<BooleanSchema>? =
+    if (unprocessedProperties.isNotEmpty()) {
+        Errors(
+            listOf(
+                Error(
+                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                    details = "$propertyName: $unprocessedProperties"
+                )
+            )
+        )
     } else null
-
-    return unprocessedPropertiesError
-}

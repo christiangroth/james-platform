@@ -4,11 +4,11 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import org.junit.jupiter.api.Test
 
-class JsonSchemaStringPropertyValidationTests {
+class JsonStringSchemaTests {
 
     @Test
     fun `min length negative`() {
-        val schemaContent = """{ "type": "string", "minLength": -1 }""".toPropertyInSchemaContent()
+        val schemaContent = """ "minLength": -1 """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
@@ -19,7 +19,7 @@ class JsonSchemaStringPropertyValidationTests {
 
     @Test
     fun `max length zero`() {
-        val schemaContent = """{ "type": "string", "maxLength": 0 }""".toPropertyInSchemaContent()
+        val schemaContent = """ "maxLength": 0 """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
@@ -30,7 +30,7 @@ class JsonSchemaStringPropertyValidationTests {
 
     @Test
     fun `max length smaller min length`() {
-        val schemaContent = """{ "type": "string", "minLength": 5, "maxLength": 2 }""".toPropertyInSchemaContent()
+        val schemaContent = """ "minLength": 5, "maxLength": 2 """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
@@ -41,25 +41,25 @@ class JsonSchemaStringPropertyValidationTests {
 
     @Test
     fun `max length equals min length`() {
-        val schemaContent = """{ "type": "string", "minLength": 5, "maxLength": 5 }""".toPropertyInSchemaContent()
+        val schemaContent = """ "minLength": 5, "maxLength": 5 """.toStringProperty()
         schemaContent.validateJsonSchema().expectSuccess()
     }
 
     @Test
     fun `valid min max length`() {
-        val schemaContent = """{ "type": "string", "minLength": 5, "maxLength": 25 }""".toPropertyInSchemaContent()
+        val schemaContent = """ "minLength": 5, "maxLength": 25 """.toStringProperty()
         schemaContent.validateJsonSchema().expectSuccess()
     }
 
     @Test
     fun `unknown format is ignored`() {
-        val schemaContent = """{ "type": "string", "format": "unknown" }""".toPropertyInSchemaContent()
+        val schemaContent = """ "format": "unknown" """.toStringProperty()
         schemaContent.validateJsonSchema().expectSuccess()
     }
 
     @Test
     fun `known but unsupported format`() {
-        val schemaContent = """{ "type": "string", "format": "json-pointer" }""".toPropertyInSchemaContent()
+        val schemaContent = """ "format": "json-pointer" """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
@@ -70,7 +70,7 @@ class JsonSchemaStringPropertyValidationTests {
 
     @Test
     fun `pattern instead of format`() {
-        val schemaContent = """{ "type": "string", "pattern": "some-pattern" }""".toPropertyInSchemaContent()
+        val schemaContent = """ "pattern": "some-pattern" """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_PATTERN_INSTEAD_OF_FORMAT_REGEX,
@@ -81,19 +81,13 @@ class JsonSchemaStringPropertyValidationTests {
 
     @Test
     fun `valid regex format`() {
-        val schemaContent = """{ "type": "string", "format": "regex" }""".toPropertyInSchemaContent()
-        schemaContent.validateJsonSchema().expectSuccess()
-    }
-
-    @Test
-    fun `valid string property`() {
-        val schemaContent = """{ "type": "string" }""".toPropertyInSchemaContent()
+        val schemaContent = """ "format": "regex" """.toStringProperty()
         schemaContent.validateJsonSchema().expectSuccess()
     }
 
     @Test
     fun `unprocessed properties in string property`() {
-        val schemaContent = """{ "type": "string", "bar": "baz" }""".toPropertyInSchemaContent()
+        val schemaContent = """ "bar": "baz" """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
