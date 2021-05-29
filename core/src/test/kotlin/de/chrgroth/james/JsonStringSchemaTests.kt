@@ -29,6 +29,21 @@ class JsonStringSchemaTests {
     }
 
     @Test
+    fun `max length negative`() {
+        val schemaContent = """ "maxLength": -1 """.toStringProperty()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
+                details = "testPropertyName",
+            ),
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
+                details = "testPropertyName",
+            )
+        )
+    }
+
+    @Test
     fun `max length smaller min length`() {
         val schemaContent = """ "minLength": 5, "maxLength": 2 """.toStringProperty()
         schemaContent.validateJsonSchema().expectErrors(

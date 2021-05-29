@@ -31,7 +31,6 @@ fun AppDatatype.generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchem
 
 // TODO #17 not sure about enum schema. may it contain objects?
 // TODO #17 not sure about const schema
-// TODO #17 check array does contain plain values only
 private fun Schema.isValidPropertyType() = when (this) {
     is ArraySchema -> true
     is BooleanSchema -> true
@@ -120,4 +119,3 @@ internal fun ObjectSchema.isBreakingTo(next: ObjectSchema): Boolean {
     // - new required property without default
     return false
 }
-

@@ -4,7 +4,6 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
-import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.loader.SchemaLoader
@@ -31,23 +30,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         val stringPropertyErrors = objectSchema.validateStringProperties()
         val numberPropertyErrors = objectSchema.validateNumberProperties()
         val booleanPropertyErrors = objectSchema.validateBooleanProperties()
-
-        // TODO #17 validate array properties
-        // see: https://json-schema.org/understanding-json-schema/reference/array.html
-        val arrayProperties = objectSchema.propertySchemas
-            .filter { propertyDef -> propertyDef.value is ArraySchema }
-            .map { propertyDef -> propertyDef.key to propertyDef.value as ArraySchema }
-            .toMap()
-        arrayProperties.any { propertyDef ->
-            propertyDef.value.unprocessedProperties
-            propertyDef.value.allItemSchema
-            propertyDef.value.containedItemSchema
-            propertyDef.value.itemSchemas
-            propertyDef.value.schemaOfAdditionalItems
-            propertyDef.value.permitsAdditionalItems()
-            propertyDef.value.requiresArray()
-            false
-        }
+        val arrayPropertyErrors = objectSchema.validateArrayProperties()
 
         // TODO #17 validate enum properties (may be part of everyting!!?!?! how to handle this?)
         // see: https://json-schema.org/understanding-json-schema/reference/generic.html#enumerated-values
@@ -79,6 +62,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
             .combine(stringPropertyErrors as Errors<ObjectSchema>?)
             .combine(numberPropertyErrors as Errors<ObjectSchema>?)
             .combine(booleanPropertyErrors as Errors<ObjectSchema>?)
+            .combine(arrayPropertyErrors as Errors<ObjectSchema>?)
 
         errors ?: Result(objectSchema)
     }

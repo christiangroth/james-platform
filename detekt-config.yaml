@@ -3,7 +3,7 @@ config:
 
 style:
   MaxLineLength:
-    maxLineLength: 160
+    maxLineLength: 170
 
 naming:
   MatchingDeclarationName:
