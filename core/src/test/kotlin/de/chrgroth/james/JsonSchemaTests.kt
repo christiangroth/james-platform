@@ -1,5 +1,6 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.app.AppErrorCodes
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
@@ -22,5 +23,81 @@ class JsonSchemaGenerationTests {
         val datatypeName = "Bar"
         assertThat(jsonSchemaIdFor(appId, version, datatypeName))
             .isEqualTo("/apps/191c7c65-1cde-4220-b695-9d814bf7b4e8/versions/724/datatypes/Bar.schema.json")
+    }
+
+    @Test
+    fun `empty object json schema has base properties`() {
+        assertThat(jsonObjectSchemaFor("Foo", "Foos are really great!", "")).isEqualTo(
+            """|{
+            |  "title": "Foo",
+            |  "description": "Foos are really great!",
+            |  "type": "object",
+            |  "additionalProperties": false,
+            |
+            |}""".trimMargin()
+        )
+    }
+
+    @Test
+    fun `json schema contains additional content`() {
+        assertThat(jsonObjectSchemaFor("Foo", "Foos are really great!", """
+            |  "properties": {
+            |    "productId": {
+            |      "description": "The unique identifier for a product",
+            |      "type": "integer"
+            |    },
+            |    "productName": {
+            |      "description": "Name of the product",
+            |      "type": "string"
+            |    },
+            |    "productDescription": {
+            |      "description": "Description of the product (optional)",
+            |      "type": "string"
+            |    }
+            |  },
+            |  "required": [ "productId", "productName" ]""".trimMargin())
+        ).isEqualTo(
+            """|{
+            |  "title": "Foo",
+            |  "description": "Foos are really great!",
+            |  "type": "object",
+            |  "additionalProperties": false,
+            |  "properties": {
+            |    "productId": {
+            |      "description": "The unique identifier for a product",
+            |      "type": "integer"
+            |    },
+            |    "productName": {
+            |      "description": "Name of the product",
+            |      "type": "string"
+            |    },
+            |    "productDescription": {
+            |      "description": "Description of the product (optional)",
+            |      "type": "string"
+            |    }
+            |  },
+            |  "required": [ "productId", "productName" ]
+            |}""".trimMargin()
+        )
+    }
+}
+
+class JsonSchemaParsingTests {
+
+    @Test
+    fun `invalid json schema syntax fails`() {
+        val schemaContent = ",;,;".toTestSchema()
+        schemaContent.validateJsonSchema().expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
+            details = "Missing value at 111 [character 0 line 6]"
+        )
+    }
+
+    @Test
+    fun `not object schema (cannot happen when using datatypes api everytime)`() {
+        """{ "type": "string" }""".parseJsonSchema().expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+            details = "org.everit.json.schema.StringSchema"
+        )
     }
 }

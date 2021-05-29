@@ -14,7 +14,8 @@ interface ErrorCode {
 
 sealed class Maybe<Type> {
     data class Result<Type>(val value: Type) : Maybe<Type>()
-    data class Error<Type>(val code: ErrorCode, val details: Any? = null) : Maybe<Type>()
+    // TODO #17 would maybe be great to have a json pointer here??
+    data class Error<Type>(val code: ErrorCode, val details: String? = null) : Maybe<Type>()
     data class Errors<Type>(val errors: List<Error<Type>>) : Maybe<Type>()
 
     fun <R> map(transformer: (Type) -> R) = when(this) {
@@ -30,8 +31,7 @@ sealed class Maybe<Type> {
     }
 }
 
-// TODO #17 test all the combine methods
-
+// TODO #17 tests
 fun <Type> List<Errors<Type>?>.combine() =
     if(this.filterNotNull().isEmpty()) {
         null
@@ -48,6 +48,7 @@ fun <Type> Error<Type>?.combine(other: Error<Type>?) =
         else -> null
     }
 
+// TODO #17 tests
 fun <Type> Errors<Type>?.combine(other: Error<Type>?) =
     when {
         this != null && other != null -> Errors(errors = this.errors.plus(other))
@@ -56,6 +57,7 @@ fun <Type> Errors<Type>?.combine(other: Error<Type>?) =
         else -> null
     }
 
+// TODO #17 tests
 fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
     when {
         this != null && other != null -> Errors(errors = this.errors.plus(other.errors))

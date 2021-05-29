@@ -58,7 +58,7 @@ internal fun ObjectSchema.validate(): Errors<ObjectSchema>? {
     val unprocessedPropertiesError: Error<ObjectSchema>? = if (unprocessedProperties.isNotEmpty()) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-            details = unprocessedProperties,
+            details = unprocessedProperties.toString(),
         )
     } else null
 
@@ -87,7 +87,7 @@ internal fun ObjectSchema.validate(): Errors<ObjectSchema>? {
     val invalidPropertyTypesError: Error<ObjectSchema>? = if (invalidPropertyTypes.isNotEmpty()) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
-            details = invalidPropertyTypes.keys
+            details = invalidPropertyTypes.keys.toString()
         )
     } else null
 

@@ -77,9 +77,9 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         // see: https://json-schema.org/understanding-json-schema/reference/generic.html#constant-values
 
         val errors = objectSchemaErrors
-            .combine(stringPropertyErrors as Errors<ObjectSchema>)
-            .combine(numberPropertyErrors as Errors<ObjectSchema>)
-            .combine(booleanPropertyErrors as Errors<ObjectSchema>)
+            .combine(stringPropertyErrors as Errors<ObjectSchema>?)
+            .combine(numberPropertyErrors as Errors<ObjectSchema>?)
+            .combine(booleanPropertyErrors as Errors<ObjectSchema>?)
 
         errors ?: Result(objectSchema)
     }
@@ -105,14 +105,14 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
         return when (schema) {
             !is ObjectSchema -> Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                details = schema.javaClass
+                details = schema.javaClass.name
             )
             else -> Result(schema)
         }
     } else {
         return Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
-            details = loadSchemaResult.exceptionOrNull(),
+            details = loadSchemaResult.exceptionOrNull()?.message,
         )
     }
 }
