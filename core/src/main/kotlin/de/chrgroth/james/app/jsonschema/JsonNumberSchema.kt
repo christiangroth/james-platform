@@ -1,8 +1,9 @@
-package de.chrgroth.james
+package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.combine
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
 import kotlin.math.floor

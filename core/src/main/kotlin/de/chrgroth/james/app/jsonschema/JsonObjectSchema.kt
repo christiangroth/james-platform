@@ -1,10 +1,9 @@
-package de.chrgroth.james
+package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
-import de.chrgroth.james.app.AppDatatype
-import de.chrgroth.james.app.AppDatatypeDraft
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.EnumSchema
@@ -12,22 +11,6 @@ import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.Schema
 import org.everit.json.schema.StringSchema
-
-fun AppDatatypeDraft.generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
-    // TODO #19 appId = appId,
-    // TODO #19 version = null,
-    name = name,
-    description = description ?: "",
-    schemaContent = schemaContent ?: "",
-)
-
-fun AppDatatype.generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
-    // TODO #19 appId = appId,
-    // TODO #19 version = version.toString(),
-    name = name,
-    description = description ?: "",
-    schemaContent = schemaContent ?: "",
-)
 
 internal fun Schema.isValidPropertyType() = when (this) {
     is ArraySchema -> true

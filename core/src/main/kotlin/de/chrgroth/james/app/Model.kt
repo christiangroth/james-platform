@@ -4,9 +4,9 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.computeNext
-import de.chrgroth.james.generateJsonSchema
-import de.chrgroth.james.isBreakingTo
-import de.chrgroth.james.validateJsonSchema
+import de.chrgroth.james.app.jsonschema.isBreakingTo
+import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
+import de.chrgroth.james.app.jsonschema.validateJsonSchema
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -225,14 +225,30 @@ data class AppDatatypeDraft(
     val name: String,
     val schemaContent: String? = null,
     val description: String? = null,
-)
+) {
+    fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
+        // TODO #19 appId = appId,
+        // TODO #19 version = null,
+        name = name,
+        description = description ?: "",
+        schemaContent = schemaContent ?: "",
+    )
+}
 
 data class AppDatatype(
     val name: String,
     val version: Long,
     val schemaContent: String? = null,
     val description: String? = null,
-)
+) {
+    fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
+        // TODO #19 appId = appId,
+        // TODO #19 version = version.toString(),
+        name = name,
+        description = description ?: "",
+        schemaContent = schemaContent ?: "",
+    )
+}
 
 data class AppReport(
     val name: String,

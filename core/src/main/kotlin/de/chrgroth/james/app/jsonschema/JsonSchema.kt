@@ -1,9 +1,11 @@
-package de.chrgroth.james
+package de.chrgroth.james.app.jsonschema
 
+import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.combine
 import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.loader.SchemaLoader
@@ -12,8 +14,6 @@ import org.json.JSONTokener
 import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
-
-// TODO #17 move all Json*Schema.kt files to package app.schema or app.jsonschema?? check references
 
 // TODO #18 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
 // latest json schema release the library can handle :(
@@ -99,6 +99,6 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
     }
 }
 
-internal fun <PropertyType: Any> ObjectSchema.filterProperties(expectedSchemaType: KClass<PropertyType>) = propertySchemas
+internal fun <PropertyType : Any> ObjectSchema.filterProperties(expectedSchemaType: KClass<PropertyType>) = propertySchemas
     .filter { propertyDef -> expectedSchemaType.isInstance(propertyDef.value) }
     .map { propertyDef -> propertyDef.key to expectedSchemaType.cast(propertyDef.value) }

@@ -1,7 +1,9 @@
-package de.chrgroth.james
+package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.expectErrors
+import de.chrgroth.james.toBooleanProperty
 import org.junit.jupiter.api.Test
 
 class JsonBooleanSchemaTests {

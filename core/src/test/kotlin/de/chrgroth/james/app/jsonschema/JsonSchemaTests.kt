@@ -1,6 +1,8 @@
-package de.chrgroth.james
+package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.expectError
+import de.chrgroth.james.toTestSchema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
@@ -40,7 +42,8 @@ class JsonSchemaGenerationTests {
 
     @Test
     fun `json schema contains additional content`() {
-        assertThat(jsonObjectSchemaFor("Foo", "Foos are really great!", """
+        assertThat(
+            jsonObjectSchemaFor("Foo", "Foos are really great!", """
             |  "properties": {
             |    "productId": {
             |      "description": "The unique identifier for a product",

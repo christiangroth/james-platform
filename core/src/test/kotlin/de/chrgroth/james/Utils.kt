@@ -3,6 +3,7 @@ package de.chrgroth.james
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import org.assertj.core.api.Assertions
 
 internal fun String.toStringProperty() = toPropertyInSchemaContent("string")
