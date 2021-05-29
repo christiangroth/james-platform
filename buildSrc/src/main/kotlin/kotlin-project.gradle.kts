@@ -1,0 +1,78 @@
+import io.gitlab.arturbosch.detekt.Detekt
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.net.URI
+
+plugins {
+    kotlin("jvm")
+    `java-library`
+
+    jacoco
+    id("io.gitlab.arturbosch.detekt")
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        url = URI("https://jitpack.io")
+    }
+}
+
+dependencies {
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    testImplementation("org.assertj:assertj-core:3.17.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.7.0")
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config = files("${rootProject.projectDir}/detekt-config.yaml")
+}
+
+jacoco {
+    toolVersion = "0.8.7"
+}
+
+tasks {
+    withType<Detekt> {
+        this.jvmTarget = "11"
+    }
+
+    withType<KotlinCompile>().configureEach {
+        kotlinOptions.jvmTarget = "11"
+        kotlinOptions.allWarningsAsErrors = true
+
+        kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
+        kotlinOptions.useIR = true
+    }
+
+    test {
+        finalizedBy(jacocoTestReport)
+        useJUnitPlatform()
+        testLogging {
+            events("passed", "skipped", "failed")
+        }
+    }
+
+    jacocoTestCoverageVerification {
+        violationRules {
+            rule {
+                limit {
+                    minimum = "0.66".toBigDecimal()
+                }
+            }
+        }
+    }
+
+    check {
+        dependsOn(jacocoTestCoverageVerification)
+    }
+}
