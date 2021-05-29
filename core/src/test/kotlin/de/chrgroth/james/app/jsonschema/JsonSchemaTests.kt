@@ -100,7 +100,7 @@ class JsonSchemaParsingTests {
     fun `not object schema (cannot happen when using datatypes api everytime)`() {
         """{ "type": "string" }""".parseJsonSchema().expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-            details = "org.everit.json.schema.StringSchema"
+            details = "StringSchema"
         )
     }
 }

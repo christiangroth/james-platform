@@ -132,4 +132,32 @@ class JsonStringSchemaTests: JsonSchemaAnnotationsBaseTests() {
             )
         )
     }
+
+    @Test
+    fun `empty enum values`() {
+        val schemaContent = """ "enum": [ ] """.toStringProperty()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
+                details = "testPropertyName"
+            )
+        )
+    }
+
+    @Test
+    fun `non string enum values`() {
+        val schemaContent = """ "enum": [ "foo", true, 13 ] """.toStringProperty()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
+                details = "testPropertyName"
+            )
+        )
+    }
+
+    @Test
+    fun `valid enum values`() {
+        val schemaContent = """ "enum": [ "foo", "bar" ] """.toStringProperty()
+        schemaContent.validateJsonSchema().expectSuccess()
+    }
 }

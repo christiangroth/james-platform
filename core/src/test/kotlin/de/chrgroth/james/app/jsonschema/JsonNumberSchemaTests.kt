@@ -4,7 +4,6 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
-import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
 import de.chrgroth.james.toNumberProperty
 import org.junit.jupiter.api.DynamicTest
@@ -152,6 +151,47 @@ class JsonNumberSchemaTests : JsonSchemaAnnotationsBaseTests() {
                 )
             )
         }
+
+    @TestFactory
+    fun `empty enum values`() =
+        testForIntegerAndNumberProperty(""" "enum": [ ] """) {
+            it.validateJsonSchema().expectErrors(
+                Error(
+                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
+                    details = "testPropertyName"
+                )
+            )
+        }
+
+    @TestFactory
+    fun `non number enum values`() =
+        testForIntegerAndNumberProperty(""" "enum": [ "foo", true, 13 ] """) {
+            it.validateJsonSchema().expectErrors(
+                Error(
+                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
+                    details = "testPropertyName"
+                )
+            )
+        }
+
+    @TestFactory
+    fun `integer enum values`() =
+        testForIntegerAndNumberProperty(""" "enum": [ 2, 3 ] """) {
+            it.validateJsonSchema().expectSuccess()
+        }
+
+    @Test
+    fun `decimal enum values for integer property`() =
+        """ "enum": [ 2, 3, 2.4 ] """.toIntegerProperty().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
+                details = "testPropertyName"
+            )
+        )
+
+    @Test
+    fun `decimal enum values for number property`() =
+        """ "enum": [ 2, 3, 2.4 ] """.toNumberProperty().validateJsonSchema().expectSuccess()
 
     private fun testForIntegerAndNumberProperty(propertySource: String, testLogic: (String) -> Unit): Collection<DynamicTest> {
         val baseDisplayName = Thread.currentThread().stackTrace[2].methodName

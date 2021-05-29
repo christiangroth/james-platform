@@ -34,6 +34,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         val numberPropertyErrors = objectSchema.validateNumberProperties()
         val booleanPropertyErrors = objectSchema.validateBooleanProperties()
         val arrayPropertyErrors = objectSchema.validateArrayProperties()
+        val combinedPropertyErrors = objectSchema.validateCombinedProperties()
 
         @Suppress("UNCHECKED_CAST")
         val errors = commonAnnotationsErrors
@@ -42,6 +43,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
             .combine(numberPropertyErrors as Errors<ObjectSchema>?)
             .combine(booleanPropertyErrors as Errors<ObjectSchema>?)
             .combine(arrayPropertyErrors as Errors<ObjectSchema>?)
+            .combine(combinedPropertyErrors as Errors<ObjectSchema>?)
 
         errors ?: Result(objectSchema)
     }
@@ -67,7 +69,7 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
         when (schema) {
             !is ObjectSchema -> Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                details = schema.javaClass.name
+                details = schema.javaClass.simpleName
             )
             else -> Result(schema)
         }

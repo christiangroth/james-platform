@@ -6,6 +6,7 @@ import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
+import org.everit.json.schema.CombinedSchema
 import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
@@ -18,6 +19,7 @@ internal fun Schema.isValidPropertyType() = when (this) {
     is EnumSchema -> true
     is NumberSchema -> true
     is StringSchema -> true
+    is CombinedSchema -> true
     else -> false
 }
 
@@ -62,7 +64,7 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     val invalidPropertyTypesError = if (invalidPropertyTypes.isNotEmpty()) {
         Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
-            details = invalidPropertyTypes.keys.toString()
+            details = invalidPropertyTypes.map { "${it.key}=${it.value.javaClass.simpleName}" }.toList().toString()
         )
     } else null
 
@@ -76,10 +78,6 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     // TODO #17 handle id and ref
     // see: https://json-schema.org/understanding-json-schema/structuring.html
 
-    // TODO #17 handle combining and conditionals
-    // see: https://json-schema.org/understanding-json-schema/reference/combining.html
-    // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html
-
     return commonAnnotationsErrors
         .combine(minPropertiesError)
         .combine(maxPropertiesError)
@@ -88,7 +86,6 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
         .combine(unprocessedPropertiesError)
 }
 
-// TODO #17 tests
 // TODO #17 define what's breaking
 @Suppress("UNUSED_PARAMETER", "FunctionOnlyReturningConstant")
 internal fun ObjectSchema.isBreakingTo(next: ObjectSchema): Boolean {

@@ -63,11 +63,11 @@ class JsonArraySchemaTests : JsonSchemaAnnotationsBaseTests() {
     fun `tuple mode with additionalItems defined`() =
         """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": { "type": "number" } """.toArrayProperty()
             .validateJsonSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
-                details = "testPropertyName",
+                Error(
+                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
+                    details = "testPropertyName",
+                )
             )
-        )
 
     @Test
     fun `negative minItems in list mode`() =
@@ -160,8 +160,7 @@ class JsonArraySchemaTests : JsonSchemaAnnotationsBaseTests() {
 
     @Test
     fun `unprocessed properties`() {
-        val schemaContent = """ "bar": "baz" """.toArrayProperty()
-        schemaContent.validateJsonSchema().expectErrors(
+        """ "bar": "baz" """.toArrayProperty().validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",

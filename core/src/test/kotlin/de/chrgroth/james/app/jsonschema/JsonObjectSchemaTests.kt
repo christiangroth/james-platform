@@ -69,7 +69,7 @@ class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
-                details = "[testPropertyName]",
+                details = "[testPropertyName=ObjectSchema]",
             )
         )
     }

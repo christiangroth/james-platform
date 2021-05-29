@@ -49,17 +49,3 @@ internal fun <T : Schema> T.validateCommonAnnotations(propertyName: String?): Er
         .combine(readOnlyError)
         .combine(writeOnlyError)
 }
-
-// TODO #17 enum properties (can be used in all schema types!)
-//  allow for number/integer, string, array in tuple mode, disallow for all others
-// see: https://json-schema.org/understanding-json-schema/reference/generic.html#enumerated-values
-//val enumProperties = objectSchema.propertySchemas
-//    .filter { propertyDef -> propertyDef.value is EnumSchema }
-//    .map { propertyDef -> propertyDef.key to propertyDef.value as EnumSchema }
-//    .toMap()
-//enumProperties.any { propertyDef ->
-//    propertyDef.value.unprocessedProperties
-//    propertyDef.value.possibleValues
-//    propertyDef.value.possibleValuesAsList
-//    false
-//}
