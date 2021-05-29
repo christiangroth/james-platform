@@ -24,6 +24,7 @@ internal val StringSchema.minLengthNullSafe get() = minLength ?: 0
 internal val StringSchema.maxLengthNullSafe get() = maxLength ?: Int.MAX_VALUE
 
 // see: https://json-schema.org/understanding-json-schema/reference/string.html
+@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
 internal fun StringSchema.validate(propertyName: String): Errors<StringSchema>? {
 
     val minLengthNegativeError: Error<StringSchema>? = if (minLengthNullSafe < 0) {

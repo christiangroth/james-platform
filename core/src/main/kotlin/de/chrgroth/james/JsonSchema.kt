@@ -76,6 +76,7 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         // TODO #17 might be ConstSchema, need similar handling to EnumSchema
         // see: https://json-schema.org/understanding-json-schema/reference/generic.html#constant-values
 
+        @Suppress("UNCHECKED_CAST")
         val errors = objectSchemaErrors
             .combine(stringPropertyErrors as Errors<ObjectSchema>?)
             .combine(numberPropertyErrors as Errors<ObjectSchema>?)
@@ -97,12 +98,12 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
             .build()
     }
 
-    if (loadSchemaResult.isSuccess) {
+    return if (loadSchemaResult.isSuccess) {
         val schema = loadSchemaResult.getOrNull()
             ?: return Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL)
 
         // ignored properties that are not keywords of a schema
-        return when (schema) {
+        when (schema) {
             !is ObjectSchema -> Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                 details = schema.javaClass.name
@@ -110,7 +111,7 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
             else -> Result(schema)
         }
     } else {
-        return Error(
+        Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
             details = loadSchemaResult.exceptionOrNull()?.message,
         )
@@ -118,6 +119,7 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
 }
 
 // TODO #17 when to use Class and when to use KClass??
+@Suppress("UNCHECKED_CAST")
 internal fun <PropertyType> ObjectSchema.filterProperties(expectedSchemaType: Class<PropertyType>) = propertySchemas
     .filter { propertyDef -> propertyDef.value.javaClass == expectedSchemaType }
     .map { propertyDef -> propertyDef.key to propertyDef.value as PropertyType }

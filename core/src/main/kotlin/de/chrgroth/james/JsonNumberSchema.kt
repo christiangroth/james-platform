@@ -23,6 +23,7 @@ internal val NumberSchema.multipleOfNullSafe get() = multipleOf?.toDouble() ?: 0
 
 // TODO #17 tests
 // see: https://json-schema.org/understanding-json-schema/reference/numeric.html
+@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
 internal fun NumberSchema.validate(propertyName: String): Errors<NumberSchema>? {
 
     val minAndExclusiveMinError: Error<NumberSchema>? = if (minimum != null && exclusiveMinimumLimit != null) {

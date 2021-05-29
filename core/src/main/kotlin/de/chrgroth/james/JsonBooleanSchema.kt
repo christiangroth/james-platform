@@ -12,6 +12,7 @@ internal fun ObjectSchema.validateBooleanProperties() =
 
 // TODO #17 tests
 // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
+@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
 internal fun BooleanSchema.validate(propertyName: String): Errors<BooleanSchema>? {
 
     val unprocessedPropertiesError: Errors<BooleanSchema>? = if (unprocessedProperties.isNotEmpty()) {

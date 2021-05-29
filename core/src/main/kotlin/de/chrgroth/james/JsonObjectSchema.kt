@@ -107,6 +107,7 @@ internal fun ObjectSchema.validate(): Errors<ObjectSchema>? {
 
 // TODO #17 tests
 // TODO #17 define what's breaking
+@Suppress("UNUSED_PARAMETER", "FunctionOnlyReturningConstant")
 internal fun ObjectSchema.isBreakingTo(next: ObjectSchema): Boolean {
     // - property removed/renamed
     // - property type changed / more specialized

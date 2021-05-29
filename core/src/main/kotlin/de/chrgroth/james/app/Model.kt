@@ -1,13 +1,11 @@
 package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.computeNext
 import de.chrgroth.james.generateJsonSchema
 import de.chrgroth.james.isBreakingTo
-import de.chrgroth.james.parseJsonSchema
 import de.chrgroth.james.validateJsonSchema
 import java.util.UUID
 
@@ -40,18 +38,20 @@ data class App(
             !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion != null -> Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
             else -> latestVersion?.let {
-                Result(copy(
-                    developmentVersion = AppVersionDraft(
-                        datatypes = it.datatypes.map { datatype ->
-                            AppDatatypeDraft(
-                                name = datatype.name,
-                                schemaContent = datatype.schemaContent,
-                                description = datatype.description
-                            )
-                        }.toSet(),
-                        reports = it.reports.toSet()
+                Result(
+                    copy(
+                        developmentVersion = AppVersionDraft(
+                            datatypes = it.datatypes.map { datatype ->
+                                AppDatatypeDraft(
+                                    name = datatype.name,
+                                    schemaContent = datatype.schemaContent,
+                                    description = datatype.description
+                                )
+                            }.toSet(),
+                            reports = it.reports.toSet()
+                        )
                     )
-                ))
+                )
             } ?: Result(copy(developmentVersion = AppVersionDraft()))
         }
 
@@ -89,16 +89,19 @@ data class App(
             developmentVersion == null -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
             releaseNotes.note.isBlank() -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK)
             else -> {
-                Result(copy(
-                    developmentVersion = null,
-                    versions = versions.plus(
-                        AppVersion(
-                            version = releaseNotes.computeVersion(latestVersion, developmentVersion),
-                            releaseNotes = releaseNotes,
-                            datatypes = developmentVersion.createDatatypes(latestVersion),
-                            reports = developmentVersion.reports.toSet(),
+                Result(
+                    copy(
+                        developmentVersion = null,
+                        versions = versions.plus(
+                            AppVersion(
+                                version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                                releaseNotes = releaseNotes,
+                                datatypes = developmentVersion.createDatatypes(latestVersion),
+                                reports = developmentVersion.reports.toSet(),
+                            )
                         )
-                    )))
+                    )
+                )
             }
         }
 
@@ -187,7 +190,7 @@ data class AppVersionReleaseNotes(
     val changeType: AppVersionChangeType,
     val note: String,
 ) {
-    internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
+    internal fun computeVersion(latest: AppVersion?, @Suppress("UNUSED_PARAMETER") next: AppVersionDraft): Semver {
         return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
         } else {
