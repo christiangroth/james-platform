@@ -112,6 +112,24 @@ class JsonArraySchemaTests {
         )
 
     @Test
+    fun `contains object in list mode`() =
+        """ "items": { "type": "object" } """.toArrayProperty().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+                details = "testPropertyName",
+            )
+        )
+
+    @Test
+    fun `contains object in tuple mode`() =
+        """ "items": [ { "type": "number" }, { "type": "object" } ] """.toArrayProperty().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+                details = "testPropertyName",
+            )
+        )
+
+    @Test
     fun `unprocessed properties`() {
         val schemaContent = """ "bar": "baz" """.toArrayProperty()
         schemaContent.validateJsonSchema().expectErrors(

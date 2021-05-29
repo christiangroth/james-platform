@@ -21,8 +21,6 @@ internal val ArraySchema.mode
 
 enum class ArraySchemaMode { LIST, TUPLE }
 
-// TODO #17 validate array contains valid types only
-
 // see: https://json-schema.org/understanding-json-schema/reference/array.html
 @Suppress("LongMethod", "ComplexMethod")
 internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArraySchema>? {
@@ -90,6 +88,20 @@ internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArrayS
         )
     } else null
 
+    val containsInvalidTypeInListModeError: Error<ArraySchema>? = if(mode == ArraySchemaMode.LIST && !allItemSchema.isValidPropertyType() ) {
+        Error(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+            details = propertyName
+        )
+    } else null
+
+    val containsInvalidTypeInTupleModeError: Error<ArraySchema>? = if(mode == ArraySchemaMode.TUPLE && itemSchemas.any { !it.isValidPropertyType() } ) {
+        Error(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+            details = propertyName
+        )
+    } else null
+
     val unprocessedPropertiesError: Error<ArraySchema>? = if (unprocessedProperties.isNotEmpty()) {
         Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
@@ -106,5 +118,7 @@ internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArrayS
         .combine(minItemsInTupleModeError)
         .combine(maxItemsInTupleModeError)
         .combine(containsError)
+        .combine(containsInvalidTypeInListModeError)
+        .combine(containsInvalidTypeInTupleModeError)
         .combine(unprocessedPropertiesError)
 }

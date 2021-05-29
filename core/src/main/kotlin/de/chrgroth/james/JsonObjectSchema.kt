@@ -29,7 +29,7 @@ fun AppDatatype.generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchem
     schemaContent = schemaContent ?: "",
 )
 
-private fun Schema.isValidPropertyType() = when (this) {
+internal fun Schema.isValidPropertyType() = when (this) {
     is ArraySchema -> true
     is BooleanSchema -> true
     is EnumSchema -> true
