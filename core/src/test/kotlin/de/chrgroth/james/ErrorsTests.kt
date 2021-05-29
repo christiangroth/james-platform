@@ -25,7 +25,7 @@ class MaybeTests {
     @Test
     fun `a result maybe is mapped correctly`() {
         val maybe = Maybe.Result("Foo")
-        val mapped = maybe.map { it.toUpperCase().reversed() }
+        val mapped = maybe.map { it.uppercase().reversed() }
         assertThat(mapped).isInstanceOf(Maybe.Result::class.java)
         assertThat((mapped as Maybe.Result).value).isEqualTo("OOF")
     }
@@ -33,7 +33,7 @@ class MaybeTests {
     @Test
     fun `an error maybe is mapped correctly`() {
         val maybe = Maybe.Error<Unit>(TestErrors.ZERO)
-        val mapped = maybe.map { it }
+        @Suppress("UNUSED_EXPRESSION") val mapped = maybe.map { it }
         assertThat(mapped).isInstanceOf(Maybe.Error::class.java)
         assertThat((mapped as Maybe.Error).code).isEqualTo(TestErrors.ZERO)
     }

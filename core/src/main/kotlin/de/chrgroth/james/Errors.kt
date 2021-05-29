@@ -12,7 +12,8 @@ interface ErrorCode {
 sealed class Maybe<Type> {
     class Result<Type>(val value: Type) : Maybe<Type>()
     class Error<Type>(val code: ErrorCode) : Maybe<Type>() {
-        fun <R> convert() = this as Error<R>
+        @Suppress("UNCHECKED_CAST")
+        fun <R> convert(): Error<R> = this as Error<R>
     }
 
     fun <R> map(transformer: (Type) -> R) = when(this) {

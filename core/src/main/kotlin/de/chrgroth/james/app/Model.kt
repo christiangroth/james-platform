@@ -3,10 +3,7 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.computeNext
-import org.everit.json.schema.loader.SchemaLoader
-import org.json.JSONObject
-import org.json.JSONTokener
-import java.util.UUID
+import java.util.*
 
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
@@ -37,18 +34,20 @@ data class App(
             !status.allowsChanges -> Maybe.Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
             developmentVersion != null -> Maybe.Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
             else -> latestVersion?.let {
-                Maybe.Result(copy(
-                    developmentVersion = AppVersionDraft(
-                        datatypes = it.datatypes.map { datatype ->
-                            AppDatatypeDraft(
-                                name = datatype.name,
-                                schema = datatype.schema,
-                                description = datatype.description
-                            )
-                        }.toSet(),
-                        reports = it.reports.toSet()
+                Maybe.Result(
+                    copy(
+                        developmentVersion = AppVersionDraft(
+                            datatypes = it.datatypes.map { datatype ->
+                                AppDatatypeDraft(
+                                    name = datatype.name,
+                                    schema = datatype.schema,
+                                    description = datatype.description
+                                )
+                            }.toSet(),
+                            reports = it.reports.toSet()
+                        )
                     )
-                ))
+                )
             } ?: Maybe.Result(copy(developmentVersion = AppVersionDraft()))
         }
 
@@ -86,16 +85,19 @@ data class App(
             developmentVersion == null -> Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
             releaseNotes.note.isBlank() -> Maybe.Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK)
             else -> {
-                Maybe.Result(copy(
-                    developmentVersion = null,
-                    versions = versions.plus(
-                        AppVersion(
-                            version = releaseNotes.computeVersion(latestVersion, developmentVersion),
-                            releaseNotes = releaseNotes,
-                            datatypes = developmentVersion.createDatatypes(latestVersion),
-                            reports = developmentVersion.reports.toSet(),
+                Maybe.Result(
+                    copy(
+                        developmentVersion = null,
+                        versions = versions.plus(
+                            AppVersion(
+                                version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                                releaseNotes = releaseNotes,
+                                datatypes = developmentVersion.createDatatypes(latestVersion),
+                                reports = developmentVersion.reports.toSet(),
+                            )
                         )
-                    )))
+                    )
+                )
             }
         }
 
@@ -181,33 +183,31 @@ data class AppVersionReleaseNotes(
     val changeType: AppVersionChangeType,
     val note: String,
 ) {
-    internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
+    internal fun computeVersion(latest: AppVersion?, @Suppress("UNUSED_PARAMETER") next: AppVersionDraft): Semver {
         return if (latest == null) {
             Semver(major = 0, minor = 1, patch = 0)
         } else {
-            val isBreaking = isBreaking(latest, next)
-            latest.version.computeNext(isBreaking, this)
+//            val isBreaking = isBreaking(latest, next)
+            latest.version.computeNext(false, this)
         }
     }
 
-    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
-        val modelRenamedOrDeleted = latest.datatypes.any { oldModel ->
-            next.datatypes.none { it.name == oldModel.name }
-        }
-
-        val schemaPairs = latest.datatypes
-            .filter { oldModel -> next.datatypes.any { it.name == oldModel.name } }
-            .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
-        //.map { it.first.schema.toJsonSchema() to it.second.schema.toJsonSchema() }
-
-        // TODO #17 need validated schema and better schema api first
-        // val modelAttributeDeleted = schemaPairs.any { }
-        // val modelAttributeTypeChanged = schemaPairs.any {  }
-
-        return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
-    }
-
-    private fun String.toJsonSchema() = SchemaLoader.load(JSONObject(JSONTokener(this)))
+//    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+//        val modelRenamedOrDeleted = latest.datatypes.any { oldModel ->
+//            next.datatypes.none { it.name == oldModel.name }
+//        }
+//
+//        val schemaPairs = latest.datatypes
+//            .filter { oldModel -> next.datatypes.any { it.name == oldModel.name } }
+//            .map { oldModel -> oldModel to next.datatypes.first { it.name == oldModel.name } }
+//        //.map { it.first.schema.toJsonSchema() to it.second.schema.toJsonSchema() }
+//
+//        // TODO #17 need validated schema and better schema api first
+//        // val modelAttributeDeleted = schemaPairs.any { }
+//        // val modelAttributeTypeChanged = schemaPairs.any {  }
+//
+//        return modelRenamedOrDeleted // || modelAttributeDeleted || modelAttributeTypeChanged
+//    }
 }
 
 data class AppDatatypeDraft(
