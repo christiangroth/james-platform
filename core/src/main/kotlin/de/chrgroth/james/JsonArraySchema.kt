@@ -7,7 +7,7 @@ import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.ObjectSchema
 
 internal fun ObjectSchema.validateArrayProperties() =
-    filterProperties(ArraySchema::class.java)
+    filterProperties(ArraySchema::class)
         .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 internal val ArraySchema.minItemsNullSafe get() = minItems ?: 0
@@ -20,6 +20,8 @@ internal val ArraySchema.mode
     }
 
 enum class ArraySchemaMode { LIST, TUPLE }
+
+// TODO #17 validate array contains valid types only
 
 // see: https://json-schema.org/understanding-json-schema/reference/array.html
 @Suppress("LongMethod", "ComplexMethod")

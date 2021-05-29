@@ -8,7 +8,7 @@ import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.StringSchema
 
 internal fun ObjectSchema.validateStringProperties() =
-    filterProperties(StringSchema::class.java)
+    filterProperties(StringSchema::class)
         .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 internal val allowedStringPropertyFormats = listOf(
@@ -54,7 +54,7 @@ internal fun StringSchema.validateDefinition(propertyName: String): Errors<Strin
         )
     } else null
 
-    // TODO #17 seems there is no chance to distinguish between unknown format and no format, we can only detect known but unsupported formats
+    // there is no chance to distinguish between unknown format and no/null format, we can only detect known but unsupported formats
     val unsupportedFormatError: Error<StringSchema>? =
         if (formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName())) {
             Error(

@@ -8,7 +8,7 @@ import org.everit.json.schema.ObjectSchema
 import kotlin.math.floor
 
 internal fun ObjectSchema.validateNumberProperties() =
-    filterProperties(NumberSchema::class.java)
+    filterProperties(NumberSchema::class)
         .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 internal val NumberSchema.minimumNullSafe get() = minimum ?: Int.MIN_VALUE

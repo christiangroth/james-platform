@@ -10,6 +10,8 @@ import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.util.UUID
+import kotlin.reflect.KClass
+import kotlin.reflect.cast
 
 // TODO #17 move all Json*Schema.kt files to package app.schema or app.jsonschema?? check references
 
@@ -54,9 +56,6 @@ internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
         // TODO #17 handle comments?
         // see: https://json-schema.org/understanding-json-schema/reference/generic.html#comments
 
-        // TODO #17 might be ConstSchema, need similar handling to EnumSchema
-        // see: https://json-schema.org/understanding-json-schema/reference/generic.html#constant-values
-
         @Suppress("UNCHECKED_CAST")
         val errors = objectSchemaErrors
             .combine(stringPropertyErrors as Errors<ObjectSchema>?)
@@ -100,8 +99,6 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
     }
 }
 
-// TODO #17 when to use Class and when to use KClass??
-@Suppress("UNCHECKED_CAST")
-internal fun <PropertyType> ObjectSchema.filterProperties(expectedSchemaType: Class<PropertyType>) = propertySchemas
-    .filter { propertyDef -> propertyDef.value.javaClass == expectedSchemaType }
-    .map { propertyDef -> propertyDef.key to propertyDef.value as PropertyType }
+internal fun <PropertyType: Any> ObjectSchema.filterProperties(expectedSchemaType: KClass<PropertyType>) = propertySchemas
+    .filter { propertyDef -> expectedSchemaType.isInstance(propertyDef.value) }
+    .map { propertyDef -> propertyDef.key to expectedSchemaType.cast(propertyDef.value) }
