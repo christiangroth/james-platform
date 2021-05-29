@@ -28,36 +28,16 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
 internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
     return parseJsonSchema().transform { objectSchema ->
 
+        val commonAnnotationsErrors = objectSchema.validateCommonAnnotations(null)
         val objectSchemaErrors = objectSchema.validateDefinition()
         val stringPropertyErrors = objectSchema.validateStringProperties()
         val numberPropertyErrors = objectSchema.validateNumberProperties()
         val booleanPropertyErrors = objectSchema.validateBooleanProperties()
         val arrayPropertyErrors = objectSchema.validateArrayProperties()
 
-        // TODO #17 validate enum properties (may be part of everyting!!?!?! how to handle this?)
-        // see: https://json-schema.org/understanding-json-schema/reference/generic.html#enumerated-values
-        val enumProperties = objectSchema.propertySchemas
-            .filter { propertyDef -> propertyDef.value is EnumSchema }
-            .map { propertyDef -> propertyDef.key to propertyDef.value as EnumSchema }
-            .toMap()
-        enumProperties.any { propertyDef ->
-            propertyDef.value.unprocessedProperties
-            propertyDef.value.possibleValues
-            propertyDef.value.possibleValuesAsList
-            false
-        }
-
-        // TODO #17 handle title / description?
-        // TODO #17 handle default?
-        // TODO #17 handle examples?
-        // TODO #17 handle readOnly / writeOnly?
-        // see: https://json-schema.org/understanding-json-schema/reference/generic.html#annotations
-
-        // TODO #17 handle comments?
-        // see: https://json-schema.org/understanding-json-schema/reference/generic.html#comments
-
         @Suppress("UNCHECKED_CAST")
-        val errors = objectSchemaErrors
+        val errors = commonAnnotationsErrors
+            .combine(objectSchemaErrors)
             .combine(stringPropertyErrors as Errors<ObjectSchema>?)
             .combine(numberPropertyErrors as Errors<ObjectSchema>?)
             .combine(booleanPropertyErrors as Errors<ObjectSchema>?)

@@ -35,20 +35,22 @@ $schemaContent
 // see: https://json-schema.org/understanding-json-schema/reference/object.html
 internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
 
-    val minPropertiesError: Error<ObjectSchema>? = if (minProperties != null && minProperties > 0) {
-        Error(
+    val commonAnnotationsErrors = validateCommonAnnotations(null)
+
+    val minPropertiesError = if (minProperties != null && minProperties > 0) {
+        Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED
         )
     } else null
 
-    val maxPropertiesError: Error<ObjectSchema>? = if (maxProperties != null && maxProperties > 0) {
-        Error(
+    val maxPropertiesError = if (maxProperties != null && maxProperties > 0) {
+        Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED
         )
     } else null
 
-    val additionalPropertiesError: Error<ObjectSchema>? = if (permitsAdditionalProperties()) {
-        Error(
+    val additionalPropertiesError = if (permitsAdditionalProperties()) {
+        Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED
         )
     } else null
@@ -57,15 +59,15 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     val invalidPropertyTypes = propertySchemas.filter { propertyDef ->
         !propertyDef.value.isValidPropertyType()
     }
-    val invalidPropertyTypesError: Error<ObjectSchema>? = if (invalidPropertyTypes.isNotEmpty()) {
-        Error(
+    val invalidPropertyTypesError = if (invalidPropertyTypes.isNotEmpty()) {
+        Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
             details = invalidPropertyTypes.keys.toString()
         )
     } else null
 
-    val unprocessedPropertiesError: Error<ObjectSchema>? = if (unprocessedProperties.isNotEmpty()) {
-        Error(
+    val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
+        Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = unprocessedProperties.toString(),
         )
@@ -78,7 +80,8 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     // see: https://json-schema.org/understanding-json-schema/reference/combining.html
     // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html
 
-    return minPropertiesError
+    return commonAnnotationsErrors
+        .combine(minPropertiesError)
         .combine(maxPropertiesError)
         .combine(additionalPropertiesError)
         .combine(invalidPropertyTypesError)

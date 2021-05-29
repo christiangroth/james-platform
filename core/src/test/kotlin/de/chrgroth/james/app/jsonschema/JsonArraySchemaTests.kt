@@ -7,7 +7,31 @@ import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import org.junit.jupiter.api.Test
 
-class JsonArraySchemaTests {
+class JsonArraySchemaTests : JsonSchemaAnnotationsBaseTests() {
+
+    override val validDefinitionForAnnotationTests = """ "items": { "type": "number" } """
+    override val toPropertyConverter: (String) -> String
+        get() = { it.toArrayProperty() }
+
+    override val expectedDetails = "testPropertyName"
+
+    @Test
+    fun `title not allowed`() =
+        """ $prefixForAnnotationTests "title": "Some title" """.toArrayProperty().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_ONLY_SUPPORTED_FOR_TOP_LEVEL,
+                details = "testPropertyName"
+            )
+        )
+
+    @Test
+    fun `default not allowed`() =
+        """ $prefixForAnnotationTests "default": [1, 2, 3] """.toArrayProperty().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
+                details = "testPropertyName"
+            )
+        )
 
     @Test
     fun `valid list mode`() =
@@ -32,11 +56,13 @@ class JsonArraySchemaTests {
 
     @Test
     fun `tuple mode with additionalItems disabled explicitly`() =
-        """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": false """.toArrayProperty().validateJsonSchema().expectSuccess()
+        """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": false """.toArrayProperty().validateJsonSchema()
+            .expectSuccess()
 
     @Test
     fun `tuple mode with additionalItems defined`() =
-        """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": { "type": "number" } """.toArrayProperty().validateJsonSchema().expectErrors(
+        """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": { "type": "number" } """.toArrayProperty()
+            .validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
                 details = "testPropertyName",

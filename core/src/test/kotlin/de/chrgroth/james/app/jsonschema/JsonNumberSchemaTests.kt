@@ -4,13 +4,36 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
+import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
 import de.chrgroth.james.toNumberProperty
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 
-class JsonNumberSchemaTests {
+class JsonNumberSchemaTests : JsonSchemaAnnotationsBaseTests() {
+
+    override val toPropertyConverter: (String) -> String
+        get() = { it.toNumberProperty() }
+
+    override val expectedDetails = "testPropertyName"
+
+    @Test
+    fun `title not allowed`() =
+        testForIntegerAndNumberProperty(""" $prefixForAnnotationTests "title": "Some title" """) {
+            it.validateJsonSchema().expectErrors(
+                Error(
+                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_ONLY_SUPPORTED_FOR_TOP_LEVEL,
+                    details = "testPropertyName"
+                )
+            )
+        }
+
+    @TestFactory
+    fun `default allowed`() =
+        testForIntegerAndNumberProperty(""" $prefixForAnnotationTests "default": 1 """) {
+            it.validateJsonSchema().expectSuccess()
+        }
 
     @TestFactory
     fun `minimum and exclusiveMinimum`() =

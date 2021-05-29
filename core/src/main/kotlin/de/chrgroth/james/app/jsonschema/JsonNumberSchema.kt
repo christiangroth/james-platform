@@ -25,50 +25,53 @@ internal val NumberSchema.multipleOfNullSafe get() = multipleOf?.toDouble() ?: 0
 // see: https://json-schema.org/understanding-json-schema/reference/numeric.html
 internal fun NumberSchema.validateDefinition(propertyName: String): Errors<NumberSchema>? {
 
-    val minAndExclusiveMinError: Error<NumberSchema>? = if (minimum != null && exclusiveMinimumLimit != null) {
-        Error(
+    val commonAnnotationsErrors = validateCommonAnnotations(propertyName)
+
+    val minAndExclusiveMinError = if (minimum != null && exclusiveMinimumLimit != null) {
+        Error<NumberSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
             details = propertyName
         )
     } else null
 
-    val maxAndExclusiveMaxError: Error<NumberSchema>? = if (maximum != null && exclusiveMaximumLimit != null) {
-        Error(
+    val maxAndExclusiveMaxError = if (maximum != null && exclusiveMaximumLimit != null) {
+        Error<NumberSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
             details = propertyName
         )
     } else null
 
-    val maxLimitSmallerMinLimitError: Error<NumberSchema>? = if (combinedMaximum.toLong() < combinedMinimum.toLong()) {
-        Error(
+    val maxLimitSmallerMinLimitError = if (combinedMaximum.toLong() < combinedMinimum.toLong()) {
+        Error<NumberSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
             details = propertyName
         )
     } else null
 
-    val multipleOfZeroOrNegativeError: Error<NumberSchema>? = if (multipleOf != null && multipleOf.toDouble() <= 0) {
-        Error(
+    val multipleOfZeroOrNegativeError = if (multipleOf != null && multipleOf.toDouble() <= 0) {
+        Error<NumberSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
             details = propertyName
         )
     } else null
 
-    val floatingPointMultipleOfForIntegerValue: Error<NumberSchema>? =
+    val floatingPointMultipleOfForIntegerValue =
         if (requiresInteger() && floor(multipleOfNullSafe) != multipleOfNullSafe) {
-            Error(
+            Error<NumberSchema>(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
                 details = propertyName
             )
         } else null
 
-    val unprocessedPropertiesError: Error<NumberSchema>? = if (unprocessedProperties.isNotEmpty()) {
-        Error(
+    val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
+        Error<NumberSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties"
         )
     } else null
 
-    return minAndExclusiveMinError
+    return commonAnnotationsErrors
+        .combine(minAndExclusiveMinError)
         .combine(maxAndExclusiveMaxError)
         .combine(maxLimitSmallerMinLimitError)
         .combine(multipleOfZeroOrNegativeError)

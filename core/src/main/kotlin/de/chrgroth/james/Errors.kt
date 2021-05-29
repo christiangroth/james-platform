@@ -14,7 +14,6 @@ interface ErrorCode {
 
 sealed class Maybe<Type> {
     data class Result<Type>(val value: Type) : Maybe<Type>()
-    // TODO #17 would maybe be great to have a json pointer here??
     data class Error<Type>(val code: ErrorCode, val details: String? = null) : Maybe<Type>()
     data class Errors<Type>(val errors: List<Error<Type>>) : Maybe<Type>()
 

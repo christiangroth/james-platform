@@ -4,10 +4,29 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
+import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toStringProperty
 import org.junit.jupiter.api.Test
 
-class JsonStringSchemaTests {
+class JsonStringSchemaTests: JsonSchemaAnnotationsBaseTests() {
+
+    override val toPropertyConverter: (String) -> String
+        get() = { it.toStringProperty() }
+
+    override val expectedDetails = "testPropertyName"
+
+    @Test
+    fun `title not allowed`() =
+        """ $prefixForAnnotationTests "title": "Some title" """.toStringProperty().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_ONLY_SUPPORTED_FOR_TOP_LEVEL,
+                details = "testPropertyName"
+            )
+        )
+
+    @Test
+    fun `default allowed`() =
+        """ $prefixForAnnotationTests "default": "Some value" """.toStringProperty().validateJsonSchema().expectSuccess()
 
     @Test
     fun `min length negative`() {

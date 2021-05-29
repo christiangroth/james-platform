@@ -3,11 +3,32 @@ package de.chrgroth.james.app.jsonschema
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
+import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toPropertyInSchemaContent
 import de.chrgroth.james.toTestSchema
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class JsonObjectSchemaTests {
+class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
+
+    override val toPropertyConverter: (String) -> String
+        get() = { it.toTestSchema() }
+
+    @Test
+    fun `title allowed`() {
+        val testSchema = "".toTestSchema()
+        assertThat(testSchema).contains(""""title": """")
+        testSchema.validateJsonSchema().expectSuccess()
+    }
+
+    @Test
+    fun `default not allowed`() =
+        """ $prefixForAnnotationTests "default": { "foo": "bar" } """.toTestSchema().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
+                details = null
+            )
+        )
 
     @Test
     fun `min properties in object definition`() {

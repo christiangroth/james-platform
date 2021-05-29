@@ -12,14 +12,17 @@ internal fun ObjectSchema.validateBooleanProperties() =
         .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
-internal fun BooleanSchema.validateDefinition(propertyName: String): Errors<BooleanSchema>? =
-    if (unprocessedProperties.isNotEmpty()) {
-        Errors(
-            listOf(
-                Error(
-                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                    details = "$propertyName: $unprocessedProperties"
-                )
-            )
+internal fun BooleanSchema.validateDefinition(propertyName: String): Errors<BooleanSchema>? {
+
+    val commonAnnotationsErrors = validateCommonAnnotations(propertyName)
+
+    val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
+        Error<BooleanSchema>(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            details = "$propertyName: $unprocessedProperties"
         )
     } else null
+
+    return commonAnnotationsErrors
+        .combine(unprocessedPropertiesError)
+}
