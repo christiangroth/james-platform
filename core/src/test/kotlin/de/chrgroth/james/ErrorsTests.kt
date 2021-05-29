@@ -76,11 +76,11 @@ class MaybeTests {
     }
 }
 
-class ErrorCombinationTests {
+class ErrorsCombinationTests {
 
     @Test
     fun `combine null error with null error becomes null`() {
-        val result = (null as Error<Unit>?).combine(null)
+        val result = (null as Error<Unit>?).combine(null as Error<Unit>?)
         assertThat(result).isNull()
     }
 
@@ -103,7 +103,7 @@ class ErrorCombinationTests {
     }
 
     @Test
-    fun `combine two errors contains both`() {
+    fun `combine two error instances contains both`() {
         val one = Error<Unit>(TestErrorCodes.ZERO)
         val two = Error<Unit>(TestErrorCodes.SOME_ERROR)
         val result = one.combine(two)
@@ -111,5 +111,93 @@ class ErrorCombinationTests {
         assertThat(result!!.errors).hasSize(2)
         assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
         assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR))
+    }
+
+    @Test
+    fun `combine null errors with null error becomes null`() {
+        val result = (null as Errors<Unit>?).combine(null as Error<Unit>?)
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `combine errors with null error contains only non null`() {
+        val two: Error<Unit>? = null
+        val result = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO))).combine(two)
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(1)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+    }
+
+    @Test
+    fun `combine null errors with error contains only non null`() {
+        val two = Error<Unit>(TestErrorCodes.ZERO)
+        val result = (null as Errors<Unit>?).combine(two)
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(1)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+    }
+
+    @Test
+    fun `combine errors with error contains all`() {
+        val one = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO)))
+        val two = Error<Unit>(TestErrorCodes.SOME_ERROR)
+        val result = one.combine(two)
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(2)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+        assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR))
+    }
+
+    @Test
+    fun `combine null errors with null errors becomes null`() {
+        val result = (null as Errors<Unit>?).combine(null as Errors<Unit>?)
+        assertThat(result).isNull()
+    }
+
+    @Test
+    fun `combine errors with null errors contains only non null`() {
+        val two: Errors<Unit>? = null
+        val result = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO))).combine(two)
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(1)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+    }
+
+    @Test
+    fun `combine null errors with errors contains only non null`() {
+        val two = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO)))
+        val result = (null as Errors<Unit>?).combine(two)
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(1)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+    }
+
+    @Test
+    fun `combine errors with errors contains all`() {
+        val one = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO)))
+        val two = Errors<Unit>(listOf(Error(TestErrorCodes.SOME_ERROR)))
+        val result = one.combine(two)
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(2)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+        assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR))
+    }
+
+    @Test
+    fun `combine list of errors instances filters out null and contains all`() {
+        val one = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO)))
+        val two = null
+        val three = Errors<Unit>(listOf(Error(TestErrorCodes.SOME_ERROR)))
+        val result = listOf(one, two, three).combine()
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(2)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.ZERO))
+        assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR))
+    }
+
+    @Test
+    fun `combine list of errors instances all null becomes null`() {
+        val result = listOf(null as Errors<Unit>?, null as Errors<Unit>?, null as Errors<Unit>?).combine()
+        assertThat(result).isNull()
     }
 }
