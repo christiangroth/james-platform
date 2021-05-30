@@ -10,7 +10,7 @@ import de.chrgroth.james.toTestSchema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class JsonObjectSchemaTests : JsonSchemaAnnotationsBaseTests() {
+class ObjectSchemaTests : AnnotationsBaseTests() {
 
     override val toPropertyConverter: (String) -> String
         get() = { it.toTestSchema() }
@@ -65,12 +65,73 @@ class JsonObjectSchemaTests : JsonSchemaAnnotationsBaseTests() {
     }
 
     @Test
+    fun `pattern properties not supported`() {
+        val schemaContent = """ "patternProperties": { "^S_": { "type": "string" }, "^I_": { "type": "integer" } } """.toTestSchema()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
+                details = null,
+            )
+        )
+    }
+
+    @Test
+    fun `property names schema not supported`() {
+        val schemaContent = """ "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*${'$'}" } """.toTestSchema()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
+                details = null,
+            )
+        )
+    }
+
+    @Test
+    fun `property dependencies not supported`() {
+        val schemaContent =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" }, "billing_address": { "type": "string" } }, 
+                 "dependencies": { "credit_card": ["billing_address"], "billing_address": ["credit_card"] } """.trimMargin().toTestSchema()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
+                details = null,
+            )
+        )
+    }
+
+    @Test
+    fun `schema dependencies not supported`() {
+        val schemaContent =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
+            "dependencies": { "credit_card": { "properties": { "billing_address": { "type": "string" } }, "required": ["billing_address"] } }""".trimMargin().toTestSchema()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
+                details = null,
+            )
+        )
+    }
+
+    @Test
     fun `invalid properties type in object definition`() {
         val schemaContent = "".toPropertyInSchemaContent("object")
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
                 details = "[testPropertyName=ObjectSchema]",
+            )
+        )
+    }
+
+    @Test
+    fun `required properties not existent lead to error`() {
+        val schemaContent =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
+            "required": [ "name", "creditCard", "billingAddress" ] """.trimMargin().toTestSchema()
+        schemaContent.validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
+                details = "[billingAddress, creditCard]",
             )
         )
     }

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 
-class JsonNumberSchemaTests : JsonSchemaAnnotationsBaseTests() {
+class NumberSchemaTests : AnnotationsBaseTests() {
 
     override val toPropertyConverter: (String) -> String
         get() = { it.toNumberProperty() }

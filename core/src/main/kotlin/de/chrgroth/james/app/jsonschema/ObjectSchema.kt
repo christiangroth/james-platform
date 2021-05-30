@@ -60,6 +60,31 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
         )
     } else null
 
+    @Suppress("DEPRECATION")
+    val patternPropertiesError = if (patternProperties != null && patternProperties.isNotEmpty()) {
+        Error<ObjectSchema>(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED
+        )
+    } else null
+
+    val propertyNameSchemaError = if (propertyNameSchema != null) {
+        Error<ObjectSchema>(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED
+        )
+    } else null
+
+    val propertyDependenciesError = if (propertyDependencies != null && propertyDependencies.isNotEmpty()) {
+        Error<ObjectSchema>(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED
+        )
+    } else null
+
+    val schemaDependenciesError = if (schemaDependencies != null && schemaDependencies.isNotEmpty()) {
+        Error<ObjectSchema>(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED
+        )
+    } else null
+
     // only allows plain values for now, add references and objects later
     val invalidPropertyTypes = propertySchemas.filter { propertyDef ->
         !propertyDef.value.isValidPropertyType()
@@ -68,6 +93,14 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
         Error<ObjectSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
             details = invalidPropertyTypes.map { "${it.key}=${it.value.javaClass.simpleName}" }.toList().toString()
+        )
+    } else null
+
+    val requiredButNotExistingProperties = requiredProperties?.filter { !definesProperty(it) } ?: emptyList()
+    val requiredButNotExistingPropertiesError = if (requiredButNotExistingProperties.isNotEmpty()) {
+        Error<ObjectSchema>(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
+            details = requiredButNotExistingProperties.sorted().toString()
         )
     } else null
 
@@ -82,7 +115,12 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
         .combine(minPropertiesError)
         .combine(maxPropertiesError)
         .combine(additionalPropertiesError)
+        .combine(patternPropertiesError)
+        .combine(propertyNameSchemaError)
+        .combine(propertyDependenciesError)
+        .combine(schemaDependenciesError)
         .combine(invalidPropertyTypesError)
+        .combine(requiredButNotExistingPropertiesError)
         .combine(unprocessedPropertiesError)
 }
 

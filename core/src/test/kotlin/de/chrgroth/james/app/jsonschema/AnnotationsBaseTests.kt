@@ -7,7 +7,7 @@ import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import org.junit.jupiter.api.Test
 
-abstract class JsonSchemaAnnotationsBaseTests {
+abstract class AnnotationsBaseTests {
 
     open val validDefinitionForAnnotationTests: String = ""
     abstract val toPropertyConverter: (String) -> String

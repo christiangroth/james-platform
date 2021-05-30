@@ -7,7 +7,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
-class JsonSchemaGenerationTests {
+class SchemaGenerationTests {
 
     @Test
     fun `schema id for SNAPSHOT version`() {
@@ -85,7 +85,7 @@ class JsonSchemaGenerationTests {
     }
 }
 
-class JsonSchemaParsingTests {
+class SchemaParsingTests {
 
     @Test
     fun `invalid json schema syntax fails`() {

@@ -7,7 +7,7 @@ import de.chrgroth.james.toIntegerProperty
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
-internal class JsonCombinedSchemaTests {
+internal class CombinedSchemaTests {
 
     @Test
     fun `property with allOf composition not supported`() =

@@ -4,11 +4,10 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
-import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toBooleanProperty
 import org.junit.jupiter.api.Test
 
-class JsonBooleanSchemaTests : JsonSchemaAnnotationsBaseTests() {
+class BooleanSchemaTests : AnnotationsBaseTests() {
 
     override val toPropertyConverter: (String) -> String
         get() = { it.toBooleanProperty() }

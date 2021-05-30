@@ -7,7 +7,7 @@ import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import org.junit.jupiter.api.Test
 
-class JsonArraySchemaTests : JsonSchemaAnnotationsBaseTests() {
+class ArraySchemaTests : AnnotationsBaseTests() {
 
     override val validDefinitionForAnnotationTests = """ "items": { "type": "number" } """
     override val toPropertyConverter: (String) -> String
