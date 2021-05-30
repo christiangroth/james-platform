@@ -22,8 +22,9 @@ internal fun String.toPropertyInSchemaContent(propertyType: String): String = ""
 internal fun String.toTestSchema() =
     jsonObjectSchemaFor("FooType", "A test schema", this)
 
-fun <T> Maybe<T>.expectSuccess() {
+fun <T> Maybe<T>.expectSuccess(): T {
     Assertions.assertThat(this).isInstanceOf(Result::class.java)
+    return (this as Result).value
 }
 
 fun <T : Any> Maybe<T>.expectError(code: ErrorCode, details: String?) {
