@@ -7,6 +7,7 @@ import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toPropertyInSchemaContent
 import de.chrgroth.james.toTestSchema
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
@@ -83,5 +84,33 @@ class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
                 details = "{foo=bar}",
             )
         )
+    }
+
+    @Test
+    @Disabled
+    fun `conditionals not supported`() {
+        """
+            {
+              "type": "object",
+              "properties": {
+                "street_address": {
+                  "type": "string"
+                },
+                "country": {
+                  "default": "United States of America",
+                  "enum": ["United States of America", "Canada"]
+                }
+              },
+              "if": {
+                "properties": { "country": { "const": "United States of America" } }
+              },
+              "then": {
+                "properties": { "postal_code": { "pattern": "[0-9]{5}(-[0-9]{4})?" } }
+              },
+              "else": {
+                "properties": { "postal_code": { "pattern": "[A-Z][0-9][A-Z] [0-9][A-Z][0-9]" } }
+              }
+            }
+        """.trimIndent().validateJsonSchema().expectSuccess()
     }
 }
