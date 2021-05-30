@@ -10,8 +10,7 @@ import org.everit.json.schema.ObjectSchema
 
 internal fun ObjectSchema.validateCombinedProperties() =
     filterProperties(CombinedSchema::class)
-        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
-
+        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
 
 // see: https://json-schema.org/understanding-json-schema/reference/combining.html
 // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html

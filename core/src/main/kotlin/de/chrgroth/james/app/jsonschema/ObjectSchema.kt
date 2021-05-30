@@ -1,7 +1,9 @@
 package de.chrgroth.james.app.jsonschema
 
+import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
+import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
@@ -13,16 +15,6 @@ import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.Schema
 import org.everit.json.schema.StringSchema
 
-internal fun Schema.isValidPropertyType() = when (this) {
-    is ArraySchema -> true
-    is BooleanSchema -> true
-    is EnumSchema -> true
-    is NumberSchema -> true
-    is StringSchema -> true
-    is CombinedSchema -> true
-    else -> false
-}
-
 // TODO #19 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
 fun jsonObjectSchemaFor(/* TODO #19 appId: UUID, version: String?, */name: String, description: String, schemaContent: String) = """
 {
@@ -33,6 +25,27 @@ fun jsonObjectSchemaFor(/* TODO #19 appId: UUID, version: String?, */name: Strin
 $schemaContent
 }
 """.trimIndent()
+
+internal fun ObjectSchema.validateTopLevelSchema(): Maybe<ObjectSchema> {
+    val commonAnnotationsErrors = validateCommonAnnotations(null)
+    val objectSchemaErrors = validateDefinition()
+    val stringPropertyErrors = validateStringProperties()
+    val numberPropertyErrors = validateNumberProperties()
+    val booleanPropertyErrors = validateBooleanProperties()
+    val arrayPropertyErrors = validateArrayProperties()
+    val combinedPropertyErrors = validateCombinedProperties()
+
+    @Suppress("UNCHECKED_CAST")
+    val errors = commonAnnotationsErrors
+        .combine(objectSchemaErrors)
+        .combine(stringPropertyErrors as Errors<ObjectSchema>?)
+        .combine(numberPropertyErrors as Errors<ObjectSchema>?)
+        .combine(booleanPropertyErrors as Errors<ObjectSchema>?)
+        .combine(arrayPropertyErrors as Errors<ObjectSchema>?)
+        .combine(combinedPropertyErrors as Errors<ObjectSchema>?)
+
+    return errors ?: Result(this)
+}
 
 // see: https://json-schema.org/understanding-json-schema/reference/object.html
 @Suppress("LongMethod", "ComplexMethod")
@@ -127,19 +140,4 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
         .combine(invalidPropertyTypesError)
         .combine(requiredButNotExistingPropertiesError)
         .combine(unprocessedPropertiesError)
-}
-
-// TODO #17 define what's breaking
-@Suppress("UNUSED_PARAMETER", "FunctionOnlyReturningConstant")
-internal fun ObjectSchema.isBreakingTo(next: ObjectSchema): Boolean {
-    // - property removed/renamed
-    // - property type changed / more specialized
-    // - property enum value removed
-    // - property regex changed
-    // - property min increased
-    // - property max decreased
-    // - property made required
-    // - property required but default removed
-    // - new required property without default
-    return false
 }

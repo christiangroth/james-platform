@@ -9,7 +9,7 @@ import org.everit.json.schema.ObjectSchema
 
 internal fun ObjectSchema.validateArrayProperties() =
     filterProperties(ArraySchema::class)
-        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
+        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
 
 internal val ArraySchema.minItemsNullSafe get() = minItems ?: 0
 internal val ArraySchema.maxItemsNullSafe get() = maxItems ?: Int.MAX_VALUE

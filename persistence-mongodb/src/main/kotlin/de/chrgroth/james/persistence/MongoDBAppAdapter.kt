@@ -83,7 +83,7 @@ data class AppVersionEntity(
 
 data class AppDatatypeDraftEntity(
     val name: String,
-    val schemaContent: String? = null,
+    val schemaContent: String,
     val description: String? = null,
 ) {
     internal fun toCoreRepresentation() = AppDatatypeDraft(
@@ -96,7 +96,7 @@ data class AppDatatypeDraftEntity(
 data class AppDatatypeEntity(
     val name: String,
     val version: Long,
-    val schemaContent: String? = null,
+    val schemaContent: String,
     val description: String? = null,
 ) {
     internal fun toCoreRepresentation() = AppDatatype(

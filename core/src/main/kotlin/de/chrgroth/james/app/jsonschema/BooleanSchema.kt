@@ -9,7 +9,7 @@ import org.everit.json.schema.ObjectSchema
 
 internal fun ObjectSchema.validateBooleanProperties() =
     filterProperties(BooleanSchema::class)
-        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
+        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
 
 // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
 internal fun BooleanSchema.validateDefinition(propertyName: String): Errors<BooleanSchema>? {

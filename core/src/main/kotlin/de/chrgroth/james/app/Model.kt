@@ -4,9 +4,9 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.computeNext
-import de.chrgroth.james.app.jsonschema.isBreakingTo
+import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
-import de.chrgroth.james.app.jsonschema.validateJsonSchema
+import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -151,7 +151,7 @@ data class AppVersionDraft(
             datatype.name.isBlank() -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK, null)
             datatype.name.any { !it.isLetter() } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY, null)
             else -> {
-                datatype.generateJsonSchema().validateJsonSchema().map {
+                datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
                     copy(datatypes = datatypes.upsert(datatype))
                 }
             }
@@ -190,8 +190,10 @@ data class AppVersionReleaseNotes(
     val changeType: AppVersionChangeType,
     val note: String,
 ) {
-    internal fun computeVersion(latest: AppVersion?, @Suppress("UNUSED_PARAMETER") next: AppVersionDraft): Semver {
+    internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
+
+            // it's the very first version
             Semver(major = 0, minor = 1, patch = 0)
         } else {
             val isBreaking = isBreaking(latest, next)
@@ -199,6 +201,7 @@ data class AppVersionReleaseNotes(
         }
     }
 
+    // TODO #17 tests
     internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
@@ -212,18 +215,18 @@ data class AppVersionReleaseNotes(
             .map { existingDatatype -> existingDatatype to next.datatypes.first { it.name == existingDatatype.name } }
             .filter { it.first.schemaContent != it.second.schemaContent }
             .map {
-                it.first.generateJsonSchema().validateJsonSchema() to
-                        it.second.generateJsonSchema().validateJsonSchema()
+                it.first.generateJsonSchemaContent().loadAsTopLevelObjectSchema() to
+                        it.second.generateJsonSchema().loadAsTopLevelObjectSchema()
             }
             .filter { it.first is Result && it.second is Result }
             .map { (it.first as Result).value to (it.second as Result).value }
-            .any { it.first.isBreakingTo(it.second) }
+            .any { it.first.computeCompatibility(it.second) !is Result }
     }
 }
 
 data class AppDatatypeDraft(
     val name: String,
-    val schemaContent: String? = null,
+    val schemaContent: String,
     val description: String? = null,
 ) {
     fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
@@ -231,22 +234,22 @@ data class AppDatatypeDraft(
         // TODO #19 version = null,
         name = name,
         description = description ?: "",
-        schemaContent = schemaContent ?: "",
+        schemaContent = schemaContent,
     )
 }
 
 data class AppDatatype(
     val name: String,
     val version: Long,
-    val schemaContent: String? = null,
+    val schemaContent: String,
     val description: String? = null,
 ) {
-    fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
+    fun generateJsonSchemaContent(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = version.toString(),
         name = name,
         description = description ?: "",
-        schemaContent = schemaContent ?: "",
+        schemaContent = schemaContent,
     )
 }
 

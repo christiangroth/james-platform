@@ -99,14 +99,14 @@ class AppDevelopmentTests {
     fun `createDevelopmentVersion`() {
         val app = createApp()
         val updatedApp = app.createDevelopmentVersion().expectSuccess()
-        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatypeDraft(name = "modelOne"))
+        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatypeDraft(name = "modelOne", schemaContent = ""))
         assertThat(updatedApp.developmentVersion!!.reports).containsExactly(AppReport(name = "reportOne"))
     }
 
     @Test
     fun `updateDevelopmentVersion with datatype on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        app.updateDevelopmentVersionDatatype(AppDatatypeDraft("Foos")).expectError(
+        app.updateDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null
         )
@@ -115,7 +115,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype without draft`() {
         val app = createApp()
-        app.updateDevelopmentVersionDatatype(AppDatatypeDraft("Foos")).expectError(
+        app.updateDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
@@ -124,9 +124,9 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.updateDevelopmentVersionDatatype(AppDatatypeDraft("Foos")).expectSuccess()
+        val updatedApp = app.updateDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft("Foos"))
+        assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = ""))
     }
 
     @Test
@@ -273,7 +273,7 @@ class AppDevelopmentTests {
         val updatedApp = app.releaseDevelopmentVersion(releaseNotes).expectSuccess()
         assertThat(updatedApp.latestVersion).isNotNull
         assertThat(updatedApp.latestVersion!!.releaseNotes).isEqualTo(releaseNotes)
-        assertThat(updatedApp.latestVersion!!.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1))
+        assertThat(updatedApp.latestVersion!!.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1, schemaContent = ""))
         assertThat(updatedApp.latestVersion!!.reports).containsExactly(AppReport(name = "reportOne"))
     }
 
@@ -320,7 +320,7 @@ class AppDevelopmentTests {
                         changeType = AppVersionChangeType.FEATURE,
                         note = "Everything is new"
                     ),
-                    datatypes = setOf(AppDatatype(name = "modelOne", version = 1)),
+                    datatypes = setOf(AppDatatype(name = "modelOne", version = 1, schemaContent = "")),
                     reports = setOf(AppReport(name = "reportOne")),
                 ),
                 AppVersion(
@@ -345,7 +345,7 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype name blank`() {
-        createDraft().upsertDatatype(AppDatatypeDraft(name = "")).expectError(
+        createDraft().upsertDatatype(AppDatatypeDraft(name = "", schemaContent = "")).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK,
             details = null,
         )
@@ -353,7 +353,7 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype name conains non letters`() {
-        createDraft().upsertDatatype(AppDatatypeDraft(name = "Foo Bar")).expectError(
+        createDraft().upsertDatatype(AppDatatypeDraft(name = "Foo Bar", schemaContent = "")).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY,
             details = null,
         )
@@ -361,8 +361,8 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype`() {
-        val updatedDraft = createDraft().upsertDatatype(AppDatatypeDraft(name = "Foos")).expectSuccess()
-        assertThat(updatedDraft.datatypes).contains(AppDatatypeDraft(name = "Foos"))
+        val updatedDraft = createDraft().upsertDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectSuccess()
+        assertThat(updatedDraft.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = ""))
     }
 
     @Test

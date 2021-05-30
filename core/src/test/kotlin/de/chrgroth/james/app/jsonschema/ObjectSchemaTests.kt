@@ -19,12 +19,12 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `title allowed`() {
         val testSchema = "".toTestSchema()
         assertThat(testSchema).contains(""""title": """")
-        testSchema.validateJsonSchema().expectSuccess()
+        testSchema.loadAsTopLevelObjectSchema().expectSuccess()
     }
 
     @Test
     fun `default not allowed`() =
-        """ $prefixForAnnotationTests "default": { "foo": "bar" } """.toTestSchema().validateJsonSchema().expectErrors(
+        """ $prefixForAnnotationTests "default": { "foo": "bar" } """.toTestSchema().loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
                 details = null
@@ -34,7 +34,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `min properties in object definition`() {
         val schemaContent = """ "minProperties": 7 """.toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
                 details = null,
@@ -45,7 +45,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `max properties in object definition`() {
         val schemaContent = """ "maxProperties": 7 """.toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
                 details = null,
@@ -56,7 +56,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `additional properties in object definition`() {
         val schemaContent = "".toTestSchema().replace(""""additionalProperties": false""", """"additionalProperties": true""")
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
                 details = null,
@@ -67,7 +67,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `pattern properties not supported`() {
         val schemaContent = """ "patternProperties": { "^S_": { "type": "string" }, "^I_": { "type": "integer" } } """.toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
                 details = null,
@@ -78,7 +78,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `property names schema not supported`() {
         val schemaContent = """ "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*${'$'}" } """.toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
                 details = null,
@@ -91,7 +91,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent =
             """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" }, "billing_address": { "type": "string" } }, 
                  "dependencies": { "credit_card": ["billing_address"], "billing_address": ["credit_card"] } """.trimMargin().toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
                 details = null,
@@ -105,7 +105,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
             """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
             "dependencies": { "credit_card": { "properties": { "billing_address": { "type": "string" } }, 
             "required": ["billing_address"] } }""".trimMargin().toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
                 details = null,
@@ -116,7 +116,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `invalid properties type in object definition`() {
         val schemaContent = "".toPropertyInSchemaContent("object")
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
                 details = "[testPropertyName=ObjectSchema]",
@@ -129,7 +129,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent =
             """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
             "required": [ "name", "creditCard", "billingAddress" ] """.trimMargin().toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
                 details = "[billingAddress, creditCard]",
@@ -140,7 +140,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `unprocessed properties in object definition`() {
         val schemaContent = """ "foo": "bar" """.toTestSchema()
-        schemaContent.validateJsonSchema().expectErrors(
+        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "{foo=bar}",
@@ -174,7 +174,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
                 "properties": { "postal_code": { "pattern": "[A-Z][0-9][A-Z] [0-9][A-Z][0-9]" } }
               }
             }
-        """.trimIndent().validateJsonSchema().expectError(
+        """.trimIndent().loadAsTopLevelObjectSchema().expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
             details = "CombinedSchema",
         )
@@ -198,7 +198,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
                 "shipping_address": { "${"$"}ref": "#/definitions/addressTuple" }
               }
             }
-        """.trimIndent().validateJsonSchema().expectErrors(
+        """.trimIndent().loadAsTopLevelObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
                 details = "[billing_address=ReferenceSchema, shipping_address=ReferenceSchema]",

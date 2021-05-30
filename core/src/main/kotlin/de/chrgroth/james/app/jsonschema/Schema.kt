@@ -2,12 +2,16 @@ package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.combine
+import org.everit.json.schema.ArraySchema
+import org.everit.json.schema.BooleanSchema
+import org.everit.json.schema.CombinedSchema
 import org.everit.json.schema.EnumSchema
+import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
+import org.everit.json.schema.Schema
+import org.everit.json.schema.StringSchema
 import org.everit.json.schema.loader.SchemaLoader
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -25,28 +29,8 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
-internal fun String.validateJsonSchema(): Maybe<ObjectSchema> {
-    return parseJsonSchema().transform { objectSchema ->
-
-        val commonAnnotationsErrors = objectSchema.validateCommonAnnotations(null)
-        val objectSchemaErrors = objectSchema.validateDefinition()
-        val stringPropertyErrors = objectSchema.validateStringProperties()
-        val numberPropertyErrors = objectSchema.validateNumberProperties()
-        val booleanPropertyErrors = objectSchema.validateBooleanProperties()
-        val arrayPropertyErrors = objectSchema.validateArrayProperties()
-        val combinedPropertyErrors = objectSchema.validateCombinedProperties()
-
-        @Suppress("UNCHECKED_CAST")
-        val errors = commonAnnotationsErrors
-            .combine(objectSchemaErrors)
-            .combine(stringPropertyErrors as Errors<ObjectSchema>?)
-            .combine(numberPropertyErrors as Errors<ObjectSchema>?)
-            .combine(booleanPropertyErrors as Errors<ObjectSchema>?)
-            .combine(arrayPropertyErrors as Errors<ObjectSchema>?)
-            .combine(combinedPropertyErrors as Errors<ObjectSchema>?)
-
-        errors ?: Result(objectSchema)
-    }
+internal fun String.loadAsTopLevelObjectSchema(): Maybe<ObjectSchema> {
+    return parseJsonSchema().transform { it.validateTopLevelSchema() }
 }
 
 internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
@@ -81,6 +65,20 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
     }
 }
 
-internal fun <PropertyType : Any> ObjectSchema.filterProperties(expectedSchemaType: KClass<PropertyType>) = propertySchemas
-    .filter { propertyDef -> expectedSchemaType.isInstance(propertyDef.value) }
-    .map { propertyDef -> propertyDef.key to expectedSchemaType.cast(propertyDef.value) }
+internal fun Schema.isValidPropertyType() = when (this) {
+    is ArraySchema -> true
+    is BooleanSchema -> true
+    is EnumSchema -> true
+    is NumberSchema -> true
+    is StringSchema -> true
+    is CombinedSchema -> true
+    else -> false
+}
+
+internal fun <PropertyType : Any> ObjectSchema.filterProperties(expectedSchemaType: KClass<PropertyType>) =
+    propertySchemas.filterProperties(expectedSchemaType)
+
+internal fun <PropertyType : Any> Map<String, Schema>.filterProperties(expectedSchemaType: KClass<PropertyType>) =
+    filter { propertyDef -> expectedSchemaType.isInstance(propertyDef.value) }
+        .map { propertyDef -> propertyDef.key to expectedSchemaType.cast(propertyDef.value) }
+        .toMap()

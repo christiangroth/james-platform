@@ -90,7 +90,7 @@ class SchemaParsingTests {
     @Test
     fun `invalid json schema syntax fails`() {
         val schemaContent = ",;,;".toTestSchema()
-        schemaContent.validateJsonSchema().expectError(
+        schemaContent.loadAsTopLevelObjectSchema().expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
             details = "Missing value at 111 [character 0 line 6]"
         )

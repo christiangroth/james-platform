@@ -10,7 +10,7 @@ import kotlin.math.floor
 
 internal fun ObjectSchema.validateNumberProperties() =
     filterProperties(NumberSchema::class)
-        .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
+        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
 
 internal val NumberSchema.minimumNullSafe get() = minimum ?: Int.MIN_VALUE
 internal val NumberSchema.exclusiveMinimumLimitNullSafe get() = exclusiveMinimumLimit ?: Int.MIN_VALUE
