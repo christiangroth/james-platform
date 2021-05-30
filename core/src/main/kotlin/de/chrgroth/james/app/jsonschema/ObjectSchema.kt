@@ -44,44 +44,51 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
 
     val minPropertiesError = if (minProperties != null && minProperties > 0) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 
     val maxPropertiesError = if (maxProperties != null && maxProperties > 0) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 
     val additionalPropertiesError = if (permitsAdditionalProperties()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 
     @Suppress("DEPRECATION")
     val patternPropertiesError = if (patternProperties != null && patternProperties.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 
     val propertyNameSchemaError = if (propertyNameSchema != null) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 
     val propertyDependenciesError = if (propertyDependencies != null && propertyDependencies.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 
     val schemaDependenciesError = if (schemaDependencies != null && schemaDependencies.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
+            details = null,
         )
     } else null
 

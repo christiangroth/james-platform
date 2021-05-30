@@ -76,7 +76,10 @@ internal class AppCommandAdapter(
     ) =
         queryPersistence.get(this).transform { app ->
             if (app == null) {
-                Error(AppErrorCodes.NOT_FOUND)
+                Error(
+                    code = AppErrorCodes.NOT_FOUND,
+                    details = null,
+                )
             } else {
                 appOperation(app).transform { persistenceOperation(app, it) }
             }

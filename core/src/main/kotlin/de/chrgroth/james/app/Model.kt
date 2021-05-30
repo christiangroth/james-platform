@@ -35,8 +35,8 @@ data class App(
 
     internal fun createDevelopmentVersion() =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            developmentVersion != null -> Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
+            developmentVersion != null -> Error(AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS, null)
             else -> latestVersion?.let {
                 Result(
                     copy(
@@ -57,37 +57,37 @@ data class App(
 
     internal fun updateDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
+            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
             else -> developmentVersion.upsertDatatype(datatype).map { copy(developmentVersion = it) }
         }
 
     internal fun removeDevelopmentVersionDatatype(datatypeName: String) =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
+            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
             else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
         }
 
     internal fun updateDevelopmentVersionReport(report: AppReport) =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
+            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
             else -> developmentVersion.upsertReport(report).map { copy(developmentVersion = it) }
         }
 
     internal fun removeDevelopmentVersionReport(reportName: String) =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
+            developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
             else -> developmentVersion.removeReport(reportName).map { copy(developmentVersion = it) }
         }
 
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
-            developmentVersion == null -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING)
-            releaseNotes.note.isBlank() -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
+            developmentVersion == null -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
+            releaseNotes.note.isBlank() -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK, null)
             else -> {
                 Result(
                     copy(
@@ -107,13 +107,13 @@ data class App(
 
     internal fun discontinue() =
         when {
-            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED)
+            !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
             else -> Result(copy(discontinued = true))
         }
 
     internal fun canBeDeleted() =
         when {
-            status != AppStatus.DISCONTINUED -> Error(AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)
+            status != AppStatus.DISCONTINUED -> Error(AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED, null)
             else -> Result(Unit)
         }
 }
@@ -148,8 +148,8 @@ data class AppVersionDraft(
 
     internal fun upsertDatatype(datatype: AppDatatypeDraft) =
         when {
-            datatype.name.isBlank() -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK)
-            datatype.name.any { !it.isLetter() } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY)
+            datatype.name.isBlank() -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK, null)
+            datatype.name.any { !it.isLetter() } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY, null)
             else -> {
                 datatype.generateJsonSchema().validateJsonSchema().map {
                     copy(datatypes = datatypes.upsert(datatype))
@@ -159,7 +159,7 @@ data class AppVersionDraft(
 
     internal fun removeDatatype(datatypeName: String) =
         when {
-            datatypes.none { it.name == datatypeName } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_DATATYPE_NOT_FOUND)
+            datatypes.none { it.name == datatypeName } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_DATATYPE_NOT_FOUND, null)
             else -> Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName }.toSet()))
         }
 
@@ -168,13 +168,13 @@ data class AppVersionDraft(
 
     internal fun upsertReport(report: AppReport) =
         when {
-            report.name.isBlank() -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK)
+            report.name.isBlank() -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK, null)
             else -> Result(copy(reports = reports.upsert(report)))
         }
 
     internal fun removeReport(reportName: String) =
         when {
-            reports.none { it.name == reportName } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_REPORT_NOT_FOUND)
+            reports.none { it.name == reportName } -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_REPORT_NOT_FOUND, null)
             else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
         }
 

@@ -8,6 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
+// TODO #17 assert error details
 class AppStatusTests {
 
     @Test

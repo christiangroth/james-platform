@@ -14,7 +14,7 @@ interface ErrorCode {
 
 sealed class Maybe<Type> {
     data class Result<Type>(val value: Type) : Maybe<Type>()
-    data class Error<Type>(val code: ErrorCode, val details: String? = null) : Maybe<Type>()
+    data class Error<Type>(val code: ErrorCode, val details: String?) : Maybe<Type>()
     data class Errors<Type>(val errors: List<Error<Type>>) : Maybe<Type>()
 
     @Suppress("UNCHECKED_CAST")
