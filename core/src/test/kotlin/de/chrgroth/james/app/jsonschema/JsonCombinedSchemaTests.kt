@@ -10,12 +10,38 @@ import org.junit.jupiter.api.Test
 internal class JsonCombinedSchemaTests {
 
     @Test
-    @Disabled
-    fun `integer property with oneOf conditions`() =
-        """ "oneOf": [ { "multipleOf": 5 }, { "multipleOf": 3 } ] """.toIntegerProperty().validateJsonSchema().expectErrors(
+    fun `property with allOf composition not supported`() =
+        """ "allOf": [ { "multipleOf": 5 }, { "minimum": 7 } ] """.toIntegerProperty().validateJsonSchema().expectErrors(
             Maybe.Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
-                details = "testPropertyName"
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                details = "testPropertyName: [CombinedSchema, NumberSchema]"
+            )
+        )
+
+    @Test
+    fun `property with anyOf composition not supported`() =
+        """ "anyOf": [ { "multipleOf": 5 }, { "multipleOf": 7 } ] """.toIntegerProperty().validateJsonSchema().expectErrors(
+            Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                details = "testPropertyName: [CombinedSchema, NumberSchema]"
+            )
+        )
+
+    @Test
+    fun `property with oneOf composition not supported`() =
+        """ "oneOf": [ { "multipleOf": 5 }, { "multipleOf": 7 } ] """.toIntegerProperty().validateJsonSchema().expectErrors(
+            Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                details = "testPropertyName: [CombinedSchema, NumberSchema]"
+            )
+        )
+
+    @Test
+    fun `property with not condition not supported`() =
+        """ "not": { "multipleOf": 7 } """.toIntegerProperty().validateJsonSchema().expectErrors(
+            Maybe.Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                details = "testPropertyName: [NotSchema, NumberSchema]"
             )
         )
 }

@@ -13,7 +13,6 @@ internal fun ObjectSchema.validateCombinedProperties() =
         .mapNotNull { it.second.validateDefinition(propertyName = it.first) }.combine()
 
 
-// TODO #17 handle combining and conditionals in common (right now only allOf(enum + string|number) is implemented)
 // see: https://json-schema.org/understanding-json-schema/reference/combining.html
 // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html
 internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<CombinedSchema>? {
@@ -34,7 +33,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<Com
     val subSchemasForEnumUsecaseError = if (!exactTwoSubschemas || enumSchema == null || enumSupportingJsonSchema == null) {
         Error<CombinedSchema>(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-            details = "$propertyName: ${subschemas.map { it.javaClass.simpleName }}",
+            details = "$propertyName: ${subschemas.map { it.javaClass.simpleName }.sorted() }",
         )
     } else null
 

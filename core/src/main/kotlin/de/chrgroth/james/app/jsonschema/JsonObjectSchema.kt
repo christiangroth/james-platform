@@ -34,6 +34,9 @@ $schemaContent
 }
 """.trimIndent()
 
+// TODO #17 handle id and ref
+// see: https://json-schema.org/understanding-json-schema/structuring.html
+
 // see: https://json-schema.org/understanding-json-schema/reference/object.html
 internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
 
@@ -74,9 +77,6 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
             details = unprocessedProperties.toString(),
         )
     } else null
-
-    // TODO #17 handle id and ref
-    // see: https://json-schema.org/understanding-json-schema/structuring.html
 
     return commonAnnotationsErrors
         .combine(minPropertiesError)

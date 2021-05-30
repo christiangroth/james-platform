@@ -2,15 +2,15 @@ package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.expectError
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toPropertyInSchemaContent
 import de.chrgroth.james.toTestSchema
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
-class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
+class JsonObjectSchemaTests : JsonSchemaAnnotationsBaseTests() {
 
     override val toPropertyConverter: (String) -> String
         get() = { it.toTestSchema() }
@@ -87,7 +87,6 @@ class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
     }
 
     @Test
-    @Disabled
     fun `conditionals not supported`() {
         """
             {
@@ -97,6 +96,7 @@ class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
                   "type": "string"
                 },
                 "country": {
+                  "type": "string",
                   "default": "United States of America",
                   "enum": ["United States of America", "Canada"]
                 }
@@ -111,6 +111,9 @@ class JsonObjectSchemaTests: JsonSchemaAnnotationsBaseTests() {
                 "properties": { "postal_code": { "pattern": "[A-Z][0-9][A-Z] [0-9][A-Z][0-9]" } }
               }
             }
-        """.trimIndent().validateJsonSchema().expectSuccess()
+        """.trimIndent().validateJsonSchema().expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+            details = "CombinedSchema",
+        )
     }
 }
