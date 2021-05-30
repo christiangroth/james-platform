@@ -46,12 +46,14 @@ tasks {
         this.jvmTarget = "11"
     }
 
+    // see https://kotlinlang.org/docs/gradle.html#compiler-options
     withType<KotlinCompile>().configureEach {
+        kotlinOptions.apiVersion = "1.5"
+        kotlinOptions.languageVersion = "1.5"
         kotlinOptions.jvmTarget = "11"
-        kotlinOptions.allWarningsAsErrors = true
 
+        kotlinOptions.allWarningsAsErrors = true
         kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
-        kotlinOptions.useIR = true
     }
 
     test {
