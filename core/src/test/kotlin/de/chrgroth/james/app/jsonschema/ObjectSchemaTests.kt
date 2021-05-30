@@ -103,7 +103,8 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `schema dependencies not supported`() {
         val schemaContent =
             """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
-            "dependencies": { "credit_card": { "properties": { "billing_address": { "type": "string" } }, "required": ["billing_address"] } }""".trimMargin().toTestSchema()
+            "dependencies": { "credit_card": { "properties": { "billing_address": { "type": "string" } }, 
+            "required": ["billing_address"] } }""".trimMargin().toTestSchema()
         schemaContent.validateJsonSchema().expectErrors(
             Error(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
