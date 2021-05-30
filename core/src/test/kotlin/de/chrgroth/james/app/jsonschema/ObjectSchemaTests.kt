@@ -153,6 +153,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         """
             {
               "type": "object",
+              "title": "Foo",
               "properties": {
                 "street_address": {
                   "type": "string"
@@ -176,6 +177,35 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         """.trimIndent().validateJsonSchema().expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
             details = "CombinedSchema",
+        )
+    }
+
+    @Test
+    fun `structuring not supported`() {
+        """
+            {
+              "title": "Foo",
+              "type": "object",
+              "additionalProperties": false,
+              "definitions": {
+                "addressTuple": {
+                  "type": "array",
+                  "items": [ { "type": "string" }, { "type": "string" }, { "type": "string" } ]
+                }
+              },
+              "properties": {
+                "billing_address": { "${"$"}ref": "#/definitions/addressTuple" },
+                "shipping_address": { "${"$"}ref": "#/definitions/addressTuple" }
+              }
+            }
+        """.trimIndent().validateJsonSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
+                details = "[billing_address=ReferenceSchema, shipping_address=ReferenceSchema]",
+            ),Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                details = "{definitions={addressTuple={type=array, items=[{type=string}, {type=string}, {type=string}]}}}",
+            ),
         )
     }
 }

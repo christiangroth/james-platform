@@ -17,7 +17,7 @@ internal fun <T : Schema> T.validateCommonAnnotations(propertyName: String?): Er
     val hasTitle = title != null && title.isNotBlank()
     val titleError = if (isTopLevelSchema xor hasTitle) {
         Error<T>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_ONLY_SUPPORTED_FOR_TOP_LEVEL,
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
             details = propertyName,
         )
     } else null

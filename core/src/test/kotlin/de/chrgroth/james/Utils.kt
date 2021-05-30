@@ -38,5 +38,5 @@ fun <T> Maybe<T>.expectErrors(vararg expectedErrors: Error<T>) {
     for (expectedError in expectedErrors) {
         Assertions.assertThat(resultErrors.errors).contains(expectedError)
     }
-    Assertions.assertThat(resultErrors.errors.minus(expectedErrors)).isEmpty()
+    Assertions.assertThat(resultErrors.errors.minus(expectedErrors)).describedAs("Found unexpected errors").isEmpty()
 }
