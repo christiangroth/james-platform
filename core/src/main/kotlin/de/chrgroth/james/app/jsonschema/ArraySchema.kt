@@ -91,10 +91,28 @@ internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArrayS
         )
     } else null
 
+    // TODO #17 tests
+    val containsNoTypeInListModeError =
+        if (mode == ArraySchemaMode.LIST && allItemSchema == null) {
+            Error<ArraySchema>(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
+                details = propertyName
+            )
+        } else null
+
     val containsInvalidTypeInListModeError =
-        if (mode == ArraySchemaMode.LIST && !allItemSchema.isValidPropertyType()) {
+        if (mode == ArraySchemaMode.LIST && allItemSchema != null && !allItemSchema.isValidPropertyType()) {
             Error<ArraySchema>(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+                details = propertyName
+            )
+        } else null
+
+    // TODO #17 tests
+    val containsNoTypeInTupleModeError =
+        if (mode == ArraySchemaMode.TUPLE && itemSchemas.isNullOrEmpty()) {
+            Error<ArraySchema>(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
                 details = propertyName
             )
         } else null
@@ -124,7 +142,9 @@ internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArrayS
         .combine(minItemsInTupleModeError)
         .combine(maxItemsInTupleModeError)
         .combine(containsError)
+        .combine(containsNoTypeInListModeError)
         .combine(containsInvalidTypeInListModeError)
+        .combine(containsNoTypeInTupleModeError)
         .combine(containsInvalidTypeInTupleModeError)
         .combine(unprocessedPropertiesError)
 }
