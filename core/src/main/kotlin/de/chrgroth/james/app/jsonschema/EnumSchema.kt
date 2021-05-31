@@ -20,6 +20,7 @@ sealed class EnumSupportingJsonSchema {
     abstract fun enumDefinitionSupported(typeSchema: Schema): Boolean
     abstract fun enumValuesTypeMatches(typeSchema: Schema, enumSchema: EnumSchema): Boolean
     abstract fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String): Errors<out Schema>?
+    abstract fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema): Errors<Unit>?
 }
 
 object StringEnumSchema : EnumSupportingJsonSchema() {
@@ -31,6 +32,11 @@ object StringEnumSchema : EnumSupportingJsonSchema() {
     override fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String) =
         if (typeSchema is StringSchema) {
             typeSchema.validateDefinition(propertyName)
+        } else null
+
+    override fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema) =
+        if (typeSchema is StringSchema && nextTypeSchema is StringSchema) {
+            typeSchema.computeCompatibility(nextTypeSchema)
         } else null
 }
 
@@ -49,5 +55,10 @@ object NumberEnumSchema : EnumSupportingJsonSchema() {
     override fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String) =
         if (typeSchema is NumberSchema) {
             typeSchema.validateDefinition(propertyName)
+        } else null
+
+    override fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema) =
+        if (typeSchema is NumberSchema && nextTypeSchema is NumberSchema) {
+            typeSchema.computeCompatibility(nextTypeSchema)
         } else null
 }

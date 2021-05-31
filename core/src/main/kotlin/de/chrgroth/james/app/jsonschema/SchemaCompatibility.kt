@@ -9,6 +9,7 @@ import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.CombinedSchema
+import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
 import org.everit.json.schema.StringSchema
@@ -18,7 +19,13 @@ enum class SchemaCompatibilityErrorCodes : ErrorCode {
 
     PROPERTY_REMOVED,
     NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
-    EXISTING_PROPERTY_MADE_REQUIRED_OR_ALREADY_WAS_REQUIRED_BUT_DEFAULT_REMOVED;
+    EXISTING_PROPERTY_MADE_REQUIRED_OR_ALREADY_WAS_REQUIRED_BUT_DEFAULT_REMOVED,
+
+    NUMBER_PROPERTY_MIN_INTRODUCED,
+    NUMBER_PROPERTY_MIN_INCREASED,
+    NUMBER_PROPERTY_MAX_INTRODUCED,
+    NUMBER_PROPERTY_MAX_DECREASED,
+    ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED;
 
     override val prefix = "SCHEMA_COMPATIBILITY"
     override val id = ordinal.toLong()
@@ -105,14 +112,80 @@ internal fun ArraySchema.computeCompatibility(next: ArraySchema): Errors<Unit>? 
     return null
 }
 
-// TODO #17 check all kept combined/enum properties for breaking changes
+// TODO #17 tests
 internal fun CombinedSchema.computeCompatibility(next: CombinedSchema): Errors<Unit>? {
-    return null
+    val enumSchema = enumSchemaOrNull
+    val nextEnumSchema = next.enumSchemaOrNull
+
+    val typeSchema = typeSchemaOrNull
+    val nextTypeSchema = next.typeSchemaOrNull
+    val enumSupportingJsonSchema = typeSchema?.resolveEnumSupportingJsonSchema()
+
+    val enumErrors = if(enumSchema != null nextEnumSchema != null) {
+        enumSchema.computeCompatibility(nextEnumSchema)
+    } else null
+
+    val delegateErrors = if(enumSupportingJsonSchema != null && typeSchema != null && nextTypeSchema != null) {
+        enumSupportingJsonSchema.delegateCompatibilityCheck(typeSchema, nextTypeSchema)
+    } else null
+
+    return enumErrors
+        .combine(delegateErrors)
 }
 
-// TODO #17 check all kept number properties for breaking changes
+// TODO #17 tests
+internal fun EnumSchema.computeCompatibility(next: EnumSchema): Error<Unit>? {
+
+    val removedPossibleValues = possibleValues.filter { !next.possibleValues.contains(it) }
+    return if(removedPossibleValues.isNotEmpty()) {
+        Error<Unit>(
+            code = SchemaCompatibilityErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
+            details = removedPossibleValues.sorted().toSet().toString()
+        )
+    } else null
+}
+
+// TODO #17 tests
+// TODO #17 add details
 internal fun NumberSchema.computeCompatibility(next: NumberSchema): Errors<Unit>? {
-    return null
+    val minIntroduced = (minimum == null && next.minimum != null) || (exclusiveMinimumLimit == null && next.exclusiveMinimumLimit != null)
+    val minIntroducedError = if(minIntroduced) {
+        Error<Unit>(
+            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INTRODUCED,
+            details = null
+        )
+    } else null
+
+    val minIncreased = combinedMinimum.toLong() < next.combinedMinimum.toLong()
+    val minIncreasedError = if(minIncreased) {
+        Error<Unit>(
+            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+            details = null
+        )
+    } else null
+
+    val maxIntroduced = (maximum == null && next.maximum != null) || (exclusiveMaximumLimit == null && next.exclusiveMaximumLimit != null)
+    val maxIntroducedError = if(maxIntroduced) {
+        Error<Unit>(
+            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_INTRODUCED,
+            details = null
+        )
+    } else null
+
+    val maxDecreased = combinedMaximum.toLong() > next.combinedMaximum.toLong()
+    val maxDecreasedError = if(maxDecreased) {
+        Error<Unit>(
+            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
+            details = null
+        )
+    } else null
+
+    // TODO #17 multipleOf introduced || changed (not relaxed: new is divisor of old -> not breaking)
+
+    return minIntroducedError
+        .combine(minIncreasedError)
+        .combine(maxIntroducedError)
+        .combine(maxDecreasedError)
 }
 
 // TODO #17 check all kept string properties for breaking changes

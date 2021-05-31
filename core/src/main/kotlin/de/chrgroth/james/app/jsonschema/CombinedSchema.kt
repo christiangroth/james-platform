@@ -12,6 +12,9 @@ internal fun ObjectSchema.validateCombinedProperties() =
     filterProperties(CombinedSchema::class)
         .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
 
+internal val CombinedSchema.enumSchemaOrNull get() = subschemas.filterIsInstance<EnumSchema>().firstOrNull()
+internal val CombinedSchema.typeSchemaOrNull get() = subschemas.firstOrNull { it !is EnumSchema }
+
 // see: https://json-schema.org/understanding-json-schema/reference/combining.html
 // see: https://json-schema.org/understanding-json-schema/reference/conditionals.html
 internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<CombinedSchema>? {
@@ -25,9 +28,9 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<Com
         )
     } else null
 
+    val enumSchema = enumSchemaOrNull
+    val typeSchema = typeSchemaOrNull
     val exactTwoSubschemas = subschemas != null && subschemas.size == 2
-    val enumSchema = subschemas.filterIsInstance<EnumSchema>().firstOrNull()
-    val typeSchema = subschemas.firstOrNull { it !is EnumSchema }
     val enumSupportingJsonSchema = typeSchema?.resolveEnumSupportingJsonSchema()
     val subSchemasForEnumUsecaseError = if (!exactTwoSubschemas || enumSchema == null || enumSupportingJsonSchema == null) {
         Error<CombinedSchema>(
