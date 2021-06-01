@@ -5,9 +5,23 @@ import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
+import de.chrgroth.james.toNumberProperty
 import de.chrgroth.james.toStringProperty
 import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
+
+// TODO new property
+// TODO new required property
+// TODO new required property with default
+// TODO keep property make required
+// TODO keep property with default make required
+// TODO keep property make required and add default
+// TODO keep property make required and remove default
+// TODO remove required property
+// TODO remove property
+// TODO check delegation
+
+
 
 class ArraySchemaCompatibilityTests {
 
@@ -211,9 +225,22 @@ class CombinedEnumSchemaCompatibilityTests {
     }
 
     @Test
-    fun `transitive incompatibility is delegated`() {
-        val current = "".toStringProperty()
-        val next = """ "minLength": 7 """.toStringProperty()
+    fun `transitive number incompatibility is delegated`() {
+        val current = """ "enum": [1, 2, 3] """.toNumberProperty()
+        val next = """ "enum": [1, 2, 3, 7], "minimum": 7 """.toNumberProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+                details = "${Int.MIN_VALUE} -> 7",
+            )
+        )
+    }
+
+    @Test
+    fun `transitive string incompatibility is delegated`() {
+        val current = """ "enum": ["something", "or something other"] """.toStringProperty()
+        val next = """ "enum": ["something", "or something other"], "minLength": 7 """.toStringProperty()
 
         expectErrors(current, next,
             Error(
