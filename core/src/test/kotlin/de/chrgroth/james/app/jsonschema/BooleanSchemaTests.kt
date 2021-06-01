@@ -5,6 +5,7 @@ import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toBooleanProperty
+import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
 
 class BooleanSchemaTests : AnnotationsBaseTests() {
@@ -24,8 +25,9 @@ class BooleanSchemaTests : AnnotationsBaseTests() {
         )
 
     @Test
-    fun `default allowed`() =
+    fun `default allowed`() {
         """ $prefixForAnnotationTests "default": true """.toBooleanProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     @Test
     fun `unprocessed properties in boolean property`() {

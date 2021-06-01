@@ -5,6 +5,7 @@ import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
+import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
 
 class ArraySchemaTests : AnnotationsBaseTests() {
@@ -34,12 +35,24 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         )
 
     @Test
-    fun `valid list mode`() =
-        """ "items": { "type": "number" }, "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    fun `without items definition`() {
+        """ "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+                details = "testPropertyName",
+            )
+        )
+    }
 
     @Test
-    fun `list mode with additionalItems disabled explicitly`() =
+    fun `valid list mode`() {
         """ "items": { "type": "number" }, "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
+
+    @Test
+    fun `list mode with additionalItems disabled explicitly`() {
+        """ "items": { "type": "number" }, "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     @Test
     fun `list mode with additionalItems defined`() =
@@ -51,13 +64,25 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         )
 
     @Test
-    fun `valid tuple mode`() =
-        """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    fun `list mode with empty items definition`() {
+        """ "items": {}, "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
+                details = "testPropertyName",
+            )
+        )
+    }
 
     @Test
-    fun `tuple mode with additionalItems disabled explicitly`() =
+    fun `valid tuple mode`() {
+        """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
+
+    @Test
+    fun `tuple mode with additionalItems disabled explicitly`() {
         """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema()
             .expectSuccess()
+    }
 
     @Test
     fun `tuple mode with additionalItems defined`() =
@@ -68,6 +93,16 @@ class ArraySchemaTests : AnnotationsBaseTests() {
                     details = "testPropertyName",
                 )
             )
+
+    @Test
+    fun `tuple mode with empty items definition`() {
+        """ "items": [], "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+                details = "testPropertyName",
+            )
+        )
+    }
 
     @Test
     fun `negative minItems in list mode`() =

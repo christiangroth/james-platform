@@ -6,6 +6,7 @@ import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toIntegerProperty
 import de.chrgroth.james.toNumberProperty
+import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
@@ -17,7 +18,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
 
     override val expectedDetails = "testPropertyName"
 
-    @Test
+    @TestFactory
     fun `title not allowed`() =
         testForIntegerAndNumberProperty(""" $prefixForAnnotationTests "title": "Some title" """) {
             it.loadAsTopLevelObjectSchema().expectErrors(
@@ -138,8 +139,9 @@ class NumberSchemaTests : AnnotationsBaseTests() {
         )
 
     @Test
-    fun `multipleOf of type float for number property`() =
+    fun `multipleOf of type float for number property`() {
         """ "multipleOf": 0.5 """.toNumberProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     @TestFactory
     fun `unprocessed properties in integer property`() =
@@ -190,8 +192,9 @@ class NumberSchemaTests : AnnotationsBaseTests() {
         )
 
     @Test
-    fun `decimal enum values for number property`() =
+    fun `decimal enum values for number property`() {
         """ "enum": [ 2, 3, 2.4 ] """.toNumberProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     private fun testForIntegerAndNumberProperty(propertySource: String, testLogic: (String) -> Unit): Collection<DynamicTest> {
         val baseDisplayName = Thread.currentThread().stackTrace[2].methodName

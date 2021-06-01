@@ -4,6 +4,7 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
+import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
 
 abstract class AnnotationsBaseTests {
@@ -19,8 +20,9 @@ abstract class AnnotationsBaseTests {
         }
 
     @Test
-    fun `readOnly explicitly disabled`() =
+    fun `readOnly explicitly disabled`() {
         toPropertyConverter(""" $prefixForAnnotationTests "readOnly": false """).loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     @Test
     fun `readOnly not allowed`() =
@@ -32,8 +34,9 @@ abstract class AnnotationsBaseTests {
         )
 
     @Test
-    fun `writeOnly explicitly disabled`() =
+    fun `writeOnly explicitly disabled`() {
         toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": false """).loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     @Test
     fun `writeOnly not allowed`() =

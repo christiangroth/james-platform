@@ -50,13 +50,6 @@ internal fun StringSchema.validateDefinition(propertyName: String): Errors<Strin
         )
     } else null
 
-    val patternUsedError = if (pattern != null) {
-        Error<StringSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_PATTERN_INSTEAD_OF_FORMAT_REGEX,
-            details = propertyName
-        )
-    } else null
-
     // there is no chance to distinguish between unknown format and no/null format, we can only detect known but unsupported formats
     val unsupportedFormatError =
         if (formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName())) {
@@ -77,7 +70,6 @@ internal fun StringSchema.validateDefinition(propertyName: String): Errors<Strin
         .combine(minLengthNegativeError)
         .combine(maxLengthZeroOrNegativeError)
         .combine(maxLengthSmallerMinLengthError)
-        .combine(patternUsedError)
         .combine(unsupportedFormatError)
         .combine(unprocessedPropertiesError)
 }

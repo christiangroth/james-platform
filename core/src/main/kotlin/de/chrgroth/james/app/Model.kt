@@ -210,16 +210,27 @@ data class AppVersionReleaseNotes(
             return true
         }
 
+        // TODO #17 a lot of test conditions here
         return latest.datatypes.asSequence()
-            .filter { existingDatatype -> next.datatypes.any { it.name == existingDatatype.name } }
-            .map { existingDatatype -> existingDatatype to next.datatypes.first { it.name == existingDatatype.name } }
-            .filter { it.first.schemaContent != it.second.schemaContent }
+            .mapNotNull { existingDatatype ->
+                val nextDatatype = next.datatypes.firstOrNull { it.name == existingDatatype.name }
+                if(nextDatatype != null && existingDatatype.schemaContent != nextDatatype.schemaContent) {
+                    existingDatatype to nextDatatype
+                } else {
+                    null
+                }
+            }
             .map {
                 it.first.generateJsonSchemaContent().loadAsTopLevelObjectSchema() to
                         it.second.generateJsonSchema().loadAsTopLevelObjectSchema()
             }
-            .filter { it.first is Result && it.second is Result }
-            .map { (it.first as Result).value to (it.second as Result).value }
+            .mapNotNull {
+                if(it.first is Result && it.second is Result) {
+                    (it.first as Result).value to (it.second as Result).value
+                } else {
+                    null
+                }
+            }
             .any { it.first.computeCompatibility(it.second) !is Result }
     }
 }

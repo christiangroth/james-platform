@@ -16,7 +16,6 @@ import org.everit.json.schema.StringSchema
 import kotlin.reflect.KClass
 
 enum class SchemaCompatibilityErrorCodes : ErrorCode {
-
     PROPERTY_REMOVED,
     NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
     EXISTING_PROPERTY_MADE_REQUIRED_OR_ALREADY_WAS_REQUIRED_BUT_DEFAULT_REMOVED,
@@ -29,20 +28,13 @@ enum class SchemaCompatibilityErrorCodes : ErrorCode {
     ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
     ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
 
-    NUMBER_PROPERTY_MIN_INTRODUCED,
     NUMBER_PROPERTY_MIN_INCREASED,
-    NUMBER_PROPERTY_MAX_INTRODUCED,
     NUMBER_PROPERTY_MAX_DECREASED,
-    NUMBER_PROPERTY_MULTIPLE_OF_INTRODUCED,
     NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
 
-    STRING_PROPERTY_MIN_LENGTH_INTRODUCED,
     STRING_PROPERTY_MIN_LENGTH_INCREASED,
-    STRING_PROPERTY_MAX_LENGTH_INTRODUCED,
     STRING_PROPERTY_MAX_LENGTH_DECREASED,
-    STRING_PROPERTY_PATTERN_INTRODUCED,
     STRING_PROPERTY_PATTERN_CHANGED,
-    STRING_PROPERTY_FORMAT_INTRODUCED,
     STRING_PROPERTY_FORMAT_CHANGED,
 
     ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED;
@@ -210,8 +202,6 @@ internal fun ArraySchema.computeCompatibilityInTupleMode(next: ArraySchema): Err
     return itemsSchemaChangedError.combine(null)
 }
 
-
-// TODO #17 tests
 internal fun CombinedSchema.computeCompatibility(next: CombinedSchema): Errors<Unit>? {
 
     val enumSchema = enumSchemaOrNull
@@ -231,7 +221,6 @@ internal fun CombinedSchema.computeCompatibility(next: CombinedSchema): Errors<U
         .combine(delegateErrors)
 }
 
-// TODO #17 tests
 internal fun EnumSchema.computeCompatibility(next: EnumSchema): Errors<Unit>? {
 
     val removedPossibleValues = possibleValues.filter { !next.possibleValues.contains(it) }
@@ -245,30 +234,12 @@ internal fun EnumSchema.computeCompatibility(next: EnumSchema): Errors<Unit>? {
     return removedPossibleValuesError.combine(null)
 }
 
-// TODO #17 tests
-@Suppress("ComplexMethod")
 internal fun NumberSchema.computeCompatibility(next: NumberSchema): Errors<Unit>? {
-    val minIntroduced = (minimum == null && next.minimum != null) || (exclusiveMinimumLimit == null && next.exclusiveMinimumLimit != null)
-    val minIntroducedError = if (minIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INTRODUCED,
-            details = next.minimum.toString()
-        )
-    } else null
-
     val minIncreased = combinedMinimum.toLong() < next.combinedMinimum.toLong()
     val minIncreasedError = if (minIncreased) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
             details = "$combinedMinimum -> ${next.combinedMinimum}"
-        )
-    } else null
-
-    val maxIntroduced = (maximum == null && next.maximum != null) || (exclusiveMaximumLimit == null && next.exclusiveMaximumLimit != null)
-    val maxIntroducedError = if (maxIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_INTRODUCED,
-            details = next.maximum.toString()
         )
     } else null
 
@@ -281,15 +252,8 @@ internal fun NumberSchema.computeCompatibility(next: NumberSchema): Errors<Unit>
     } else null
 
     val multipleOfIntroduced = multipleOf == null && next.multipleOf != null
-    val multipleOfIntroducedError = if (multipleOfIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_INTRODUCED,
-            details = next.multipleOf.toString()
-        )
-    } else null
-
-    val multipleOfMoreStrict = multipleOf != null && next.multipleOf != null &&
-            multipleOf.toLong().rem(next.multipleOf.toLong()) == 0.toLong()
+    val multipleOfChangedAndMoreStrict = multipleOf != null && next.multipleOf != null && multipleOf.toLong().rem(next.multipleOf.toLong()) == 0.toLong()
+    val multipleOfMoreStrict = multipleOfIntroduced || multipleOfChangedAndMoreStrict
     val multipleOfMoreStrictError = if (multipleOfMoreStrict) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
@@ -297,38 +261,17 @@ internal fun NumberSchema.computeCompatibility(next: NumberSchema): Errors<Unit>
         )
     } else null
 
-    return minIntroducedError
-        .combine(minIncreasedError)
-        .combine(maxIntroducedError)
+    return minIncreasedError
         .combine(maxDecreasedError)
-        .combine(multipleOfIntroducedError)
         .combine(multipleOfMoreStrictError)
 }
 
-// TODO #17 tests
-@Suppress("LongMethod", "ComplexMethod")
 internal fun StringSchema.computeCompatibility(next: StringSchema): Errors<Unit>? {
-    val minIntroduced = minLength == null && next.minLength != null
-    val minIntroducedError = if (minIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INTRODUCED,
-            details = next.minLength.toString()
-        )
-    } else null
-
     val minIncreased = minLengthNullSafe < next.minLengthNullSafe
     val minIncreasedError = if (minIncreased) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
             details = "$minLengthNullSafe -> ${next.minLengthNullSafe}"
-        )
-    } else null
-
-    val maxIntroduced = maxLength == null && next.maxLength != null
-    val maxIntroducedError = if (maxIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MAX_LENGTH_INTRODUCED,
-            details = next.maxLength.toString()
         )
     } else null
 
@@ -340,15 +283,7 @@ internal fun StringSchema.computeCompatibility(next: StringSchema): Errors<Unit>
         )
     } else null
 
-    val patternIntroduced = pattern == null && next.pattern != null
-    val patternIntroducedError = if (patternIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_PATTERN_INTRODUCED,
-            details = next.pattern.toString()
-        )
-    } else null
-
-    val patternChanged = pattern != null && next.pattern != null && pattern != next.pattern
+    val patternChanged = next.pattern != null && pattern != next.pattern
     val patternChangedError = if (patternChanged) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
@@ -356,17 +291,7 @@ internal fun StringSchema.computeCompatibility(next: StringSchema): Errors<Unit>
         )
     } else null
 
-    val formatIntroduced = (formatValidator == null || formatValidator == FormatValidator.NONE) &&
-            next.formatValidator != null && next.formatValidator != FormatValidator.NONE
-    val formatIntroducedError = if (formatIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_FORMAT_INTRODUCED,
-            details = next.formatValidator.formatName()
-        )
-    } else null
-
-    val formatChanged = formatValidator != null && formatValidator != FormatValidator.NONE &&
-            next.formatValidator != null && next.formatValidator != FormatValidator.NONE &&
+    val formatChanged = next.formatValidator != null && next.formatValidator != FormatValidator.NONE &&
             formatValidator != next.formatValidator
     val formatChangedError = if (formatChanged) {
         Error<Unit>(
@@ -375,12 +300,8 @@ internal fun StringSchema.computeCompatibility(next: StringSchema): Errors<Unit>
         )
     } else null
 
-    return minIntroducedError
-        .combine(minIncreasedError)
-        .combine(maxIntroducedError)
+    return minIncreasedError
         .combine(maxDecreasedError)
-        .combine(patternIntroducedError)
         .combine(patternChangedError)
-        .combine(formatIntroducedError)
         .combine(formatChangedError)
 }

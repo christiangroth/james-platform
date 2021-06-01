@@ -5,6 +5,7 @@ import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
+import org.everit.json.schema.EmptySchema
 import org.everit.json.schema.ObjectSchema
 
 internal fun ObjectSchema.validateArrayProperties() =
@@ -91,9 +92,9 @@ internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArrayS
         )
     } else null
 
-    // TODO #17 tests
+    val allItemsSchemaNullOrEmptySchema = allItemSchema == null || allItemSchema is EmptySchema
     val containsNoTypeInListModeError =
-        if (mode == ArraySchemaMode.LIST && allItemSchema == null) {
+        if (mode == ArraySchemaMode.LIST && allItemsSchemaNullOrEmptySchema) {
             Error<ArraySchema>(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
                 details = propertyName
@@ -101,14 +102,13 @@ internal fun ArraySchema.validateDefinition(propertyName: String): Errors<ArrayS
         } else null
 
     val containsInvalidTypeInListModeError =
-        if (mode == ArraySchemaMode.LIST && allItemSchema != null && !allItemSchema.isValidPropertyType()) {
+        if (mode == ArraySchemaMode.LIST && !allItemsSchemaNullOrEmptySchema && !allItemSchema.isValidPropertyType()) {
             Error<ArraySchema>(
                 code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
                 details = propertyName
             )
         } else null
 
-    // TODO #17 tests
     val containsNoTypeInTupleModeError =
         if (mode == ArraySchemaMode.TUPLE && itemSchemas.isNullOrEmpty()) {
             Error<ArraySchema>(

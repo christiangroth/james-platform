@@ -2,12 +2,13 @@ package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.expectError
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toStringProperty
 import org.junit.jupiter.api.Test
 
-class StringSchemaTests: AnnotationsBaseTests() {
+class StringSchemaTests : AnnotationsBaseTests() {
 
     override val toPropertyConverter: (String) -> String
         get() = { it.toStringProperty() }
@@ -24,8 +25,9 @@ class StringSchemaTests: AnnotationsBaseTests() {
         )
 
     @Test
-    fun `default allowed`() =
+    fun `default allowed`() {
         """ $prefixForAnnotationTests "default": "Some value" """.toStringProperty().loadAsTopLevelObjectSchema().expectSuccess()
+    }
 
     @Test
     fun `min length negative`() {
@@ -105,13 +107,13 @@ class StringSchemaTests: AnnotationsBaseTests() {
     }
 
     @Test
-    fun `pattern instead of format`() {
-        val schemaContent = """ "pattern": "some-pattern" """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_PATTERN_INSTEAD_OF_FORMAT_REGEX,
-                details = "testPropertyName",
-            )
+    fun `invalid pattern syntax`() {
+        val schemaContent = """ "pattern": "^(\\([0-9]{3}\\)))?[0-9]{3}-[0-9]{4}${'$'}" """.toStringProperty()
+        schemaContent.loadAsTopLevelObjectSchema().expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
+            details = """Unmatched closing ')' near index 14
+^(\([0-9]{3}\)))?[0-9]{3}-[0-9]{4}${'$'}
+              ^""".trimIndent(),
         )
     }
 
