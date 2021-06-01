@@ -227,7 +227,7 @@ internal fun NumberSchema.computeCompatibility(next: NumberSchema): Errors<Unit>
     } else null
 
     val multipleOfIntroduced = multipleOf == null && next.multipleOf != null
-    val multipleOfChangedAndMoreStrict = multipleOf != null && next.multipleOf != null && multipleOf.toLong().rem(next.multipleOf.toLong()) == 0.toLong()
+    val multipleOfChangedAndMoreStrict = multipleOf != null && next.multipleOf != null && multipleOf.toLong().rem(next.multipleOf.toLong()) != 0.toLong()
     val multipleOfMoreStrict = multipleOfIntroduced || multipleOfChangedAndMoreStrict
     val multipleOfMoreStrictError = if (multipleOfMoreStrict) {
         Error<Unit>(
