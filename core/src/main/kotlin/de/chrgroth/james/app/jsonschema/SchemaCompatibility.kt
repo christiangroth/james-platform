@@ -18,7 +18,7 @@ import kotlin.reflect.KClass
 enum class SchemaCompatibilityErrorCodes : ErrorCode {
     PROPERTY_REMOVED,
     NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
-    EXISTING_PROPERTY_MADE_REQUIRED_OR_ALREADY_WAS_REQUIRED_BUT_DEFAULT_REMOVED,
+    PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
 
     ARRAY_PROPERTY_MODE_CHANGED,
     ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
@@ -41,7 +41,6 @@ enum class SchemaCompatibilityErrorCodes : ErrorCode {
     override val id = ordinal.toLong()
 }
 
-// TODO #17 tests
 internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): Maybe<Unit> {
     val currentProperties = propertySchemas.keys
     val nextProperties = next.propertySchemas.keys
@@ -56,7 +55,7 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): Maybe<Unit> 
 
     val newRequiredPropertiesWithoutDefault = nextProperties.minus(currentProperties).toSet()
         .filter { next.requiredProperties.contains(it) }
-        .filter { next.propertySchemas[it]?.defaultValue == null ?: false }
+        .filter { next.propertySchemas[it]?.defaultValue == null }
     val newRequiredPropertiesWithoutDefaultError = if (newRequiredPropertiesWithoutDefault.isNotEmpty()) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
@@ -68,15 +67,15 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): Maybe<Unit> 
     val keptPropertiesMadeRequiredWithoutDefault = keptProperties
         .filter {
             val wasNotRequiredOrHadDefault =
-                !requiredProperties.contains(it) || propertySchemas[it]?.defaultValue != null ?: false
+                !requiredProperties.contains(it) || propertySchemas[it]?.defaultValue != null
             val isNowRequiredWithoutDefault =
-                next.requiredProperties.contains(it) && next.propertySchemas[it]?.defaultValue == null ?: false
+                next.requiredProperties.contains(it) && next.propertySchemas[it]?.defaultValue == null
 
             wasNotRequiredOrHadDefault && isNowRequiredWithoutDefault
         }
     val keptPropertiesMadeRequiredWithoutDefaultError = if (keptPropertiesMadeRequiredWithoutDefault.isNotEmpty()) {
         Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.EXISTING_PROPERTY_MADE_REQUIRED_OR_ALREADY_WAS_REQUIRED_BUT_DEFAULT_REMOVED,
+            code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
             details = keptPropertiesMadeRequiredWithoutDefault.sorted().toString(),
         )
     } else null

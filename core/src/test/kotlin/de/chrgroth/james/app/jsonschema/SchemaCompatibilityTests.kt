@@ -7,21 +7,127 @@ import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
 import de.chrgroth.james.toNumberProperty
 import de.chrgroth.james.toStringProperty
+import de.chrgroth.james.toTestSchema
 import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
 
-// TODO new property
-// TODO new required property
-// TODO new required property with default
-// TODO keep property make required
-// TODO keep property with default make required
-// TODO keep property make required and add default
-// TODO keep property make required and remove default
-// TODO remove required property
-// TODO remove property
-// TODO check delegation
+class ObjectSchemaCompatibilityTests {
 
+    @Test
+    fun `adding new property is compatible`() {
+        val current =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
 
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `adding new required property is breaking`() {
+        val current =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
+            "required": [ "name", "credit_card" ] """.trimMargin().toTestSchema()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
+                details = "[credit_card]"
+            )
+        )
+    }
+
+    @Test
+    fun `adding new required property with default is compatible`() {
+        val current =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number", "default": 5 } }, 
+            "required": [ "name", "credit_card" ] """.trimMargin().toTestSchema()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `property made required is breaking`() {
+        val current =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
+                details = "[name]"
+            )
+        )
+    }
+
+    @Test
+    fun `property with default made required is compatible`() {
+        val current =
+            """ "properties": { "name": { "type": "string", "default": "hello world" } }, 
+            "required": [ ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string", "default": "hello world" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `property made required and add default is compatible`() {
+        val current =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string", "default": "hello world" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `property with default made required and remove default is breaking`() {
+        val current =
+            """ "properties": { "name": { "type": "string", "default": "hello world" } }, 
+            "required": [ ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
+                details = "[name]"
+            )
+        )
+    }
+
+    @Test
+    fun `removing property is breaking`() {
+        val current =
+            """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+        val next =
+            """ "properties": { "name": { "type": "string" } }, 
+            "required": [ "name" ] """.trimMargin().toTestSchema()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.PROPERTY_REMOVED,
+                details = "[credit_card]"
+            ))
+    }
+}
 
 class ArraySchemaCompatibilityTests {
 
