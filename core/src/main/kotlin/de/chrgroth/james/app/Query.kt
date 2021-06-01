@@ -2,6 +2,8 @@ package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Result
 import java.util.UUID
 
 interface AppQueryPort {
@@ -18,20 +20,16 @@ internal class AppQueryAdapter(private val queryPersistence: AppQueryPersistence
     }
 
     override fun getVersion(id: UUID, version: Semver) =
-        queryPersistence.get(id).transform { app ->
-            if (app == null) {
-                Maybe.Result(null)
-            } else {
-                Maybe.Result(app.versions.firstOrNull { it.version == version })
-            }
+        queryPersistence.get(id).map { app ->
+            app?.versions?.firstOrNull { it.version == version }
         }
 
     override fun getNextVersionDraft(id: UUID) =
         queryPersistence.get(id).transform { app ->
             if (app == null) {
-                Maybe.Error(AppErrorCodes.NOT_FOUND)
+                Error(AppErrorCodes.NOT_FOUND, null)
             } else {
-                Maybe.Result(app.developmentVersion)
+                Result(app.developmentVersion)
             }
         }
 

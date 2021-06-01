@@ -1,5 +1,8 @@
 package de.chrgroth.james
 
+import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.Maybe.Errors
+
 interface ErrorCode {
     val prefix: String
     val id: Long
@@ -10,19 +13,53 @@ interface ErrorCode {
 }
 
 sealed class Maybe<Type> {
-    class Result<Type>(val value: Type) : Maybe<Type>()
-    class Error<Type>(val code: ErrorCode) : Maybe<Type>() {
-        @Suppress("UNCHECKED_CAST")
-        fun <R> convert(): Error<R> = this as Error<R>
-    }
+    data class Result<Type>(val value: Type) : Maybe<Type>()
+    data class Error<Type>(val code: ErrorCode, val details: String?) : Maybe<Type>()
+    data class Errors<Type>(val errors: List<Error<Type>>) : Maybe<Type>()
 
+    @Suppress("UNCHECKED_CAST")
     fun <R> map(transformer: (Type) -> R) = when(this) {
-        is Error -> Error(code)
+        is Errors -> this as Maybe<R> // make the compiler happy
+        is Error -> this as Maybe<R> // make the compiler happy
         is Result -> Result(transformer.invoke(value))
     }
 
+    @Suppress("UNCHECKED_CAST")
     fun <R> transform(transformer: (Type) -> Maybe<R>) = when(this) {
-        is Error -> Error(code)
+        is Errors -> this as Maybe<R> // make the compiler happy
+        is Error -> this as Maybe<R> // make the compiler happy
         is Result -> transformer.invoke(value)
     }
 }
+
+fun <Type> List<Errors<Type>?>.combine() =
+    if(this.filterNotNull().isEmpty()) {
+        null
+    } else {
+        Errors(errors = this.filterNotNull().flatMap { it.errors })
+    }
+
+
+fun <Type> Error<Type>?.combine(other: Error<Type>?) =
+    when {
+        this != null && other != null -> Errors(errors = listOf(this, other))
+        this != null -> Errors(errors = listOf(this))
+        other != null -> Errors(errors = listOf(other))
+        else -> null
+    }
+
+fun <Type> Errors<Type>?.combine(other: Error<Type>?) =
+    when {
+        this != null && other != null -> Errors(errors = this.errors.plus(other))
+        this != null -> this
+        other != null -> Errors(errors = listOf(other))
+        else -> null
+    }
+
+fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
+    when {
+        this != null && other != null -> Errors(errors = this.errors.plus(other.errors))
+        this != null -> this
+        other != null -> other
+        else -> null
+    }
