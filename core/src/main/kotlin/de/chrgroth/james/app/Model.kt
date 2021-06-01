@@ -201,7 +201,6 @@ data class AppVersionReleaseNotes(
         }
     }
 
-    // TODO #17 tests
     internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
@@ -210,7 +209,6 @@ data class AppVersionReleaseNotes(
             return true
         }
 
-        // TODO #17 a lot of test conditions here
         return latest.datatypes.asSequence()
             .mapNotNull { existingDatatype ->
                 val nextDatatype = next.datatypes.firstOrNull { it.name == existingDatatype.name }

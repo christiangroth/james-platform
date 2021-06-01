@@ -3,6 +3,8 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
+import de.chrgroth.james.toNumberProperty
+import de.chrgroth.james.toStringProperty
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
@@ -394,6 +396,35 @@ class AppVersionReleaseNotesTests {
         assertThat(createFeature().computeVersion(null, createDraft())).isEqualTo(Semver(0, 1, 0))
     }
 
+    @Test
+    fun `removing a datatype is breaking`() {
+        val current = createAppVersion()
+        val next = createDraft()
+        assertThat(createFeature().isBreaking(current, next)).isTrue
+    }
+
+    @Test
+    fun `renaming a datatype is breaking`() {
+        val current = createAppVersion()
+        val next = createDraft().copy(datatypes = current.datatypes.map { AppDatatypeDraft(
+            name = it.name.reversed(),
+            schemaContent = it.schemaContent,
+            description = it.description,
+        )}.toSet() )
+        assertThat(createFeature().isBreaking(current, next)).isTrue
+    }
+
+    @Test
+    fun `breaking schema change is delegated correctly`() {
+        val current = createAppVersion()
+        val next = createDraft().copy(datatypes = current.datatypes.map { AppDatatypeDraft(
+            name = it.name,
+            schemaContent = "",
+            description = it.description,
+        )}.toSet() )
+        assertThat(createFeature().isBreaking(current, next)).isTrue
+    }
+
     private fun createBugfix() = AppVersionReleaseNotes(
         changeType = AppVersionChangeType.BUGFIX,
         note = UUID.randomUUID().toString()
@@ -404,5 +435,19 @@ class AppVersionReleaseNotesTests {
         note = UUID.randomUUID().toString()
     )
 
+    private fun createAppVersion() =
+        AppVersion(
+            version = Semver(0, 1, 0),
+            releaseNotes = AppVersionReleaseNotes(
+                changeType = AppVersionChangeType.FEATURE,
+                note = "Everything is new"
+            ),
+            datatypes = setOf(AppDatatype(
+                name = "modelOne",
+                version = 1,
+                schemaContent = """ "properties": { "testPropertyName": { "type": "string" } } """.trimIndent()
+            )),
+            reports = setOf(AppReport(name = "reportOne")),
+        )
     private fun createDraft() = AppVersionDraft()
 }
