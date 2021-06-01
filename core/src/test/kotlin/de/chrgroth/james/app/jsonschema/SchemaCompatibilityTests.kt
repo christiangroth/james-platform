@@ -3,10 +3,176 @@ package de.chrgroth.james.app.jsonschema
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
+import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
 import de.chrgroth.james.toStringProperty
 import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
+
+class ArraySchemaCompatibilityTests {
+
+    @Test
+    fun `change from list to tuple is breaking`() {
+        val current = """ "items": { "type": "number" } """.toArrayProperty()
+        val next = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
+                details = "LIST -> TUPLE",
+            )
+        )
+    }
+
+    @Test
+    fun `introducing list min items is breaking`() {
+        val current = """ "items": { "type": "number" } """.toArrayProperty()
+        val next = """ "items": { "type": "number" }, "minItems": 2 """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
+                details = "0 -> 2",
+            )
+        )
+    }
+
+    @Test
+    fun `increasing list min items is breaking`() {
+        val current = """ "items": { "type": "number" }, "minItems": 1 """.toArrayProperty()
+        val next = """ "items": { "type": "number" }, "minItems": 2 """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
+                details = "1 -> 2",
+            )
+        )
+    }
+
+    @Test
+    fun `decreasing list min items is compatible`() {
+        val current = """ "items": { "type": "number" }, "minItems": 3 """.toArrayProperty()
+        val next = """ "items": { "type": "number" }, "minItems": 2 """.toArrayProperty()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `removing list min item is compatible`() {
+        val current = """ "items": { "type": "number" }, "minItems": 2 """.toArrayProperty()
+        val next = """ "items": { "type": "number" } """.toArrayProperty()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `introducing list max items is breaking`() {
+        val current = """ "items": { "type": "number" } """.toArrayProperty()
+        val next = """ "items": { "type": "number" }, "maxItems": 2 """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
+                details = "${Int.MAX_VALUE} -> 2",
+            )
+        )
+    }
+
+    @Test
+    fun `decreasing list max items is breaking`() {
+        val current = """ "items": { "type": "number" }, "maxItems": 3 """.toArrayProperty()
+        val next = """ "items": { "type": "number" }, "maxItems": 2 """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
+                details = "3 -> 2",
+            )
+        )
+    }
+
+    @Test
+    fun `increasing list max items is compatible`() {
+        val current = """ "items": { "type": "number" }, "maxItems": 1 """.toArrayProperty()
+        val next = """ "items": { "type": "number" }, "maxItems": 2 """.toArrayProperty()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `removing list max item is compatible`() {
+        val current = """ "items": { "type": "number" }, "maxItems": 2 """.toArrayProperty()
+        val next = """ "items": { "type": "number" } """.toArrayProperty()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `changing list item schema is breaking`() {
+        val current = """ "items": { "type": "number" } """.toArrayProperty()
+        val next = """ "items": { "type": "string" } """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
+                details = "NumberSchema -> StringSchema",
+            )
+        )
+    }
+
+    @Test
+    fun `change from tuple to list is breaking`() {
+        val current = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
+        val next = """ "items": { "type": "number" } """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
+                details = "TUPLE -> LIST",
+            )
+        )
+    }
+
+    @Test
+    fun `adding tuple entry is breaking`() {
+        val current = """ "items": [ { "type": "number" } ] """.toArrayProperty()
+        val next = """ "items": [ { "type": "number" }, { "type": "number" } ] """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+                details = "[NumberSchema] -> [NumberSchema, NumberSchema]",
+            )
+        )
+    }
+
+    @Test
+    fun `changing tuple entry schema is breaking`() {
+        val current = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
+        val next = """ "items": [ { "type": "number" }, { "type": "number" } ] """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+                details = "[NumberSchema, StringSchema] -> [NumberSchema, NumberSchema]",
+            )
+        )
+    }
+
+    @Test
+    fun `removing tuple entry is breaking`() {
+        val current = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
+        val next = """ "items": [ { "type": "number" } ] """.toArrayProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+                details = "[NumberSchema, StringSchema] -> [NumberSchema]",
+            )
+        )
+    }
+}
 
 class CombinedEnumSchemaCompatibilityTests {
 
@@ -32,7 +198,7 @@ class CombinedEnumSchemaCompatibilityTests {
     }
 
     @Test
-    fun `removing enum value is compatible`() {
+    fun `removing enum value is breaking`() {
         val current = """ "enum": ["foo", "bar"] """.toStringProperty()
         val next = """ "enum": ["foo"] """.toStringProperty()
 
@@ -139,6 +305,74 @@ class NumberSchemaCompatibilityTests {
     @Test
     fun `removing max is compatible`() {
         val current = """ "maximum": 3 """.toIntegerProperty()
+        val next = "".toIntegerProperty()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `introducing multipleOf is breaking`() {
+        val current = "".toIntegerProperty()
+        val next = """ "multipleOf": 2 """.toIntegerProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+                details = "null -> 2",
+            )
+        )
+    }
+
+    @Test
+    fun `changing multipleOf is breaking`() {
+        val current = """ "multipleOf": 2 """.toIntegerProperty()
+        val next = """ "multipleOf": 7 """.toIntegerProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+                details = "2 -> 7",
+            )
+        )
+    }
+
+    @Test
+    fun `changing multipleOf (to more strict subset) is breaking`() {
+        val current = """ "multipleOf": 2 """.toIntegerProperty()
+        val next = """ "multipleOf": 4 """.toIntegerProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+                details = "2 -> 4",
+            )
+        )
+    }
+
+    @Test
+    fun `changing multipleOf to more relaxed (not allowing all old values) is compatible`() {
+        val current = """ "multipleOf": 7 """.toIntegerProperty()
+        val next = """ "multipleOf": 2 """.toIntegerProperty()
+
+        expectErrors(current, next,
+            Error(
+                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+                details = "7 -> 2",
+            )
+        )
+    }
+
+    @Test
+    fun `changing multipleOf to more relaxed (allowing all old values) is compatible`() {
+        val current = """ "multipleOf": 4 """.toIntegerProperty()
+        val next = """ "multipleOf": 2 """.toIntegerProperty()
+
+        expectCompatible(current, next)
+    }
+
+    @Test
+    fun `removing multipleOf is compatible`() {
+        val current = """ "multipleOf": 2 """.toIntegerProperty()
         val next = "".toIntegerProperty()
 
         expectCompatible(current, next)

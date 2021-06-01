@@ -1,13 +1,22 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
+import de.chrgroth.james.toBooleanProperty
 import de.chrgroth.james.toIntegerProperty
 import org.junit.jupiter.api.Test
 
 internal class CombinedSchemaTests {
+
+    @Test
+    fun `property not supporting enum`() =
+        """ "enum": [true, false] """.toBooleanProperty().loadAsTopLevelObjectSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                details = "testPropertyName: [BooleanSchema, EnumSchema]"
+            )
+        )
 
     @Test
     fun `property with allOf composition not supported`() =

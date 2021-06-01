@@ -21,9 +21,7 @@ enum class SchemaCompatibilityErrorCodes : ErrorCode {
     EXISTING_PROPERTY_MADE_REQUIRED_OR_ALREADY_WAS_REQUIRED_BUT_DEFAULT_REMOVED,
 
     ARRAY_PROPERTY_MODE_CHANGED,
-    ARRAY_PROPERTY_LIST_MIN_ITEMS_INTRODUCED,
     ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
-    ARRAY_PROPERTY_LIST_MAX_ITEMS_INTRODUCED,
     ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
     ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
     ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
@@ -119,9 +117,7 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): Maybe<Unit> 
     return errors ?: Result(Unit)
 }
 
-// TODO #17 tests
 internal fun ArraySchema.computeCompatibility(next: ArraySchema): Errors<Unit>? {
-
     val modeChanged = mode != null && next.mode != null && mode != next.mode
     val modeChangedError = if (modeChanged) {
         Error<Unit>(
@@ -141,27 +137,11 @@ internal fun ArraySchema.computeCompatibility(next: ArraySchema): Errors<Unit>? 
 }
 
 internal fun ArraySchema.computeCompatibilityInListMode(next: ArraySchema): Errors<Unit>? {
-    val minIntroduced = minItems == null && next.minItems != null
-    val minIntroducedError = if (minIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INTRODUCED,
-            details = next.minItems.toString()
-        )
-    } else null
-
     val minIncreased = minItemsNullSafe < next.minItemsNullSafe
     val minIncreasedError = if (minIncreased) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
             details = "$minItemsNullSafe -> ${next.minItemsNullSafe}"
-        )
-    } else null
-
-    val maxIntroduced = maxItems == null && next.maxItems != null
-    val maxIntroducedError = if (maxIntroduced) {
-        Error<Unit>(
-            code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_INTRODUCED,
-            details = next.maxItemsNullSafe.toString()
         )
     } else null
 
@@ -178,24 +158,21 @@ internal fun ArraySchema.computeCompatibilityInListMode(next: ArraySchema): Erro
     val allItemsSchemaChangedError = if (allItemsSchemaChanged) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
-            details = "$allItemSchema -> ${next.allItemSchema}"
+            details = "${allItemSchema.javaClass.simpleName} -> ${next.allItemSchema.javaClass.simpleName}"
         )
     } else null
 
-    return minIntroducedError
-        .combine(minIncreasedError)
-        .combine(maxIntroducedError)
+    return minIncreasedError
         .combine(maxDecreasedError)
         .combine(allItemsSchemaChangedError)
 }
 
 internal fun ArraySchema.computeCompatibilityInTupleMode(next: ArraySchema): Errors<Unit>? {
-
     val itemsSchemaChanged = itemSchemas != next.itemSchemas
     val itemsSchemaChangedError = if (itemsSchemaChanged) {
         Error<Unit>(
             code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
-            details = "$itemSchemas -> ${next.itemSchemas}"
+            details = "${itemSchemas.map { it.javaClass.simpleName }} -> ${next.itemSchemas.map { it.javaClass.simpleName }}"
         )
     } else null
 
@@ -203,7 +180,6 @@ internal fun ArraySchema.computeCompatibilityInTupleMode(next: ArraySchema): Err
 }
 
 internal fun CombinedSchema.computeCompatibility(next: CombinedSchema): Errors<Unit>? {
-
     val enumSchema = enumSchemaOrNull
     val nextEnumSchema = next.enumSchemaOrNull
     val enumErrors = if (enumSchema != null && nextEnumSchema != null) {
@@ -222,7 +198,6 @@ internal fun CombinedSchema.computeCompatibility(next: CombinedSchema): Errors<U
 }
 
 internal fun EnumSchema.computeCompatibility(next: EnumSchema): Errors<Unit>? {
-
     val removedPossibleValues = possibleValues.filter { !next.possibleValues.contains(it) }
     val removedPossibleValuesError = if (removedPossibleValues.isNotEmpty()) {
         Error<Unit>(
