@@ -2,7 +2,6 @@ package de.chrgroth.james.user
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.data.UserErrorCodes
 import java.util.UUID
 
 private val simpleEmailPattern = Regex(".+@.+\\..+")

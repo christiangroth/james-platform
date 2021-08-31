@@ -1,8 +1,6 @@
-package de.chrgroth.james.data
+package de.chrgroth.james.user
 
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.user.User
-import de.chrgroth.james.user.UserWorkspace
 import java.util.UUID
 
 interface UserQueryPort {

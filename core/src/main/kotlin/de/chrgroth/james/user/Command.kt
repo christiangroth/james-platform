@@ -1,16 +1,14 @@
-package de.chrgroth.james.data
+package de.chrgroth.james.user
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
-import de.chrgroth.james.user.AppInstallation
-import de.chrgroth.james.user.User
-import de.chrgroth.james.user.UserWorkspace
 import java.util.UUID
 
 // TODO #22 need to check if user is active
 
+// TODO #3 split user and workspace??
 interface UserCommandPort {
     // TODO #3 validate email pattern(".+@.+\..+")
     fun registerUser(email: String, name: String): Maybe<User>
@@ -28,14 +26,16 @@ interface UserCommandPort {
     fun uninstallApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<Unit>
 }
 
-
+// TODO #3 implement and test
 internal class UserCommandAdapter(
-    private val queryPersistence: UserQueryPersistencePort,
-    private val commandPersistence: UserCommandPersistencePort,
+    private val userQueryPersistence: UserQueryPersistencePort,
+    private val userWorkspaceQueryPersistence: UserWorkspaceQueryPersistencePort,
+    private val userCommandPersistence: UserCommandPersistencePort,
+    private val userWorkspaceCommandPersistence: UserWorkspaceCommandPersistencePort,
 ) : UserCommandPort {
 
     override fun registerUser(email: String, name: String): Maybe<User> {
-        val userByEmailResult = queryPersistence.getByEmail(email)
+        val userByEmailResult = userQueryPersistence.getByEmail(email)
         val userExists = userByEmailResult is Result && userByEmailResult.value != null
         if (userExists) {
             return Error(
@@ -45,7 +45,7 @@ internal class UserCommandAdapter(
         }
 
         return User.validateEmail(email).transform {
-            commandPersistence.upsert(
+            userCommandPersistence.upsert(
                 User(
                     id = UUID.randomUUID(),
                     email = email,
@@ -58,29 +58,33 @@ internal class UserCommandAdapter(
 
     override fun deleteUser(id: UUID) =
         id.loadUserAndInvoke(User::canBeDeleted) { _, _ ->
-            commandPersistence.delete(id)
+            userCommandPersistence.delete(id)
         }
 
     override fun createWorkspace(userId: UUID, name: String) =
         userId.loadUserAndInvoke({ it.createWorkspace(name) }) { user, _ ->
-            commandPersistence.upsert(user).map { it.workspaces.first { it.name == name } }
+            userCommandPersistence.upsert(user).map { persistentUser ->
+                persistentUser.workspaces.first { it.name == name }
+            }
         }
 
     override fun renameWorkspace(userId: UUID, id: UUID, newName: String) =
         userId.loadUserAndInvoke({ it.renameWorkspace(id, newName) }) { user, _ ->
-            commandPersistence.upsert(user).map { it.workspaces.first { it.name == newName } }
+            userCommandPersistence.upsert(user).map { persistentUser ->
+                persistentUser.workspaces.first { it.name == newName }
+            }
         }
 
     override fun deleteWorkspace(userId: UUID, id: UUID) =
         userId.loadUserAndInvoke({ it.deleteWorkspace(id) }) { user, _ ->
-            commandPersistence.upsert(user).map { }
+            userCommandPersistence.upsert(user).map { }
         }
 
     private fun <R, S> UUID.loadUserAndInvoke(
         userOperation: (User) -> Maybe<R>,
         persistenceOperation: (User, R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).transform { user ->
+        userQueryPersistence.get(this).transform { user ->
             if (user == null) {
                 Error(
                     code = UserErrorCodes.NOT_FOUND,
@@ -119,7 +123,7 @@ internal class UserCommandAdapter(
         workspaceOperation: (UserWorkspace) -> Maybe<R>,
         persistenceOperation: (UserWorkspace, R) -> Maybe<S>,
     ) =
-        queryPersistence.getWorkspace(this.first, this.second).transform { workspace ->
+        userWorkspaceQueryPersistence.get(this.first, this.second).transform { workspace ->
             if (workspace == null) {
                 Error(
                     code = WorkspaceErrorCodes.NOT_FOUND,

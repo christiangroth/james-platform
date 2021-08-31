@@ -1,4 +1,4 @@
-package de.chrgroth.james.data
+package de.chrgroth.james.user
 
 import de.chrgroth.james.ErrorCode
 
