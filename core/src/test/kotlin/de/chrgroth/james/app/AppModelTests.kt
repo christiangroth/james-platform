@@ -3,8 +3,6 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
-import de.chrgroth.james.toNumberProperty
-import de.chrgroth.james.toStringProperty
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
@@ -108,7 +106,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        app.updateDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
+        app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null
         )
@@ -117,7 +115,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype without draft`() {
         val app = createApp()
-        app.updateDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
+        app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
@@ -126,7 +124,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.updateDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectSuccess()
+        val updatedApp = app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
         assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = ""))
     }
@@ -169,7 +167,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        app.updateDevelopmentVersionReport(AppReport("Foos Report")).expectError(
+        app.upsertDevelopmentVersionReport(AppReport("Foos Report")).expectError(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null
         )
@@ -178,7 +176,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report without draft`() {
         val app = createApp()
-        app.updateDevelopmentVersionReport(AppReport("Foos AppReport")).expectError(
+        app.upsertDevelopmentVersionReport(AppReport("Foos AppReport")).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
@@ -187,7 +185,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.updateDevelopmentVersionReport(AppReport("Foos AppReport")).expectSuccess()
+        val updatedApp = app.upsertDevelopmentVersionReport(AppReport("Foos AppReport")).expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
         assertThat(developmentVersion.reports).contains(AppReport("Foos AppReport"))
     }

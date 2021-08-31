@@ -14,8 +14,6 @@ enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
 
-// TODO #3 how to create new datatype / report in development version??
-
 data class App(
     val id: UUID,
     val name: String,
@@ -59,7 +57,7 @@ data class App(
             } ?: Result(copy(developmentVersion = AppVersionDraft()))
         }
 
-    internal fun updateDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
+    internal fun upsertDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
         when {
             !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
             developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
@@ -73,7 +71,7 @@ data class App(
             else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
         }
 
-    internal fun updateDevelopmentVersionReport(report: AppReport) =
+    internal fun upsertDevelopmentVersionReport(report: AppReport) =
         when {
             !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
             developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
