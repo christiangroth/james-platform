@@ -12,6 +12,8 @@ data class User(
     val name: String,
     val workspaces: Set<UserWorkspace> = emptySet(),
 ) {
+
+    // TODO #3 test
     companion object {
         fun validateEmail(email: String): Maybe<String> {
             return if(email.matches(simpleEmailPattern)) {
@@ -25,22 +27,27 @@ data class User(
         }
     }
 
+    // TODO #3 implement and test
     internal fun createWorkspace(name: String): Maybe<UserWorkspace> {
         TODO()
     }
 
+    // TODO #3 implement and test
     internal fun renameWorkspace(id: UUID, newName: String): Maybe<UserWorkspace> {
         TODO()
     }
 
+    // TODO #3 implement and test
     internal fun moveAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     internal fun deleteWorkspace(id: UUID): Maybe<Unit> {
         TODO()
     }
 
+    // TODO #3 implement and test
     internal fun canBeDeleted() =
         when {
             else -> Maybe.Result(Unit)
@@ -54,22 +61,27 @@ data class UserWorkspace(
     val apps: Set<AppInstallation>,
 ) {
 
+    // TODO #3 implement and test
     internal fun installApp(appId: UUID, appVersion: Semver): Maybe<AppInstallation> {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     internal fun nameAppInstallation(appId: UUID, appVersion: Semver, nameSupplement: String?) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     internal fun categorizeAppInstallation(appId: UUID, appVersion: Semver, category: String?) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     internal fun tagAppInstallation(appId: UUID, appVersion: Semver, tags: Set<String>?) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     internal fun uninstallApp(appId: UUID, appVersion: Semver): Maybe<Unit> {
         TODO("Not yet implemented")
     }

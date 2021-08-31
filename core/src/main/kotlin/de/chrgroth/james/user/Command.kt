@@ -8,9 +8,7 @@ import java.util.UUID
 
 // TODO #22 need to check if user is active
 
-// TODO #3 split user and workspace??
 interface UserCommandPort {
-    // TODO #3 validate email pattern(".+@.+\..+")
     fun registerUser(email: String, name: String): Maybe<User>
     fun deleteUser(id: UUID): Maybe<Unit>
 
@@ -26,7 +24,6 @@ interface UserCommandPort {
     fun uninstallApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<Unit>
 }
 
-// TODO #3 implement and test
 internal class UserCommandAdapter(
     private val userQueryPersistence: UserQueryPersistencePort,
     private val userWorkspaceQueryPersistence: UserWorkspaceQueryPersistencePort,
@@ -34,7 +31,18 @@ internal class UserCommandAdapter(
     private val userWorkspaceCommandPersistence: UserWorkspaceCommandPersistencePort,
 ) : UserCommandPort {
 
+    // TODO #3 test
     override fun registerUser(email: String, name: String): Maybe<User> {
+
+        val emailValidationResult = User.validateEmail(email)
+        val emailValid = emailValidationResult is Result
+        if (!emailValid) {
+            return Error(
+                code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+                details = null,
+            )
+        }
+
         val userByEmailResult = userQueryPersistence.getByEmail(email)
         val userExists = userByEmailResult is Result && userByEmailResult.value != null
         if (userExists) {
@@ -56,11 +64,13 @@ internal class UserCommandAdapter(
         }
     }
 
+    // TODO #3 implement and test
     override fun deleteUser(id: UUID) =
         id.loadUserAndInvoke(User::canBeDeleted) { _, _ ->
             userCommandPersistence.delete(id)
         }
 
+    // TODO #3 implement and test
     override fun createWorkspace(userId: UUID, name: String) =
         userId.loadUserAndInvoke({ it.createWorkspace(name) }) { user, _ ->
             userCommandPersistence.upsert(user).map { persistentUser ->
@@ -68,6 +78,7 @@ internal class UserCommandAdapter(
             }
         }
 
+    // TODO #3 implement and test
     override fun renameWorkspace(userId: UUID, id: UUID, newName: String) =
         userId.loadUserAndInvoke({ it.renameWorkspace(id, newName) }) { user, _ ->
             userCommandPersistence.upsert(user).map { persistentUser ->
@@ -75,6 +86,7 @@ internal class UserCommandAdapter(
             }
         }
 
+    // TODO #3 implement and test
     override fun deleteWorkspace(userId: UUID, id: UUID) =
         userId.loadUserAndInvoke({ it.deleteWorkspace(id) }) { user, _ ->
             userCommandPersistence.upsert(user).map { }
@@ -95,26 +107,32 @@ internal class UserCommandAdapter(
             }
         }
 
+    // TODO #3 implement and test
     override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     override fun nameAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     override fun categorizeAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     override fun tagAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     override fun moveAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID) {
         TODO("Not yet implemented")
     }
 
+    // TODO #3 implement and test
     override fun uninstallApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<Unit> {
         TODO("Not yet implemented")
     }
