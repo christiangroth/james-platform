@@ -7,6 +7,7 @@ import de.chrgroth.james.Maybe.Result
 import java.util.UUID
 
 interface AppQueryPort {
+    fun getApps(): Maybe<Set<App>>
     fun getApp(id: UUID): Maybe<App?>
     fun getVersion(id: UUID, version: Semver): Maybe<AppVersion?>
     fun getNextVersionDraft(id: UUID): Maybe<AppVersionDraft?>
@@ -14,6 +15,10 @@ interface AppQueryPort {
 }
 
 internal class AppQueryAdapter(private val queryPersistence: AppQueryPersistencePort) : AppQueryPort {
+
+    override fun getApps(): Maybe<Set<App>> {
+        return queryPersistence.find()
+    }
 
     override fun getApp(id: UUID): Maybe<App?> {
         return queryPersistence.get(id)

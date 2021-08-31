@@ -5,7 +5,7 @@ import de.chrgroth.james.Maybe.Error
 import java.util.UUID
 
 interface AppCommandPort {
-    fun createApp(name: String, description: String? = null): Maybe<App>
+    fun createApp(name: String, developerId: UUID, description: String? = null): Maybe<App>
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
     fun updateNextVersionDatatype(id: UUID, datatype: AppDatatypeDraft): Maybe<AppVersionDraft>
     fun removeNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
@@ -21,10 +21,11 @@ internal class AppCommandAdapter(
     private val commandPersistence: AppCommandPersistencePort,
 ) : AppCommandPort {
 
-    override fun createApp(name: String, description: String?) =
+    override fun createApp(name: String, developerId: UUID, description: String?) =
         commandPersistence.upsert(App(
             id = UUID.randomUUID(),
             name = name,
+            developer = developerId,
             description = description,
             developmentVersion = AppVersionDraft(),
         ))

@@ -7,15 +7,19 @@ import de.chrgroth.james.computeNext
 import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
+import de.chrgroth.james.user.User
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
 
+// TODO #3 how to create new datatype / report in development version??
+
 data class App(
     val id: UUID,
     val name: String,
+    val developer: UUID,
     val description: String? = null,
     val discontinued: Boolean = false,
     val developmentVersion: AppVersionDraft? = null,
