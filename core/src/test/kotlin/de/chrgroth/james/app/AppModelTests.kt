@@ -37,6 +37,7 @@ class AppStatusTests {
         App(
             id = UUID.randomUUID(),
             name = UUID.randomUUID().toString(),
+            developer = UUID.randomUUID(),
             discontinued = discontinued,
             versions = if (includeVersion) {
                 setOf(
@@ -312,6 +313,7 @@ class AppDevelopmentTests {
         App(
             id = UUID.randomUUID(),
             name = UUID.randomUUID().toString(),
+            developer = UUID.randomUUID(),
             discontinued = false,
             versions = setOf(
                 AppVersion(
@@ -404,22 +406,26 @@ class AppVersionReleaseNotesTests {
     @Test
     fun `renaming a datatype is breaking`() {
         val current = createAppVersion()
-        val next = createDraft().copy(datatypes = current.datatypes.map { AppDatatypeDraft(
-            name = it.name.reversed(),
-            schemaContent = it.schemaContent,
-            description = it.description,
-        )}.toSet() )
+        val next = createDraft().copy(datatypes = current.datatypes.map {
+            AppDatatypeDraft(
+                name = it.name.reversed(),
+                schemaContent = it.schemaContent,
+                description = it.description,
+            )
+        }.toSet())
         assertThat(createFeature().isBreaking(current, next)).isTrue
     }
 
     @Test
     fun `breaking schema change is delegated correctly`() {
         val current = createAppVersion()
-        val next = createDraft().copy(datatypes = current.datatypes.map { AppDatatypeDraft(
-            name = it.name,
-            schemaContent = "",
-            description = it.description,
-        )}.toSet() )
+        val next = createDraft().copy(datatypes = current.datatypes.map {
+            AppDatatypeDraft(
+                name = it.name,
+                schemaContent = "",
+                description = it.description,
+            )
+        }.toSet())
         assertThat(createFeature().isBreaking(current, next)).isTrue
     }
 
@@ -447,5 +453,6 @@ class AppVersionReleaseNotesTests {
             )),
             reports = setOf(AppReport(name = "reportOne")),
         )
+
     private fun createDraft() = AppVersionDraft()
 }

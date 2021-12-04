@@ -16,7 +16,7 @@ data class User(
     // TODO #3 test
     companion object {
         fun validateEmail(email: String): Maybe<String> {
-            return if(email.matches(simpleEmailPattern)) {
+            return if (email.matches(simpleEmailPattern)) {
                 Maybe.Result(email)
             } else {
                 Maybe.Error(
@@ -38,7 +38,7 @@ data class User(
     }
 
     // TODO #3 implement and test
-    internal fun moveAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID) {
+    internal fun moveAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID): Maybe<User> {
         TODO("Not yet implemented")
     }
 
@@ -67,17 +67,17 @@ data class UserWorkspace(
     }
 
     // TODO #3 implement and test
-    internal fun nameAppInstallation(appId: UUID, appVersion: Semver, nameSupplement: String?) {
+    internal fun nameAppInstallation(appId: UUID, appVersion: Semver, nameSupplement: String?): Maybe<AppInstallation> {
         TODO("Not yet implemented")
     }
 
     // TODO #3 implement and test
-    internal fun categorizeAppInstallation(appId: UUID, appVersion: Semver, category: String?) {
+    internal fun categorizeAppInstallation(appId: UUID, appVersion: Semver, category: String?): Maybe<AppInstallation> {
         TODO("Not yet implemented")
     }
 
     // TODO #3 implement and test
-    internal fun tagAppInstallation(appId: UUID, appVersion: Semver, tags: Set<String>?) {
+    internal fun tagAppInstallation(appId: UUID, appVersion: Semver, tags: Set<String>?): Maybe<AppInstallation> {
         TODO("Not yet implemented")
     }
 

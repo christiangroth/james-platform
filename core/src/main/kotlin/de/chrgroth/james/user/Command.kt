@@ -16,12 +16,12 @@ interface UserCommandPort {
     fun renameWorkspace(userId: UUID, id: UUID, newName: String): Maybe<UserWorkspace>
     fun deleteWorkspace(userId: UUID, id: UUID): Maybe<Unit>
 
-    fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
-    fun nameAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?)
-    fun categorizeAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?)
-    fun tagAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?)
-    fun moveAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID)
-    fun uninstallApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<Unit>
+    fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
+    fun nameAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?): Maybe<AppInstallation>
+    fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?): Maybe<AppInstallation>
+    fun tagAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?): Maybe<AppInstallation>
+    fun moveAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID): Maybe<UserWorkspace>
+    fun uninstallApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<UserWorkspace>
 }
 
 internal class UserCommandAdapter(
@@ -31,17 +31,9 @@ internal class UserCommandAdapter(
     private val userWorkspaceCommandPersistence: UserWorkspaceCommandPersistencePort,
 ) : UserCommandPort {
 
-    // TODO #3 test
     override fun registerUser(email: String, name: String): Maybe<User> {
 
-        val emailValidationResult = User.validateEmail(email)
-        val emailValid = emailValidationResult is Result
-        if (!emailValid) {
-            return Error(
-                code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
-                details = null,
-            )
-        }
+        // TODO #22 check if registration enabled/allowed
 
         val userByEmailResult = userQueryPersistence.getByEmail(email)
         val userExists = userByEmailResult is Result && userByEmailResult.value != null
@@ -64,13 +56,11 @@ internal class UserCommandAdapter(
         }
     }
 
-    // TODO #3 implement and test
     override fun deleteUser(id: UUID) =
         id.loadUserAndInvoke(User::canBeDeleted) { _, _ ->
             userCommandPersistence.delete(id)
         }
 
-    // TODO #3 implement and test
     override fun createWorkspace(userId: UUID, name: String) =
         userId.loadUserAndInvoke({ it.createWorkspace(name) }) { user, _ ->
             userCommandPersistence.upsert(user).map { persistentUser ->
@@ -78,7 +68,6 @@ internal class UserCommandAdapter(
             }
         }
 
-    // TODO #3 implement and test
     override fun renameWorkspace(userId: UUID, id: UUID, newName: String) =
         userId.loadUserAndInvoke({ it.renameWorkspace(id, newName) }) { user, _ ->
             userCommandPersistence.upsert(user).map { persistentUser ->
@@ -86,7 +75,6 @@ internal class UserCommandAdapter(
             }
         }
 
-    // TODO #3 implement and test
     override fun deleteWorkspace(userId: UUID, id: UUID) =
         userId.loadUserAndInvoke({ it.deleteWorkspace(id) }) { user, _ ->
             userCommandPersistence.upsert(user).map { }
@@ -107,35 +95,55 @@ internal class UserCommandAdapter(
             }
         }
 
-    // TODO #3 implement and test
-    override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> {
-        TODO("Not yet implemented")
-    }
+    override fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
+                it.apps.first { appInstallation ->
+                    appInstallation.appId == appId && appInstallation.version == appVersion
+                }
+            }
+        }
 
-    // TODO #3 implement and test
-    override fun nameAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?) {
-        TODO("Not yet implemented")
-    }
+    override fun nameAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.nameAppInstallation(appId, appVersion, nameSupplement) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
+                it.apps.first { appInstallation ->
+                    appInstallation.appId == appId && appInstallation.version == appVersion
+                }
+            }
+        }
 
-    // TODO #3 implement and test
-    override fun categorizeAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?) {
-        TODO("Not yet implemented")
-    }
+    override fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.categorizeAppInstallation(appId, appVersion, category) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
+                it.apps.first { appInstallation ->
+                    appInstallation.appId == appId && appInstallation.version == appVersion
+                }
+            }
+        }
 
-    // TODO #3 implement and test
-    override fun tagAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?) {
-        TODO("Not yet implemented")
-    }
+    override fun tagAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.tagAppInstallation(appId, appVersion, tags) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
+                it.apps.first { appInstallation ->
+                    appInstallation.appId == appId && appInstallation.version == appVersion
+                }
+            }
+        }
 
-    // TODO #3 implement and test
-    override fun moveAppInstallation(workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID) {
-        TODO("Not yet implemented")
-    }
+    override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID) =
+        userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appId, appVersion, newWorkspaceId) }) { user, _ ->
+            userCommandPersistence.upsert(user).map {
+                it.workspaces.first { workspace ->
+                    workspace.id == newWorkspaceId
+                }
+            }
+        }
 
-    // TODO #3 implement and test
-    override fun uninstallApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<Unit> {
-        TODO("Not yet implemented")
-    }
+    override fun uninstallApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.uninstallApp(appId, appVersion) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace)
+        }
 
     private fun <R, S> Pair<UUID, UUID>.loadWorkspaceAndInvoke(
         workspaceOperation: (UserWorkspace) -> Maybe<R>,

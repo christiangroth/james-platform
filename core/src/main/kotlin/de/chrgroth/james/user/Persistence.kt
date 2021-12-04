@@ -24,6 +24,6 @@ interface UserCommandPersistencePort {
 }
 
 interface UserWorkspaceCommandPersistencePort {
-    fun upsert(userId: UUID, item: User): Maybe<User>
-    fun delete(userId: UUID, id: UUID): Maybe<Unit>
+    fun upsert(userId: UUID, workspace: UserWorkspace): Maybe<UserWorkspace>
+    fun delete(userId: UUID, worksoaceId: UUID): Maybe<Unit>
 }
