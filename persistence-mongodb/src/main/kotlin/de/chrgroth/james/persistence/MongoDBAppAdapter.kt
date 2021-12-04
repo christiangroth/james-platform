@@ -38,6 +38,7 @@ class MongoDBAppAdapter : AppQueryPersistencePort, AppCommandPersistencePort {
 data class AppEntity(
     val id: UUID,
     val name: String,
+    val developer: UUID,
     val description: String? = null,
     val versions: Set<AppVersionEntity> = emptySet(),
     val developmentVersion: AppVersionDraftEntity? = null,
@@ -46,6 +47,7 @@ data class AppEntity(
     internal fun toCoreRepresentation() = App(
         id = id,
         name = name,
+        developer = developer,
         description = description,
         versions = versions.map { it.toCoreRepresentation() }.toSet(),
         developmentVersion = developmentVersion?.toCoreRepresentation(),

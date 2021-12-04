@@ -17,11 +17,12 @@ interface UserCommandPort {
     fun deleteWorkspace(userId: UUID, id: UUID): Maybe<Unit>
 
     fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
-    fun nameAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?): Maybe<AppInstallation>
-    fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?): Maybe<AppInstallation>
-    fun tagAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?): Maybe<AppInstallation>
-    fun moveAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID): Maybe<UserWorkspace>
-    fun uninstallApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<UserWorkspace>
+    fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation>
+    fun nameAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
+    fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, category: String?): Maybe<AppInstallation>
+    fun tagAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, tags: Set<String>): Maybe<AppInstallation>
+    fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<UserWorkspace>
+    fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID): Maybe<UserWorkspace>
 }
 
 internal class UserCommandAdapter(
@@ -104,35 +105,44 @@ internal class UserCommandAdapter(
             }
         }
 
-    override fun nameAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, nameSupplement: String?) =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.nameAppInstallation(appId, appVersion, nameSupplement) }) { userWorkspace, _ ->
+    override fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation> =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.updateAppInstallation(appInstallationId, newVersion) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
                 it.apps.first { appInstallation ->
-                    appInstallation.appId == appId && appInstallation.version == appVersion
+                    appInstallation.id == appInstallationId
                 }
             }
         }
 
-    override fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, category: String?) =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.categorizeAppInstallation(appId, appVersion, category) }) { userWorkspace, _ ->
+    override fun nameAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
                 it.apps.first { appInstallation ->
-                    appInstallation.appId == appId && appInstallation.version == appVersion
+                    appInstallation.id == appInstallationId
                 }
             }
         }
 
-    override fun tagAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, tags: Set<String>?) =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.tagAppInstallation(appId, appVersion, tags) }) { userWorkspace, _ ->
+    override fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, category: String?) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.categorizeAppInstallation(appInstallationId, category) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
                 it.apps.first { appInstallation ->
-                    appInstallation.appId == appId && appInstallation.version == appVersion
+                    appInstallation.id == appInstallationId
                 }
             }
         }
 
-    override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver, newWorkspaceId: UUID) =
-        userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appId, appVersion, newWorkspaceId) }) { user, _ ->
+    override fun tagAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, tags: Set<String>) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.tagAppInstallation(appInstallationId, tags) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
+                it.apps.first { appInstallation ->
+                    appInstallation.id == appInstallationId
+                }
+            }
+        }
+
+    override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID) =
+        userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appInstallationId, newWorkspaceId) }) { user, _ ->
             userCommandPersistence.upsert(user).map {
                 it.workspaces.first { workspace ->
                     workspace.id == newWorkspaceId
@@ -140,8 +150,8 @@ internal class UserCommandAdapter(
             }
         }
 
-    override fun uninstallApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver) =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.uninstallApp(appId, appVersion) }) { userWorkspace, _ ->
+    override fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID) =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace)
         }
 
