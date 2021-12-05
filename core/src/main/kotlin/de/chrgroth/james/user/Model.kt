@@ -13,10 +13,9 @@ data class User(
     val email: String,
     val name: String,
     // TODO #25 may be a list to have a concrete order?
-    val workspaces: Set<UserWorkspace> = emptySet(),
+    val workspaces: Set<UserWorkspace>,
 ) {
 
-    // TODO #3 test
     companion object {
         fun validateEmail(email: String): Maybe<String> {
             return if (email.matches(simpleEmailPattern)) {
@@ -30,7 +29,6 @@ data class User(
         }
     }
 
-    // TODO #3 test
     internal fun createWorkspace(name: String): Maybe<User> =
         Result(
             copy(
@@ -42,7 +40,6 @@ data class User(
             )
         )
 
-    // TODO #3 test
     internal fun renameWorkspace(id: UUID, newName: String): Maybe<User> =
         Result(
             copy(
@@ -56,7 +53,6 @@ data class User(
             )
         )
 
-    // TODO #3 test
     internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<User> {
         val sourceWorkspace = workspaces.firstOrNull() { it.id == workspaceId }
             ?: return Error(
@@ -95,7 +91,6 @@ data class User(
         )
     }
 
-    // TODO #3 test
     internal fun deleteWorkspace(id: UUID): Maybe<User> {
         val workspace = workspaces.firstOrNull { it.id == id }
             ?: return Error(
@@ -112,7 +107,6 @@ data class User(
         }
     }
 
-    // TODO #3 test
     internal fun canBeDeleted(): Maybe<Unit> {
         val numberOfInstalledApps = computeNumberOfInstalledApps()
         return when {
@@ -137,7 +131,6 @@ data class UserWorkspace(
     val apps: Set<AppInstallation>,
 ) {
 
-    // TODO #3 test
     internal fun installApp(appId: UUID, appVersion: Semver): Maybe<UserWorkspace> =
         Result(
             copy(
@@ -153,29 +146,25 @@ data class UserWorkspace(
             )
         )
 
-    // TODO #3 trigger data update, handle breaking changes
-    // TODO #3 test
-    internal fun updateAppInstallation(id: UUID, newVersion: Semver): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(version = newVersion)
-        }
-
-    // TODO #3 test
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<UserWorkspace> =
         modifyAppInstallation(id) {
             it.copy(nameSupplement = nameSupplement)
         }
 
-    // TODO #3 test
     internal fun categorizeAppInstallation(id: UUID, category: String?): Maybe<UserWorkspace> =
         modifyAppInstallation(id) {
             it.copy(category = category)
         }
 
-    // TODO #3 test
     internal fun tagAppInstallation(id: UUID, tags: Set<String>): Maybe<UserWorkspace> =
         modifyAppInstallation(id) {
             it.copy(tags = tags)
+        }
+
+    // TODO #5 check if version exists/is released, trigger data update, handle breaking changes
+    internal fun updateAppInstallation(id: UUID, newVersion: Semver): Maybe<UserWorkspace> =
+        modifyAppInstallation(id) {
+            it.copy(version = newVersion)
         }
 
     private fun modifyAppInstallation(id: UUID, modifier: (AppInstallation) -> AppInstallation): Maybe<UserWorkspace> {
@@ -199,7 +188,7 @@ data class UserWorkspace(
         )
     }
 
-    // TODO #3 test
+    // TODO #5 decide when deleting app is allowed
     internal fun uninstallApp(id: UUID): Maybe<UserWorkspace> {
         val appInstallation = findAppInstallation(id)
             ?: return Error(
@@ -218,7 +207,6 @@ data class UserWorkspace(
 
     private fun findAppInstallation(id: UUID) = apps.firstOrNull { it.id == id }
 
-    // TODO #3 test
     internal fun canBeDeleted(): Maybe<Unit> = when {
         apps.isNotEmpty() -> {
             val numberOfInstalledApps = apps.count()
@@ -240,16 +228,15 @@ data class AppInstallation(
     val id: UUID,
     val appId: UUID,
     val version: Semver,
-    val nameSupplement: String? = null,
-    val category: String? = null,
-    val tags: Set<String> = emptySet(),
+    val nameSupplement: String?,
+    val category: String?,
+    val tags: Set<String>,
 ) {
 
-    // TODO #3 test
-    // TODO #3 define rules when to delete app installations. what about the data? what if shared?
+    // TODO #5 define rules when to delete app installations. what about the data? what if shared?
     internal fun canBeDeleted(): Maybe<Unit> =
         Error(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
-            details = "Uninstalling apps it currently not supported"
+            details = "Uninstalling apps is currently not supported",
         )
 }

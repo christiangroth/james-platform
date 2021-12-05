@@ -15,21 +15,21 @@ interface UserCommandPort {
     fun createWorkspace(userId: UUID, name: String): Maybe<UserWorkspace>
     fun renameWorkspace(userId: UUID, id: UUID, newName: String): Maybe<UserWorkspace>
     fun deleteWorkspace(userId: UUID, id: UUID): Maybe<Unit>
+}
 
+interface AppInstallationCommandPort {
     fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
-    fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation>
     fun nameAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
     fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, category: String?): Maybe<AppInstallation>
     fun tagAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, tags: Set<String>): Maybe<AppInstallation>
+    fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation>
     fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<UserWorkspace>
-    fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID): Maybe<UserWorkspace>
+    fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID): Maybe<Unit>
 }
 
 internal class UserCommandAdapter(
     private val userQueryPersistence: UserQueryPersistencePort,
-    private val userWorkspaceQueryPersistence: UserWorkspaceQueryPersistencePort,
     private val userCommandPersistence: UserCommandPersistencePort,
-    private val userWorkspaceCommandPersistence: UserWorkspaceCommandPersistencePort,
 ) : UserCommandPort {
 
     override fun registerUser(email: String, name: String): Maybe<User> {
@@ -95,21 +95,20 @@ internal class UserCommandAdapter(
                 userOperation(user).transform { persistenceOperation(user, it) }
             }
         }
+}
+
+internal class AppInstallationCommandAdapter(
+    private val userQueryPersistence: UserQueryPersistencePort,
+    private val userWorkspaceQueryPersistence: UserWorkspaceQueryPersistencePort,
+    private val userCommandPersistence: UserCommandPersistencePort,
+    private val userWorkspaceCommandPersistence: UserWorkspaceCommandPersistencePort,
+) : AppInstallationCommandPort {
 
     override fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
         (userId to workspaceId).loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
                 it.apps.first { appInstallation ->
                     appInstallation.appId == appId && appInstallation.version == appVersion
-                }
-            }
-        }
-
-    override fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation> =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.updateAppInstallation(appInstallationId, newVersion) }) { userWorkspace, _ ->
-            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
-                it.apps.first { appInstallation ->
-                    appInstallation.id == appInstallationId
                 }
             }
         }
@@ -141,6 +140,15 @@ internal class UserCommandAdapter(
             }
         }
 
+    override fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation> =
+        (userId to workspaceId).loadWorkspaceAndInvoke({ it.updateAppInstallation(appInstallationId, newVersion) }) { userWorkspace, _ ->
+            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
+                it.apps.first { appInstallation ->
+                    appInstallation.id == appInstallationId
+                }
+            }
+        }
+
     override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID) =
         userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appInstallationId, newWorkspaceId) }) { user, _ ->
             userCommandPersistence.upsert(user).map {
@@ -150,10 +158,10 @@ internal class UserCommandAdapter(
             }
         }
 
-    override fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID) =
+    override fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID): Maybe<Unit> =
         (userId to workspaceId).loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace)
-        }
+        }.map { }
 
     private fun <R, S> Pair<UUID, UUID>.loadWorkspaceAndInvoke(
         workspaceOperation: (UserWorkspace) -> Maybe<R>,
@@ -167,6 +175,21 @@ internal class UserCommandAdapter(
                 )
             } else {
                 workspaceOperation(workspace).transform { persistenceOperation(workspace, it) }
+            }
+        }
+
+    private fun <R, S> UUID.loadUserAndInvoke(
+        userOperation: (User) -> Maybe<R>,
+        persistenceOperation: (User, R) -> Maybe<S>,
+    ) =
+        userQueryPersistence.get(this).transform { user ->
+            if (user == null) {
+                Error(
+                    code = UserErrorCodes.NOT_FOUND,
+                    details = null,
+                )
+            } else {
+                userOperation(user).transform { persistenceOperation(user, it) }
             }
         }
 }
