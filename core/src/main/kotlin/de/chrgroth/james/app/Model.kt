@@ -7,6 +7,7 @@ import de.chrgroth.james.computeNext
 import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
+import de.chrgroth.james.user.User
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -16,6 +17,7 @@ enum class AppStatus(val allowsChanges: Boolean) {
 data class App(
     val id: UUID,
     val name: String,
+    val developer: UUID,
     val description: String? = null,
     val discontinued: Boolean = false,
     val developmentVersion: AppVersionDraft? = null,
@@ -55,7 +57,7 @@ data class App(
             } ?: Result(copy(developmentVersion = AppVersionDraft()))
         }
 
-    internal fun updateDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
+    internal fun upsertDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
         when {
             !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
             developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
@@ -69,7 +71,7 @@ data class App(
             else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
         }
 
-    internal fun updateDevelopmentVersionReport(report: AppReport) =
+    internal fun upsertDevelopmentVersionReport(report: AppReport) =
         when {
             !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
             developmentVersion == null -> Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)

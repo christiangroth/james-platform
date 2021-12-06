@@ -5,11 +5,11 @@ import de.chrgroth.james.Maybe.Error
 import java.util.UUID
 
 interface AppCommandPort {
-    fun createApp(name: String, description: String? = null): Maybe<App>
+    fun upsert(name: String, developerId: UUID, description: String? = null): Maybe<App>
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
-    fun updateNextVersionDatatype(id: UUID, datatype: AppDatatypeDraft): Maybe<AppVersionDraft>
+    fun upsertNextVersionDatatype(id: UUID, datatype: AppDatatypeDraft): Maybe<AppVersionDraft>
     fun removeNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
-    fun updateNextVersionReport(id: UUID, report: AppReport): Maybe<AppVersionDraft>
+    fun upsertNextVersionReport(id: UUID, report: AppReport): Maybe<AppVersionDraft>
     fun removeNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
     fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion>
     fun discontinue(id: UUID): Maybe<App>
@@ -21,10 +21,11 @@ internal class AppCommandAdapter(
     private val commandPersistence: AppCommandPersistencePort,
 ) : AppCommandPort {
 
-    override fun createApp(name: String, description: String?) =
+    override fun upsert(name: String, developerId: UUID, description: String?) =
         commandPersistence.upsert(App(
             id = UUID.randomUUID(),
             name = name,
+            developer = developerId,
             description = description,
             developmentVersion = AppVersionDraft(),
         ))
@@ -34,8 +35,8 @@ internal class AppCommandAdapter(
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 
-    override fun updateNextVersionDatatype(id: UUID, datatype: AppDatatypeDraft) =
-        id.loadAppAndInvoke({ it.updateDevelopmentVersionDatatype(datatype) }) { _, app ->
+    override fun upsertNextVersionDatatype(id: UUID, datatype: AppDatatypeDraft) =
+        id.loadAppAndInvoke({ it.upsertDevelopmentVersionDatatype(datatype) }) { _, app ->
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 
@@ -44,8 +45,8 @@ internal class AppCommandAdapter(
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 
-    override fun updateNextVersionReport(id: UUID, report: AppReport) =
-        id.loadAppAndInvoke({ it.updateDevelopmentVersionReport(report) }) { _, app ->
+    override fun upsertNextVersionReport(id: UUID, report: AppReport) =
+        id.loadAppAndInvoke({ it.upsertDevelopmentVersionReport(report) }) { _, app ->
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 

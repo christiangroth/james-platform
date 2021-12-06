@@ -18,22 +18,22 @@ sealed class Maybe<Type> {
     data class Errors<Type>(val errors: List<Error<Type>>) : Maybe<Type>()
 
     @Suppress("UNCHECKED_CAST")
-    fun <R> map(transformer: (Type) -> R) = when(this) {
-        is Errors -> this as Maybe<R> // make the compiler happy
-        is Error -> this as Maybe<R> // make the compiler happy
+    fun <R> map(transformer: (Type) -> R): Maybe<R> = when (this) {
+        is Errors -> this as Errors<R> // make the compiler happy
+        is Error -> this as Error<R> // make the compiler happy
         is Result -> Result(transformer.invoke(value))
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <R> transform(transformer: (Type) -> Maybe<R>) = when(this) {
-        is Errors -> this as Maybe<R> // make the compiler happy
-        is Error -> this as Maybe<R> // make the compiler happy
+    fun <R> transform(transformer: (Type) -> Maybe<R>): Maybe<R> = when (this) {
+        is Errors -> this as Errors<R> // make the compiler happy
+        is Error -> this as Error<R> // make the compiler happy
         is Result -> transformer.invoke(value)
     }
 }
 
 fun <Type> List<Errors<Type>?>.combine() =
-    if(this.filterNotNull().isEmpty()) {
+    if (this.filterNotNull().isEmpty()) {
         null
     } else {
         Errors(errors = this.filterNotNull().flatMap { it.errors })
