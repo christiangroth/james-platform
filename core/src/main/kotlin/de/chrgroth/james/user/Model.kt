@@ -53,6 +53,7 @@ data class User(
             )
         )
 
+    @Suppress("ReturnCount")
     internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<User> {
         val sourceWorkspace = workspaces.firstOrNull() { it.id == workspaceId }
             ?: return Error(

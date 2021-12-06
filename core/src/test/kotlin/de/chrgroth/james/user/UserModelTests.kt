@@ -70,7 +70,7 @@ class UserModelTests {
             .createWorkspace("target").expectSuccess()
         val sourceWorkspace = user.workspaces.first { it.name == "source" }
 
-        val updatedUser = sourceWorkspace.installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
+        /*val updatedUser = */sourceWorkspace.installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
         // TODO #25 handling is shit, unable to test moving due to mismatching return type
         // val targetWorkspace = updatedUser.workspaces.first { it.name == "target" }.id
     }
@@ -117,10 +117,10 @@ class UserModelTests {
     @Test
     fun `user with installed app can't be deleted`() {
         val user = createUser().createWorkspace("Apps").expectSuccess()
-        user.workspaces.first().installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
-        user.canBeDeleted().expectError(
-            code = UserErrorCodes.DELETE_INSTALLED_APPS,
-            details = "Deletion not possible, there is still 1 app installations",
+        val updatedWorkspace = user.workspaces.first().installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
+        updatedWorkspace.canBeDeleted().expectError(
+            code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
+            details = "Deletion not possible, there is still 1 app installation",
         )
     }
 
@@ -128,10 +128,10 @@ class UserModelTests {
     @Test
     fun `user with multiple installed apps can't be deleted`() {
         val user = createUser().createWorkspace("Apps").expectSuccess()
-        user.workspaces.first().installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
-        user.workspaces.first().installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
-        user.canBeDeleted().expectError(
-            code = UserErrorCodes.DELETE_INSTALLED_APPS,
+        val updatedWorkspace = user.workspaces.first().installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
+        val finalWorkspace = updatedWorkspace.installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
+        finalWorkspace.canBeDeleted().expectError(
+            code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
             details = "Deletion not possible, there are still 2 app installations",
         )
     }
@@ -251,7 +251,7 @@ class AppInstallationTests {
         )
         appInstallation.canBeDeleted().expectError(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
-            details = "Uninstalling apps it currently not supported",
+            details = "Uninstalling apps is currently not supported",
         )
     }
 }
