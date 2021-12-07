@@ -7,9 +7,11 @@ import de.chrgroth.james.Maybe.Result
 import java.util.UUID
 
 // TODO #25 split user and workspace/installed apps domains
+// TODO #25 refactor usage of canBeDeleted to be private
 
 private val simpleEmailPattern = Regex(".+@.+\\..+")
 
+// TODO #25 ensure values are trimmed (or enforce usage of create function)
 data class User(
     val id: UUID,
     val email: String,
@@ -18,55 +20,81 @@ data class User(
 ) {
 
     companion object {
+        internal fun validateEmail(email: String): Maybe<String> =
+            email.trim().let {
+                if (it.matches(simpleEmailPattern)) {
+                    Result(it)
+                } else {
+                    Error(
+                        code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+                        details = null,
+                    )
+                }
+            }
 
-        // TODO #25 test empty/blank
-        internal fun validateEmail(email: String): Maybe<String> {
-            return if (email.matches(simpleEmailPattern)) {
-                Result(email)
-            } else {
-                Error(
-                    code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
-                    details = "$email does not match $simpleEmailPattern",
+
+        internal fun create(email: String, name: String): Maybe<User> {
+            if (name.isBlank()) {
+                return Error(
+                    code = UserErrorCodes.REGISTRATION_NAME_BLANK,
+                    details = null,
+                )
+            }
+
+            return validateEmail(email).map {
+                User(
+                    id = UUID.randomUUID(),
+                    email = it,
+                    name = name.trim(),
+                    workspaces = emptyList(),
                 )
             }
         }
-
-        // TODO #25 test empty/blank
-        internal fun create(email: String, name: String) = User(
-            id = UUID.randomUUID(),
-            email = email,
-            name = name,
-            workspaces = emptyList(),
-        )
     }
 
-    // TODO #25 test empty/blank
+    private val numberOfInstalledApps by lazy {
+        workspaces.flatMap { it.appInstallations }.count()
+    }
+
     internal fun createWorkspace(name: String): Maybe<User> =
-        Result(
-            copy(
-                workspaces = workspaces.plus(
-                    UserWorkspace(
-                        id = UUID.randomUUID(),
-                        name = name,
-                        appInstallations = emptyList()
+        if (name.isBlank()) {
+            Error(
+                code = UserErrorCodes.CREATE_WORKSPACE_NAME_BLANK,
+                details = null,
+            )
+        } else {
+            Result(
+                copy(
+                    workspaces = workspaces.plus(
+                        UserWorkspace(
+                            id = UUID.randomUUID(),
+                            name = name.trim(),
+                            appInstallations = emptyList()
+                        )
                     )
                 )
             )
-        )
+        }
 
-    // TODO #25 test empty/blank
     internal fun renameWorkspace(id: UUID, newName: String): Maybe<User> =
-        Result(
-            copy(
-                workspaces = workspaces.map { existingWorkspace ->
-                    if (existingWorkspace.id == id) {
-                        existingWorkspace.copy(name = newName)
-                    } else {
-                        existingWorkspace
-                    }
-                }
+        if (newName.isBlank()) {
+            Error(
+                code = UserErrorCodes.RENAME_WORKSPACE_NAME_BLANK,
+                details = null,
             )
-        )
+        } else {
+            Result(
+                copy(
+                    workspaces = workspaces.map { existingWorkspace ->
+                        if (existingWorkspace.id == id) {
+                            existingWorkspace.copy(name = newName.trim())
+                        } else {
+                            existingWorkspace
+                        }
+                    }
+                )
+            )
+        }
 
     // TODO #25 methods for sorting/ordering workspaces
 
@@ -75,19 +103,19 @@ data class User(
         val sourceWorkspace = workspaces.firstOrNull() { it.id == workspaceId }
             ?: return Error(
                 code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Source workspace with id $workspaceId not found",
+                details = workspaceId.toString(),
             )
 
         val appInstallation = sourceWorkspace.appInstallations.firstOrNull { it.id == appInstallationId }
             ?: return Error(
                 code = AppInstallationErrorCodes.NOT_FOUND,
-                details = "App installation with version $appInstallationId not found",
+                details = appInstallationId.toString(),
             )
 
         val targetWorkspace = workspaces.firstOrNull { it.id == newWorkspaceId }
             ?: return Error(
                 code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Target workspace with id $newWorkspaceId not found",
+                details = newWorkspaceId.toString(),
             )
 
         return Result(
@@ -111,7 +139,7 @@ data class User(
         val workspace = workspaces.firstOrNull { it.id == id }
             ?: return Error(
                 code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Workspace with id $id not found",
+                details = id.toString(),
             )
 
         return workspace.canBeDeleted().transform {
@@ -124,29 +152,24 @@ data class User(
     }
 
     internal fun canBeDeleted(): Maybe<Unit> {
-        val numberOfInstalledApps = computeNumberOfInstalledApps()
         return when {
             numberOfInstalledApps > 0 -> Error(
                 code = UserErrorCodes.DELETE_INSTALLED_APPS,
-                details = if (numberOfInstalledApps > 1)
-                    "Deletion not possible, there are still $numberOfInstalledApps app installations"
-                else
-                    "Deletion not possible, there is still $numberOfInstalledApps app installation"
+                details = numberOfInstalledApps.toString()
             )
             else -> Result(Unit)
         }
     }
-
-    // TODO #25 extension val??
-    private fun computeNumberOfInstalledApps() = workspaces.flatMap { it.appInstallations }.count()
 }
 
+// TODO #25 ensure values are trimmed (or enforce usage of create function)
 data class UserWorkspace(
     val id: UUID,
     val name: String,
     val appInstallations: List<AppInstallation>,
 ) {
 
+    // TODO #25 check if version exists/is released
     internal fun installApp(appId: UUID, appVersion: Semver): Maybe<UserWorkspace> =
         Result(
             copy(
@@ -165,10 +188,11 @@ data class UserWorkspace(
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<UserWorkspace> =
         modifyAppInstallation(id) {
-            it.copy(nameSupplement = nameSupplement)
+            it.copy(nameSupplement = nameSupplement?.trim())
         }
 
-    // TODO #5 check if version exists/is released, trigger data update, handle breaking changes
+    // TODO #25 check if version exists/is released
+    // TODO #5 trigger data update, handle breaking changes
     internal fun updateAppInstallation(id: UUID, newVersion: Semver): Maybe<UserWorkspace> =
         modifyAppInstallation(id) {
             it.copy(version = newVersion)
@@ -178,7 +202,7 @@ data class UserWorkspace(
         if (findAppInstallation(id) == null) {
             return Error(
                 code = AppInstallationErrorCodes.NOT_FOUND,
-                details = "App installation with id $id not found",
+                details = id.toString(),
             )
         }
 
@@ -200,7 +224,7 @@ data class UserWorkspace(
         val appInstallation = findAppInstallation(id)
             ?: return Error(
                 code = AppInstallationErrorCodes.NOT_FOUND,
-                details = "App installation with id $id not found",
+                details = id.toString(),
             )
 
         return appInstallation.canBeDeleted().transform {
@@ -214,15 +238,12 @@ data class UserWorkspace(
 
     private fun findAppInstallation(id: UUID) = appInstallations.firstOrNull { it.id == id }
 
+    // TODO #25 private after user / workspace split
     internal fun canBeDeleted(): Maybe<Unit> = when {
         appInstallations.isNotEmpty() -> {
-            val numberOfInstalledApps = appInstallations.count()
             Error(
                 code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
-                details = if (numberOfInstalledApps > 1)
-                    "Deletion not possible, there are still $numberOfInstalledApps app installations"
-                else
-                    "Deletion not possible, there is still $numberOfInstalledApps app installation"
+                details = appInstallations.count().toString()
             )
         }
         else -> Result(Unit)
@@ -231,6 +252,7 @@ data class UserWorkspace(
 
 // TODO #8 add data sharing options
 // TODO #8 think about access for devices / api keys
+// TODO #25 ensure values are trimmed (or enforce usage of create function)
 data class AppInstallation(
     val id: UUID,
     val appId: UUID,
@@ -242,6 +264,6 @@ data class AppInstallation(
     internal fun canBeDeleted(): Maybe<Unit> =
         Error(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
-            details = "Uninstalling apps is currently not supported",
+            details = null,
         )
 }

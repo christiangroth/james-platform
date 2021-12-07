@@ -7,6 +7,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
+// TODO #25 switch to testing of Command
+
 class UserEmailValidationTests {
 
     @Test
@@ -17,14 +19,26 @@ class UserEmailValidationTests {
     }
 
     @Test
+    fun `empty email validation`() {
+        User.validateEmail("").expectError(
+            code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+            details = null,
+        )
+        User.validateEmail(" ").expectError(
+            code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+            details = null,
+        )
+    }
+
+    @Test
     fun `invalid email examples`() {
         User.validateEmail("@gmx.de").expectError(
             code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
-            details = "@gmx.de does not match .+@.+\\..+",
+            details = null,
         )
         User.validateEmail("someone@gmx").expectError(
             code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
-            details = "someone@gmx does not match .+@.+\\..+",
+            details = null,
         )
     }
 }
@@ -32,11 +46,32 @@ class UserEmailValidationTests {
 class UserModelTests {
 
     @Test
+    fun `register with blank name`() {
+        User.create("good@mail.com", "").expectError(
+            code = UserErrorCodes.REGISTRATION_NAME_BLANK,
+            details = null,
+        )
+    }
+
+    @Test
+    fun `register with valid name`() {
+        User.create("good@mail.com", "chris").expectSuccess()
+    }
+
+    @Test
     fun `new valid workspace`() {
         val user = createUser().createWorkspace("Apps").expectSuccess()
         assertThat(user.workspaces).hasSize(1)
         assertThat(user.workspaces.first().name).isEqualTo("Apps")
         assertThat(user.workspaces.first().appInstallations).isEqualTo(emptyList<AppInstallation>())
+    }
+
+    @Test
+    fun `new workspace with blank name`() {
+        createUser().createWorkspace(" ").expectError(
+            code = UserErrorCodes.CREATE_WORKSPACE_NAME_BLANK,
+            details = null,
+        )
     }
 
     @Test
@@ -64,6 +99,15 @@ class UserModelTests {
     }
 
     @Test
+    fun `rename workspace to blank name`() {
+        val user = createUser().createWorkspace("Apps").expectSuccess()
+        user.renameWorkspace(user.workspaces.first().id, "").expectError(
+            code = UserErrorCodes.RENAME_WORKSPACE_NAME_BLANK,
+            details = null,
+        )
+    }
+
+    @Test
     fun `move app installation`() {
         val user = createUser()
             .createWorkspace("source").expectSuccess()
@@ -81,7 +125,7 @@ class UserModelTests {
         UUID.randomUUID().also {
             user.deleteWorkspace(it).expectError(
                 code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Workspace with id $it not found",
+                details = it.toString(),
             )
         }
         assertThat(user.workspaces).hasSize(1)
@@ -120,7 +164,7 @@ class UserModelTests {
         val updatedWorkspace = user.workspaces.first().installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
         updatedWorkspace.canBeDeleted().expectError(
             code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
-            details = "Deletion not possible, there is still 1 app installation",
+            details = "1",
         )
     }
 
@@ -132,7 +176,7 @@ class UserModelTests {
         val finalWorkspace = updatedWorkspace.installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
         finalWorkspace.canBeDeleted().expectError(
             code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
-            details = "Deletion not possible, there are still 2 app installations",
+            details = "2",
         )
     }
 }
@@ -197,7 +241,7 @@ class UserWorkspaceModelTests {
         val appInstallationId = workspace.appInstallations.first().id
         workspace.uninstallApp(appInstallationId).expectError(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
-            details = "Uninstalling apps is currently not supported",
+            details = null,
         )
     }
 
@@ -208,7 +252,7 @@ class UserWorkspaceModelTests {
         val unknownAppInstallationId = UUID.randomUUID()
         workspace.uninstallApp(unknownAppInstallationId).expectError(
             code = AppInstallationErrorCodes.NOT_FOUND,
-            details = "App installation with id $unknownAppInstallationId not found",
+            details = "$unknownAppInstallationId",
         )
     }
 }
@@ -225,7 +269,7 @@ class AppInstallationTests {
         )
         appInstallation.canBeDeleted().expectError(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
-            details = "Uninstalling apps is currently not supported",
+            details = null,
         )
     }
 }

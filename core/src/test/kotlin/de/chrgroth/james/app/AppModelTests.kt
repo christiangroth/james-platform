@@ -7,6 +7,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
+// TODO #25 switch to testing of Command
+
 class AppStatusTests {
 
     @Test
@@ -283,6 +285,18 @@ class AppDevelopmentTests {
         assertThat(updatedApp.latestVersion!!.releaseNotes).isEqualTo(releaseNotes)
         assertThat(updatedApp.latestVersion!!.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1, schemaContent = "", description = null))
         assertThat(updatedApp.latestVersion!!.reports).containsExactly(AppReport(name = "reportOne", description = null, source = null))
+    }
+
+    @Test
+    fun `releaseDevelopmentVersion prepends in version list`() {
+        val app = createApp().createDevelopmentVersion().expectSuccess()
+        val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, "Some notes")
+        val updatedApp = app
+            .releaseDevelopmentVersion(releaseNotes).expectSuccess()
+            .createDevelopmentVersion().expectSuccess()
+            .releaseDevelopmentVersion(releaseNotes).expectSuccess()
+        assertThat(updatedApp.versions).hasSize(5)
+        assertThat(updatedApp.latestVersion).isEqualTo(updatedApp.versions[0])
     }
 
     @Test

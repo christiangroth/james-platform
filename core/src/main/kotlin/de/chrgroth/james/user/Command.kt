@@ -46,8 +46,8 @@ internal class UserCommandAdapter(
             )
         }
 
-        return User.validateEmail(email).transform {
-            userCommandPersistence.upsert(User.create(email, name))
+        return User.create(email, name).transform {
+            userCommandPersistence.upsert(it)
         }
     }
 
