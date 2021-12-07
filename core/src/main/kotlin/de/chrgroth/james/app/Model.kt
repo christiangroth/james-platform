@@ -3,11 +3,10 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
-import de.chrgroth.james.computeNext
 import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
-import de.chrgroth.james.user.User
+import de.chrgroth.james.computeNext
 import java.util.UUID
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -18,11 +17,27 @@ data class App(
     val id: UUID,
     val name: String,
     val developer: UUID,
-    val description: String? = null,
-    val discontinued: Boolean = false,
-    val developmentVersion: AppVersionDraft? = null,
-    val versions: Set<AppVersion> = emptySet(),
+    val description: String?,
+    val discontinued: Boolean,
+    val developmentVersion: AppVersionDraft?,
+    val versions: List<AppVersion>,
 ) {
+
+    companion object {
+        internal fun create(name: String, developerId: UUID, description: String?) = App(
+            id = UUID.randomUUID(),
+            name = name,
+            developer = developerId,
+            description = description,
+            discontinued = false,
+            developmentVersion = AppVersionDraft(
+                datatypes = emptySet(),
+                reports = emptySet(),
+            ),
+            versions = emptyList(),
+        )
+    }
+
     val status by lazy {
         when {
             discontinued -> AppStatus.DISCONTINUED
@@ -32,7 +47,7 @@ data class App(
     }
 
     internal val latestVersion by lazy {
-        versions.maxByOrNull { it.version }
+        versions.firstOrNull()
     }
 
     internal fun createDevelopmentVersion() =
@@ -54,7 +69,12 @@ data class App(
                         )
                     )
                 )
-            } ?: Result(copy(developmentVersion = AppVersionDraft()))
+            } ?: Result(copy(
+                developmentVersion = AppVersionDraft(
+                    datatypes = emptySet(),
+                    reports = emptySet(),
+                )
+            ))
         }
 
     internal fun upsertDevelopmentVersionDatatype(datatype: AppDatatypeDraft) =
@@ -85,23 +105,23 @@ data class App(
             else -> developmentVersion.removeReport(reportName).map { copy(developmentVersion = it) }
         }
 
+    // TODO #25 test that released version is first in list
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) =
         when {
             !status.allowsChanges -> Error(AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED, null)
             developmentVersion == null -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING, null)
             releaseNotes.note.isBlank() -> Error(AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK, null)
             else -> {
+                val newAppVersion = AppVersion(
+                    version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                    releaseNotes = releaseNotes,
+                    datatypes = developmentVersion.createDatatypes(latestVersion),
+                    reports = developmentVersion.reports.toSet(),
+                )
                 Result(
                     copy(
                         developmentVersion = null,
-                        versions = versions.plus(
-                            AppVersion(
-                                version = releaseNotes.computeVersion(latestVersion, developmentVersion),
-                                releaseNotes = releaseNotes,
-                                datatypes = developmentVersion.createDatatypes(latestVersion),
-                                reports = developmentVersion.reports.toSet(),
-                            )
-                        )
+                        versions = listOf(newAppVersion) + versions
                     )
                 )
             }
@@ -120,19 +140,23 @@ data class App(
         }
 }
 
+// TODO #25 need ordering of datatypes or reports?
+
 data class AppVersion(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
-    val datatypes: Set<AppDatatype> = emptySet(),
-    val reports: Set<AppReport> = emptySet(),
+    val datatypes: Set<AppDatatype>,
+    val reports: Set<AppReport>,
 )
 
+// TODO #25 need ordering of datatypes or reports?
+
 data class AppVersionDraft(
-    val datatypes: Set<AppDatatypeDraft> = emptySet(),
-    val reports: Set<AppReport> = emptySet(),
+    val datatypes: Set<AppDatatypeDraft>,
+    val reports: Set<AppReport>,
 ) {
 
-    fun createDatatypes(latest: AppVersion?) =
+    internal fun createDatatypes(latest: AppVersion?) =
         datatypes.map { draft ->
             val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
 
@@ -214,7 +238,7 @@ data class AppVersionReleaseNotes(
         return latest.datatypes.asSequence()
             .mapNotNull { existingDatatype ->
                 val nextDatatype = next.datatypes.firstOrNull { it.name == existingDatatype.name }
-                if(nextDatatype != null && existingDatatype.schemaContent != nextDatatype.schemaContent) {
+                if (nextDatatype != null && existingDatatype.schemaContent != nextDatatype.schemaContent) {
                     existingDatatype to nextDatatype
                 } else {
                     null
@@ -225,7 +249,7 @@ data class AppVersionReleaseNotes(
                         it.second.generateJsonSchema().loadAsTopLevelObjectSchema()
             }
             .mapNotNull {
-                if(it.first is Result && it.second is Result) {
+                if (it.first is Result && it.second is Result) {
                     (it.first as Result).value to (it.second as Result).value
                 } else {
                     null
@@ -238,7 +262,7 @@ data class AppVersionReleaseNotes(
 data class AppDatatypeDraft(
     val name: String,
     val schemaContent: String,
-    val description: String? = null,
+    val description: String?,
 ) {
     fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
@@ -253,7 +277,7 @@ data class AppDatatype(
     val name: String,
     val version: Long,
     val schemaContent: String,
-    val description: String? = null,
+    val description: String?,
 ) {
     fun generateJsonSchemaContent(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
@@ -266,6 +290,6 @@ data class AppDatatype(
 
 data class AppReport(
     val name: String,
-    val description: String? = null,
-    val source: String? = null,
+    val description: String?,
+    val source: String?,
 )

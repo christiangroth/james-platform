@@ -8,6 +8,8 @@ import java.util.UUID
 
 // TODO #22 need to check if user is active
 
+// TODO #25 restructure persistence!
+
 interface UserCommandPort {
     fun registerUser(email: String, name: String): Maybe<User>
     fun deleteUser(id: UUID): Maybe<Unit>
@@ -15,15 +17,14 @@ interface UserCommandPort {
     fun createWorkspace(userId: UUID, name: String): Maybe<UserWorkspace>
     fun renameWorkspace(userId: UUID, id: UUID, newName: String): Maybe<UserWorkspace>
     fun deleteWorkspace(userId: UUID, id: UUID): Maybe<Unit>
+
+    fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<UserWorkspace>
 }
 
 interface AppInstallationCommandPort {
     fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
     fun nameAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
-    fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, category: String?): Maybe<AppInstallation>
-    fun tagAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, tags: Set<String>): Maybe<AppInstallation>
     fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation>
-    fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<UserWorkspace>
     fun uninstallApp(userId: UUID, workspaceId: UUID, appInstallationId: UUID): Maybe<Unit>
 }
 
@@ -46,14 +47,7 @@ internal class UserCommandAdapter(
         }
 
         return User.validateEmail(email).transform {
-            userCommandPersistence.upsert(
-                User(
-                    id = UUID.randomUUID(),
-                    email = email,
-                    name = name,
-                    workspaces = emptySet(),
-                )
-            )
+            userCommandPersistence.upsert(User.create(email, name))
         }
     }
 
@@ -79,6 +73,15 @@ internal class UserCommandAdapter(
     override fun deleteWorkspace(userId: UUID, id: UUID) =
         userId.loadUserAndInvoke({ it.deleteWorkspace(id) }) { user, _ ->
             userCommandPersistence.upsert(user).map { }
+        }
+
+    override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID) =
+        userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appInstallationId, newWorkspaceId) }) { user, _ ->
+            userCommandPersistence.upsert(user).map {
+                it.workspaces.first { workspace ->
+                    workspace.id == newWorkspaceId
+                }
+            }
         }
 
     private fun <R, S> UUID.loadUserAndInvoke(
@@ -107,7 +110,7 @@ internal class AppInstallationCommandAdapter(
     override fun installApp(userId: UUID, workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
         (userId to workspaceId).loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
-                it.apps.first { appInstallation ->
+                it.appInstallations.first { appInstallation ->
                     appInstallation.appId == appId && appInstallation.version == appVersion
                 }
             }
@@ -116,25 +119,7 @@ internal class AppInstallationCommandAdapter(
     override fun nameAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?) =
         (userId to workspaceId).loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
-                it.apps.first { appInstallation ->
-                    appInstallation.id == appInstallationId
-                }
-            }
-        }
-
-    override fun categorizeAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, category: String?) =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.categorizeAppInstallation(appInstallationId, category) }) { userWorkspace, _ ->
-            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
-                it.apps.first { appInstallation ->
-                    appInstallation.id == appInstallationId
-                }
-            }
-        }
-
-    override fun tagAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, tags: Set<String>) =
-        (userId to workspaceId).loadWorkspaceAndInvoke({ it.tagAppInstallation(appInstallationId, tags) }) { userWorkspace, _ ->
-            userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
-                it.apps.first { appInstallation ->
+                it.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
                 }
             }
@@ -143,17 +128,8 @@ internal class AppInstallationCommandAdapter(
     override fun updateAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newVersion: Semver): Maybe<AppInstallation> =
         (userId to workspaceId).loadWorkspaceAndInvoke({ it.updateAppInstallation(appInstallationId, newVersion) }) { userWorkspace, _ ->
             userWorkspaceCommandPersistence.upsert(userId, userWorkspace).map {
-                it.apps.first { appInstallation ->
+                it.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
-                }
-            }
-        }
-
-    override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID) =
-        userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appInstallationId, newWorkspaceId) }) { user, _ ->
-            userCommandPersistence.upsert(user).map {
-                it.workspaces.first { workspace ->
-                    workspace.id == newWorkspaceId
                 }
             }
         }

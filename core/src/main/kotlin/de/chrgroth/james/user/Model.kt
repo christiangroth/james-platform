@@ -6,18 +6,21 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import java.util.UUID
 
+// TODO #25 split user and workspace/installed apps domains
+
 private val simpleEmailPattern = Regex(".+@.+\\..+")
 
 data class User(
     val id: UUID,
     val email: String,
     val name: String,
-    // TODO #25 may be a list to have a concrete order?
-    val workspaces: Set<UserWorkspace>,
+    val workspaces: List<UserWorkspace>,
 ) {
 
     companion object {
-        fun validateEmail(email: String): Maybe<String> {
+
+        // TODO #25 test empty/blank
+        internal fun validateEmail(email: String): Maybe<String> {
             return if (email.matches(simpleEmailPattern)) {
                 Result(email)
             } else {
@@ -27,19 +30,31 @@ data class User(
                 )
             }
         }
+
+        // TODO #25 test empty/blank
+        internal fun create(email: String, name: String) = User(
+            id = UUID.randomUUID(),
+            email = email,
+            name = name,
+            workspaces = emptyList(),
+        )
     }
 
+    // TODO #25 test empty/blank
     internal fun createWorkspace(name: String): Maybe<User> =
         Result(
             copy(
-                workspaces = workspaces.plus(UserWorkspace(
-                    id = UUID.randomUUID(),
-                    name = name,
-                    apps = emptySet())
+                workspaces = workspaces.plus(
+                    UserWorkspace(
+                        id = UUID.randomUUID(),
+                        name = name,
+                        appInstallations = emptyList()
+                    )
                 )
             )
         )
 
+    // TODO #25 test empty/blank
     internal fun renameWorkspace(id: UUID, newName: String): Maybe<User> =
         Result(
             copy(
@@ -49,9 +64,11 @@ data class User(
                     } else {
                         existingWorkspace
                     }
-                }.toSet()
+                }
             )
         )
+
+    // TODO #25 methods for sorting/ordering workspaces
 
     @Suppress("ReturnCount")
     internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<User> {
@@ -61,7 +78,7 @@ data class User(
                 details = "Source workspace with id $workspaceId not found",
             )
 
-        val appInstallation = sourceWorkspace.apps.firstOrNull { it.id == appInstallationId }
+        val appInstallation = sourceWorkspace.appInstallations.firstOrNull { it.id == appInstallationId }
             ?: return Error(
                 code = AppInstallationErrorCodes.NOT_FOUND,
                 details = "App installation with version $appInstallationId not found",
@@ -78,16 +95,14 @@ data class User(
                 workspaces = workspaces.map {
                     when (it.id) {
                         sourceWorkspace.id -> it.copy(
-                            apps = it.apps.filterNot { sourceInstallation ->
+                            appInstallations = it.appInstallations.filterNot { sourceInstallation ->
                                 sourceInstallation.id == appInstallationId
-                            }.toSet()
+                            }
                         )
-                        targetWorkspace.id -> it.copy(
-                            apps = it.apps.plus(appInstallation).toSet()
-                        )
+                        targetWorkspace.id -> it.copy(appInstallations = it.appInstallations.plus(appInstallation))
                         else -> it
                     }
-                }.toSet()
+                }
             )
         )
     }
@@ -102,7 +117,7 @@ data class User(
         return workspace.canBeDeleted().transform {
             Result(
                 copy(
-                    workspaces = workspaces.filter { it.id != id }.toSet()
+                    workspaces = workspaces.filter { it.id != id }
                 )
             )
         }
@@ -122,44 +137,35 @@ data class User(
         }
     }
 
-    private fun computeNumberOfInstalledApps() = workspaces.flatMap { it.apps }.count()
+    // TODO #25 extension val??
+    private fun computeNumberOfInstalledApps() = workspaces.flatMap { it.appInstallations }.count()
 }
 
 data class UserWorkspace(
     val id: UUID,
     val name: String,
-    // TODO #25 may be a list to have a concrete order?
-    val apps: Set<AppInstallation>,
+    val appInstallations: List<AppInstallation>,
 ) {
 
     internal fun installApp(appId: UUID, appVersion: Semver): Maybe<UserWorkspace> =
         Result(
             copy(
-                apps = apps.plus(
+                appInstallations = appInstallations.plus(
                     AppInstallation(
                         id = UUID.randomUUID(),
                         appId = appId,
                         version = appVersion,
                         nameSupplement = null,
-                        category = null,
-                        tags = emptySet(),
-                    )).toSet()
+                    )
+                )
             )
         )
+
+    // TODO #25 methods for sorting/ordering app installations
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<UserWorkspace> =
         modifyAppInstallation(id) {
             it.copy(nameSupplement = nameSupplement)
-        }
-
-    internal fun categorizeAppInstallation(id: UUID, category: String?): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(category = category)
-        }
-
-    internal fun tagAppInstallation(id: UUID, tags: Set<String>): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(tags = tags)
         }
 
     // TODO #5 check if version exists/is released, trigger data update, handle breaking changes
@@ -178,13 +184,13 @@ data class UserWorkspace(
 
         return Result(
             copy(
-                apps = apps.map {
+                appInstallations = appInstallations.map {
                     if (it.id == id) {
                         modifier(it)
                     } else {
                         it
                     }
-                }.toSet()
+                }
             )
         )
     }
@@ -200,17 +206,17 @@ data class UserWorkspace(
         return appInstallation.canBeDeleted().transform {
             Result(
                 copy(
-                    apps = apps.filterNot { it.id == id }.toSet()
+                    appInstallations = appInstallations.filterNot { it.id == id }
                 )
             )
         }
     }
 
-    private fun findAppInstallation(id: UUID) = apps.firstOrNull { it.id == id }
+    private fun findAppInstallation(id: UUID) = appInstallations.firstOrNull { it.id == id }
 
     internal fun canBeDeleted(): Maybe<Unit> = when {
-        apps.isNotEmpty() -> {
-            val numberOfInstalledApps = apps.count()
+        appInstallations.isNotEmpty() -> {
+            val numberOfInstalledApps = appInstallations.count()
             Error(
                 code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
                 details = if (numberOfInstalledApps > 1)
@@ -230,8 +236,6 @@ data class AppInstallation(
     val appId: UUID,
     val version: Semver,
     val nameSupplement: String?,
-    val category: String?,
-    val tags: Set<String>,
 ) {
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?

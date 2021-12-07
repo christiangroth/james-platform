@@ -38,19 +38,23 @@ class AppStatusTests {
             id = UUID.randomUUID(),
             name = UUID.randomUUID().toString(),
             developer = UUID.randomUUID(),
+            description = null,
             discontinued = discontinued,
+            developmentVersion = null,
             versions = if (includeVersion) {
-                setOf(
+                listOf(
                     AppVersion(
                         version = Semver(0, 1, 0),
                         releaseNotes = AppVersionReleaseNotes(
                             changeType = AppVersionChangeType.FEATURE,
                             note = "First feature!"
-                        )
+                        ),
+                        datatypes = emptySet(),
+                        reports = emptySet(),
                     )
                 )
             } else {
-                emptySet()
+                emptyList()
             }
         )
 }
@@ -59,7 +63,7 @@ class AppDevelopmentTests {
 
     @Test
     fun `does not resolves latest version if no versions are present`() {
-        val app = createApp().copy(versions = emptySet())
+        val app = createApp().copy(versions = emptyList())
         assertThat(app.latestVersion).isNull()
     }
 
@@ -81,7 +85,10 @@ class AppDevelopmentTests {
 
     @Test
     fun `createDevelopmentVersion with already existing draft`() {
-        val app = createApp().copy(developmentVersion = AppVersionDraft())
+        val app = createApp().copy(developmentVersion = AppVersionDraft(
+            datatypes = emptySet(),
+            reports = emptySet(),
+        ))
         app.createDevelopmentVersion().expectError(
             code = AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
             details = null,
@@ -90,24 +97,24 @@ class AppDevelopmentTests {
 
     @Test
     fun `createDevelopmentVersion without latest`() {
-        val app = createApp().copy(versions = emptySet())
+        val app = createApp().copy(versions = emptyList())
         val updatedApp = app.createDevelopmentVersion().expectSuccess()
         assertThat(updatedApp.developmentVersion!!.datatypes).isEmpty()
         assertThat(updatedApp.developmentVersion!!.reports).isEmpty()
     }
 
     @Test
-    fun `createDevelopmentVersion`() {
+    fun createDevelopmentVersion() {
         val app = createApp()
         val updatedApp = app.createDevelopmentVersion().expectSuccess()
-        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatypeDraft(name = "modelOne", schemaContent = ""))
-        assertThat(updatedApp.developmentVersion!!.reports).containsExactly(AppReport(name = "reportOne"))
+        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatypeDraft(name = "modelOne", schemaContent = "", description = null))
+        assertThat(updatedApp.developmentVersion!!.reports).containsExactly(AppReport(name = "reportOne", description = null, source = null))
     }
 
     @Test
     fun `updateDevelopmentVersion with datatype on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
+        app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "", description = null)).expectError(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null
         )
@@ -116,7 +123,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype without draft`() {
         val app = createApp()
-        app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectError(
+        app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "", description = null)).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
@@ -125,9 +132,9 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with datatype`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectSuccess()
+        val updatedApp = app.upsertDevelopmentVersionDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "", description = null)).expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = ""))
+        assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = "", description = null))
     }
 
     @Test
@@ -158,7 +165,7 @@ class AppDevelopmentTests {
     }
 
     @Test
-    fun `removeDevelopmentVersionDatatype`() {
+    fun removeDevelopmentVersionDatatype() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
         val updatedApp = app.removeDevelopmentVersionDatatype("modelOne").expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
@@ -168,7 +175,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report on discontinued app`() {
         val app = createApp().copy(discontinued = true)
-        app.upsertDevelopmentVersionReport(AppReport("Foos Report")).expectError(
+        app.upsertDevelopmentVersionReport(AppReport(name = "Foos Report", description = null, source = null)).expectError(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null
         )
@@ -177,7 +184,7 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report without draft`() {
         val app = createApp()
-        app.upsertDevelopmentVersionReport(AppReport("Foos AppReport")).expectError(
+        app.upsertDevelopmentVersionReport(AppReport(name = "Foos AppReport", description = null, source = null)).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
@@ -186,9 +193,9 @@ class AppDevelopmentTests {
     @Test
     fun `updateDevelopmentVersion with report`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.upsertDevelopmentVersionReport(AppReport("Foos AppReport")).expectSuccess()
+        val updatedApp = app.upsertDevelopmentVersionReport(AppReport(name = "Foos AppReport", description = null, source = null)).expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.reports).contains(AppReport("Foos AppReport"))
+        assertThat(developmentVersion.reports).contains(AppReport(name = "Foos AppReport", description = null, source = null))
     }
 
     @Test
@@ -219,7 +226,7 @@ class AppDevelopmentTests {
     }
 
     @Test
-    fun `removeDevelopmentVersionReport`() {
+    fun removeDevelopmentVersionReport() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
         val updatedApp = app.removeDevelopmentVersionReport("reportOne").expectSuccess()
         val developmentVersion = updatedApp.developmentVersion!!
@@ -248,7 +255,7 @@ class AppDevelopmentTests {
 
     @Test
     fun `releaseDevelopmentVersion with blank notes`() {
-        val app = createApp().copy(versions = emptySet()).createDevelopmentVersion().expectSuccess()
+        val app = createApp().copy(versions = emptyList()).createDevelopmentVersion().expectSuccess()
         val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, " ")
         app.releaseDevelopmentVersion(releaseNotes).expectError(
             code = AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_RELEASE_NOTES_BLANK,
@@ -258,7 +265,7 @@ class AppDevelopmentTests {
 
     @Test
     fun `releaseDevelopmentVersion without latest version`() {
-        val app = createApp().copy(versions = emptySet()).createDevelopmentVersion().expectSuccess()
+        val app = createApp().copy(versions = emptyList()).createDevelopmentVersion().expectSuccess()
         val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, "Some notes")
         val updatedApp = app.releaseDevelopmentVersion(releaseNotes).expectSuccess()
         assertThat(updatedApp.latestVersion).isNotNull
@@ -268,14 +275,14 @@ class AppDevelopmentTests {
     }
 
     @Test
-    fun `releaseDevelopmentVersion`() {
+    fun releaseDevelopmentVersion() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
         val releaseNotes = AppVersionReleaseNotes(AppVersionChangeType.FEATURE, "Some notes")
         val updatedApp = app.releaseDevelopmentVersion(releaseNotes).expectSuccess()
         assertThat(updatedApp.latestVersion).isNotNull
         assertThat(updatedApp.latestVersion!!.releaseNotes).isEqualTo(releaseNotes)
-        assertThat(updatedApp.latestVersion!!.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1, schemaContent = ""))
-        assertThat(updatedApp.latestVersion!!.reports).containsExactly(AppReport(name = "reportOne"))
+        assertThat(updatedApp.latestVersion!!.datatypes).containsExactly(AppDatatype(name = "modelOne", version = 1, schemaContent = "", description = null))
+        assertThat(updatedApp.latestVersion!!.reports).containsExactly(AppReport(name = "reportOne", description = null, source = null))
     }
 
     @Test
@@ -288,7 +295,7 @@ class AppDevelopmentTests {
     }
 
     @Test
-    fun `discontinue`() {
+    fun discontinue() {
         val app = createApp()
         val updatedApp = app.discontinue().expectSuccess()
         assertThat(updatedApp.discontinued).isTrue
@@ -304,7 +311,7 @@ class AppDevelopmentTests {
     }
 
     @Test
-    fun `delete`() {
+    fun delete() {
         val app = createApp().copy(discontinued = true)
         app.canBeDeleted().expectSuccess()
     }
@@ -314,30 +321,36 @@ class AppDevelopmentTests {
             id = UUID.randomUUID(),
             name = UUID.randomUUID().toString(),
             developer = UUID.randomUUID(),
+            description = null,
             discontinued = false,
-            versions = setOf(
+            developmentVersion = null,
+            versions = listOf(
                 AppVersion(
                     version = Semver(1, 0, 0),
                     releaseNotes = AppVersionReleaseNotes(
                         changeType = AppVersionChangeType.FEATURE,
                         note = "Everything is new"
                     ),
-                    datatypes = setOf(AppDatatype(name = "modelOne", version = 1, schemaContent = "")),
-                    reports = setOf(AppReport(name = "reportOne")),
+                    datatypes = setOf(AppDatatype(name = "modelOne", version = 1, schemaContent = "", description = null)),
+                    reports = setOf(AppReport(name = "reportOne", description = null, source = null)),
                 ),
                 AppVersion(
                     version = Semver(0, 1, 1),
                     releaseNotes = AppVersionReleaseNotes(
                         changeType = AppVersionChangeType.BUGFIX,
                         note = "Something was wrong :("
-                    )
+                    ),
+                    datatypes = emptySet(),
+                    reports = emptySet(),
                 ),
                 AppVersion(
                     version = Semver(0, 1, 0),
                     releaseNotes = AppVersionReleaseNotes(
                         changeType = AppVersionChangeType.FEATURE,
                         note = "First feature!"
-                    )
+                    ),
+                    datatypes = emptySet(),
+                    reports = emptySet(),
                 ),
             )
         )
@@ -347,7 +360,7 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype name blank`() {
-        createDraft().upsertDatatype(AppDatatypeDraft(name = "", schemaContent = "")).expectError(
+        createDraft().upsertDatatype(AppDatatypeDraft(name = "", schemaContent = "", description = null)).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_BLANK,
             details = null,
         )
@@ -355,7 +368,7 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype name conains non letters`() {
-        createDraft().upsertDatatype(AppDatatypeDraft(name = "Foo Bar", schemaContent = "")).expectError(
+        createDraft().upsertDatatype(AppDatatypeDraft(name = "Foo Bar", schemaContent = "", description = null)).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_NAME_LETTERS_ONLY,
             details = null,
         )
@@ -363,13 +376,13 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert datatype`() {
-        val updatedDraft = createDraft().upsertDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "")).expectSuccess()
-        assertThat(updatedDraft.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = ""))
+        val updatedDraft = createDraft().upsertDatatype(AppDatatypeDraft(name = "Foos", schemaContent = "", description = null)).expectSuccess()
+        assertThat(updatedDraft.datatypes).contains(AppDatatypeDraft(name = "Foos", schemaContent = "", description = null))
     }
 
     @Test
     fun `upsert report name blank`() {
-        createDraft().upsertReport(AppReport(name = "")).expectError(
+        createDraft().upsertReport(AppReport(name = "", description = null, source = null)).expectError(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_REPORT_NAME_BLANK,
             details = null,
         )
@@ -377,11 +390,11 @@ class AppVersionDraftTests {
 
     @Test
     fun `upsert report`() {
-        val updatedDraft = createDraft().upsertReport(AppReport(name = "Foos Report")).expectSuccess()
-        assertThat(updatedDraft.reports).contains(AppReport(name = "Foos Report"))
+        val updatedDraft = createDraft().upsertReport(AppReport(name = "Foos Report", description = null, source = null)).expectSuccess()
+        assertThat(updatedDraft.reports).contains(AppReport(name = "Foos Report", description = null, source = null))
     }
 
-    private fun createDraft() = AppVersionDraft()
+    private fun createDraft() = AppVersionDraft(datatypes = emptySet(), reports = emptySet())
 }
 
 class AppVersionReleaseNotesTests {
@@ -449,10 +462,11 @@ class AppVersionReleaseNotesTests {
             datatypes = setOf(AppDatatype(
                 name = "modelOne",
                 version = 1,
-                schemaContent = """ "properties": { "testPropertyName": { "type": "string" } } """.trimIndent()
+                schemaContent = """ "properties": { "testPropertyName": { "type": "string" } } """.trimIndent(),
+                description = null
             )),
-            reports = setOf(AppReport(name = "reportOne")),
+            reports = setOf(AppReport(name = "reportOne", description = null, source = null)),
         )
 
-    private fun createDraft() = AppVersionDraft()
+    private fun createDraft() = AppVersionDraft(datatypes = emptySet(), reports = emptySet())
 }

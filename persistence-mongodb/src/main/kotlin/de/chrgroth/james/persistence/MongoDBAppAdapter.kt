@@ -49,7 +49,7 @@ data class AppEntity(
         name = name,
         developer = developer,
         description = description,
-        versions = versions.map { it.toCoreRepresentation() }.toSet(),
+        versions = versions.map { it.toCoreRepresentation() },
         developmentVersion = developmentVersion?.toCoreRepresentation(),
         discontinued = discontinuationDate != null,
     )

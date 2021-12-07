@@ -36,7 +36,7 @@ class UserModelTests {
         val user = createUser().createWorkspace("Apps").expectSuccess()
         assertThat(user.workspaces).hasSize(1)
         assertThat(user.workspaces.first().name).isEqualTo("Apps")
-        assertThat(user.workspaces.first().apps).isEqualTo(emptySet<AppInstallation>())
+        assertThat(user.workspaces.first().appInstallations).isEqualTo(emptyList<AppInstallation>())
     }
 
     @Test
@@ -48,9 +48,9 @@ class UserModelTests {
         val firstWorksapce = user.workspaces.toList()[0]
         val secondWorksapce = user.workspaces.toList()[1]
         assertThat(firstWorksapce.name).isEqualTo("Apps")
-        assertThat(firstWorksapce.apps).isEqualTo(emptySet<AppInstallation>())
+        assertThat(firstWorksapce.appInstallations).isEqualTo(emptyList<AppInstallation>())
         assertThat(secondWorksapce.name).isEqualTo("Apps")
-        assertThat(secondWorksapce.apps).isEqualTo(emptySet<AppInstallation>())
+        assertThat(secondWorksapce.appInstallations).isEqualTo(emptyList<AppInstallation>())
         assertThat(firstWorksapce.id).isNotEqualTo(secondWorksapce.id)
     }
 
@@ -60,7 +60,7 @@ class UserModelTests {
         val updatedUser = user.renameWorkspace(user.workspaces.first().id, "New Apps").expectSuccess()
         assertThat(updatedUser.workspaces).hasSize(1)
         assertThat(updatedUser.workspaces.first().name).isEqualTo("New Apps")
-        assertThat(updatedUser.workspaces.first().apps).isEqualTo(emptySet<AppInstallation>())
+        assertThat(updatedUser.workspaces.first().appInstallations).isEqualTo(emptyList<AppInstallation>())
     }
 
     @Test
@@ -143,12 +143,10 @@ class UserWorkspaceModelTests {
     fun `install app`() {
         val appId = UUID.randomUUID()
         val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
-        assertThat(workspace.apps).hasSize(1)
-        assertThat(workspace.apps.first().appId).isEqualTo(appId)
-        assertThat(workspace.apps.first().version).isEqualTo(Semver("1.0.0"))
-        assertThat(workspace.apps.first().category).isNull()
-        assertThat(workspace.apps.first().tags).isEmpty()
-        assertThat(workspace.apps.first().nameSupplement).isNull()
+        assertThat(workspace.appInstallations).hasSize(1)
+        assertThat(workspace.appInstallations.first().appId).isEqualTo(appId)
+        assertThat(workspace.appInstallations.first().version).isEqualTo(Semver("1.0.0"))
+        assertThat(workspace.appInstallations.first().nameSupplement).isNull()
     }
 
     @Test
@@ -157,13 +155,13 @@ class UserWorkspaceModelTests {
         val workspace = createWorkspace()
             .installApp(appId, Semver("1.0.0")).expectSuccess()
             .installApp(appId, Semver("1.0.0")).expectSuccess()
-        assertThat(workspace.apps).hasSize(2)
+        assertThat(workspace.appInstallations).hasSize(2)
 
-        val firstInstallation = workspace.apps.toList()[0]
+        val firstInstallation = workspace.appInstallations.toList()[0]
         assertThat(firstInstallation.appId).isEqualTo(appId)
         assertThat(firstInstallation.version).isEqualTo(Semver("1.0.0"))
 
-        val secondInstallation = workspace.apps.toList()[1]
+        val secondInstallation = workspace.appInstallations.toList()[1]
         assertThat(secondInstallation.appId).isEqualTo(appId)
         assertThat(secondInstallation.version).isEqualTo(Semver("1.0.0"))
 
@@ -174,51 +172,29 @@ class UserWorkspaceModelTests {
     fun `name app installation`() {
         val appId = UUID.randomUUID()
         val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
-        val appInstallationId = workspace.apps.first().id
+        val appInstallationId = workspace.appInstallations.first().id
         val updatedWorkspace = workspace.nameAppInstallation(appInstallationId, "NAMED").expectSuccess()
-        assertThat(updatedWorkspace.apps).hasSize(1)
-        assertThat(updatedWorkspace.apps.first().id).isEqualTo(appInstallationId)
-        assertThat(updatedWorkspace.apps.first().nameSupplement).isEqualTo("NAMED")
-    }
-
-    @Test
-    fun `categorize app installation`() {
-        val appId = UUID.randomUUID()
-        val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
-        val appInstallationId = workspace.apps.first().id
-        val updatedWorkspace = workspace.categorizeAppInstallation(appInstallationId, "CAT7").expectSuccess()
-        assertThat(updatedWorkspace.apps).hasSize(1)
-        assertThat(updatedWorkspace.apps.first().id).isEqualTo(appInstallationId)
-        assertThat(updatedWorkspace.apps.first().category).isEqualTo("CAT7")
-    }
-
-    @Test
-    fun `tag app installation`() {
-        val appId = UUID.randomUUID()
-        val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
-        val appInstallationId = workspace.apps.first().id
-        val updatedWorkspace = workspace.tagAppInstallation(appInstallationId, setOf("private", "fancy")).expectSuccess()
-        assertThat(updatedWorkspace.apps).hasSize(1)
-        assertThat(updatedWorkspace.apps.first().id).isEqualTo(appInstallationId)
-        assertThat(updatedWorkspace.apps.first().tags).containsExactlyInAnyOrder("private", "fancy")
+        assertThat(updatedWorkspace.appInstallations).hasSize(1)
+        assertThat(updatedWorkspace.appInstallations.first().id).isEqualTo(appInstallationId)
+        assertThat(updatedWorkspace.appInstallations.first().nameSupplement).isEqualTo("NAMED")
     }
 
     @Test
     fun `update app installation`() {
         val appId = UUID.randomUUID()
         val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
-        val appInstallationId = workspace.apps.first().id
+        val appInstallationId = workspace.appInstallations.first().id
         val updatedWorkspace = workspace.updateAppInstallation(appInstallationId, Semver("2.0.0")).expectSuccess()
-        assertThat(updatedWorkspace.apps).hasSize(1)
-        assertThat(updatedWorkspace.apps.first().id).isEqualTo(appInstallationId)
-        assertThat(updatedWorkspace.apps.first().version).isEqualTo(Semver("2.0.0"))
+        assertThat(updatedWorkspace.appInstallations).hasSize(1)
+        assertThat(updatedWorkspace.appInstallations.first().id).isEqualTo(appInstallationId)
+        assertThat(updatedWorkspace.appInstallations.first().version).isEqualTo(Semver("2.0.0"))
     }
 
     @Test
     fun `uninstall app`() {
         val appId = UUID.randomUUID()
         val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
-        val appInstallationId = workspace.apps.first().id
+        val appInstallationId = workspace.appInstallations.first().id
         workspace.uninstallApp(appInstallationId).expectError(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
             details = "Uninstalling apps is currently not supported",
@@ -246,8 +222,6 @@ class AppInstallationTests {
             appId = UUID.randomUUID(),
             version = Semver("1.0.0"),
             nameSupplement = null,
-            category = null,
-            tags = emptySet(),
         )
         appInstallation.canBeDeleted().expectError(
             code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
@@ -261,7 +235,7 @@ private fun createUser() = UUID.randomUUID().let { id ->
         id = id,
         email = "${id}@gmail.com",
         name = id.toString(),
-        workspaces = emptySet(),
+        workspaces = emptyList(),
     )
 }
 
@@ -269,6 +243,6 @@ private fun createWorkspace() = UUID.randomUUID().let { id ->
     UserWorkspace(
         id = id,
         name = id.toString(),
-        apps = emptySet(),
+        appInstallations = emptyList(),
     )
 }
