@@ -36,7 +36,7 @@ internal class UserCommandAdapter(
     }
 
     override fun deleteUser(id: UUID) =
-        id.loadUserAndInvoke(User::canBeDeleted) { _, _ ->
+        id.loadUserAndInvoke(User::verifyDeletion) { _, _ ->
             commandPersistence.delete(id)
         }
 

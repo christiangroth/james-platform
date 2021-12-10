@@ -60,17 +60,32 @@ data class Workspace(
             )
         )
 
-    // TODO #25 better naming
-    // TODO #25 test
-    internal fun accommodateApp(app: AppInstallation): Maybe<Workspace> =
+    internal fun acceptAppMigration(app: AppInstallation): Maybe<Workspace> =
         Result(copy(appInstallations = appInstallations.plus(app)))
 
-    // TODO #25 better naming
     // TODO #25 test
-    internal fun removeApp(app: AppInstallation): Maybe<Workspace> =
-        Result(copy(appInstallations = appInstallations.minus(app)))
+    internal fun reorderAppInstallations(order: List<UUID>): Maybe<Workspace> {
+        val existingIds = appInstallations.map { it.id }
+        val newIds = order.minus(existingIds.toSet())
+        if (newIds.isNotEmpty()) {
+            return Error(
+                code = WorkspaceErrorCodes.REORDER_APPS_NEW_IDS,
+                details = newIds.toString(),
+            )
+        }
 
-    // TODO #25 methods for sorting/ordering app installations
+        val missingIds = existingIds.minus(order.toSet())
+        if (missingIds.isNotEmpty()) {
+            return Error(
+                code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
+                details = missingIds.toString(),
+            )
+        }
+
+        return Result(copy(appInstallations = order.map { orderId ->
+            appInstallations.first { it.id == orderId }
+        }))
+    }
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<Workspace> =
         modifyAppInstallation(id) {

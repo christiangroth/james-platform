@@ -2,6 +2,7 @@ package de.chrgroth.james.user
 
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
@@ -19,11 +20,11 @@ class UserEmailValidationTests {
     @Test
     fun `empty email validation`() {
         User.validateEmail("").expectError(
-            code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+            code = UserErrorCodes.EMAIL_INVALID,
             details = null,
         )
         User.validateEmail(" ").expectError(
-            code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+            code = UserErrorCodes.EMAIL_INVALID,
             details = null,
         )
     }
@@ -31,11 +32,33 @@ class UserEmailValidationTests {
     @Test
     fun `invalid email examples`() {
         User.validateEmail("@gmx.de").expectError(
-            code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+            code = UserErrorCodes.EMAIL_INVALID,
             details = null,
         )
         User.validateEmail("someone@gmx").expectError(
-            code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
+            code = UserErrorCodes.EMAIL_INVALID,
+            details = null,
+        )
+    }
+}
+
+class UserNameValidationTests {
+
+    @Test
+    fun `valid name examples`() {
+        User.validateName("Chris").expectSuccess()
+        User.validateName("Mine").expectSuccess()
+        User.validateName("Hartmut the Dragon").expectSuccess()
+    }
+
+    @Test
+    fun `empty name validation`() {
+        User.validateName("").expectError(
+            code = UserErrorCodes.NAME_BLANK,
+            details = null,
+        )
+        User.validateName(" ").expectError(
+            code = UserErrorCodes.NAME_BLANK,
             details = null,
         )
     }
@@ -44,21 +67,20 @@ class UserEmailValidationTests {
 class UserModelTests {
 
     @Test
-    fun `register with blank name`() {
-        User.create("good@mail.com", "").expectError(
-            code = UserErrorCodes.REGISTRATION_NAME_BLANK,
-            details = null,
-        )
+    fun `change email`() {
+        val user = createUser().changeEmail("better@gmail.com").expectSuccess()
+        assertThat(user.email).isEqualTo("better@gmail.com")
     }
 
     @Test
-    fun `register with valid name`() {
-        User.create("good@mail.com", "chris").expectSuccess()
+    fun `change name`() {
+        val user = createUser().changeName("Heinz").expectSuccess()
+        assertThat(user.name).isEqualTo("Heinz")
     }
 
     @Test
     fun `user deletion not supported`() {
-        createUser().canBeDeleted().expectError(
+        createUser().verifyDeletion().expectError(
             code = UserErrorCodes.DELETE_NOT_SUPPORTED,
             details = null,
         )

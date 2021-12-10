@@ -126,11 +126,11 @@ internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, new
     // TODO #25 ugly code
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->
-            source.getAppOrError(appInstallationId).flatMap { app ->
+            source.getAppOrError(appInstallationId).flatMap { appInstallation ->
                 queryPersistence.getOrError(targetWorkspaceId).flatMap { target ->
-                    target.accommodateApp(app).flatMap { updatedTarget ->
+                    target.acceptAppMigration(appInstallation).flatMap { updatedTarget ->
                         commandPersistence.upsert(updatedTarget).flatMap { persistedTarget ->
-                            source.removeApp(app).flatMap { updatedSource ->
+                            source.uninstallApp(appInstallation.id).flatMap { updatedSource ->
                                 commandPersistence.upsert(updatedSource).flatMap { persistedSource ->
                                     Result(persistedSource to persistedTarget)
                                 }
