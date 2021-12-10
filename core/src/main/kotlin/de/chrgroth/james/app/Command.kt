@@ -69,14 +69,14 @@ internal class AppCommandAdapter(
         appOperation: (App) -> Maybe<R>,
         persistenceOperation: (App, R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).transform { app ->
+        queryPersistence.get(this).flatMap { app ->
             if (app == null) {
                 Error(
                     code = AppErrorCodes.NOT_FOUND,
                     details = null,
                 )
             } else {
-                appOperation(app).transform { persistenceOperation(app, it) }
+                appOperation(app).flatMap { persistenceOperation(app, it) }
             }
         }
 }

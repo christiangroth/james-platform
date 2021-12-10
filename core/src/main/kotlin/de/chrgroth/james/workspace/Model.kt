@@ -98,7 +98,7 @@ data class Workspace(
 
     // TODO #5 decide when deleting app is allowed
     internal fun uninstallApp(id: UUID): Maybe<Workspace> =
-        getAppOrError(id).transform { app ->
+        getAppOrError(id).flatMap { app ->
             app.canBeDeleted().map {
                 copy(appInstallations = appInstallations.filterNot { it.id == id })
             }

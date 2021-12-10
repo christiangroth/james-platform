@@ -36,6 +36,7 @@ class MaybeTests {
     @Test
     fun `an error maybe is mapped correctly`() {
         val maybe = Error<Unit>(TestErrorCodes.ZERO, null)
+
         @Suppress("UNUSED_EXPRESSION")
         val mapped = maybe.map { it }
         assertThat(mapped).isInstanceOf(Error::class.java)
@@ -45,6 +46,7 @@ class MaybeTests {
     @Test
     fun `an errors maybe is mapped correctly`() {
         val maybe = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO, null)))
+
         @Suppress("UNUSED_EXPRESSION")
         val mapped = maybe.map { it }
         assertThat(mapped).isInstanceOf(Errors::class.java)
@@ -54,7 +56,7 @@ class MaybeTests {
     @Test
     fun `a result maybe is transformed correctly`() {
         val maybe = Result("Foo")
-        val mapped = maybe.transform { Result(it.uppercase().reversed()) }
+        val mapped = maybe.flatMap { Result(it.uppercase().reversed()) }
         assertThat(mapped).isInstanceOf(Result::class.java)
         assertThat((mapped as Result).value).isEqualTo("OOF")
     }
@@ -62,7 +64,7 @@ class MaybeTests {
     @Test
     fun `an error maybe is transformed correctly`() {
         val maybe = Error<Unit>(TestErrorCodes.ZERO, null)
-        val mapped = maybe.transform { Error<Unit>(TestErrorCodes.ZERO, null) }
+        val mapped = maybe.flatMap { Error<Unit>(TestErrorCodes.ZERO, null) }
         assertThat(mapped).isInstanceOf(Error::class.java)
         assertThat((mapped as Error).code).isEqualTo(TestErrorCodes.ZERO)
     }
@@ -70,7 +72,7 @@ class MaybeTests {
     @Test
     fun `an errors maybe is transformed correctly`() {
         val maybe = Errors<Unit>(listOf(Error(TestErrorCodes.ZERO, null)))
-        val mapped = maybe.transform { Errors<Unit>(listOf(Error(TestErrorCodes.ZERO, null))) }
+        val mapped = maybe.flatMap { Errors<Unit>(listOf(Error(TestErrorCodes.ZERO, null))) }
         assertThat(mapped).isInstanceOf(Errors::class.java)
         assertThat((mapped as Errors).errors).isEqualTo(listOf(Error<Unit>(TestErrorCodes.ZERO, null)))
     }

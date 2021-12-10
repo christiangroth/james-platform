@@ -31,7 +31,7 @@ internal class WorkspaceCommandAdapter(
 ) : WorkspaceCommandPort {
 
     override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> =
-        Workspace.create(userId, name).transform {
+        Workspace.create(userId, name).flatMap {
             commandPersistence.upsert(it)
         }
 
@@ -125,13 +125,13 @@ internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, new
     // TODO #5 trigger data movement, if needed?
     // TODO #25 ugly code
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
-        queryPersistence.getOrError(sourceWorkspaceId).transform { source ->
-            source.getAppOrError(appInstallationId).transform { app ->
-                queryPersistence.getOrError(targetWorkspaceId).transform { target ->
-                    target.accommodateApp(app).transform { updatedTarget ->
-                        commandPersistence.upsert(updatedTarget).transform { persistedTarget ->
-                            source.removeApp(app).transform { updatedSource ->
-                                commandPersistence.upsert(updatedSource).transform { persistedSource ->
+        queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->
+            source.getAppOrError(appInstallationId).flatMap { app ->
+                queryPersistence.getOrError(targetWorkspaceId).flatMap { target ->
+                    target.accommodateApp(app).flatMap { updatedTarget ->
+                        commandPersistence.upsert(updatedTarget).flatMap { persistedTarget ->
+                            source.removeApp(app).flatMap { updatedSource ->
+                                commandPersistence.upsert(updatedSource).flatMap { persistedSource ->
                                     Result(persistedSource to persistedTarget)
                                 }
                             }
@@ -150,14 +150,14 @@ internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, new
         workspaceOperation: (Workspace) -> Maybe<R>,
         persistenceOperation: (Workspace, R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).transform { workspace ->
+        queryPersistence.get(this).flatMap { workspace ->
             if (workspace == null) {
                 Error(
                     code = WorkspaceErrorCodes.NOT_FOUND,
                     details = null,
                 )
             } else {
-                workspaceOperation(workspace).transform { persistenceOperation(workspace, it) }
+                workspaceOperation(workspace).flatMap { persistenceOperation(workspace, it) }
             }
         }
 }

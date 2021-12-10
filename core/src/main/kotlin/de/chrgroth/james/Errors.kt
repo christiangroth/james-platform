@@ -24,9 +24,8 @@ sealed class Maybe<Type> {
         is Result -> Result(transformer.invoke(value))
     }
 
-    // TODO #25 rename to flatMap?
     @Suppress("UNCHECKED_CAST")
-    fun <R> transform(transformer: (Type) -> Maybe<R>): Maybe<R> = when (this) {
+    fun <R> flatMap(transformer: (Type) -> Maybe<R>): Maybe<R> = when (this) {
         is Errors -> this as Errors<R> // make the compiler happy
         is Error -> this as Error<R> // make the compiler happy
         is Result -> transformer.invoke(value)

@@ -30,7 +30,7 @@ internal class AppQueryAdapter(private val queryPersistence: AppQueryPersistence
         }
 
     override fun getNextVersionDraft(id: UUID) =
-        queryPersistence.get(id).transform { app ->
+        queryPersistence.get(id).flatMap { app ->
             if (app == null) {
                 Error(AppErrorCodes.NOT_FOUND, null)
             } else {

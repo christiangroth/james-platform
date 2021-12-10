@@ -678,8 +678,8 @@ private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String
 }
 
 private fun expectParsedSchemas(currentSchemaContent: String, nextSchemaContent: String): Pair<ObjectSchema, ObjectSchema> {
-    val current = currentSchemaContent.parseJsonSchema().transform { it.validateTopLevelSchema() }.expectSuccess()
-    val next = nextSchemaContent.parseJsonSchema().transform { it.validateTopLevelSchema() }.expectSuccess()
+    val current = currentSchemaContent.parseJsonSchema().flatMap { it.validateTopLevelSchema() }.expectSuccess()
+    val next = nextSchemaContent.parseJsonSchema().flatMap { it.validateTopLevelSchema() }.expectSuccess()
 
     return current to next
 }

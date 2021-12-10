@@ -30,7 +30,7 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
 
 // see https://github.com/everit-org/json-schema
 internal fun String.loadAsTopLevelObjectSchema(): Maybe<ObjectSchema> {
-    return parseJsonSchema().transform { it.validateTopLevelSchema() }
+    return parseJsonSchema().flatMap { it.validateTopLevelSchema() }
 }
 
 internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {

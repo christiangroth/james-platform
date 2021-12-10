@@ -30,7 +30,7 @@ internal class UserCommandAdapter(
             )
         }
 
-        return User.create(email, name).transform {
+        return User.create(email, name).flatMap {
             commandPersistence.upsert(it)
         }
     }
@@ -44,14 +44,14 @@ internal class UserCommandAdapter(
         userOperation: (User) -> Maybe<R>,
         persistenceOperation: (User, R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).transform { user ->
+        queryPersistence.get(this).flatMap { user ->
             if (user == null) {
                 Error(
                     code = UserErrorCodes.NOT_FOUND,
                     details = null,
                 )
             } else {
-                userOperation(user).transform { persistenceOperation(user, it) }
+                userOperation(user).flatMap { persistenceOperation(user, it) }
             }
         }
 }
