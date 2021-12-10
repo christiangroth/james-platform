@@ -49,9 +49,9 @@ data class AppEntity(
         name = name,
         developer = developer,
         description = description,
-        versions = versions.map { it.toCoreRepresentation() },
-        developmentVersion = developmentVersion?.toCoreRepresentation(),
         discontinued = discontinuationDate != null,
+        developmentVersion = developmentVersion?.toCoreRepresentation(),
+        versions = versions.map { it.toCoreRepresentation() },
     )
 }
 

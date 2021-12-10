@@ -16,7 +16,7 @@ enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
 
-// TODO #25 ensure values are trimmed (or enforce usage of create function)
+// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
 data class App(
     val id: UUID,
     val name: String,
@@ -26,7 +26,6 @@ data class App(
     val developmentVersion: AppVersionDraft?,
     val versions: List<AppVersion>,
 ) {
-
     companion object {
 
         // TODO #25 validate name not blank and test
@@ -275,7 +274,7 @@ enum class AppVersionChangeType {
     BUGFIX, FEATURE
 }
 
-// TODO #25 ensure values are trimmed
+// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
 data class AppVersionReleaseNotes(
     val changeType: AppVersionChangeType,
     val note: String,
@@ -323,7 +322,7 @@ data class AppVersionReleaseNotes(
     }
 }
 
-// TODO #25 ensure values are trimmed
+// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
 data class AppDatatypeDraft(
     val name: String,
     val schemaContent: String,
@@ -338,7 +337,7 @@ data class AppDatatypeDraft(
     )
 }
 
-// TODO #25 ensure values are trimmed
+// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
 data class AppDatatype(
     val name: String,
     val version: Long,
@@ -354,7 +353,7 @@ data class AppDatatype(
     )
 }
 
-// TODO #25 ensure values are trimmed
+// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
 data class AppReport(
     val name: String,
     val description: String?,

@@ -12,25 +12,8 @@ enum class UserErrorCodes : ErrorCode {
     CREATE_WORKSPACE_NAME_BLANK,
     RENAME_WORKSPACE_NAME_BLANK,
 
-    DELETE_INSTALLED_APPS;
-
-    override val prefix = "USER"
-    override val id = ordinal.toLong()
-}
-
-enum class WorkspaceErrorCodes : ErrorCode {
-    NOT_FOUND,
-    DELETE_INSTALLED_APPS;
-
-    override val prefix = "WORKSPACE"
-    override val id = ordinal.toLong()
-}
-
-
-enum class AppInstallationErrorCodes : ErrorCode {
-    NOT_FOUND,
     DELETE_NOT_SUPPORTED;
 
-    override val prefix = "INSTALLATION"
+    override val prefix = "USER"
     override val id = ordinal.toLong()
 }
