@@ -1,7 +1,9 @@
 package de.chrgroth.james.workspace
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.expectError
+import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -18,7 +20,7 @@ class WorkspaceModelTests {
 
     @Test
     fun `new workspace with negative order`() {
-        Workspace.create(UUID.randomUUID(), -13, " ").expectError(
+        Workspace.create(UUID.randomUUID(), -13, "My Apps").expectError(
             code = WorkspaceErrorCodes.ORDER_NEGATIVE,
             details = "-13",
         )
@@ -33,13 +35,27 @@ class WorkspaceModelTests {
     }
 
     @Test
-    fun `reorder workspace`() {
+    fun `new workspace with multiple errors`() {
+        Workspace.create(UUID.randomUUID(), -1, " ").expectErrors(
+            Error(
+                code = WorkspaceErrorCodes.ORDER_NEGATIVE,
+                details = "-1",
+            ),
+            Error(
+                code = WorkspaceErrorCodes.NAME_BLANK,
+                details = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `change order`() {
         val workspace = createWorkspace().changeOrder(13).expectSuccess()
         assertThat(workspace.order).isEqualTo(13)
     }
 
     @Test
-    fun `reorder workspace with negative value`() {
+    fun `change order to negative value`() {
         createWorkspace().changeOrder(-13).expectError(
             code = WorkspaceErrorCodes.ORDER_NEGATIVE,
             details = "-13",
@@ -157,6 +173,32 @@ class WorkspaceModelTests {
         ).expectError(
             code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
             details = setOf(appInstallationIdTwo).toString()
+        )
+    }
+
+    @Test
+    fun `reorder apps with multiple errors`() {
+        val appIdOne = UUID.randomUUID()
+        val appIdTwo = UUID.randomUUID()
+        val workspace = createWorkspace()
+            .installApp(appIdOne, Semver("1.0.0")).expectSuccess()
+            .installApp(appIdTwo, Semver("1.0.0")).expectSuccess()
+        assertThat(workspace.appInstallations.map { it.appId }).isEqualTo(listOf(appIdOne, appIdTwo))
+
+        val appInstallationIdOne = workspace.appInstallations[0].id
+        val appInstallationIdTwo = workspace.appInstallations[1].id
+        val appInstallationIdUnknown = UUID.randomUUID()
+        workspace.reorderAppInstallations(
+            listOf(appInstallationIdOne, appInstallationIdUnknown)
+        ).expectErrors(
+            Error(
+                code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
+                details = setOf(appInstallationIdTwo).toString(),
+            ),
+            Error(
+                code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
+                details = setOf(appInstallationIdUnknown).toString()
+            )
         )
     }
 

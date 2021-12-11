@@ -3,6 +3,8 @@ package de.chrgroth.james.user
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.foldErrors
+import de.chrgroth.james.shrink
 import java.util.UUID
 
 private val simpleEmailPattern = Regex(".+@.+\\..+")
@@ -38,14 +40,24 @@ data class User(
             return Result(name.trim())
         }
 
-        // TODO #25 return all Errors
-        internal fun create(email: String, name: String): Maybe<User> = validateEmail(email).flatMap { validEmail ->
-            validateName(name).map { validName ->
-                User(
-                    id = UUID.randomUUID(),
-                    email = validEmail,
-                    name = validName,
-                )
+        internal fun create(email: String, name: String): Maybe<User> {
+            val emailValidation = validateEmail(email)
+            val nameValidation = validateName(name)
+            val validationErrors = listOf(
+                emailValidation, nameValidation
+            ).foldErrors<User>().shrink()
+            if (validationErrors != null) {
+                return validationErrors
+            }
+
+            return emailValidation.flatMap { validEmail ->
+                nameValidation.map { validName ->
+                    User(
+                        id = UUID.randomUUID(),
+                        email = validEmail,
+                        name = validName,
+                    )
+                }
             }
         }
     }

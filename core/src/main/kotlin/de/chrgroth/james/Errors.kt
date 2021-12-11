@@ -32,6 +32,9 @@ sealed class Maybe<Type> {
     }
 }
 
+fun <Type> List<Maybe<*>?>.foldErrors() =
+    this.filterIsInstance<Error<Type>>().fold()
+
 fun <Type> List<Error<Type>?>.fold() =
     if (this.filterNotNull().isEmpty()) {
         null
@@ -68,4 +71,11 @@ fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
         this != null -> this
         other != null -> other
         else -> null
+    }
+
+fun <Type> Errors<Type>?.shrink(): Maybe<Type>? =
+    when {
+        this == null -> null
+        this.errors.size == 1 -> this.errors.single()
+        else -> this
     }

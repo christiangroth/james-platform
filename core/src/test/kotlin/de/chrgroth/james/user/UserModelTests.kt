@@ -1,6 +1,8 @@
 package de.chrgroth.james.user
 
+import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.expectError
+import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -65,6 +67,20 @@ class UserNameValidationTests {
 }
 
 class UserModelTests {
+
+    @Test
+    fun `create user with multiple errors`() {
+        User.create("", "").expectErrors(
+            Error(
+                code = UserErrorCodes.EMAIL_INVALID,
+                details = null,
+            ),
+            Error(
+                code = UserErrorCodes.NAME_BLANK,
+                details = null,
+            )
+        )
+    }
 
     @Test
     fun `change email`() {

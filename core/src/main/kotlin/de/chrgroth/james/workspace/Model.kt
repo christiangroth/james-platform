@@ -4,6 +4,8 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.foldErrors
+import de.chrgroth.james.shrink
 import java.util.UUID
 
 // TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
@@ -36,10 +38,18 @@ data class Workspace(
                 Result(name.trim())
             }
 
-        // TODO #25 return all Errors
-        internal fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> =
-            validateOrder(order).flatMap { validOrder ->
-                validateName(name).map { validName ->
+        internal fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> {
+            val orderValidation = validateOrder(order)
+            val nameValidation = validateName(name)
+            val validationErrors = listOf(
+                orderValidation, nameValidation
+            ).foldErrors<Workspace>().shrink()
+            if (validationErrors != null) {
+                return validationErrors
+            }
+
+            return orderValidation.flatMap { validOrder ->
+                nameValidation.map { validName ->
                     Workspace(
                         id = UUID.randomUUID(),
                         userId = userId,
@@ -49,6 +59,7 @@ data class Workspace(
                     )
                 }
             }
+        }
     }
 
     internal fun changeOrder(newOrder: Long): Maybe<Workspace> =
@@ -78,26 +89,35 @@ data class Workspace(
     internal fun acceptAppMigration(app: AppInstallation): Maybe<Workspace> =
         Result(copy(appInstallations = appInstallations.plus(app)))
 
-    // TODO #25 return all Errors
     internal fun reorderAppInstallations(order: List<UUID>): Maybe<Workspace> {
         val existingIds = appInstallations.map { it.id }
+
         val newIds = order.minus(existingIds.toSet())
-        val missingIds = existingIds.minus(order.toSet())
-        return if (newIds.isNotEmpty()) {
+        val unknownIdsValidation: Error<Workspace>? = if (newIds.isNotEmpty()) {
             Error(
                 code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
                 details = newIds.toString(),
             )
-        } else if (missingIds.isNotEmpty()) {
+        } else null
+
+        val missingIds = existingIds.minus(order.toSet())
+        val missingIdsValidation: Error<Workspace>? = if (missingIds.isNotEmpty()) {
             Error(
                 code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
                 details = missingIds.toString(),
             )
-        } else {
-            Result(copy(appInstallations = order.map { orderId ->
-                appInstallations.first { it.id == orderId }
-            }))
+        } else null
+
+        val validationErrors = listOf(
+            unknownIdsValidation, missingIdsValidation
+        ).foldErrors<Workspace>().shrink()
+        if (validationErrors != null) {
+            return validationErrors
         }
+
+        return Result(copy(appInstallations = order.map { orderId ->
+            appInstallations.first { it.id == orderId }
+        }))
     }
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<Workspace> =
