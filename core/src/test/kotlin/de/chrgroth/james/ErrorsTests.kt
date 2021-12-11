@@ -81,6 +81,40 @@ class MaybeTests {
 class ErrorsCombinationTests {
 
     @Test
+    fun `fold list of errors`() {
+        val result = listOf(
+            Error<Unit>(TestErrorCodes.SOME_ERROR, details = null),
+            Error<Unit>(TestErrorCodes.THIS_IS_BAD, details = null),
+        ).fold()
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(2)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR, null))
+        assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.THIS_IS_BAD, null))
+    }
+
+    @Test
+    fun `fold list of errors without nulls`() {
+        val result = listOf(
+            Error<Unit>(TestErrorCodes.SOME_ERROR, details = null),
+            null,
+            Error<Unit>(TestErrorCodes.THIS_IS_BAD, details = null),
+        ).fold()
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(2)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR, null))
+        assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.THIS_IS_BAD, null))
+    }
+
+    @Test
+    fun `fold list of nulls only`() {
+        val result = listOf(
+            null as Error<Unit>?,
+            null,
+        ).fold()
+        assertThat(result).isNull()
+    }
+
+    @Test
     fun `combine null error with null error becomes null`() {
         val result = (null as Error<Unit>?).combine(null as Error<Unit>?)
         assertThat(result).isNull()

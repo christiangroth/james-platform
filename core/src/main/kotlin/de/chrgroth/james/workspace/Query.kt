@@ -5,7 +5,7 @@ import java.util.UUID
 
 interface WorkspaceQueryPort {
     fun getWorkspace(workspaceId: UUID): Maybe<Workspace?>
-    fun getWorkspacesForUser(userId: UUID): Maybe<Set<Workspace>>
+    fun getWorkspacesForUser(userId: UUID): Maybe<List<Workspace>>
 }
 
 internal class WorkspaceQueryAdapter(private val queryPersistence: WorkspaceQueryPersistencePort) : WorkspaceQueryPort {
@@ -14,7 +14,7 @@ internal class WorkspaceQueryAdapter(private val queryPersistence: WorkspaceQuer
         return queryPersistence.get(workspaceId)
     }
 
-    override fun getWorkspacesForUser(userId: UUID): Maybe<Set<Workspace>> {
+    override fun getWorkspacesForUser(userId: UUID): Maybe<List<Workspace>> {
         return queryPersistence.findForUser(userId)
     }
 }

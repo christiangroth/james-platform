@@ -38,16 +38,16 @@ data class User(
             return Result(name.trim())
         }
 
-        internal fun create(email: String, name: String): Maybe<User> =
-            validateEmail(email).flatMap { validEmail ->
-                validateName(name).map { validName ->
-                    User(
-                        id = UUID.randomUUID(),
-                        email = validEmail,
-                        name = validName,
-                    )
-                }
+        // TODO #25 return all Errors
+        internal fun create(email: String, name: String): Maybe<User> = validateEmail(email).flatMap { validEmail ->
+            validateName(name).map { validName ->
+                User(
+                    id = UUID.randomUUID(),
+                    email = validEmail,
+                    name = validName,
+                )
             }
+        }
     }
 
     // TODO #22 send user to revalidation status?

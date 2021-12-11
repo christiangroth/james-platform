@@ -4,6 +4,7 @@ import de.chrgroth.james.ErrorCode
 
 enum class AppErrorCodes : ErrorCode {
     NOT_FOUND,
+    APP_NAME_BLANK,
     APP_DISCONTINUED_NO_CHANGES_ALLOWED,
 
     CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,

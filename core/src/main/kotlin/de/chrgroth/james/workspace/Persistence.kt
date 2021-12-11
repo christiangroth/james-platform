@@ -8,7 +8,7 @@ interface WorkspaceQueryPersistencePort {
     fun getOrError(workspaceId: UUID): Maybe<Workspace>
 
     // TODO #16 what about paging and how to design filter parameters??
-    fun findForUser(userId: UUID): Maybe<Set<Workspace>>
+    fun findForUser(userId: UUID): Maybe<List<Workspace>>
 }
 
 interface WorkspaceCommandPersistencePort {

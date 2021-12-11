@@ -10,40 +10,55 @@ import java.util.UUID
 data class Workspace(
     val id: UUID,
     val userId: UUID,
+    val order: Long,
     val name: String,
     val appInstallations: List<AppInstallation>,
 ) {
 
     companion object {
+        internal fun validateOrder(order: Long): Maybe<Long> =
+            if (order >= 0) {
+                Result(order)
+            } else {
+                Error(
+                    WorkspaceErrorCodes.ORDER_NEGATIVE,
+                    details = order.toString(),
+                )
+            }
 
-        internal fun create(userId: UUID, name: String): Maybe<Workspace> =
+        internal fun validateName(name: String): Maybe<String> =
             if (name.isBlank()) {
                 Error(
-                    code = WorkspaceErrorCodes.CREATE_WORKSPACE_NAME_BLANK,
+                    code = WorkspaceErrorCodes.NAME_BLANK,
                     details = null,
                 )
             } else {
-                Result(
+                Result(name.trim())
+            }
+
+        // TODO #25 return all Errors
+        internal fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> =
+            validateOrder(order).flatMap { validOrder ->
+                validateName(name).map { validName ->
                     Workspace(
                         id = UUID.randomUUID(),
                         userId = userId,
-                        name = name.trim(),
+                        order = validOrder,
+                        name = validName,
                         appInstallations = emptyList()
                     )
-                )
+                }
             }
     }
 
-    internal fun rename(newName: String): Maybe<Workspace> =
-        if (newName.isBlank()) {
-            Error(
-                code = WorkspaceErrorCodes.RENAME_WORKSPACE_NAME_BLANK,
-                details = null,
-            )
-        } else {
-            Result(
-                copy(name = newName.trim())
-            )
+    internal fun changeOrder(newOrder: Long): Maybe<Workspace> =
+        validateOrder(newOrder).map { validOrder ->
+            copy(order = validOrder)
+        }
+
+    internal fun changeName(newName: String): Maybe<Workspace> =
+        validateName(newName).map { validName ->
+            copy(name = validName)
         }
 
     internal fun installApp(appId: UUID, appVersion: Semver): Maybe<Workspace> =
@@ -63,28 +78,26 @@ data class Workspace(
     internal fun acceptAppMigration(app: AppInstallation): Maybe<Workspace> =
         Result(copy(appInstallations = appInstallations.plus(app)))
 
-    // TODO #25 test
+    // TODO #25 return all Errors
     internal fun reorderAppInstallations(order: List<UUID>): Maybe<Workspace> {
         val existingIds = appInstallations.map { it.id }
         val newIds = order.minus(existingIds.toSet())
-        if (newIds.isNotEmpty()) {
-            return Error(
-                code = WorkspaceErrorCodes.REORDER_APPS_NEW_IDS,
+        val missingIds = existingIds.minus(order.toSet())
+        return if (newIds.isNotEmpty()) {
+            Error(
+                code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
                 details = newIds.toString(),
             )
-        }
-
-        val missingIds = existingIds.minus(order.toSet())
-        if (missingIds.isNotEmpty()) {
-            return Error(
+        } else if (missingIds.isNotEmpty()) {
+            Error(
                 code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
                 details = missingIds.toString(),
             )
+        } else {
+            Result(copy(appInstallations = order.map { orderId ->
+                appInstallations.first { it.id == orderId }
+            }))
         }
-
-        return Result(copy(appInstallations = order.map { orderId ->
-            appInstallations.first { it.id == orderId }
-        }))
     }
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<Workspace> =
@@ -114,7 +127,7 @@ data class Workspace(
     // TODO #5 decide when deleting app is allowed
     internal fun uninstallApp(id: UUID): Maybe<Workspace> =
         getAppOrError(id).flatMap { app ->
-            app.canBeDeleted().map {
+            app.verifyDeletion().map {
                 copy(appInstallations = appInstallations.filterNot { it.id == id })
             }
         }
@@ -131,8 +144,7 @@ data class Workspace(
             }
         }
 
-    // TODO #25 private after user / workspace split
-    internal fun canBeDeleted(): Maybe<Unit> = when {
+    internal fun verifyDeletion(): Maybe<Unit> = when {
         appInstallations.isNotEmpty() -> {
             Error(
                 code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
@@ -154,8 +166,7 @@ data class AppInstallation(
 ) {
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
-    // TODO #25 private after user / workspace split
-    internal fun canBeDeleted(): Maybe<Unit> =
+    internal fun verifyDeletion(): Maybe<Unit> =
         Error(
             code = WorkspaceErrorCodes.APP_UNINSTALL_NOT_SUPPORTED,
             details = null,

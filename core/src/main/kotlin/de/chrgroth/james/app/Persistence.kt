@@ -5,6 +5,7 @@ import java.util.UUID
 
 interface AppQueryPersistencePort {
     fun get(id: UUID): Maybe<App?>
+    fun getOrError(id: UUID): Maybe<App>
 
     // TODO #16 what about paging and how to design filter parameters??
     fun find(): Maybe<Set<App>>

@@ -4,17 +4,17 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.fold
 import java.util.UUID
 
 // TODO #25 explicit return type notations (EVERYWHERE!) / force it?
 // TODO #25 saving wrong instance in persistencCallback?
 
-// TODO #25 methods for sorting/ordering workspaces
-
 // TODO #22 need to check if user is active
 
 interface WorkspaceCommandPort {
     fun createWorkspace(userId: UUID, name: String): Maybe<Workspace>
+    fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit>
     fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace>
     fun deleteWorkspace(id: UUID): Maybe<Unit>
 
@@ -30,18 +30,56 @@ internal class WorkspaceCommandAdapter(
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : WorkspaceCommandPort {
 
-    override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> =
-        Workspace.create(userId, name).flatMap {
+    // TODO #25 test ordering
+    override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> {
+        val currentMaxOrder = queryPersistence.findForUser(userId).map { persistentWorkspaces ->
+            persistentWorkspaces.maxOfOrNull { it.order } ?: -1
+        }
+        val newOrder = when (currentMaxOrder) {
+            is Result -> currentMaxOrder.value + 1
+            else -> 0
+        }
+        return Workspace.create(userId, newOrder, name).flatMap {
             commandPersistence.upsert(it)
+        }
+    }
+
+    // TODO #25 test
+    override fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit> =
+        queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
+            val existingIds = persistentWorkspaces.map { it.id }
+            val newIds = order.minus(existingIds.toSet())
+            val missingIds = existingIds.minus(order.toSet())
+            if (newIds.isNotEmpty()) {
+                Error(
+                    code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+                    details = newIds.toString(),
+                )
+            } else if (missingIds.isNotEmpty()) {
+                Error(
+                    code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+                    details = missingIds.toString(),
+                )
+            } else {
+                val reorderingResults = order.mapIndexed { index, workspaceId ->
+                    persistentWorkspaces.first { it.id == workspaceId }.changeOrder(index.toLong())
+                        .flatMap { updatedWorkspace -> commandPersistence.upsert(updatedWorkspace) }
+                }
+
+                @Suppress("UNCHECKED_CAST")
+                reorderingResults.filterIsInstance<Error<Workspace>>()
+                    .map { it as Error<Unit> }
+                    .fold() ?: Result(Unit)
+            }
         }
 
     override fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace> =
-        id.loadWorkspaceAndInvoke({ it.rename(newName) }) { workspace, _ ->
+        id.loadWorkspaceAndInvoke({ it.changeName(newName) }) { workspace, _ ->
             commandPersistence.upsert(workspace)
         }
 
     override fun deleteWorkspace(id: UUID): Maybe<Unit> =
-        id.loadWorkspaceAndInvoke({ it.canBeDeleted() }) { _, _ ->
+        id.loadWorkspaceAndInvoke({ it.verifyDeletion() }) { _, _ ->
             commandPersistence.delete(id)
         }
 
@@ -74,68 +112,23 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
-    /*override fun moveAppInstallation(userId: UUID, workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID) =
-       userId.loadUserAndInvoke({ it.moveAppInstallation(workspaceId, appInstallationId, newWorkspaceId) }) { user, _ ->
-           userCommandPersistence.upsert(user).map {
-               it.workspaces.first { workspace ->
-                   workspace.id == newWorkspaceId
-               }
-           }
-       }*/
-
-    /*
-@Suppress("ReturnCount")
-internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<User> {
-    val sourceWorkspace = workspaces.firstOrNull() { it.id == workspaceId }
-        ?: return Error(
-            code = WorkspaceErrorCodes.NOT_FOUND,
-            details = workspaceId.toString(),
-        )
-
-    val appInstallation = sourceWorkspace.appInstallations.firstOrNull { it.id == appInstallationId }
-        ?: return Error(
-            code = AppInstallationErrorCodes.NOT_FOUND,
-            details = appInstallationId.toString(),
-        )
-
-    val targetWorkspace = workspaces.firstOrNull { it.id == newWorkspaceId }
-        ?: return Error(
-            code = WorkspaceErrorCodes.NOT_FOUND,
-            details = newWorkspaceId.toString(),
-        )
-
-    return Maybe.Result(
-        copy(
-            workspaces = workspaces.map {
-                when (it.id) {
-                    sourceWorkspace.id -> it.copy(
-                        appInstallations = it.appInstallations.filterNot { sourceInstallation ->
-                            sourceInstallation.id == appInstallationId
-                        }
-                    )
-                    targetWorkspace.id -> it.copy(appInstallations = it.appInstallations.plus(appInstallation))
-                    else -> it
-                }
-            }
-        )
-    )
-}
-*/
-
     // TODO #5 trigger data movement, if needed?
-    // TODO #25 ugly code
+    // TODO #25 test on Command level
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->
             source.getAppOrError(appInstallationId).flatMap { appInstallation ->
                 queryPersistence.getOrError(targetWorkspaceId).flatMap { target ->
-                    target.acceptAppMigration(appInstallation).flatMap { updatedTarget ->
-                        commandPersistence.upsert(updatedTarget).flatMap { persistedTarget ->
-                            source.uninstallApp(appInstallation.id).flatMap { updatedSource ->
-                                commandPersistence.upsert(updatedSource).flatMap { persistedSource ->
-                                    Result(persistedSource to persistedTarget)
-                                }
-                            }
-                        }
+                    persistAppMovement(source, appInstallation, target)
+                }
+            }
+        }
+
+    private fun persistAppMovement(source: Workspace, appInstallation: AppInstallation, target: Workspace) =
+        target.acceptAppMigration(appInstallation).flatMap { updatedTarget ->
+            commandPersistence.upsert(updatedTarget).flatMap { persistedTarget ->
+                source.uninstallApp(appInstallation.id).flatMap { updatedSource ->
+                    commandPersistence.upsert(updatedSource).flatMap { persistedSource ->
+                        Result(persistedSource to persistedTarget)
                     }
                 }
             }

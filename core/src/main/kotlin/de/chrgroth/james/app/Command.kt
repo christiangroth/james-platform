@@ -1,7 +1,6 @@
 package de.chrgroth.james.app
 
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
 import java.util.UUID
 
 interface AppCommandPort {
@@ -22,7 +21,9 @@ internal class AppCommandAdapter(
 ) : AppCommandPort {
 
     override fun create(name: String, developerId: UUID, description: String?) =
-        commandPersistence.upsert(App.create(name, developerId, description))
+        App.create(name, developerId, description).flatMap {
+            commandPersistence.upsert(it)
+        }
 
     override fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft> =
         id.loadAppAndInvoke(App::createDevelopmentVersion) { _, app ->
@@ -61,7 +62,7 @@ internal class AppCommandAdapter(
         }
 
     override fun delete(id: UUID) =
-        id.loadAppAndInvoke(App::canBeDeleted) { app, _ ->
+        id.loadAppAndInvoke(App::verifyDeletion) { app, _ ->
             commandPersistence.delete(app.id)
         }
 
@@ -69,14 +70,7 @@ internal class AppCommandAdapter(
         appOperation: (App) -> Maybe<R>,
         persistenceOperation: (App, R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).flatMap { app ->
-            if (app == null) {
-                Error(
-                    code = AppErrorCodes.NOT_FOUND,
-                    details = null,
-                )
-            } else {
-                appOperation(app).flatMap { persistenceOperation(app, it) }
-            }
+        queryPersistence.getOrError(this).flatMap { app ->
+            appOperation(app).flatMap { persistenceOperation(app, it) }
         }
 }

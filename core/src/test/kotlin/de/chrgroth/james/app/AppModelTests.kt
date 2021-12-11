@@ -61,7 +61,50 @@ class AppStatusTests {
         )
 }
 
+class AppNameValidationTests {
+
+    @Test
+    fun `valid name examples`() {
+        App.validateName("Lists").expectSuccess()
+        App.validateName("Sport Results").expectSuccess()
+    }
+
+    @Test
+    fun `empty name validation`() {
+        App.validateName("").expectError(
+            code = AppErrorCodes.APP_NAME_BLANK,
+            details = null,
+        )
+        App.validateName(" ").expectError(
+            code = AppErrorCodes.APP_NAME_BLANK,
+            details = null,
+        )
+    }
+}
+
 class AppDevelopmentTests {
+
+    @Test
+    fun `check app values trimmed`() {
+        val app = App.create(
+            name = " Fancy name ",
+            developerId = UUID.randomUUID(),
+            description = "Some description. ",
+        ).expectSuccess()
+        assertThat(app.name).isEqualTo("Fancy name")
+        assertThat(app.description).isEqualTo("Some description.")
+    }
+
+    @Test
+    fun `check app description trimmed to null if blank`() {
+        val app = App.create(
+            name = " Fancy name ",
+            developerId = UUID.randomUUID(),
+            description = " ",
+        ).expectSuccess()
+        assertThat(app.name).isEqualTo("Fancy name")
+        assertThat(app.description).isNull()
+    }
 
     @Test
     fun `does not resolves latest version if no versions are present`() {
@@ -318,7 +361,7 @@ class AppDevelopmentTests {
     @Test
     fun `delete on not discontinued app`() {
         val app = createApp()
-        app.canBeDeleted().expectError(
+        app.verifyDeletion().expectError(
             code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
             details = null,
         )
@@ -327,7 +370,7 @@ class AppDevelopmentTests {
     @Test
     fun delete() {
         val app = createApp().copy(discontinued = true)
-        app.canBeDeleted().expectSuccess()
+        app.verifyDeletion().expectSuccess()
     }
 
     private fun createApp() =

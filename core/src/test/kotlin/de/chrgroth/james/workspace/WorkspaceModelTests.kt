@@ -13,27 +13,49 @@ class WorkspaceModelTests {
 
     @Test
     fun `new valid workspace`() {
-        Workspace.create(UUID.randomUUID(), "Name").expectSuccess()
+        Workspace.create(UUID.randomUUID(), 0, "Name").expectSuccess()
+    }
+
+    @Test
+    fun `new workspace with negative order`() {
+        Workspace.create(UUID.randomUUID(), -13, " ").expectError(
+            code = WorkspaceErrorCodes.ORDER_NEGATIVE,
+            details = "-13",
+        )
     }
 
     @Test
     fun `new workspace with blank name`() {
-        Workspace.create(UUID.randomUUID(), " ").expectError(
-            code = WorkspaceErrorCodes.CREATE_WORKSPACE_NAME_BLANK,
+        Workspace.create(UUID.randomUUID(), 0, " ").expectError(
+            code = WorkspaceErrorCodes.NAME_BLANK,
             details = null,
         )
     }
 
     @Test
+    fun `reorder workspace`() {
+        val workspace = createWorkspace().changeOrder(13).expectSuccess()
+        assertThat(workspace.order).isEqualTo(13)
+    }
+
+    @Test
+    fun `reorder workspace with negative value`() {
+        createWorkspace().changeOrder(-13).expectError(
+            code = WorkspaceErrorCodes.ORDER_NEGATIVE,
+            details = "-13",
+        )
+    }
+
+    @Test
     fun `rename workspace`() {
-        val workspace = createWorkspace().rename("New Workspace").expectSuccess()
+        val workspace = createWorkspace().changeName("New Workspace").expectSuccess()
         assertThat(workspace.name).isEqualTo("New Workspace")
     }
 
     @Test
     fun `rename workspace to blank name`() {
-        createWorkspace().rename(" ").expectError(
-            code = WorkspaceErrorCodes.RENAME_WORKSPACE_NAME_BLANK,
+        createWorkspace().changeName(" ").expectError(
+            code = WorkspaceErrorCodes.NAME_BLANK,
             details = null,
         )
     }
@@ -83,6 +105,62 @@ class WorkspaceModelTests {
     }
 
     @Test
+    fun `reorder apps`() {
+        val appIdOne = UUID.randomUUID()
+        val appIdTwo = UUID.randomUUID()
+        val workspace = createWorkspace()
+            .installApp(appIdOne, Semver("1.0.0")).expectSuccess()
+            .installApp(appIdTwo, Semver("1.0.0")).expectSuccess()
+        assertThat(workspace.appInstallations.map { it.appId }).isEqualTo(listOf(appIdOne, appIdTwo))
+
+        val appInstallationIdOne = workspace.appInstallations[0].id
+        val appInstallationIdTwo = workspace.appInstallations[1].id
+        val updatedWorkspace = workspace.reorderAppInstallations(
+            listOf(appInstallationIdTwo, appInstallationIdOne)
+        ).expectSuccess()
+        assertThat(updatedWorkspace.appInstallations.map { it.appId }).isEqualTo(listOf(appIdTwo, appIdOne))
+    }
+
+    @Test
+    fun `reorder apps with unknown id`() {
+        val appIdOne = UUID.randomUUID()
+        val appIdTwo = UUID.randomUUID()
+        val workspace = createWorkspace()
+            .installApp(appIdOne, Semver("1.0.0")).expectSuccess()
+            .installApp(appIdTwo, Semver("1.0.0")).expectSuccess()
+        assertThat(workspace.appInstallations.map { it.appId }).isEqualTo(listOf(appIdOne, appIdTwo))
+
+        val appInstallationIdOne = workspace.appInstallations[0].id
+        val appInstallationIdTwo = workspace.appInstallations[1].id
+        val appInstallationIdUnknown = UUID.randomUUID()
+        workspace.reorderAppInstallations(
+            listOf(appInstallationIdTwo, appInstallationIdOne, appInstallationIdUnknown)
+        ).expectError(
+            code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
+            details = setOf(appInstallationIdUnknown).toString()
+        )
+    }
+
+    @Test
+    fun `reorder apps with missing id`() {
+        val appIdOne = UUID.randomUUID()
+        val appIdTwo = UUID.randomUUID()
+        val workspace = createWorkspace()
+            .installApp(appIdOne, Semver("1.0.0")).expectSuccess()
+            .installApp(appIdTwo, Semver("1.0.0")).expectSuccess()
+        assertThat(workspace.appInstallations.map { it.appId }).isEqualTo(listOf(appIdOne, appIdTwo))
+
+        val appInstallationIdOne = workspace.appInstallations[0].id
+        val appInstallationIdTwo = workspace.appInstallations[1].id
+        workspace.reorderAppInstallations(
+            listOf(appInstallationIdOne)
+        ).expectError(
+            code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
+            details = setOf(appInstallationIdTwo).toString()
+        )
+    }
+
+    @Test
     fun `name app installation`() {
         val appId = UUID.randomUUID()
         val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
@@ -128,14 +206,14 @@ class WorkspaceModelTests {
 
     @Test
     fun `delete empty workspace`() {
-        createWorkspace().canBeDeleted().expectSuccess()
+        createWorkspace().verifyDeletion().expectSuccess()
     }
 
     @Test
     fun `delete not empty workspace`() {
         createWorkspace()
             .installApp(UUID.randomUUID(), Semver("1.0.0")).expectSuccess()
-            .canBeDeleted().expectError(
+            .verifyDeletion().expectError(
                 code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
                 details = "1",
             )
@@ -143,5 +221,5 @@ class WorkspaceModelTests {
 }
 
 private fun createWorkspace() = UUID.randomUUID().let {
-    Workspace.create(it, it.toString()).expectSuccess()
+    Workspace.create(it, 0, it.toString()).expectSuccess()
 }

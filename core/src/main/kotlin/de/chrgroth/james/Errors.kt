@@ -32,13 +32,19 @@ sealed class Maybe<Type> {
     }
 }
 
+fun <Type> List<Error<Type>?>.fold() =
+    if (this.filterNotNull().isEmpty()) {
+        null
+    } else {
+        Errors(errors = this.filterNotNull())
+    }
+
 fun <Type> List<Errors<Type>?>.combine() =
     if (this.filterNotNull().isEmpty()) {
         null
     } else {
         Errors(errors = this.filterNotNull().flatMap { it.errors })
     }
-
 
 fun <Type> Error<Type>?.combine(other: Error<Type>?) =
     when {

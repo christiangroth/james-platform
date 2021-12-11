@@ -21,6 +21,10 @@ class MongoDBAppAdapter : AppQueryPersistencePort, AppCommandPersistencePort {
         TODO("#5 implement MongoDB adapter")
     }
 
+    override fun getOrError(id: UUID): Maybe<App> {
+        TODO("#5 implement MongoDB adapter")
+    }
+
     override fun find(): Maybe<Set<App>> {
         TODO("#5 implement MongoDB adapter")
     }

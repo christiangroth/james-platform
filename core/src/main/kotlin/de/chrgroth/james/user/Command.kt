@@ -44,14 +44,7 @@ internal class UserCommandAdapter(
         userOperation: (User) -> Maybe<R>,
         persistenceOperation: (User, R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).flatMap { user ->
-            if (user == null) {
-                Error(
-                    code = UserErrorCodes.NOT_FOUND,
-                    details = null,
-                )
-            } else {
-                userOperation(user).flatMap { persistenceOperation(user, it) }
-            }
+        queryPersistence.getOrError(this).flatMap { user ->
+            userOperation(user).flatMap { persistenceOperation(user, it) }
         }
 }

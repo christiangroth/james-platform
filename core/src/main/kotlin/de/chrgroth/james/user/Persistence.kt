@@ -5,6 +5,7 @@ import java.util.UUID
 
 interface UserQueryPersistencePort {
     fun get(id: UUID): Maybe<User?>
+    fun getOrError(id: UUID): Maybe<User>
     fun getByEmail(email: String): Maybe<User?>
 
     // TODO #16 what about paging and how to design filter parameters??
