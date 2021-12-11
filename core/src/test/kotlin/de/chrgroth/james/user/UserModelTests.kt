@@ -22,11 +22,11 @@ class UserEmailValidationTests {
     @Test
     fun `empty email validation`() {
         User.validateEmail("").expectError(
-            code = UserErrorCodes.EMAIL_INVALID,
+            code = UserErrorCodes.EMAIL_BLANK,
             details = null,
         )
         User.validateEmail(" ").expectError(
-            code = UserErrorCodes.EMAIL_INVALID,
+            code = UserErrorCodes.EMAIL_BLANK,
             details = null,
         )
     }
@@ -35,11 +35,11 @@ class UserEmailValidationTests {
     fun `invalid email examples`() {
         User.validateEmail("@gmx.de").expectError(
             code = UserErrorCodes.EMAIL_INVALID,
-            details = null,
+            details = "@gmx.de",
         )
         User.validateEmail("someone@gmx").expectError(
             code = UserErrorCodes.EMAIL_INVALID,
-            details = null,
+            details = "someone@gmx",
         )
     }
 }
@@ -72,7 +72,7 @@ class UserModelTests {
     fun `create user with multiple errors`() {
         User.create("", "").expectErrors(
             Error(
-                code = UserErrorCodes.EMAIL_INVALID,
+                code = UserErrorCodes.EMAIL_BLANK,
                 details = null,
             ),
             Error(
@@ -106,7 +106,7 @@ class UserModelTests {
 private fun createUser() = UUID.randomUUID().let { id ->
     User(
         id = id,
-        email = "${id}@gmail.com",
-        name = id.toString(),
+        emailField = "${id}@gmail.com",
+        nameField = id.toString(),
     )
 }

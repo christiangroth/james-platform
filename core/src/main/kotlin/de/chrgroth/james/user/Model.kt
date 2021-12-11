@@ -1,5 +1,6 @@
 package de.chrgroth.james.user
 
+import de.chrgroth.james.InvalidInstanceException
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
@@ -9,36 +10,54 @@ import java.util.UUID
 
 private val simpleEmailPattern = Regex(".+@.+\\..+")
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
 data class User(
     val id: UUID,
-    val email: String,
-    val name: String,
+    private var emailField: String,
+    private var nameField: String,
 ) {
+
+    init {
+        emailField = emailField.trim()
+        nameField = nameField.trim()
+
+        val validationErrors = listOf(validateEmail(emailField), validateName(nameField)).foldErrors<User>()
+        if (validationErrors != null) {
+            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
+        }
+    }
+
+    val email get() = emailField
+    val name get() = nameField
 
     companion object {
         internal fun validateEmail(email: String): Maybe<String> =
             email.trim().let {
-                if (it.matches(simpleEmailPattern)) {
+                if (it.isBlank()) {
+                    Error(
+                        code = UserErrorCodes.EMAIL_BLANK,
+                        details = null,
+                    )
+                } else if (it.matches(simpleEmailPattern)) {
                     Result(it)
                 } else {
                     Error(
                         code = UserErrorCodes.EMAIL_INVALID,
-                        details = null,
+                        details = it,
                     )
                 }
             }
 
-        internal fun validateName(name: String): Maybe<String> {
-            if (name.isBlank()) {
-                return Error(
-                    code = UserErrorCodes.NAME_BLANK,
-                    details = null,
-                )
+        internal fun validateName(name: String): Maybe<String> =
+            name.trim().let {
+                if (it.isBlank()) {
+                    Error(
+                        code = UserErrorCodes.NAME_BLANK,
+                        details = null,
+                    )
+                } else {
+                    Result(it)
+                }
             }
-
-            return Result(name.trim())
-        }
 
         internal fun create(email: String, name: String): Maybe<User> {
             val emailValidation = validateEmail(email)
@@ -54,8 +73,8 @@ data class User(
                 nameValidation.map { validName ->
                     User(
                         id = UUID.randomUUID(),
-                        email = validEmail,
-                        name = validName,
+                        emailField = validEmail,
+                        nameField = validName,
                     )
                 }
             }
@@ -65,12 +84,12 @@ data class User(
     // TODO #22 send user to revalidation status?
     internal fun changeEmail(email: String): Maybe<User> =
         validateEmail(email).map { validEmail ->
-            copy(email = validEmail)
+            copy(emailField = validEmail)
         }
 
     internal fun changeName(name: String): Maybe<User> =
         validateName(name).map { validName ->
-            copy(name = validName)
+            copy(nameField = validName)
         }
 
     // TODO #22 define when User deletion is supported

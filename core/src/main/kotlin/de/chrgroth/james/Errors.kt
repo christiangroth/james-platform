@@ -3,6 +3,9 @@ package de.chrgroth.james
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 
+class InvalidInstanceException(type: String, val errors: List<Error<*>>) :
+    RuntimeException("Attempted to create invalid $type instance: $errors")
+
 interface ErrorCode {
     val prefix: String
     val id: Long

@@ -3,9 +3,8 @@ package de.chrgroth.james.user
 import de.chrgroth.james.ErrorCode
 
 enum class UserErrorCodes : ErrorCode {
-    NOT_FOUND,
-
     REGISTRATION_EMAIL_EXISTS,
+    EMAIL_BLANK,
     EMAIL_INVALID,
     NAME_BLANK,
 
