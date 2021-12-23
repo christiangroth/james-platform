@@ -1,46 +1,35 @@
 package de.chrgroth.james.workspace
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.InvalidInstanceException
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.foldErrors
 import de.chrgroth.james.shrink
+import de.chrgroth.james.trimToNull
+import de.chrgroth.james.validateNotBlank
+import de.chrgroth.james.validateNotNegative
 import java.util.UUID
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class Workspace(
+data class Workspace private constructor(
     val id: UUID,
     val userId: UUID,
-    val order: Long,
-    val name: String,
+    private var orderField: Long,
+    private var nameField: String,
     val appInstallations: List<AppInstallation>,
 ) {
 
     companion object {
-        internal fun validateOrder(order: Long): Maybe<Long> =
-            if (order >= 0) {
-                Result(order)
-            } else {
-                Error(
-                    WorkspaceErrorCodes.ORDER_NEGATIVE,
-                    details = order.toString(),
-                )
-            }
-
-        internal fun validateName(name: String): Maybe<String> =
-            if (name.isBlank()) {
-                Error(
-                    code = WorkspaceErrorCodes.NAME_BLANK,
-                    details = null,
-                )
-            } else {
-                Result(name.trim())
-            }
-
-        internal fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> {
-            val orderValidation = validateOrder(order)
-            val nameValidation = validateName(name)
+        fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> {
+            val orderValidation = validateNotNegative(
+                value = order,
+                codeNegative = WorkspaceErrorCodes.ORDER_NEGATIVE,
+            )
+            val nameValidation = validateNotBlank(
+                value = name,
+                codeBlank = WorkspaceErrorCodes.NAME_BLANK,
+            )
             val validationErrors = listOf(
                 orderValidation, nameValidation
             ).foldErrors<Workspace>().shrink()
@@ -53,8 +42,8 @@ data class Workspace(
                     Workspace(
                         id = UUID.randomUUID(),
                         userId = userId,
-                        order = validOrder,
-                        name = validName,
+                        orderField = validOrder,
+                        nameField = validName,
                         appInstallations = emptyList()
                     )
                 }
@@ -62,29 +51,51 @@ data class Workspace(
         }
     }
 
+    // TODO #25 test exception usecase
+    init {
+        nameField = nameField.trim()
+
+        val orderValidation = validateNotNegative(
+            value = order,
+            codeNegative = WorkspaceErrorCodes.ORDER_NEGATIVE,
+        )
+        val nameValidation = validateNotBlank(
+            value = name,
+            codeBlank = WorkspaceErrorCodes.NAME_BLANK,
+        )
+
+        listOf(orderValidation, nameValidation).foldErrors<Workspace>()?.also {
+            throw InvalidInstanceException(javaClass.simpleName, it.errors)
+        }
+    }
+
+    val order get() = orderField
+    val name get() = nameField
+
     internal fun changeOrder(newOrder: Long): Maybe<Workspace> =
-        validateOrder(newOrder).map { validOrder ->
-            copy(order = validOrder)
+        validateNotNegative(
+            value = newOrder,
+            codeNegative = WorkspaceErrorCodes.ORDER_NEGATIVE,
+        ).map { validOrder ->
+            copy(orderField = validOrder)
         }
 
     internal fun changeName(newName: String): Maybe<Workspace> =
-        validateName(newName).map { validName ->
-            copy(name = validName)
+        validateNotBlank(
+            value = newName,
+            codeBlank = WorkspaceErrorCodes.NAME_BLANK,
+        ).map { validName ->
+            copy(nameField = validName)
         }
 
     internal fun installApp(appId: UUID, appVersion: Semver): Maybe<Workspace> =
-        Result(
-            copy(
-                appInstallations = appInstallations.plus(
-                    AppInstallation(
-                        id = UUID.randomUUID(),
-                        appId = appId,
-                        version = appVersion,
-                        nameSupplement = null,
-                    )
-                )
-            )
-        )
+        AppInstallation.create(
+            appId = appId,
+            version = appVersion,
+            nameSupplement = null,
+        ).map {
+            copy(appInstallations = appInstallations.plus(it))
+        }
 
     internal fun acceptAppMigration(app: AppInstallation): Maybe<Workspace> =
         Result(copy(appInstallations = appInstallations.plus(app)))
@@ -122,26 +133,27 @@ data class Workspace(
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<Workspace> =
         modifyAppInstallation(id) {
-            it.copy(nameSupplement = nameSupplement?.trim())
+            it.changeNameSupplement(nameSupplement)
         }
 
-    // TODO #5 trigger data update, handle breaking changes
-    internal fun updateAppInstallation(id: UUID, newVersion: Semver): Maybe<Workspace> =
+    internal fun updateAppInstallation(id: UUID, version: Semver): Maybe<Workspace> =
         modifyAppInstallation(id) {
-            it.copy(version = newVersion)
+            it.changeVersion(version)
         }
 
-    private fun modifyAppInstallation(id: UUID, modifier: (AppInstallation) -> AppInstallation): Maybe<Workspace> =
-        getAppOrError(id).map {
-            copy(
-                appInstallations = appInstallations.map {
-                    if (it.id == id) {
-                        modifier(it)
-                    } else {
-                        it
+    private fun modifyAppInstallation(id: UUID, modifier: (AppInstallation) -> Maybe<AppInstallation>): Maybe<Workspace> =
+        getAppOrError(id).flatMap {
+            modifier(it).map { updatedAppInstallation ->
+                copy(
+                    appInstallations = appInstallations.map {
+                        if (it.id == id) {
+                            updatedAppInstallation
+                        } else {
+                            it
+                        }
                     }
-                }
-            )
+                )
+            }
         }
 
     // TODO #5 decide when deleting app is allowed
@@ -177,13 +189,38 @@ data class Workspace(
 
 // TODO #8 add data sharing options
 // TODO #8 think about access for devices / api keys
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class AppInstallation(
+data class AppInstallation private constructor(
     val id: UUID,
     val appId: UUID,
     val version: Semver,
-    val nameSupplement: String?,
+    private var nameSupplementField: String?,
 ) {
+
+    companion object {
+        fun create(appId: UUID, version: Semver, nameSupplement: String?): Maybe<AppInstallation> {
+            return Result(
+                AppInstallation(
+                    id = UUID.randomUUID(),
+                    appId = appId,
+                    version = version,
+                    nameSupplementField = nameSupplement
+                )
+            )
+        }
+    }
+
+    init {
+        nameSupplementField = nameSupplementField.trimToNull()
+    }
+
+    val nameSupplement get() = nameSupplementField
+
+    internal fun changeNameSupplement(nameSupplement: String?): Maybe<AppInstallation> =
+        Result(copy(nameSupplementField = nameSupplement))
+
+    // TODO #5 trigger data update, handle breaking changes
+    internal fun changeVersion(version: Semver): Maybe<AppInstallation> =
+        Result(copy(version = version))
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): Maybe<Unit> =

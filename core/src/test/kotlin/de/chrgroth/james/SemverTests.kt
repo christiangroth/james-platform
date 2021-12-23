@@ -13,25 +13,25 @@ class SemverTests {
 
     @Test
     fun `next feature version is minor level change`() {
-        current.computeNext(false, AppVersionReleaseNotes(FEATURE, ""))
+        current.computeNext(false, AppVersionReleaseNotes.create(FEATURE, ""))
             .assertParts(current.major, "3", "0")
     }
 
     @Test
     fun `next bugfix version is patch level change`() {
-        current.computeNext(false, AppVersionReleaseNotes(BUGFIX, ""))
+        current.computeNext(false, AppVersionReleaseNotes.create(BUGFIX, ""))
             .assertParts(current.major, current.minor, "4")
     }
 
     @Test
     fun `breaking feature version is minor level change`() {
-        current.computeNext(true, AppVersionReleaseNotes(FEATURE, ""))
+        current.computeNext(true, AppVersionReleaseNotes.create(FEATURE, ""))
             .assertParts("2", "0", "0")
     }
 
     @Test
     fun `breaking bugfix version is patch level change`() {
-        current.computeNext(true, AppVersionReleaseNotes(BUGFIX, ""))
+        current.computeNext(true, AppVersionReleaseNotes.create(BUGFIX, ""))
             .assertParts("2", "0", "0")
     }
 

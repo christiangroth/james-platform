@@ -1,6 +1,7 @@
 package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.InvalidInstanceException
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
@@ -8,52 +9,61 @@ import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
 import de.chrgroth.james.computeNext
+import de.chrgroth.james.foldErrors
 import de.chrgroth.james.trimToNull
+import de.chrgroth.james.validateNotBlank
+import de.chrgroth.james.validateNotNegative
 import java.util.UUID
+
+// TODO #25 make return types explicit (check all files)
+
+// TODO #25 make copy calls explicit (this file only)
 
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class App(
+data class App private constructor(
     val id: UUID,
-    val name: String,
+    private var nameField: String,
     val developer: UUID,
-    val description: String?,
+    private var descriptionField: String?,
     val discontinued: Boolean,
     val developmentVersion: AppVersionDraft?,
     val versions: List<AppVersion>,
 ) {
 
+    // TODO #25 test and enhance testcases above
     companion object {
-        internal fun validateName(name: String): Maybe<String> {
-            if (name.isBlank()) {
-                return Error(
-                    code = AppErrorCodes.APP_NAME_BLANK,
-                    details = null,
-                )
-            }
-
-            return Result(name.trim())
-        }
-
-        internal fun create(name: String, developerId: UUID, description: String?): Maybe<App> =
-            validateName(name).map { validName ->
+        fun create(name: String, developerId: UUID, description: String?): Maybe<App> =
+            validateNotBlank(name, AppErrorCodes.APP_NAME_BLANK).map { validName ->
                 App(
                     id = UUID.randomUUID(),
-                    name = validName,
+                    nameField = validName,
                     developer = developerId,
-                    description = description.trimToNull(),
+                    descriptionField = description.trimToNull(),
                     discontinued = false,
-                    developmentVersion = AppVersionDraft(
-                        datatypes = emptySet(),
-                        reports = emptySet(),
-                    ),
+                    developmentVersion = AppVersionDraft.create(),
                     versions = emptyList(),
                 )
             }
     }
+
+    // TODO #25 test exception usecases
+    init {
+        nameField = nameField.trim()
+        descriptionField = descriptionField.trimToNull()
+
+        val validationErrors = listOf(
+            validateNotBlank(nameField, AppErrorCodes.APP_NAME_BLANK)
+        ).foldErrors<AppReport>()
+        if (validationErrors != null) {
+            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
+        }
+    }
+
+    val name get() = nameField
+    val description get() = descriptionField
 
     val status by lazy {
         when {
@@ -77,13 +87,10 @@ data class App(
             details = null,
         )
         else -> latestVersion?.let {
-            Result(copy(developmentVersion = AppVersionDraft(datatypes = it.datatypes.map { datatype ->
-                AppDatatypeDraft(name = datatype.name, schemaContent = datatype.schemaContent, description = datatype.description)
-            }.toSet(), reports = it.reports.toSet())))
-        } ?: Result(copy(developmentVersion = AppVersionDraft(
-            datatypes = emptySet(),
-            reports = emptySet(),
-        )))
+            Result(copy(developmentVersion = AppVersionDraft.create(datatypes = it.datatypes.map { datatype ->
+                AppDatatypeDraft.create(datatype)
+            }.toSet(), reports = it.reports)))
+        } ?: Result(copy(developmentVersion = AppVersionDraft.create()))
     }
 
     internal fun upsertDevelopmentVersionDatatype(datatype: AppDatatypeDraft) = when {
@@ -107,7 +114,7 @@ data class App(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
-        else -> developmentVersion.removeDatatype(datatypeName.trim()).map { copy(developmentVersion = it) }
+        else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
     }
 
     internal fun upsertDevelopmentVersionReport(report: AppReport) = when {
@@ -131,7 +138,7 @@ data class App(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
-        else -> developmentVersion.removeReport(reportName.trim()).map { copy(developmentVersion = it) }
+        else -> developmentVersion.removeReport(reportName).map { copy(developmentVersion = it) }
     }
 
     internal fun releaseDevelopmentVersion(releaseNotes: AppVersionReleaseNotes) = when {
@@ -148,12 +155,7 @@ data class App(
             details = null,
         )
         else -> {
-            val newAppVersion = AppVersion(
-                version = releaseNotes.computeVersion(latestVersion, developmentVersion),
-                releaseNotes = releaseNotes,
-                datatypes = developmentVersion.createDatatypes(latestVersion),
-                reports = developmentVersion.reports.toSet(),
-            )
+            val newAppVersion = AppVersion.create(releaseNotes, developmentVersion, latestVersion)
             Result(copy(developmentVersion = null, versions = listOf(newAppVersion) + versions))
         }
     }
@@ -175,26 +177,49 @@ data class App(
     }
 }
 
-data class AppVersion(
+data class AppVersion private constructor(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
     val datatypes: Set<AppDatatype>,
     val reports: Set<AppReport>,
-)
+) {
 
-data class AppVersionDraft(
+    companion object {
+        fun create(releaseNotes: AppVersionReleaseNotes, developmentVersion: AppVersionDraft, latestVersion: AppVersion?) =
+            AppVersion(
+                version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                releaseNotes = releaseNotes,
+                datatypes = developmentVersion.createDatatypes(latestVersion),
+                reports = developmentVersion.reports.toSet(),
+            )
+    }
+}
+
+data class AppVersionDraft private constructor(
     val datatypes: Set<AppDatatypeDraft>,
     val reports: Set<AppReport>,
 ) {
 
+    companion object {
+        fun create() = create(datatypes = emptySet(), reports = emptySet())
+        fun create(appVersion: AppVersion) = create(
+            datatypes = appVersion.datatypes.map { AppDatatypeDraft.create(it) }.toSet(),
+            reports = appVersion.reports
+        )
+
+        fun create(datatypes: Set<AppDatatypeDraft>, reports: Set<AppReport>) =
+            AppVersionDraft(datatypes = datatypes, reports = reports)
+    }
+
     internal fun createDatatypes(latest: AppVersion?) = datatypes.map { draft ->
         val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
-
-        AppDatatype(name = draft.name, version = when {
+        val newVersion = when {
             existingDatatype == null -> 0
             existingDatatype.schemaContent == draft.schemaContent -> existingDatatype.version
             else -> existingDatatype.version + 1
-        }, schemaContent = draft.schemaContent, description = draft.description)
+        }
+
+        AppDatatype.create(draft, newVersion)
     }.toSet()
 
     internal fun upsertDatatype(datatype: AppDatatypeDraft) = when {
@@ -236,7 +261,7 @@ data class AppVersionDraft(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_REPORT_NOT_FOUND,
             details = null,
         )
-        else -> Result(copy(reports = reports.filterNot { it.name == reportName.trim() }.toSet()))
+        else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
     }
 
     private fun Set<AppReport>.upsert(report: AppReport) = filterNot { it.name == report.name }.plus(report).toSet()
@@ -246,11 +271,35 @@ enum class AppVersionChangeType {
     BUGFIX, FEATURE
 }
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class AppVersionReleaseNotes(
+// TODO #25 what about fixing typos in note?
+data class AppVersionReleaseNotes private constructor(
     val changeType: AppVersionChangeType,
-    val note: String,
+    private var noteField: String,
 ) {
+
+    // TODO #25 add validation
+    // TODO #25 test and enhance testcases above
+    companion object {
+        fun create(changeType: AppVersionChangeType, note: String) = AppVersionReleaseNotes(
+            changeType = changeType,
+            noteField = note,
+        )
+    }
+
+    // TODO #25 test exception usecases
+    init {
+        noteField = noteField.trim()
+
+        val validationErrors = listOf(
+            validateNotBlank(noteField, AppErrorCodes.APP_VERSION_RELEASE_NOTE_BLANK)
+        ).foldErrors<AppReport>()
+        if (validationErrors != null) {
+            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
+        }
+    }
+
+    val note get() = noteField
+
     internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
 
@@ -289,12 +338,56 @@ data class AppVersionReleaseNotes(
     }
 }
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class AppDatatypeDraft(
-    val name: String,
-    val schemaContent: String,
-    val description: String?,
+// TODO #25 what about renaming?
+data class AppDatatypeDraft private constructor(
+    private var nameField: String,
+    private var schemaContentField: String,
+    private var descriptionField: String?,
 ) {
+
+    // TODO #25 add validation
+    // TODO #25 test and enhance testcases above
+    companion object {
+        fun create(name: String, schemaContent: String, description: String?): AppDatatypeDraft =
+            AppDatatypeDraft(
+                nameField = name,
+                schemaContentField = schemaContent,
+                descriptionField = description,
+            )
+
+        fun create(datatype: AppDatatype): AppDatatypeDraft =
+            AppDatatypeDraft(
+                nameField = datatype.name,
+                schemaContentField = datatype.schemaContent,
+                descriptionField = datatype.description,
+            )
+    }
+
+    // TODO #25 test exception usecases
+    init {
+        nameField = nameField.trim()
+        schemaContentField = schemaContentField.trim()
+        descriptionField = descriptionField.trimToNull()
+
+        val validationErrors = listOf(
+            validateNotBlank(
+                value = nameField,
+                codeBlank = AppErrorCodes.APP_DATATYPE_NAME_BLANK,
+            ),
+            validateNotBlank(
+                value = schemaContentField,
+                codeBlank = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTENT_BLANK,
+            )
+        ).foldErrors<AppReport>()
+        if (validationErrors != null) {
+            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
+        }
+    }
+
+    val name get() = nameField
+    val schemaContent get() = schemaContentField
+    val description get() = descriptionField
+
     fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = null,
@@ -304,13 +397,47 @@ data class AppDatatypeDraft(
     )
 }
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class AppDatatype(
-    val name: String,
-    val version: Long,
-    val schemaContent: String,
-    val description: String?,
+// TODO #25 what about renaming?
+data class AppDatatype private constructor(
+    private var nameField: String,
+    private var versionField: Long,
+    private var schemaContentField: String,
+    private var descriptionField: String?,
 ) {
+
+    // TODO #25 add validation
+    // TODO #25 test and enhance testcases above
+    companion object {
+        fun create(draft: AppDatatypeDraft, version: Long) =
+            AppDatatype(
+                nameField = draft.name,
+                versionField = version,
+                schemaContentField = draft.schemaContent,
+                descriptionField = draft.description
+            )
+    }
+
+    // TODO #25 test exception usecases
+    init {
+        nameField = nameField.trim()
+        schemaContentField = schemaContentField.trim()
+        descriptionField = descriptionField.trimToNull()
+
+        val validationErrors = listOf(
+            validateNotBlank(nameField, AppErrorCodes.APP_DATATYPE_NAME_BLANK),
+            validateNotNegative(versionField, AppErrorCodes.APP_DATATYPE_VERSION_NEGATIVE),
+            validateNotBlank(schemaContentField, AppErrorCodes.APP_DATATYPE_SCHEMA_CONTENT_BLANK)
+        ).foldErrors<AppReport>()
+        if (validationErrors != null) {
+            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
+        }
+    }
+
+    val name get() = nameField
+    val version get() = versionField
+    val schemaContent get() = schemaContentField
+    val description get() = descriptionField
+
     fun generateJsonSchemaContent(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = version.toString(),
@@ -320,9 +447,38 @@ data class AppDatatype(
     )
 }
 
-// TODO #25 ensure trimmed values / enforce usage of create function (https://youtrack.jetbrains.com/issue/KT-11914)
-data class AppReport(
-    val name: String,
-    val description: String?,
-    val source: String?,
-)
+// TODO #25 what about renaming?
+data class AppReport private constructor(
+    private var nameField: String,
+    private var descriptionField: String?,
+    private var sourceField: String?,
+) {
+
+    // TODO #25 add validation
+    // TODO #25 test and enhance testcases above
+    companion object {
+        fun create(name: String, description: String?, source: String?) = AppReport(
+            nameField = name,
+            descriptionField = description,
+            sourceField = source,
+        )
+    }
+
+    // TODO #25 test exception usecases
+    init {
+        nameField = nameField.trim()
+        descriptionField = descriptionField.trimToNull()
+        sourceField = sourceField.trimToNull()
+
+        val validationErrors = listOf(
+            validateNotBlank(nameField, AppErrorCodes.APP_REPORT_NAME_BLANK),
+        ).foldErrors<AppReport>()
+        if (validationErrors != null) {
+            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
+        }
+    }
+
+    val name get() = nameField
+    val description get() = descriptionField
+    val source get() = sourceField
+}

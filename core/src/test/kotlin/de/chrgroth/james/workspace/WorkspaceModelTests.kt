@@ -112,7 +112,7 @@ class WorkspaceModelTests {
             id = UUID.randomUUID(),
             appId = appId,
             version = Semver("1.0.0"),
-            nameSupplement = null,
+            nameSupplementField = null,
         )).expectSuccess()
         assertThat(workspace.appInstallations).hasSize(1)
         assertThat(workspace.appInstallations.first().appId).isEqualTo(appId)

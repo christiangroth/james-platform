@@ -3,65 +3,32 @@ package de.chrgroth.james.user
 import de.chrgroth.james.InvalidInstanceException
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.foldErrors
 import de.chrgroth.james.shrink
+import de.chrgroth.james.validateMatches
+import de.chrgroth.james.validateNotBlank
 import java.util.UUID
 
 private val simpleEmailPattern = Regex(".+@.+\\..+")
 
-data class User(
+data class User private constructor(
     val id: UUID,
     private var emailField: String,
     private var nameField: String,
 ) {
 
-    init {
-        emailField = emailField.trim()
-        nameField = nameField.trim()
-
-        val validationErrors = listOf(validateEmail(emailField), validateName(nameField)).foldErrors<User>()
-        if (validationErrors != null) {
-            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
-        }
-    }
-
-    val email get() = emailField
-    val name get() = nameField
-
     companion object {
-        internal fun validateEmail(email: String): Maybe<String> =
-            email.trim().let {
-                if (it.isBlank()) {
-                    Error(
-                        code = UserErrorCodes.EMAIL_BLANK,
-                        details = null,
-                    )
-                } else if (it.matches(simpleEmailPattern)) {
-                    Result(it)
-                } else {
-                    Error(
-                        code = UserErrorCodes.EMAIL_INVALID,
-                        details = it,
-                    )
-                }
-            }
-
-        internal fun validateName(name: String): Maybe<String> =
-            name.trim().let {
-                if (it.isBlank()) {
-                    Error(
-                        code = UserErrorCodes.NAME_BLANK,
-                        details = null,
-                    )
-                } else {
-                    Result(it)
-                }
-            }
-
-        internal fun create(email: String, name: String): Maybe<User> {
-            val emailValidation = validateEmail(email)
-            val nameValidation = validateName(name)
+        fun create(email: String, name: String): Maybe<User> {
+            val emailValidation = validateMatches(
+                value = email,
+                pattern = simpleEmailPattern,
+                codeBlank = UserErrorCodes.EMAIL_BLANK,
+                codeNoMatch = UserErrorCodes.EMAIL_INVALID,
+            )
+            val nameValidation = validateNotBlank(
+                value = name,
+                codeBlank = UserErrorCodes.NAME_BLANK,
+            )
             val validationErrors = listOf(
                 emailValidation, nameValidation
             ).foldErrors<User>().shrink()
@@ -81,14 +48,46 @@ data class User(
         }
     }
 
+    // TODO #25 test exception usecase
+    init {
+        emailField = emailField.trim()
+        nameField = nameField.trim()
+
+        val emailValidation = validateMatches(
+            value = email,
+            pattern = simpleEmailPattern,
+            codeBlank = UserErrorCodes.EMAIL_BLANK,
+            codeNoMatch = UserErrorCodes.EMAIL_INVALID,
+        )
+        val nameValidation = validateNotBlank(
+            value = name,
+            codeBlank = UserErrorCodes.NAME_BLANK,
+        )
+
+        listOf(emailValidation, nameValidation).foldErrors<User>()?.also {
+            throw InvalidInstanceException(javaClass.simpleName, it.errors)
+        }
+    }
+
+    val email get() = emailField
+    val name get() = nameField
+
     // TODO #22 send user to revalidation status?
     internal fun changeEmail(email: String): Maybe<User> =
-        validateEmail(email).map { validEmail ->
+        validateMatches(
+            value = email,
+            pattern = simpleEmailPattern,
+            codeBlank = UserErrorCodes.EMAIL_BLANK,
+            codeNoMatch = UserErrorCodes.EMAIL_INVALID,
+        ).map { validEmail ->
             copy(emailField = validEmail)
         }
 
     internal fun changeName(name: String): Maybe<User> =
-        validateName(name).map { validName ->
+        validateNotBlank(
+            value = name,
+            codeBlank = UserErrorCodes.NAME_BLANK,
+        ).map { validName ->
             copy(nameField = validName)
         }
 

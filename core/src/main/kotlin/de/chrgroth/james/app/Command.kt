@@ -6,8 +6,12 @@ import java.util.UUID
 interface AppCommandPort {
     fun create(name: String, developerId: UUID, description: String? = null): Maybe<App>
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
+
+    // TODO #25 fun create(Empty?)NextVersionDatatype(id: UUID, datatype: AppDatatypeDraft): Maybe<AppVersionDraft>
     fun upsertNextVersionDatatype(id: UUID, datatype: AppDatatypeDraft): Maybe<AppVersionDraft>
     fun removeNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
+
+    // TODO #25 fun create(Empty?)NextVersionReport(id: UUID, report: AppReport): Maybe<AppVersionDraft>
     fun upsertNextVersionReport(id: UUID, report: AppReport): Maybe<AppVersionDraft>
     fun removeNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
     fun releaseNextVersion(id: UUID, releaseNotes: AppVersionReleaseNotes): Maybe<AppVersion>
