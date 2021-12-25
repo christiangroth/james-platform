@@ -1,12 +1,12 @@
 package de.chrgroth.james.workspace
 
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.InvalidInstanceException
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.foldAndShrink
 import de.chrgroth.james.foldErrors
-import de.chrgroth.james.shrink
+import de.chrgroth.james.throwOnError
 import de.chrgroth.james.trimToNull
 import de.chrgroth.james.validateNotBlank
 import de.chrgroth.james.validateNotNegative
@@ -21,18 +21,17 @@ data class Workspace private constructor(
 ) {
 
     companion object {
+        private fun validateOrder(order: Long) =
+            validateNotNegative(order, WorkspaceErrorCodes.ORDER_NEGATIVE)
+
+        private fun validateName(name: String) =
+            validateNotBlank(name, WorkspaceErrorCodes.NAME_BLANK)
+
         fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> {
-            val orderValidation = validateNotNegative(
-                value = order,
-                codeNegative = WorkspaceErrorCodes.ORDER_NEGATIVE,
-            )
-            val nameValidation = validateNotBlank(
-                value = name,
-                codeBlank = WorkspaceErrorCodes.NAME_BLANK,
-            )
-            val validationErrors = listOf(
-                orderValidation, nameValidation
-            ).foldErrors<Workspace>().shrink()
+            val orderValidation = validateOrder(order)
+            val nameValidation = validateName(name)
+
+            val validationErrors = listOf(orderValidation, nameValidation).foldAndShrink<Workspace>()
             if (validationErrors != null) {
                 return validationErrors
             }
@@ -55,36 +54,19 @@ data class Workspace private constructor(
     init {
         nameField = nameField.trim()
 
-        val orderValidation = validateNotNegative(
-            value = order,
-            codeNegative = WorkspaceErrorCodes.ORDER_NEGATIVE,
-        )
-        val nameValidation = validateNotBlank(
-            value = name,
-            codeBlank = WorkspaceErrorCodes.NAME_BLANK,
-        )
-
-        listOf(orderValidation, nameValidation).foldErrors<Workspace>()?.also {
-            throw InvalidInstanceException(javaClass.simpleName, it.errors)
-        }
+        listOf(validateOrder(order), validateName(nameField)).foldErrors<Workspace>().throwOnError(javaClass.simpleName)
     }
 
     val order get() = orderField
     val name get() = nameField
 
     internal fun changeOrder(newOrder: Long): Maybe<Workspace> =
-        validateNotNegative(
-            value = newOrder,
-            codeNegative = WorkspaceErrorCodes.ORDER_NEGATIVE,
-        ).map { validOrder ->
+        validateOrder(newOrder).map { validOrder ->
             copy(orderField = validOrder)
         }
 
     internal fun changeName(newName: String): Maybe<Workspace> =
-        validateNotBlank(
-            value = newName,
-            codeBlank = WorkspaceErrorCodes.NAME_BLANK,
-        ).map { validName ->
+        validateName(newName).map { validName ->
             copy(nameField = validName)
         }
 
@@ -121,7 +103,7 @@ data class Workspace private constructor(
 
         val validationErrors = listOf(
             unknownIdsValidation, missingIdsValidation
-        ).foldErrors<Workspace>().shrink()
+        ).foldErrors<Workspace>().foldAndShrink()
         if (validationErrors != null) {
             return validationErrors
         }

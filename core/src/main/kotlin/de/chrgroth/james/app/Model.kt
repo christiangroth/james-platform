@@ -1,7 +1,6 @@
 package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.InvalidInstanceException
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
@@ -10,6 +9,7 @@ import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
 import de.chrgroth.james.computeNext
 import de.chrgroth.james.foldErrors
+import de.chrgroth.james.throwOnError
 import de.chrgroth.james.trimToNull
 import de.chrgroth.james.validateNotBlank
 import de.chrgroth.james.validateNotNegative
@@ -35,8 +35,10 @@ data class App private constructor(
 
     // TODO #25 test and enhance testcases above
     companion object {
+        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.APP_NAME_BLANK)
+
         fun create(name: String, developerId: UUID, description: String?): Maybe<App> =
-            validateNotBlank(name, AppErrorCodes.APP_NAME_BLANK).map { validName ->
+            validateName(name).map { validName ->
                 App(
                     id = UUID.randomUUID(),
                     nameField = validName,
@@ -54,12 +56,7 @@ data class App private constructor(
         nameField = nameField.trim()
         descriptionField = descriptionField.trimToNull()
 
-        val validationErrors = listOf(
-            validateNotBlank(nameField, AppErrorCodes.APP_NAME_BLANK)
-        ).foldErrors<AppReport>()
-        if (validationErrors != null) {
-            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
-        }
+        listOf(validateName(nameField)).foldErrors<AppReport>().throwOnError(javaClass.simpleName)
     }
 
     val name get() = nameField
@@ -93,6 +90,12 @@ data class App private constructor(
         } ?: Result(copy(developmentVersion = AppVersionDraft.create()))
     }
 
+    // TODO #25 finetuning
+    // TODO #25 check name collision
+    internal fun createDevelopmentVersionDatatype(datatypeName: String) =
+        upsertDevelopmentVersionDatatype(AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null))
+
+    // TODO #25 check name collision, if changed
     internal fun upsertDevelopmentVersionDatatype(datatype: AppDatatypeDraft) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
@@ -117,6 +120,12 @@ data class App private constructor(
         else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
     }
 
+    // TODO #25 finetuning
+    // TODO #25 check name collision
+    internal fun createDevelopmentVersionReport(reportName: String) =
+        upsertDevelopmentVersionReport(AppReport.create(name = reportName, description = null, source = null))
+
+    // TODO #25 check name collision, if changed
     internal fun upsertDevelopmentVersionReport(report: AppReport) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
@@ -280,6 +289,9 @@ data class AppVersionReleaseNotes private constructor(
     // TODO #25 add validation
     // TODO #25 test and enhance testcases above
     companion object {
+        private fun validateNote(note: String) =
+            validateNotBlank(note, AppErrorCodes.APP_VERSION_RELEASE_NOTE_BLANK)
+
         fun create(changeType: AppVersionChangeType, note: String) = AppVersionReleaseNotes(
             changeType = changeType,
             noteField = note,
@@ -290,12 +302,7 @@ data class AppVersionReleaseNotes private constructor(
     init {
         noteField = noteField.trim()
 
-        val validationErrors = listOf(
-            validateNotBlank(noteField, AppErrorCodes.APP_VERSION_RELEASE_NOTE_BLANK)
-        ).foldErrors<AppReport>()
-        if (validationErrors != null) {
-            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
-        }
+        listOf(validateNote(noteField)).foldErrors<AppReport>().throwOnError(javaClass.simpleName)
     }
 
     val note get() = noteField
@@ -338,7 +345,6 @@ data class AppVersionReleaseNotes private constructor(
     }
 }
 
-// TODO #25 what about renaming?
 data class AppDatatypeDraft private constructor(
     private var nameField: String,
     private var schemaContentField: String,
@@ -348,6 +354,9 @@ data class AppDatatypeDraft private constructor(
     // TODO #25 add validation
     // TODO #25 test and enhance testcases above
     companion object {
+        private fun validateName(name: String) =
+            validateNotBlank(name, AppErrorCodes.APP_DATATYPE_NAME_BLANK)
+
         fun create(name: String, schemaContent: String, description: String?): AppDatatypeDraft =
             AppDatatypeDraft(
                 nameField = name,
@@ -369,19 +378,8 @@ data class AppDatatypeDraft private constructor(
         schemaContentField = schemaContentField.trim()
         descriptionField = descriptionField.trimToNull()
 
-        val validationErrors = listOf(
-            validateNotBlank(
-                value = nameField,
-                codeBlank = AppErrorCodes.APP_DATATYPE_NAME_BLANK,
-            ),
-            validateNotBlank(
-                value = schemaContentField,
-                codeBlank = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTENT_BLANK,
-            )
-        ).foldErrors<AppReport>()
-        if (validationErrors != null) {
-            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
-        }
+        // schemaContent is allowed to be blank in a draft
+        listOf(validateName(nameField)).foldErrors<AppReport>().throwOnError(javaClass.simpleName)
     }
 
     val name get() = nameField
@@ -397,7 +395,6 @@ data class AppDatatypeDraft private constructor(
     )
 }
 
-// TODO #25 what about renaming?
 data class AppDatatype private constructor(
     private var nameField: String,
     private var versionField: Long,
@@ -408,6 +405,15 @@ data class AppDatatype private constructor(
     // TODO #25 add validation
     // TODO #25 test and enhance testcases above
     companion object {
+        private fun validateName(name: String) =
+            validateNotBlank(name, AppErrorCodes.APP_DATATYPE_NAME_BLANK)
+
+        private fun validateVersion(version: Long) =
+            validateNotNegative(version, AppErrorCodes.APP_DATATYPE_VERSION_NEGATIVE)
+
+        private fun validateSchemaContent(schemaContent: String) =
+            validateNotBlank(schemaContent, AppErrorCodes.APP_DATATYPE_SCHEMA_CONTENT_BLANK)
+
         fun create(draft: AppDatatypeDraft, version: Long) =
             AppDatatype(
                 nameField = draft.name,
@@ -423,14 +429,8 @@ data class AppDatatype private constructor(
         schemaContentField = schemaContentField.trim()
         descriptionField = descriptionField.trimToNull()
 
-        val validationErrors = listOf(
-            validateNotBlank(nameField, AppErrorCodes.APP_DATATYPE_NAME_BLANK),
-            validateNotNegative(versionField, AppErrorCodes.APP_DATATYPE_VERSION_NEGATIVE),
-            validateNotBlank(schemaContentField, AppErrorCodes.APP_DATATYPE_SCHEMA_CONTENT_BLANK)
-        ).foldErrors<AppReport>()
-        if (validationErrors != null) {
-            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
-        }
+        listOf(validateName(nameField), validateVersion(versionField), validateSchemaContent(schemaContentField))
+            .foldErrors<AppReport>().throwOnError(javaClass.simpleName)
     }
 
     val name get() = nameField
@@ -447,7 +447,6 @@ data class AppDatatype private constructor(
     )
 }
 
-// TODO #25 what about renaming?
 data class AppReport private constructor(
     private var nameField: String,
     private var descriptionField: String?,
@@ -457,6 +456,9 @@ data class AppReport private constructor(
     // TODO #25 add validation
     // TODO #25 test and enhance testcases above
     companion object {
+        private fun validateName(name: String) =
+            validateNotBlank(name, AppErrorCodes.APP_REPORT_NAME_BLANK)
+
         fun create(name: String, description: String?, source: String?) = AppReport(
             nameField = name,
             descriptionField = description,
@@ -470,12 +472,7 @@ data class AppReport private constructor(
         descriptionField = descriptionField.trimToNull()
         sourceField = sourceField.trimToNull()
 
-        val validationErrors = listOf(
-            validateNotBlank(nameField, AppErrorCodes.APP_REPORT_NAME_BLANK),
-        ).foldErrors<AppReport>()
-        if (validationErrors != null) {
-            throw InvalidInstanceException(javaClass.simpleName, validationErrors.errors)
-        }
+        listOf(validateName(nameField)).foldErrors<AppReport>().throwOnError(javaClass.simpleName)
     }
 
     val name get() = nameField

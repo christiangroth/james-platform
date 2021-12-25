@@ -76,7 +76,10 @@ fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
         else -> null
     }
 
-fun <Type> Errors<Type>?.shrink(): Maybe<Type>? =
+fun <Type> List<Maybe<*>?>.foldAndShrink() =
+    foldErrors<Type>().foldAndShrink()
+
+fun <Type> Errors<Type>?.foldAndShrink(): Maybe<Type>? =
     when {
         this == null -> null
         this.errors.size == 1 -> this.errors.single()

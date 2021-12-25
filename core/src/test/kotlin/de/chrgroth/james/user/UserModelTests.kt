@@ -10,62 +10,6 @@ import java.util.UUID
 
 // TODO #25 switch to testing of Command
 
-class UserEmailValidationTests {
-
-    @Test
-    fun `valid email examples`() {
-        User.validateEmail("someone@gmx.de").expectSuccess()
-        User.validateEmail("someone@gmx.net").expectSuccess()
-        User.validateEmail("some.one@gmail.com").expectSuccess()
-    }
-
-    @Test
-    fun `empty email validation`() {
-        User.validateEmail("").expectError(
-            code = UserErrorCodes.EMAIL_BLANK,
-            details = null,
-        )
-        User.validateEmail(" ").expectError(
-            code = UserErrorCodes.EMAIL_BLANK,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `invalid email examples`() {
-        User.validateEmail("@gmx.de").expectError(
-            code = UserErrorCodes.EMAIL_INVALID,
-            details = "@gmx.de",
-        )
-        User.validateEmail("someone@gmx").expectError(
-            code = UserErrorCodes.EMAIL_INVALID,
-            details = "someone@gmx",
-        )
-    }
-}
-
-class UserNameValidationTests {
-
-    @Test
-    fun `valid name examples`() {
-        User.validateName("Chris").expectSuccess()
-        User.validateName("Mine").expectSuccess()
-        User.validateName("Hartmut the Dragon").expectSuccess()
-    }
-
-    @Test
-    fun `empty name validation`() {
-        User.validateName("").expectError(
-            code = UserErrorCodes.NAME_BLANK,
-            details = null,
-        )
-        User.validateName(" ").expectError(
-            code = UserErrorCodes.NAME_BLANK,
-            details = null,
-        )
-    }
-}
-
 class UserModelTests {
 
     @Test
@@ -104,9 +48,8 @@ class UserModelTests {
 }
 
 private fun createUser() = UUID.randomUUID().let { id ->
-    User(
-        id = id,
-        emailField = "${id}@gmail.com",
-        nameField = id.toString(),
-    )
+    User.create(
+        email = "${id}@gmail.com",
+        name = id.toString(),
+    ).expectSuccess()
 }

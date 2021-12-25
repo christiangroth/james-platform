@@ -505,3 +505,4 @@ class AppDevelopmentTests {
 
         private fun createEmptyDraft() = AppVersionDraft.create()
     }
+}
