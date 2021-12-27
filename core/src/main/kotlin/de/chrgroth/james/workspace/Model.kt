@@ -30,27 +30,21 @@ data class Workspace private constructor(
         fun create(userId: UUID, order: Long, name: String): Maybe<Workspace> {
             val orderValidation = validateOrder(order)
             val nameValidation = validateName(name)
-
-            val validationErrors = listOf(orderValidation, nameValidation).foldAndShrink<Workspace>()
-            if (validationErrors != null) {
-                return validationErrors
-            }
-
-            return orderValidation.flatMap { validOrder ->
-                nameValidation.map { validName ->
-                    Workspace(
-                        id = UUID.randomUUID(),
-                        userId = userId,
-                        orderField = validOrder,
-                        nameField = validName,
-                        appInstallations = emptyList()
-                    )
+            return listOf<Maybe<out Any>>(orderValidation, nameValidation).foldAndShrink()
+                ?: orderValidation.flatMap { validOrder ->
+                    nameValidation.map { validName ->
+                        Workspace(
+                            id = UUID.randomUUID(),
+                            userId = userId,
+                            orderField = validOrder,
+                            nameField = validName,
+                            appInstallations = emptyList()
+                        )
+                    }
                 }
-            }
         }
     }
 
-    // TODO #25 test exception usecase
     init {
         nameField = nameField.trim()
 
@@ -60,13 +54,13 @@ data class Workspace private constructor(
     val order get() = orderField
     val name get() = nameField
 
-    internal fun changeOrder(newOrder: Long): Maybe<Workspace> =
-        validateOrder(newOrder).map { validOrder ->
+    internal fun changeOrder(order: Long): Maybe<Workspace> =
+        validateOrder(order).map { validOrder ->
             copy(orderField = validOrder)
         }
 
-    internal fun changeName(newName: String): Maybe<Workspace> =
-        validateName(newName).map { validName ->
+    internal fun changeName(name: String): Maybe<Workspace> =
+        validateName(name).map { validName ->
             copy(nameField = validName)
         }
 
@@ -101,16 +95,10 @@ data class Workspace private constructor(
             )
         } else null
 
-        val validationErrors = listOf(
-            unknownIdsValidation, missingIdsValidation
-        ).foldErrors<Workspace>().foldAndShrink()
-        if (validationErrors != null) {
-            return validationErrors
-        }
-
-        return Result(copy(appInstallations = order.map { orderId ->
-            appInstallations.first { it.id == orderId }
-        }))
+        return listOf(unknownIdsValidation, missingIdsValidation).foldAndShrink()
+            ?: Result(copy(appInstallations = order.map { orderId ->
+                appInstallations.first { it.id == orderId }
+            }))
     }
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<Workspace> =
@@ -123,7 +111,7 @@ data class Workspace private constructor(
             it.changeVersion(version)
         }
 
-    private fun modifyAppInstallation(id: UUID, modifier: (AppInstallation) -> Maybe<AppInstallation>): Maybe<Workspace> =
+    internal fun modifyAppInstallation(id: UUID, modifier: (AppInstallation) -> Maybe<AppInstallation>): Maybe<Workspace> =
         getAppOrError(id).flatMap {
             modifier(it).map { updatedAppInstallation ->
                 copy(
@@ -150,7 +138,7 @@ data class Workspace private constructor(
         appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
             if (app == null) {
                 Error(
-                    code = WorkspaceErrorCodes.APP_NOT_FOUND,
+                    code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
                     details = appInstallationId.toString(),
                 )
             } else {

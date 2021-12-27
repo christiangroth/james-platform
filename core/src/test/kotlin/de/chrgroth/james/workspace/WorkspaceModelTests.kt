@@ -11,6 +11,15 @@ import java.util.UUID
 
 // TODO #25 switch to testing of Command
 
+// TODO #25 test exceptions on constructor invocation with invalid data
+
+// TODO #25 test order value of new Workspace instance
+// TODO #25 test explicit ordering of Workspace instances
+// TODO #25 test moving AppInstallation between Workspace instances
+
+// TODO #25 test install app with unreleased/non-existent version
+// TODO #25 test update app with unreleased/non-existent version
+
 class WorkspaceModelTests {
 
     @Test
@@ -241,7 +250,7 @@ class WorkspaceModelTests {
         val workspace = createWorkspace().installApp(appId, Semver("1.0.0")).expectSuccess()
         val unknownAppInstallationId = UUID.randomUUID()
         workspace.uninstallApp(unknownAppInstallationId).expectError(
-            code = WorkspaceErrorCodes.APP_NOT_FOUND,
+            code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
             details = unknownAppInstallationId.toString(),
         )
     }

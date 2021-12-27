@@ -3,13 +3,10 @@ package de.chrgroth.james.user
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.foldAndShrink
-import de.chrgroth.james.foldErrors
 import de.chrgroth.james.throwOnError
 import de.chrgroth.james.validateMatches
 import de.chrgroth.james.validateNotBlank
 import java.util.UUID
-
-private val simpleEmailPattern = Regex(".+@.+\\..+")
 
 data class User private constructor(
     val id: UUID,
@@ -18,6 +15,8 @@ data class User private constructor(
 ) {
 
     companion object {
+        private val simpleEmailPattern = Regex(".+@.+\\..+")
+
         private fun validateEmail(email: String) = validateMatches(
             value = email,
             pattern = simpleEmailPattern,
@@ -33,29 +32,24 @@ data class User private constructor(
         fun create(email: String, name: String): Maybe<User> {
             val emailValidation = validateEmail(email)
             val nameValidation = validateName(name)
-            val validationErrors = listOf(emailValidation, nameValidation).foldAndShrink<User>()
-            if (validationErrors != null) {
-                return validationErrors
-            }
-
-            return emailValidation.flatMap { validEmail ->
-                nameValidation.map { validName ->
-                    User(
-                        id = UUID.randomUUID(),
-                        emailField = validEmail,
-                        nameField = validName,
-                    )
+            return listOf(emailValidation, nameValidation).foldAndShrink()
+                ?: emailValidation.flatMap { validEmail ->
+                    nameValidation.map { validName ->
+                        User(
+                            id = UUID.randomUUID(),
+                            emailField = validEmail,
+                            nameField = validName,
+                        )
+                    }
                 }
-            }
         }
     }
 
-    // TODO #25 test exception usecase
     init {
         emailField = emailField.trim()
         nameField = nameField.trim()
 
-        listOf(validateEmail(emailField), validateName(nameField)).foldErrors<User>().throwOnError(javaClass.simpleName)
+        listOf(validateEmail(emailField), validateName(nameField)).throwOnError<User>(javaClass.simpleName)
     }
 
     val email get() = emailField

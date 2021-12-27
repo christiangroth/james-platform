@@ -2,6 +2,9 @@ package de.chrgroth.james
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
+import de.chrgroth.james.Maybe.Result
+
+// TODO #25 check test coverage
 
 class InvalidInstanceException(type: String, val errors: List<Error<*>>) :
     RuntimeException("Attempted to create invalid $type instance: $errors")
@@ -34,6 +37,12 @@ sealed class Maybe<Type> {
         is Result -> transformer.invoke(value)
     }
 }
+
+fun <Type> List<Maybe<*>?>.throwOnError(type: String) =
+    foldErrors<Type>().throwOnError(type)
+
+fun <Type> List<Maybe<*>?>.collectResults() =
+    this.filterIsInstance<Result<Type>>()
 
 fun <Type> List<Maybe<*>?>.foldErrors() =
     this.filterIsInstance<Error<Type>>().fold()
@@ -77,9 +86,9 @@ fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
     }
 
 fun <Type> List<Maybe<*>?>.foldAndShrink() =
-    foldErrors<Type>().foldAndShrink()
+    foldErrors<Type>().shrink()
 
-fun <Type> Errors<Type>?.foldAndShrink(): Maybe<Type>? =
+fun <Type> Errors<Type>?.shrink(): Maybe<Type>? =
     when {
         this == null -> null
         this.errors.size == 1 -> this.errors.single()

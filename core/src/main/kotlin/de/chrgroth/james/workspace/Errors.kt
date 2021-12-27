@@ -4,7 +4,7 @@ import de.chrgroth.james.ErrorCode
 
 enum class WorkspaceErrorCodes : ErrorCode {
     NOT_FOUND,
-    APP_NOT_FOUND,
+    APP_INSTALLATION_NOT_FOUND,
 
     NAME_BLANK,
     ORDER_NEGATIVE,

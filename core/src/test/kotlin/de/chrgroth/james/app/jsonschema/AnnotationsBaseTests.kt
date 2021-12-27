@@ -28,7 +28,7 @@ abstract class AnnotationsBaseTests {
     fun `readOnly not allowed`() =
         toPropertyConverter(""" $prefixForAnnotationTests "readOnly": true """).loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
                 details = expectedDetails
             )
         )
@@ -42,7 +42,7 @@ abstract class AnnotationsBaseTests {
     fun `writeOnly not allowed`() =
         toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": true """).loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
                 details = expectedDetails
             )
         )

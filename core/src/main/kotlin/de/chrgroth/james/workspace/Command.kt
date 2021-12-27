@@ -4,11 +4,12 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.app.AppQueryPersistencePort
 import de.chrgroth.james.fold
 import java.util.UUID
 
-// TODO #25 explicit return type notations (EVERYWHERE!) / force it?
-// TODO #25 saving wrong instance in persistencCallback?
+// TODO #28 explicit return type notations (EVERYWHERE!) / force it?
+// TODO #25 saving wrong instance in persistenceCallback?
 
 // TODO #22 need to check if user is active
 
@@ -26,11 +27,11 @@ interface WorkspaceCommandPort {
 }
 
 internal class WorkspaceCommandAdapter(
+    private val appQueryPersistence: AppQueryPersistencePort,
     private val queryPersistence: WorkspaceQueryPersistencePort,
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : WorkspaceCommandPort {
 
-    // TODO #25 test ordering
     override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> {
         val currentMaxOrder = queryPersistence.findForUser(userId).map { persistentWorkspaces ->
             persistentWorkspaces.maxOfOrNull { it.order } ?: -1
@@ -44,7 +45,6 @@ internal class WorkspaceCommandAdapter(
         }
     }
 
-    // TODO #25 test
     override fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit> =
         queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
             val existingIds = persistentWorkspaces.map { it.id }
@@ -83,12 +83,13 @@ internal class WorkspaceCommandAdapter(
             commandPersistence.delete(id)
         }
 
-    // TODO #25 check if version exists/is released
     override fun installApp(id: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
-        id.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) { workspace, _ ->
-            commandPersistence.upsert(workspace).map {
-                it.appInstallations.first { appInstallation ->
-                    appInstallation.appId == appId && appInstallation.version == appVersion
+        appQueryPersistence.getOrError(appId, appVersion).flatMap { _ ->
+            id.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) { workspace, _ ->
+                commandPersistence.upsert(workspace).map {
+                    it.appInstallations.first { appInstallation ->
+                        appInstallation.appId == appId && appInstallation.version == appVersion
+                    }
                 }
             }
         }
@@ -102,9 +103,14 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
-    // TODO #25 check if version exists/is released
     override fun updateApp(id: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
-        id.loadWorkspaceAndInvoke({ it.updateAppInstallation(appInstallationId, targetVersion) }) { workspace, _ ->
+        id.loadWorkspaceAndInvoke({ workspace ->
+            workspace.modifyAppInstallation(appInstallationId) { appInstallation ->
+                appQueryPersistence.getOrError(appInstallation.appId, targetVersion).flatMap { _ ->
+                    appInstallation.changeVersion(targetVersion)
+                }
+            }
+        }) { workspace, _ ->
             commandPersistence.upsert(workspace).map {
                 it.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
@@ -113,7 +119,6 @@ internal class WorkspaceCommandAdapter(
         }
 
     // TODO #5 trigger data movement, if needed?
-    // TODO #25 test on Command level
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->
             source.getAppOrError(appInstallationId).flatMap { appInstallation ->

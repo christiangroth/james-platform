@@ -20,7 +20,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `title not allowed`() =
         """ $prefixForAnnotationTests "title": "Some title" """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
                 details = "testPropertyName"
             )
         )
@@ -29,7 +29,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `default not allowed`() =
         """ $prefixForAnnotationTests "default": [1, 2, 3] """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
                 details = "testPropertyName"
             )
         )
@@ -38,7 +38,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `without items definition`() {
         """ "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             )
         )
@@ -58,7 +58,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `list mode with additionalItems defined`() =
         """ "items": { "type": "number" }, "additionalItems": { "type": "number" } """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -67,7 +67,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `list mode with empty items definition`() {
         """ "items": {}, "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
                 details = "testPropertyName",
             )
         )
@@ -89,7 +89,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": { "type": "number" } """.toArrayProperty()
             .loadAsTopLevelObjectSchema().expectErrors(
                 Error(
-                    code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
+                    code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
                     details = "testPropertyName",
                 )
             )
@@ -98,7 +98,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `tuple mode with empty items definition`() {
         """ "items": [], "additionalItems": false """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             )
         )
@@ -108,7 +108,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `negative minItems in list mode`() =
         """ "items": { "type": "number" }, "minItems": -1 """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -117,7 +117,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `zero maxItems in list mode`() =
         """ "items": { "type": "number" }, "maxItems": 0 """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -126,11 +126,11 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `negative maxItems in list mode`() =
         """ "items": { "type": "number" }, "maxItems": -1 """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
                 details = "testPropertyName",
             ),
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -139,7 +139,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `maxItems smaller minItems in list mode`() =
         """ "items": { "type": "number" }, "minItems": 3, "maxItems": 2 """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -148,7 +148,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `minItems in tuple mode`() =
         """ "items": [ { "type": "number" }, { "type": "string" } ], "minItems": 2 """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -157,7 +157,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `maxItems in tuple mode`() =
         """ "items": [ { "type": "number" }, { "type": "string" } ], "maxItems": 2 """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
                 details = "testPropertyName",
             )
         )
@@ -166,11 +166,11 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `contains schema used`() =
         """ "contains": { "type": "number" } """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             ),
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
                 details = "testPropertyName",
             )
         )
@@ -179,7 +179,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `contains object in list mode`() =
         """ "items": { "type": "object" } """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
                 details = "testPropertyName",
             )
         )
@@ -188,7 +188,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `contains object in tuple mode`() =
         """ "items": [ { "type": "number" }, { "type": "object" } ] """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
                 details = "testPropertyName",
             )
         )
@@ -197,11 +197,11 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     fun `unprocessed properties`() {
         """ "bar": "baz" """.toArrayProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             ),
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "testPropertyName: {bar=baz}"
             )
         )

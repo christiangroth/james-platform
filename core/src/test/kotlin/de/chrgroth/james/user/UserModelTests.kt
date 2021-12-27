@@ -10,8 +10,11 @@ import java.util.UUID
 
 // TODO #25 switch to testing of Command
 
+// TODO #25 test exceptions on constructor invocation with invalid data
+
 class UserModelTests {
 
+    // TODO #25 enhance with different error tests
     @Test
     fun `create user with multiple errors`() {
         User.create("", "").expectErrors(
@@ -26,12 +29,14 @@ class UserModelTests {
         )
     }
 
+    // TODO #25 enhance with error cases
     @Test
     fun `change email`() {
         val user = createUser().changeEmail("better@gmail.com").expectSuccess()
         assertThat(user.email).isEqualTo("better@gmail.com")
     }
 
+    // TODO #25 enhance with error cases
     @Test
     fun `change name`() {
         val user = createUser().changeName("Heinz").expectSuccess()

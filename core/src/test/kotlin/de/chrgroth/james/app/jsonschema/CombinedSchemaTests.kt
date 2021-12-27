@@ -13,7 +13,7 @@ internal class CombinedSchemaTests {
     fun `property not supporting enum`() =
         """ "enum": [true, false] """.toBooleanProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
                 details = "testPropertyName: [BooleanSchema, EnumSchema]"
             )
         )
@@ -22,7 +22,7 @@ internal class CombinedSchemaTests {
     fun `property with allOf composition not supported`() =
         """ "allOf": [ { "multipleOf": 5 }, { "minimum": 7 } ] """.toIntegerProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
                 details = "testPropertyName: [CombinedSchema, NumberSchema]"
             )
         )
@@ -31,7 +31,7 @@ internal class CombinedSchemaTests {
     fun `property with anyOf composition not supported`() =
         """ "anyOf": [ { "multipleOf": 5 }, { "multipleOf": 7 } ] """.toIntegerProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
                 details = "testPropertyName: [CombinedSchema, NumberSchema]"
             )
         )
@@ -40,7 +40,7 @@ internal class CombinedSchemaTests {
     fun `property with oneOf composition not supported`() =
         """ "oneOf": [ { "multipleOf": 5 }, { "multipleOf": 7 } ] """.toIntegerProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
                 details = "testPropertyName: [CombinedSchema, NumberSchema]"
             )
         )
@@ -49,7 +49,7 @@ internal class CombinedSchemaTests {
     fun `property with not condition not supported`() =
         """ "not": { "multipleOf": 7 } """.toIntegerProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
                 details = "testPropertyName: [NotSchema, NumberSchema]"
             )
         )

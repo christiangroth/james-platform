@@ -47,19 +47,19 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
 
     return if (loadSchemaResult.isSuccess) {
         val schema = loadSchemaResult.getOrNull()
-            ?: return Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL, null)
+            ?: return Error(code = AppErrorCodes.APP_DATATYPE_SCHEMA_NULL, details = null)
 
         // ignored properties that are not keywords of a schema
         when (schema) {
             !is ObjectSchema -> Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                code = AppErrorCodes.APP_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                 details = schema.javaClass.simpleName
             )
             else -> Result(schema)
         }
     } else {
         Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
+            code = AppErrorCodes.APP_DATATYPE_SCHEMA_INVALID,
             details = loadSchemaResult.exceptionOrNull()?.message,
         )
     }

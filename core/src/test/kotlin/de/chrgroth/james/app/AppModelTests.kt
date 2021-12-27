@@ -9,6 +9,11 @@ import java.util.UUID
 
 // TODO #25 switch to testing of Command
 
+// TODO #25 test exceptions on constructor invocation with invalid data
+
+// TODO #25 test changeVersionReleaseNote
+// TODO #25 test Datatype name pattern
+
 class AppStatusTests {
 
     @Test
@@ -179,7 +184,7 @@ class AppDevelopmentTests {
     fun `removeDevelopmentVersionDatatype with non existent datatype`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
         app.removeDevelopmentVersionDatatype("Not-Existent").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_DATATYPE_NOT_FOUND,
+            code = AppErrorCodes.APP_DATATYPE_NOT_FOUND,
             details = null,
         )
     }
@@ -240,7 +245,7 @@ class AppDevelopmentTests {
     fun `removeDevelopmentVersionReport with non existent datatype`() {
         val app = createApp().createDevelopmentVersion().expectSuccess()
         app.removeDevelopmentVersionReport("Not-Existent").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_REMOVE_REPORT_NOT_FOUND,
+            code = AppErrorCodes.APP_REPORT_NOT_FOUND,
             details = null,
         )
     }

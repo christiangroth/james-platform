@@ -4,6 +4,8 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.app.AppVersionChangeType
 import de.chrgroth.james.app.AppVersionReleaseNotes
 
+// TODO #25 check test coverage
+
 internal fun Semver.computeNext(isBreaking: Boolean, releaseNotes: AppVersionReleaseNotes) =
     if (isBreaking) {
         incMajor()

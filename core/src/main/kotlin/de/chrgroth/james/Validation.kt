@@ -3,8 +3,7 @@ package de.chrgroth.james
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 
-// TODO #25 remove code duplications on invocation sides (init vs methods)
-// TODO #25 tests
+// TODO #25 check test coverage
 
 internal fun validateMatches(value: String, pattern: Regex, codeBlank: ErrorCode, codeNoMatch: ErrorCode): Maybe<String> =
     value.trim().let {
@@ -31,8 +30,8 @@ internal fun validateNotNegative(value: Long, codeNegative: ErrorCode): Maybe<Lo
         Error(code = codeNegative, details = value.toString())
     }
 
-internal fun <Type> Maybe.Errors<Type>?.throwOnError(type: String): Unit {
-    if(this != null) {
+internal fun <Type> Maybe.Errors<Type>?.throwOnError(type: String) {
+    if (this != null) {
         throw InvalidInstanceException(type, errors)
     }
 }
