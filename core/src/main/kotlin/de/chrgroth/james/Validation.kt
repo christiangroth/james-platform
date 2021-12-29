@@ -3,14 +3,12 @@ package de.chrgroth.james
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 
-// TODO #25 check test coverage
-
 internal fun validateMatches(value: String, pattern: Regex, codeBlank: ErrorCode, codeNoMatch: ErrorCode): Maybe<String> =
     value.trim().let {
         when {
             it.isBlank() -> Error(code = codeBlank, details = null)
             it.matches(pattern) -> Result(it)
-            else -> Error(code = codeNoMatch, details = it)
+            else -> Error(code = codeNoMatch, details = "'$it' does not match $pattern")
         }
     }
 

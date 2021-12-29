@@ -117,12 +117,13 @@ class WorkspaceModelTests {
     @Test
     fun `accept app migration`() {
         val appId = UUID.randomUUID()
-        val workspace = createWorkspace().acceptAppMigration(AppInstallation(
-            id = UUID.randomUUID(),
-            appId = appId,
-            version = Semver("1.0.0"),
-            nameSupplementField = null,
-        )).expectSuccess()
+        val workspace = createWorkspace().acceptAppMigration(
+            AppInstallation.create(
+                appId = appId,
+                version = Semver("1.0.0"),
+                nameSupplement = null,
+            ).expectSuccess()
+        ).expectSuccess()
         assertThat(workspace.appInstallations).hasSize(1)
         assertThat(workspace.appInstallations.first().appId).isEqualTo(appId)
         assertThat(workspace.appInstallations.first().version).isEqualTo(Semver("1.0.0"))

@@ -4,6 +4,7 @@ config:
 complexity:
   TooManyFunctions:
     ignorePrivate: true
+    active: false
 
 style:
   MaxLineLength:

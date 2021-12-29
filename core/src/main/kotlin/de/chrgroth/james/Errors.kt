@@ -4,8 +4,6 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 
-// TODO #25 check test coverage
-
 class InvalidInstanceException(type: String, val errors: List<Error<*>>) :
     RuntimeException("Attempted to create invalid $type instance: $errors")
 

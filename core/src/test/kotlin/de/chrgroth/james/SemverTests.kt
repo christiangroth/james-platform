@@ -3,7 +3,6 @@ package de.chrgroth.james
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.app.AppVersionChangeType.BUGFIX
 import de.chrgroth.james.app.AppVersionChangeType.FEATURE
-import de.chrgroth.james.app.AppVersionReleaseNotes
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -13,25 +12,25 @@ class SemverTests {
 
     @Test
     fun `next feature version is minor level change`() {
-        current.computeNext(false, AppVersionReleaseNotes.create(FEATURE, ""))
+        current.computeNext(false, FEATURE)
             .assertParts(current.major, "3", "0")
     }
 
     @Test
     fun `next bugfix version is patch level change`() {
-        current.computeNext(false, AppVersionReleaseNotes.create(BUGFIX, ""))
+        current.computeNext(false, BUGFIX)
             .assertParts(current.major, current.minor, "4")
     }
 
     @Test
     fun `breaking feature version is minor level change`() {
-        current.computeNext(true, AppVersionReleaseNotes.create(FEATURE, ""))
+        current.computeNext(true, FEATURE)
             .assertParts("2", "0", "0")
     }
 
     @Test
     fun `breaking bugfix version is patch level change`() {
-        current.computeNext(true, AppVersionReleaseNotes.create(BUGFIX, ""))
+        current.computeNext(true, BUGFIX)
             .assertParts("2", "0", "0")
     }
 

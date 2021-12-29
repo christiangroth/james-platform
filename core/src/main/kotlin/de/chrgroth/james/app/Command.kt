@@ -10,12 +10,12 @@ interface AppCommandPort {
 
     fun createNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
     fun renameNextVersionDatatype(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft>
-    fun upsertNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft>
+    fun updateNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft>
     fun removeNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
 
     fun createNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
     fun renameNextVersionReport(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft>
-    fun upsertNextVersionReport(id: UUID, name: String, source: String, description: String?): Maybe<AppVersionDraft>
+    fun updateNextVersionReport(id: UUID, name: String, source: String, description: String?): Maybe<AppVersionDraft>
     fun removeNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
 
     fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion>
@@ -49,8 +49,8 @@ internal class AppCommandAdapter(
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 
-    override fun upsertNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.upsertDevelopmentVersionDatatype(name, schemaContent, description) }) { _, app ->
+    override fun updateNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft> =
+        id.loadAppAndInvoke({ it.updateDevelopmentVersionDatatype(name, schemaContent, description) }) { _, app ->
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 
@@ -69,8 +69,8 @@ internal class AppCommandAdapter(
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 
-    override fun upsertNextVersionReport(id: UUID, name: String, source: String, description: String?): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.upsertDevelopmentVersionReport(name, source, description) }) { _, app ->
+    override fun updateNextVersionReport(id: UUID, name: String, source: String, description: String?): Maybe<AppVersionDraft> =
+        id.loadAppAndInvoke({ it.updateDevelopmentVersionReport(name, source, description) }) { _, app ->
             commandPersistence.upsert(app).map { it.developmentVersion!! }
         }
 

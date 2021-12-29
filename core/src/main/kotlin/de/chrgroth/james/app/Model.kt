@@ -41,18 +41,16 @@ data class App private constructor(
             validateNotBlank(name, AppErrorCodes.APP_NAME_BLANK)
 
         fun create(name: String, developerId: UUID, description: String?): Maybe<App> =
-            validateName(name).flatMap { validName ->
-                AppVersionDraft.create().map { versionDraft ->
-                    App(
-                        id = UUID.randomUUID(),
-                        nameField = validName,
-                        developer = developerId,
-                        descriptionField = description.trimToNull(),
-                        discontinued = false,
-                        developmentVersion = versionDraft,
-                        versions = emptyList(),
-                    )
-                }
+            validateName(name).map { validName ->
+                App(
+                    id = UUID.randomUUID(),
+                    nameField = validName,
+                    developer = developerId,
+                    descriptionField = description.trimToNull(),
+                    discontinued = false,
+                    developmentVersion = null,
+                    versions = emptyList(),
+                )
             }
     }
 
@@ -78,6 +76,7 @@ data class App private constructor(
         versions.firstOrNull()
     }
 
+    @Suppress("UNCHECKED_CAST")
     internal fun createDevelopmentVersion() = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
@@ -145,7 +144,7 @@ data class App private constructor(
         }
     }
 
-    internal fun upsertDevelopmentVersionDatatype(name: String, schemaContent: String, description: String?): Maybe<App> = when {
+    internal fun updateDevelopmentVersionDatatype(name: String, schemaContent: String, description: String?): Maybe<App> = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
@@ -225,7 +224,7 @@ data class App private constructor(
         }
     }
 
-    internal fun upsertDevelopmentVersionReport(name: String, source: String, description: String?) = when {
+    internal fun updateDevelopmentVersionReport(name: String, source: String, description: String?) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
@@ -378,7 +377,7 @@ data class AppVersionDraft private constructor(
         val convertedDatatypes = datatypes.map { draft ->
             val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
             val newVersion = when {
-                existingDatatype == null -> 0
+                existingDatatype == null -> 1
                 existingDatatype.schemaContent == draft.schemaContent -> existingDatatype.version
                 else -> existingDatatype.version + 1
             }
@@ -474,11 +473,11 @@ data class AppVersionReleaseNotes private constructor(
             Semver(major = 0, minor = 1, patch = 0)
         } else {
             val isBreaking = isBreaking(latest, next)
-            latest.version.computeNext(isBreaking, this)
+            latest.version.computeNext(isBreaking, this.changeType)
         }
     }
 
-    private fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
         }
