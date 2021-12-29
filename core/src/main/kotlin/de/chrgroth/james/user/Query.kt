@@ -7,7 +7,6 @@ interface UserQueryPort {
     fun getUsers(): Maybe<Set<User>>
     fun getUser(id: UUID): Maybe<User?>
     fun getUserByEmail(email: String): Maybe<User?>
-    fun findUsersByNameInfix(nameInfix: String): Maybe<Set<User>>
 }
 
 internal class UserQueryAdapter(private val queryPersistence: UserQueryPersistencePort) : UserQueryPort {
@@ -21,12 +20,5 @@ internal class UserQueryAdapter(private val queryPersistence: UserQueryPersisten
 
     override fun getUserByEmail(email: String): Maybe<User?> {
         return queryPersistence.getByEmail(email)
-    }
-
-    // TODO #16 move filtering to persistence
-    override fun findUsersByNameInfix(nameInfix: String): Maybe<Set<User>> {
-        return queryPersistence.find().map { result ->
-            result.filter { it.name.matches(Regex(".*${nameInfix}.*")) }.toSet()
-        }
     }
 }

@@ -9,6 +9,8 @@ import java.util.UUID
 
 interface UserCommandPort {
     fun registerUser(email: String, name: String): Maybe<User>
+    fun changeEmail(id: UUID, email: String): Maybe<User>
+    fun changeName(id: UUID, name: String): Maybe<User>
     fun deleteUser(id: UUID): Maybe<Unit>
 }
 
@@ -21,12 +23,13 @@ internal class UserCommandAdapter(
 
         // TODO #22 check if registration enabled/allowed
 
+        // TODO #25 use map here!
         val userByEmailResult = queryPersistence.getByEmail(email)
         val userExists = userByEmailResult is Result && userByEmailResult.value != null
         if (userExists) {
             return Error(
-                code = UserErrorCodes.REGISTRATION_EMAIL_EXISTS,
-                details = null,
+                code = UserErrorCodes.EMAIL_EXISTS,
+                details = email,
             )
         }
 
@@ -35,16 +38,37 @@ internal class UserCommandAdapter(
         }
     }
 
+    // TODO #25 ugly code
+    override fun changeEmail(id: UUID, email: String): Maybe<User> {
+        val userByEmailResult = queryPersistence.getByEmail(email)
+        val userExists = userByEmailResult is Result && userByEmailResult.value != null
+        if (userExists) {
+            return Error(
+                code = UserErrorCodes.EMAIL_EXISTS,
+                details = email,
+            )
+        }
+
+        return id.loadUserAndInvoke({ it.changeEmail(email) }) {
+            commandPersistence.upsert(it)
+        }
+    }
+
+    override fun changeName(id: UUID, name: String) =
+        id.loadUserAndInvoke({ it.changeName(name) }) {
+            commandPersistence.upsert(it)
+        }
+
     override fun deleteUser(id: UUID) =
-        id.loadUserAndInvoke(User::verifyDeletion) { _, _ ->
+        id.loadUserAndInvoke(User::verifyDeletion) {
             commandPersistence.delete(id)
         }
 
     private fun <R, S> UUID.loadUserAndInvoke(
         userOperation: (User) -> Maybe<R>,
-        persistenceOperation: (User, R) -> Maybe<S>,
+        persistenceOperation: (R) -> Maybe<S>,
     ) =
         queryPersistence.getOrError(this).flatMap { user ->
-            userOperation(user).flatMap { persistenceOperation(user, it) }
+            userOperation(user).flatMap { persistenceOperation(it) }
         }
 }
