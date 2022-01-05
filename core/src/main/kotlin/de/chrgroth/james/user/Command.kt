@@ -2,7 +2,6 @@ package de.chrgroth.james.user
 
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
 import java.util.UUID
 
 // TODO #22 need to check if user is active
@@ -19,55 +18,52 @@ internal class UserCommandAdapter(
     private val commandPersistence: UserCommandPersistencePort,
 ) : UserCommandPort {
 
-    override fun registerUser(email: String, name: String): Maybe<User> {
-
-        // TODO #22 check if registration enabled/allowed
-
-        // TODO #25 use map here!
-        val userByEmailResult = queryPersistence.getByEmail(email)
-        val userExists = userByEmailResult is Result && userByEmailResult.value != null
-        if (userExists) {
-            return Error(
-                code = UserErrorCodes.EMAIL_EXISTS,
-                details = email,
-            )
+    // TODO #22 check if registration enabled/allowed
+    override fun registerUser(email: String, name: String): Maybe<User> =
+        email.ensureUserNotPresent {
+            User.create(email, name).flatMap {
+                commandPersistence.upsert(it)
+            }
         }
 
-        return User.create(email, name).flatMap {
-            commandPersistence.upsert(it)
-        }
-    }
-
-    // TODO #25 ugly code
-    override fun changeEmail(id: UUID, email: String): Maybe<User> {
-        val userByEmailResult = queryPersistence.getByEmail(email)
-        val userExists = userByEmailResult is Result && userByEmailResult.value != null
-        if (userExists) {
-            return Error(
-                code = UserErrorCodes.EMAIL_EXISTS,
-                details = email,
-            )
+    override fun changeEmail(id: UUID, email: String): Maybe<User> =
+        email.ensureUserNotPresent {
+            id.loadUserAndInvoke({ it.changeEmail(email) }) {
+                commandPersistence.upsert(it)
+            }
         }
 
-        return id.loadUserAndInvoke({ it.changeEmail(email) }) {
-            commandPersistence.upsert(it)
+    private fun String.ensureUserNotPresent(operation: () -> Maybe<User>): Maybe<User> =
+        queryPersistence.getByEmail(this).flatMap { existingUser ->
+            if (existingUser == null) {
+                operation.invoke()
+            } else {
+                Error(
+                    code = UserErrorCodes.EMAIL_EXISTS,
+                    details = this,
+                )
+            }
         }
-    }
 
     override fun changeName(id: UUID, name: String) =
         id.loadUserAndInvoke({ it.changeName(name) }) {
             commandPersistence.upsert(it)
         }
 
-    override fun deleteUser(id: UUID) =
-        id.loadUserAndInvoke(User::verifyDeletion) {
-            commandPersistence.delete(id)
+
+    // TODO #22 define when User deletion is supported
+    override fun deleteUser(id: UUID): Maybe<Unit> =
+        queryPersistence.getOrError(id).flatMap {
+            Error(
+                code = UserErrorCodes.DELETE_NOT_SUPPORTED,
+                details = null,
+            )
         }
 
     private fun <R, S> UUID.loadUserAndInvoke(
         userOperation: (User) -> Maybe<R>,
         persistenceOperation: (R) -> Maybe<S>,
-    ) =
+    ): Maybe<S> =
         queryPersistence.getOrError(this).flatMap { user ->
             userOperation(user).flatMap { persistenceOperation(it) }
         }

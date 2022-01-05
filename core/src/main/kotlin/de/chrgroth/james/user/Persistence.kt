@@ -3,9 +3,7 @@ package de.chrgroth.james.user
 import de.chrgroth.james.Maybe
 import java.util.UUID
 
-// TODO #25 cleanup
 interface UserQueryPersistencePort {
-    fun get(id: UUID): Maybe<User?>
     fun getOrError(id: UUID): Maybe<User>
     fun getByEmail(email: String): Maybe<User?>
 
@@ -15,5 +13,4 @@ interface UserQueryPersistencePort {
 
 interface UserCommandPersistencePort {
     fun upsert(item: User): Maybe<User>
-    fun delete(id: UUID): Maybe<Unit>
 }

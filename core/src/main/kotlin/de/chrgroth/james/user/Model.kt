@@ -1,7 +1,6 @@
 package de.chrgroth.james.user
 
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.foldAndShrink
 import de.chrgroth.james.throwOnError
 import de.chrgroth.james.validateMatches
@@ -65,12 +64,4 @@ data class User private constructor(
         validateName(name).map { validName ->
             copy(nameField = validName)
         }
-
-    // TODO #22 define when User deletion is supported
-    internal fun verifyDeletion(): Maybe<Unit> {
-        return Error(
-            code = UserErrorCodes.DELETE_NOT_SUPPORTED,
-            details = null,
-        )
-    }
 }
