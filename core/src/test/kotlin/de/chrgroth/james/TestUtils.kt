@@ -31,7 +31,6 @@ fun <T : Any> Maybe<T>.expectError(code: ErrorCode, details: String?) {
     Assertions.assertThat(this).isInstanceOf(Error::class.java)
     val resultError = this as Error
     Assertions.assertThat(resultError).isEqualTo(Error<T>(code, details))
-    Assertions.assertThat(resultError.code.toGlobalRepresentation()).isEqualTo(code.toGlobalRepresentation())
 }
 
 fun <T> Maybe<T>.expectErrors(vararg expectedErrors: Error<T>) {
