@@ -1,85 +1,167 @@
 package de.chrgroth.james.workspace
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
+import de.chrgroth.james.app.AppQueryPersistencePort
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verifySequence
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
-// TODO #25 switch to testing of Command
-
-// TODO #25 test exceptions on constructor invocation with invalid data
-
-// TODO #25 test order value of new Workspace instance
-// TODO #25 test explicit ordering of Workspace instances
 // TODO #25 test moving AppInstallation between Workspace instances
 
 // TODO #25 test install app with unreleased/non-existent version
 // TODO #25 test update app with unreleased/non-existent version
 
-class WorkspaceModelTests {
+class WorkspaceDomainTests {
 
-    @Test
-    fun `new valid workspace`() {
-        Workspace.create(UUID.randomUUID(), 0, "Name").expectSuccess()
+    private val existingUserId = UUID.randomUUID()
+    private val existingWorkspaceOne = Workspace.create(existingUserId, 0, "Existing One").expectSuccess()
+    private val existingWorkspaceTwo = Workspace.create(existingUserId, 1, "Existing Two").expectSuccess()
+    private val existingOneId = existingWorkspaceOne.id
+    private val existingTwoId = existingWorkspaceTwo.id
+    private val unknownId = UUID.randomUUID()
+
+    private lateinit var appQueryPersistence: AppQueryPersistencePort
+    private lateinit var queryPersistence: WorkspaceQueryPersistencePort
+    private lateinit var commandPersistence: WorkspaceCommandPersistencePort
+    private lateinit var port: WorkspaceCommandPort
+
+    @BeforeEach
+    internal fun initialize() {
+        queryPersistence = mockk<WorkspaceQueryPersistencePort>().also {
+            every { it.getOrError(existingOneId) }.returns(Maybe.Result(existingWorkspaceOne))
+            every { it.getOrError(existingTwoId) }.returns(Maybe.Result(existingWorkspaceTwo))
+            every { it.getOrError(unknownId) }.returns(Error(WorkspaceErrorCodes.NOT_FOUND, unknownId.toString()))
+
+            every { it.findForUser(any()) }.returns(Maybe.Result(listOf()))
+            every { it.findForUser(existingWorkspaceOne.userId) }
+                .returns(Maybe.Result(listOf(existingWorkspaceOne, existingWorkspaceTwo)))
+        }
+
+        commandPersistence = mockk<WorkspaceCommandPersistencePort>().also {
+            every { it.upsert(any()) }.answers { Maybe.Result(this.args[0] as Workspace) }
+        }
+
+        appQueryPersistence = mockk<AppQueryPersistencePort>()
+
+        port = WorkspaceCommandAdapter(appQueryPersistence, queryPersistence, commandPersistence)
     }
 
     @Test
-    fun `new workspace with negative order`() {
-        Workspace.create(UUID.randomUUID(), -13, "My Apps").expectError(
-            code = WorkspaceErrorCodes.ORDER_NEGATIVE,
-            details = "-13",
-        )
+    fun `new valid workspace`() {
+        port.createWorkspace(existingUserId, "  A New Workspace   \t").expectSuccess()
+        verifySequence {
+            queryPersistence.findForUser(existingUserId)
+            commandPersistence.upsert(withArg {
+                val workspace = this.actual as Workspace
+                assertThat(workspace.id).isNotIn(existingOneId, existingTwoId, unknownId)
+                assertThat(workspace.userId).isEqualTo(existingUserId)
+                assertThat(workspace.order).isEqualTo(2)
+                assertThat(workspace.name).isEqualTo("A New Workspace")
+                assertThat(workspace.appInstallations).isEmpty()
+            })
+        }
+    }
+
+    @Test
+    fun `first valid workspace for user`() {
+        val userId = UUID.randomUUID()
+        port.createWorkspace(userId, "My First Workspace").expectSuccess()
+        verifySequence {
+            queryPersistence.findForUser(userId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as Workspace).order).isEqualTo(0)
+            })
+        }
     }
 
     @Test
     fun `new workspace with blank name`() {
-        Workspace.create(UUID.randomUUID(), 0, " ").expectError(
+        port.createWorkspace(existingUserId, " ").expectError(
             code = WorkspaceErrorCodes.NAME_BLANK,
             details = null,
         )
     }
 
     @Test
-    fun `new workspace with multiple errors`() {
-        Workspace.create(UUID.randomUUID(), -1, " ").expectErrors(
-            Error(
-                code = WorkspaceErrorCodes.ORDER_NEGATIVE,
-                details = "-1",
-            ),
-            Error(
-                code = WorkspaceErrorCodes.NAME_BLANK,
-                details = null,
-            ),
-        )
+    fun `reorder user workspaces`() {
+        port.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId)).expectSuccess()
+        verifySequence {
+            queryPersistence.findForUser(existingUserId)
+            commandPersistence.upsert(withArg {
+                val workspace = actual as Workspace
+                assertThat(workspace.id).isEqualTo(existingTwoId)
+                assertThat(workspace.order).isEqualTo(0)
+            })
+            commandPersistence.upsert(withArg {
+                val workspace = actual as Workspace
+                assertThat(workspace.id).isEqualTo(existingOneId)
+                assertThat(workspace.order).isEqualTo(1)
+            })
+        }
     }
 
     @Test
-    fun `change order`() {
-        val workspace = createWorkspace().changeOrder(13).expectSuccess()
-        assertThat(workspace.order).isEqualTo(13)
+    fun `reorder user workspaces with unknown id`() {
+        port.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId, unknownId)).expectError(
+            code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+            details = listOf(unknownId).toString(),
+        )
+        verifySequence {
+            queryPersistence.findForUser(existingUserId)
+        }
     }
 
     @Test
-    fun `change order to negative value`() {
-        createWorkspace().changeOrder(-13).expectError(
-            code = WorkspaceErrorCodes.ORDER_NEGATIVE,
-            details = "-13",
+    fun `reorder user workspaces with missing id`() {
+        port.reorderWorkspaces(existingUserId, listOf(existingTwoId)).expectError(
+            code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+            details = listOf(existingOneId).toString(),
         )
+        verifySequence {
+            queryPersistence.findForUser(existingUserId)
+        }
+    }
+
+    @Test
+    fun `reorder user workspaces with missing and unknown id`() {
+        port.reorderWorkspaces(existingUserId, listOf(unknownId)).expectErrors(
+            Error(
+                code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+                details = listOf(existingOneId, existingTwoId).toString(),
+            ),
+            Error(
+                code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+                details = listOf(unknownId).toString()
+            )
+        )
+        verifySequence {
+            queryPersistence.findForUser(existingUserId)
+        }
     }
 
     @Test
     fun `rename workspace`() {
-        val workspace = createWorkspace().changeName("New Workspace").expectSuccess()
-        assertThat(workspace.name).isEqualTo("New Workspace")
+        port.renameWorkspace(existingOneId, "A New Name").expectSuccess()
+        verifySequence {
+            queryPersistence.getOrError(existingOneId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as Workspace).name).isEqualTo("A New Name")
+            })
+        }
     }
 
     @Test
     fun `rename workspace to blank name`() {
-        createWorkspace().changeName(" ").expectError(
+        port.renameWorkspace(existingOneId, " ").expectError(
             code = WorkspaceErrorCodes.NAME_BLANK,
             details = null,
         )
@@ -270,8 +352,8 @@ class WorkspaceModelTests {
                 details = "1",
             )
     }
-}
 
-private fun createWorkspace() = UUID.randomUUID().let {
-    Workspace.create(it, 0, it.toString()).expectSuccess()
+    private fun createWorkspace() = UUID.randomUUID().let {
+        Workspace.create(it, 0, it.toString()).expectSuccess()
+    }
 }

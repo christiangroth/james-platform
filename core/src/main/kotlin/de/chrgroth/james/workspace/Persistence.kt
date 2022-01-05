@@ -4,7 +4,6 @@ import de.chrgroth.james.Maybe
 import java.util.UUID
 
 interface WorkspaceQueryPersistencePort {
-    fun get(workspaceId: UUID): Maybe<Workspace?>
     fun getOrError(workspaceId: UUID): Maybe<Workspace>
 
     // TODO #16 what about paging and how to design filter parameters??

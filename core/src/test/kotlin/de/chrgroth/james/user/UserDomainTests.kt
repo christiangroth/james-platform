@@ -15,8 +15,8 @@ import java.util.UUID
 class UserDomainTests {
 
     private val existingUser = User.create("existing@james.de", "Existing").expectSuccess()
-    private val existingUserId = existingUser.id
-    private val unknownUserId = UUID.randomUUID()
+    private val existingId = existingUser.id
+    private val unknownId = UUID.randomUUID()
 
     private lateinit var queryPersistence: UserQueryPersistencePort
     private lateinit var commandPersistence: UserCommandPersistencePort
@@ -25,13 +25,13 @@ class UserDomainTests {
     @BeforeEach
     internal fun initialize() {
         queryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(existingUserId) }.returns(Result(existingUser))
-            every { it.getOrError(unknownUserId) }.returns(Error(UserErrorCodes.NOT_FOUND, unknownUserId.toString()))
+            every { it.getOrError(existingId) }.returns(Result(existingUser))
+            every { it.getOrError(unknownId) }.returns(Error(UserErrorCodes.NOT_FOUND, unknownId.toString()))
 
             every { it.getByEmail(any()) }.returns(Result(null))
 
-            val duplicateTestUser = User.create("duplicate@james.de", "Duplicate").expectSuccess()
-            every { it.getByEmail(duplicateTestUser.email) }.returns(Result(duplicateTestUser))
+            val duplicateUser = User.create("duplicate@james.de", "Duplicate").expectSuccess()
+            every { it.getByEmail(duplicateUser.email) }.returns(Result(duplicateUser))
         }
 
         commandPersistence = mockk<UserCommandPersistencePort>().also {
@@ -42,22 +42,15 @@ class UserDomainTests {
     }
 
     @Test
-    internal fun `valid suer cleans up values`() {
-        val user = port.registerUser("  email@james.de  ", " Some Name   \t").expectSuccess()
-        assertThat(user.email).isEqualTo("email@james.de")
-        assertThat(user.name).isEqualTo("Some Name")
-    }
-
-    @Test
     internal fun `valid user`() {
-        port.registerUser("someone@james.de", "Joe").expectSuccess()
+        port.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess()
         verifySequence {
             queryPersistence.getByEmail("someone@james.de")
             commandPersistence.upsert(withArg {
                 val user = this.actual as User
-                assertThat(user.id).isNotIn(existingUserId, unknownUserId)
+                assertThat(user.id).isNotIn(existingId, unknownId)
                 assertThat(user.email).isEqualTo("someone@james.de")
-                assertThat(user.name).isEqualTo("Joe")
+                assertThat(user.name).isEqualTo("Some Name")
             })
         }
     }
@@ -96,13 +89,13 @@ class UserDomainTests {
 
     @Test
     internal fun `change email`() {
-        port.changeEmail(existingUserId, "someone_new@james.de").expectSuccess()
+        port.changeEmail(existingId, "someone_new@james.de").expectSuccess()
         verifySequence {
+            queryPersistence.getOrError(existingId)
             queryPersistence.getByEmail("someone_new@james.de")
-            queryPersistence.getOrError(existingUserId)
             commandPersistence.upsert(withArg {
                 val user = this.actual as User
-                assertThat(user.id).isEqualTo(existingUserId)
+                assertThat(user.id).isEqualTo(existingId)
                 assertThat(user.email).isEqualTo("someone_new@james.de")
                 assertThat(user.name).isEqualTo("Existing")
             })
@@ -111,15 +104,15 @@ class UserDomainTests {
 
     @Test
     internal fun `change email unknown user`() {
-        port.changeEmail(unknownUserId, "someone_other@james.de").expectError(
+        port.changeEmail(unknownId, "someone_other@james.de").expectError(
             code = UserErrorCodes.NOT_FOUND,
-            details = unknownUserId.toString(),
+            details = unknownId.toString(),
         )
     }
 
     @Test
     internal fun `change email duplicate mail`() {
-        port.changeEmail(existingUserId, "duplicate@james.de").expectError(
+        port.changeEmail(existingId, "duplicate@james.de").expectError(
             code = UserErrorCodes.EMAIL_EXISTS,
             details = "duplicate@james.de",
         )
@@ -127,12 +120,12 @@ class UserDomainTests {
 
     @Test
     internal fun `change name`() {
-        port.changeName(existingUserId, "James").expectSuccess()
+        port.changeName(existingId, "James").expectSuccess()
         verifySequence {
-            queryPersistence.getOrError(existingUserId)
+            queryPersistence.getOrError(existingId)
             commandPersistence.upsert(withArg {
                 val user = this.actual as User
-                assertThat(user.id).isEqualTo(existingUserId)
+                assertThat(user.id).isEqualTo(existingId)
                 assertThat(user.email).isEqualTo("existing@james.de")
                 assertThat(user.name).isEqualTo("James")
             })
@@ -141,7 +134,7 @@ class UserDomainTests {
 
     @Test
     internal fun `change name invalid`() {
-        port.changeName(existingUserId, "").expectError(
+        port.changeName(existingId, "").expectError(
             code = UserErrorCodes.NAME_BLANK,
             details = null
         )
@@ -149,7 +142,7 @@ class UserDomainTests {
 
     @Test
     internal fun `existing user`() {
-        port.deleteUser(existingUserId).expectError(
+        port.deleteUser(existingId).expectError(
             code = UserErrorCodes.DELETE_NOT_SUPPORTED,
             details = null,
         )
@@ -157,9 +150,9 @@ class UserDomainTests {
 
     @Test
     internal fun `unknown user`() {
-        port.deleteUser(unknownUserId).expectError(
+        port.deleteUser(unknownId).expectError(
             code = UserErrorCodes.NOT_FOUND,
-            details = unknownUserId.toString(),
+            details = unknownId.toString(),
         )
     }
 }

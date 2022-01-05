@@ -6,10 +6,10 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppQueryPersistencePort
 import de.chrgroth.james.fold
+import de.chrgroth.james.foldAndShrink
 import java.util.UUID
 
 // TODO #28 explicit return type notations (EVERYWHERE!) / force it?
-// TODO #25 saving wrong instance in persistenceCallback?
 
 // TODO #22 need to check if user is active
 
@@ -17,13 +17,14 @@ interface WorkspaceCommandPort {
     fun createWorkspace(userId: UUID, name: String): Maybe<Workspace>
     fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit>
     fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace>
-    fun deleteWorkspace(id: UUID): Maybe<Unit>
 
     fun installApp(id: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
     fun nameApp(id: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
     fun updateApp(id: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation>
     fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>>
     fun uninstallApp(id: UUID, appInstallationId: UUID): Maybe<Workspace>
+
+    fun deleteWorkspace(id: UUID): Maybe<Unit>
 }
 
 internal class WorkspaceCommandAdapter(
@@ -48,46 +49,47 @@ internal class WorkspaceCommandAdapter(
     override fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit> =
         queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
             val existingIds = persistentWorkspaces.map { it.id }
-            val newIds = order.minus(existingIds.toSet())
-            val missingIds = existingIds.minus(order.toSet())
-            if (newIds.isNotEmpty()) {
-                Error(
-                    code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
-                    details = newIds.toString(),
-                )
-            } else if (missingIds.isNotEmpty()) {
-                Error(
-                    code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
-                    details = missingIds.toString(),
-                )
-            } else {
-                val reorderingResults = order.mapIndexed { index, workspaceId ->
+
+            val unknownIdsError: Error<Unit>? = order.minus(existingIds.toSet()).let {
+                if (it.isNotEmpty()) {
+                    Error(
+                        code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+                        details = it.toString(),
+                    )
+                } else null
+            }
+
+            val missingIdsError: Error<Unit>? = existingIds.minus(order.toSet()).let {
+                if (it.isNotEmpty()) {
+                    Error(
+                        code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+                        details = it.toString(),
+                    )
+                } else null
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            listOf(unknownIdsError, missingIdsError).foldAndShrink()
+                ?: order.mapIndexed { index, workspaceId ->
                     persistentWorkspaces.first { it.id == workspaceId }.changeOrder(index.toLong())
                         .flatMap { updatedWorkspace -> commandPersistence.upsert(updatedWorkspace) }
                 }
-
-                @Suppress("UNCHECKED_CAST")
-                reorderingResults.filterIsInstance<Error<Workspace>>()
+                    .filterIsInstance<Error<Workspace>>()
                     .map { it as Error<Unit> }
                     .fold() ?: Result(Unit)
-            }
         }
 
     override fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace> =
-        id.loadWorkspaceAndInvoke({ it.changeName(newName) }) { workspace, _ ->
-            commandPersistence.upsert(workspace)
+        id.loadWorkspaceAndInvoke({ it.changeName(newName) }) {
+            commandPersistence.upsert(it)
         }
 
-    override fun deleteWorkspace(id: UUID): Maybe<Unit> =
-        id.loadWorkspaceAndInvoke({ it.verifyDeletion() }) { _, _ ->
-            commandPersistence.delete(id)
-        }
-
+    // TODO #25 test marker
     override fun installApp(id: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
         appQueryPersistence.getOrError(appId, appVersion).flatMap { _ ->
-            id.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) { workspace, _ ->
-                commandPersistence.upsert(workspace).map {
-                    it.appInstallations.first { appInstallation ->
+            id.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) {
+                commandPersistence.upsert(it).map { upsertedWorkspace ->
+                    upsertedWorkspace.appInstallations.first { appInstallation ->
                         appInstallation.appId == appId && appInstallation.version == appVersion
                     }
                 }
@@ -95,9 +97,9 @@ internal class WorkspaceCommandAdapter(
         }
 
     override fun nameApp(id: UUID, appInstallationId: UUID, nameSupplement: String?) =
-        id.loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) { workspace, _ ->
-            commandPersistence.upsert(workspace).map {
-                it.appInstallations.first { appInstallation ->
+        id.loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) {
+            commandPersistence.upsert(it).map { upsertedWorkspace ->
+                upsertedWorkspace.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
                 }
             }
@@ -110,9 +112,9 @@ internal class WorkspaceCommandAdapter(
                     appInstallation.changeVersion(targetVersion)
                 }
             }
-        }) { workspace, _ ->
-            commandPersistence.upsert(workspace).map {
-                it.appInstallations.first { appInstallation ->
+        }) {
+            commandPersistence.upsert(it).map { upsertedWorkspace ->
+                upsertedWorkspace.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
                 }
             }
@@ -140,22 +142,20 @@ internal class WorkspaceCommandAdapter(
         }
 
     override fun uninstallApp(id: UUID, appInstallationId: UUID): Maybe<Workspace> =
-        id.loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) { workspace, _ ->
-            commandPersistence.upsert(workspace)
+        id.loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) {
+            commandPersistence.upsert(it)
         }.map { it }
+
+    override fun deleteWorkspace(id: UUID): Maybe<Unit> =
+        id.loadWorkspaceAndInvoke({ it.verifyDeletion() }) {
+            commandPersistence.delete(id)
+        }
 
     private fun <R, S> UUID.loadWorkspaceAndInvoke(
         workspaceOperation: (Workspace) -> Maybe<R>,
-        persistenceOperation: (Workspace, R) -> Maybe<S>,
+        persistenceOperation: (R) -> Maybe<S>,
     ) =
-        queryPersistence.get(this).flatMap { workspace ->
-            if (workspace == null) {
-                Error(
-                    code = WorkspaceErrorCodes.NOT_FOUND,
-                    details = null,
-                )
-            } else {
-                workspaceOperation(workspace).flatMap { persistenceOperation(workspace, it) }
-            }
+        queryPersistence.getOrError(this).flatMap { workspace ->
+            workspaceOperation(workspace).flatMap { persistenceOperation(it) }
         }
 }

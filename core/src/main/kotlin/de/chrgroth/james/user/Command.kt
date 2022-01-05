@@ -20,15 +20,15 @@ internal class UserCommandAdapter(
 
     // TODO #22 check if registration enabled/allowed
     override fun registerUser(email: String, name: String): Maybe<User> =
-        email.ensureUserNotPresent {
-            User.create(email, name).flatMap {
+        User.create(email, name).flatMap {
+            it.email.ensureUserNotPresent {
                 commandPersistence.upsert(it)
             }
         }
 
     override fun changeEmail(id: UUID, email: String): Maybe<User> =
-        email.ensureUserNotPresent {
-            id.loadUserAndInvoke({ it.changeEmail(email) }) {
+        id.loadUserAndInvoke({ it.changeEmail(email) }) {
+            it.email.ensureUserNotPresent {
                 commandPersistence.upsert(it)
             }
         }
