@@ -18,11 +18,11 @@ interface WorkspaceCommandPort {
     fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit>
     fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace>
 
-    fun installApp(id: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
-    fun nameApp(id: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
-    fun updateApp(id: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation>
+    fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
+    fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
+    fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation>
     fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>>
-    fun uninstallApp(id: UUID, appInstallationId: UUID): Maybe<Workspace>
+    fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): Maybe<Workspace>
 
     fun deleteWorkspace(id: UUID): Maybe<Unit>
 }
@@ -84,10 +84,9 @@ internal class WorkspaceCommandAdapter(
             commandPersistence.upsert(it)
         }
 
-    // TODO #25 test marker
-    override fun installApp(id: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
+    override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
         appQueryPersistence.getOrError(appId, appVersion).flatMap { _ ->
-            id.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) {
+            workspaceId.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) {
                 commandPersistence.upsert(it).map { upsertedWorkspace ->
                     upsertedWorkspace.appInstallations.first { appInstallation ->
                         appInstallation.appId == appId && appInstallation.version == appVersion
@@ -96,8 +95,8 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
-    override fun nameApp(id: UUID, appInstallationId: UUID, nameSupplement: String?) =
-        id.loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) {
+    override fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?) =
+        workspaceId.loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) {
             commandPersistence.upsert(it).map { upsertedWorkspace ->
                 upsertedWorkspace.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
@@ -105,8 +104,8 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
-    override fun updateApp(id: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
-        id.loadWorkspaceAndInvoke({ workspace ->
+    override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
+        workspaceId.loadWorkspaceAndInvoke({ workspace ->
             workspace.modifyAppInstallation(appInstallationId) { appInstallation ->
                 appQueryPersistence.getOrError(appInstallation.appId, targetVersion).flatMap { _ ->
                     appInstallation.changeVersion(targetVersion)
@@ -120,6 +119,7 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
+    // TODO #25 allow multiple errors
     // TODO #5 trigger data movement, if needed?
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->
@@ -132,8 +132,8 @@ internal class WorkspaceCommandAdapter(
 
     private fun persistAppMovement(source: Workspace, appInstallation: AppInstallation, target: Workspace) =
         target.acceptAppMigration(appInstallation).flatMap { updatedTarget ->
-            commandPersistence.upsert(updatedTarget).flatMap { persistedTarget ->
-                source.uninstallApp(appInstallation.id).flatMap { updatedSource ->
+            source.acceptAppDemigration(appInstallation).flatMap { updatedSource ->
+                commandPersistence.upsert(updatedTarget).flatMap { persistedTarget ->
                     commandPersistence.upsert(updatedSource).flatMap { persistedSource ->
                         Result(persistedSource to persistedTarget)
                     }
@@ -141,8 +141,8 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
-    override fun uninstallApp(id: UUID, appInstallationId: UUID): Maybe<Workspace> =
-        id.loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) {
+    override fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): Maybe<Workspace> =
+        workspaceId.loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) {
             commandPersistence.upsert(it)
         }.map { it }
 

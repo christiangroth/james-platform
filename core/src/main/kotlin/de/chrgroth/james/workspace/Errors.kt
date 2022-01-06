@@ -2,7 +2,6 @@ package de.chrgroth.james.workspace
 
 import de.chrgroth.james.ErrorCode
 
-// TODO #25 test global representation to never change the codes!
 enum class WorkspaceErrorCodes : ErrorCode {
     ORDER_NEGATIVE,
     NAME_BLANK,

@@ -76,6 +76,9 @@ data class Workspace private constructor(
     internal fun acceptAppMigration(app: AppInstallation): Maybe<Workspace> =
         Result(copy(appInstallations = appInstallations.plus(app)))
 
+    internal fun acceptAppDemigration(app: AppInstallation): Maybe<Workspace> =
+        Result(copy(appInstallations = appInstallations.minus(app)))
+
     internal fun reorderAppInstallations(order: List<UUID>): Maybe<Workspace> {
         val existingIds = appInstallations.map { it.id }
 

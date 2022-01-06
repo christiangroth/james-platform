@@ -4,6 +4,8 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
+import io.mockk.MockKVerificationScope
+import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verifySequence
@@ -43,14 +45,17 @@ class UserDomainTests {
 
     @Test
     internal fun `valid user`() {
-        port.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess()
-        verifySequence {
+        fun User.assertions() {
+            assertThat(id).isNotIn(existingId, unknownId)
+            assertThat(email).isEqualTo("someone@james.de")
+            assertThat(name).isEqualTo("Some Name")
+        }
+
+        port.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess().assertions()
+        verifyMocks {
             queryPersistence.getByEmail("someone@james.de")
             commandPersistence.upsert(withArg {
-                val user = this.actual as User
-                assertThat(user.id).isNotIn(existingId, unknownId)
-                assertThat(user.email).isEqualTo("someone@james.de")
-                assertThat(user.name).isEqualTo("Some Name")
+                (this.actual as User).assertions()
             })
         }
     }
@@ -61,6 +66,9 @@ class UserDomainTests {
             code = UserErrorCodes.EMAIL_EXISTS,
             details = "duplicate@james.de",
         )
+        verifyMocks {
+            queryPersistence.getByEmail("duplicate@james.de")
+        }
     }
 
     @Test
@@ -69,6 +77,7 @@ class UserDomainTests {
             code = UserErrorCodes.EMAIL_BLANK,
             details = null,
         )
+        verifyMocks()
     }
 
     @Test
@@ -77,6 +86,7 @@ class UserDomainTests {
             code = UserErrorCodes.EMAIL_INVALID,
             details = "'someone_james.de' does not match .+@.+\\..+",
         )
+        verifyMocks()
     }
 
     @Test
@@ -85,19 +95,23 @@ class UserDomainTests {
             code = UserErrorCodes.NAME_BLANK,
             details = null,
         )
+        verifyMocks()
     }
 
     @Test
     internal fun `change email`() {
-        port.changeEmail(existingId, "someone_new@james.de").expectSuccess()
-        verifySequence {
+        fun User.assertions() {
+            assertThat(id).isEqualTo(existingId)
+            assertThat(email).isEqualTo("someone_new@james.de")
+            assertThat(name).isEqualTo("Existing")
+        }
+
+        port.changeEmail(existingId, "someone_new@james.de").expectSuccess().assertions()
+        verifyMocks {
             queryPersistence.getOrError(existingId)
             queryPersistence.getByEmail("someone_new@james.de")
             commandPersistence.upsert(withArg {
-                val user = this.actual as User
-                assertThat(user.id).isEqualTo(existingId)
-                assertThat(user.email).isEqualTo("someone_new@james.de")
-                assertThat(user.name).isEqualTo("Existing")
+                (this.actual as User).assertions()
             })
         }
     }
@@ -108,6 +122,10 @@ class UserDomainTests {
             code = UserErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
+
+        verifyMocks {
+            queryPersistence.getOrError(unknownId)
+        }
     }
 
     @Test
@@ -116,18 +134,26 @@ class UserDomainTests {
             code = UserErrorCodes.EMAIL_EXISTS,
             details = "duplicate@james.de",
         )
+
+        verifyMocks {
+            queryPersistence.getOrError(existingId)
+            queryPersistence.getByEmail("duplicate@james.de")
+        }
     }
 
     @Test
     internal fun `change name`() {
-        port.changeName(existingId, "James").expectSuccess()
-        verifySequence {
+        fun User.assertions() {
+            assertThat(id).isEqualTo(existingId)
+            assertThat(email).isEqualTo("existing@james.de")
+            assertThat(name).isEqualTo("James")
+        }
+
+        port.changeName(existingId, "James").expectSuccess().assertions()
+        verifyMocks {
             queryPersistence.getOrError(existingId)
             commandPersistence.upsert(withArg {
-                val user = this.actual as User
-                assertThat(user.id).isEqualTo(existingId)
-                assertThat(user.email).isEqualTo("existing@james.de")
-                assertThat(user.name).isEqualTo("James")
+                (this.actual as User).assertions()
             })
         }
     }
@@ -138,6 +164,10 @@ class UserDomainTests {
             code = UserErrorCodes.NAME_BLANK,
             details = null
         )
+
+        verifyMocks {
+            queryPersistence.getOrError(existingId)
+        }
     }
 
     @Test
@@ -146,6 +176,10 @@ class UserDomainTests {
             code = UserErrorCodes.DELETE_NOT_SUPPORTED,
             details = null,
         )
+
+        verifyMocks {
+            queryPersistence.getOrError(existingId)
+        }
     }
 
     @Test
@@ -154,5 +188,17 @@ class UserDomainTests {
             code = UserErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
+
+        verifyMocks {
+            queryPersistence.getOrError(unknownId)
+        }
+    }
+
+    private fun verifyMocks(verifyBlock: (MockKVerificationScope.() -> Unit)? = null) {
+        if (verifyBlock != null) {
+            verifySequence(inverse = false, verifyBlock = verifyBlock)
+        }
+        confirmVerified(queryPersistence)
+        confirmVerified(commandPersistence)
     }
 }
