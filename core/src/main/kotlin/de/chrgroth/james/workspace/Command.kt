@@ -37,9 +37,9 @@ internal class WorkspaceCommandAdapter(
     override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> =
         queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
             val currentMaxOrder = persistentWorkspaces.maxOfOrNull { it.order } ?: -1
-            Workspace.create(userId, currentMaxOrder + 1, name).flatMap {
-                commandPersistence.upsert(it)
-            }
+            Workspace.create(userId, currentMaxOrder + 1, name)
+        }.flatMap {
+            commandPersistence.upsert(it)
         }
 
     override fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit> =
@@ -76,54 +76,57 @@ internal class WorkspaceCommandAdapter(
         }
 
     override fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace> =
-        id.loadWorkspaceAndInvoke({ it.changeName(newName) }) {
+        queryPersistence.getOrError(id).flatMap {
+            it.changeName(newName)
+        }.flatMap {
             commandPersistence.upsert(it)
         }
 
-    // TODO #25 ensure targetVersion is released
     override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
-        appQueryPersistence.getOrError(appId, appVersion).flatMap { _ ->
-            workspaceId.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) {
-                commandPersistence.upsert(it).map { upsertedWorkspace ->
-                    upsertedWorkspace.appInstallations.first { appInstallation ->
-                        appInstallation.appId == appId && appInstallation.version == appVersion
-                    }
-                }
+        appQueryPersistence.getOrError(appId, appVersion).flatMap {
+            queryPersistence.getOrError(workspaceId)
+        }.flatMap {
+            it.installApp(appId, appVersion)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.appInstallations.first { appInstallation ->
+                appInstallation.appId == appId && appInstallation.version == appVersion
             }
         }
 
     override fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?) =
-        workspaceId.loadWorkspaceAndInvoke({ it.nameAppInstallation(appInstallationId, nameSupplement) }) {
-            commandPersistence.upsert(it).map { upsertedWorkspace ->
-                upsertedWorkspace.appInstallations.first { appInstallation ->
-                    appInstallation.id == appInstallationId
-                }
+        queryPersistence.getOrError(workspaceId).flatMap {
+            it.nameAppInstallation(appInstallationId, nameSupplement)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.appInstallations.first { appInstallation ->
+                appInstallation.id == appInstallationId
             }
         }
 
     // TODO #25 allow multiple errors
-    // TODO #25 ensure targetVersion > currentVersion
-    // TODO #25 ensure targetVersion is released
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
-        workspaceId.loadWorkspaceAndInvoke({ workspace ->
-            workspace.modifyAppInstallation(appInstallationId) { appInstallation ->
+        queryPersistence.getOrError(workspaceId).flatMap {
+            it.modifyAppInstallation(appInstallationId) { appInstallation ->
                 appQueryPersistence.getOrError(appInstallation.appId, targetVersion).flatMap { _ ->
                     appInstallation.changeVersion(targetVersion)
                 }
             }
-        }) {
-            commandPersistence.upsert(it).map { upsertedWorkspace ->
-                upsertedWorkspace.appInstallations.first { appInstallation ->
-                    appInstallation.id == appInstallationId
-                }
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.appInstallations.first { appInstallation ->
+                appInstallation.id == appInstallationId
             }
         }
 
     override fun reorderApps(workspaceId: UUID, order: List<UUID>): Maybe<Workspace> =
         queryPersistence.getOrError(workspaceId).flatMap {
-            it.reorderAppInstallations(order).flatMap { updatedWorkspace ->
-                commandPersistence.upsert(updatedWorkspace)
-            }
+            it.reorderAppInstallations(order)
+        }.flatMap { updatedWorkspace ->
+            commandPersistence.upsert(updatedWorkspace)
         }
 
     // TODO #25 allow multiple errors
@@ -149,21 +152,16 @@ internal class WorkspaceCommandAdapter(
         }
 
     override fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): Maybe<Workspace> =
-        workspaceId.loadWorkspaceAndInvoke({ it.uninstallApp(appInstallationId) }) {
+        queryPersistence.getOrError(workspaceId).flatMap {
+            it.uninstallApp(appInstallationId)
+        }.flatMap {
             commandPersistence.upsert(it)
-        }.map { it }
-
-    override fun deleteWorkspace(id: UUID): Maybe<Unit> =
-        id.loadWorkspaceAndInvoke({ it.verifyDeletion() }) {
-            commandPersistence.delete(id)
         }
 
-    // TODO #25 remove??
-    private fun <R, S> UUID.loadWorkspaceAndInvoke(
-        workspaceOperation: (Workspace) -> Maybe<R>,
-        persistenceOperation: (R) -> Maybe<S>,
-    ) =
-        queryPersistence.getOrError(this).flatMap { workspace ->
-            workspaceOperation(workspace).flatMap { persistenceOperation(it) }
+    override fun deleteWorkspace(id: UUID): Maybe<Unit> =
+        queryPersistence.getOrError(id).flatMap { workspace ->
+            workspace.verifyDeletion()
+        }.flatMap {
+            commandPersistence.delete(id)
         }
 }

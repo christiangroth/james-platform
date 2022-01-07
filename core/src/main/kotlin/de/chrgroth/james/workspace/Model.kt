@@ -132,9 +132,9 @@ data class Workspace private constructor(
     // TODO #5 decide when deleting app is allowed
     internal fun uninstallApp(id: UUID): Maybe<Workspace> =
         getAppOrError(id).flatMap { app ->
-            app.verifyDeletion().map {
-                copy(appInstallations = appInstallations.filterNot { it.id == id })
-            }
+            app.verifyDeletion()
+        }.map {
+            copy(appInstallations = appInstallations.filterNot { it.id == id })
         }
 
     internal fun getAppOrError(appInstallationId: UUID): Maybe<AppInstallation> =
@@ -193,7 +193,14 @@ data class AppInstallation private constructor(
 
     // TODO #5 trigger data update, handle breaking changes
     internal fun changeVersion(version: Semver): Maybe<AppInstallation> =
-        Result(copy(version = version))
+        if (this.version >= version) {
+            Error(
+                code = WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED,
+                details = "${this.version} >= $version",
+            )
+        } else {
+            Result(copy(version = version))
+        }
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): Maybe<Unit> =

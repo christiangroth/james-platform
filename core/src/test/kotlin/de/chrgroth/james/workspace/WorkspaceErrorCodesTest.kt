@@ -1,5 +1,6 @@
 package de.chrgroth.james.workspace
 
+import de.chrgroth.james.workspace.WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED
 import de.chrgroth.james.workspace.WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND
 import de.chrgroth.james.workspace.WorkspaceErrorCodes.APP_UNINSTALL_NOT_SUPPORTED
 import de.chrgroth.james.workspace.WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS
@@ -23,12 +24,13 @@ class WorkspaceErrorCodesTest {
         assertThat(REORDER_APPS_UNKNOWN_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_002_REORDER_APPS_UNKNOWN_IDS")
         assertThat(REORDER_APPS_MISSING_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_003_REORDER_APPS_MISSING_IDS")
         assertThat(APP_INSTALLATION_NOT_FOUND.toGlobalRepresentation()).isEqualTo("WORKSPACE_004_APP_INSTALLATION_NOT_FOUND")
-        assertThat(DELETE_WORKSPACE_INSTALLED_APPS.toGlobalRepresentation()).isEqualTo("WORKSPACE_005_DELETE_WORKSPACE_INSTALLED_APPS")
-        assertThat(APP_UNINSTALL_NOT_SUPPORTED.toGlobalRepresentation()).isEqualTo("WORKSPACE_006_APP_UNINSTALL_NOT_SUPPORTED")
-        assertThat(REORDER_WORKSPACES_UNKNOWN_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_007_REORDER_WORKSPACES_UNKNOWN_IDS")
-        assertThat(REORDER_WORKSPACES_MISSING_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_008_REORDER_WORKSPACES_MISSING_IDS")
-        assertThat(NOT_FOUND.toGlobalRepresentation()).isEqualTo("WORKSPACE_009_NOT_FOUND")
+        assertThat(APP_DOWNGRADE_NOT_SUPPORTED.toGlobalRepresentation()).isEqualTo("WORKSPACE_005_APP_DOWNGRADE_NOT_SUPPORTED")
+        assertThat(DELETE_WORKSPACE_INSTALLED_APPS.toGlobalRepresentation()).isEqualTo("WORKSPACE_006_DELETE_WORKSPACE_INSTALLED_APPS")
+        assertThat(APP_UNINSTALL_NOT_SUPPORTED.toGlobalRepresentation()).isEqualTo("WORKSPACE_007_APP_UNINSTALL_NOT_SUPPORTED")
+        assertThat(REORDER_WORKSPACES_UNKNOWN_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_008_REORDER_WORKSPACES_UNKNOWN_IDS")
+        assertThat(REORDER_WORKSPACES_MISSING_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_009_REORDER_WORKSPACES_MISSING_IDS")
+        assertThat(NOT_FOUND.toGlobalRepresentation()).isEqualTo("WORKSPACE_010_NOT_FOUND")
 
-        assertThat(values()).hasSize(10)
+        assertThat(values()).hasSize(11)
     }
 }

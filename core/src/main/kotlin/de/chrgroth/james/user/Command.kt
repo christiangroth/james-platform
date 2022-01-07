@@ -27,7 +27,9 @@ internal class UserCommandAdapter(
         }
 
     override fun changeEmail(id: UUID, email: String): Maybe<User> =
-        id.loadUserAndInvoke({ it.changeEmail(email) }) {
+        queryPersistence.getOrError(id).flatMap {
+            it.changeEmail(email)
+        }.flatMap {
             it.email.ensureUserNotPresent {
                 commandPersistence.upsert(it)
             }
@@ -46,10 +48,11 @@ internal class UserCommandAdapter(
         }
 
     override fun changeName(id: UUID, name: String) =
-        id.loadUserAndInvoke({ it.changeName(name) }) {
+        queryPersistence.getOrError(id).flatMap {
+            it.changeName(name)
+        }.flatMap {
             commandPersistence.upsert(it)
         }
-
 
     // TODO #22 define when User deletion is supported
     override fun deleteUser(id: UUID): Maybe<Unit> =
@@ -58,14 +61,5 @@ internal class UserCommandAdapter(
                 code = UserErrorCodes.DELETE_NOT_SUPPORTED,
                 details = null,
             )
-        }
-
-    // TODO #25 remove??
-    private fun <R, S> UUID.loadUserAndInvoke(
-        userOperation: (User) -> Maybe<R>,
-        persistenceOperation: (R) -> Maybe<S>,
-    ): Maybe<S> =
-        queryPersistence.getOrError(this).flatMap { user ->
-            userOperation(user).flatMap { persistenceOperation(it) }
         }
 }

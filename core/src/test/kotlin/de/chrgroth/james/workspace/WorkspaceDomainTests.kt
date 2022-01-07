@@ -26,6 +26,7 @@ class WorkspaceDomainTests {
 
     private val existingAppIdOne = UUID.randomUUID()
     private val existingAppIdTwo = UUID.randomUUID()
+    private val existingAppOneVersionIdZero = Semver("0.9.4")
     private val existingAppOneVersionIdOne = Semver("1.0.0")
     private val existingAppOneVersionIdTwo = Semver("1.1.0")
     private val existingAppTwoVersionIdOne = Semver("0.1.0")
@@ -77,6 +78,7 @@ class WorkspaceDomainTests {
 
         appQueryPersistence = mockk<AppQueryPersistencePort>().also {
             every { it.getOrError(any(), any()) }.answers { Maybe.Error(AppErrorCodes.APP_VERSION_NOT_FOUND, null) }
+            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdZero) }.returns(Maybe.Result(mockk()))
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdOne) }.returns(Maybe.Result(existingAppVersion))
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdTwo) }.returns(Maybe.Result(existingAppNewerVersion))
         }
@@ -455,7 +457,7 @@ class WorkspaceDomainTests {
     }
 
     @Test
-    fun `update app installation unknown app installaltion`() {
+    fun `update app installation unknown app installation`() {
         port.updateApp(existingOneId, unknownId, existingAppOneVersionIdTwo).expectError(
             code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
@@ -476,6 +478,32 @@ class WorkspaceDomainTests {
         verifyMocks {
             queryPersistence.getOrError(existingOneId)
             appQueryPersistence.getOrError(existingAppIdOne, unknownAppVersionId)
+        }
+    }
+
+    @Test
+    fun `update app installation same app version`() {
+        port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdOne).expectError(
+            code = WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED,
+            details = "1.0.0 >= 1.0.0",
+        )
+
+        verifyMocks {
+            queryPersistence.getOrError(existingOneId)
+            appQueryPersistence.getOrError(existingAppIdOne, existingAppOneVersionIdOne)
+        }
+    }
+
+    @Test
+    fun `update app installation older app version`() {
+        port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdZero).expectError(
+            code = WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED,
+            details = "1.0.0 >= 0.9.4",
+        )
+
+        verifyMocks {
+            queryPersistence.getOrError(existingOneId)
+            appQueryPersistence.getOrError(existingAppIdOne, existingAppOneVersionIdZero)
         }
     }
 
