@@ -5,7 +5,6 @@ import de.chrgroth.james.Maybe
 import java.util.UUID
 
 interface AppQueryPersistencePort {
-    fun get(id: UUID): Maybe<App?>
     fun getOrError(id: UUID): Maybe<App>
     fun getOrError(id: UUID, version: Semver): Maybe<AppVersion>
 

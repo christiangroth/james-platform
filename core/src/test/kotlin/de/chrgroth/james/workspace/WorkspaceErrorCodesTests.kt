@@ -11,14 +11,13 @@ import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS
 import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS
 import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS
 import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.values
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class WorkspaceErrorCodesTest {
+class WorkspaceErrorCodesTests {
 
     @Test
-    fun ensureErrorCodesNotChanges() {
+    fun ensureErrorCodesNotChanged() {
         assertThat(ORDER_NEGATIVE.toGlobalRepresentation()).isEqualTo("WORKSPACE_000_ORDER_NEGATIVE")
         assertThat(NAME_BLANK.toGlobalRepresentation()).isEqualTo("WORKSPACE_001_NAME_BLANK")
         assertThat(REORDER_APPS_UNKNOWN_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_002_REORDER_APPS_UNKNOWN_IDS")
@@ -30,7 +29,10 @@ class WorkspaceErrorCodesTest {
         assertThat(REORDER_WORKSPACES_UNKNOWN_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_008_REORDER_WORKSPACES_UNKNOWN_IDS")
         assertThat(REORDER_WORKSPACES_MISSING_IDS.toGlobalRepresentation()).isEqualTo("WORKSPACE_009_REORDER_WORKSPACES_MISSING_IDS")
         assertThat(NOT_FOUND.toGlobalRepresentation()).isEqualTo("WORKSPACE_010_NOT_FOUND")
+    }
 
-        assertThat(values()).hasSize(11)
+    @Test
+    fun ensureNumberOfErrorCodesNotChanged() {
+        assertThat(WorkspaceErrorCodes.values()).hasSize(11)
     }
 }

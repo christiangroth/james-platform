@@ -35,78 +35,116 @@ internal class AppCommandAdapter(
         }
 
     override fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke(App::createDevelopmentVersion) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.createDevelopmentVersion()
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun createNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.createDevelopmentVersionDatatype(datatypeName) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.createDevelopmentVersionDatatype(datatypeName)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun renameNextVersionDatatype(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.renameDevelopmentVersionDatatype(oldName, newName) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.renameDevelopmentVersionDatatype(oldName, newName)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun updateNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.updateDevelopmentVersionDatatype(name, schemaContent, description) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.updateDevelopmentVersionDatatype(name, schemaContent, description)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun removeNextVersionDatatype(id: UUID, datatypeName: String) =
-        id.loadAppAndInvoke({ it.removeDevelopmentVersionDatatype(datatypeName) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.removeDevelopmentVersionDatatype(datatypeName)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun createNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.createDevelopmentVersionReport(reportName) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.createDevelopmentVersionReport(reportName)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun renameNextVersionReport(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.renameDevelopmentVersionReport(oldName, newName) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.renameDevelopmentVersionReport(oldName, newName)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun updateNextVersionReport(id: UUID, name: String, source: String, description: String?): Maybe<AppVersionDraft> =
-        id.loadAppAndInvoke({ it.updateDevelopmentVersionReport(name, source, description) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.updateDevelopmentVersionReport(name, source, description)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun removeNextVersionReport(id: UUID, reportName: String) =
-        id.loadAppAndInvoke({ it.removeDevelopmentVersionReport(reportName) }) { _, app ->
-            commandPersistence.upsert(app).map { it.developmentVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.removeDevelopmentVersionReport(reportName)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.developmentVersion!!
         }
 
     override fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion> =
-        id.loadAppAndInvoke({ it.releaseDevelopmentVersion(changeType, note) }) { _, app ->
-            commandPersistence.upsert(app).map { it.latestVersion!! }
+        queryPersistence.getOrError(id).flatMap {
+            it.releaseDevelopmentVersion(changeType, note)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.latestVersion!!
         }
 
     override fun changeVersionReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion> =
-        id.loadAppAndInvoke({ it.changeVersionReleaseNote(version, note) }) { _, app ->
-            commandPersistence.upsert(app).map { updatedApp ->
-                updatedApp.versions.firstOrNull { it.version == version }!!
-            }
+        queryPersistence.getOrError(id).flatMap {
+            it.changeVersionReleaseNote(version, note)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map { app ->
+            app.versions.firstOrNull { it.version == version }!!
         }
 
     // TODO #5 check if user data is still present
-    override fun discontinue(id: UUID) =
-        id.loadAppAndInvoke(App::discontinue) { _, app ->
-            commandPersistence.upsert(app)
+    override fun discontinue(id: UUID): Maybe<App> =
+        queryPersistence.getOrError(id).flatMap {
+            it.discontinue()
+        }.flatMap {
+            commandPersistence.upsert(it)
         }
 
     override fun delete(id: UUID) =
-        id.loadAppAndInvoke(App::verifyDeletion) { app, _ ->
-            commandPersistence.delete(app.id)
-        }
-
-    private fun <R, S> UUID.loadAppAndInvoke(
-        appOperation: (App) -> Maybe<R>,
-        persistenceOperation: (App, R) -> Maybe<S>,
-    ) =
-        queryPersistence.getOrError(this).flatMap { app ->
-            appOperation(app).flatMap { persistenceOperation(app, it) }
+        queryPersistence.getOrError(id).flatMap {
+            it.verifyDeletion()
+        }.flatMap {
+            commandPersistence.delete(id)
         }
 }

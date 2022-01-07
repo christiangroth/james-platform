@@ -2,7 +2,6 @@ package de.chrgroth.james.app
 
 import de.chrgroth.james.ErrorCode
 
-// TODO #25 test global representation to never change the codes!
 enum class AppErrorCodes : ErrorCode {
     APP_NAME_BLANK,
     APP_DATATYPE_NOT_FOUND,
