@@ -21,6 +21,7 @@ interface WorkspaceCommandPort {
     fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
     fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
     fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation>
+    fun reorderApps(workspaceId: UUID, order: List<UUID>): Maybe<Workspace>
     fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>>
     fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): Maybe<Workspace>
 
@@ -33,18 +34,13 @@ internal class WorkspaceCommandAdapter(
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : WorkspaceCommandPort {
 
-    override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> {
-        val currentMaxOrder = queryPersistence.findForUser(userId).map { persistentWorkspaces ->
-            persistentWorkspaces.maxOfOrNull { it.order } ?: -1
+    override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> =
+        queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
+            val currentMaxOrder = persistentWorkspaces.maxOfOrNull { it.order } ?: -1
+            Workspace.create(userId, currentMaxOrder + 1, name).flatMap {
+                commandPersistence.upsert(it)
+            }
         }
-        val newOrder = when (currentMaxOrder) {
-            is Result -> currentMaxOrder.value + 1
-            else -> 0
-        }
-        return Workspace.create(userId, newOrder, name).flatMap {
-            commandPersistence.upsert(it)
-        }
-    }
 
     override fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit> =
         queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
@@ -84,6 +80,7 @@ internal class WorkspaceCommandAdapter(
             commandPersistence.upsert(it)
         }
 
+    // TODO #25 ensure targetVersion is released
     override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
         appQueryPersistence.getOrError(appId, appVersion).flatMap { _ ->
             workspaceId.loadWorkspaceAndInvoke({ it.installApp(appId, appVersion) }) {
@@ -104,6 +101,9 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
+    // TODO #25 allow multiple errors
+    // TODO #25 ensure targetVersion > currentVersion
+    // TODO #25 ensure targetVersion is released
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
         workspaceId.loadWorkspaceAndInvoke({ workspace ->
             workspace.modifyAppInstallation(appInstallationId) { appInstallation ->
@@ -116,6 +116,13 @@ internal class WorkspaceCommandAdapter(
                 upsertedWorkspace.appInstallations.first { appInstallation ->
                     appInstallation.id == appInstallationId
                 }
+            }
+        }
+
+    override fun reorderApps(workspaceId: UUID, order: List<UUID>): Maybe<Workspace> =
+        queryPersistence.getOrError(workspaceId).flatMap {
+            it.reorderAppInstallations(order).flatMap { updatedWorkspace ->
+                commandPersistence.upsert(updatedWorkspace)
             }
         }
 
@@ -151,6 +158,7 @@ internal class WorkspaceCommandAdapter(
             commandPersistence.delete(id)
         }
 
+    // TODO #25 remove??
     private fun <R, S> UUID.loadWorkspaceAndInvoke(
         workspaceOperation: (Workspace) -> Maybe<R>,
         persistenceOperation: (R) -> Maybe<S>,

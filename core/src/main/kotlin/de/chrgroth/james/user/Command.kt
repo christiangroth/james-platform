@@ -60,6 +60,7 @@ internal class UserCommandAdapter(
             )
         }
 
+    // TODO #25 remove??
     private fun <R, S> UUID.loadUserAndInvoke(
         userOperation: (User) -> Maybe<R>,
         persistenceOperation: (R) -> Maybe<S>,
