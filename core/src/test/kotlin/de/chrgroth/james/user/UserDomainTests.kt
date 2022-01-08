@@ -27,17 +27,17 @@ class UserDomainTests {
     @BeforeEach
     internal fun initialize() {
         queryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(existingId) }.returns(Result(existingUser))
-            every { it.getOrError(unknownId) }.returns(Error(UserErrorCodes.NOT_FOUND, unknownId.toString()))
+            every { it.getOrError(existingId) } returns (Result(existingUser))
+            every { it.getOrError(unknownId) } returns (Error(UserErrorCodes.NOT_FOUND, unknownId.toString()))
 
-            every { it.getByEmail(any()) }.returns(Result(null))
+            every { it.getByEmail(any()) } returns (Result(null))
 
             val duplicateUser = User.create("duplicate@james.de", "Duplicate").expectSuccess()
-            every { it.getByEmail(duplicateUser.email) }.returns(Result(duplicateUser))
+            every { it.getByEmail(duplicateUser.email) } returns (Result(duplicateUser))
         }
 
         commandPersistence = mockk<UserCommandPersistencePort>().also {
-            every { it.upsert(any()) }.answers { Result(this.args[0] as User) }
+            every { it.upsert(any()) } answers { Result(this.args[0] as User) }
         }
 
         port = UserCommandAdapter(queryPersistence, commandPersistence)

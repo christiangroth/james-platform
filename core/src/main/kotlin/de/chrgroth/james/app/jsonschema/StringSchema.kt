@@ -31,21 +31,21 @@ internal fun StringSchema.validateDefinition(propertyName: String): Errors<Strin
 
     val minLengthNegativeError = if (minLengthNullSafe < 0) {
         Error<StringSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
+            code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
             details = propertyName
         )
     } else null
 
     val maxLengthZeroOrNegativeError = if (maxLengthNullSafe < 1) {
         Error<StringSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
+            code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
             details = propertyName
         )
     } else null
 
     val maxLengthSmallerMinLengthError = if (maxLengthNullSafe < minLengthNullSafe) {
         Error<StringSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
+            code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
             details = propertyName
         )
     } else null
@@ -54,14 +54,14 @@ internal fun StringSchema.validateDefinition(propertyName: String): Errors<Strin
     val unsupportedFormatError =
         if (formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName())) {
             Error<StringSchema>(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
                 details = "$propertyName: format=${formatValidator.formatName()}"
             )
         } else null
 
     val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
         Error<StringSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties"
         )
     } else null

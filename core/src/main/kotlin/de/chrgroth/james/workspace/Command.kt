@@ -106,7 +106,7 @@ internal class WorkspaceCommandAdapter(
             }
         }
 
-    // TODO #25 allow multiple errors
+    // TODO #29 allow multiple errors
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
         queryPersistence.getOrError(workspaceId).flatMap {
             it.modifyAppInstallation(appInstallationId) { appInstallation ->
@@ -129,7 +129,7 @@ internal class WorkspaceCommandAdapter(
             commandPersistence.upsert(updatedWorkspace)
         }
 
-    // TODO #25 allow multiple errors
+    // TODO #29 allow multiple errors
     // TODO #5 trigger data movement, if needed?
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->

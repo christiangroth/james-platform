@@ -62,25 +62,24 @@ class WorkspaceDomainTests {
     @BeforeEach
     internal fun initialize() {
         queryPersistence = mockk<WorkspaceQueryPersistencePort>().also {
-            every { it.getOrError(existingOneId) }.returns(Maybe.Result(existingWorkspaceOne))
-            every { it.getOrError(existingTwoId) }.returns(Maybe.Result(existingWorkspaceTwo))
-            every { it.getOrError(unknownId) }.returns(Error(WorkspaceErrorCodes.NOT_FOUND, unknownId.toString()))
+            every { it.getOrError(existingOneId) } returns (Maybe.Result(existingWorkspaceOne))
+            every { it.getOrError(existingTwoId) } returns (Maybe.Result(existingWorkspaceTwo))
+            every { it.getOrError(unknownId) } returns (Error(WorkspaceErrorCodes.NOT_FOUND, unknownId.toString()))
 
-            every { it.findForUser(any()) }.returns(Maybe.Result(listOf()))
-            every { it.findForUser(existingWorkspaceOne.userId) }
-                .returns(Maybe.Result(listOf(existingWorkspaceOne, existingWorkspaceTwo)))
+            every { it.findForUser(any()) } returns (Maybe.Result(listOf()))
+            every { it.findForUser(existingWorkspaceOne.userId) } returns (Maybe.Result(listOf(existingWorkspaceOne, existingWorkspaceTwo)))
         }
 
         commandPersistence = mockk<WorkspaceCommandPersistencePort>().also {
-            every { it.upsert(any()) }.answers { Maybe.Result(this.args[0] as Workspace) }
-            every { it.delete(any()) }.answers { Maybe.Result(Unit) }
+            every { it.upsert(any()) } answers { Maybe.Result(this.args[0] as Workspace) }
+            every { it.delete(any()) } answers { Maybe.Result(Unit) }
         }
 
         appQueryPersistence = mockk<AppQueryPersistencePort>().also {
-            every { it.getOrError(any(), any()) }.answers { Maybe.Error(AppErrorCodes.APP_VERSION_NOT_FOUND, null) }
-            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdZero) }.returns(Maybe.Result(mockk()))
-            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdOne) }.returns(Maybe.Result(existingAppVersion))
-            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdTwo) }.returns(Maybe.Result(existingAppNewerVersion))
+            every { it.getOrError(any(), any()) } answers { Maybe.Error(AppErrorCodes.VERSION_NOT_FOUND, null) }
+            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdZero) } returns (Maybe.Result(mockk()))
+            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdOne) } returns (Maybe.Result(existingAppVersion))
+            every { it.getOrError(existingAppIdOne, existingAppOneVersionIdTwo) } returns (Maybe.Result(existingAppNewerVersion))
         }
 
         port = WorkspaceCommandAdapter(appQueryPersistence, queryPersistence, commandPersistence)
@@ -218,7 +217,7 @@ class WorkspaceDomainTests {
     @Test
     fun `install unknown app version`() {
         port.installApp(existingOneId, existingAppIdOne, unknownAppVersionId).expectError(
-            code = AppErrorCodes.APP_VERSION_NOT_FOUND,
+            code = AppErrorCodes.VERSION_NOT_FOUND,
             details = null,
         )
         verifyMocks {
@@ -262,7 +261,7 @@ class WorkspaceDomainTests {
     @Test
     fun `move app unknown app installation`() {
         port.moveApp(existingOneId, unknownId, existingTwoId).expectError(
-            code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
+            code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
         )
 
@@ -413,7 +412,7 @@ class WorkspaceDomainTests {
     @Test
     fun `name app installation unknown app`() {
         port.nameApp(existingOneId, unknownId, "FOOOO").expectError(
-            code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
+            code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString()
         )
 
@@ -459,7 +458,7 @@ class WorkspaceDomainTests {
     @Test
     fun `update app installation unknown app installation`() {
         port.updateApp(existingOneId, unknownId, existingAppOneVersionIdTwo).expectError(
-            code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
+            code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
         )
 
@@ -471,7 +470,7 @@ class WorkspaceDomainTests {
     @Test
     fun `update app installation unknown app version`() {
         port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownAppVersionId).expectError(
-            code = AppErrorCodes.APP_VERSION_NOT_FOUND,
+            code = AppErrorCodes.VERSION_NOT_FOUND,
             details = null,
         )
 
@@ -484,7 +483,7 @@ class WorkspaceDomainTests {
     @Test
     fun `update app installation same app version`() {
         port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdOne).expectError(
-            code = WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED,
+            code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
             details = "1.0.0 >= 1.0.0",
         )
 
@@ -497,7 +496,7 @@ class WorkspaceDomainTests {
     @Test
     fun `update app installation older app version`() {
         port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdZero).expectError(
-            code = WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED,
+            code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
             details = "1.0.0 >= 0.9.4",
         )
 
@@ -510,7 +509,7 @@ class WorkspaceDomainTests {
     @Test
     fun `uninstall app`() {
         port.uninstallApp(existingOneId, existingWorkspaceOneAppInstallationOneId).expectError(
-            code = WorkspaceErrorCodes.APP_UNINSTALL_NOT_SUPPORTED,
+            code = WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED,
             details = null,
         )
 
@@ -534,7 +533,7 @@ class WorkspaceDomainTests {
     @Test
     fun `uninstall app unknown app installation`() {
         port.uninstallApp(existingOneId, unknownId).expectError(
-            code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
+            code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
         )
 

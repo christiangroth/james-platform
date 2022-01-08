@@ -19,7 +19,7 @@ class BooleanSchemaTests : AnnotationsBaseTests() {
     fun `title not allowed`() =
         """ $prefixForAnnotationTests "title": "Some title" """.toBooleanProperty().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
                 details = "testPropertyName"
             )
         )
@@ -34,7 +34,7 @@ class BooleanSchemaTests : AnnotationsBaseTests() {
         val schemaContent = """ "bar": "baz" """.toBooleanProperty()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "testPropertyName: {bar=baz}"
             )
         )

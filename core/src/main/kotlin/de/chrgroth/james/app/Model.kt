@@ -22,6 +22,8 @@ import java.util.UUID
 // TODO #28 make return types explicit (check all files)
 // TODO #28 make copy calls explicit (this file only)
 
+// TODO #25 avoid code duplication (discontinued check, check for version draft)
+
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
@@ -38,7 +40,7 @@ data class App private constructor(
 
     companion object {
         private fun validateName(name: String) =
-            validateNotBlank(name, AppErrorCodes.APP_NAME_BLANK)
+            validateNotBlank(name, AppErrorCodes.NAME_BLANK)
 
         fun create(name: String, developerId: UUID, description: String?): Maybe<App> =
             validateName(name).map { validName ->
@@ -79,7 +81,7 @@ data class App private constructor(
     @Suppress("UNCHECKED_CAST")
     internal fun createDevelopmentVersion() = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion != null -> Error(
@@ -103,7 +105,7 @@ data class App private constructor(
 
     internal fun createDevelopmentVersionDatatype(datatypeName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -111,7 +113,7 @@ data class App private constructor(
             details = null,
         )
         developmentVersion.datatypes.any { it.name == datatypeName } -> Error(
-            code = AppErrorCodes.APP_DATATYPE_NAME_DUPLICATE,
+            code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = datatypeName,
         )
         else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).flatMap { newDatatype ->
@@ -121,7 +123,7 @@ data class App private constructor(
 
     internal fun renameDevelopmentVersionDatatype(oldName: String, newName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -129,12 +131,12 @@ data class App private constructor(
             details = null,
         )
         developmentVersion.datatypes.any { it.name == newName } -> Error(
-            code = AppErrorCodes.APP_DATATYPE_NAME_DUPLICATE,
+            code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = newName,
         )
         else -> when (val existingDatatype = developmentVersion.datatypes.firstOrNull { it.name == oldName }) {
             null -> Error(
-                code = AppErrorCodes.APP_DATATYPE_NOT_FOUND,
+                code = AppErrorCodes.DATATYPE_NOT_FOUND,
                 details = oldName,
             )
             else -> AppDatatypeDraft.create(name = newName, schemaContent = existingDatatype.schemaContent, description = existingDatatype.description)
@@ -146,7 +148,7 @@ data class App private constructor(
 
     internal fun updateDevelopmentVersionDatatype(name: String, schemaContent: String, description: String?): Maybe<App> = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -155,7 +157,7 @@ data class App private constructor(
         )
         else -> when (val datatype = developmentVersion.datatypes.firstOrNull { it.name == name }) {
             null -> Error(
-                code = AppErrorCodes.APP_DATATYPE_NOT_FOUND,
+                code = AppErrorCodes.DATATYPE_NOT_FOUND,
                 details = name,
             )
             else -> {
@@ -172,7 +174,7 @@ data class App private constructor(
 
     internal fun removeDevelopmentVersionDatatype(datatypeName: String) = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -184,7 +186,7 @@ data class App private constructor(
 
     internal fun createDevelopmentVersionReport(reportName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -192,7 +194,7 @@ data class App private constructor(
             details = null,
         )
         developmentVersion.reports.any { it.name == reportName } -> Error(
-            code = AppErrorCodes.APP_REPORT_NAME_DUPLICATE,
+            code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = reportName,
         )
         else -> AppReport.create(name = reportName, source = "", description = null).flatMap { newReport ->
@@ -202,7 +204,7 @@ data class App private constructor(
 
     internal fun renameDevelopmentVersionReport(oldName: String, newName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -210,12 +212,12 @@ data class App private constructor(
             details = null,
         )
         developmentVersion.reports.any { it.name == newName } -> Error(
-            code = AppErrorCodes.APP_REPORT_NAME_DUPLICATE,
+            code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = newName,
         )
         else -> when (val existingReport = developmentVersion.reports.firstOrNull { it.name == oldName }) {
             null -> Error(
-                code = AppErrorCodes.APP_REPORT_NOT_FOUND,
+                code = AppErrorCodes.REPORT_NOT_FOUND,
                 details = oldName,
             )
             else -> AppReport.create(name = newName, source = existingReport.source, description = existingReport.description).flatMap { newReport ->
@@ -226,7 +228,7 @@ data class App private constructor(
 
     internal fun updateDevelopmentVersionReport(name: String, source: String, description: String?) = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -235,7 +237,7 @@ data class App private constructor(
         )
         else -> when (val report = developmentVersion.reports.firstOrNull { it.name == name }) {
             null -> Error(
-                code = AppErrorCodes.APP_REPORT_NOT_FOUND,
+                code = AppErrorCodes.REPORT_NOT_FOUND,
                 details = name,
             )
             else -> {
@@ -252,7 +254,7 @@ data class App private constructor(
 
     internal fun removeDevelopmentVersionReport(reportName: String) = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -264,7 +266,7 @@ data class App private constructor(
 
     internal fun releaseDevelopmentVersion(changeType: AppVersionChangeType, note: String) = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         developmentVersion == null -> Error(
@@ -284,7 +286,7 @@ data class App private constructor(
         return when (val appVersion = versions.firstOrNull { it.version == version }) {
             null -> {
                 Error(
-                    code = AppErrorCodes.APP_VERSION_NOT_FOUND,
+                    code = AppErrorCodes.VERSION_NOT_FOUND,
                     details = version.toString()
                 )
             }
@@ -300,7 +302,7 @@ data class App private constructor(
 
     internal fun discontinue() = when {
         !status.allowsChanges -> Error(
-            code = AppErrorCodes.APP_DISCONTINUED_NO_CHANGES_ALLOWED,
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         else -> Result(copy(discontinued = true))
@@ -404,7 +406,7 @@ data class AppVersionDraft private constructor(
 
     internal fun removeDatatype(datatypeName: String) = when {
         datatypes.none { it.name == datatypeName.trim() } -> Error(
-            code = AppErrorCodes.APP_DATATYPE_NOT_FOUND,
+            code = AppErrorCodes.DATATYPE_NOT_FOUND,
             details = null,
         )
         else -> Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName.trim() }.toSet()))
@@ -421,7 +423,7 @@ data class AppVersionDraft private constructor(
 
     internal fun removeReport(reportName: String) = when {
         reports.none { it.name == reportName.trim() } -> Error(
-            code = AppErrorCodes.APP_REPORT_NOT_FOUND,
+            code = AppErrorCodes.REPORT_NOT_FOUND,
             details = null,
         )
         else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
@@ -442,7 +444,7 @@ data class AppVersionReleaseNotes private constructor(
 
     companion object {
         private fun validateNote(note: String) =
-            validateNotBlank(note, AppErrorCodes.APP_VERSION_RELEASE_NOTE_BLANK)
+            validateNotBlank(note, AppErrorCodes.VERSION_RELEASE_NOTE_BLANK)
 
         fun create(changeType: AppVersionChangeType, note: String): Maybe<AppVersionReleaseNotes> =
             validateNote(note).map { validNote ->
@@ -517,8 +519,8 @@ data class AppDatatypeDraft private constructor(
             validateMatches(
                 value = name,
                 pattern = simpleNamePatern,
-                codeBlank = AppErrorCodes.APP_DATATYPE_NAME_BLANK,
-                codeNoMatch = AppErrorCodes.APP_DATATYPE_NAME_INVALID,
+                codeBlank = AppErrorCodes.DATATYPE_NAME_BLANK,
+                codeNoMatch = AppErrorCodes.DATATYPE_NAME_INVALID,
             )
 
         fun create(datatype: AppDatatype): Maybe<AppDatatypeDraft> =
@@ -569,13 +571,13 @@ data class AppDatatype private constructor(
 
     companion object {
         private fun validateName(name: String) =
-            validateNotBlank(name, AppErrorCodes.APP_DATATYPE_NAME_BLANK)
+            validateNotBlank(name, AppErrorCodes.DATATYPE_NAME_BLANK)
 
         private fun validateVersion(version: Long) =
-            validateNotNegative(version, AppErrorCodes.APP_DATATYPE_VERSION_NEGATIVE)
+            validateNotNegative(version, AppErrorCodes.DATATYPE_VERSION_NEGATIVE)
 
         private fun validateSchemaContent(schemaContent: String) =
-            validateNotBlank(schemaContent, AppErrorCodes.APP_DATATYPE_SCHEMA_CONTENT_BLANK)
+            validateNotBlank(schemaContent, AppErrorCodes.DATATYPE_SCHEMA_CONTENT_BLANK)
 
         fun create(draft: AppDatatypeDraft, version: Long): Maybe<AppDatatype> =
             validateName(draft.name).flatMap { validName ->
@@ -626,7 +628,7 @@ data class AppReport private constructor(
 
     companion object {
         private fun validateName(name: String) =
-            validateNotBlank(name, AppErrorCodes.APP_REPORT_NAME_BLANK)
+            validateNotBlank(name, AppErrorCodes.REPORT_NAME_BLANK)
 
         fun create(name: String, description: String?, source: String): Maybe<AppReport> =
             validateName(name).map { validName ->

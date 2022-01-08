@@ -26,7 +26,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `default not allowed`() =
         """ $prefixForAnnotationTests "default": { "foo": "bar" } """.toTestSchema().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
                 details = null
             )
         )
@@ -36,7 +36,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = """ "minProperties": 7 """.toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -47,7 +47,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = """ "maxProperties": 7 """.toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -58,7 +58,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = "".toTestSchema().replace(""""additionalProperties": false""", """"additionalProperties": true""")
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -69,7 +69,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = """ "patternProperties": { "^S_": { "type": "string" }, "^I_": { "type": "integer" } } """.toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -80,7 +80,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = """ "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*${'$'}" } """.toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -93,7 +93,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
                  "dependencies": { "credit_card": ["billing_address"], "billing_address": ["credit_card"] } """.trimMargin().toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -107,7 +107,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
             "required": ["billing_address"] } }""".trimMargin().toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
                 details = null,
             )
         )
@@ -118,7 +118,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = "".toPropertyInSchemaContent("object")
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
+                code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
                 details = "[testPropertyName=ObjectSchema]",
             )
         )
@@ -131,7 +131,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
             "required": [ "name", "creditCard", "billingAddress" ] """.trimMargin().toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
+                code = AppErrorCodes.DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
                 details = "[billingAddress, creditCard]",
             )
         )
@@ -142,7 +142,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         val schemaContent = """ "foo": "bar" """.toTestSchema()
         schemaContent.loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "{foo=bar}",
             )
         )
@@ -175,7 +175,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
               }
             }
         """.trimIndent().loadAsTopLevelObjectSchema().expectError(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+            code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
             details = "CombinedSchema",
         )
     }
@@ -200,11 +200,11 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
             }
         """.trimIndent().loadAsTopLevelObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
+                code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
                 details = "[billing_address=ReferenceSchema, shipping_address=ReferenceSchema]",
             ),
             Error(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "{definitions={addressTuple={type=array, items=[{type=string}, {type=string}, {type=string}]}}}",
             ),
         )

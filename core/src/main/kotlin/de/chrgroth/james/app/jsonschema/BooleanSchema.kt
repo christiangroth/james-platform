@@ -18,7 +18,7 @@ internal fun BooleanSchema.validateDefinition(propertyName: String): Errors<Bool
 
     val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
         Error<BooleanSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties"
         )
     } else null

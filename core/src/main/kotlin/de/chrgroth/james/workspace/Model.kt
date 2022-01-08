@@ -141,7 +141,7 @@ data class Workspace private constructor(
         appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
             if (app == null) {
                 Error(
-                    code = WorkspaceErrorCodes.APP_INSTALLATION_NOT_FOUND,
+                    code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
                     details = appInstallationId.toString(),
                 )
             } else {
@@ -195,7 +195,7 @@ data class AppInstallation private constructor(
     internal fun changeVersion(version: Semver): Maybe<AppInstallation> =
         if (this.version >= version) {
             Error(
-                code = WorkspaceErrorCodes.APP_DOWNGRADE_NOT_SUPPORTED,
+                code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
                 details = "${this.version} >= $version",
             )
         } else {
@@ -205,7 +205,7 @@ data class AppInstallation private constructor(
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): Maybe<Unit> =
         Error(
-            code = WorkspaceErrorCodes.APP_UNINSTALL_NOT_SUPPORTED,
+            code = WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED,
             details = null,
         )
 }

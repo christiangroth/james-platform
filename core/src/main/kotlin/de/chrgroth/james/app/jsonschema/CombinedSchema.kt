@@ -23,7 +23,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<Com
 
     val criterionError = if (criterion != CombinedSchema.ALL_CRITERION) {
         Error<CombinedSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_UNSUPPORTED_CRITERION,
+            code = AppErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_UNSUPPORTED_CRITERION,
             details = propertyName,
         )
     } else null
@@ -34,7 +34,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<Com
     val enumSupportingJsonSchema = typeSchema?.resolveEnumSupportingJsonSchema()
     val subSchemasForEnumUsecaseError = if (!exactTwoSubschemas || enumSchema == null || enumSupportingJsonSchema == null) {
         Error<CombinedSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
+            code = AppErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
             details = "$propertyName: ${subschemas.map { it.javaClass.simpleName }.sorted()}",
         )
     } else null
@@ -42,21 +42,21 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<Com
     val enumAndTypeValidationErrors = if (enumSchema != null && typeSchema != null && enumSupportingJsonSchema != null) {
         val enumNotSupportedError = if (!enumSupportingJsonSchema.enumDefinitionSupported(typeSchema)) {
             Error<CombinedSchema>(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ENUM_PROPERTY_NOT_SUPPORTED,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_NOT_SUPPORTED,
                 details = propertyName,
             )
         } else null
 
         val enumValuesMissingError = if (enumSchema.possibleValues == null || enumSchema.possibleValues.isEmpty()) {
             Error<CombinedSchema>(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
                 details = propertyName,
             )
         } else null
 
         val enumValuesMismatchingTypeError = if (!enumSupportingJsonSchema.enumValuesTypeMatches(typeSchema, enumSchema)) {
             Error<CombinedSchema>(
-                code = AppErrorCodes.APP_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
                 details = propertyName,
             )
         } else null
@@ -73,7 +73,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): Errors<Com
 
     val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
         Error<CombinedSchema>(
-            code = AppErrorCodes.APP_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties",
         )
     } else null
