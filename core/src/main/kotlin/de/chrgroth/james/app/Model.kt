@@ -21,8 +21,6 @@ import java.util.UUID
 // TODO #28 make return types explicit (check all files)
 // TODO #28 make copy calls explicit (this file only)
 
-// TODO #25 avoid code duplication (discontinued check, check for version draft)
-
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
