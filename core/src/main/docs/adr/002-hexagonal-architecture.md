@@ -1,8 +1,8 @@
-# [short title of solved problem and solution]
+# Create a sustainable domain-focused architecture
 
 * Status: proposed
 * Deciders: Chris
-* Date: 2022.02.01
+* Date: 2022-02-10
 
 ## Context and Problem Statement
 
@@ -17,74 +17,60 @@ It should be possible to maintain the project over a long time and change/upgrad
 
 ## Considered Options
 
-* Hexagonal architecture
-* TODO
+* Hexagonal Architecture
+* Onion Architecture
+* Clean Architecture
 
 ## Decision Outcome
 
-Chosen option: "[option 1]",
-because [justification. e.g., only option, which meets k.o. criterion decision driver | which resolves force force | … | comes out best (see below)]
-.
+Hexagonal Architecture: Although all three options are quite similar, the Hexagonal Architecture approach was the most intuitive for me.
+This may of course change during implementation, but I think for now that I do not need any more layers or other concepts.
+All in all it consists of a few simple concepts and allows exchanging technical implementations without changing core domain implementation.
+If more structure or further concepts are needed when growing the core module, a mix of these architectures may be possible inside core module.
 
-### Positive Consequences <!-- optional -->
+### Positive Consequences 
 
-* [e.g., improvement of quality attribute satisfaction, follow-up decisions required, …]
-* …
+* heavy focus on business domain
+* lightweight (starter-) approach on DDD
 
-### Negative Consequences <!-- optional -->
+### Negative Consequences 
 
-* [e.g., compromising quality attribute, follow-up decisions required, …]
-* …
+* needs a little practice getting the concepts right
+* freedom in structuring core module also lacks guidelines which also takes additional time until a good design may be found
 
-## Pros and Cons of the Options <!-- optional -->
+## Design decisions
 
-### [option 1]
+As Hexagonal Architecture does give a lot of freedom to design the core module, the following guidelines should be used for a little finer grained design:
 
-[example | description | pointer to more information | …] <!-- optional -->
+* one package per bounded context
+* UseCases.kt
+  * primary/driven ports are named UseCases and their implementations UseCasesService
+  * contain less logic as possible, orchestrates domain objects
+  * __TODO__ should be domain and usecase driven
+    * accepts domain command as input parameter
+    * triggers domain event(s)
+    * returns domain command result
+* Model.kt
+  * contains domain models
+  * contain as much business logic as possible
+  * less external dependencies as possible
+* __TODO__ Persistence.kt
+  * Repositories and Persistence Ports (secondary ports), (lower level) command in?, do not trigger events, return (lower level) command results
+* __TODO__ Errors.kt
+  * defines domain objects validation errors
 
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
-* … <!-- numbers of pros and cons can vary -->
+Not designed yet:
 
-### [option 2]
-
-[example | description | pointer to more information | …] <!-- optional -->
-
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
-* … <!-- numbers of pros and cons can vary -->
-
-### [option 3]
-
-[example | description | pointer to more information | …] <!-- optional -->
-
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
-* … <!-- numbers of pros and cons can vary -->
-
-## TODOs
-
-* describe
-* refine naming XYZService implements XYZUseCases
-* refine ports to be domain driven
-* think about value objects (Commands) for UseCases
 * think how security is added to services
-* service parameters and return types: domain objects vs DTOs vs combination
 * think about validation and maybe use JSR-303?
-* think about separating bounded contexts using ports/adapters
+* think about separating bounded contexts using ports/adapters?
+* maybe replace errors implementation with kotlin-result
 
-Describe:
+## Further reading
 
-* current structure
-* intelligent domain objects and dumb services
-* error handling / codes
-
-Links:
-
-* https://netflixtechblog.com/ready-for-changes-with-hexagonal-architecture-b315ec967749
-* https://blog.codecentric.de/en/2020/07/hexagon-schmexagon-1/
-* https://reflectoring.io/spring-hexagonal/
-* https://vaadin.com/learn/tutorials/ddd/ddd_and_hexagonal
+* What a complete (and thus more complex) solution might look like: https://herbertograca.com/2017/11/16/explicit-architecture-01-ddd-hexagonal-onion-clean-cqrs-how-i-put-it-all-together/
+* Hexagonal Architecture overview and implementation strategies: 
+  * https://blog.codecentric.de/en/2020/07/hexagon-schmexagon-1/
+  * https://netflixtechblog.com/ready-for-changes-with-hexagonal-architecture-b315ec967749
+  * https://reflectoring.io/spring-hexagonal/
+* Hexagonal, Onion, Clean: https://www.maibornwolff.de/blog/ddd-architekturen-im-vergleich

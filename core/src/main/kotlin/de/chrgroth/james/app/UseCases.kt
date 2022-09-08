@@ -4,10 +4,16 @@ import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import java.util.UUID
 
-interface AppCommandPort {
+interface AppLifecycleUseCases {
     fun create(name: String, developerId: UUID, description: String? = null): Maybe<App>
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
+    fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion>
+    fun changeVersionReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion>
+    fun discontinue(id: UUID): Maybe<App>
+    fun delete(id: UUID): Maybe<Unit>
+}
 
+interface AppVersionDevelopmentUseCases {
     fun createNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
     fun renameNextVersionDatatype(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft>
     fun updateNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft>
@@ -17,17 +23,12 @@ interface AppCommandPort {
     fun renameNextVersionReport(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft>
     fun updateNextVersionReport(id: UUID, name: String, source: String, description: String?): Maybe<AppVersionDraft>
     fun removeNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
-
-    fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion>
-    fun changeVersionReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion>
-    fun discontinue(id: UUID): Maybe<App>
-    fun delete(id: UUID): Maybe<Unit>
 }
 
-internal class AppCommandAdapter(
+internal class AppLifecycleUseCasesService(
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,
-) : AppCommandPort {
+) : AppLifecycleUseCases {
 
     override fun create(name: String, developerId: UUID, description: String?) =
         App.create(name, developerId, description).flatMap {
@@ -42,6 +43,45 @@ internal class AppCommandAdapter(
         }.map {
             it.developmentVersion!!
         }
+
+    override fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion> =
+        queryPersistence.getOrError(id).flatMap {
+            it.releaseDevelopmentVersion(changeType, note)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map {
+            it.latestVersion!!
+        }
+
+    override fun changeVersionReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion> =
+        queryPersistence.getOrError(id).flatMap {
+            it.changeVersionReleaseNote(version, note)
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }.map { app ->
+            app.versions.firstOrNull { it.version == version }!!
+        }
+
+    // TODO #5 check if user data is still present
+    override fun discontinue(id: UUID): Maybe<App> =
+        queryPersistence.getOrError(id).flatMap {
+            it.discontinue()
+        }.flatMap {
+            commandPersistence.upsert(it)
+        }
+
+    override fun delete(id: UUID) =
+        queryPersistence.getOrError(id).flatMap {
+            it.verifyDeletion()
+        }.flatMap {
+            commandPersistence.delete(id)
+        }
+}
+
+internal class AppVersionDevelopmentUseCasesService(
+    private val queryPersistence: AppQueryPersistencePort,
+    private val commandPersistence: AppCommandPersistencePort,
+) : AppVersionDevelopmentUseCases {
 
     override fun createNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft> =
         queryPersistence.getOrError(id).flatMap {
@@ -113,38 +153,5 @@ internal class AppCommandAdapter(
             commandPersistence.upsert(it)
         }.map {
             it.developmentVersion!!
-        }
-
-    override fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion> =
-        queryPersistence.getOrError(id).flatMap {
-            it.releaseDevelopmentVersion(changeType, note)
-        }.flatMap {
-            commandPersistence.upsert(it)
-        }.map {
-            it.latestVersion!!
-        }
-
-    override fun changeVersionReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion> =
-        queryPersistence.getOrError(id).flatMap {
-            it.changeVersionReleaseNote(version, note)
-        }.flatMap {
-            commandPersistence.upsert(it)
-        }.map { app ->
-            app.versions.firstOrNull { it.version == version }!!
-        }
-
-    // TODO #5 check if user data is still present
-    override fun discontinue(id: UUID): Maybe<App> =
-        queryPersistence.getOrError(id).flatMap {
-            it.discontinue()
-        }.flatMap {
-            commandPersistence.upsert(it)
-        }
-
-    override fun delete(id: UUID) =
-        queryPersistence.getOrError(id).flatMap {
-            it.verifyDeletion()
-        }.flatMap {
-            commandPersistence.delete(id)
         }
 }

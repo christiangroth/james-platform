@@ -22,7 +22,8 @@ class UserDomainTests {
 
     private lateinit var queryPersistence: UserQueryPersistencePort
     private lateinit var commandPersistence: UserCommandPersistencePort
-    private lateinit var port: UserCommandPort
+    private lateinit var userAdminUseCases: UserAdminUseCases
+    private lateinit var userSelfServiceUseCases: UserSelfServiceUseCases
 
     @BeforeEach
     internal fun initialize() {
@@ -40,7 +41,8 @@ class UserDomainTests {
             every { it.upsert(any()) } answers { Result(this.args[0] as User) }
         }
 
-        port = UserCommandAdapter(queryPersistence, commandPersistence)
+        userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence)
+        userSelfServiceUseCases = UserSelfServiceUseCasesService(queryPersistence, commandPersistence)
     }
 
     @Test
@@ -51,7 +53,7 @@ class UserDomainTests {
             assertThat(name).isEqualTo("Some Name")
         }
 
-        port.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess().assertions()
+        userAdminUseCases.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.getByEmail("someone@james.de")
             commandPersistence.upsert(withArg {
@@ -62,7 +64,7 @@ class UserDomainTests {
 
     @Test
     internal fun `duplicate email`() {
-        port.registerUser("duplicate@james.de", "Joe").expectError(
+        userAdminUseCases.registerUser("duplicate@james.de", "Joe").expectError(
             code = UserErrorCodes.EMAIL_EXISTS,
             details = "duplicate@james.de",
         )
@@ -73,7 +75,7 @@ class UserDomainTests {
 
     @Test
     internal fun `blank email`() {
-        port.registerUser("", "Joe").expectError(
+        userAdminUseCases.registerUser("", "Joe").expectError(
             code = UserErrorCodes.EMAIL_BLANK,
             details = null,
         )
@@ -82,7 +84,7 @@ class UserDomainTests {
 
     @Test
     internal fun `invalid email`() {
-        port.registerUser("someone_james.de", "Joe").expectError(
+        userAdminUseCases.registerUser("someone_james.de", "Joe").expectError(
             code = UserErrorCodes.EMAIL_INVALID,
             details = "'someone_james.de' does not match .+@.+\\..+",
         )
@@ -91,7 +93,7 @@ class UserDomainTests {
 
     @Test
     internal fun `blank name`() {
-        port.registerUser("someone@james.de", " ").expectError(
+        userAdminUseCases.registerUser("someone@james.de", " ").expectError(
             code = UserErrorCodes.NAME_BLANK,
             details = null,
         )
@@ -106,7 +108,7 @@ class UserDomainTests {
             assertThat(name).isEqualTo("Existing")
         }
 
-        port.changeEmail(existingId, "someone_new@james.de").expectSuccess().assertions()
+        userSelfServiceUseCases.changeEmail(existingId, "someone_new@james.de").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.getOrError(existingId)
             queryPersistence.getByEmail("someone_new@james.de")
@@ -118,7 +120,7 @@ class UserDomainTests {
 
     @Test
     internal fun `change email unknown user`() {
-        port.changeEmail(unknownId, "someone_other@james.de").expectError(
+        userSelfServiceUseCases.changeEmail(unknownId, "someone_other@james.de").expectError(
             code = UserErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -130,7 +132,7 @@ class UserDomainTests {
 
     @Test
     internal fun `change email duplicate mail`() {
-        port.changeEmail(existingId, "duplicate@james.de").expectError(
+        userSelfServiceUseCases.changeEmail(existingId, "duplicate@james.de").expectError(
             code = UserErrorCodes.EMAIL_EXISTS,
             details = "duplicate@james.de",
         )
@@ -149,7 +151,7 @@ class UserDomainTests {
             assertThat(name).isEqualTo("James")
         }
 
-        port.changeName(existingId, "James").expectSuccess().assertions()
+        userSelfServiceUseCases.changeName(existingId, "James").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.getOrError(existingId)
             commandPersistence.upsert(withArg {
@@ -160,7 +162,7 @@ class UserDomainTests {
 
     @Test
     internal fun `change name invalid`() {
-        port.changeName(existingId, "").expectError(
+        userSelfServiceUseCases.changeName(existingId, "").expectError(
             code = UserErrorCodes.NAME_BLANK,
             details = null
         )
@@ -172,7 +174,7 @@ class UserDomainTests {
 
     @Test
     internal fun `existing user`() {
-        port.deleteUser(existingId).expectError(
+        userAdminUseCases.deleteUser(existingId).expectError(
             code = UserErrorCodes.DELETE_NOT_SUPPORTED,
             details = null,
         )
@@ -184,7 +186,7 @@ class UserDomainTests {
 
     @Test
     internal fun `unknown user`() {
-        port.deleteUser(unknownId).expectError(
+        userAdminUseCases.deleteUser(unknownId).expectError(
             code = UserErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )

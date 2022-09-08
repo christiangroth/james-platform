@@ -57,7 +57,8 @@ class WorkspaceDomainTests {
     private lateinit var appQueryPersistence: AppQueryPersistencePort
     private lateinit var queryPersistence: WorkspaceQueryPersistencePort
     private lateinit var commandPersistence: WorkspaceCommandPersistencePort
-    private lateinit var port: WorkspaceCommandPort
+    private lateinit var workspaceUseCases: WorkspaceUseCases
+    private lateinit var appInstallationUseCases: AppInstallationUseCases
 
     @BeforeEach
     internal fun initialize() {
@@ -82,7 +83,8 @@ class WorkspaceDomainTests {
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdTwo) } returns (Maybe.Result(existingAppNewerVersion))
         }
 
-        port = WorkspaceCommandAdapter(appQueryPersistence, queryPersistence, commandPersistence)
+        workspaceUseCases = WorkspaceUseCasesService(queryPersistence, commandPersistence)
+        appInstallationUseCases = AppInstallationUseCasesService(appQueryPersistence, queryPersistence, commandPersistence)
     }
 
     @Test
@@ -95,7 +97,7 @@ class WorkspaceDomainTests {
             assertThat(appInstallations).isEmpty()
         }
 
-        port.createWorkspace(existingUserId, "  A New Workspace   \t").expectSuccess().assertions()
+        workspaceUseCases.createWorkspace(existingUserId, "  A New Workspace   \t").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.findForUser(existingUserId)
             commandPersistence.upsert(withArg {
@@ -111,7 +113,7 @@ class WorkspaceDomainTests {
         }
 
         val userId = UUID.randomUUID()
-        port.createWorkspace(userId, "My First Workspace").expectSuccess().assertions()
+        workspaceUseCases.createWorkspace(userId, "My First Workspace").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.findForUser(userId)
             commandPersistence.upsert(withArg {
@@ -122,7 +124,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `new workspace with blank name`() {
-        port.createWorkspace(existingUserId, " ").expectError(
+        workspaceUseCases.createWorkspace(existingUserId, " ").expectError(
             code = WorkspaceErrorCodes.NAME_BLANK,
             details = null,
         )
@@ -133,7 +135,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `reorder user workspaces`() {
-        port.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId)).expectSuccess()
+        workspaceUseCases.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId)).expectSuccess()
         verifyMocks {
             queryPersistence.findForUser(existingUserId)
             commandPersistence.upsert(withArg {
@@ -151,7 +153,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `reorder user workspaces with unknown id`() {
-        port.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId, unknownId)).expectError(
+        workspaceUseCases.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId, unknownId)).expectError(
             code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
             details = listOf(unknownId).toString(),
         )
@@ -162,7 +164,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `reorder user workspaces with missing id`() {
-        port.reorderWorkspaces(existingUserId, listOf(existingTwoId)).expectError(
+        workspaceUseCases.reorderWorkspaces(existingUserId, listOf(existingTwoId)).expectError(
             code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
             details = listOf(existingOneId).toString(),
         )
@@ -173,7 +175,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `reorder user workspaces with missing and unknown id`() {
-        port.reorderWorkspaces(existingUserId, listOf(unknownId)).expectErrors(
+        workspaceUseCases.reorderWorkspaces(existingUserId, listOf(unknownId)).expectErrors(
             Error(
                 code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
                 details = listOf(existingOneId, existingTwoId).toString(),
@@ -194,7 +196,7 @@ class WorkspaceDomainTests {
             assertThat(name).isEqualTo("A New Name")
         }
 
-        port.renameWorkspace(existingOneId, "A New Name").expectSuccess().assertions()
+        workspaceUseCases.renameWorkspace(existingOneId, "A New Name").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.getOrError(existingOneId)
             commandPersistence.upsert(withArg {
@@ -205,7 +207,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `rename workspace to blank name`() {
-        port.renameWorkspace(existingOneId, " ").expectError(
+        workspaceUseCases.renameWorkspace(existingOneId, " ").expectError(
             code = WorkspaceErrorCodes.NAME_BLANK,
             details = null,
         )
@@ -216,7 +218,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `install unknown app version`() {
-        port.installApp(existingOneId, existingAppIdOne, unknownAppVersionId).expectError(
+        appInstallationUseCases.installApp(existingOneId, existingAppIdOne, unknownAppVersionId).expectError(
             code = AppErrorCodes.VERSION_NOT_FOUND,
             details = null,
         )
@@ -233,7 +235,7 @@ class WorkspaceDomainTests {
             assertThat(nameSupplement).isNull()
         }
 
-        port.installApp(existingTwoId, existingAppIdOne, existingAppOneVersionIdOne).expectSuccess().assertions()
+        appInstallationUseCases.installApp(existingTwoId, existingAppIdOne, existingAppOneVersionIdOne).expectSuccess().assertions()
         verifyMocks {
             appQueryPersistence.getOrError(existingAppIdOne, existingAppOneVersionIdOne)
             queryPersistence.getOrError(existingTwoId)
@@ -248,7 +250,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `move app unknown source`() {
-        port.moveApp(unknownId, existingWorkspaceOneAppInstallationOneId, existingTwoId).expectError(
+        appInstallationUseCases.moveApp(unknownId, existingWorkspaceOneAppInstallationOneId, existingTwoId).expectError(
             code = WorkspaceErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -260,7 +262,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `move app unknown app installation`() {
-        port.moveApp(existingOneId, unknownId, existingTwoId).expectError(
+        appInstallationUseCases.moveApp(existingOneId, unknownId, existingTwoId).expectError(
             code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -272,7 +274,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `move app unknown target`() {
-        port.moveApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownId).expectError(
+        appInstallationUseCases.moveApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownId).expectError(
             code = WorkspaceErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -297,7 +299,7 @@ class WorkspaceDomainTests {
             assertThat(appInstallations.first().id).isEqualTo(existingWorkspaceOneAppInstallationOneId)
         }
 
-        port.moveApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingTwoId).expectSuccess().also {
+        appInstallationUseCases.moveApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingTwoId).expectSuccess().also {
             it.first.assertionsSource()
             it.second.assertionsTarget()
         }
@@ -323,7 +325,7 @@ class WorkspaceDomainTests {
         }
 
         val newOrder = listOf(existingWorkspaceOneAppInstallationTwoId, existingWorkspaceOneAppInstallationOneId)
-        port.reorderApps(existingOneId, newOrder).expectSuccess().assertions()
+        appInstallationUseCases.reorderApps(existingOneId, newOrder).expectSuccess().assertions()
 
         verifyMocks {
             queryPersistence.getOrError(existingOneId)
@@ -338,7 +340,7 @@ class WorkspaceDomainTests {
     @Test
     fun `reorder apps with unknown and missing ids`() {
         val newOrder = listOf(existingWorkspaceOneAppInstallationTwoId, unknownId)
-        port.reorderApps(existingOneId, newOrder).expectErrors(
+        appInstallationUseCases.reorderApps(existingOneId, newOrder).expectErrors(
             Error(
                 code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
                 details = listOf(unknownId).toString(),
@@ -387,7 +389,7 @@ class WorkspaceDomainTests {
             assertThat(nameSupplement).isEqualTo("FOOOO")
         }
 
-        port.nameApp(existingOneId, existingWorkspaceOneAppInstallationOneId, "FOOOO").expectSuccess().assertions()
+        appInstallationUseCases.nameApp(existingOneId, existingWorkspaceOneAppInstallationOneId, "FOOOO").expectSuccess().assertions()
         verifyMocks {
             queryPersistence.getOrError(existingOneId)
             commandPersistence.upsert(withArg {
@@ -400,7 +402,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `name app installation unknown workspace`() {
-        port.nameApp(unknownId, existingWorkspaceOneAppInstallationOneId, "FOOOO").expectError(
+        appInstallationUseCases.nameApp(unknownId, existingWorkspaceOneAppInstallationOneId, "FOOOO").expectError(
             code = WorkspaceErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -411,7 +413,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `name app installation unknown app`() {
-        port.nameApp(existingOneId, unknownId, "FOOOO").expectError(
+        appInstallationUseCases.nameApp(existingOneId, unknownId, "FOOOO").expectError(
             code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString()
         )
@@ -428,7 +430,7 @@ class WorkspaceDomainTests {
             assertThat(version).isEqualTo(existingAppOneVersionIdTwo)
         }
 
-        port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdTwo).expectSuccess().assertions()
+        appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdTwo).expectSuccess().assertions()
         verifyMocks {
             queryPersistence.getOrError(existingOneId)
             appQueryPersistence.getOrError(existingAppIdOne, existingAppOneVersionIdTwo)
@@ -445,7 +447,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `update app installation unknown workspace`() {
-        port.updateApp(unknownId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdTwo).expectError(
+        appInstallationUseCases.updateApp(unknownId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdTwo).expectError(
             code = WorkspaceErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -457,7 +459,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `update app installation unknown app installation`() {
-        port.updateApp(existingOneId, unknownId, existingAppOneVersionIdTwo).expectError(
+        appInstallationUseCases.updateApp(existingOneId, unknownId, existingAppOneVersionIdTwo).expectError(
             code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -469,7 +471,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `update app installation unknown app version`() {
-        port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownAppVersionId).expectError(
+        appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownAppVersionId).expectError(
             code = AppErrorCodes.VERSION_NOT_FOUND,
             details = null,
         )
@@ -482,7 +484,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `update app installation same app version`() {
-        port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdOne).expectError(
+        appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdOne).expectError(
             code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
             details = "1.0.0 >= 1.0.0",
         )
@@ -495,7 +497,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `update app installation older app version`() {
-        port.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdZero).expectError(
+        appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdZero).expectError(
             code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
             details = "1.0.0 >= 0.9.4",
         )
@@ -508,7 +510,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `uninstall app`() {
-        port.uninstallApp(existingOneId, existingWorkspaceOneAppInstallationOneId).expectError(
+        appInstallationUseCases.uninstallApp(existingOneId, existingWorkspaceOneAppInstallationOneId).expectError(
             code = WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED,
             details = null,
         )
@@ -520,7 +522,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `uninstall app unknown workspace`() {
-        port.uninstallApp(unknownId, existingWorkspaceOneAppInstallationOneId).expectError(
+        appInstallationUseCases.uninstallApp(unknownId, existingWorkspaceOneAppInstallationOneId).expectError(
             code = WorkspaceErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -532,7 +534,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `uninstall app unknown app installation`() {
-        port.uninstallApp(existingOneId, unknownId).expectError(
+        appInstallationUseCases.uninstallApp(existingOneId, unknownId).expectError(
             code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
             details = unknownId.toString(),
         )
@@ -544,7 +546,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `delete empty workspace`() {
-        port.deleteWorkspace(existingTwoId).expectSuccess()
+        workspaceUseCases.deleteWorkspace(existingTwoId).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(existingTwoId)
             commandPersistence.delete(existingTwoId)
@@ -553,7 +555,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `delete not empty workspace`() {
-        port.deleteWorkspace(existingOneId).expectError(
+        workspaceUseCases.deleteWorkspace(existingOneId).expectError(
             code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
             details = "2",
         )
@@ -561,7 +563,7 @@ class WorkspaceDomainTests {
 
     @Test
     fun `delete unknown workspace`() {
-        port.deleteWorkspace(unknownId).expectError(
+        workspaceUseCases.deleteWorkspace(unknownId).expectError(
             code = WorkspaceErrorCodes.NOT_FOUND,
             details = unknownId.toString(),
         )

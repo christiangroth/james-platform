@@ -13,26 +13,26 @@ import java.util.UUID
 
 // TODO #22 need to check if user is active
 
-interface WorkspaceCommandPort {
+interface WorkspaceUseCases {
     fun createWorkspace(userId: UUID, name: String): Maybe<Workspace>
     fun reorderWorkspaces(userId: UUID, order: List<UUID>): Maybe<Unit>
     fun renameWorkspace(id: UUID, newName: String): Maybe<Workspace>
+    fun deleteWorkspace(id: UUID): Maybe<Unit>
+}
 
+interface AppInstallationUseCases {
     fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation>
     fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): Maybe<AppInstallation>
     fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation>
     fun reorderApps(workspaceId: UUID, order: List<UUID>): Maybe<Workspace>
     fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>>
     fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): Maybe<Workspace>
-
-    fun deleteWorkspace(id: UUID): Maybe<Unit>
 }
 
-internal class WorkspaceCommandAdapter(
-    private val appQueryPersistence: AppQueryPersistencePort,
+internal class WorkspaceUseCasesService(
     private val queryPersistence: WorkspaceQueryPersistencePort,
     private val commandPersistence: WorkspaceCommandPersistencePort,
-) : WorkspaceCommandPort {
+) : WorkspaceUseCases {
 
     override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> =
         queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
@@ -81,6 +81,20 @@ internal class WorkspaceCommandAdapter(
         }.flatMap {
             commandPersistence.upsert(it)
         }
+
+    override fun deleteWorkspace(id: UUID): Maybe<Unit> =
+        queryPersistence.getOrError(id).flatMap { workspace ->
+            workspace.verifyDeletion()
+        }.flatMap {
+            commandPersistence.delete(id)
+        }
+}
+
+internal class AppInstallationUseCasesService(
+    private val appQueryPersistence: AppQueryPersistencePort,
+    private val queryPersistence: WorkspaceQueryPersistencePort,
+    private val commandPersistence: WorkspaceCommandPersistencePort,
+) : AppInstallationUseCases {
 
     override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): Maybe<AppInstallation> =
         appQueryPersistence.getOrError(appId, appVersion).flatMap {
@@ -156,12 +170,5 @@ internal class WorkspaceCommandAdapter(
             it.uninstallApp(appInstallationId)
         }.flatMap {
             commandPersistence.upsert(it)
-        }
-
-    override fun deleteWorkspace(id: UUID): Maybe<Unit> =
-        queryPersistence.getOrError(id).flatMap { workspace ->
-            workspace.verifyDeletion()
-        }.flatMap {
-            commandPersistence.delete(id)
         }
 }

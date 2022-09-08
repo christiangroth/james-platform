@@ -27,7 +27,8 @@ class AppDomainTests {
 
     private lateinit var queryPersistence: AppQueryPersistencePort
     private lateinit var commandPersistence: AppCommandPersistencePort
-    private lateinit var port: AppCommandPort
+    private lateinit var appLifecycleUseCases: AppLifecycleUseCases
+    private lateinit var appVersionDevelopmentUseCases: AppVersionDevelopmentUseCases
 
     @BeforeEach
     internal fun initialize() {
@@ -39,7 +40,8 @@ class AppDomainTests {
             every { it.upsert(any()) } answers { Result(this.args[0] as App) }
         }
 
-        port = AppCommandAdapter(queryPersistence, commandPersistence)
+        appLifecycleUseCases = AppLifecycleUseCasesService(queryPersistence, commandPersistence)
+        appVersionDevelopmentUseCases = AppVersionDevelopmentUseCasesService(queryPersistence, commandPersistence)
     }
 
     @Test
@@ -55,7 +57,7 @@ class AppDomainTests {
             Assertions.assertThat(discontinued).isFalse
         }
 
-        port.create("Test App", developerId, "Fancy App").expectSuccess().assertions()
+        appLifecycleUseCases.create("Test App", developerId, "Fancy App").expectSuccess().assertions()
         verifyMocks {
             commandPersistence.upsert(withArg {
                 (actual as App).assertions()
@@ -65,7 +67,7 @@ class AppDomainTests {
 
     @Test
     fun `create invalid app`() {
-        port.create(" ", developerId, "Fancy App").expectError(
+        appLifecycleUseCases.create(" ", developerId, "Fancy App").expectError(
             code = AppErrorCodes.NAME_BLANK,
             details = null,
         )
@@ -74,7 +76,7 @@ class AppDomainTests {
 
     /*
 
-    TEST PLAN
+    TODO #25 TEST PLAN
     ---------
 
     fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>

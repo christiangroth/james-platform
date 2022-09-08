@@ -2,7 +2,7 @@
 
 * Status: accepted
 * Deciders: Chris
-* Date: 2022.01.31
+* Date: 2022-01-31
 
 ## Context and Problem Statement
 
