@@ -2,7 +2,6 @@ package de.chrgroth.james.user
 
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.foldAndShrink
-import de.chrgroth.james.throwOnError
 import de.chrgroth.james.validateMatches
 import de.chrgroth.james.validateNotBlank
 import java.util.UUID
@@ -42,13 +41,6 @@ data class User private constructor(
                     }
                 }
         }
-    }
-
-    init {
-        emailField = emailField.trim()
-        nameField = nameField.trim()
-
-        listOf(validateEmail(emailField), validateName(nameField)).throwOnError<User>(javaClass.simpleName)
     }
 
     val email get() = emailField

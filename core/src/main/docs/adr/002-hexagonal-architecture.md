@@ -1,6 +1,6 @@
 # Create a sustainable domain-focused architecture
 
-* Status: proposed
+* Status: in progress
 * Deciders: Chris
 * Date: 2022-02-10
 
@@ -46,7 +46,7 @@ As Hexagonal Architecture does give a lot of freedom to design the core module, 
 * UseCases.kt
   * primary/driven ports are named UseCases and their implementations UseCasesService
   * contain less logic as possible, orchestrates domain objects
-  * __TODO__ should be domain and usecase driven
+  * __TODO Ticket??__ should be domain and usecase driven
     * accepts domain command as input parameter
     * triggers domain event(s)
     * returns domain command result
@@ -54,9 +54,9 @@ As Hexagonal Architecture does give a lot of freedom to design the core module, 
   * contains domain models
   * contain as much business logic as possible
   * less external dependencies as possible
-* __TODO__ Persistence.kt
+* __TODO Ticket??__ Persistence.kt
   * Repositories and Persistence Ports (secondary ports), (lower level) command in?, do not trigger events, return (lower level) command results
-* __TODO__ Errors.kt
+* __TODO Ticket??__ Errors.kt
   * defines domain objects validation errors
 
 Not designed yet:

@@ -12,7 +12,6 @@ import de.chrgroth.james.collectResults
 import de.chrgroth.james.computeNext
 import de.chrgroth.james.foldErrors
 import de.chrgroth.james.shrink
-import de.chrgroth.james.throwOnError
 import de.chrgroth.james.trimToNull
 import de.chrgroth.james.validateMatches
 import de.chrgroth.james.validateNotBlank
@@ -56,13 +55,6 @@ data class App private constructor(
             }
     }
 
-    init {
-        nameField = nameField.trim()
-        descriptionField = descriptionField.trimToNull()
-
-        listOf(validateName(nameField)).throwOnError<App>(javaClass.simpleName)
-    }
-
     val name get() = nameField
     val description get() = descriptionField
 
@@ -84,10 +76,12 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion != null -> Error(
             code = AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
             details = null,
         )
+
         else -> latestVersion?.let {
             val convertedDatatypes = it.datatypes.map { datatype -> AppDatatypeDraft.create(datatype) }
             val conversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
@@ -108,14 +102,17 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         developmentVersion.datatypes.any { it.name == datatypeName } -> Error(
             code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = datatypeName,
         )
+
         else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).flatMap { newDatatype ->
             developmentVersion.upsertDatatype(newDatatype).map { copy(developmentVersion = it) }
         }
@@ -126,19 +123,23 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         developmentVersion.datatypes.any { it.name == newName } -> Error(
             code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = newName,
         )
+
         else -> when (val existingDatatype = developmentVersion.datatypes.firstOrNull { it.name == oldName }) {
             null -> Error(
                 code = AppErrorCodes.DATATYPE_NOT_FOUND,
                 details = oldName,
             )
+
             else -> AppDatatypeDraft.create(name = newName, schemaContent = existingDatatype.schemaContent, description = existingDatatype.description)
                 .flatMap { newDatatype ->
                     developmentVersion.replaceDatatype(oldName, newDatatype).map { copy(developmentVersion = it) }
@@ -151,15 +152,18 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         else -> when (val datatype = developmentVersion.datatypes.firstOrNull { it.name == name }) {
             null -> Error(
                 code = AppErrorCodes.DATATYPE_NOT_FOUND,
                 details = name,
             )
+
             else -> {
                 if (datatype.schemaContent == schemaContent && datatype.description == description) {
                     Result(this)
@@ -177,10 +181,12 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
     }
 
@@ -189,14 +195,17 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         developmentVersion.reports.any { it.name == reportName } -> Error(
             code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = reportName,
         )
+
         else -> AppReport.create(name = reportName, source = "", description = null).flatMap { newReport ->
             developmentVersion.upsertReport(newReport).map { copy(developmentVersion = it) }
         }
@@ -207,19 +216,23 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         developmentVersion.reports.any { it.name == newName } -> Error(
             code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = newName,
         )
+
         else -> when (val existingReport = developmentVersion.reports.firstOrNull { it.name == oldName }) {
             null -> Error(
                 code = AppErrorCodes.REPORT_NOT_FOUND,
                 details = oldName,
             )
+
             else -> AppReport.create(name = newName, source = existingReport.source, description = existingReport.description).flatMap { newReport ->
                 developmentVersion.replaceReport(oldName, newReport).map { copy(developmentVersion = it) }
             }
@@ -231,15 +244,18 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         else -> when (val report = developmentVersion.reports.firstOrNull { it.name == name }) {
             null -> Error(
                 code = AppErrorCodes.REPORT_NOT_FOUND,
                 details = name,
             )
+
             else -> {
                 if (report.source == source && report.description == description) {
                     Result(this)
@@ -257,10 +273,12 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         else -> developmentVersion.removeReport(reportName).map { copy(developmentVersion = it) }
     }
 
@@ -269,10 +287,12 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         developmentVersion == null -> Error(
             code = AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
+
         else -> {
             AppVersionReleaseNotes.create(changeType, note).flatMap { releaseNotes ->
                 AppVersion.create(releaseNotes, developmentVersion, latestVersion).map {
@@ -290,6 +310,7 @@ data class App private constructor(
                     details = version.toString()
                 )
             }
+
             else -> {
                 appVersion.changeReleaseNotesText(note).map { updatedAppVersion ->
                     copy(versions = versions.map { containedVersion ->
@@ -305,6 +326,7 @@ data class App private constructor(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+
         else -> Result(copy(discontinued = true))
     }
 
@@ -313,6 +335,7 @@ data class App private constructor(
             code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
             details = null,
         )
+
         else -> Result(Unit)
     }
 }
@@ -337,6 +360,7 @@ data class AppVersion private constructor(
                         reports = developmentVersion.reports.toSet(),
                     )
                 )
+
                 is Error -> convertedDatatypes as Error<AppVersion>
                 is Errors -> convertedDatatypes as Errors<AppVersion>
             }
@@ -409,6 +433,7 @@ data class AppVersionDraft private constructor(
             code = AppErrorCodes.DATATYPE_NOT_FOUND,
             details = null,
         )
+
         else -> Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName.trim() }.toSet()))
     }
 
@@ -426,6 +451,7 @@ data class AppVersionDraft private constructor(
             code = AppErrorCodes.REPORT_NOT_FOUND,
             details = null,
         )
+
         else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
     }
 
@@ -453,12 +479,6 @@ data class AppVersionReleaseNotes private constructor(
                     noteField = validNote,
                 )
             }
-    }
-
-    init {
-        noteField = noteField.trim()
-
-        listOf(validateNote(noteField)).throwOnError<AppVersionReleaseNotes>(javaClass.simpleName)
     }
 
     val note get() = noteField
@@ -540,15 +560,6 @@ data class AppDatatypeDraft private constructor(
             }
     }
 
-    init {
-        nameField = nameField.trim()
-        schemaContentField = schemaContentField.trim()
-        descriptionField = descriptionField.trimToNull()
-
-        // schemaContent is allowed to be blank in a draft
-        listOf(validateName(nameField)).throwOnError<AppDatatypeDraft>(javaClass.simpleName)
-    }
-
     val name get() = nameField
     val schemaContent get() = schemaContentField
     val description get() = descriptionField
@@ -594,18 +605,6 @@ data class AppDatatype private constructor(
             }
     }
 
-    init {
-        nameField = nameField.trim()
-        schemaContentField = schemaContentField.trim()
-        descriptionField = descriptionField.trimToNull()
-
-        listOf(
-            validateName(nameField),
-            validateVersion(versionField),
-            validateSchemaContent(schemaContentField),
-        ).throwOnError<AppDatatype>(javaClass.simpleName)
-    }
-
     val name get() = nameField
     val version get() = versionField
     val schemaContent get() = schemaContentField
@@ -638,14 +637,6 @@ data class AppReport private constructor(
                     descriptionField = description,
                 )
             }
-    }
-
-    init {
-        nameField = nameField.trim()
-        sourceField = sourceField.trim()
-        descriptionField = descriptionField.trimToNull()
-
-        listOf(validateName(nameField)).throwOnError<AppReport>(javaClass.simpleName)
     }
 
     val name get() = nameField

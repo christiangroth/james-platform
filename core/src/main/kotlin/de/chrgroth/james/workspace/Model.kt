@@ -5,8 +5,6 @@ import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.foldAndShrink
-import de.chrgroth.james.foldErrors
-import de.chrgroth.james.throwOnError
 import de.chrgroth.james.trimToNull
 import de.chrgroth.james.validateNotBlank
 import de.chrgroth.james.validateNotNegative
@@ -43,12 +41,6 @@ data class Workspace private constructor(
                     }
                 }
         }
-    }
-
-    init {
-        nameField = nameField.trim()
-
-        listOf(validateOrder(order), validateName(nameField)).foldErrors<Workspace>().throwOnError(javaClass.simpleName)
     }
 
     val order get() = orderField
@@ -156,6 +148,7 @@ data class Workspace private constructor(
                 details = appInstallations.count().toString()
             )
         }
+
         else -> Result(Unit)
     }
 }

@@ -27,9 +27,3 @@ internal fun validateNotNegative(value: Long, codeNegative: ErrorCode): Maybe<Lo
     } else {
         Error(code = codeNegative, details = value.toString())
     }
-
-internal fun <Type> Maybe.Errors<Type>?.throwOnError(type: String) {
-    if (this != null) {
-        throw InvalidInstanceException(type, errors)
-    }
-}
