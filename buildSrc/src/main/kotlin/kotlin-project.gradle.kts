@@ -25,6 +25,7 @@ dependencies {
 
     testImplementation("org.assertj:assertj-core:3.23.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
+    testImplementation("io.mockk:mockk:1.12.2")
 }
 
 java {
@@ -68,7 +69,7 @@ tasks {
         violationRules {
             rule {
                 limit {
-                    minimum = "0.75".toBigDecimal()
+                    minimum = "0.90".toBigDecimal()
                 }
             }
         }

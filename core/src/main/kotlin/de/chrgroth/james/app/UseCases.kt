@@ -2,7 +2,10 @@ package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
+import de.chrgroth.james.user.UserQueryPersistencePort
 import java.util.UUID
+
+// TODO #25 verify developer exists and is active
 
 interface AppLifecycleUseCases {
     fun create(name: String, developerId: UUID, description: String? = null): Maybe<App>
@@ -26,12 +29,15 @@ interface AppVersionDevelopmentUseCases {
 }
 
 internal class AppLifecycleUseCasesService(
+    private val userQueryPersistence: UserQueryPersistencePort,
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,
 ) : AppLifecycleUseCases {
 
     override fun create(name: String, developerId: UUID, description: String?) =
-        App.create(name, developerId, description).flatMap {
+        userQueryPersistence.getOrError(developerId).flatMap { developer ->
+            App.create(name, developer.id, description)
+        }.flatMap {
             commandPersistence.upsert(it)
         }
 

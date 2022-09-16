@@ -1,30 +1,53 @@
 package de.chrgroth.james.app
 
+import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
+import de.chrgroth.james.user.User
+import de.chrgroth.james.user.UserErrorCodes
+import de.chrgroth.james.user.UserQueryPersistencePort
 import io.mockk.MockKVerificationScope
 import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verifySequence
-import org.assertj.core.api.Assertions
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
-// TODO #25 maybe split into general, datatypes and reports
-
-// TODO #25 test changeVersionReleaseNote
-// TODO #25 test Datatype name pattern
+// TODO #25 test Datatype name pattern -> model tests?
 
 class AppDomainTests {
 
-    private val developerId = UUID.randomUUID()
+    private val developer = User.create("foo@bar.com", "Fooby Bar").expectSuccess()
+    private val developerId = developer.id
 
-    private val existingApp = App.create("Test App", developerId, " ").expectSuccess()
-    private val existingAppId = existingApp.id
+    private val developmentApp = App.create("Development App", developerId, " ").expectSuccess()
+    private val developmentAppId = developmentApp.id
 
+    private val activeApp = App.create("Active App", developerId, " ").expectSuccess()
+        .createDevelopmentVersionDatatype("TestDatatype").expectSuccess()
+        .createDevelopmentVersionReport("TestReport").expectSuccess()
+        .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .createDevelopmentVersion().expectSuccess()
+    private val activeAppId = activeApp.id
+
+    private val activeAppMultipleVersions = App.create("Active App Multiple Versions", developerId, " ").expectSuccess()
+        .createDevelopmentVersionDatatype("TestDatatype").expectSuccess()
+        .createDevelopmentVersionReport("TestReport").expectSuccess()
+        .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .createDevelopmentVersion().expectSuccess()
+        .releaseDevelopmentVersion(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
+    private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
+
+    private val discontinuedApp = App.create("Discontinued App", developerId, "").expectSuccess()
+        .discontinue().expectSuccess()
+    private val discontinuedAppId = discontinuedApp.id
+
+    private lateinit var userQueryPersistence: UserQueryPersistencePort
     private lateinit var queryPersistence: AppQueryPersistencePort
     private lateinit var commandPersistence: AppCommandPersistencePort
     private lateinit var appLifecycleUseCases: AppLifecycleUseCases
@@ -32,29 +55,40 @@ class AppDomainTests {
 
     @BeforeEach
     internal fun initialize() {
+        userQueryPersistence = mockk<UserQueryPersistencePort>().also {
+            every { it.getOrError(any()) } returns (Error(UserErrorCodes.NOT_FOUND, details = null))
+            every { it.getOrError(developerId) } returns (Result(developer))
+        }
+
         queryPersistence = mockk<AppQueryPersistencePort>().also {
-            every { it.getOrError(existingAppId) } returns (Result(existingApp))
+            every { it.getOrError(developmentAppId) } returns (Result(developmentApp))
+            every { it.getOrError(activeAppId) } returns (Result(activeApp))
+            every { it.getOrError(activeAppMultipleVersionsId) } returns (Result(activeAppMultipleVersions))
+            every { it.getOrError(discontinuedAppId) } returns (Result(discontinuedApp))
         }
 
         commandPersistence = mockk<AppCommandPersistencePort>().also {
             every { it.upsert(any()) } answers { Result(this.args[0] as App) }
+            every { it.delete(any()) } answers { Result(Unit) }
         }
 
-        appLifecycleUseCases = AppLifecycleUseCasesService(queryPersistence, commandPersistence)
+        appLifecycleUseCases = AppLifecycleUseCasesService(userQueryPersistence, queryPersistence, commandPersistence)
         appVersionDevelopmentUseCases = AppVersionDevelopmentUseCasesService(queryPersistence, commandPersistence)
     }
 
     @Test
     fun `create valid app`() {
         fun App.assertions() {
-            Assertions.assertThat(name).isEqualTo("Test App")
-            Assertions.assertThat(developer).isEqualTo(developerId)
-            Assertions.assertThat(description).isEqualTo("Fancy App")
-            Assertions.assertThat(versions).isEmpty()
-            Assertions.assertThat(latestVersion).isNull()
-            Assertions.assertThat(developmentVersion).isNull()
-            Assertions.assertThat(status).isEqualTo(AppStatus.DEVELOPMENT)
-            Assertions.assertThat(discontinued).isFalse
+            assertThat(name).isEqualTo("Test App")
+            assertThat(developer).isEqualTo(developerId)
+            assertThat(description).isEqualTo("Fancy App")
+            assertThat(versions).isEmpty()
+            assertThat(latestVersion).isNull()
+            assertThat(developmentVersion).isNotNull
+            assertThat(developmentVersion!!.datatypes).isEmpty()
+            assertThat(developmentVersion!!.reports).isEmpty()
+            assertThat(status).isEqualTo(AppStatus.DEVELOPMENT)
+            assertThat(discontinued).isFalse
         }
 
         appLifecycleUseCases.create("Test App", developerId, "Fancy App").expectSuccess().assertions()
@@ -66,7 +100,7 @@ class AppDomainTests {
     }
 
     @Test
-    fun `create invalid app`() {
+    fun `create invalid app name missing`() {
         appLifecycleUseCases.create(" ", developerId, "Fancy App").expectError(
             code = AppErrorCodes.NAME_BLANK,
             details = null,
@@ -74,21 +108,345 @@ class AppDomainTests {
         verifyMocks()
     }
 
-    /*
+    @Test
+    fun `create invalid app developer unknown`() {
+        appLifecycleUseCases.create("Fancy App", UUID.randomUUID(), "Fancy App").expectError(
+            code = UserErrorCodes.NOT_FOUND,
+            details = null,
+        )
+        verifyMocks()
+    }
 
-    TODO #25 TEST PLAN
-    ---------
+    @Test
+    fun `assert status of development app`() {
+        assertThat(developmentApp.status).isEqualTo(AppStatus.DEVELOPMENT)
+    }
 
-    fun prepareNextVersion(id: UUID): Maybe<AppVersionDraft>
-    fun releaseNextVersion(id: UUID, changeType: AppVersionChangeType, note: String): Maybe<AppVersion>
-    fun changeVersionReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion>
-    fun discontinue(id: UUID): Maybe<App>
-    fun delete(id: UUID): Maybe<Unit>
+    @Test
+    fun `assert status of active app`() {
+        assertThat(activeApp.status).isEqualTo(AppStatus.ACTIVE)
+    }
 
-    fun createNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
-    fun renameNextVersionDatatype(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft>
-    fun updateNextVersionDatatype(id: UUID, name: String, schemaContent: String, description: String?): Maybe<AppVersionDraft>
-    fun removeNextVersionDatatype(id: UUID, datatypeName: String): Maybe<AppVersionDraft>
+    @Test
+    fun `does not resolve latest version if no versions are present`() {
+        assertThat(developmentApp.latestVersion).isNull()
+    }
+
+    @Test
+    fun `resolves latest version correctly for single version`() {
+        assertThat(activeApp.latestVersion).isNotNull
+        assertThat(activeApp.latestVersion!!.version).isEqualTo(Semver("0.1.0"))
+        assertThat(activeApp.latestVersion!!.datatypes).isNotEmpty
+        assertThat(activeApp.latestVersion!!.datatypes.first().schemaContent).isBlank
+        assertThat(activeApp.latestVersion!!.datatypes.first().generateJsonSchemaContent()).isEqualTo(
+            """{
+  "title": "TestDatatype",
+  "description": "",
+  "type": "object",
+  "additionalProperties": false,
+
+}""".trimIndent()
+        )
+    }
+
+    @Test
+    fun `resolves latest version correctly for multiple version`() {
+        assertThat(activeAppMultipleVersions.latestVersion).isNotNull
+        assertThat(activeAppMultipleVersions.latestVersion!!.version).isEqualTo(Semver("0.1.1"))
+    }
+
+    @Test
+    fun `prepare next version with existing development version`() {
+        appLifecycleUseCases.prepareNextVersion(developmentAppId).expectError(
+            code = AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppId)
+        }
+    }
+
+    @Test
+    fun `prepare next version without existing development version`() {
+        appLifecycleUseCases.prepareNextVersion(activeAppMultipleVersionsId).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion).isNotNull
+            })
+        }
+    }
+
+    @Test
+    fun `prepare next version on discontinued app`() {
+        appLifecycleUseCases.prepareNextVersion(discontinuedAppId).expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `create next version datatype with blank name`() {
+        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, " ").expectError(
+            code = AppErrorCodes.DATATYPE_NAME_BLANK,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `create next version datatype with invalid name`() {
+        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, "some Datatype").expectError(
+            code = AppErrorCodes.DATATYPE_NAME_INVALID,
+            details = "'some Datatype' does not match ([A-Z][a-z]*)+",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `create next version datatype with duplicate name`() {
+        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, "TestDatatype").expectError(
+            code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
+            details = "TestDatatype",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `create next version datatype`() {
+        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, "NewDatatype").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion!!.datatypes).contains(AppDatatypeDraft.create("NewDatatype", "", null).expectSuccess())
+            })
+        }
+    }
+
+    @Test
+    fun `create next version datatype without draft version`() {
+        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppMultipleVersionsId, " ").expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `create next version datatype on discontinued app`() {
+        appVersionDevelopmentUseCases.createNextVersionDatatype(discontinuedAppId, " ").expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `rename next version datatype with blank name`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "TestDatatype", " ").expectError(
+            code = AppErrorCodes.DATATYPE_NAME_BLANK,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `rename next version datatype with invalid name`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "TestDatatype", "Test Datatype").expectError(
+            code = AppErrorCodes.DATATYPE_NAME_INVALID,
+            details = "'Test Datatype' does not match ([A-Z][a-z]*)+",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `rename next version datatype with unknown name`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "Unknown", "Unknown Datatype").expectError(
+            code = AppErrorCodes.DATATYPE_NOT_FOUND,
+            details = "Unknown",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `rename next version datatype with duplicate name`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "Unknown", "TestDatatype").expectError(
+            code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
+            details = "TestDatatype",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `rename next version datatype`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "TestDatatype", "NewDatatype").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion!!.datatypes).hasSize(1)
+                assertThat((actual as App).developmentVersion!!.datatypes.first().name).isEqualTo("NewDatatype")
+            })
+        }
+    }
+
+    @Test
+    fun `rename next version datatype without draft version`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppMultipleVersionsId, "TestDatatype", "SomeOtherName").expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `rename next version datatype on discontinued app`() {
+        appVersionDevelopmentUseCases.renameNextVersionDatatype(discontinuedAppId, "TestDatatype", "SomeOtherName").expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `update next version datatype with invalid schema`() {
+        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "TestDatatype", "NEW SCHEMA", null).expectError(
+            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
+            details = "Expected a ':' after a key at 115 [character 1 line 7]",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `update next version datatype with unknown name`() {
+        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "Unknown", "", null).expectError(
+            code = AppErrorCodes.DATATYPE_NOT_FOUND,
+            details = "Unknown",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `update next version datatype`() {
+        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "TestDatatype", "", "NEW DESC").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion!!.datatypes).hasSize(1)
+                assertThat((actual as App).developmentVersion!!.datatypes.first().schemaContent).isEqualTo("")
+                assertThat((actual as App).developmentVersion!!.datatypes.first().description).isEqualTo("NEW DESC")
+            })
+        }
+    }
+
+    @Test
+    fun `update next version datatype with same schema and description`() {
+        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "TestDatatype", "", null).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion!!.datatypes).hasSize(1)
+                assertThat((actual as App).developmentVersion!!.datatypes.first().schemaContent).isEqualTo("")
+                assertThat((actual as App).developmentVersion!!.datatypes.first().description).isNull()
+            })
+        }
+    }
+
+    @Test
+    fun `update next version datatype without draft version`() {
+        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppMultipleVersionsId, "TestDatatype", "", null).expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `update next version datatype on discontinued app`() {
+        appVersionDevelopmentUseCases.updateNextVersionDatatype(discontinuedAppId, "TestDatatype", "", null).expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `remove next version unknown datatype`() {
+        appVersionDevelopmentUseCases.removeNextVersionDatatype(activeAppId, "Unknown").expectError(
+            code = AppErrorCodes.DATATYPE_NOT_FOUND,
+            details = "Unknown",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+        }
+    }
+
+    @Test
+    fun `remove next version datatype`() {
+        appVersionDevelopmentUseCases.removeNextVersionDatatype(activeAppId, "TestDatatype").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion!!.datatypes).isEmpty()
+            })
+        }
+    }
+
+    @Test
+    fun `remove next version datatype without draft version`() {
+        appVersionDevelopmentUseCases.removeNextVersionDatatype(activeAppMultipleVersionsId, "TestDatatype").expectError(
+            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `remove next version datatype on discontinued app`() {
+        appVersionDevelopmentUseCases.removeNextVersionDatatype(discontinuedAppId, "TestDatatype").expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    /* TODO #25 TEST PLAN
 
     fun createNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
     fun renameNextVersionReport(id: UUID, oldName: String, newName: String): Maybe<AppVersionDraft>
@@ -96,477 +454,128 @@ class AppDomainTests {
     fun removeNextVersionReport(id: UUID, reportName: String): Maybe<AppVersionDraft>
      */
 
-    /*
-
-    OLD TEST
-    --------
-    class AppDevelopmentTests {
-
     @Test
-    fun `check app values trimmed`() {
-        val app = App.create(
-            name = " Fancy name ",
-            developerId = UUID.randomUUID(),
-            description = "Some description. ",
-        ).expectSuccess()
-        assertThat(app.name).isEqualTo("Fancy name")
-        assertThat(app.description).isEqualTo("Some description.")
-    }
-
-    @Test
-    fun `check app description trimmed to null if blank`() {
-        val app = App.create(
-            name = " Fancy name ",
-            developerId = UUID.randomUUID(),
-            description = " ",
-        ).expectSuccess()
-        assertThat(app.name).isEqualTo("Fancy name")
-        assertThat(app.description).isNull()
-    }
-
-    @Test
-    fun `does not resolves latest version if no versions are present`() {
-        val app = createApp().copy(versions = emptyList())
-        assertThat(app.latestVersion).isNull()
-    }
-
-    @Test
-    fun `resolves latest version correctly`() {
-        val app = createApp()
-        assertThat(app.latestVersion).isNotNull
-        assertThat(app.latestVersion!!.version).isEqualTo(Semver(0, 2, 0))
-    }
-
-    @Test
-    fun `createDevelopmentVersion on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.createDevelopmentVersion().expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `createDevelopmentVersion with already existing draft`() {
-        val app = createApp().copy(developmentVersion = AppVersionDraft.create().expectSuccess())
-        app.createDevelopmentVersion().expectError(
-            code = AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `createDevelopmentVersion without latest`() {
-        val app = createApp().copy(versions = emptyList())
-        val updatedApp = app.createDevelopmentVersion().expectSuccess()
-        assertThat(updatedApp.developmentVersion!!.datatypes).isEmpty()
-        assertThat(updatedApp.developmentVersion!!.reports).isEmpty()
-    }
-
-    @Test
-    fun createDevelopmentVersion() {
-        val app = createApp()
-        val updatedApp = app.createDevelopmentVersion().expectSuccess()
-        assertThat(updatedApp.developmentVersion!!.datatypes).containsExactly(AppDatatypeDraft.create(name = "ModelOne",
-            schemaContent = "".toStringProperty(),
-            description = null).expectSuccess())
-        assertThat(updatedApp.developmentVersion!!.reports).containsExactly(AppReport.create(name = "Report One", source = "", description = null)
-            .expectSuccess())
-    }
-
-    @Test
-    fun `updateDevelopmentVersion with datatype on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.updateDevelopmentVersionDatatype(name = "Foos", schemaContent = "", description = null).expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null
-        )
-    }
-
-    @Test
-    fun `updateDevelopmentVersion with datatype without draft`() {
-        val app = createApp()
-        app.updateDevelopmentVersionDatatype(name = "Foos", schemaContent = "", description = null).expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `updateDevelopmentVersion with datatype`() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app
-            .createDevelopmentVersionDatatype(datatypeName = "Foos").expectSuccess()
-            .updateDevelopmentVersionDatatype(name = "Foos", schemaContent = "", description = "Tadaa").expectSuccess()
-        val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.datatypes).contains(AppDatatypeDraft.create(name = "Foos", schemaContent = "", description = "Tadaa").expectSuccess())
-    }
-
-    @Test
-    fun `removeDevelopmentVersionDatatype on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.removeDevelopmentVersionDatatype("Foos").expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `removeDevelopmentVersionDatatype without draft`() {
-        val app = createApp()
-        app.removeDevelopmentVersionDatatype("Foos").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `removeDevelopmentVersionDatatype with non existent datatype`() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        app.removeDevelopmentVersionDatatype("Not-Existent").expectError(
-            code = AppErrorCodes.DATATYPE_NOT_FOUND,
-            details = null,
-        )
-    }
-
-    @Test
-    fun removeDevelopmentVersionDatatype() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.removeDevelopmentVersionDatatype("ModelOne").expectSuccess()
-        val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.datatypes).isEmpty()
-    }
-
-    @Test
-    fun `updateDevelopmentVersion with report on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.updateDevelopmentVersionReport(name = "Foos Report", source = "", description = null).expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null
-        )
-    }
-
-    @Test
-    fun `updateDevelopmentVersion with report without draft`() {
-        val app = createApp()
-        app.updateDevelopmentVersionReport(name = "Foos AppReport", source = "", description = null).expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `updateDevelopmentVersion with report`() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app
-            .createDevelopmentVersionReport(reportName = "Foos AppReport").expectSuccess()
-            .updateDevelopmentVersionReport(name = "Foos AppReport", source = "", description = "Tadaa").expectSuccess()
-        val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.reports).contains(AppReport.create(name = "Foos AppReport", source = "", description = "Tadaa").expectSuccess())
-    }
-
-    @Test
-    fun `removeDevelopmentVersionReport on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.removeDevelopmentVersionReport("Foos Report").expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `removeDevelopmentVersionReport without draft`() {
-        val app = createApp()
-        app.removeDevelopmentVersionReport("Foos Report").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `removeDevelopmentVersionReport with non existent datatype`() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        app.removeDevelopmentVersionReport("Not-Existent").expectError(
-            code = AppErrorCodes.REPORT_NOT_FOUND,
-            details = null,
-        )
-    }
-
-    @Test
-    fun removeDevelopmentVersionReport() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        val updatedApp = app.removeDevelopmentVersionReport("Report One").expectSuccess()
-        val developmentVersion = updatedApp.developmentVersion!!
-        assertThat(developmentVersion.reports).isEmpty()
-    }
-
-    @Test
-    fun `releaseDevelopmentVersion on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "Some notes").expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `releaseDevelopmentVersion without draft`() {
-        val app = createApp()
-        app.releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "Some notes").expectError(
-            code = AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `releaseDevelopmentVersion with blank notes`() {
-        val app = createApp().copy(versions = emptyList()).createDevelopmentVersion().expectSuccess()
-        app.releaseDevelopmentVersion(AppVersionChangeType.FEATURE, " ").expectError(
+    fun `release next version with existing development version but blank note`() {
+        appLifecycleUseCases.releaseNextVersion(developmentAppId, AppVersionChangeType.FEATURE, " ").expectError(
             code = AppErrorCodes.VERSION_RELEASE_NOTE_BLANK,
             details = null,
         )
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppId)
+        }
     }
 
     @Test
-    fun `releaseDevelopmentVersion without latest version`() {
-        val app = createApp().copy(versions = emptyList()).createDevelopmentVersion().expectSuccess()
-        val releaseNotes = AppVersionReleaseNotes.create(AppVersionChangeType.FEATURE, "Some notes").expectSuccess()
-        val updatedApp = app.releaseDevelopmentVersion(releaseNotes.changeType, releaseNotes.note).expectSuccess()
-        assertThat(updatedApp.latestVersion).isNotNull
-        assertThat(updatedApp.latestVersion!!.releaseNotes).isEqualTo(releaseNotes)
-        assertThat(updatedApp.latestVersion!!.datatypes).isEmpty()
-        assertThat(updatedApp.latestVersion!!.reports).isEmpty()
+    fun `release next version with existing development version`() {
+        appLifecycleUseCases.releaseNextVersion(developmentAppId, AppVersionChangeType.FEATURE, "Release it!").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).developmentVersion).isNull()
+                assertThat((actual as App).latestVersion).isNotNull
+                assertThat((actual as App).latestVersion!!.version).isEqualTo(Semver("0.1.0"))
+                assertThat((actual as App).latestVersion!!.releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
+                assertThat((actual as App).latestVersion!!.releaseNotes.note).isEqualTo("Release it!")
+            })
+        }
     }
 
     @Test
-    fun releaseDevelopmentVersion() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        val releaseNotes = AppVersionReleaseNotes.create(AppVersionChangeType.FEATURE, "Some notes").expectSuccess()
-        val updatedApp = app.releaseDevelopmentVersion(releaseNotes.changeType, releaseNotes.note).expectSuccess()
-        assertThat(updatedApp.latestVersion).isNotNull
-        assertThat(updatedApp.latestVersion!!.releaseNotes).isEqualTo(releaseNotes)
-        assertThat(updatedApp.latestVersion!!.datatypes).hasSize(1)
-        assertThat(updatedApp.latestVersion!!.datatypes.first().name).isEqualTo("ModelOne")
-        assertThat(updatedApp.latestVersion!!.datatypes.first().version).isEqualTo(1)
-        assertThat(updatedApp.latestVersion!!.datatypes.first().schemaContent).isEqualTo("".toStringProperty())
-        assertThat(updatedApp.latestVersion!!.datatypes.first().description).isNull()
-        assertThat(updatedApp.latestVersion!!.reports).containsExactly(AppReport.create(name = "Report One", source = "", description = null).expectSuccess())
+    fun `release next version without existing development version`() {
+        appLifecycleUseCases.releaseNextVersion(activeAppMultipleVersionsId, AppVersionChangeType.FEATURE, "Note").expectError(
+            code = AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
     }
 
     @Test
-    fun `releaseDevelopmentVersion prepends in version list`() {
-        val app = createApp().createDevelopmentVersion().expectSuccess()
-        val releaseNotes = AppVersionReleaseNotes.create(AppVersionChangeType.FEATURE, "Some notes").expectSuccess()
-        val updatedApp = app
-            .releaseDevelopmentVersion(releaseNotes.changeType, releaseNotes.note).expectSuccess()
-            .createDevelopmentVersion().expectSuccess()
-            .releaseDevelopmentVersion(releaseNotes.changeType, releaseNotes.note).expectSuccess()
-        assertThat(updatedApp.versions).hasSize(5)
-        assertThat(updatedApp.latestVersion).isEqualTo(updatedApp.versions[0])
-    }
-
-    @Test
-    fun `discontinue on discontinued app`() {
-        val app = createApp().copy(discontinued = true)
-        app.discontinue().expectError(
+    fun `release next version on discontinued app`() {
+        appLifecycleUseCases.releaseNextVersion(discontinuedAppId, AppVersionChangeType.FEATURE, "Note").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
     }
 
     @Test
-    fun discontinue() {
-        val app = createApp()
-        val updatedApp = app.discontinue().expectSuccess()
-        assertThat(updatedApp.discontinued).isTrue
+    fun `update release note`() {
+        appLifecycleUseCases.changeVersionReleaseNote(activeAppMultipleVersionsId, Semver("0.1.0"), "New note!").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).versions.first { it.version == Semver("0.1.0") }.releaseNotes.note).isEqualTo("New note!")
+            })
+        }
     }
 
     @Test
-    fun `delete on not discontinued app`() {
-        val app = createApp()
-        app.verifyDeletion().expectError(
+    fun `update release note on unknown version`() {
+        appLifecycleUseCases.changeVersionReleaseNote(activeAppMultipleVersionsId, Semver("6.6.6"), "New note!").expectError(
+            code = AppErrorCodes.VERSION_NOT_FOUND,
+            details = "6.6.6",
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `update release note on discontinued app`() {
+        appLifecycleUseCases.changeVersionReleaseNote(discontinuedAppId, Semver("0.1.0"), "New note!").expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `discontinue active app`() {
+        appLifecycleUseCases.discontinue(activeAppId).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).discontinued).isTrue()
+            })
+        }
+    }
+
+    @Test
+    fun `discontinue discontinued app`() {
+        appLifecycleUseCases.discontinue(discontinuedAppId).expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `delete active app`() {
+        appLifecycleUseCases.delete(activeAppId).expectError(
             code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
             details = null,
         )
-    }
-
-    @Test
-    fun delete() {
-        val app = createApp().copy(discontinued = true)
-        app.verifyDeletion().expectSuccess()
-    }
-
-    private fun createApp() =
-        App.create(
-            name = UUID.randomUUID().toString(),
-            developerId = UUID.randomUUID(),
-            description = null,
-        ).expectSuccess().let { app ->
-
-            val version010 = AppVersion.create(
-                releaseNotes = AppVersionReleaseNotes.create(
-                    changeType = AppVersionChangeType.FEATURE,
-                    note = "First feature!"
-                ).expectSuccess(),
-                developmentVersion = AppVersionDraft.create().expectSuccess(),
-                latestVersion = null
-            ).expectSuccess()
-
-            val version011 = AppVersion.create(
-                releaseNotes = AppVersionReleaseNotes.create(
-                    changeType = AppVersionChangeType.BUGFIX,
-                    note = "Something was wrong :("
-                ).expectSuccess(),
-                developmentVersion = AppVersionDraft.create().expectSuccess(),
-                latestVersion = version010
-            ).expectSuccess()
-
-            val version020 = AppVersion.create(
-                releaseNotes = AppVersionReleaseNotes.create(
-                    changeType = AppVersionChangeType.FEATURE,
-                    note = "Everything is new"
-                ).expectSuccess(),
-                developmentVersion = AppVersionDraft.create(
-                    datatypes = setOf(
-                        AppDatatypeDraft.create(name = "ModelOne", schemaContent = "".toStringProperty(), description = null).expectSuccess()
-                    ),
-                    reports = setOf(AppReport.create(name = "Report One", source = "", description = null).expectSuccess())
-                ).expectSuccess(),
-                latestVersion = version011
-            ).expectSuccess()
-
-            app.copy(versions = listOf(version020, version011, version010))
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
         }
-}
-
-class AppVersionDraftTests {
-
-    @Test
-    fun `create datatype name blank`() {
-        AppDatatypeDraft.create(name = "", schemaContent = "", description = null).expectError(
-            code = AppErrorCodes.DATATYPE_NAME_BLANK,
-            details = null,
-        )
     }
 
     @Test
-    fun `create datatype name contains non letters`() {
-        AppDatatypeDraft.create(name = "Foo Bar 27", schemaContent = "", description = null).expectError(
-            code = AppErrorCodes.DATATYPE_NAME_INVALID,
-            details = "'Foo Bar 27' does not match ([A-Z][a-z]*)+",
-        )
+    fun `delete discontinued app`() {
+        appLifecycleUseCases.delete(discontinuedAppId).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(discontinuedAppId)
+            commandPersistence.delete(discontinuedAppId)
+        }
     }
-
-    @Test
-    fun `create datatype name not starting uppercase`() {
-        AppDatatypeDraft.create(name = "fooBar", schemaContent = "", description = null).expectError(
-            code = AppErrorCodes.DATATYPE_NAME_INVALID,
-            details = "'fooBar' does not match ([A-Z][a-z]*)+",
-        )
-    }
-
-    @Test
-    fun `upsert datatype`() {
-        val updatedDraft = createEmptyDraft().upsertDatatype(
-            AppDatatypeDraft.create(name = "FooBar", schemaContent = "", description = null).expectSuccess()
-        ).expectSuccess()
-        assertThat(updatedDraft.datatypes).contains(AppDatatypeDraft.create(name = "FooBar", schemaContent = "", description = null).expectSuccess())
-    }
-
-    @Test
-    fun `upsert report name blank`() {
-        AppReport.create(name = "", source = "", description = null).expectError(
-            code = AppErrorCodes.REPORT_NAME_BLANK,
-            details = null,
-        )
-    }
-
-    @Test
-    fun `upsert report`() {
-        val updatedDraft = createEmptyDraft().upsertReport(
-            AppReport.create(name = "Foos Report", source = "", description = null).expectSuccess()
-        ).expectSuccess()
-        assertThat(updatedDraft.reports).contains(AppReport.create(name = "Foos Report", source = "", description = null).expectSuccess())
-    }
-
-    private fun createEmptyDraft() = AppVersionDraft.create().expectSuccess()
-}
-
-class AppVersionReleaseNotesTests {
-
-    @Test
-    fun `first version as bugfix is 0-1-0`() {
-        assertThat(createBugfix().computeVersion(null, createEmptyDraft())).isEqualTo(Semver(0, 1, 0))
-    }
-
-    @Test
-    fun `first version as feature is 0-1-0`() {
-        assertThat(createFeature().computeVersion(null, createEmptyDraft())).isEqualTo(Semver(0, 1, 0))
-    }
-
-    @Test
-    fun `removing a datatype is breaking`() {
-        val current = createAppVersion()
-        val next = createEmptyDraft()
-        assertThat(createFeature().isBreaking(current, next)).isTrue
-    }
-
-    @Test
-    fun `renaming a datatype is breaking`() {
-        val current = createAppVersion()
-        val next = createEmptyDraft().copy(datatypes = current.datatypes.map {
-            AppDatatypeDraft.create(
-                name = it.name.reversed().replaceFirstChar { char -> char.uppercase() },
-                schemaContent = it.schemaContent,
-                description = it.description,
-            ).expectSuccess()
-        }.toSet())
-        assertThat(createFeature().isBreaking(current, next)).isTrue
-    }
-
-    @Test
-    fun `breaking schema change is delegated correctly`() {
-        val current = createAppVersion()
-        val next = createEmptyDraft().copy(datatypes = current.datatypes.map {
-            AppDatatypeDraft.create(
-                name = it.name,
-                schemaContent = "",
-                description = it.description,
-            ).expectSuccess()
-        }.toSet())
-        assertThat(createFeature().isBreaking(current, next)).isTrue
-    }
-
-    private fun createBugfix() = AppVersionReleaseNotes.create(
-        changeType = AppVersionChangeType.BUGFIX,
-        note = UUID.randomUUID().toString()
-    ).expectSuccess()
-
-    private fun createFeature() = AppVersionReleaseNotes.create(
-        changeType = AppVersionChangeType.FEATURE,
-        note = UUID.randomUUID().toString()
-    ).expectSuccess()
-
-    private fun createAppVersion() =
-        AppVersion.create(
-            releaseNotes = AppVersionReleaseNotes.create(
-                changeType = AppVersionChangeType.FEATURE,
-                note = "Everything is new"
-            ).expectSuccess(),
-            developmentVersion = AppVersionDraft.create(
-                datatypes = setOf(AppDatatypeDraft.create(
-                    name = "ModelOne",
-                    schemaContent = """ "properties": { "testPropertyName": { "type": "string" } } """.trimIndent(),
-                    description = null
-                ).expectSuccess()),
-                reports = setOf(AppReport.create(name = "reportOne", source = "", description = null).expectSuccess()),
-            ).expectSuccess(),
-            latestVersion = null,
-        ).expectSuccess()
-
-    private fun createEmptyDraft() = AppVersionDraft.create().expectSuccess()
-}
-     */
 
     private fun verifyMocks(verifyBlock: (MockKVerificationScope.() -> Unit)? = null) {
         if (verifyBlock != null) {

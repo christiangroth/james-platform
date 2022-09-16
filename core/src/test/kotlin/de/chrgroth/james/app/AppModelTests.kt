@@ -38,8 +38,7 @@ class AppStatusTests {
             description = null,
         ).expectSuccess().let { app ->
             if (includeVersion) {
-                app.createDevelopmentVersion().expectSuccess()
-                    .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
+                app.releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
             } else {
                 app
             }
