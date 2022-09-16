@@ -36,21 +36,19 @@ data class App private constructor(
 ) {
 
     companion object {
-        private fun validateName(name: String) =
-            validateNotBlank(name, AppErrorCodes.NAME_BLANK)
+        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.NAME_BLANK)
 
-        fun create(name: String, developerId: UUID, description: String?): Maybe<App> =
-            validateName(name).map { validName ->
-                App(
-                    id = UUID.randomUUID(),
-                    nameField = validName,
-                    developer = developerId,
-                    descriptionField = description.trimToNull(),
-                    discontinued = false,
-                    developmentVersion = null,
-                    versions = emptyList(),
-                )
-            }
+        fun create(name: String, developerId: UUID, description: String?): Maybe<App> = validateName(name).map { validName ->
+            App(
+                id = UUID.randomUUID(),
+                nameField = validName,
+                developer = developerId,
+                descriptionField = description.trimToNull(),
+                discontinued = false,
+                developmentVersion = (AppVersionDraft.create() as Result).value,
+                versions = emptyList(),
+            )
+        }
     }
 
     val name get() = nameField
@@ -300,21 +298,25 @@ data class App private constructor(
         }
     }
 
-    internal fun changeVersionReleaseNote(version: Semver, note: String): Maybe<App> {
-        return when (val appVersion = versions.firstOrNull { it.version == version }) {
-            null -> {
-                Error(
-                    code = AppErrorCodes.VERSION_NOT_FOUND,
-                    details = version.toString()
-                )
-            }
+    internal fun changeVersionReleaseNote(version: Semver, note: String): Maybe<App> = when {
+        !status.allowsChanges -> {
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
+        }
 
-            else -> {
-                appVersion.changeReleaseNotesText(note).map { updatedAppVersion ->
-                    copy(versions = versions.map { containedVersion ->
-                        if (containedVersion.version == version) updatedAppVersion else containedVersion
-                    })
-                }
+        versions.firstOrNull { it.version == version } == null -> {
+            Error(
+                code = AppErrorCodes.VERSION_NOT_FOUND, details = version.toString()
+            )
+        }
+
+        else -> {
+            versions.first { it.version == version }.changeReleaseNotesText(note).map { updatedAppVersion ->
+                copy(versions = versions.map { containedVersion ->
+                    if (containedVersion.version == version) updatedAppVersion else containedVersion
+                })
             }
         }
     }
@@ -365,10 +367,9 @@ data class AppVersion private constructor(
         }
     }
 
-    internal fun changeReleaseNotesText(note: String): Maybe<AppVersion> =
-        releaseNotes.changeNote(note).map {
-            copy(releaseNotes = it)
-        }
+    internal fun changeReleaseNotesText(note: String): Maybe<AppVersion> = releaseNotes.changeNote(note).map {
+        copy(releaseNotes = it)
+    }
 }
 
 data class AppVersionDraft private constructor(
@@ -377,8 +378,7 @@ data class AppVersionDraft private constructor(
 ) {
 
     companion object {
-        fun create() =
-            create(datatypes = emptySet(), reports = emptySet())
+        fun create() = create(datatypes = emptySet(), reports = emptySet())
 
         @Suppress("UNCHECKED_CAST")
         fun create(appVersion: AppVersion): Maybe<AppVersionDraft> {
@@ -387,8 +387,7 @@ data class AppVersionDraft private constructor(
             return when {
                 conversionErrors != null -> conversionErrors as Maybe<AppVersionDraft>
                 else -> create(
-                    datatypes = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet(),
-                    reports = appVersion.reports
+                    datatypes = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet(), reports = appVersion.reports
                 )
             }
         }
@@ -416,15 +415,13 @@ data class AppVersionDraft private constructor(
         }
     }
 
-    internal fun replaceDatatype(name: String, datatype: AppDatatypeDraft) =
-        datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
-            copy(datatypes = datatypes.upsert(name, datatype))
-        }
+    internal fun replaceDatatype(name: String, datatype: AppDatatypeDraft) = datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
+        copy(datatypes = datatypes.upsert(name, datatype))
+    }
 
-    internal fun upsertDatatype(datatype: AppDatatypeDraft) =
-        datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
-            copy(datatypes = datatypes.upsert(datatype.name, datatype))
-        }
+    internal fun upsertDatatype(datatype: AppDatatypeDraft) = datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
+        copy(datatypes = datatypes.upsert(datatype.name, datatype))
+    }
 
     internal fun removeDatatype(datatypeName: String) = when {
         datatypes.none { it.name == datatypeName.trim() } -> Error(
@@ -435,14 +432,11 @@ data class AppVersionDraft private constructor(
         else -> Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName.trim() }.toSet()))
     }
 
-    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft) =
-        filterNot { it.name == removeName }.plus(addDatatype).toSet()
+    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft) = filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
-    internal fun replaceReport(name: String, report: AppReport) =
-        Result(copy(reports = reports.upsert(name, report)))
+    internal fun replaceReport(name: String, report: AppReport) = Result(copy(reports = reports.upsert(name, report)))
 
-    internal fun upsertReport(report: AppReport) =
-        Result(copy(reports = reports.upsert(report.name, report)))
+    internal fun upsertReport(report: AppReport) = Result(copy(reports = reports.upsert(report.name, report)))
 
     internal fun removeReport(reportName: String) = when {
         reports.none { it.name == reportName.trim() } -> Error(
@@ -453,8 +447,7 @@ data class AppVersionDraft private constructor(
         else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
     }
 
-    private fun Set<AppReport>.upsert(removeName: String, addReport: AppReport) =
-        filterNot { it.name == removeName }.plus(addReport).toSet()
+    private fun Set<AppReport>.upsert(removeName: String, addReport: AppReport) = filterNot { it.name == removeName }.plus(addReport).toSet()
 }
 
 enum class AppVersionChangeType {
@@ -467,24 +460,21 @@ data class AppVersionReleaseNotes private constructor(
 ) {
 
     companion object {
-        private fun validateNote(note: String) =
-            validateNotBlank(note, AppErrorCodes.VERSION_RELEASE_NOTE_BLANK)
+        private fun validateNote(note: String) = validateNotBlank(note, AppErrorCodes.VERSION_RELEASE_NOTE_BLANK)
 
-        fun create(changeType: AppVersionChangeType, note: String): Maybe<AppVersionReleaseNotes> =
-            validateNote(note).map { validNote ->
-                AppVersionReleaseNotes(
-                    changeType = changeType,
-                    noteField = validNote,
-                )
-            }
+        fun create(changeType: AppVersionChangeType, note: String): Maybe<AppVersionReleaseNotes> = validateNote(note).map { validNote ->
+            AppVersionReleaseNotes(
+                changeType = changeType,
+                noteField = validNote,
+            )
+        }
     }
 
     val note get() = noteField
 
-    internal fun changeNote(note: String): Maybe<AppVersionReleaseNotes> =
-        validateNote(note).map { validNote ->
-            copy(noteField = validNote)
-        }
+    internal fun changeNote(note: String): Maybe<AppVersionReleaseNotes> = validateNote(note).map { validNote ->
+        copy(noteField = validNote)
+    }
 
     internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
@@ -533,29 +523,26 @@ data class AppDatatypeDraft private constructor(
     companion object {
         private val simpleNamePatern = Regex("([A-Z][a-z]*)+")
 
-        private fun validateName(name: String) =
-            validateMatches(
-                value = name,
-                pattern = simpleNamePatern,
-                codeBlank = AppErrorCodes.DATATYPE_NAME_BLANK,
-                codeNoMatch = AppErrorCodes.DATATYPE_NAME_INVALID,
-            )
+        private fun validateName(name: String) = validateMatches(
+            value = name,
+            pattern = simpleNamePatern,
+            codeBlank = AppErrorCodes.DATATYPE_NAME_BLANK,
+            codeNoMatch = AppErrorCodes.DATATYPE_NAME_INVALID,
+        )
 
-        fun create(datatype: AppDatatype): Maybe<AppDatatypeDraft> =
-            create(
-                name = datatype.name,
-                schemaContent = datatype.schemaContent,
-                description = datatype.description,
-            )
+        fun create(datatype: AppDatatype): Maybe<AppDatatypeDraft> = create(
+            name = datatype.name,
+            schemaContent = datatype.schemaContent,
+            description = datatype.description,
+        )
 
-        fun create(name: String, schemaContent: String, description: String?): Maybe<AppDatatypeDraft> =
-            validateName(name).map { validName ->
-                AppDatatypeDraft(
-                    nameField = validName,
-                    schemaContentField = schemaContent,
-                    descriptionField = description,
-                )
-            }
+        fun create(name: String, schemaContent: String, description: String?): Maybe<AppDatatypeDraft> = validateName(name).map { validName ->
+            AppDatatypeDraft(
+                nameField = validName,
+                schemaContentField = schemaContent,
+                descriptionField = description,
+            )
+        }
     }
 
     val name get() = nameField
@@ -579,28 +566,17 @@ data class AppDatatype private constructor(
 ) {
 
     companion object {
-        private fun validateName(name: String) =
-            validateNotBlank(name, AppErrorCodes.DATATYPE_NAME_BLANK)
+        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.DATATYPE_NAME_BLANK)
 
-        private fun validateVersion(version: Long) =
-            validateNotNegative(version, AppErrorCodes.DATATYPE_VERSION_NEGATIVE)
+        private fun validateVersion(version: Long) = validateNotNegative(version, AppErrorCodes.DATATYPE_VERSION_NEGATIVE)
 
-        private fun validateSchemaContent(schemaContent: String) =
-            validateNotBlank(schemaContent, AppErrorCodes.DATATYPE_SCHEMA_CONTENT_BLANK)
-
-        fun create(draft: AppDatatypeDraft, version: Long): Maybe<AppDatatype> =
-            validateName(draft.name).flatMap { validName ->
-                validateVersion(version).flatMap { validVersion ->
-                    validateSchemaContent(draft.schemaContent).map { validSchemaContent ->
-                        AppDatatype(
-                            nameField = validName,
-                            versionField = validVersion,
-                            schemaContentField = validSchemaContent,
-                            descriptionField = draft.description
-                        )
-                    }
-                }
+        fun create(draft: AppDatatypeDraft, version: Long): Maybe<AppDatatype> = validateName(draft.name).flatMap { validName ->
+            validateVersion(version).map { validVersion ->
+                AppDatatype(
+                    nameField = validName, versionField = validVersion, schemaContentField = draft.schemaContent, descriptionField = draft.description
+                )
             }
+        }
     }
 
     val name get() = nameField
@@ -624,17 +600,15 @@ data class AppReport private constructor(
 ) {
 
     companion object {
-        private fun validateName(name: String) =
-            validateNotBlank(name, AppErrorCodes.REPORT_NAME_BLANK)
+        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.REPORT_NAME_BLANK)
 
-        fun create(name: String, description: String?, source: String): Maybe<AppReport> =
-            validateName(name).map { validName ->
-                AppReport(
-                    nameField = validName,
-                    sourceField = source,
-                    descriptionField = description,
-                )
-            }
+        fun create(name: String, description: String?, source: String): Maybe<AppReport> = validateName(name).map { validName ->
+            AppReport(
+                nameField = validName,
+                sourceField = source,
+                descriptionField = description,
+            )
+        }
     }
 
     val name get() = nameField
