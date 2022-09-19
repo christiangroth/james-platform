@@ -1,6 +1,5 @@
 package de.chrgroth.james.app
 
-import de.chrgroth.james.app.AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS
 import de.chrgroth.james.app.AppErrorCodes.DATATYPE_NAME_BLANK
 import de.chrgroth.james.app.AppErrorCodes.DATATYPE_NAME_DUPLICATE
 import de.chrgroth.james.app.AppErrorCodes.DATATYPE_NAME_INVALID
@@ -51,12 +50,10 @@ import de.chrgroth.james.app.AppErrorCodes.DATATYPE_VERSION_NEGATIVE
 import de.chrgroth.james.app.AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED
 import de.chrgroth.james.app.AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED
 import de.chrgroth.james.app.AppErrorCodes.NAME_BLANK
-import de.chrgroth.james.app.AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING
+import de.chrgroth.james.app.AppErrorCodes.RELEASE_VERSION_NOT_FOUND
 import de.chrgroth.james.app.AppErrorCodes.REPORT_NAME_BLANK
 import de.chrgroth.james.app.AppErrorCodes.REPORT_NAME_DUPLICATE
 import de.chrgroth.james.app.AppErrorCodes.REPORT_NOT_FOUND
-import de.chrgroth.james.app.AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING
-import de.chrgroth.james.app.AppErrorCodes.VERSION_NOT_FOUND
 import de.chrgroth.james.app.AppErrorCodes.VERSION_RELEASE_NOTE_BLANK
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -117,17 +114,14 @@ class AppErrorCodesTests {
         assertThat(REPORT_NOT_FOUND.toGlobalRepresentation()).isEqualTo("APP_048_REPORT_NOT_FOUND")
         assertThat(REPORT_NAME_BLANK.toGlobalRepresentation()).isEqualTo("APP_049_REPORT_NAME_BLANK")
         assertThat(REPORT_NAME_DUPLICATE.toGlobalRepresentation()).isEqualTo("APP_050_REPORT_NAME_DUPLICATE")
-        assertThat(VERSION_NOT_FOUND.toGlobalRepresentation()).isEqualTo("APP_051_VERSION_NOT_FOUND")
+        assertThat(RELEASE_VERSION_NOT_FOUND.toGlobalRepresentation()).isEqualTo("APP_051_RELEASE_VERSION_NOT_FOUND")
         assertThat(VERSION_RELEASE_NOTE_BLANK.toGlobalRepresentation()).isEqualTo("APP_052_VERSION_RELEASE_NOTE_BLANK")
         assertThat(DISCONTINUED_NO_CHANGES_ALLOWED.toGlobalRepresentation()).isEqualTo("APP_053_DISCONTINUED_NO_CHANGES_ALLOWED")
-        assertThat(CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS.toGlobalRepresentation()).isEqualTo("APP_054_CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS")
-        assertThat(UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING.toGlobalRepresentation()).isEqualTo("APP_055_UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING")
-        assertThat(RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING.toGlobalRepresentation()).isEqualTo("APP_056_RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING")
-        assertThat(DELETE_STATUS_IS_NOT_DISCONTINUED.toGlobalRepresentation()).isEqualTo("APP_057_DELETE_STATUS_IS_NOT_DISCONTINUED")
+        assertThat(DELETE_STATUS_IS_NOT_DISCONTINUED.toGlobalRepresentation()).isEqualTo("APP_054_DELETE_STATUS_IS_NOT_DISCONTINUED")
     }
 
     @Test
     fun ensureNumberOfErrorCodesNotChanged() {
-        assertThat(AppErrorCodes.values()).hasSize(58)
+        assertThat(AppErrorCodes.values()).hasSize(55)
     }
 }

@@ -6,8 +6,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
-// TODO #25 add tests for isBreaking and JSON schema generation
-
 class AppModelTests {
 
     @Test
@@ -52,7 +50,7 @@ class AppModelTests {
             description = null,
         ).expectSuccess().let { app ->
             if (releaseDevelopmentVersion) {
-                app.releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
+                app.releaseNextVersionDraft(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
             } else {
                 app
             }

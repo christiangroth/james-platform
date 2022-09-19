@@ -18,7 +18,8 @@ import de.chrgroth.james.validateNotBlank
 import de.chrgroth.james.validateNotNegative
 import java.util.UUID
 
-// TODO #25 naming DevelopmentVersion vs Draft vs x?
+// TODO #25 check/forbid all copy invocations
+// TODO #25 add tests for isBreaking and JSON schema generation
 
 // TODO #28 make return types explicit (check all files)
 // TODO #28 make copy calls explicit (this file only)
@@ -30,11 +31,11 @@ enum class AppStatus(val allowsChanges: Boolean) {
 data class App private constructor(
     val id: UUID,
     private var nameField: String,
-    val developer: UUID,
+    val developerId: UUID,
     private var descriptionField: String?,
     val discontinued: Boolean,
-    val developmentVersion: AppVersionDraft?,
-    val versions: List<AppVersion>,
+    val nextVersionDraft: AppVersionDraft,
+    val releasedVersions: List<AppVersion>,
 ) {
 
     companion object {
@@ -44,11 +45,11 @@ data class App private constructor(
             App(
                 id = UUID.randomUUID(),
                 nameField = validName,
-                developer = developerId,
+                developerId = developerId,
                 descriptionField = description.trimToNull(),
                 discontinued = false,
-                developmentVersion = (AppVersionDraft.create() as Result).value,
-                versions = emptyList(),
+                nextVersionDraft = (AppVersionDraft.create() as Result).value,
+                releasedVersions = emptyList(),
             )
         }
     }
@@ -56,251 +57,164 @@ data class App private constructor(
     val name get() = nameField
     val description get() = descriptionField
 
+    // TODO #22 set to disabled/discontinued if developer is not active
     val status by lazy {
         when {
             discontinued -> AppStatus.DISCONTINUED
-            versions.isEmpty() -> AppStatus.DEVELOPMENT
+            releasedVersions.isEmpty() -> AppStatus.DEVELOPMENT
             else -> AppStatus.ACTIVE
         }
     }
 
     internal val latestVersion by lazy {
-        versions.firstOrNull()
+        releasedVersions.firstOrNull()
     }
 
-    @Suppress("UNCHECKED_CAST")
-    internal fun createDevelopmentVersion() = when {
+    internal fun addNextVersionDraftDatatype(datatypeName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        developmentVersion != null -> Error(
-            code = AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
-            details = null,
-        )
-
-        else -> latestVersion?.let {
-            val convertedDatatypes = it.datatypes.map { datatype -> AppDatatypeDraft.create(datatype) }
-            val conversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
-            return when {
-                conversionErrors != null -> conversionErrors as Maybe<App>
-                else -> {
-                    val datatypeDrafts = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet()
-                    AppVersionDraft.create(datatypes = datatypeDrafts, reports = it.reports).map { versionDraft ->
-                        copy(developmentVersion = versionDraft)
-                    }
-                }
-            }
-        } ?: AppVersionDraft.create().map { copy(developmentVersion = it) }
-    }
-
-    internal fun createDevelopmentVersionDatatype(datatypeName: String): Maybe<App> = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        developmentVersion.datatypes.any { it.name == datatypeName } -> Error(
+        nextVersionDraft.datatypes.any { it.name == datatypeName } -> Error(
             code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = datatypeName,
         )
 
         else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).flatMap { newDatatype ->
-            developmentVersion.upsertDatatype(newDatatype).map { copy(developmentVersion = it) }
+            nextVersionDraft.upsertDatatype(newDatatype).map { copy(nextVersionDraft = it) }
         }
     }
 
-    internal fun renameDevelopmentVersionDatatype(oldName: String, newName: String): Maybe<App> = when {
+    internal fun changeNextVersionDraftDatatype(name: String, schemaContent: String, description: String?, newName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        developmentVersion.datatypes.any { it.name == newName } -> Error(
+        name != newName && nextVersionDraft.datatypes.any { it.name == newName } -> Error(
             code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = newName,
         )
 
-        else -> when (val existingDatatype = developmentVersion.datatypes.firstOrNull { it.name == oldName }) {
-            null -> Error(
-                code = AppErrorCodes.DATATYPE_NOT_FOUND,
-                details = oldName,
-            )
-
-            else -> AppDatatypeDraft.create(name = newName, schemaContent = existingDatatype.schemaContent, description = existingDatatype.description)
-                .flatMap { newDatatype ->
-                    developmentVersion.replaceDatatype(oldName, newDatatype).map { copy(developmentVersion = it) }
-                }
-        }
-    }
-
-    internal fun updateDevelopmentVersionDatatype(name: String, schemaContent: String, description: String?): Maybe<App> = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        else -> when (val datatype = developmentVersion.datatypes.firstOrNull { it.name == name }) {
+        else -> when (val datatype = nextVersionDraft.datatypes.firstOrNull { it.name == name }) {
             null -> Error(
                 code = AppErrorCodes.DATATYPE_NOT_FOUND,
                 details = name,
             )
 
             else -> {
-                if (datatype.schemaContent == schemaContent && datatype.description == description) {
+                val nameToUse = if (name != newName) newName else name
+                if (datatype.name == nameToUse && datatype.schemaContent == schemaContent && datatype.description == description) {
                     Result(this)
                 } else {
-                    AppDatatypeDraft.create(name = name, schemaContent = schemaContent, description = description).flatMap { updatedDatatype ->
-                        developmentVersion.upsertDatatype(updatedDatatype).map { copy(developmentVersion = it) }
+                    AppDatatypeDraft.create(name = nameToUse, schemaContent = schemaContent, description = description).flatMap { updatedDatatype ->
+                        nextVersionDraft.replaceDatatype(name, updatedDatatype).map { copy(nextVersionDraft = it) }
                     }
                 }
             }
         }
     }
 
-    internal fun removeDevelopmentVersionDatatype(datatypeName: String) = when {
+    internal fun removeNextVersionDraftDatatype(datatypeName: String) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        else -> developmentVersion.removeDatatype(datatypeName).map { copy(developmentVersion = it) }
+        else -> nextVersionDraft.removeDatatype(datatypeName).map { copy(nextVersionDraft = it) }
     }
 
-    internal fun createDevelopmentVersionReport(reportName: String): Maybe<App> = when {
+    internal fun addNextVersionDraftReport(reportName: String): Maybe<App> = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        developmentVersion.reports.any { it.name == reportName } -> Error(
+        nextVersionDraft.reports.any { it.name == reportName } -> Error(
             code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = reportName,
         )
 
         else -> AppReport.create(name = reportName, source = "", description = null).flatMap { newReport ->
-            developmentVersion.upsertReport(newReport).map { copy(developmentVersion = it) }
+            nextVersionDraft.upsertReport(newReport).map { copy(nextVersionDraft = it) }
         }
     }
 
-    internal fun renameDevelopmentVersionReport(oldName: String, newName: String): Maybe<App> = when {
+    internal fun changeNextVersionDraftReport(name: String, source: String, description: String?, newName: String) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        developmentVersion.reports.any { it.name == newName } -> Error(
+        name != newName && nextVersionDraft.reports.any { it.name == newName } -> Error(
             code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = newName,
         )
 
-        else -> when (val existingReport = developmentVersion.reports.firstOrNull { it.name == oldName }) {
-            null -> Error(
-                code = AppErrorCodes.REPORT_NOT_FOUND,
-                details = oldName,
-            )
-
-            else -> AppReport.create(name = newName, source = existingReport.source, description = existingReport.description).flatMap { newReport ->
-                developmentVersion.replaceReport(oldName, newReport).map { copy(developmentVersion = it) }
-            }
-        }
-    }
-
-    internal fun updateDevelopmentVersionReport(name: String, source: String, description: String?) = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        else -> when (val report = developmentVersion.reports.firstOrNull { it.name == name }) {
+        else -> when (val report = nextVersionDraft.reports.firstOrNull { it.name == name }) {
             null -> Error(
                 code = AppErrorCodes.REPORT_NOT_FOUND,
                 details = name,
             )
 
             else -> {
-                if (report.source == source && report.description == description) {
+                val nameToUse = if (name != newName) newName else name
+                if (report.name == nameToUse && report.source == source && report.description == description) {
                     Result(this)
                 } else {
-                    AppReport.create(name = name, source = source, description = description).flatMap { updatedReport ->
-                        developmentVersion.upsertReport(updatedReport).map { copy(developmentVersion = it) }
+                    AppReport.create(name = nameToUse, source = source, description = description).flatMap { updatedReport ->
+                        nextVersionDraft.replaceReport(name, updatedReport).map { copy(nextVersionDraft = it) }
                     }
                 }
             }
         }
     }
 
-    internal fun removeDevelopmentVersionReport(reportName: String) = when {
+    internal fun removeNextVersionDraftReport(reportName: String) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-
-        else -> developmentVersion.removeReport(reportName).map { copy(developmentVersion = it) }
+        else -> nextVersionDraft.removeReport(reportName).map { copy(nextVersionDraft = it) }
     }
 
-    internal fun releaseDevelopmentVersion(changeType: AppVersionChangeType, note: String) = when {
+    // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
+    // TODO #25 make schema checking more explicit??
+    // TODO #25 prevent release if no changes at all
+    internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-
-        developmentVersion == null -> Error(
-            code = AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
             details = null,
         )
 
         else -> {
             AppVersionReleaseNotes.create(changeType, note).flatMap { releaseNotes ->
-                AppVersion.create(releaseNotes, developmentVersion, latestVersion).map {
-                    copy(developmentVersion = null, versions = listOf(it) + versions)
+                AppVersion.create(releaseNotes, nextVersionDraft, latestVersion).flatMap { nextVersionRelease ->
+                    createNextVersionDraft(nextVersionRelease).map { newNextVersionDraft ->
+                        copy(nextVersionDraft = newNextVersionDraft, releasedVersions = listOf(nextVersionRelease) + releasedVersions)
+                    }
                 }
             }
         }
     }
 
-    internal fun changeVersionReleaseNote(version: Semver, note: String): Maybe<App> = when {
+    @Suppress("UNCHECKED_CAST")
+    private fun createNextVersionDraft(latestVersion: AppVersion): Maybe<AppVersionDraft> =
+        latestVersion.let {
+            val convertedDatatypes = it.datatypes.map { datatype -> AppDatatypeDraft.create(datatype) }
+            val datatypeConversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
+            return when {
+                datatypeConversionErrors != null -> datatypeConversionErrors as Maybe<AppVersionDraft>
+                else -> {
+                    val datatypeDrafts = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet()
+                    AppVersionDraft.create(datatypes = datatypeDrafts, reports = it.reports)
+                }
+            }
+        }
+
+    internal fun changeReleaseNote(version: Semver, note: String): Maybe<App> = when {
         !status.allowsChanges -> {
             Error(
                 code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
@@ -308,16 +222,16 @@ data class App private constructor(
             )
         }
 
-        versions.firstOrNull { it.version == version } == null -> {
+        releasedVersions.firstOrNull { it.version == version } == null -> {
             Error(
-                code = AppErrorCodes.VERSION_NOT_FOUND, details = version.toString()
+                code = AppErrorCodes.RELEASE_VERSION_NOT_FOUND, details = version.toString()
             )
         }
 
         else -> {
-            versions.first { it.version == version }.changeReleaseNotesText(note).map { updatedAppVersion ->
-                copy(versions = versions.map { containedVersion ->
-                    if (containedVersion.version == version) updatedAppVersion else containedVersion
+            releasedVersions.first { it.version == version }.changeReleaseNote(note).map { updatedVersion ->
+                copy(releasedVersions = releasedVersions.map { currentVersion ->
+                    if (currentVersion.version == version) updatedVersion else currentVersion
                 })
             }
         }
@@ -352,14 +266,14 @@ data class AppVersion private constructor(
     companion object {
 
         @Suppress("UNCHECKED_CAST")
-        fun create(releaseNotes: AppVersionReleaseNotes, developmentVersion: AppVersionDraft, latestVersion: AppVersion?): Maybe<AppVersion> {
-            return when (val convertedDatatypes = developmentVersion.createDatatypes(latestVersion)) {
+        fun create(releaseNotes: AppVersionReleaseNotes, nextVersionDraft: AppVersionDraft, latestVersion: AppVersion?): Maybe<AppVersion> {
+            return when (val convertedDatatypes = nextVersionDraft.createDatatypes(latestVersion)) {
                 is Result -> Result(
                     AppVersion(
-                        version = releaseNotes.computeVersion(latestVersion, developmentVersion),
+                        version = releaseNotes.computeVersion(latestVersion, nextVersionDraft),
                         releaseNotes = releaseNotes,
                         datatypes = convertedDatatypes.value,
-                        reports = developmentVersion.reports.toSet(),
+                        reports = nextVersionDraft.reports.toSet(),
                     )
                 )
 
@@ -369,7 +283,7 @@ data class AppVersion private constructor(
         }
     }
 
-    internal fun changeReleaseNotesText(note: String): Maybe<AppVersion> = releaseNotes.changeNote(note).map {
+    internal fun changeReleaseNote(note: String): Maybe<AppVersion> = releaseNotes.changeNote(note).map {
         copy(releaseNotes = it)
     }
 }
@@ -388,9 +302,7 @@ data class AppVersionDraft private constructor(
             val conversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
             return when {
                 conversionErrors != null -> conversionErrors as Maybe<AppVersionDraft>
-                else -> create(
-                    datatypes = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet(), reports = appVersion.reports
-                )
+                else -> create(datatypes = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet(), reports = appVersion.reports)
             }
         }
 
@@ -434,7 +346,8 @@ data class AppVersionDraft private constructor(
         else -> Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName.trim() }.toSet()))
     }
 
-    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft) = filterNot { it.name == removeName }.plus(addDatatype).toSet()
+    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft) =
+        filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
     internal fun replaceReport(name: String, report: AppReport) = Result(copy(reports = reports.upsert(name, report)))
 
@@ -449,7 +362,8 @@ data class AppVersionDraft private constructor(
         else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
     }
 
-    private fun Set<AppReport>.upsert(removeName: String, addReport: AppReport) = filterNot { it.name == removeName }.plus(addReport).toSet()
+    private fun Set<AppReport>.upsert(removeName: String, addReport: AppReport) =
+        filterNot { it.name == removeName }.plus(addReport).toSet()
 }
 
 enum class AppVersionChangeType {

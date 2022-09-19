@@ -33,12 +33,12 @@ class WorkspaceDomainTests {
     private val unknownAppVersionId = Semver("1.2.3")
     private val existingAppVersion = AppVersion.create(
         releaseNotes = AppVersionReleaseNotes.create(AppVersionChangeType.FEATURE, "First Release").expectSuccess(),
-        developmentVersion = AppVersionDraft.create().expectSuccess(),
+        nextVersionDraft = AppVersionDraft.create().expectSuccess(),
         latestVersion = null,
     ).expectSuccess()
     private val existingAppNewerVersion = AppVersion.create(
         releaseNotes = AppVersionReleaseNotes.create(AppVersionChangeType.FEATURE, "Second Release").expectSuccess(),
-        developmentVersion = AppVersionDraft.create().expectSuccess(),
+        nextVersionDraft = AppVersionDraft.create().expectSuccess(),
         latestVersion = existingAppVersion,
     ).expectSuccess()
 
@@ -77,7 +77,7 @@ class WorkspaceDomainTests {
         }
 
         appQueryPersistence = mockk<AppQueryPersistencePort>().also {
-            every { it.getOrError(any(), any()) } answers { Maybe.Error(AppErrorCodes.VERSION_NOT_FOUND, null) }
+            every { it.getOrError(any(), any()) } answers { Maybe.Error(AppErrorCodes.RELEASE_VERSION_NOT_FOUND, null) }
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdZero) } returns (Maybe.Result(mockk()))
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdOne) } returns (Maybe.Result(existingAppVersion))
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdTwo) } returns (Maybe.Result(existingAppNewerVersion))
@@ -219,7 +219,7 @@ class WorkspaceDomainTests {
     @Test
     fun `install unknown app version`() {
         appInstallationUseCases.installApp(existingOneId, existingAppIdOne, unknownAppVersionId).expectError(
-            code = AppErrorCodes.VERSION_NOT_FOUND,
+            code = AppErrorCodes.RELEASE_VERSION_NOT_FOUND,
             details = null,
         )
         verifyMocks {
@@ -472,7 +472,7 @@ class WorkspaceDomainTests {
     @Test
     fun `update app installation unknown app version`() {
         appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownAppVersionId).expectError(
-            code = AppErrorCodes.VERSION_NOT_FOUND,
+            code = AppErrorCodes.RELEASE_VERSION_NOT_FOUND,
             details = null,
         )
 

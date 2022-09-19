@@ -101,6 +101,7 @@ data class Workspace private constructor(
             it.changeNameSupplement(nameSupplement)
         }
 
+    // TODO #25 check why not used
     internal fun updateAppInstallation(id: UUID, version: Semver): Maybe<Workspace> =
         modifyAppInstallation(id) {
             it.changeVersion(version)

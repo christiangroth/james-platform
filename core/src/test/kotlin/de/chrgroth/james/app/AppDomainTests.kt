@@ -27,18 +27,16 @@ class AppLifecycleUseCasesTests {
     private val developmentAppId = developmentApp.id
 
     private val activeApp = App.create("Active App", developerId, " ").expectSuccess()
-        .createDevelopmentVersionDatatype("TestDatatype").expectSuccess()
-        .createDevelopmentVersionReport("TestReport").expectSuccess()
-        .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
-        .createDevelopmentVersion().expectSuccess()
+        .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
+        .addNextVersionDraftReport("TestReport").expectSuccess()
+        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
     private val activeAppId = activeApp.id
 
     private val activeAppMultipleVersions = App.create("Active App Multiple Versions", developerId, " ").expectSuccess()
-        .createDevelopmentVersionDatatype("TestDatatype").expectSuccess()
-        .createDevelopmentVersionReport("TestReport").expectSuccess()
-        .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
-        .createDevelopmentVersion().expectSuccess()
-        .releaseDevelopmentVersion(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
+        .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
+        .addNextVersionDraftReport("TestReport").expectSuccess()
+        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
     private val discontinuedApp = App.create("Discontinued App", developerId, "").expectSuccess()
@@ -73,16 +71,16 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `create valid app`() {
+    fun `create app`() {
         fun App.assertions() {
             assertThat(name).isEqualTo("Test App")
-            assertThat(developer).isEqualTo(developerId)
+            assertThat(developerId).isEqualTo(developerId)
             assertThat(description).isEqualTo("Fancy App")
-            assertThat(versions).isEmpty()
+            assertThat(releasedVersions).isEmpty()
             assertThat(latestVersion).isNull()
-            assertThat(developmentVersion).isNotNull
-            assertThat(developmentVersion!!.datatypes).isEmpty()
-            assertThat(developmentVersion!!.reports).isEmpty()
+            assertThat(nextVersionDraft).isNotNull
+            assertThat(nextVersionDraft.datatypes).isEmpty()
+            assertThat(nextVersionDraft.reports).isEmpty()
             assertThat(status).isEqualTo(AppStatus.DEVELOPMENT)
             assertThat(discontinued).isFalse
         }
@@ -96,7 +94,7 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `create invalid app name missing`() {
+    fun `create app with blank name missing`() {
         appLifecycleUseCases.create(" ", developerId, "Fancy App").expectError(
             code = AppErrorCodes.NAME_BLANK,
             details = null,
@@ -105,7 +103,7 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `create invalid app developer unknown`() {
+    fun `create app with unknown developer`() {
         appLifecycleUseCases.create("Fancy App", UUID.randomUUID(), "Fancy App").expectError(
             code = UserErrorCodes.NOT_FOUND,
             details = null,
@@ -114,101 +112,20 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `prepare next version with existing development version`() {
-        appLifecycleUseCases.prepareNextVersion(developmentAppId).expectError(
-            code = AppErrorCodes.CREATE_DEVELOPMENT_VERSION_DRAFT_EXISTS,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(developmentAppId)
-        }
-    }
-
-    @Test
-    fun `prepare next version without existing development version`() {
-        appLifecycleUseCases.prepareNextVersion(activeAppMultipleVersionsId).expectSuccess()
+    fun `change release note`() {
+        appLifecycleUseCases.changeReleaseNote(activeAppMultipleVersionsId, Semver("0.1.0"), "New note!").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppMultipleVersionsId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion).isNotNull
+                assertThat((actual as App).releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.note).isEqualTo("New note!")
             })
         }
     }
 
     @Test
-    fun `prepare next version on discontinued app`() {
-        appLifecycleUseCases.prepareNextVersion(discontinuedAppId).expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(discontinuedAppId)
-        }
-    }
-
-    @Test
-    fun `release next version with existing development version but blank note`() {
-        appLifecycleUseCases.releaseNextVersion(developmentAppId, AppVersionChangeType.FEATURE, " ").expectError(
-            code = AppErrorCodes.VERSION_RELEASE_NOTE_BLANK,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(developmentAppId)
-        }
-    }
-
-    @Test
-    fun `release next version with existing development version`() {
-        appLifecycleUseCases.releaseNextVersion(developmentAppId, AppVersionChangeType.FEATURE, "Release it!").expectSuccess()
-        verifyMocks {
-            queryPersistence.getOrError(developmentAppId)
-            commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion).isNull()
-                assertThat((actual as App).latestVersion).isNotNull
-                assertThat((actual as App).latestVersion!!.version).isEqualTo(Semver("0.1.0"))
-                assertThat((actual as App).latestVersion!!.releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
-                assertThat((actual as App).latestVersion!!.releaseNotes.note).isEqualTo("Release it!")
-            })
-        }
-    }
-
-    @Test
-    fun `release next version without existing development version`() {
-        appLifecycleUseCases.releaseNextVersion(activeAppMultipleVersionsId, AppVersionChangeType.FEATURE, "Note").expectError(
-            code = AppErrorCodes.RELEASE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
-    fun `release next version on discontinued app`() {
-        appLifecycleUseCases.releaseNextVersion(discontinuedAppId, AppVersionChangeType.FEATURE, "Note").expectError(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(discontinuedAppId)
-        }
-    }
-
-    @Test
-    fun `update release note`() {
-        appLifecycleUseCases.changeVersionReleaseNote(activeAppMultipleVersionsId, Semver("0.1.0"), "New note!").expectSuccess()
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-            commandPersistence.upsert(withArg {
-                assertThat((actual as App).versions.first { it.version == Semver("0.1.0") }.releaseNotes.note).isEqualTo("New note!")
-            })
-        }
-    }
-
-    @Test
-    fun `update release note on unknown version`() {
-        appLifecycleUseCases.changeVersionReleaseNote(activeAppMultipleVersionsId, Semver("6.6.6"), "New note!").expectError(
-            code = AppErrorCodes.VERSION_NOT_FOUND,
+    fun `change release note on unknown version`() {
+        appLifecycleUseCases.changeReleaseNote(activeAppMultipleVersionsId, Semver("6.6.6"), "New note!").expectError(
+            code = AppErrorCodes.RELEASE_VERSION_NOT_FOUND,
             details = "6.6.6",
         )
         verifyMocks {
@@ -217,8 +134,8 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `update release note on discontinued app`() {
-        appLifecycleUseCases.changeVersionReleaseNote(discontinuedAppId, Semver("0.1.0"), "New note!").expectError(
+    fun `change release note on discontinued app`() {
+        appLifecycleUseCases.changeReleaseNote(discontinuedAppId, Semver("0.1.0"), "New note!").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -228,7 +145,7 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `discontinue active app`() {
+    fun `discontinue app`() {
         appLifecycleUseCases.discontinue(activeAppId).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -239,7 +156,7 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `discontinue discontinued app`() {
+    fun `discontinue app already discontinued`() {
         appLifecycleUseCases.discontinue(discontinuedAppId).expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
@@ -250,7 +167,7 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `delete active app`() {
+    fun `delete app still active`() {
         appLifecycleUseCases.delete(activeAppId).expectError(
             code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
             details = null,
@@ -261,7 +178,7 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `delete discontinued app`() {
+    fun `delete app`() {
         appLifecycleUseCases.delete(discontinuedAppId).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -287,18 +204,16 @@ class AppVersionDevelopmentUseCasesTests {
     private val developmentAppId = developmentApp.id
 
     private val activeApp = App.create("Active App", developerId, " ").expectSuccess()
-        .createDevelopmentVersionDatatype("TestDatatype").expectSuccess()
-        .createDevelopmentVersionReport("TestReport").expectSuccess()
-        .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
-        .createDevelopmentVersion().expectSuccess()
+        .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
+        .addNextVersionDraftReport("TestReport").expectSuccess()
+        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
     private val activeAppId = activeApp.id
 
     private val activeAppMultipleVersions = App.create("Active App Multiple Versions", developerId, " ").expectSuccess()
-        .createDevelopmentVersionDatatype("TestDatatype").expectSuccess()
-        .createDevelopmentVersionReport("TestReport").expectSuccess()
-        .releaseDevelopmentVersion(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
-        .createDevelopmentVersion().expectSuccess()
-        .releaseDevelopmentVersion(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
+        .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
+        .addNextVersionDraftReport("TestReport").expectSuccess()
+        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
     private val discontinuedApp = App.create("Discontinued App", developerId, "").expectSuccess()
@@ -333,8 +248,8 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version datatype with blank name`() {
-        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, " ").expectError(
+    fun `add datatype with blank name`() {
+        appVersionDevelopmentUseCases.addDatatype(activeAppId, " ").expectError(
             code = AppErrorCodes.DATATYPE_NAME_BLANK,
             details = null,
         )
@@ -344,8 +259,8 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version datatype with invalid name`() {
-        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, "some Datatype").expectError(
+    fun `add datatype with invalid name`() {
+        appVersionDevelopmentUseCases.addDatatype(activeAppId, "some Datatype").expectError(
             code = AppErrorCodes.DATATYPE_NAME_INVALID,
             details = "'some Datatype' does not match ([A-Z][a-z]*)+",
         )
@@ -355,8 +270,8 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version datatype with duplicate name`() {
-        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, "TestDatatype").expectError(
+    fun `add datatype with duplicate name`() {
+        appVersionDevelopmentUseCases.addDatatype(activeAppId, "TestDatatype").expectError(
             code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = "TestDatatype",
         )
@@ -366,30 +281,19 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version datatype`() {
-        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppId, "NewDatatype").expectSuccess()
+    fun `add datatype`() {
+        appVersionDevelopmentUseCases.addDatatype(activeAppId, "NewDatatype").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.datatypes).contains(AppDatatypeDraft.create("NewDatatype", "", null).expectSuccess())
+                assertThat((actual as App).nextVersionDraft.datatypes).contains(AppDatatypeDraft.create("NewDatatype", "", null).expectSuccess())
             })
         }
     }
 
     @Test
-    fun `create next version datatype without draft version`() {
-        appVersionDevelopmentUseCases.createNextVersionDatatype(activeAppMultipleVersionsId, " ").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
-    fun `create next version datatype on discontinued app`() {
-        appVersionDevelopmentUseCases.createNextVersionDatatype(discontinuedAppId, " ").expectError(
+    fun `add datatype on discontinued app`() {
+        appVersionDevelopmentUseCases.addDatatype(discontinuedAppId, " ").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -399,8 +303,8 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `rename next version datatype with blank name`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "TestDatatype", " ").expectError(
+    fun `rename next version datatype to blank name`() {
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, " ").expectError(
             code = AppErrorCodes.DATATYPE_NAME_BLANK,
             details = null,
         )
@@ -411,7 +315,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype with invalid name`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "TestDatatype", "Test Datatype").expectError(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "Test Datatype").expectError(
             code = AppErrorCodes.DATATYPE_NAME_INVALID,
             details = "'Test Datatype' does not match ([A-Z][a-z]*)+",
         )
@@ -422,7 +326,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype with unknown name`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "Unknown", "Unknown Datatype").expectError(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, "Unknown Datatype").expectError(
             code = AppErrorCodes.DATATYPE_NOT_FOUND,
             details = "Unknown",
         )
@@ -433,7 +337,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype with duplicate name`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "Unknown", "TestDatatype").expectError(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, "TestDatatype").expectError(
             code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
             details = "TestDatatype",
         )
@@ -444,30 +348,19 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppId, "TestDatatype", "NewDatatype").expectSuccess()
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "NewDatatype").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.datatypes).hasSize(1)
-                assertThat((actual as App).developmentVersion!!.datatypes.first().name).isEqualTo("NewDatatype")
+                assertThat((actual as App).nextVersionDraft.datatypes).hasSize(1)
+                assertThat((actual as App).nextVersionDraft.datatypes.first().name).isEqualTo("NewDatatype")
             })
         }
     }
 
     @Test
-    fun `rename next version datatype without draft version`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(activeAppMultipleVersionsId, "TestDatatype", "SomeOtherName").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
     fun `rename next version datatype on discontinued app`() {
-        appVersionDevelopmentUseCases.renameNextVersionDatatype(discontinuedAppId, "TestDatatype", "SomeOtherName").expectError(
+        appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "", null, "SomeOtherName").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -478,7 +371,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `update next version datatype with invalid schema`() {
-        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "TestDatatype", "NEW SCHEMA", null).expectError(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "NEW SCHEMA", null, null).expectError(
             code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = "Expected a ':' after a key at 115 [character 1 line 7]",
         )
@@ -489,7 +382,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `update next version datatype with unknown name`() {
-        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "Unknown", "", null).expectError(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, null).expectError(
             code = AppErrorCodes.DATATYPE_NOT_FOUND,
             details = "Unknown",
         )
@@ -500,44 +393,33 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `update next version datatype`() {
-        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "TestDatatype", "", "NEW DESC").expectSuccess()
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", "NEW DESC", null).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.datatypes).hasSize(1)
-                assertThat((actual as App).developmentVersion!!.datatypes.first().schemaContent).isEqualTo("")
-                assertThat((actual as App).developmentVersion!!.datatypes.first().description).isEqualTo("NEW DESC")
+                assertThat((actual as App).nextVersionDraft.datatypes).hasSize(1)
+                assertThat((actual as App).nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
+                assertThat((actual as App).nextVersionDraft.datatypes.first().description).isEqualTo("NEW DESC")
             })
         }
     }
 
     @Test
     fun `update next version datatype with same schema and description`() {
-        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppId, "TestDatatype", "", null).expectSuccess()
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, null).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.datatypes).hasSize(1)
-                assertThat((actual as App).developmentVersion!!.datatypes.first().schemaContent).isEqualTo("")
-                assertThat((actual as App).developmentVersion!!.datatypes.first().description).isNull()
+                assertThat((actual as App).nextVersionDraft.datatypes).hasSize(1)
+                assertThat((actual as App).nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
+                assertThat((actual as App).nextVersionDraft.datatypes.first().description).isNull()
             })
         }
     }
 
     @Test
-    fun `update next version datatype without draft version`() {
-        appVersionDevelopmentUseCases.updateNextVersionDatatype(activeAppMultipleVersionsId, "TestDatatype", "", null).expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
     fun `update next version datatype on discontinued app`() {
-        appVersionDevelopmentUseCases.updateNextVersionDatatype(discontinuedAppId, "TestDatatype", "", null).expectError(
+        appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "", null, null).expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -548,7 +430,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `remove next version unknown datatype`() {
-        appVersionDevelopmentUseCases.removeNextVersionDatatype(activeAppId, "Unknown").expectError(
+        appVersionDevelopmentUseCases.removeDatatype(activeAppId, "Unknown").expectError(
             code = AppErrorCodes.DATATYPE_NOT_FOUND,
             details = "Unknown",
         )
@@ -559,29 +441,18 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `remove next version datatype`() {
-        appVersionDevelopmentUseCases.removeNextVersionDatatype(activeAppId, "TestDatatype").expectSuccess()
+        appVersionDevelopmentUseCases.removeDatatype(activeAppId, "TestDatatype").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.datatypes).isEmpty()
+                assertThat((actual as App).nextVersionDraft.datatypes).isEmpty()
             })
         }
     }
 
     @Test
-    fun `remove next version datatype without draft version`() {
-        appVersionDevelopmentUseCases.removeNextVersionDatatype(activeAppMultipleVersionsId, "TestDatatype").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
     fun `remove next version datatype on discontinued app`() {
-        appVersionDevelopmentUseCases.removeNextVersionDatatype(discontinuedAppId, "TestDatatype").expectError(
+        appVersionDevelopmentUseCases.removeDatatype(discontinuedAppId, "TestDatatype").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -591,8 +462,8 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version report with blank name`() {
-        appVersionDevelopmentUseCases.createNextVersionReport(activeAppId, " ").expectError(
+    fun `add report with blank name`() {
+        appVersionDevelopmentUseCases.addReport(activeAppId, " ").expectError(
             code = AppErrorCodes.REPORT_NAME_BLANK,
             details = null,
         )
@@ -602,8 +473,8 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version report with duplicate name`() {
-        appVersionDevelopmentUseCases.createNextVersionReport(activeAppId, "TestReport").expectError(
+    fun `add report with duplicate name`() {
+        appVersionDevelopmentUseCases.addReport(activeAppId, "TestReport").expectError(
             code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = "TestReport",
         )
@@ -613,30 +484,19 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
-    fun `create next version report`() {
-        appVersionDevelopmentUseCases.createNextVersionReport(activeAppId, "NewReport").expectSuccess()
+    fun `add report`() {
+        appVersionDevelopmentUseCases.addReport(activeAppId, "NewReport").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.reports).contains(AppReport.create("NewReport", null, "").expectSuccess())
+                assertThat((actual as App).nextVersionDraft.reports).contains(AppReport.create("NewReport", null, "").expectSuccess())
             })
         }
     }
 
     @Test
-    fun `create next version report without draft version`() {
-        appVersionDevelopmentUseCases.createNextVersionReport(activeAppMultipleVersionsId, " ").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
-    fun `create next version report on discontinued app`() {
-        appVersionDevelopmentUseCases.createNextVersionReport(discontinuedAppId, " ").expectError(
+    fun `add report on discontinued app`() {
+        appVersionDevelopmentUseCases.addReport(discontinuedAppId, " ").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -647,7 +507,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version report with blank name`() {
-        appVersionDevelopmentUseCases.renameNextVersionReport(activeAppId, "TestReport", " ").expectError(
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "TestReport", "", null, " ").expectError(
             code = AppErrorCodes.REPORT_NAME_BLANK,
             details = null,
         )
@@ -658,7 +518,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version report with unknown name`() {
-        appVersionDevelopmentUseCases.renameNextVersionReport(activeAppId, "Unknown", "Unknown Report").expectError(
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "Unknown", "", null, "Unknown Report").expectError(
             code = AppErrorCodes.REPORT_NOT_FOUND,
             details = "Unknown",
         )
@@ -669,7 +529,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version report with duplicate name`() {
-        appVersionDevelopmentUseCases.renameNextVersionReport(activeAppId, "Unknown", "TestReport").expectError(
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "Unknown", "", null, "TestReport").expectError(
             code = AppErrorCodes.REPORT_NAME_DUPLICATE,
             details = "TestReport",
         )
@@ -680,30 +540,19 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version report`() {
-        appVersionDevelopmentUseCases.renameNextVersionReport(activeAppId, "TestReport", "NewReport").expectSuccess()
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "TestReport", "", null, "NewReport").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.reports).hasSize(1)
-                assertThat((actual as App).developmentVersion!!.reports.first().name).isEqualTo("NewReport")
+                assertThat((actual as App).nextVersionDraft.reports).hasSize(1)
+                assertThat((actual as App).nextVersionDraft.reports.first().name).isEqualTo("NewReport")
             })
         }
     }
 
     @Test
-    fun `rename next version report without draft version`() {
-        appVersionDevelopmentUseCases.renameNextVersionReport(activeAppMultipleVersionsId, "TestReport", "SomeOtherName").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
     fun `rename next version report on discontinued app`() {
-        appVersionDevelopmentUseCases.renameNextVersionReport(discontinuedAppId, "TestReport", "SomeOtherName").expectError(
+        appVersionDevelopmentUseCases.changeReport(discontinuedAppId, "TestReport", "", null, "SomeOtherName").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -714,7 +563,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `update next version report with unknown name`() {
-        appVersionDevelopmentUseCases.updateNextVersionReport(activeAppId, "Unknown", "", null).expectError(
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "Unknown", "", null, null).expectError(
             code = AppErrorCodes.REPORT_NOT_FOUND,
             details = "Unknown",
         )
@@ -725,44 +574,33 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `update next version report`() {
-        appVersionDevelopmentUseCases.updateNextVersionReport(activeAppId, "TestReport", "NEW SRC", "NEW DESC").expectSuccess()
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "TestReport", "NEW SRC", "NEW DESC", null).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.reports).hasSize(1)
-                assertThat((actual as App).developmentVersion!!.reports.first().source).isEqualTo("NEW SRC")
-                assertThat((actual as App).developmentVersion!!.reports.first().description).isEqualTo("NEW DESC")
+                assertThat((actual as App).nextVersionDraft.reports).hasSize(1)
+                assertThat((actual as App).nextVersionDraft.reports.first().source).isEqualTo("NEW SRC")
+                assertThat((actual as App).nextVersionDraft.reports.first().description).isEqualTo("NEW DESC")
             })
         }
     }
 
     @Test
     fun `update next version report with same source and description`() {
-        appVersionDevelopmentUseCases.updateNextVersionReport(activeAppId, "TestReport", "", null).expectSuccess()
+        appVersionDevelopmentUseCases.changeReport(activeAppId, "TestReport", "", null, null).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.reports).hasSize(1)
-                assertThat((actual as App).developmentVersion!!.reports.first().source).isEqualTo("")
-                assertThat((actual as App).developmentVersion!!.reports.first().description).isNull()
+                assertThat((actual as App).nextVersionDraft.reports).hasSize(1)
+                assertThat((actual as App).nextVersionDraft.reports.first().source).isEqualTo("")
+                assertThat((actual as App).nextVersionDraft.reports.first().description).isNull()
             })
         }
     }
 
     @Test
-    fun `update next version report without draft version`() {
-        appVersionDevelopmentUseCases.updateNextVersionReport(activeAppMultipleVersionsId, "TestReport", "", null).expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
-            details = null,
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
-        }
-    }
-
-    @Test
     fun `update next version report on discontinued app`() {
-        appVersionDevelopmentUseCases.updateNextVersionReport(discontinuedAppId, "TestReport", "", null).expectError(
+        appVersionDevelopmentUseCases.changeReport(discontinuedAppId, "TestReport", "", null, null).expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
@@ -773,7 +611,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `remove next version unknown report`() {
-        appVersionDevelopmentUseCases.removeNextVersionReport(activeAppId, "Unknown").expectError(
+        appVersionDevelopmentUseCases.removeReport(activeAppId, "Unknown").expectError(
             code = AppErrorCodes.REPORT_NOT_FOUND,
             details = "Unknown",
         )
@@ -784,29 +622,55 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `remove next version report`() {
-        appVersionDevelopmentUseCases.removeNextVersionReport(activeAppId, "TestReport").expectSuccess()
+        appVersionDevelopmentUseCases.removeReport(activeAppId, "TestReport").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).developmentVersion!!.reports).isEmpty()
+                assertThat((actual as App).nextVersionDraft.reports).isEmpty()
             })
         }
     }
 
     @Test
-    fun `remove next version report without draft version`() {
-        appVersionDevelopmentUseCases.removeNextVersionReport(activeAppMultipleVersionsId, "RestReport").expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_DRAFT_MISSING,
+    fun `remove next version report on discontinued app`() {
+        appVersionDevelopmentUseCases.removeReport(discontinuedAppId, "TestReport").expectError(
+            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
         verifyMocks {
-            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            queryPersistence.getOrError(discontinuedAppId)
         }
     }
 
     @Test
-    fun `remove next version report on discontinued app`() {
-        appVersionDevelopmentUseCases.removeNextVersionReport(discontinuedAppId, "TestReport").expectError(
+    fun `release next version with blank note`() {
+        appVersionDevelopmentUseCases.release(developmentAppId, AppVersionChangeType.FEATURE, " ").expectError(
+            code = AppErrorCodes.VERSION_RELEASE_NOTE_BLANK,
+            details = null,
+        )
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppId)
+        }
+    }
+
+    @Test
+    fun `release next version`() {
+        appVersionDevelopmentUseCases.release(developmentAppId, AppVersionChangeType.FEATURE, "Release it!").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppId)
+            commandPersistence.upsert(withArg {
+                assertThat((actual as App).nextVersionDraft).isNotNull
+                assertThat((actual as App).latestVersion).isNotNull
+                assertThat((actual as App).latestVersion!!.version).isEqualTo(Semver("0.1.0"))
+                assertThat((actual as App).latestVersion!!.releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
+                assertThat((actual as App).latestVersion!!.releaseNotes.note).isEqualTo("Release it!")
+            })
+        }
+    }
+
+    @Test
+    fun `release next version on discontinued app`() {
+        appVersionDevelopmentUseCases.release(discontinuedAppId, AppVersionChangeType.FEATURE, "Note").expectError(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
