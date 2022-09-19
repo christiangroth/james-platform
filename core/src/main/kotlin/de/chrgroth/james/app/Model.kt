@@ -443,7 +443,7 @@ data class AppVersionDraft private constructor(
     internal fun removeReport(reportName: String) = when {
         reports.none { it.name == reportName.trim() } -> Error(
             code = AppErrorCodes.REPORT_NOT_FOUND,
-            details = null,
+            details = reportName,
         )
 
         else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
