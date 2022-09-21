@@ -18,11 +18,9 @@ import de.chrgroth.james.validateNotBlank
 import de.chrgroth.james.validateNotNegative
 import java.util.UUID
 
-// TODO #25 check/forbid all copy invocations
 // TODO #25 add tests for isBreaking and JSON schema generation
 
 // TODO #28 make return types explicit (check all files)
-// TODO #28 make copy calls explicit (this file only)
 
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
@@ -41,15 +39,24 @@ data class App private constructor(
     companion object {
         private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.NAME_BLANK)
 
-        fun create(name: String, developerId: UUID, description: String?): Maybe<App> = validateName(name).map { validName ->
+        @Suppress("LongParameterList")
+        fun create(
+            id: UUID = UUID.randomUUID(),
+            name: String,
+            developerId: UUID,
+            description: String?,
+            discontinued: Boolean = false,
+            nextVersionDraft: AppVersionDraft = (AppVersionDraft.create() as Result).value,
+            releasedVersions: List<AppVersion> = emptyList(),
+        ): Maybe<App> = validateName(name).map { validName ->
             App(
-                id = UUID.randomUUID(),
+                id = id,
                 nameField = validName,
                 developerId = developerId,
                 descriptionField = description.trimToNull(),
-                discontinued = false,
-                nextVersionDraft = (AppVersionDraft.create() as Result).value,
-                releasedVersions = emptyList(),
+                discontinued = discontinued,
+                nextVersionDraft = nextVersionDraft,
+                releasedVersions = releasedVersions,
             )
         }
     }
@@ -82,7 +89,9 @@ data class App private constructor(
         )
 
         else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).flatMap { newDatatype ->
-            nextVersionDraft.upsertDatatype(newDatatype).map { copy(nextVersionDraft = it) }
+            nextVersionDraft.upsertDatatype(newDatatype).flatMap {
+                create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+            }
         }
     }
 
@@ -109,7 +118,9 @@ data class App private constructor(
                     Result(this)
                 } else {
                     AppDatatypeDraft.create(name = nameToUse, schemaContent = schemaContent, description = description).flatMap { updatedDatatype ->
-                        nextVersionDraft.replaceDatatype(name, updatedDatatype).map { copy(nextVersionDraft = it) }
+                        nextVersionDraft.replaceDatatype(name, updatedDatatype).flatMap {
+                            create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+                        }
                     }
                 }
             }
@@ -122,7 +133,9 @@ data class App private constructor(
             details = null,
         )
 
-        else -> nextVersionDraft.removeDatatype(datatypeName).map { copy(nextVersionDraft = it) }
+        else -> nextVersionDraft.removeDatatype(datatypeName).flatMap {
+            create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+        }
     }
 
     internal fun addNextVersionDraftReport(reportName: String): Maybe<App> = when {
@@ -137,7 +150,9 @@ data class App private constructor(
         )
 
         else -> AppReport.create(name = reportName, source = "", description = null).flatMap { newReport ->
-            nextVersionDraft.upsertReport(newReport).map { copy(nextVersionDraft = it) }
+            nextVersionDraft.upsertReport(newReport).flatMap {
+                create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+            }
         }
     }
 
@@ -164,7 +179,9 @@ data class App private constructor(
                     Result(this)
                 } else {
                     AppReport.create(name = nameToUse, source = source, description = description).flatMap { updatedReport ->
-                        nextVersionDraft.replaceReport(name, updatedReport).map { copy(nextVersionDraft = it) }
+                        nextVersionDraft.replaceReport(name, updatedReport).flatMap {
+                            create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+                        }
                     }
                 }
             }
@@ -177,7 +194,9 @@ data class App private constructor(
             details = null,
         )
 
-        else -> nextVersionDraft.removeReport(reportName).map { copy(nextVersionDraft = it) }
+        else -> nextVersionDraft.removeReport(reportName).flatMap {
+            create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+        }
     }
 
     // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
@@ -192,8 +211,8 @@ data class App private constructor(
         else -> {
             AppVersionReleaseNotes.create(changeType, note).flatMap { releaseNotes ->
                 AppVersion.create(releaseNotes, nextVersionDraft, latestVersion).flatMap { nextVersionRelease ->
-                    createNextVersionDraft(nextVersionRelease).map { newNextVersionDraft ->
-                        copy(nextVersionDraft = newNextVersionDraft, releasedVersions = listOf(nextVersionRelease) + releasedVersions)
+                    createNextVersionDraft(nextVersionRelease).flatMap { newNextVersionDraft ->
+                        create(id, nameField, developerId, description, discontinued, newNextVersionDraft, listOf(nextVersionRelease) + releasedVersions)
                     }
                 }
             }
@@ -229,24 +248,24 @@ data class App private constructor(
         }
 
         else -> {
-            releasedVersions.first { it.version == version }.changeReleaseNote(note).map { updatedVersion ->
-                copy(releasedVersions = releasedVersions.map { currentVersion ->
+            releasedVersions.first { it.version == version }.changeReleaseNote(note).flatMap { updatedVersion ->
+                create(id, nameField, developerId, description, discontinued, nextVersionDraft, releasedVersions.map { currentVersion ->
                     if (currentVersion.version == version) updatedVersion else currentVersion
                 })
             }
         }
     }
 
-    internal fun discontinue() = when {
+    internal fun discontinue(): Maybe<App> = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
             details = null,
         )
 
-        else -> Result(copy(discontinued = true))
+        else -> create(id, nameField, developerId, description, true, nextVersionDraft, releasedVersions)
     }
 
-    internal fun verifyDeletion() = when {
+    internal fun verifyDeletion(): Maybe<Unit> = when {
         status != AppStatus.DISCONTINUED -> Error(
             code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
             details = null,
@@ -281,11 +300,19 @@ data class AppVersion private constructor(
                 is Errors -> convertedDatatypes as Errors<AppVersion>
             }
         }
+
+        private fun create(base: AppVersion, note: String): Maybe<AppVersion> =
+            base.releaseNotes.changeNote(note).map {
+                AppVersion(
+                    version = base.version,
+                    releaseNotes = it,
+                    datatypes = base.datatypes,
+                    reports = base.reports,
+                )
+            }
     }
 
-    internal fun changeReleaseNote(note: String): Maybe<AppVersion> = releaseNotes.changeNote(note).map {
-        copy(releaseNotes = it)
-    }
+    internal fun changeReleaseNote(note: String): Maybe<AppVersion> = create(this, note)
 }
 
 data class AppVersionDraft private constructor(
@@ -329,37 +356,41 @@ data class AppVersionDraft private constructor(
         }
     }
 
-    internal fun replaceDatatype(name: String, datatype: AppDatatypeDraft) = datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
-        copy(datatypes = datatypes.upsert(name, datatype))
-    }
+    internal fun replaceDatatype(name: String, datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
+        datatype.generateJsonSchema().loadAsTopLevelObjectSchema().flatMap {
+            create(datatypes.upsert(name, datatype), reports)
+        }
 
-    internal fun upsertDatatype(datatype: AppDatatypeDraft) = datatype.generateJsonSchema().loadAsTopLevelObjectSchema().map {
-        copy(datatypes = datatypes.upsert(datatype.name, datatype))
-    }
+    internal fun upsertDatatype(datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
+        datatype.generateJsonSchema().loadAsTopLevelObjectSchema().flatMap {
+            create(datatypes.upsert(datatype.name, datatype), reports)
+        }
 
-    internal fun removeDatatype(datatypeName: String) = when {
+    internal fun removeDatatype(datatypeName: String): Maybe<AppVersionDraft> = when {
         datatypes.none { it.name == datatypeName.trim() } -> Error(
             code = AppErrorCodes.DATATYPE_NOT_FOUND,
             details = datatypeName,
         )
 
-        else -> Result(copy(datatypes = datatypes.filterNot { it.name == datatypeName.trim() }.toSet()))
+        else -> create(datatypes.filterNot { it.name == datatypeName.trim() }.toSet(), reports)
     }
 
-    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft) =
+    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft): Set<AppDatatypeDraft> =
         filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
-    internal fun replaceReport(name: String, report: AppReport) = Result(copy(reports = reports.upsert(name, report)))
+    internal fun replaceReport(name: String, report: AppReport): Maybe<AppVersionDraft> =
+        create(datatypes, reports.upsert(name, report))
 
-    internal fun upsertReport(report: AppReport) = Result(copy(reports = reports.upsert(report.name, report)))
+    internal fun upsertReport(report: AppReport): Maybe<AppVersionDraft> =
+        create(datatypes, reports.upsert(report.name, report))
 
-    internal fun removeReport(reportName: String) = when {
+    internal fun removeReport(reportName: String): Maybe<AppVersionDraft> = when {
         reports.none { it.name == reportName.trim() } -> Error(
             code = AppErrorCodes.REPORT_NOT_FOUND,
             details = reportName,
         )
 
-        else -> Result(copy(reports = reports.filterNot { it.name == reportName }.toSet()))
+        else -> create(datatypes, reports.filterNot { it.name == reportName }.toSet())
     }
 
     private fun Set<AppReport>.upsert(removeName: String, addReport: AppReport) =
@@ -388,9 +419,7 @@ data class AppVersionReleaseNotes private constructor(
 
     val note get() = noteField
 
-    internal fun changeNote(note: String): Maybe<AppVersionReleaseNotes> = validateNote(note).map { validNote ->
-        copy(noteField = validNote)
-    }
+    internal fun changeNote(note: String): Maybe<AppVersionReleaseNotes> = create(changeType, note)
 
     internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
@@ -403,7 +432,7 @@ data class AppVersionReleaseNotes private constructor(
         }
     }
 
-    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+    private fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
         }

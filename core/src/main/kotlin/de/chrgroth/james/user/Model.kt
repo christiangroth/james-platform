@@ -27,14 +27,14 @@ data class User private constructor(
             codeBlank = UserErrorCodes.NAME_BLANK,
         )
 
-        fun create(email: String, name: String): Maybe<User> {
+        fun create(id: UUID = UUID.randomUUID(), email: String, name: String): Maybe<User> {
             val emailValidation = validateEmail(email)
             val nameValidation = validateName(name)
             return listOf(emailValidation, nameValidation).foldAndShrink()
                 ?: emailValidation.flatMap { validEmail ->
                     nameValidation.map { validName ->
                         User(
-                            id = UUID.randomUUID(),
+                            id = id,
                             emailField = validEmail,
                             nameField = validName,
                         )
@@ -47,13 +47,6 @@ data class User private constructor(
     val name get() = nameField
 
     // TODO #22 send user to revalidation status?
-    internal fun changeEmail(email: String): Maybe<User> =
-        validateEmail(email).map { validEmail ->
-            copy(emailField = validEmail)
-        }
-
-    internal fun changeName(name: String): Maybe<User> =
-        validateName(name).map { validName ->
-            copy(nameField = validName)
-        }
+    internal fun changeEmail(email: String): Maybe<User> = create(id, email, nameField)
+    internal fun changeName(name: String): Maybe<User> = create(id, emailField, name)
 }

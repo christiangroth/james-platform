@@ -16,7 +16,7 @@ import java.util.UUID
 
 class UserDomainTests {
 
-    private val existingUser = User.create("existing@james.de", "Existing").expectSuccess()
+    private val existingUser = User.create(email = "existing@james.de", name = "Existing").expectSuccess()
     private val existingId = existingUser.id
     private val unknownId = UUID.randomUUID()
 
@@ -33,7 +33,7 @@ class UserDomainTests {
 
             every { it.getByEmail(any()) } returns (Result(null))
 
-            val duplicateUser = User.create("duplicate@james.de", "Duplicate").expectSuccess()
+            val duplicateUser = User.create(email = "duplicate@james.de", name = "Duplicate").expectSuccess()
             every { it.getByEmail(duplicateUser.email) } returns (Result(duplicateUser))
         }
 

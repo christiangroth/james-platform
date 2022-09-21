@@ -44,12 +44,12 @@ class WorkspaceDomainTests {
 
     private val existingUserId = UUID.randomUUID()
     private val existingWorkspaceOne =
-        Workspace.create(existingUserId, 0, "Existing One").expectSuccess()
+        Workspace.create(userId = existingUserId, order = 0, name = "Existing One").expectSuccess()
             .installApp(existingAppIdOne, existingAppOneVersionIdOne).expectSuccess()
             .installApp(existingAppIdTwo, existingAppTwoVersionIdOne).expectSuccess()
     private val existingWorkspaceOneAppInstallationOneId = existingWorkspaceOne.appInstallations.first().id
     private val existingWorkspaceOneAppInstallationTwoId = existingWorkspaceOne.appInstallations.last().id
-    private val existingWorkspaceTwo = Workspace.create(existingUserId, 1, "Existing Two").expectSuccess()
+    private val existingWorkspaceTwo = Workspace.create(userId = existingUserId, order = 1, name = "Existing Two").expectSuccess()
     private val existingOneId = existingWorkspaceOne.id
     private val existingTwoId = existingWorkspaceTwo.id
     private val unknownId = UUID.randomUUID()
@@ -570,7 +570,7 @@ class WorkspaceDomainTests {
     }
 
     private fun createWorkspace() = UUID.randomUUID().let {
-        Workspace.create(it, 0, it.toString()).expectSuccess()
+        Workspace.create(userId = it, order = 0, name = it.toString()).expectSuccess()
     }
 
     private fun verifyMocks(verifyBlock: (MockKVerificationScope.() -> Unit)? = null) {

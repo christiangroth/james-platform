@@ -33,7 +33,7 @@ internal class AppLifecycleUseCasesService(
     // TODO #22 verify developer is active
     override fun create(name: String, developerId: UUID, description: String?) =
         userQueryPersistence.getOrError(developerId).flatMap { developer ->
-            App.create(name, developer.id, description)
+            App.create(name = name, developerId = developer.id, description = description)
         }.flatMap {
             commandPersistence.upsert(it)
         }

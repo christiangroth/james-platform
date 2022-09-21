@@ -37,7 +37,7 @@ internal class WorkspaceUseCasesService(
     override fun createWorkspace(userId: UUID, name: String): Maybe<Workspace> =
         queryPersistence.findForUser(userId).flatMap { persistentWorkspaces ->
             val currentMaxOrder = persistentWorkspaces.maxOfOrNull { it.order } ?: -1
-            Workspace.create(userId, currentMaxOrder + 1, name)
+            Workspace.create(userId = userId, order = currentMaxOrder + 1, name = name)
         }.flatMap {
             commandPersistence.upsert(it)
         }
@@ -123,7 +123,7 @@ internal class AppInstallationUseCasesService(
     // TODO #29 allow multiple errors
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
         queryPersistence.getOrError(workspaceId).flatMap { workspace ->
-            workspace.getAppOrError(appInstallationId).flatMap { appInstallation ->
+            workspace.getAppInstallationOrError(appInstallationId).flatMap { appInstallation ->
                 appQueryPersistence.getOrError(appInstallation.appId, targetVersion).flatMap { _ ->
                     workspace.updateAppInstallation(appInstallationId, targetVersion)
                 }
@@ -147,7 +147,7 @@ internal class AppInstallationUseCasesService(
     // TODO #5 trigger data movement, if needed?
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): Maybe<Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).flatMap { source ->
-            source.getAppOrError(appInstallationId).flatMap { appInstallation ->
+            source.getAppInstallationOrError(appInstallationId).flatMap { appInstallation ->
                 queryPersistence.getOrError(targetWorkspaceId).flatMap { target ->
                     persistAppMovement(source, appInstallation, target)
                 }

@@ -20,26 +20,26 @@ import java.util.UUID
 
 class AppLifecycleUseCasesTests {
 
-    private val developer = User.create("foo@bar.com", "Fooby Bar").expectSuccess()
+    private val developer = User.create(email = "foo@bar.com", name = "Fooby Bar").expectSuccess()
     private val developerId = developer.id
 
-    private val developmentApp = App.create("Development App", developerId, " ").expectSuccess()
+    private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
     private val developmentAppId = developmentApp.id
 
-    private val activeApp = App.create("Active App", developerId, " ").expectSuccess()
+    private val activeApp = App.create(name = "Active App", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
     private val activeAppId = activeApp.id
 
-    private val activeAppMultipleVersions = App.create("Active App Multiple Versions", developerId, " ").expectSuccess()
+    private val activeAppMultipleVersions = App.create(name = "Active App Multiple Versions", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
-    private val discontinuedApp = App.create("Discontinued App", developerId, "").expectSuccess()
+    private val discontinuedApp = App.create(name = "Discontinued App", developerId = developerId, description = "").expectSuccess()
         .discontinue().expectSuccess()
     private val discontinuedAppId = discontinuedApp.id
 
@@ -197,26 +197,26 @@ class AppLifecycleUseCasesTests {
 
 class AppVersionDevelopmentUseCasesTests {
 
-    private val developer = User.create("foo@bar.com", "Fooby Bar").expectSuccess()
+    private val developer = User.create(email = "foo@bar.com", name = "Fooby Bar").expectSuccess()
     private val developerId = developer.id
 
-    private val developmentApp = App.create("Development App", developerId, " ").expectSuccess()
+    private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
     private val developmentAppId = developmentApp.id
 
-    private val activeApp = App.create("Active App", developerId, " ").expectSuccess()
+    private val activeApp = App.create(name = "Active App", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
     private val activeAppId = activeApp.id
 
-    private val activeAppMultipleVersions = App.create("Active App Multiple Versions", developerId, " ").expectSuccess()
+    private val activeAppMultipleVersions = App.create(name = "Active App Multiple Versions", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
-    private val discontinuedApp = App.create("Discontinued App", developerId, "").expectSuccess()
+    private val discontinuedApp = App.create(name = "Discontinued App", developerId = developerId, description = "").expectSuccess()
         .discontinue().expectSuccess()
     private val discontinuedAppId = discontinuedApp.id
 

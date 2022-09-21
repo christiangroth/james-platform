@@ -23,7 +23,7 @@ internal class UserAdminUseCasesService(
 
     // TODO #22 check if registration enabled/allowed
     override fun registerUser(email: String, name: String): Maybe<User> =
-        User.create(email, name).flatMap {
+        User.create(email = email, name = name).flatMap {
             it.email.ensureUserNotPresent(queryPersistence) {
                 commandPersistence.upsert(it)
             }
