@@ -122,10 +122,10 @@ internal class AppInstallationUseCasesService(
 
     // TODO #29 allow multiple errors
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): Maybe<AppInstallation> =
-        queryPersistence.getOrError(workspaceId).flatMap {
-            it.modifyAppInstallation(appInstallationId) { appInstallation ->
+        queryPersistence.getOrError(workspaceId).flatMap { workspace ->
+            workspace.getAppOrError(appInstallationId).flatMap { appInstallation ->
                 appQueryPersistence.getOrError(appInstallation.appId, targetVersion).flatMap { _ ->
-                    appInstallation.changeVersion(targetVersion)
+                    workspace.updateAppInstallation(appInstallationId, targetVersion)
                 }
             }
         }.flatMap {
