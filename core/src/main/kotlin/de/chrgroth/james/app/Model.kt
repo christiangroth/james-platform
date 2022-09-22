@@ -89,7 +89,7 @@ data class App private constructor(
         )
 
         else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).flatMap { newDatatype ->
-            nextVersionDraft.upsertDatatype(newDatatype).flatMap {
+            nextVersionDraft.upsertDatatype(newDatatype.name, newDatatype).flatMap {
                 create(id, nameField, developerId, description, discontinued, it, releasedVersions)
             }
         }
@@ -118,7 +118,7 @@ data class App private constructor(
                     Result(this)
                 } else {
                     AppDatatypeDraft.create(name = nameToUse, schemaContent = schemaContent, description = description).flatMap { updatedDatatype ->
-                        nextVersionDraft.replaceDatatype(name, updatedDatatype).flatMap {
+                        nextVersionDraft.upsertDatatype(name, updatedDatatype).flatMap {
                             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
                         }
                     }
@@ -150,7 +150,7 @@ data class App private constructor(
         )
 
         else -> AppReport.create(name = reportName, source = "", description = null).flatMap { newReport ->
-            nextVersionDraft.upsertReport(newReport).flatMap {
+            nextVersionDraft.upsertReport(newReport.name, newReport).flatMap {
                 create(id, nameField, developerId, description, discontinued, it, releasedVersions)
             }
         }
@@ -179,7 +179,7 @@ data class App private constructor(
                     Result(this)
                 } else {
                     AppReport.create(name = nameToUse, source = source, description = description).flatMap { updatedReport ->
-                        nextVersionDraft.replaceReport(name, updatedReport).flatMap {
+                        nextVersionDraft.upsertReport(name, updatedReport).flatMap {
                             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
                         }
                     }
@@ -284,22 +284,15 @@ data class AppVersion private constructor(
 
     companion object {
 
-        @Suppress("UNCHECKED_CAST")
-        fun create(releaseNotes: AppVersionReleaseNotes, nextVersionDraft: AppVersionDraft, latestVersion: AppVersion?): Maybe<AppVersion> {
-            return when (val convertedDatatypes = nextVersionDraft.createDatatypes(latestVersion)) {
-                is Result -> Result(
-                    AppVersion(
-                        version = releaseNotes.computeVersion(latestVersion, nextVersionDraft),
-                        releaseNotes = releaseNotes,
-                        datatypes = convertedDatatypes.value,
-                        reports = nextVersionDraft.reports.toSet(),
-                    )
+        fun create(releaseNotes: AppVersionReleaseNotes, nextVersionDraft: AppVersionDraft, latestVersion: AppVersion?): Maybe<AppVersion> =
+            nextVersionDraft.createDatatypes(latestVersion).map { convertedDatatypes ->
+                AppVersion(
+                    version = releaseNotes.computeVersion(latestVersion, nextVersionDraft),
+                    releaseNotes = releaseNotes,
+                    datatypes = convertedDatatypes,
+                    reports = nextVersionDraft.reports.toSet(),
                 )
-
-                is Error -> convertedDatatypes as Error<AppVersion>
-                is Errors -> convertedDatatypes as Errors<AppVersion>
             }
-        }
 
         private fun create(base: AppVersion, note: String): Maybe<AppVersion> =
             base.releaseNotes.changeNote(note).map {
@@ -356,14 +349,11 @@ data class AppVersionDraft private constructor(
         }
     }
 
-    internal fun replaceDatatype(name: String, datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
+    // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
+    // TODO #25 make schema checking more explicit??
+    internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
         datatype.generateJsonSchema().loadAsTopLevelObjectSchema().flatMap {
             create(datatypes.upsert(name, datatype), reports)
-        }
-
-    internal fun upsertDatatype(datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
-        datatype.generateJsonSchema().loadAsTopLevelObjectSchema().flatMap {
-            create(datatypes.upsert(datatype.name, datatype), reports)
         }
 
     internal fun removeDatatype(datatypeName: String): Maybe<AppVersionDraft> = when {
@@ -378,11 +368,10 @@ data class AppVersionDraft private constructor(
     private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft): Set<AppDatatypeDraft> =
         filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
-    internal fun replaceReport(name: String, report: AppReport): Maybe<AppVersionDraft> =
+    // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
+    // TODO #25 make schema checking more explicit??
+    internal fun upsertReport(name: String, report: AppReport): Maybe<AppVersionDraft> =
         create(datatypes, reports.upsert(name, report))
-
-    internal fun upsertReport(report: AppReport): Maybe<AppVersionDraft> =
-        create(datatypes, reports.upsert(report.name, report))
 
     internal fun removeReport(reportName: String): Maybe<AppVersionDraft> = when {
         reports.none { it.name == reportName.trim() } -> Error(
