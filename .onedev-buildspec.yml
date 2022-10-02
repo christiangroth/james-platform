@@ -1,13 +1,26 @@
-version: 3
+version: 17
 jobs:
-  - name: CI
+- name: CI
+  steps:
+  - !CheckoutStep
+    name: checkout
+    cloneCredential: !SshCredential
+      keySecret: retrieve-token
+    withLfs: false
+    withSubmodules: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: command
+    runInContainer: true
     image: gradle:jdk11
-    commands:
+    interpreter: !DefaultInterpreter
+      commands:
       - set -e
       - ''
       - echo "Detecting project version (may require some time while downloading gradle
         dependencies)..."
-      - 'buildVersion=$(./gradlew properties | grep ^version: | grep -v unspecified | cut -c10-)'
+      - 'buildVersion=$(./gradlew properties | grep ^version: | grep -v unspecified
+        | cut -c10-)'
       - echo "##onedev[SetBuildVersion '$buildVersion']"
       - echo
       - ''
@@ -24,18 +37,18 @@ jobs:
       - if [ "@branch@" = "main" ]; then
       - '  ./gradlew --no-daemon --info release -Prelease.useAutomaticVersion=true'
       - fi
-    triggers:
-      - !BranchUpdateTrigger
-        branches: main issue/**
-        paths: -gradle.properties
-    retrieveSource: true
-    cloneCredential: !DefaultCredential { }
-    cpuRequirement: 250m
-    memoryRequirement: 128m
-    retryCondition: never
-    maxRetries: 3
-    retryDelay: 30
-    caches:
-      - key: gradle-cache
-        path: /home/gradle/.gradle
-    timeout: 3600
+    useTTY: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !BranchUpdateTrigger
+    branches: main issue/**
+    paths: -gradle.properties
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  cpuRequirement: 250
+  memoryRequirement: 128
+  caches:
+  - key: gradle-cache
+    path: /home/gradle/.gradle
+  timeout: 3600
