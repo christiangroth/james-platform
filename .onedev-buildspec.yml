@@ -7,8 +7,7 @@ jobs:
       - ''
       - echo "Detecting project version (may require some time while downloading gradle
         dependencies)..."
-      - 'buildVersion=$(gradle properties | grep ^version: | grep -v unspecified | cut
-    -c10-)'
+      - 'buildVersion=$(./gradlew properties | grep ^version: | grep -v unspecified | cut -c10-)'
       - echo "##onedev[SetBuildVersion '$buildVersion']"
       - echo
       - ''
@@ -20,10 +19,10 @@ jobs:
       - git fetch origin @branch@:@branch@
       - git checkout @branch@
       - ''
-      - gradle --no-daemon --info build
+      - ./gradlew --no-daemon --info build
       - ''
       - if [ "@branch@" = "main" ]; then
-      - '  gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
+      - '  ./gradlew --no-daemon --info release -Prelease.useAutomaticVersion=true'
       - fi
     triggers:
       - !BranchUpdateTrigger
