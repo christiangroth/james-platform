@@ -196,7 +196,8 @@ data class App private constructor(
         }
     }
 
-    // TODO #25 prevent release if no changes at all
+    // TODO #36 prevent release if no changes at all
+    // TODO #36 add methods to get all new/changed datatypes/reports
     internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
         !status.allowsChanges -> Error(
             code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
@@ -303,6 +304,7 @@ data class AppVersion private constructor(
     internal fun changeReleaseNote(note: String): Maybe<AppVersion> = create(this, note)
 }
 
+// TODO #36 add release notes draft?
 data class AppVersionDraft private constructor(
     val datatypes: Set<AppDatatypeDraft>,
     val reports: Set<AppReport>,
@@ -381,6 +383,7 @@ enum class AppVersionChangeType {
     BUGFIX, FEATURE
 }
 
+// TODO #35 split up note field to title and optional description?
 data class AppVersionReleaseNotes private constructor(
     val changeType: AppVersionChangeType,
     private var noteField: String,
