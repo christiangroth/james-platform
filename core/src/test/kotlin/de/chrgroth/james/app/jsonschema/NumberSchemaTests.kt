@@ -6,7 +6,6 @@ import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toIntegerProperty
 import de.chrgroth.james.toNumberProperty
-import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
@@ -21,7 +20,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `title not allowed`() =
         testForIntegerAndNumberProperty(""" $prefixForAnnotationTests "title": "Some title" """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
                     details = "testPropertyName"
@@ -32,13 +31,13 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `default allowed`() =
         testForIntegerAndNumberProperty(""" $prefixForAnnotationTests "default": 1 """) {
-            it.loadAsTopLevelObjectSchema().expectSuccess()
+            it.parseToObjectSchema().expectSuccess()
         }
 
     @TestFactory
     fun `minimum and exclusiveMinimum`() =
         testForIntegerAndNumberProperty(""" "minimum": 2, "exclusiveMinimum": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
                     details = "testPropertyName"
@@ -49,7 +48,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `maximum and exclusiveMaximum`() =
         testForIntegerAndNumberProperty(""" "maximum": 2, "exclusiveMaximum": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
                     details = "testPropertyName"
@@ -60,7 +59,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `maximum smaller minimum`() =
         testForIntegerAndNumberProperty(""" "minimum": 3, "maximum": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
                     details = "testPropertyName"
@@ -71,7 +70,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `exclusiveMaximum smaller minimum`() =
         testForIntegerAndNumberProperty(""" "minimum": 3, "exclusiveMaximum": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
                     details = "testPropertyName"
@@ -82,7 +81,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `maximum smaller exclusiveMinimum`() =
         testForIntegerAndNumberProperty(""" "exclusiveMinimum": 3, "maximum": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
                     details = "testPropertyName"
@@ -93,7 +92,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `exclusiveMaximum smaller exclusiveMinimum`() =
         testForIntegerAndNumberProperty(""" "exclusiveMinimum": 3, "exclusiveMaximum": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
                     details = "testPropertyName"
@@ -104,7 +103,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `multipleOf is zero`() =
         testForIntegerAndNumberProperty(""" "multipleOf": 0 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
                     details = "testPropertyName"
@@ -115,7 +114,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `multipleOf is negative`() =
         testForIntegerAndNumberProperty(""" "multipleOf": -1 """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
                     details = "testPropertyName"
@@ -126,12 +125,12 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `multipleOf of type integer`() =
         testForIntegerAndNumberProperty(""" "multipleOf": 2 """) {
-            it.loadAsTopLevelObjectSchema().expectSuccess()
+            it.parseToObjectSchema().expectSuccess()
         }
 
     @Test
     fun `multipleOf of type float for integer property`() =
-        """ "multipleOf": 0.5 """.toIntegerProperty().loadAsTopLevelObjectSchema().expectErrors(
+        """ "multipleOf": 0.5 """.toIntegerProperty().parseToObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
                 details = "testPropertyName"
@@ -140,13 +139,13 @@ class NumberSchemaTests : AnnotationsBaseTests() {
 
     @Test
     fun `multipleOf of type float for number property`() {
-        """ "multipleOf": 0.5 """.toNumberProperty().loadAsTopLevelObjectSchema().expectSuccess()
+        """ "multipleOf": 0.5 """.toNumberProperty().parseToObjectSchema().expectSuccess()
     }
 
     @TestFactory
     fun `unprocessed properties in integer property`() =
         testForIntegerAndNumberProperty(""" "bar": "baz" """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                     details = "testPropertyName: {bar=baz}"
@@ -157,7 +156,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `empty enum values`() =
         testForIntegerAndNumberProperty(""" "enum": [ ] """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
                     details = "testPropertyName"
@@ -168,7 +167,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `non number enum values`() =
         testForIntegerAndNumberProperty(""" "enum": [ "foo", true, 13 ] """) {
-            it.loadAsTopLevelObjectSchema().expectErrors(
+            it.parseToObjectSchema().expectErrors(
                 Error(
                     code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
                     details = "testPropertyName"
@@ -179,12 +178,12 @@ class NumberSchemaTests : AnnotationsBaseTests() {
     @TestFactory
     fun `integer enum values`() =
         testForIntegerAndNumberProperty(""" "enum": [ 2, 3 ] """) {
-            it.loadAsTopLevelObjectSchema().expectSuccess()
+            it.parseToObjectSchema().expectSuccess()
         }
 
     @Test
     fun `decimal enum values for integer property`() =
-        """ "enum": [ 2, 3, 2.4 ] """.toIntegerProperty().loadAsTopLevelObjectSchema().expectErrors(
+        """ "enum": [ 2, 3, 2.4 ] """.toIntegerProperty().parseToObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
                 details = "testPropertyName"
@@ -193,7 +192,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
 
     @Test
     fun `decimal enum values for number property`() {
-        """ "enum": [ 2, 3, 2.4 ] """.toNumberProperty().loadAsTopLevelObjectSchema().expectSuccess()
+        """ "enum": [ 2, 3, 2.4 ] """.toNumberProperty().parseToObjectSchema().expectSuccess()
     }
 
     private fun testForIntegerAndNumberProperty(propertySource: String, testLogic: (String) -> Unit): Collection<DynamicTest> {

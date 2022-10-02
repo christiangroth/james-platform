@@ -134,6 +134,14 @@ class WorkspaceDomainTests {
     }
 
     @Test
+    fun `new workspace with negative order`() {
+        Workspace.create(userId = existingUserId, order = -1, name = "Existing One").expectError(
+            code = WorkspaceErrorCodes.ORDER_NEGATIVE,
+            details = "-1",
+        )
+    }
+
+    @Test
     fun `reorder user workspaces`() {
         workspaceUseCases.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId)).expectSuccess()
         verifyMocks {

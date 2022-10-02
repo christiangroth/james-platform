@@ -43,7 +43,8 @@ class SchemaGenerationTests {
     @Test
     fun `json schema contains additional content`() {
         assertThat(
-            jsonObjectSchemaFor("Foo", "Foos are really great!", """
+            jsonObjectSchemaFor(
+                "Foo", "Foos are really great!", """
             |  "properties": {
             |    "productId": {
             |      "description": "The unique identifier for a product",
@@ -58,7 +59,8 @@ class SchemaGenerationTests {
             |      "type": "string"
             |    }
             |  },
-            |  "required": [ "productId", "productName" ]""".trimMargin())
+            |  "required": [ "productId", "productName" ]""".trimMargin()
+            )
         ).isEqualTo(
             """|{
             |  "title": "Foo",
@@ -90,7 +92,7 @@ class SchemaParsingTests {
     @Test
     fun `invalid json schema syntax fails`() {
         val schemaContent = ",;,;".toTestSchema()
-        schemaContent.loadAsTopLevelObjectSchema().expectError(
+        schemaContent.parseToObjectSchema().expectError(
             code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = "Missing value at 111 [character 0 line 6]"
         )

@@ -4,7 +4,6 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
-import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
 
 abstract class AnnotationsBaseTests {
@@ -21,12 +20,12 @@ abstract class AnnotationsBaseTests {
 
     @Test
     fun `readOnly explicitly disabled`() {
-        toPropertyConverter(""" $prefixForAnnotationTests "readOnly": false """).loadAsTopLevelObjectSchema().expectSuccess()
+        toPropertyConverter(""" $prefixForAnnotationTests "readOnly": false """).parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `readOnly not allowed`() =
-        toPropertyConverter(""" $prefixForAnnotationTests "readOnly": true """).loadAsTopLevelObjectSchema().expectErrors(
+        toPropertyConverter(""" $prefixForAnnotationTests "readOnly": true """).parseToObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
                 details = expectedDetails
@@ -35,12 +34,12 @@ abstract class AnnotationsBaseTests {
 
     @Test
     fun `writeOnly explicitly disabled`() {
-        toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": false """).loadAsTopLevelObjectSchema().expectSuccess()
+        toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": false """).parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `writeOnly not allowed`() =
-        toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": true """).loadAsTopLevelObjectSchema().expectErrors(
+        toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": true """).parseToObjectSchema().expectErrors(
             Error(
                 code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
                 details = expectedDetails

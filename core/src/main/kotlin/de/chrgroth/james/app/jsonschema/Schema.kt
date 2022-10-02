@@ -29,7 +29,7 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
-internal fun String.loadAsTopLevelObjectSchema(): Maybe<ObjectSchema> {
+internal fun String.parseToObjectSchema(): Maybe<ObjectSchema> {
     return parseJsonSchema().flatMap { it.validateTopLevelSchema() }
 }
 
@@ -55,6 +55,7 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
                 code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                 details = schema.javaClass.simpleName
             )
+
             else -> Result(schema)
         }
     } else {

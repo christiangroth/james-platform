@@ -3,11 +3,10 @@ package de.chrgroth.james.app
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
 import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
-import de.chrgroth.james.app.jsonschema.loadAsTopLevelObjectSchema
+import de.chrgroth.james.app.jsonschema.parseToObjectSchema
 import de.chrgroth.james.collectResults
 import de.chrgroth.james.computeNext
 import de.chrgroth.james.foldErrors
@@ -17,8 +16,6 @@ import de.chrgroth.james.validateMatches
 import de.chrgroth.james.validateNotBlank
 import de.chrgroth.james.validateNotNegative
 import java.util.UUID
-
-// TODO #25 add tests for isBreaking and JSON schema generation
 
 // TODO #28 make return types explicit (check all files)
 
@@ -199,8 +196,6 @@ data class App private constructor(
         }
     }
 
-    // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
-    // TODO #25 make schema checking more explicit??
     // TODO #25 prevent release if no changes at all
     internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
         !status.allowsChanges -> Error(
@@ -349,10 +344,8 @@ data class AppVersionDraft private constructor(
         }
     }
 
-    // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
-    // TODO #25 make schema checking more explicit??
     internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
-        datatype.generateJsonSchema().loadAsTopLevelObjectSchema().flatMap {
+        datatype.validateJsonSchema().flatMap {
             create(datatypes.upsert(name, datatype), reports)
         }
 
@@ -368,8 +361,6 @@ data class AppVersionDraft private constructor(
     private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft): Set<AppDatatypeDraft> =
         filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
-    // TODO #25 add test / implement more explicit check for schema correctness before next version release (loadAsTopLevelObjectSchema)
-    // TODO #25 make schema checking more explicit??
     internal fun upsertReport(name: String, report: AppReport): Maybe<AppVersionDraft> =
         create(datatypes, reports.upsert(name, report))
 
@@ -421,7 +412,8 @@ data class AppVersionReleaseNotes private constructor(
         }
     }
 
-    private fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+    // TODO #25 add tests for isBreaking and JSON schema generation
+    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
             next.datatypes.none { it.name == existingDatatype.name }
         }
@@ -437,7 +429,7 @@ data class AppVersionReleaseNotes private constructor(
                 null
             }
         }.map {
-            it.first.generateJsonSchemaContent().loadAsTopLevelObjectSchema() to it.second.generateJsonSchema().loadAsTopLevelObjectSchema()
+            it.first.validateJsonSchema() to it.second.validateJsonSchema()
         }.mapNotNull {
             if (it.first is Result && it.second is Result) {
                 (it.first as Result).value to (it.second as Result).value
@@ -483,13 +475,13 @@ data class AppDatatypeDraft private constructor(
     val schemaContent get() = schemaContentField
     val description get() = descriptionField
 
-    fun generateJsonSchema(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
+    fun validateJsonSchema() = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = null,
         name = name,
         description = description ?: "",
         schemaContent = schemaContent,
-    )
+    ).parseToObjectSchema()
 }
 
 data class AppDatatype private constructor(
@@ -518,13 +510,13 @@ data class AppDatatype private constructor(
     val schemaContent get() = schemaContentField
     val description get() = descriptionField
 
-    fun generateJsonSchemaContent(/* TODO #19 appId: UUID */) = jsonObjectSchemaFor(
+    fun validateJsonSchema() = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = version.toString(),
         name = name,
         description = description ?: "",
         schemaContent = schemaContent,
-    )
+    ).parseToObjectSchema()
 }
 
 data class AppReport private constructor(
