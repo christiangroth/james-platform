@@ -2,13 +2,12 @@ package de.chrgroth.james
 
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.app.AppVersionChangeType
-import de.chrgroth.james.app.AppVersionReleaseNotes
 
-internal fun Semver.computeNext(isBreaking: Boolean, releaseNotes: AppVersionReleaseNotes) =
+internal fun Semver.computeNext(isBreaking: Boolean, changeType: AppVersionChangeType) =
     if (isBreaking) {
         incMajor()
     } else {
-        when (releaseNotes.changeType) {
+        when (changeType) {
             AppVersionChangeType.BUGFIX -> incPatch()
             AppVersionChangeType.FEATURE -> incMinor()
         }

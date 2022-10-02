@@ -29,28 +29,28 @@ internal fun NumberSchema.validateDefinition(propertyName: String): Errors<Numbe
 
     val minAndExclusiveMinError = if (minimum != null && exclusiveMinimumLimit != null) {
         Error<NumberSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
+            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
             details = propertyName
         )
     } else null
 
     val maxAndExclusiveMaxError = if (maximum != null && exclusiveMaximumLimit != null) {
         Error<NumberSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
+            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
             details = propertyName
         )
     } else null
 
     val maxLimitSmallerMinLimitError = if (combinedMaximum.toLong() < combinedMinimum.toLong()) {
         Error<NumberSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
+            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
             details = propertyName
         )
     } else null
 
     val multipleOfZeroOrNegativeError = if (multipleOf != null && multipleOf.toDouble() <= 0) {
         Error<NumberSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
+            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
             details = propertyName
         )
     } else null
@@ -58,14 +58,14 @@ internal fun NumberSchema.validateDefinition(propertyName: String): Errors<Numbe
     val floatingPointMultipleOfForIntegerValue =
         if (requiresInteger() && floor(multipleOfNullSafe) != multipleOfNullSafe) {
             Error<NumberSchema>(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
+                code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
                 details = propertyName
             )
         } else null
 
     val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
         Error<NumberSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = "$propertyName: $unprocessedProperties"
         )
     } else null

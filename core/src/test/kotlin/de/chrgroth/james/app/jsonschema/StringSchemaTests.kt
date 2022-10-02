@@ -17,24 +17,24 @@ class StringSchemaTests : AnnotationsBaseTests() {
 
     @Test
     fun `title not allowed`() =
-        """ $prefixForAnnotationTests "title": "Some title" """.toStringProperty().loadAsTopLevelObjectSchema().expectErrors(
+        """ $prefixForAnnotationTests "title": "Some title" """.toStringProperty().parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
                 details = "testPropertyName"
             )
         )
 
     @Test
     fun `default allowed`() {
-        """ $prefixForAnnotationTests "default": "Some value" """.toStringProperty().loadAsTopLevelObjectSchema().expectSuccess()
+        """ $prefixForAnnotationTests "default": "Some value" """.toStringProperty().parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `min length negative`() {
         val schemaContent = """ "minLength": -1 """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
                 details = "testPropertyName",
             )
         )
@@ -43,9 +43,9 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `max length zero`() {
         val schemaContent = """ "maxLength": 0 """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
                 details = "testPropertyName",
             )
         )
@@ -54,13 +54,13 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `max length negative`() {
         val schemaContent = """ "maxLength": -1 """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
                 details = "testPropertyName",
             ),
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
                 details = "testPropertyName",
             )
         )
@@ -69,9 +69,9 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `max length smaller min length`() {
         val schemaContent = """ "minLength": 5, "maxLength": 2 """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
                 details = "testPropertyName",
             )
         )
@@ -80,27 +80,27 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `max length equals min length`() {
         val schemaContent = """ "minLength": 5, "maxLength": 5 """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectSuccess()
+        schemaContent.parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `valid min max length`() {
         val schemaContent = """ "minLength": 5, "maxLength": 25 """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectSuccess()
+        schemaContent.parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `unknown format is ignored`() {
         val schemaContent = """ "format": "unknown" """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectSuccess()
+        schemaContent.parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `known but unsupported format`() {
         val schemaContent = """ "format": "json-pointer" """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
+                code = AppErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
                 details = "testPropertyName: format=json-pointer",
             )
         )
@@ -109,8 +109,8 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `invalid pattern syntax`() {
         val schemaContent = """ "pattern": "^(\\([0-9]{3}\\)))?[0-9]{3}-[0-9]{4}${'$'}" """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
+        schemaContent.parseToObjectSchema().expectError(
+            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = """Unmatched closing ')' near index 14
 ^(\([0-9]{3}\)))?[0-9]{3}-[0-9]{4}${'$'}
               ^""".trimIndent(),
@@ -120,15 +120,15 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `valid regex format`() {
         val schemaContent = """ "format": "regex" """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectSuccess()
+        schemaContent.parseToObjectSchema().expectSuccess()
     }
 
     @Test
     fun `unprocessed properties in string property`() {
         val schemaContent = """ "bar": "baz" """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+                code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "testPropertyName: {bar=baz}"
             )
         )
@@ -137,9 +137,9 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `empty enum values`() {
         val schemaContent = """ "enum": [ ] """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
                 details = "testPropertyName"
             )
         )
@@ -148,9 +148,9 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `non string enum values`() {
         val schemaContent = """ "enum": [ "foo", true, 13 ] """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectErrors(
+        schemaContent.parseToObjectSchema().expectErrors(
             Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
+                code = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
                 details = "testPropertyName"
             )
         )
@@ -159,6 +159,6 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `valid enum values`() {
         val schemaContent = """ "enum": [ "foo", "bar" ] """.toStringProperty()
-        schemaContent.loadAsTopLevelObjectSchema().expectSuccess()
+        schemaContent.parseToObjectSchema().expectSuccess()
     }
 }

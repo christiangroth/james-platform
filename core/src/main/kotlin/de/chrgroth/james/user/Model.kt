@@ -1,243 +1,52 @@
 package de.chrgroth.james.user
 
-import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
+import de.chrgroth.james.foldAndShrink
+import de.chrgroth.james.validateMatches
+import de.chrgroth.james.validateNotBlank
 import java.util.UUID
 
-private val simpleEmailPattern = Regex(".+@.+\\..+")
-
-data class User(
+data class User private constructor(
     val id: UUID,
-    val email: String,
-    val name: String,
-    // TODO #25 may be a list to have a concrete order?
-    val workspaces: Set<UserWorkspace>,
+    private var emailField: String,
+    private var nameField: String,
 ) {
 
     companion object {
-        fun validateEmail(email: String): Maybe<String> {
-            return if (email.matches(simpleEmailPattern)) {
-                Result(email)
-            } else {
-                Error(
-                    code = UserErrorCodes.REGISTRATION_EMAIL_INVALID,
-                    details = "$email does not match $simpleEmailPattern",
-                )
-            }
-        }
-    }
+        private val simpleEmailPattern = Regex(".+@.+\\..+")
 
-    internal fun createWorkspace(name: String): Maybe<User> =
-        Result(
-            copy(
-                workspaces = workspaces.plus(UserWorkspace(
-                    id = UUID.randomUUID(),
-                    name = name,
-                    apps = emptySet())
-                )
-            )
+        private fun validateEmail(email: String) = validateMatches(
+            value = email,
+            pattern = simpleEmailPattern,
+            codeBlank = UserErrorCodes.EMAIL_BLANK,
+            codeNoMatch = UserErrorCodes.EMAIL_INVALID,
         )
 
-    internal fun renameWorkspace(id: UUID, newName: String): Maybe<User> =
-        Result(
-            copy(
-                workspaces = workspaces.map { existingWorkspace ->
-                    if (existingWorkspace.id == id) {
-                        existingWorkspace.copy(name = newName)
-                    } else {
-                        existingWorkspace
-                    }
-                }.toSet()
-            )
+        private fun validateName(name: String) = validateNotBlank(
+            value = name,
+            codeBlank = UserErrorCodes.NAME_BLANK,
         )
 
-    @Suppress("ReturnCount")
-    internal fun moveAppInstallation(workspaceId: UUID, appInstallationId: UUID, newWorkspaceId: UUID): Maybe<User> {
-        val sourceWorkspace = workspaces.firstOrNull() { it.id == workspaceId }
-            ?: return Error(
-                code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Source workspace with id $workspaceId not found",
-            )
-
-        val appInstallation = sourceWorkspace.apps.firstOrNull { it.id == appInstallationId }
-            ?: return Error(
-                code = AppInstallationErrorCodes.NOT_FOUND,
-                details = "App installation with version $appInstallationId not found",
-            )
-
-        val targetWorkspace = workspaces.firstOrNull { it.id == newWorkspaceId }
-            ?: return Error(
-                code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Target workspace with id $newWorkspaceId not found",
-            )
-
-        return Result(
-            copy(
-                workspaces = workspaces.map {
-                    when (it.id) {
-                        sourceWorkspace.id -> it.copy(
-                            apps = it.apps.filterNot { sourceInstallation ->
-                                sourceInstallation.id == appInstallationId
-                            }.toSet()
+        fun create(id: UUID = UUID.randomUUID(), email: String, name: String): Maybe<User> {
+            val emailValidation = validateEmail(email)
+            val nameValidation = validateName(name)
+            return listOf(emailValidation, nameValidation).foldAndShrink()
+                ?: emailValidation.flatMap { validEmail ->
+                    nameValidation.map { validName ->
+                        User(
+                            id = id,
+                            emailField = validEmail,
+                            nameField = validName,
                         )
-                        targetWorkspace.id -> it.copy(
-                            apps = it.apps.plus(appInstallation).toSet()
-                        )
-                        else -> it
                     }
-                }.toSet()
-            )
-        )
-    }
-
-    internal fun deleteWorkspace(id: UUID): Maybe<User> {
-        val workspace = workspaces.firstOrNull { it.id == id }
-            ?: return Error(
-                code = WorkspaceErrorCodes.NOT_FOUND,
-                details = "Workspace with id $id not found",
-            )
-
-        return workspace.canBeDeleted().transform {
-            Result(
-                copy(
-                    workspaces = workspaces.filter { it.id != id }.toSet()
-                )
-            )
+                }
         }
     }
 
-    internal fun canBeDeleted(): Maybe<Unit> {
-        val numberOfInstalledApps = computeNumberOfInstalledApps()
-        return when {
-            numberOfInstalledApps > 0 -> Error(
-                code = UserErrorCodes.DELETE_INSTALLED_APPS,
-                details = if (numberOfInstalledApps > 1)
-                    "Deletion not possible, there are still $numberOfInstalledApps app installations"
-                else
-                    "Deletion not possible, there is still $numberOfInstalledApps app installation"
-            )
-            else -> Result(Unit)
-        }
-    }
+    val email get() = emailField
+    val name get() = nameField
 
-    private fun computeNumberOfInstalledApps() = workspaces.flatMap { it.apps }.count()
-}
-
-data class UserWorkspace(
-    val id: UUID,
-    val name: String,
-    // TODO #25 may be a list to have a concrete order?
-    val apps: Set<AppInstallation>,
-) {
-
-    internal fun installApp(appId: UUID, appVersion: Semver): Maybe<UserWorkspace> =
-        Result(
-            copy(
-                apps = apps.plus(
-                    AppInstallation(
-                        id = UUID.randomUUID(),
-                        appId = appId,
-                        version = appVersion,
-                        nameSupplement = null,
-                        category = null,
-                        tags = emptySet(),
-                    )).toSet()
-            )
-        )
-
-    internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(nameSupplement = nameSupplement)
-        }
-
-    internal fun categorizeAppInstallation(id: UUID, category: String?): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(category = category)
-        }
-
-    internal fun tagAppInstallation(id: UUID, tags: Set<String>): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(tags = tags)
-        }
-
-    // TODO #5 check if version exists/is released, trigger data update, handle breaking changes
-    internal fun updateAppInstallation(id: UUID, newVersion: Semver): Maybe<UserWorkspace> =
-        modifyAppInstallation(id) {
-            it.copy(version = newVersion)
-        }
-
-    private fun modifyAppInstallation(id: UUID, modifier: (AppInstallation) -> AppInstallation): Maybe<UserWorkspace> {
-        if (findAppInstallation(id) == null) {
-            return Error(
-                code = AppInstallationErrorCodes.NOT_FOUND,
-                details = "App installation with id $id not found",
-            )
-        }
-
-        return Result(
-            copy(
-                apps = apps.map {
-                    if (it.id == id) {
-                        modifier(it)
-                    } else {
-                        it
-                    }
-                }.toSet()
-            )
-        )
-    }
-
-    // TODO #5 decide when deleting app is allowed
-    internal fun uninstallApp(id: UUID): Maybe<UserWorkspace> {
-        val appInstallation = findAppInstallation(id)
-            ?: return Error(
-                code = AppInstallationErrorCodes.NOT_FOUND,
-                details = "App installation with id $id not found",
-            )
-
-        return appInstallation.canBeDeleted().transform {
-            Result(
-                copy(
-                    apps = apps.filterNot { it.id == id }.toSet()
-                )
-            )
-        }
-    }
-
-    private fun findAppInstallation(id: UUID) = apps.firstOrNull { it.id == id }
-
-    internal fun canBeDeleted(): Maybe<Unit> = when {
-        apps.isNotEmpty() -> {
-            val numberOfInstalledApps = apps.count()
-            Error(
-                code = WorkspaceErrorCodes.DELETE_INSTALLED_APPS,
-                details = if (numberOfInstalledApps > 1)
-                    "Deletion not possible, there are still $numberOfInstalledApps app installations"
-                else
-                    "Deletion not possible, there is still $numberOfInstalledApps app installation"
-            )
-        }
-        else -> Result(Unit)
-    }
-}
-
-// TODO #8 add data sharing options
-// TODO #8 think about access for devices / api keys
-data class AppInstallation(
-    val id: UUID,
-    val appId: UUID,
-    val version: Semver,
-    val nameSupplement: String?,
-    val category: String?,
-    val tags: Set<String>,
-) {
-
-    // TODO #5 define rules when to delete app installations. what about the data? what if shared?
-    internal fun canBeDeleted(): Maybe<Unit> =
-        Error(
-            code = AppInstallationErrorCodes.DELETE_NOT_SUPPORTED,
-            details = "Uninstalling apps is currently not supported",
-        )
+    // TODO #22 send user to revalidation status?
+    internal fun changeEmail(email: String): Maybe<User> = create(id, email, nameField)
+    internal fun changeName(name: String): Maybe<User> = create(id, emailField, name)
 }

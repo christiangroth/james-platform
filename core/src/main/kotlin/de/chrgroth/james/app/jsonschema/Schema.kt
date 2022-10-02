@@ -29,8 +29,8 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
-internal fun String.loadAsTopLevelObjectSchema(): Maybe<ObjectSchema> {
-    return parseJsonSchema().transform { it.validateTopLevelSchema() }
+internal fun String.parseToObjectSchema(): Maybe<ObjectSchema> {
+    return parseJsonSchema().flatMap { it.validateTopLevelSchema() }
 }
 
 internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
@@ -47,19 +47,20 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
 
     return if (loadSchemaResult.isSuccess) {
         val schema = loadSchemaResult.getOrNull()
-            ?: return Error(AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_NULL, null)
+            ?: return Error(code = AppErrorCodes.DATATYPE_SCHEMA_NULL, details = null)
 
         // ignored properties that are not keywords of a schema
         when (schema) {
             !is ObjectSchema -> Error(
-                code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                 details = schema.javaClass.simpleName
             )
+
             else -> Result(schema)
         }
     } else {
         Error(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
+            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = loadSchemaResult.exceptionOrNull()?.message,
         )
     }

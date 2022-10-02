@@ -1,43 +1,43 @@
 version: 3
 jobs:
-- name: CI
-  image: gradle:jdk11
-  commands:
-  - set -e
-  - ''
-  - echo "Detecting project version (may require some time while downloading gradle
-    dependencies)..."
-  - 'buildVersion=$(gradle properties | grep ^version: | grep -v unspecified | cut
+  - name: CI
+    image: gradle:jdk11
+    commands:
+      - set -e
+      - ''
+      - echo "Detecting project version (may require some time while downloading gradle
+        dependencies)..."
+      - 'buildVersion=$(gradle properties | grep ^version: | grep -v unspecified | cut
     -c10-)'
-  - echo "##onedev[SetBuildVersion '$buildVersion']"
-  - echo
-  - ''
-  - echo "updating git config ..."
-  - git config user.email "chr.groth@@gmx.de"
-  - git config user.name "chris"
-  - ''
-  - echo "changing back from detached head to branch @branch@ ..."
-  - git fetch origin @branch@:@branch@
-  - git checkout @branch@
-  - ''
-  - gradle --no-daemon --info build
-  - ''
-  - if [ "@branch@" = "master" ]; then
-  - '  gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
-  - fi
-  triggers:
-  - !BranchUpdateTrigger
-    branches: master issue/**
-    paths: -gradle.properties
-  retrieveSource: true
-  cloneCredential: !HttpCredential
-    accessTokenSecret: retrieve-token
-  cpuRequirement: 250m
-  memoryRequirement: 128m
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  caches:
-  - key: gradle-cache
-    path: /home/gradle/.gradle
-  timeout: 3600
+      - echo "##onedev[SetBuildVersion '$buildVersion']"
+      - echo
+      - ''
+      - echo "updating git config ..."
+      - git config user.email "chr.groth@@gmx.de"
+      - git config user.name "chris"
+      - ''
+      - echo "changing back from detached head to branch @branch@ ..."
+      - git fetch origin @branch@:@branch@
+      - git checkout @branch@
+      - ''
+      - gradle --no-daemon --info build
+      - ''
+      - if [ "@branch@" = "main" ]; then
+      - '  gradle --no-daemon --info release -Prelease.useAutomaticVersion=true'
+      - fi
+    triggers:
+      - !BranchUpdateTrigger
+        branches: main issue/**
+        paths: -gradle.properties
+    retrieveSource: true
+    cloneCredential: !HttpCredential
+      accessTokenSecret: retrieve-token
+    cpuRequirement: 250m
+    memoryRequirement: 128m
+    retryCondition: never
+    maxRetries: 3
+    retryDelay: 30
+    caches:
+      - key: gradle-cache
+        path: /home/gradle/.gradle
+    timeout: 3600

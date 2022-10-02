@@ -55,21 +55,21 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
 
     val minPropertiesError = if (minProperties != null && minProperties > 0) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
             details = null,
         )
     } else null
 
     val maxPropertiesError = if (maxProperties != null && maxProperties > 0) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
             details = null,
         )
     } else null
 
     val additionalPropertiesError = if (permitsAdditionalProperties()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
             details = null,
         )
     } else null
@@ -77,28 +77,28 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     @Suppress("DEPRECATION")
     val patternPropertiesError = if (patternProperties != null && patternProperties.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
             details = null,
         )
     } else null
 
     val propertyNameSchemaError = if (propertyNameSchema != null) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
             details = null,
         )
     } else null
 
     val propertyDependenciesError = if (propertyDependencies != null && propertyDependencies.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
             details = null,
         )
     } else null
 
     val schemaDependenciesError = if (schemaDependencies != null && schemaDependencies.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
+            code = AppErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
             details = null,
         )
     } else null
@@ -109,7 +109,7 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     }
     val invalidPropertyTypesError = if (invalidPropertyTypes.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
+            code = AppErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
             details = invalidPropertyTypes.map { "${it.key}=${it.value.javaClass.simpleName}" }.toList().toString()
         )
     } else null
@@ -117,14 +117,14 @@ internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
     val requiredButNotExistingProperties = requiredProperties?.filter { !definesProperty(it) } ?: emptyList()
     val requiredButNotExistingPropertiesError = if (requiredButNotExistingProperties.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
+            code = AppErrorCodes.DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
             details = requiredButNotExistingProperties.sorted().toString()
         )
     } else null
 
     val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
         Error<ObjectSchema>(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
             details = unprocessedProperties.toString(),
         )
     } else null

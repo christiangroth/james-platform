@@ -2,6 +2,7 @@ package de.chrgroth.james
 
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
+import de.chrgroth.james.Maybe.Result
 
 interface ErrorCode {
     val prefix: String
@@ -25,12 +26,25 @@ sealed class Maybe<Type> {
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <R> transform(transformer: (Type) -> Maybe<R>): Maybe<R> = when (this) {
+    fun <R> flatMap(transformer: (Type) -> Maybe<R>): Maybe<R> = when (this) {
         is Errors -> this as Errors<R> // make the compiler happy
         is Error -> this as Error<R> // make the compiler happy
         is Result -> transformer.invoke(value)
     }
 }
+
+fun <Type> List<Maybe<*>?>.collectResults() =
+    this.filterIsInstance<Result<Type>>()
+
+fun <Type> List<Maybe<*>?>.foldErrors() =
+    this.filterIsInstance<Error<Type>>().fold()
+
+fun <Type> List<Error<Type>?>.fold() =
+    if (this.filterNotNull().isEmpty()) {
+        null
+    } else {
+        Errors(errors = this.filterNotNull())
+    }
 
 fun <Type> List<Errors<Type>?>.combine() =
     if (this.filterNotNull().isEmpty()) {
@@ -38,7 +52,6 @@ fun <Type> List<Errors<Type>?>.combine() =
     } else {
         Errors(errors = this.filterNotNull().flatMap { it.errors })
     }
-
 
 fun <Type> Error<Type>?.combine(other: Error<Type>?) =
     when {
@@ -62,4 +75,14 @@ fun <Type> Errors<Type>?.combine(other: Errors<Type>?) =
         this != null -> this
         other != null -> other
         else -> null
+    }
+
+fun <Type> List<Maybe<*>?>.foldAndShrink() =
+    foldErrors<Type>().shrink()
+
+fun <Type> Errors<Type>?.shrink(): Maybe<Type>? =
+    when {
+        this == null -> null
+        this.errors.size == 1 -> this.errors.single()
+        else -> this
     }

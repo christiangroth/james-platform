@@ -43,7 +43,8 @@ class SchemaGenerationTests {
     @Test
     fun `json schema contains additional content`() {
         assertThat(
-            jsonObjectSchemaFor("Foo", "Foos are really great!", """
+            jsonObjectSchemaFor(
+                "Foo", "Foos are really great!", """
             |  "properties": {
             |    "productId": {
             |      "description": "The unique identifier for a product",
@@ -58,7 +59,8 @@ class SchemaGenerationTests {
             |      "type": "string"
             |    }
             |  },
-            |  "required": [ "productId", "productName" ]""".trimMargin())
+            |  "required": [ "productId", "productName" ]""".trimMargin()
+            )
         ).isEqualTo(
             """|{
             |  "title": "Foo",
@@ -90,8 +92,8 @@ class SchemaParsingTests {
     @Test
     fun `invalid json schema syntax fails`() {
         val schemaContent = ",;,;".toTestSchema()
-        schemaContent.loadAsTopLevelObjectSchema().expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_INVALID,
+        schemaContent.parseToObjectSchema().expectError(
+            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = "Missing value at 111 [character 0 line 6]"
         )
     }
@@ -99,7 +101,7 @@ class SchemaParsingTests {
     @Test
     fun `not object schema (cannot happen when using datatypes api everytime)`() {
         """{ "type": "string" }""".parseJsonSchema().expectError(
-            code = AppErrorCodes.UPDATE_DEVELOPMENT_VERSION_UPSERT_DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+            code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
             details = "StringSchema"
         )
     }
