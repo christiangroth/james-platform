@@ -4,8 +4,8 @@ jobs:
   steps:
   - !CheckoutStep
     name: checkout
-    cloneCredential: !SshCredential
-      keySecret: retrieve-token
+    cloneCredential: !HttpCredential
+      accessTokenSecret: retrieve-token
     withLfs: false
     withSubmodules: true
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
