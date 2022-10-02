@@ -411,33 +411,32 @@ data class AppVersionReleaseNotes private constructor(
             latest.version.computeNext(isBreaking, this.changeType)
         }
     }
+}
 
-    // TODO #25 add tests for isBreaking and JSON schema generation
-    internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
-        val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
-            next.datatypes.none { it.name == existingDatatype.name }
-        }
-        if (modelRenamedOrDeleted) {
-            return true
-        }
-
-        return latest.datatypes.asSequence().mapNotNull { existingDatatype ->
-            val nextDatatype = next.datatypes.firstOrNull { it.name == existingDatatype.name }
-            if (nextDatatype != null && existingDatatype.schemaContent != nextDatatype.schemaContent) {
-                existingDatatype to nextDatatype
-            } else {
-                null
-            }
-        }.map {
-            it.first.validateJsonSchema() to it.second.validateJsonSchema()
-        }.mapNotNull {
-            if (it.first is Result && it.second is Result) {
-                (it.first as Result).value to (it.second as Result).value
-            } else {
-                null
-            }
-        }.any { it.first.computeCompatibility(it.second) !is Result }
+internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
+    val modelRenamedOrDeleted = latest.datatypes.any { existingDatatype ->
+        next.datatypes.none { it.name == existingDatatype.name }
     }
+    if (modelRenamedOrDeleted) {
+        return true
+    }
+
+    return latest.datatypes.asSequence().mapNotNull { existingDatatype ->
+        val nextDatatype = next.datatypes.firstOrNull { it.name == existingDatatype.name }
+        if (nextDatatype != null && existingDatatype.schemaContent != nextDatatype.schemaContent) {
+            existingDatatype to nextDatatype
+        } else {
+            null
+        }
+    }.map {
+        it.first.validateJsonSchema() to it.second.validateJsonSchema()
+    }.mapNotNull {
+        if (it.first is Result && it.second is Result) {
+            (it.first as Result).value to (it.second as Result).value
+        } else {
+            null
+        }
+    }.any { it.first.computeCompatibility(it.second) !is Result }
 }
 
 data class AppDatatypeDraft private constructor(

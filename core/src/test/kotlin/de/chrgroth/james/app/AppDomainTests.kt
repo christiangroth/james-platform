@@ -348,7 +348,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "NewDatatype").expectSuccess()
+        val nextVersion = appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "NewDatatype").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
@@ -356,6 +356,9 @@ class AppVersionDevelopmentUseCasesTests {
                 assertThat((actual as App).nextVersionDraft.datatypes.first().name).isEqualTo("NewDatatype")
             })
         }
+
+        // renaming a datatype should be a breaking change, check that
+        assertThat(isBreaking(activeApp.latestVersion!!, nextVersion)).isTrue
     }
 
     @Test
@@ -441,13 +444,16 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `remove next version datatype`() {
-        appVersionDevelopmentUseCases.removeDatatype(activeAppId, "TestDatatype").expectSuccess()
+        val nextVersion = appVersionDevelopmentUseCases.removeDatatype(activeAppId, "TestDatatype").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
                 assertThat((actual as App).nextVersionDraft.datatypes).isEmpty()
             })
         }
+
+        // removing a datatype should be a breaking change, check that
+        assertThat(isBreaking(activeApp.latestVersion!!, nextVersion)).isTrue
     }
 
     @Test
