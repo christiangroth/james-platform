@@ -19,8 +19,7 @@ jobs:
       - ''
       - echo "Detecting project version (may require some time while downloading gradle
         dependencies)..."
-      - 'buildVersion=$(./gradlew properties | grep ^version: | grep -v unspecified
-        | cut -c10-)'
+      - buildVersion=$(./gradlew properties | grep ^version: | grep -v unspecified | cut -c10-)
       - echo "##onedev[SetBuildVersion '$buildVersion']"
       - echo
       - ''
@@ -35,7 +34,7 @@ jobs:
       - ./gradlew --no-daemon --info build
       - ''
       - if [ "@branch@" = "main" ]; then
-      - '  ./gradlew --no-daemon --info release -Prelease.useAutomaticVersion=true'
+      - ./gradlew --no-daemon --info release -Prelease.useAutomaticVersion=true
       - fi
     useTTY: false
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
