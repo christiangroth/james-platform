@@ -30,10 +30,10 @@ jobs:
     image: '@script:builtin:gradle:determine-docker-image@'
     interpreter: !DefaultInterpreter
       commands:
-      - ./gradlew --no-daemon --info build
+      - gradle --no-daemon --info build
       - ''
       - if [ "@branch@" = "main" ]; then
-      - ./gradlew --no-daemon --info release -Prelease.useAutomaticVersion=true
+      - gradle --no-daemon --info release -Prelease.useAutomaticVersion=true
       - fi
     useTTY: false
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
