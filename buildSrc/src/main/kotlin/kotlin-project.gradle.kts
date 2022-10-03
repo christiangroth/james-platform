@@ -5,6 +5,7 @@ import java.net.URI
 plugins {
     kotlin("jvm")
     `java-library`
+    `java-test-fixtures`
 
     jacoco
     id("io.gitlab.arturbosch.detekt")
@@ -26,6 +27,10 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.23.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
     testImplementation("io.mockk:mockk:1.12.2")
+
+    testFixturesImplementation("org.assertj:assertj-core:3.23.1")
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
+    testFixturesImplementation("io.mockk:mockk:1.12.2")
 }
 
 java {
