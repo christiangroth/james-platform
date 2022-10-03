@@ -3,24 +3,9 @@ package de.chrgroth.james
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
-import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import org.assertj.core.api.Assertions
 
-internal fun String.toStringProperty() = toPropertyInSchemaContent("string")
-internal fun String.toBooleanProperty() = toPropertyInSchemaContent("boolean")
-internal fun String.toIntegerProperty() = toPropertyInSchemaContent("integer")
-internal fun String.toNumberProperty() = toPropertyInSchemaContent("number")
-internal fun String.toArrayProperty() = toPropertyInSchemaContent("array")
-
-internal fun String.toPropertyInSchemaContent(propertyType: String): String = """|"properties": {
-    |  "testPropertyName": {
-    |    "type": "$propertyType"${if (this.isNotBlank()) "," else ""}
-    |    $this
-    |  }
-    |}""".trimMargin().toTestSchema()
-
-internal fun String.toTestSchema() =
-    jsonObjectSchemaFor("FooType", "A test schema", this)
+// TODO #31 deduplicate
 
 fun <T> Maybe<T>.expectSuccess(): T {
     Assertions.assertThat(this).isInstanceOf(Result::class.java)

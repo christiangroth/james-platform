@@ -91,6 +91,7 @@ internal class WorkspaceUseCasesService(
 }
 
 internal class AppInstallationUseCasesService(
+    // TODO #26 remove dependency
     private val appQueryPersistence: AppQueryPersistencePort,
     private val queryPersistence: WorkspaceQueryPersistencePort,
     private val commandPersistence: WorkspaceCommandPersistencePort,

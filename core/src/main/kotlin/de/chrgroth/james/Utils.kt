@@ -1,6 +1,6 @@
 package de.chrgroth.james
 
-internal fun String?.trimToNull(): String? =
+fun String?.trimToNull(): String? =
     if (this.isNullOrBlank()) {
         null
     } else {
