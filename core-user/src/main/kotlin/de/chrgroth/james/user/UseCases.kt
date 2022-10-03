@@ -1,19 +1,20 @@
 package de.chrgroth.james.user
 
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.andThen
 import java.util.UUID
 
 // TODO #22 need to check if user is active
 
 interface UserAdminUseCases {
-    fun registerUser(email: String, name: String): Maybe<User>
-    fun deleteUser(id: UUID): Maybe<Unit>
+    fun registerUser(email: String, name: String): ValidatedNel<de.chrgroth.james.Error, User>
+    fun deleteUser(id: UUID): ValidatedNel<de.chrgroth.james.Error, Unit>
 }
 
 interface UserSelfServiceUseCases {
-    fun changeEmail(id: UUID, email: String): Maybe<User>
-    fun changeName(id: UUID, name: String): Maybe<User>
+    fun changeEmail(id: UUID, email: String): ValidatedNel<de.chrgroth.james.Error, User>
+    fun changeName(id: UUID, name: String): ValidatedNel<de.chrgroth.james.Error, User>
 }
 
 internal class UserAdminUseCasesService(
@@ -22,19 +23,21 @@ internal class UserAdminUseCasesService(
 ) : UserAdminUseCases {
 
     // TODO #22 check if registration enabled/allowed
-    override fun registerUser(email: String, name: String): Maybe<User> =
-        User.create(email = email, name = name).flatMap {
+    override fun registerUser(email: String, name: String): ValidatedNel<de.chrgroth.james.Error, User> =
+        User.create(input = User.Companion.UserParserInput(email, name)).andThen {
             it.email.ensureUserNotPresent(queryPersistence) {
                 commandPersistence.upsert(it)
             }
         }
 
     // TODO #22 define when User deletion is supported
-    override fun deleteUser(id: UUID): Maybe<Unit> =
-        queryPersistence.getOrError(id).flatMap {
-            Error(
-                code = UserErrorCodes.DELETE_NOT_SUPPORTED,
-                details = null,
+    override fun deleteUser(id: UUID): ValidatedNel<de.chrgroth.james.Error, Unit> =
+        queryPersistence.getOrError(id).andThen {
+            Validated.invalidNel(
+                de.chrgroth.james.Error(
+                    code = UserErrorCodes.DELETE_NOT_SUPPORTED,
+                    details = null,
+                )
             )
         }
 }
@@ -44,31 +47,36 @@ internal class UserSelfServiceUseCasesService(
     private val commandPersistence: UserCommandPersistencePort,
 ) : UserSelfServiceUseCases {
 
-    override fun changeEmail(id: UUID, email: String): Maybe<User> =
-        queryPersistence.getOrError(id).flatMap {
+    override fun changeEmail(id: UUID, email: String): ValidatedNel<de.chrgroth.james.Error, User> =
+        queryPersistence.getOrError(id).andThen {
             it.changeEmail(email)
-        }.flatMap {
+        }.andThen {
             it.email.ensureUserNotPresent(queryPersistence) {
                 commandPersistence.upsert(it)
             }
         }
 
-    override fun changeName(id: UUID, name: String) =
-        queryPersistence.getOrError(id).flatMap {
+    override fun changeName(id: UUID, name: String): ValidatedNel<de.chrgroth.james.Error, User> =
+        queryPersistence.getOrError(id).andThen {
             it.changeName(name)
-        }.flatMap {
+        }.andThen {
             commandPersistence.upsert(it)
         }
 }
 
-private fun String.ensureUserNotPresent(queryPersistence: UserQueryPersistencePort, operation: () -> Maybe<User>): Maybe<User> =
-    queryPersistence.getByEmail(this).flatMap { existingUser ->
+private fun String.ensureUserNotPresent(
+    queryPersistence: UserQueryPersistencePort,
+    operation: () -> ValidatedNel<de.chrgroth.james.Error, User>,
+): ValidatedNel<de.chrgroth.james.Error, User> =
+    queryPersistence.getByEmail(this).andThen { existingUser ->
         if (existingUser == null) {
             operation.invoke()
         } else {
-            Error(
-                code = UserErrorCodes.EMAIL_EXISTS,
-                details = this,
+            Validated.invalidNel(
+                de.chrgroth.james.Error(
+                    code = UserErrorCodes.EMAIL_EXISTS,
+                    details = this,
+                )
             )
         }
     }

@@ -1,8 +1,7 @@
 package de.chrgroth.james.user
 
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
-import de.chrgroth.james.expectError
+import arrow.core.Validated
+import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import io.mockk.MockKVerificationScope
 import io.mockk.confirmVerified
@@ -16,7 +15,7 @@ import java.util.UUID
 
 class UserDomainTests {
 
-    private val existingUser = User.create(email = "existing@james.de", name = "Existing").expectSuccess()
+    private val existingUser = User.create(input = User.Companion.UserParserInput("existing@james.de", "Existing")).expectSuccess()
     private val existingId = existingUser.id
     private val unknownId = UUID.randomUUID()
 
@@ -28,17 +27,17 @@ class UserDomainTests {
     @BeforeEach
     internal fun initialize() {
         queryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(existingId) } returns (Result(existingUser))
-            every { it.getOrError(unknownId) } returns (Error(UserErrorCodes.NOT_FOUND, unknownId.toString()))
+            every { it.getOrError(existingId) } returns (Validated.validNel(existingUser))
+            every { it.getOrError(unknownId) } returns (Validated.invalidNel(de.chrgroth.james.Error(UserErrorCodes.NOT_FOUND, unknownId.toString())))
 
-            every { it.getByEmail(any()) } returns (Result(null))
+            every { it.getByEmail(any()) } returns (Validated.validNel(null))
 
-            val duplicateUser = User.create(email = "duplicate@james.de", name = "Duplicate").expectSuccess()
-            every { it.getByEmail(duplicateUser.email) } returns (Result(duplicateUser))
+            val duplicateUser = User.create(input = User.Companion.UserParserInput("duplicate@james.de", "Duplicate")).expectSuccess()
+            every { it.getByEmail(duplicateUser.email) } returns (Validated.validNel(duplicateUser))
         }
 
         commandPersistence = mockk<UserCommandPersistencePort>().also {
-            every { it.upsert(any()) } answers { Result(this.args[0] as User) }
+            every { it.upsert(any()) } answers { Validated.validNel(this.args[0] as User) }
         }
 
         userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence)
@@ -64,9 +63,11 @@ class UserDomainTests {
 
     @Test
     internal fun `duplicate email`() {
-        userAdminUseCases.registerUser("duplicate@james.de", "Joe").expectError(
-            code = UserErrorCodes.EMAIL_EXISTS,
-            details = "duplicate@james.de",
+        userAdminUseCases.registerUser("duplicate@james.de", "Joe").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.EMAIL_EXISTS,
+                details = "duplicate@james.de",
+            )
         )
         verifyMocks {
             queryPersistence.getByEmail("duplicate@james.de")
@@ -75,27 +76,33 @@ class UserDomainTests {
 
     @Test
     internal fun `blank email`() {
-        userAdminUseCases.registerUser("", "Joe").expectError(
-            code = UserErrorCodes.EMAIL_BLANK,
-            details = null,
+        userAdminUseCases.registerUser("", "Joe").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.EMAIL_BLANK,
+                details = null,
+            )
         )
         verifyMocks()
     }
 
     @Test
     internal fun `invalid email`() {
-        userAdminUseCases.registerUser("someone_james.de", "Joe").expectError(
-            code = UserErrorCodes.EMAIL_INVALID,
-            details = "'someone_james.de' does not match .+@.+\\..+",
+        userAdminUseCases.registerUser("someone_james.de", "Joe").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.EMAIL_INVALID,
+                details = "'someone_james.de' does not match .+@.+\\..+",
+            )
         )
         verifyMocks()
     }
 
     @Test
     internal fun `blank name`() {
-        userAdminUseCases.registerUser("someone@james.de", " ").expectError(
-            code = UserErrorCodes.NAME_BLANK,
-            details = null,
+        userAdminUseCases.registerUser("someone@james.de", " ").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.NAME_BLANK,
+                details = null,
+            )
         )
         verifyMocks()
     }
@@ -120,9 +127,11 @@ class UserDomainTests {
 
     @Test
     internal fun `change email unknown user`() {
-        userSelfServiceUseCases.changeEmail(unknownId, "someone_other@james.de").expectError(
-            code = UserErrorCodes.NOT_FOUND,
-            details = unknownId.toString(),
+        userSelfServiceUseCases.changeEmail(unknownId, "someone_other@james.de").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.NOT_FOUND,
+                details = unknownId.toString(),
+            )
         )
 
         verifyMocks {
@@ -132,9 +141,11 @@ class UserDomainTests {
 
     @Test
     internal fun `change email duplicate mail`() {
-        userSelfServiceUseCases.changeEmail(existingId, "duplicate@james.de").expectError(
-            code = UserErrorCodes.EMAIL_EXISTS,
-            details = "duplicate@james.de",
+        userSelfServiceUseCases.changeEmail(existingId, "duplicate@james.de").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.EMAIL_EXISTS,
+                details = "duplicate@james.de",
+            )
         )
 
         verifyMocks {
@@ -162,9 +173,11 @@ class UserDomainTests {
 
     @Test
     internal fun `change name invalid`() {
-        userSelfServiceUseCases.changeName(existingId, "").expectError(
-            code = UserErrorCodes.NAME_BLANK,
-            details = null
+        userSelfServiceUseCases.changeName(existingId, "").expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.NAME_BLANK,
+                details = null
+            )
         )
 
         verifyMocks {
@@ -174,9 +187,11 @@ class UserDomainTests {
 
     @Test
     internal fun `existing user`() {
-        userAdminUseCases.deleteUser(existingId).expectError(
-            code = UserErrorCodes.DELETE_NOT_SUPPORTED,
-            details = null,
+        userAdminUseCases.deleteUser(existingId).expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.DELETE_NOT_SUPPORTED,
+                details = null,
+            )
         )
 
         verifyMocks {
@@ -186,9 +201,11 @@ class UserDomainTests {
 
     @Test
     internal fun `unknown user`() {
-        userAdminUseCases.deleteUser(unknownId).expectError(
-            code = UserErrorCodes.NOT_FOUND,
-            details = unknownId.toString(),
+        userAdminUseCases.deleteUser(unknownId).expectErrors(
+            de.chrgroth.james.Error(
+                code = UserErrorCodes.NOT_FOUND,
+                details = unknownId.toString(),
+            )
         )
 
         verifyMocks {

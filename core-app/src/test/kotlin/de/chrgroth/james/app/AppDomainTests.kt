@@ -1,7 +1,7 @@
 package de.chrgroth.james.app
 
+import arrow.core.Validated
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
@@ -20,7 +20,7 @@ import java.util.UUID
 
 class AppLifecycleUseCasesTests {
 
-    private val developer = User.create(email = "foo@bar.com", name = "Fooby Bar").expectSuccess()
+    private val developer = User.create(input = User.Companion.UserParserInput("foo@bar.com", "Fooby Bar")).expectSuccess()
     private val developerId = developer.id
 
     private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
@@ -51,8 +51,8 @@ class AppLifecycleUseCasesTests {
     @BeforeEach
     internal fun initialize() {
         userQueryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(any()) } returns (Error(UserErrorCodes.NOT_FOUND, details = null))
-            every { it.getOrError(developerId) } returns (Result(developer))
+            every { it.getOrError(any()) } returns (Validated.invalidNel(de.chrgroth.james.Error(UserErrorCodes.NOT_FOUND, null)))
+            every { it.getOrError(developerId) } returns (Validated.validNel(developer))
         }
 
         queryPersistence = mockk<AppQueryPersistencePort>().also {
@@ -197,7 +197,7 @@ class AppLifecycleUseCasesTests {
 
 class AppVersionDevelopmentUseCasesTests {
 
-    private val developer = User.create(email = "foo@bar.com", name = "Fooby Bar").expectSuccess()
+    private val developer = User.create(input = User.Companion.UserParserInput("foo@bar.com", "Fooby Bar")).expectSuccess()
     private val developerId = developer.id
 
     private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
@@ -228,8 +228,8 @@ class AppVersionDevelopmentUseCasesTests {
     @BeforeEach
     internal fun initialize() {
         userQueryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(any()) } returns (Error(UserErrorCodes.NOT_FOUND, details = null))
-            every { it.getOrError(developerId) } returns (Result(developer))
+            every { it.getOrError(any()) } returns (Validated.invalidNel(de.chrgroth.james.Error(UserErrorCodes.NOT_FOUND, null)))
+            every { it.getOrError(developerId) } returns (Validated.validNel(developer))
         }
 
         queryPersistence = mockk<AppQueryPersistencePort>().also {

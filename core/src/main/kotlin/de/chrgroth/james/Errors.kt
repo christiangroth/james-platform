@@ -4,6 +4,8 @@ import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 
+data class Error(val code: ErrorCode, val details: String? = null)
+
 interface ErrorCode {
     val prefix: String
     val id: Long

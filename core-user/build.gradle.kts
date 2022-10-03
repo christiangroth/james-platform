@@ -4,5 +4,6 @@ plugins {
 
 dependencies {
     implementation(project(":core"))
+
     testImplementation(testFixtures(project(":core")))
 }

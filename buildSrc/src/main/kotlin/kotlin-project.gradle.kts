@@ -25,13 +25,17 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
+    implementation("com.sksamuel.tribune:tribune-core:1.2.4")
+
     testImplementation("org.assertj:assertj-core:3.23.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
     testImplementation("io.mockk:mockk:1.12.2")
+    testImplementation("com.sksamuel.tribune:tribune-core:1.2.4")
 
     testFixturesImplementation("org.assertj:assertj-core:3.23.1")
     testFixturesImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
     testFixturesImplementation("io.mockk:mockk:1.12.2")
+    testFixturesImplementation("com.sksamuel.tribune:tribune-core:1.2.4")
 }
 
 java {

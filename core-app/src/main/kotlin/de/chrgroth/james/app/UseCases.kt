@@ -1,7 +1,9 @@
 package de.chrgroth.james.app
 
+import arrow.core.Validated
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Maybe
+import de.chrgroth.james.shrink
 import de.chrgroth.james.user.UserQueryPersistencePort
 import java.util.UUID
 
@@ -32,12 +34,23 @@ internal class AppLifecycleUseCasesService(
 ) : AppLifecycleUseCases {
 
     // TODO #22 verify developer is active
-    override fun create(name: String, developerId: UUID, description: String?) =
-        userQueryPersistence.getOrError(developerId).flatMap { developer ->
-            App.create(name = name, developerId = developer.id, description = description)
-        }.flatMap {
-            commandPersistence.upsert(it)
+    override fun create(name: String, developerId: UUID, description: String?): Maybe<App> {
+        // TODO #29 this is a hack
+        return when (val r = userQueryPersistence.getOrError(developerId)) {
+            is Validated.Invalid -> {
+                Maybe.Errors(r.value.map {
+                    Maybe.Error<App>(it.code, it.details)
+                }).shrink()!!
+            }
+
+            is Validated.Valid -> {
+                App.create(name = name, developerId = r.value.id, description = description).flatMap {
+                    commandPersistence.upsert(it)
+                }
+            }
+
         }
+    }
 
     override fun changeReleaseNote(id: UUID, version: Semver, note: String): Maybe<AppVersion> =
         queryPersistence.getOrError(id).flatMap {
