@@ -25,7 +25,7 @@ interface AppVersionDevelopmentUseCases {
 }
 
 internal class AppLifecycleUseCasesService(
-    // TODO #26 remove dependency
+    // TODO #32 remove dependency
     private val userQueryPersistence: UserQueryPersistencePort,
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,

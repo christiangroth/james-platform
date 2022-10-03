@@ -5,8 +5,6 @@ import de.chrgroth.james.Maybe.Errors
 import de.chrgroth.james.Maybe.Result
 import org.assertj.core.api.Assertions
 
-// TODO #31 deduplicate
-
 fun <T> Maybe<T>.expectSuccess(): T {
     Assertions.assertThat(this).isInstanceOf(Result::class.java)
     return (this as Result).value
