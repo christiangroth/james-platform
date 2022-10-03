@@ -19,7 +19,9 @@ jobs:
       - ''
       - echo "Detecting project version (may require some time while downloading gradle
         dependencies)..."
-      - buildVersion=$(./gradlew properties | grep '^version:' | grep -v unspecified | cut -c10-)
+      - ./gradlew properties | grep '^version:' | grep -v unspecified | cut -c10-
+      - buildVersion=$(./gradlew properties | grep '^version:' | grep -v unspecified
+        | cut -c10-)
       - echo "##onedev[SetBuildVersion '$buildVersion']"
       - echo
       - ''
