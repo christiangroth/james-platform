@@ -83,6 +83,7 @@ fun <Type> List<Maybe<*>?>.foldAndShrink() =
 fun <Type> Errors<Type>?.shrink(): Maybe<Type>? =
     when {
         this == null -> null
+        this.errors.isEmpty() -> null
         this.errors.size == 1 -> this.errors.single()
         else -> this
     }

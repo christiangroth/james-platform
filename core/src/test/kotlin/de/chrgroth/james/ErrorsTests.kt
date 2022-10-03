@@ -115,6 +115,55 @@ class ErrorsCombinationTests {
     }
 
     @Test
+    fun `foldErrors list of errors without nulls`() {
+        val result = listOf(
+            Error<Unit>(TestErrorCodes.SOME_ERROR, details = null),
+            null,
+            Error<Unit>(TestErrorCodes.THIS_IS_BAD, details = null),
+        ).foldErrors<Unit>()
+        assertThat(result).isNotNull
+        assertThat(result!!.errors).hasSize(2)
+        assertThat(result.errors[0]).isEqualTo(Error<Unit>(TestErrorCodes.SOME_ERROR, null))
+        assertThat(result.errors[1]).isEqualTo(Error<Unit>(TestErrorCodes.THIS_IS_BAD, null))
+    }
+
+    @Test
+    fun `shrink null`() {
+        assertThat((null as Errors<Unit>?).shrink()).isNull()
+    }
+
+    @Test
+    fun `shrink errors with no entries`() {
+        val errors: Errors<Unit> = Errors(
+            emptyList()
+        )
+        assertThat(errors.shrink()).isNull()
+    }
+
+    @Test
+    fun `shrink errors with single entry`() {
+        val errors: Errors<Unit> = Errors(
+            listOf(
+                Error(TestErrorCodes.SOME_ERROR, null)
+            )
+        )
+        val shrinked = errors.shrink()
+        assertThat(shrinked).isInstanceOf(Error::class.java)
+        assertThat((shrinked as Error<Unit>).code).isEqualTo(TestErrorCodes.SOME_ERROR)
+    }
+
+    @Test
+    fun `shrink errors with multiple entries`() {
+        val errors: Errors<Unit> = Errors(
+            listOf(
+                Error(TestErrorCodes.SOME_ERROR, null),
+                Error(TestErrorCodes.SOME_ERROR, null)
+            )
+        )
+        assertThat(errors.shrink()).isInstanceOf(Errors::class.java)
+    }
+
+    @Test
     fun `combine null error with null error becomes null`() {
         val result = (null as Error<Unit>?).combine(null as Error<Unit>?)
         assertThat(result).isNull()
