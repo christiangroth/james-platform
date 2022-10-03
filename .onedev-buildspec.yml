@@ -1,7 +1,6 @@
 version: 17
 jobs:
-- name: CI
-  jobExecutor: onedev-ci-cd
+- name: gradle ci
   steps:
   - !CheckoutStep
     name: checkout
@@ -10,29 +9,27 @@ jobs:
     withSubmodules: false
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   - !CommandStep
-    name: command
+    name: detect build version
     runInContainer: true
-    image: gradle:jdk11
+    image: '@script:builtin:gradle:determine-docker-image@'
     interpreter: !DefaultInterpreter
       commands:
-      - set -e
-      - ''
       - echo "Detecting project version (may require some time while downloading gradle
         dependencies)..."
-      - ./gradlew properties | grep '^version:' | grep -v unspecified | cut -c10-
-      - buildVersion=$(./gradlew properties | grep '^version:' | grep -v unspecified
-        | cut -c10-)
-      - echo "##onedev[SetBuildVersion '$buildVersion']"
-      - echo
-      - ''
-      - echo "updating git config ..."
-      - git config user.email "chr.groth@@gmx.de"
-      - git config user.name "chris"
-      - ''
-      - echo "changing back from detached head to branch @branch@ ..."
-      - git fetch origin @branch@:@branch@
-      - git checkout @branch@
-      - ''
+      - 'echo $(gradle properties | grep ^version: | grep -v unspecified | cut -c10-)
+        > buildVersion'
+    useTTY: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !SetBuildVersionStep
+    name: set build version
+    buildVersion: '@file:buildVersion@'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: run gradle build
+    runInContainer: true
+    image: '@script:builtin:gradle:determine-docker-image@'
+    interpreter: !DefaultInterpreter
+      commands:
       - ./gradlew --no-daemon --info build
       - ''
       - if [ "@branch@" = "main" ]; then
@@ -41,14 +38,13 @@ jobs:
     useTTY: false
     condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
   triggers:
-  - !BranchUpdateTrigger
-    branches: main issue/**
-    paths: -gradle.properties
+  - !BranchUpdateTrigger {}
+  - !PullRequestUpdateTrigger {}
   retryCondition: never
   maxRetries: 3
   retryDelay: 30
   cpuRequirement: 250
-  memoryRequirement: 128
+  memoryRequirement: 256
   caches:
   - key: gradle-cache
     path: /home/gradle/.gradle
