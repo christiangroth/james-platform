@@ -1,7 +1,22 @@
 package de.chrgroth.james
 
+import com.sksamuel.tribune.core.Parser
+import com.sksamuel.tribune.core.strings.match
+import com.sksamuel.tribune.core.strings.notNullOrBlank
+import com.sksamuel.tribune.core.strings.trim
 import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.Maybe.Result
+
+fun regexParer(errorCodeBlank: ErrorCode, pattern: Regex, errorCodeNoMatch: ErrorCode) = Parser
+    .fromNullableString()
+    .notNullOrBlank { de.chrgroth.james.Error(errorCodeBlank) }
+    .match(pattern) { de.chrgroth.james.Error(errorCodeNoMatch, "'$it' does not match $pattern") }
+    .trim()
+
+fun notBlankParser(errorCodeBlank: ErrorCode) = Parser
+    .fromNullableString()
+    .notNullOrBlank { de.chrgroth.james.Error(errorCodeBlank) }
+    .trim()
 
 fun validateMatches(value: String, pattern: Regex, codeBlank: ErrorCode, codeNoMatch: ErrorCode): Maybe<String> =
     value.trim().let {

@@ -3,10 +3,9 @@ package de.chrgroth.james.user
 import arrow.core.ValidatedNel
 import com.sksamuel.tribune.core.Parser
 import com.sksamuel.tribune.core.compose
-import com.sksamuel.tribune.core.strings.match
-import com.sksamuel.tribune.core.strings.notNullOrBlank
-import com.sksamuel.tribune.core.strings.trim
 import de.chrgroth.james.Error
+import de.chrgroth.james.notBlankParser
+import de.chrgroth.james.regexParer
 import java.util.UUID
 
 data class User private constructor(
@@ -16,25 +15,20 @@ data class User private constructor(
 ) {
 
     companion object {
-        private val simpleEmailPattern = Regex(".+@.+\\..+")
 
-        data class UserParserInput(val email: String, val name: String)
+        private val emailParser = regexParer(
+            UserErrorCodes.EMAIL_BLANK,
+            Regex(".+@.+\\..+"),
+            UserErrorCodes.EMAIL_INVALID,
+        )
 
-        // TODO #29 create factory function
-        val emailParser = Parser
-            .fromNullableString()
-            .notNullOrBlank { Error(UserErrorCodes.EMAIL_BLANK) }
-            .match(simpleEmailPattern) { Error(UserErrorCodes.EMAIL_INVALID, "'$it' does not match $simpleEmailPattern") }
-            .trim()
+        private val nameParser = notBlankParser(
+            UserErrorCodes.NAME_BLANK
+        )
 
-        // TODO #29 create factory function
-        val nameParser = Parser
-            .fromNullableString()
-            .notNullOrBlank { Error(UserErrorCodes.NAME_BLANK) }
-            .trim()
+        private data class UserParserInput(val email: String, val name: String)
 
-        fun create(id: UUID = UUID.randomUUID(), input: UserParserInput): ValidatedNel<Error, User> {
-            // TODO #29 optimize: store combined parser as val
+        fun create(id: UUID = UUID.randomUUID(), email: String, name: String): ValidatedNel<Error, User> {
             val userParser: Parser<UserParserInput, User, Error> = Parser
                 .compose(
                     emailParser.contramap { it.email },
@@ -47,7 +41,7 @@ data class User private constructor(
                     )
                 }
 
-            return userParser.parse(input)
+            return userParser.parse(UserParserInput(email, name))
         }
     }
 
@@ -55,6 +49,6 @@ data class User private constructor(
     val name get() = nameField
 
     // TODO #22 send user to revalidation status?
-    internal fun changeEmail(email: String): ValidatedNel<Error, User> = create(id, UserParserInput(email, nameField))
-    internal fun changeName(name: String): ValidatedNel<Error, User> = create(id, UserParserInput(emailField, name))
+    internal fun changeEmail(email: String): ValidatedNel<Error, User> = create(id, email, nameField)
+    internal fun changeName(name: String): ValidatedNel<Error, User> = create(id, emailField, name)
 }
