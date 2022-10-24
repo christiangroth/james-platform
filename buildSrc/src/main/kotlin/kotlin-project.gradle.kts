@@ -9,6 +9,7 @@ plugins {
 
     jacoco
     id("io.gitlab.arturbosch.detekt")
+    id("com.xcporter.metaview")
 }
 
 repositories {
@@ -43,6 +44,17 @@ detekt {
     config = files("${rootProject.projectDir}/detekt-config.yaml")
 }
 
+generateUml {
+    classTree {
+        target = file(projectDir.path + "/src/main/kotlin")
+        outputDir = file(project.buildDir.path + "/docs")
+    }
+    functionTree {
+        target = file(projectDir.path + "/src/main/kotlin")
+        outputDir = file(project.buildDir.path + "/docs")
+    }
+}
+
 jacoco {
     toolVersion = "0.8.7"
 }
@@ -60,6 +72,10 @@ tasks {
 
         kotlinOptions.allWarningsAsErrors = true
         kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
+    }
+
+    compileKotlin {
+        finalizedBy(tasks.getByName("generateUmlDiagrams"))
     }
 
     test {
