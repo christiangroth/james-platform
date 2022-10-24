@@ -45,8 +45,14 @@ detekt {
 }
 
 generateUml {
-    classTree {}
-    functionTree {}
+    classTree {
+        target = file(projectDir.path + "/src/main/kotlin")
+        outputDir = file(project.buildDir.path + "/docs")
+    }
+    functionTree {
+        target = file(projectDir.path + "/src/main/kotlin")
+        outputDir = file(project.buildDir.path + "/docs")
+    }
 }
 
 jacoco {
