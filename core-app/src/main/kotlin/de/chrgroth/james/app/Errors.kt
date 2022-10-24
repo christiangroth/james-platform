@@ -2,7 +2,7 @@ package de.chrgroth.james.app
 
 import de.chrgroth.james.ErrorCode
 
-enum class AppErrorCodes : ErrorCode {
+internal enum class AppErrorCodes : ErrorCode {
     NAME_BLANK,
     DATATYPE_NOT_FOUND,
     DATATYPE_NAME_BLANK,

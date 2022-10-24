@@ -24,7 +24,7 @@ internal class UserAdminUseCasesService(
 
     // TODO #22 check if registration enabled/allowed
     override fun registerUser(email: String, name: String): ValidatedNel<de.chrgroth.james.Error, User> =
-        User.create(input = User.Companion.UserParserInput(email, name)).andThen {
+        User.create(email = email, name = name).andThen {
             it.email.ensureUserNotPresent(queryPersistence) {
                 commandPersistence.upsert(it)
             }
