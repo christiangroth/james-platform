@@ -1,9 +1,6 @@
 package de.chrgroth.james.workspace
 
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.foldAndShrink
 import de.chrgroth.james.trimToNull
 import de.chrgroth.james.validateNotBlank
@@ -31,11 +28,11 @@ data class Workspace private constructor(
             order: Long,
             name: String,
             appInstallations: List<AppInstallation> = emptyList(),
-        ): Maybe<Workspace> {
+        ): ValidatedNel<Error, Workspace> {
             val orderValidation = validateOrder(order)
             val nameValidation = validateName(name)
-            return listOf<Maybe<out Any>>(orderValidation, nameValidation).foldAndShrink()
-                ?: orderValidation.flatMap { validOrder ->
+            return listOf<ValidatedNel<Error, out Any>>(orderValidation, nameValidation).foldAndShrink()
+                ?: orderValidation.andThen { validOrder ->
                     nameValidation.map { validName ->
                         Workspace(
                             id = id,
@@ -52,25 +49,25 @@ data class Workspace private constructor(
     val order get() = orderField
     val name get() = nameField
 
-    internal fun changeOrder(order: Long): Maybe<Workspace> = create(id, userId, order, nameField, appInstallations)
-    internal fun changeName(name: String): Maybe<Workspace> = create(id, userId, orderField, name, appInstallations)
+    internal fun changeOrder(order: Long): ValidatedNel<Error, Workspace> = create(id, userId, order, nameField, appInstallations)
+    internal fun changeName(name: String): ValidatedNel<Error, Workspace> = create(id, userId, orderField, name, appInstallations)
 
-    internal fun installApp(appId: UUID, appVersion: Semver): Maybe<Workspace> =
+    internal fun installApp(appId: UUID, appVersion: Semver): ValidatedNel<Error, Workspace> =
         AppInstallation.create(
             appId = appId,
             version = appVersion,
             nameSupplement = null,
-        ).flatMap {
+        ).andThen {
             create(id, userId, orderField, nameField, appInstallations.plus(it))
         }
 
-    internal fun acceptAppMigration(app: AppInstallation): Maybe<Workspace> =
+    internal fun acceptAppMigration(app: AppInstallation): ValidatedNel<Error, Workspace> =
         create(id, userId, orderField, nameField, appInstallations.plus(app))
 
-    internal fun acceptAppDemigration(app: AppInstallation): Maybe<Workspace> =
+    internal fun acceptAppDemigration(app: AppInstallation): ValidatedNel<Error, Workspace> =
         create(id, userId, orderField, nameField, appInstallations.minus(app))
 
-    internal fun reorderAppInstallations(order: List<UUID>): Maybe<Workspace> {
+    internal fun reorderAppInstallations(order: List<UUID>): ValidatedNel<Error, Workspace> {
         val existingIds = appInstallations.map { it.id }
 
         val newIds = order.minus(existingIds.toSet())
@@ -95,19 +92,22 @@ data class Workspace private constructor(
             })
     }
 
-    internal fun nameAppInstallation(id: UUID, nameSupplement: String?): Maybe<Workspace> =
+    internal fun nameAppInstallation(id: UUID, nameSupplement: String?): ValidatedNel<Error, Workspace> =
         modifyAppInstallation(id) {
             it.changeNameSupplement(nameSupplement)
         }
 
-    internal fun updateAppInstallation(id: UUID, version: Semver): Maybe<Workspace> =
+    internal fun updateAppInstallation(id: UUID, version: Semver): ValidatedNel<Error, Workspace> =
         modifyAppInstallation(id) {
             it.changeVersion(version)
         }
 
-    private fun modifyAppInstallation(appInstallationId: UUID, modifier: (AppInstallation) -> Maybe<AppInstallation>): Maybe<Workspace> =
-        getAppInstallationOrError(appInstallationId).flatMap {
-            modifier(it).flatMap { updatedAppInstallation ->
+    private fun modifyAppInstallation(
+        appInstallationId: UUID,
+        modifier: (AppInstallation) -> ValidatedNel<Error, AppInstallation>,
+    ): ValidatedNel<Error, Workspace> =
+        getAppInstallationOrError(appInstallationId).andThen {
+            modifier(it).andThen { updatedAppInstallation ->
                 create(id, userId, orderField, nameField, appInstallations.map {
                     if (it.id == appInstallationId) {
                         updatedAppInstallation
@@ -119,14 +119,14 @@ data class Workspace private constructor(
         }
 
     // TODO #5 decide when deleting app is allowed
-    internal fun uninstallApp(id: UUID): Maybe<Workspace> =
-        getAppInstallationOrError(id).flatMap { app ->
+    internal fun uninstallApp(id: UUID): ValidatedNel<Error, Workspace> =
+        getAppInstallationOrError(id).andThen { app ->
             app.verifyDeletion()
-        }.flatMap {
+        }.andThen {
             create(id, userId, orderField, nameField, appInstallations.filterNot { it.id == id })
         }
 
-    internal fun getAppInstallationOrError(appInstallationId: UUID): Maybe<AppInstallation> =
+    internal fun getAppInstallationOrError(appInstallationId: UUID): ValidatedNel<Error, AppInstallation> =
         appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
             if (app == null) {
                 Error(
@@ -138,7 +138,7 @@ data class Workspace private constructor(
             }
         }
 
-    internal fun verifyDeletion(): Maybe<Unit> = when {
+    internal fun verifyDeletion(): ValidatedNel<Error, Unit> = when {
         appInstallations.isNotEmpty() -> {
             Error(
                 code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
@@ -160,7 +160,7 @@ data class AppInstallation private constructor(
 ) {
 
     companion object {
-        fun create(id: UUID = UUID.randomUUID(), appId: UUID, version: Semver, nameSupplement: String?): Maybe<AppInstallation> =
+        fun create(id: UUID = UUID.randomUUID(), appId: UUID, version: Semver, nameSupplement: String?): ValidatedNel<Error, AppInstallation> =
             Result(
                 AppInstallation(
                     id = id,
@@ -177,11 +177,11 @@ data class AppInstallation private constructor(
 
     val nameSupplement get() = nameSupplementField
 
-    internal fun changeNameSupplement(nameSupplement: String?): Maybe<AppInstallation> =
+    internal fun changeNameSupplement(nameSupplement: String?): ValidatedNel<Error, AppInstallation> =
         create(id, appId, version, nameSupplement)
 
     // TODO #5 trigger data update, handle breaking changes
-    internal fun changeVersion(version: Semver): Maybe<AppInstallation> =
+    internal fun changeVersion(version: Semver): ValidatedNel<Error, AppInstallation> =
         if (this.version >= version) {
             Error(
                 code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
@@ -192,7 +192,7 @@ data class AppInstallation private constructor(
         }
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
-    internal fun verifyDeletion(): Maybe<Unit> =
+    internal fun verifyDeletion(): ValidatedNel<Error, Unit> =
         Error(
             code = WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED,
             details = null,

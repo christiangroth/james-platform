@@ -2,7 +2,7 @@ package de.chrgroth.james.user
 
 import de.chrgroth.james.ErrorCode
 
-enum class UserErrorCodes : ErrorCode {
+internal enum class UserErrorCodes : ErrorCode {
     EMAIL_EXISTS,
     EMAIL_BLANK,
     EMAIL_INVALID,

@@ -1,10 +1,6 @@
 package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.ErrorCode
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Errors
-import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.CombinedSchema
@@ -41,7 +37,7 @@ enum class SchemaCompatibilityErrorCodes : ErrorCode {
     override val id = ordinal.toLong()
 }
 
-internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): Maybe<Unit> {
+internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): ValidatedNel<Error, Unit> {
     val currentProperties = propertySchemas.keys
     val nextProperties = next.propertySchemas.keys
 

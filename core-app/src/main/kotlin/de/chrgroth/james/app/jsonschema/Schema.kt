@@ -1,8 +1,7 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
+import arrow.core.ValidatedNel
+import arrow.core.andThen
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
@@ -29,11 +28,11 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
-internal fun String.parseToObjectSchema(): Maybe<ObjectSchema> {
-    return parseJsonSchema().flatMap { it.validateTopLevelSchema() }
+internal fun String.parseToObjectSchema(): ValidatedNel<Error, ObjectSchema> {
+    return parseJsonSchema().andThen { it.validateTopLevelSchema() }
 }
 
-internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
+internal fun String.parseJsonSchema(): ValidatedNel<Error, ObjectSchema> {
 
     val loadSchemaResult = runCatching {
         SchemaLoader.builder()

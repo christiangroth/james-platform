@@ -1,20 +1,23 @@
 package de.chrgroth.james.app
 
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.andThen
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
+import com.sksamuel.tribune.core.Parser
+import com.sksamuel.tribune.core.compose
 import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.parseToObjectSchema
 import de.chrgroth.james.collectResults
 import de.chrgroth.james.computeNext
 import de.chrgroth.james.foldErrors
+import de.chrgroth.james.notBlankParser
+import de.chrgroth.james.notNegativeLongParser
+import de.chrgroth.james.regexParer
 import de.chrgroth.james.shrink
 import de.chrgroth.james.trimToNull
-import de.chrgroth.james.validateMatches
-import de.chrgroth.james.validateNotBlank
-import de.chrgroth.james.validateNotNegative
+import org.everit.json.schema.ObjectSchema
 import java.util.UUID
 
 // TODO #28 make return types explicit (check all files)
@@ -34,7 +37,9 @@ data class App private constructor(
 ) {
 
     companion object {
-        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.NAME_BLANK)
+        private val nameParser = notBlankParser(
+            AppErrorCodes.NAME_BLANK
+        )
 
         @Suppress("LongParameterList")
         fun create(
@@ -43,19 +48,20 @@ data class App private constructor(
             developerId: UUID,
             description: String?,
             discontinued: Boolean = false,
-            nextVersionDraft: AppVersionDraft = (AppVersionDraft.create() as Result).value,
+            nextVersionDraft: AppVersionDraft = (AppVersionDraft.create() as Validated.Valid).value,
             releasedVersions: List<AppVersion> = emptyList(),
-        ): Maybe<App> = validateName(name).map { validName ->
-            App(
-                id = id,
-                nameField = validName,
-                developerId = developerId,
-                descriptionField = description.trimToNull(),
-                discontinued = discontinued,
-                nextVersionDraft = nextVersionDraft,
-                releasedVersions = releasedVersions,
-            )
-        }
+        ): ValidatedNel<Error, App> =
+            nameParser.parse(name).map { validName ->
+                App(
+                    id = id,
+                    nameField = validName,
+                    developerId = developerId,
+                    descriptionField = description.trimToNull(),
+                    discontinued = discontinued,
+                    nextVersionDraft = nextVersionDraft,
+                    releasedVersions = releasedVersions,
+                )
+            }
     }
 
     val name get() = nameField
@@ -74,48 +80,64 @@ data class App private constructor(
         releasedVersions.firstOrNull()
     }
 
-    internal fun addNextVersionDraftDatatype(datatypeName: String): Maybe<App> = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+    internal fun addNextVersionDraftDatatype(datatypeName: String): ValidatedNel<Error, App> = when {
+
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                null,
+            )
         )
 
-        nextVersionDraft.datatypes.any { it.name == datatypeName } -> Error(
-            code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
-            details = datatypeName,
+        nextVersionDraft.datatypes.any { it.name == datatypeName } -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
+                details = datatypeName,
+            )
         )
 
-        else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).flatMap { newDatatype ->
-            nextVersionDraft.upsertDatatype(newDatatype.name, newDatatype).flatMap {
+        else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).andThen { newDatatype ->
+            nextVersionDraft.upsertDatatype(newDatatype.name, newDatatype).andThen {
                 create(id, nameField, developerId, description, discontinued, it, releasedVersions)
             }
         }
     }
 
-    internal fun changeNextVersionDraftDatatype(name: String, schemaContent: String, description: String?, newName: String): Maybe<App> = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+    internal fun changeNextVersionDraftDatatype(
+        name: String,
+        schemaContent: String,
+        description: String?,
+        newName: String,
+    ): ValidatedNel<Error, App> = when {
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
-        name != newName && nextVersionDraft.datatypes.any { it.name == newName } -> Error(
-            code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
-            details = newName,
+        name != newName && nextVersionDraft.datatypes.any { it.name == newName } -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DATATYPE_NAME_DUPLICATE,
+                details = newName,
+            )
         )
 
         else -> when (val datatype = nextVersionDraft.datatypes.firstOrNull { it.name == name }) {
-            null -> Error(
-                code = AppErrorCodes.DATATYPE_NOT_FOUND,
-                details = name,
+            null -> Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.DATATYPE_NOT_FOUND,
+                    details = name,
+                )
             )
 
             else -> {
                 val nameToUse = if (name != newName) newName else name
                 if (datatype.name == nameToUse && datatype.schemaContent == schemaContent && datatype.description == description) {
-                    Result(this)
+                    Validated.validNel(this)
                 } else {
-                    AppDatatypeDraft.create(name = nameToUse, schemaContent = schemaContent, description = description).flatMap { updatedDatatype ->
-                        nextVersionDraft.upsertDatatype(name, updatedDatatype).flatMap {
+                    AppDatatypeDraft.create(name = nameToUse, schemaContent = schemaContent, description = description).andThen { updatedDatatype ->
+                        nextVersionDraft.upsertDatatype(name, updatedDatatype).andThen {
                             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
                         }
                     }
@@ -125,58 +147,75 @@ data class App private constructor(
     }
 
     internal fun removeNextVersionDraftDatatype(datatypeName: String) = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
-        else -> nextVersionDraft.removeDatatype(datatypeName).flatMap {
+        else -> nextVersionDraft.removeDatatype(datatypeName).andThen {
             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
         }
     }
 
-    internal fun addNextVersionDraftReport(reportName: String): Maybe<App> = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+    internal fun addNextVersionDraftReport(reportName: String): ValidatedNel<Error, App> = when {
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
-        nextVersionDraft.reports.any { it.name == reportName } -> Error(
-            code = AppErrorCodes.REPORT_NAME_DUPLICATE,
-            details = reportName,
+        nextVersionDraft.reports.any { it.name == reportName } -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.REPORT_NAME_DUPLICATE,
+                details = reportName,
+            )
         )
 
-        else -> AppReport.create(name = reportName, source = "", description = null).flatMap { newReport ->
-            nextVersionDraft.upsertReport(newReport.name, newReport).flatMap {
+        else -> AppReport.create(name = reportName, source = "", description = null).andThen { newReport ->
+            nextVersionDraft.upsertReport(newReport.name, newReport).andThen {
                 create(id, nameField, developerId, description, discontinued, it, releasedVersions)
             }
         }
     }
 
-    internal fun changeNextVersionDraftReport(name: String, source: String, description: String?, newName: String) = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+    internal fun changeNextVersionDraftReport(
+        name: String,
+        source: String,
+        description: String?,
+        newName: String,
+    ): ValidatedNel<Error, App> = when {
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
-        name != newName && nextVersionDraft.reports.any { it.name == newName } -> Error(
-            code = AppErrorCodes.REPORT_NAME_DUPLICATE,
-            details = newName,
+        name != newName && nextVersionDraft.reports.any { it.name == newName } -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.REPORT_NAME_DUPLICATE,
+                details = newName,
+            )
         )
 
         else -> when (val report = nextVersionDraft.reports.firstOrNull { it.name == name }) {
-            null -> Error(
-                code = AppErrorCodes.REPORT_NOT_FOUND,
-                details = name,
+            null -> Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.REPORT_NOT_FOUND,
+                    details = name,
+                )
             )
 
             else -> {
                 val nameToUse = if (name != newName) newName else name
                 if (report.name == nameToUse && report.source == source && report.description == description) {
-                    Result(this)
+                    Validated.Valid(this)
                 } else {
-                    AppReport.create(name = nameToUse, source = source, description = description).flatMap { updatedReport ->
-                        nextVersionDraft.upsertReport(name, updatedReport).flatMap {
+                    AppReport.create(name = nameToUse, source = source, description = description).andThen { updatedReport ->
+                        nextVersionDraft.upsertReport(name, updatedReport).andThen {
                             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
                         }
                     }
@@ -186,12 +225,14 @@ data class App private constructor(
     }
 
     internal fun removeNextVersionDraftReport(reportName: String) = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
-        else -> nextVersionDraft.removeReport(reportName).flatMap {
+        else -> nextVersionDraft.removeReport(reportName).andThen {
             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
         }
     }
@@ -199,15 +240,17 @@ data class App private constructor(
     // TODO #36 prevent release if no changes at all
     // TODO #36 add methods to get all new/changed datatypes/reports
     internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
         else -> {
-            AppVersionReleaseNotes.create(changeType, note).flatMap { releaseNotes ->
-                AppVersion.create(releaseNotes, nextVersionDraft, latestVersion).flatMap { nextVersionRelease ->
-                    createNextVersionDraft(nextVersionRelease).flatMap { newNextVersionDraft ->
+            AppVersionReleaseNotes.create(changeType, note).andThen { releaseNotes ->
+                AppVersion.create(releaseNotes, nextVersionDraft, latestVersion).andThen { nextVersionRelease ->
+                    createNextVersionDraft(nextVersionRelease).andThen { newNextVersionDraft ->
                         create(id, nameField, developerId, description, discontinued, newNextVersionDraft, listOf(nextVersionRelease) + releasedVersions)
                     }
                 }
@@ -216,12 +259,12 @@ data class App private constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun createNextVersionDraft(latestVersion: AppVersion): Maybe<AppVersionDraft> =
+    private fun createNextVersionDraft(latestVersion: AppVersion): ValidatedNel<Error, AppVersionDraft> =
         latestVersion.let {
             val convertedDatatypes = it.datatypes.map { datatype -> AppDatatypeDraft.create(datatype) }
             val datatypeConversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
             return when {
-                datatypeConversionErrors != null -> datatypeConversionErrors as Maybe<AppVersionDraft>
+                datatypeConversionErrors != null -> datatypeConversionErrors as ValidatedNel<Error, AppVersionDraft>
                 else -> {
                     val datatypeDrafts = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet()
                     AppVersionDraft.create(datatypes = datatypeDrafts, reports = it.reports)
@@ -229,22 +272,26 @@ data class App private constructor(
             }
         }
 
-    internal fun changeReleaseNote(version: Semver, note: String): Maybe<App> = when {
+    internal fun changeReleaseNote(version: Semver, note: String): ValidatedNel<Error, App> = when {
         !status.allowsChanges -> {
-            Error(
-                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
+            Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                    details = null,
+                )
             )
         }
 
         releasedVersions.firstOrNull { it.version == version } == null -> {
-            Error(
-                code = AppErrorCodes.RELEASE_VERSION_NOT_FOUND, details = version.toString()
+            Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.RELEASE_VERSION_NOT_FOUND, details = version.toString()
+                )
             )
         }
 
         else -> {
-            releasedVersions.first { it.version == version }.changeReleaseNote(note).flatMap { updatedVersion ->
+            releasedVersions.first { it.version == version }.changeReleaseNote(note).andThen { updatedVersion ->
                 create(id, nameField, developerId, description, discontinued, nextVersionDraft, releasedVersions.map { currentVersion ->
                     if (currentVersion.version == version) updatedVersion else currentVersion
                 })
@@ -252,19 +299,23 @@ data class App private constructor(
         }
     }
 
-    internal fun discontinue(): Maybe<App> = when {
-        !status.allowsChanges -> Error(
-            code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-            details = null,
+    internal fun discontinue(): ValidatedNel<Error, App> = when {
+        !status.allowsChanges -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
         )
 
         else -> create(id, nameField, developerId, description, true, nextVersionDraft, releasedVersions)
     }
 
-    internal fun verifyDeletion(): Maybe<Unit> = when {
-        status != AppStatus.DISCONTINUED -> Error(
-            code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
-            details = null,
+    internal fun verifyDeletion(): ValidatedNel<Error, Unit> = when {
+        status != AppStatus.DISCONTINUED -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
+                details = null,
+            )
         )
 
         else -> Result(Unit)
@@ -280,7 +331,11 @@ data class AppVersion private constructor(
 
     companion object {
 
-        fun create(releaseNotes: AppVersionReleaseNotes, nextVersionDraft: AppVersionDraft, latestVersion: AppVersion?): Maybe<AppVersion> =
+        fun create(
+            releaseNotes: AppVersionReleaseNotes,
+            nextVersionDraft: AppVersionDraft,
+            latestVersion: AppVersion?,
+        ): ValidatedNel<Error, AppVersion> =
             nextVersionDraft.createDatatypes(latestVersion).map { convertedDatatypes ->
                 AppVersion(
                     version = releaseNotes.computeVersion(latestVersion, nextVersionDraft),
@@ -290,7 +345,7 @@ data class AppVersion private constructor(
                 )
             }
 
-        private fun create(base: AppVersion, note: String): Maybe<AppVersion> =
+        private fun create(base: AppVersion, note: String): ValidatedNel<Error, AppVersion> =
             base.releaseNotes.changeNote(note).map {
                 AppVersion(
                     version = base.version,
@@ -301,7 +356,7 @@ data class AppVersion private constructor(
             }
     }
 
-    internal fun changeReleaseNote(note: String): Maybe<AppVersion> = create(this, note)
+    internal fun changeReleaseNote(note: String): ValidatedNel<Error, AppVersion> = create(this, note)
 }
 
 // TODO #36 add release notes draft?
@@ -314,20 +369,20 @@ data class AppVersionDraft private constructor(
         fun create() = create(datatypes = emptySet(), reports = emptySet())
 
         @Suppress("UNCHECKED_CAST")
-        fun create(appVersion: AppVersion): Maybe<AppVersionDraft> {
+        fun create(appVersion: AppVersion): ValidatedNel<Error, AppVersionDraft> {
             val convertedDatatypes = appVersion.datatypes.map { AppDatatypeDraft.create(it) }
             val conversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
             return when {
-                conversionErrors != null -> conversionErrors as Maybe<AppVersionDraft>
+                conversionErrors != null -> conversionErrors as ValidatedNel<Error, AppVersionDraft>
                 else -> create(datatypes = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet(), reports = appVersion.reports)
             }
         }
 
-        fun create(datatypes: Set<AppDatatypeDraft>, reports: Set<AppReport>): Maybe<AppVersionDraft> =
-            Result(AppVersionDraft(datatypes = datatypes, reports = reports))
+        fun create(datatypes: Set<AppDatatypeDraft>, reports: Set<AppReport>): ValidatedNel<Error, AppVersionDraft> =
+            Validated.validNel(AppVersionDraft(datatypes = datatypes, reports = reports))
     }
 
-    internal fun createDatatypes(latest: AppVersion?): Maybe<Set<AppDatatype>> {
+    internal fun createDatatypes(latest: AppVersion?): ValidatedNel<Error, Set<AppDatatype>> {
         val convertedDatatypes = datatypes.map { draft ->
             val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
             val newVersion = when {
@@ -346,15 +401,17 @@ data class AppVersionDraft private constructor(
         }
     }
 
-    internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): Maybe<AppVersionDraft> =
-        datatype.validateJsonSchema().flatMap {
+    internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): ValidatedNel<Error, AppVersionDraft> =
+        datatype.validateJsonSchema().andThen {
             create(datatypes.upsert(name, datatype), reports)
         }
 
-    internal fun removeDatatype(datatypeName: String): Maybe<AppVersionDraft> = when {
-        datatypes.none { it.name == datatypeName.trim() } -> Error(
-            code = AppErrorCodes.DATATYPE_NOT_FOUND,
-            details = datatypeName,
+    internal fun removeDatatype(datatypeName: String): ValidatedNel<Error, AppVersionDraft> = when {
+        datatypes.none { it.name == datatypeName.trim() } -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DATATYPE_NOT_FOUND,
+                details = datatypeName,
+            )
         )
 
         else -> create(datatypes.filterNot { it.name == datatypeName.trim() }.toSet(), reports)
@@ -363,13 +420,15 @@ data class AppVersionDraft private constructor(
     private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft): Set<AppDatatypeDraft> =
         filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
-    internal fun upsertReport(name: String, report: AppReport): Maybe<AppVersionDraft> =
+    internal fun upsertReport(name: String, report: AppReport): ValidatedNel<Error, AppVersionDraft> =
         create(datatypes, reports.upsert(name, report))
 
-    internal fun removeReport(reportName: String): Maybe<AppVersionDraft> = when {
-        reports.none { it.name == reportName.trim() } -> Error(
-            code = AppErrorCodes.REPORT_NOT_FOUND,
-            details = reportName,
+    internal fun removeReport(reportName: String): ValidatedNel<Error, AppVersionDraft> = when {
+        reports.none { it.name == reportName.trim() } -> Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.REPORT_NOT_FOUND,
+                details = reportName,
+            )
         )
 
         else -> create(datatypes, reports.filterNot { it.name == reportName }.toSet())
@@ -390,19 +449,22 @@ data class AppVersionReleaseNotes private constructor(
 ) {
 
     companion object {
-        private fun validateNote(note: String) = validateNotBlank(note, AppErrorCodes.VERSION_RELEASE_NOTE_BLANK)
+        private val noteParser = notBlankParser(
+            AppErrorCodes.VERSION_RELEASE_NOTE_BLANK
+        )
 
-        fun create(changeType: AppVersionChangeType, note: String): Maybe<AppVersionReleaseNotes> = validateNote(note).map { validNote ->
-            AppVersionReleaseNotes(
-                changeType = changeType,
-                noteField = validNote,
-            )
-        }
+        fun create(changeType: AppVersionChangeType, note: String): ValidatedNel<Error, AppVersionReleaseNotes> =
+            noteParser.parse(note).map { validNote ->
+                AppVersionReleaseNotes(
+                    changeType = changeType,
+                    noteField = validNote,
+                )
+            }
     }
 
     val note get() = noteField
 
-    internal fun changeNote(note: String): Maybe<AppVersionReleaseNotes> = create(changeType, note)
+    internal fun changeNote(note: String) = create(changeType, note)
 
     internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {
@@ -434,8 +496,8 @@ internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
     }.map {
         it.first.validateJsonSchema() to it.second.validateJsonSchema()
     }.mapNotNull {
-        if (it.first is Result && it.second is Result) {
-            (it.first as Result).value to (it.second as Result).value
+        if (it.first is Validated.Valid && it.second is Validated.Valid) {
+            (it.first as Validated.Valid).value to (it.second as Validated.Valid).value
         } else {
             null
         }
@@ -449,35 +511,33 @@ data class AppDatatypeDraft private constructor(
 ) {
 
     companion object {
-        private val simpleNamePatern = Regex("([A-Z][a-z]*)+")
-
-        private fun validateName(name: String) = validateMatches(
-            value = name,
-            pattern = simpleNamePatern,
-            codeBlank = AppErrorCodes.DATATYPE_NAME_BLANK,
-            codeNoMatch = AppErrorCodes.DATATYPE_NAME_INVALID,
+        private val nameParser = regexParer(
+            AppErrorCodes.DATATYPE_NAME_BLANK,
+            Regex("([A-Z][a-z]*)+"),
+            AppErrorCodes.DATATYPE_NAME_INVALID,
         )
 
-        fun create(datatype: AppDatatype): Maybe<AppDatatypeDraft> = create(
+        fun create(datatype: AppDatatype): ValidatedNel<Error, AppDatatypeDraft> = create(
             name = datatype.name,
             schemaContent = datatype.schemaContent,
             description = datatype.description,
         )
 
-        fun create(name: String, schemaContent: String, description: String?): Maybe<AppDatatypeDraft> = validateName(name).map { validName ->
-            AppDatatypeDraft(
-                nameField = validName,
-                schemaContentField = schemaContent,
-                descriptionField = description,
-            )
-        }
+        fun create(name: String, schemaContent: String, description: String?): ValidatedNel<Error, AppDatatypeDraft> =
+            nameParser.parse(name).map { validName ->
+                AppDatatypeDraft(
+                    nameField = validName,
+                    schemaContentField = schemaContent,
+                    descriptionField = description,
+                )
+            }
     }
 
     val name get() = nameField
     val schemaContent get() = schemaContentField
     val description get() = descriptionField
 
-    fun validateJsonSchema() = jsonObjectSchemaFor(
+    fun validateJsonSchema(): ValidatedNel<Error, ObjectSchema> = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = null,
         name = name,
@@ -494,16 +554,30 @@ data class AppDatatype private constructor(
 ) {
 
     companion object {
-        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.DATATYPE_NAME_BLANK)
+        private val nameParser = notBlankParser(
+            AppErrorCodes.DATATYPE_NAME_BLANK
+        )
 
-        private fun validateVersion(version: Long) = validateNotNegative(version, AppErrorCodes.DATATYPE_VERSION_NEGATIVE)
+        private val versionParser = notNegativeLongParser(
+            AppErrorCodes.DATATYPE_VERSION_NEGATIVE
+        )
 
-        fun create(draft: AppDatatypeDraft, version: Long): Maybe<AppDatatype> = validateName(draft.name).flatMap { validName ->
-            validateVersion(version).map { validVersion ->
-                AppDatatype(
-                    nameField = validName, versionField = validVersion, schemaContentField = draft.schemaContent, descriptionField = draft.description
-                )
-            }
+        private data class AppDatatypeParserInput(val name: String, val version: Long)
+
+        fun create(draft: AppDatatypeDraft, version: Long): ValidatedNel<Error, AppDatatype> {
+
+            // TODO #29 any way to not create a new instance every time?
+            val datatypeParser: Parser<AppDatatypeParserInput, AppDatatype, Error> = Parser
+                .compose(
+                    nameParser.contramap { it.name },
+                    versionParser.contramap { it.version.toString() },
+                ) { validName, validVersion ->
+                    AppDatatype(
+                        nameField = validName, versionField = validVersion, schemaContentField = draft.schemaContent, descriptionField = draft.description
+                    )
+                }
+
+            return datatypeParser.parse(AppDatatypeParserInput(draft.name, version))
         }
     }
 
@@ -512,7 +586,7 @@ data class AppDatatype private constructor(
     val schemaContent get() = schemaContentField
     val description get() = descriptionField
 
-    fun validateJsonSchema() = jsonObjectSchemaFor(
+    fun validateJsonSchema(): ValidatedNel<Error, ObjectSchema> = jsonObjectSchemaFor(
         // TODO #19 appId = appId,
         // TODO #19 version = version.toString(),
         name = name,
@@ -528,15 +602,18 @@ data class AppReport private constructor(
 ) {
 
     companion object {
-        private fun validateName(name: String) = validateNotBlank(name, AppErrorCodes.REPORT_NAME_BLANK)
+        private val nameParser = notBlankParser(
+            AppErrorCodes.REPORT_NAME_BLANK
+        )
 
-        fun create(name: String, description: String?, source: String): Maybe<AppReport> = validateName(name).map { validName ->
-            AppReport(
-                nameField = validName,
-                sourceField = source,
-                descriptionField = description,
-            )
-        }
+        fun create(name: String, description: String?, source: String): ValidatedNel<Error, AppReport> =
+            nameParser.parse(name).map { validName ->
+                AppReport(
+                    nameField = validName,
+                    sourceField = source,
+                    descriptionField = description,
+                )
+            }
     }
 
     val name get() = nameField

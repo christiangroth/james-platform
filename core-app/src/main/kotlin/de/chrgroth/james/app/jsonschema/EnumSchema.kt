@@ -1,6 +1,5 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe.Errors
 import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.Schema

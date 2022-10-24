@@ -1,8 +1,8 @@
 package de.chrgroth.james.workspace
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.Error
 import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.app.AppQueryPersistencePort
 import de.chrgroth.james.app.AppVersion
@@ -77,7 +77,7 @@ class WorkspaceDomainTests {
         }
 
         appQueryPersistence = mockk<AppQueryPersistencePort>().also {
-            every { it.getOrError(any(), any()) } answers { Maybe.Error(AppErrorCodes.RELEASE_VERSION_NOT_FOUND, null) }
+            every { it.getOrError(any(), any()) } answers { Error(AppErrorCodes.RELEASE_VERSION_NOT_FOUND, null) }
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdZero) } returns (Maybe.Result(mockk()))
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdOne) } returns (Maybe.Result(existingAppVersion))
             every { it.getOrError(existingAppIdOne, existingAppOneVersionIdTwo) } returns (Maybe.Result(existingAppNewerVersion))

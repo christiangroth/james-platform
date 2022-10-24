@@ -29,6 +29,8 @@ data class User private constructor(
         private data class UserParserInput(val email: String, val name: String)
 
         fun create(id: UUID = UUID.randomUUID(), email: String, name: String): ValidatedNel<Error, User> {
+
+            // TODO #29 any way to not create a new instance every time?
             val userParser: Parser<UserParserInput, User, Error> = Parser
                 .compose(
                     emailParser.contramap { it.email },

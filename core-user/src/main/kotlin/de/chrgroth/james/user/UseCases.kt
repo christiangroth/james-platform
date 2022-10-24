@@ -8,13 +8,13 @@ import java.util.UUID
 // TODO #22 need to check if user is active
 
 interface UserAdminUseCases {
-    fun registerUser(email: String, name: String): ValidatedNel<de.chrgroth.james.Error, User>
-    fun deleteUser(id: UUID): ValidatedNel<de.chrgroth.james.Error, Unit>
+    fun registerUser(email: String, name: String): ValidatedNel<Error, User>
+    fun deleteUser(id: UUID): ValidatedNel<Error, Unit>
 }
 
 interface UserSelfServiceUseCases {
-    fun changeEmail(id: UUID, email: String): ValidatedNel<de.chrgroth.james.Error, User>
-    fun changeName(id: UUID, name: String): ValidatedNel<de.chrgroth.james.Error, User>
+    fun changeEmail(id: UUID, email: String): ValidatedNel<Error, User>
+    fun changeName(id: UUID, name: String): ValidatedNel<Error, User>
 }
 
 internal class UserAdminUseCasesService(
@@ -23,18 +23,18 @@ internal class UserAdminUseCasesService(
 ) : UserAdminUseCases {
 
     // TODO #22 check if registration enabled/allowed
-    override fun registerUser(email: String, name: String): ValidatedNel<de.chrgroth.james.Error, User> =
-        User.create(input = User.Companion.UserParserInput(email, name)).andThen {
+    override fun registerUser(email: String, name: String): ValidatedNel<Error, User> =
+        User.create(email = email, name = name).andThen {
             it.email.ensureUserNotPresent(queryPersistence) {
                 commandPersistence.upsert(it)
             }
         }
 
     // TODO #22 define when User deletion is supported
-    override fun deleteUser(id: UUID): ValidatedNel<de.chrgroth.james.Error, Unit> =
+    override fun deleteUser(id: UUID): ValidatedNel<Error, Unit> =
         queryPersistence.getOrError(id).andThen {
             Validated.invalidNel(
-                de.chrgroth.james.Error(
+                Error(
                     code = UserErrorCodes.DELETE_NOT_SUPPORTED,
                     details = null,
                 )
@@ -47,7 +47,7 @@ internal class UserSelfServiceUseCasesService(
     private val commandPersistence: UserCommandPersistencePort,
 ) : UserSelfServiceUseCases {
 
-    override fun changeEmail(id: UUID, email: String): ValidatedNel<de.chrgroth.james.Error, User> =
+    override fun changeEmail(id: UUID, email: String): ValidatedNel<Error, User> =
         queryPersistence.getOrError(id).andThen {
             it.changeEmail(email)
         }.andThen {
@@ -56,7 +56,7 @@ internal class UserSelfServiceUseCasesService(
             }
         }
 
-    override fun changeName(id: UUID, name: String): ValidatedNel<de.chrgroth.james.Error, User> =
+    override fun changeName(id: UUID, name: String): ValidatedNel<Error, User> =
         queryPersistence.getOrError(id).andThen {
             it.changeName(name)
         }.andThen {
@@ -66,14 +66,14 @@ internal class UserSelfServiceUseCasesService(
 
 private fun String.ensureUserNotPresent(
     queryPersistence: UserQueryPersistencePort,
-    operation: () -> ValidatedNel<de.chrgroth.james.Error, User>,
-): ValidatedNel<de.chrgroth.james.Error, User> =
+    operation: () -> ValidatedNel<Error, User>,
+): ValidatedNel<Error, User> =
     queryPersistence.getByEmail(this).andThen { existingUser ->
         if (existingUser == null) {
             operation.invoke()
         } else {
             Validated.invalidNel(
-                de.chrgroth.james.Error(
+                Error(
                     code = UserErrorCodes.EMAIL_EXISTS,
                     details = this,
                 )

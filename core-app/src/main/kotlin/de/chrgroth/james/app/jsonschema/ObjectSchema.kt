@@ -1,19 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Errors
-import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.app.AppErrorCodes
 import de.chrgroth.james.combine
-import org.everit.json.schema.ArraySchema
-import org.everit.json.schema.BooleanSchema
-import org.everit.json.schema.CombinedSchema
-import org.everit.json.schema.EnumSchema
-import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
-import org.everit.json.schema.Schema
-import org.everit.json.schema.StringSchema
 
 // TODO #19 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
 fun jsonObjectSchemaFor(/* TODO #19 appId: UUID, version: String?, */name: String, description: String, schemaContent: String) = """
@@ -26,7 +15,7 @@ $schemaContent
 }
 """.trimIndent()
 
-internal fun ObjectSchema.validateTopLevelSchema(): Maybe<ObjectSchema> {
+internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<Error, ObjectSchema> {
     val commonAnnotationsErrors = validateCommonAnnotations(null)
     val objectSchemaErrors = validateDefinition()
     val stringPropertyErrors = validateStringProperties()

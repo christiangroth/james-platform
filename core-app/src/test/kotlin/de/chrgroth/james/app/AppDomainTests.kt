@@ -2,7 +2,6 @@ package de.chrgroth.james.app
 
 import arrow.core.Validated
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Maybe.Result
 import de.chrgroth.james.expectError
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.user.User
@@ -51,7 +50,7 @@ class AppLifecycleUseCasesTests {
     @BeforeEach
     internal fun initialize() {
         userQueryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(any()) } returns (Validated.invalidNel(de.chrgroth.james.Error(UserErrorCodes.NOT_FOUND, null)))
+            every { it.getOrError(any()) } returns (Validated.invalidNel(Error(UserErrorCodes.NOT_FOUND, null)))
             every { it.getOrError(developerId) } returns (Validated.validNel(developer))
         }
 
@@ -228,7 +227,7 @@ class AppVersionDevelopmentUseCasesTests {
     @BeforeEach
     internal fun initialize() {
         userQueryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(any()) } returns (Validated.invalidNel(de.chrgroth.james.Error(UserErrorCodes.NOT_FOUND, null)))
+            every { it.getOrError(any()) } returns (Validated.invalidNel(Error(UserErrorCodes.NOT_FOUND, null)))
             every { it.getOrError(developerId) } returns (Validated.validNel(developer))
         }
 
