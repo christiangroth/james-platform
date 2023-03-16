@@ -1,10 +1,16 @@
 package de.chrgroth.james.workspace
 
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.andThen
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.foldAndShrink
+import com.sksamuel.tribune.core.Parser
+import com.sksamuel.tribune.core.compose
+import de.chrgroth.james.Error
+import de.chrgroth.james.notBlankParser
+import de.chrgroth.james.notNegativeLongParser
+import de.chrgroth.james.reduceWithFirstValue
 import de.chrgroth.james.trimToNull
-import de.chrgroth.james.validateNotBlank
-import de.chrgroth.james.validateNotNegative
 import java.util.UUID
 
 data class Workspace private constructor(
@@ -16,11 +22,16 @@ data class Workspace private constructor(
 ) {
 
     companion object {
-        private fun validateOrder(order: Long) =
-            validateNotNegative(order, WorkspaceErrorCodes.ORDER_NEGATIVE)
 
-        private fun validateName(name: String) =
-            validateNotBlank(name, WorkspaceErrorCodes.NAME_BLANK)
+        private val orderParser = notNegativeLongParser(
+            WorkspaceErrorCodes.ORDER_NEGATIVE
+        )
+
+        private val nameParser = notBlankParser(
+            WorkspaceErrorCodes.NAME_BLANK
+        )
+
+        private data class WorkspaceParserInput(val order: Long, val name: String)
 
         fun create(
             id: UUID = UUID.randomUUID(),
@@ -29,20 +40,22 @@ data class Workspace private constructor(
             name: String,
             appInstallations: List<AppInstallation> = emptyList(),
         ): ValidatedNel<Error, Workspace> {
-            val orderValidation = validateOrder(order)
-            val nameValidation = validateName(name)
-            return listOf<ValidatedNel<Error, out Any>>(orderValidation, nameValidation).foldAndShrink()
-                ?: orderValidation.andThen { validOrder ->
-                    nameValidation.map { validName ->
-                        Workspace(
-                            id = id,
-                            userId = userId,
-                            orderField = validOrder,
-                            nameField = validName,
-                            appInstallations = appInstallations,
-                        )
-                    }
+
+            val workspaceParser: Parser<WorkspaceParserInput, Workspace, Error> = Parser
+                .compose(
+                    orderParser.contramap { it.order.toString() },
+                    nameParser.contramap { it.name },
+                ) { validOrder, validName ->
+                    Workspace(
+                        id = id,
+                        userId = userId,
+                        orderField = validOrder,
+                        nameField = validName,
+                        appInstallations = appInstallations,
+                    )
                 }
+
+            return workspaceParser.parse(WorkspaceParserInput(order, name))
         }
     }
 
@@ -71,25 +84,30 @@ data class Workspace private constructor(
         val existingIds = appInstallations.map { it.id }
 
         val newIds = order.minus(existingIds.toSet())
-        val unknownIdsValidation: Error<Workspace>? = if (newIds.isNotEmpty()) {
-            Error(
-                code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
-                details = newIds.toString(),
+        val newIdsValidation: ValidatedNel<Error, Unit> = if (newIds.isNotEmpty()) {
+            Validated.invalidNel(
+                Error(
+                    code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
+                    details = newIds.toString(),
+                )
             )
-        } else null
+        } else Validated.validNel(Unit)
 
         val missingIds = existingIds.minus(order.toSet())
-        val missingIdsValidation: Error<Workspace>? = if (missingIds.isNotEmpty()) {
-            Error(
-                code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
-                details = missingIds.toString(),
+        val missingIdsValidation: ValidatedNel<Error, Unit> = if (missingIds.isNotEmpty()) {
+            return Validated.invalidNel(
+                Error(
+                    code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
+                    details = missingIds.toString(),
+                )
             )
-        } else null
+        } else Validated.validNel(Unit)
 
-        return listOf(unknownIdsValidation, missingIdsValidation).foldAndShrink()
-            ?: create(id, userId, orderField, nameField, order.map { orderId ->
+        return listOf(newIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {
+            create(id, userId, orderField, nameField, order.map { orderId ->
                 appInstallations.first { it.id == orderId }
             })
+        }
     }
 
     internal fun nameAppInstallation(id: UUID, nameSupplement: String?): ValidatedNel<Error, Workspace> =
@@ -129,24 +147,28 @@ data class Workspace private constructor(
     internal fun getAppInstallationOrError(appInstallationId: UUID): ValidatedNel<Error, AppInstallation> =
         appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
             if (app == null) {
-                Error(
-                    code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
-                    details = appInstallationId.toString(),
+                Validated.invalidNel(
+                    Error(
+                        code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
+                        details = appInstallationId.toString(),
+                    )
                 )
             } else {
-                Result(app)
+                Validated.validNel(app)
             }
         }
 
     internal fun verifyDeletion(): ValidatedNel<Error, Unit> = when {
         appInstallations.isNotEmpty() -> {
-            Error(
-                code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
-                details = appInstallations.count().toString()
+            Validated.invalidNel(
+                Error(
+                    code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
+                    details = appInstallations.count().toString()
+                )
             )
         }
 
-        else -> Result(Unit)
+        else -> Validated.validNel(Unit)
     }
 }
 
@@ -161,7 +183,7 @@ data class AppInstallation private constructor(
 
     companion object {
         fun create(id: UUID = UUID.randomUUID(), appId: UUID, version: Semver, nameSupplement: String?): ValidatedNel<Error, AppInstallation> =
-            Result(
+            Validated.validNel(
                 AppInstallation(
                     id = id,
                     appId = appId,
@@ -183,9 +205,11 @@ data class AppInstallation private constructor(
     // TODO #5 trigger data update, handle breaking changes
     internal fun changeVersion(version: Semver): ValidatedNel<Error, AppInstallation> =
         if (this.version >= version) {
-            Error(
-                code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
-                details = "${this.version} >= $version",
+            Validated.invalidNel(
+                Error(
+                    code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
+                    details = "${this.version} >= $version",
+                )
             )
         } else {
             create(id, appId, version, nameSupplementField)
@@ -193,8 +217,10 @@ data class AppInstallation private constructor(
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): ValidatedNel<Error, Unit> =
-        Error(
-            code = WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED,
-            details = null,
+        Validated.invalidNel(
+            Error(
+                code = WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED,
+                details = null,
+            )
         )
 }

@@ -92,7 +92,7 @@ class SchemaParsingTests {
     @Test
     fun `invalid json schema syntax fails`() {
         val schemaContent = ",;,;".toTestSchema()
-        schemaContent.parseToObjectSchema().expectError(
+        schemaContent.parseToObjectSchema().expectErrors(Error(
             code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = "Missing value at 111 [character 0 line 6]"
         )
@@ -100,7 +100,7 @@ class SchemaParsingTests {
 
     @Test
     fun `not object schema (cannot happen when using datatypes api everytime)`() {
-        """{ "type": "string" }""".parseJsonSchema().expectError(
+        """{ "type": "string" }""".parseJsonSchema().expectErrors(Error(
             code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
             details = "StringSchema"
         )

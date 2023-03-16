@@ -2,6 +2,7 @@ package de.chrgroth.james.app.jsonschema
 
 import arrow.core.ValidatedNel
 import arrow.core.andThen
+import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema

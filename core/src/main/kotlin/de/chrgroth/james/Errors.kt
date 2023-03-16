@@ -1,8 +1,13 @@
 package de.chrgroth.james
 
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.andThen
+import arrow.core.zip
+
+// TODO #29 rename to DomainError?
 // TODO #29 refactor to return all errors and not error by error
-// TODO #29 really need details?? won't be usable for the frontend, maybe just return the code??
-// TODO #29 replace all fq references with proper imports after other Error class was deleted
+// TODO #29 really need details?? won't be usable for the frontend, maybe just return the code?? or maybe use as Map instead of String?
 data class Error(val code: ErrorCode, val details: String? = null)
 
 interface ErrorCode {
@@ -13,3 +18,19 @@ interface ErrorCode {
         return "${prefix}_${id.toString().padStart(length = 3, padChar = '0')}_$this"
     }
 }
+
+// TODO #29 add tests
+fun <T> List<ValidatedNel<Error, T>>.reduceWithFirstValue(): ValidatedNel<Error, T> =
+    reduce { first, next->
+        first.zip(next) { firstValue, _ ->
+            firstValue
+        }
+    }
+
+// TODO #29 add tests
+fun <T> List<ValidatedNel<Error, T>>.reduceWithAllValues(): ValidatedNel<Error, List<T>> =
+    fold(Validated.validNel(emptyList())) { all, next->
+        all.zip(next) { allValues, nextValue ->
+            allValues.plus(nextValue)
+        }
+    }

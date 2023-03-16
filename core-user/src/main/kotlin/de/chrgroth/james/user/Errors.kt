@@ -2,7 +2,8 @@ package de.chrgroth.james.user
 
 import de.chrgroth.james.ErrorCode
 
-internal enum class UserErrorCodes : ErrorCode {
+// TODO #29 making it internal was a good idea, but we are using some codes cross module
+enum class UserErrorCodes : ErrorCode {
     EMAIL_EXISTS,
     EMAIL_BLANK,
     EMAIL_INVALID,

@@ -109,7 +109,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `invalid pattern syntax`() {
         val schemaContent = """ "pattern": "^(\\([0-9]{3}\\)))?[0-9]{3}-[0-9]{4}${'$'}" """.toStringProperty()
-        schemaContent.parseToObjectSchema().expectError(
+        schemaContent.parseToObjectSchema().expectErrors(Error(
             code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
             details = """Unmatched closing ')' near index 14
 ^(\([0-9]{3}\)))?[0-9]{3}-[0-9]{4}${'$'}

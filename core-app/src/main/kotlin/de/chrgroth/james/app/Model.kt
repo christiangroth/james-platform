@@ -9,16 +9,15 @@ import com.sksamuel.tribune.core.compose
 import de.chrgroth.james.app.jsonschema.computeCompatibility
 import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
 import de.chrgroth.james.app.jsonschema.parseToObjectSchema
-import de.chrgroth.james.collectResults
 import de.chrgroth.james.computeNext
-import de.chrgroth.james.foldErrors
 import de.chrgroth.james.notBlankParser
 import de.chrgroth.james.notNegativeLongParser
 import de.chrgroth.james.regexParer
-import de.chrgroth.james.shrink
 import de.chrgroth.james.trimToNull
 import org.everit.json.schema.ObjectSchema
 import java.util.UUID
+import de.chrgroth.james.Error
+import de.chrgroth.james.reduceWithAllValues
 
 // TODO #28 make return types explicit (check all files)
 
@@ -258,17 +257,12 @@ data class App private constructor(
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun createNextVersionDraft(latestVersion: AppVersion): ValidatedNel<Error, AppVersionDraft> =
         latestVersion.let {
-            val convertedDatatypes = it.datatypes.map { datatype -> AppDatatypeDraft.create(datatype) }
-            val datatypeConversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
-            return when {
-                datatypeConversionErrors != null -> datatypeConversionErrors as ValidatedNel<Error, AppVersionDraft>
-                else -> {
-                    val datatypeDrafts = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet()
-                    AppVersionDraft.create(datatypes = datatypeDrafts, reports = it.reports)
-                }
+            it.datatypes.map { datatype ->
+                AppDatatypeDraft.create(datatype)
+            }.reduceWithAllValues().andThen { datatypeDrafts ->
+                AppVersionDraft.create(datatypes = datatypeDrafts.toSet(), reports = it.reports)
             }
         }
 
@@ -318,7 +312,7 @@ data class App private constructor(
             )
         )
 
-        else -> Result(Unit)
+        else -> Validated.validNel(Unit)
     }
 }
 
@@ -368,22 +362,17 @@ data class AppVersionDraft private constructor(
     companion object {
         fun create() = create(datatypes = emptySet(), reports = emptySet())
 
-        @Suppress("UNCHECKED_CAST")
-        fun create(appVersion: AppVersion): ValidatedNel<Error, AppVersionDraft> {
-            val convertedDatatypes = appVersion.datatypes.map { AppDatatypeDraft.create(it) }
-            val conversionErrors = convertedDatatypes.foldErrors<Set<AppDatatypeDraft>>().shrink()
-            return when {
-                conversionErrors != null -> conversionErrors as ValidatedNel<Error, AppVersionDraft>
-                else -> create(datatypes = convertedDatatypes.collectResults<AppDatatypeDraft>().map { it.value }.toSet(), reports = appVersion.reports)
+        fun create(appVersion: AppVersion): ValidatedNel<Error, AppVersionDraft> =
+            appVersion.datatypes.map { AppDatatypeDraft.create(it) }.reduceWithAllValues().andThen { datatypeDrafts ->
+                create(datatypes = datatypeDrafts.toSet(), reports = appVersion.reports)
             }
-        }
 
         fun create(datatypes: Set<AppDatatypeDraft>, reports: Set<AppReport>): ValidatedNel<Error, AppVersionDraft> =
             Validated.validNel(AppVersionDraft(datatypes = datatypes, reports = reports))
     }
 
-    internal fun createDatatypes(latest: AppVersion?): ValidatedNel<Error, Set<AppDatatype>> {
-        val convertedDatatypes = datatypes.map { draft ->
+    internal fun createDatatypes(latest: AppVersion?): ValidatedNel<Error, Set<AppDatatype>> =
+        datatypes.map { draft ->
             val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
             val newVersion = when {
                 existingDatatype == null -> 1
@@ -392,14 +381,9 @@ data class AppVersionDraft private constructor(
             }
 
             AppDatatype.create(draft, newVersion)
+        }.reduceWithAllValues().map { datatypes ->
+            datatypes.toSet()
         }
-
-        val conversionErrors = convertedDatatypes.foldErrors<Set<AppDatatype>>().shrink()
-        return when {
-            conversionErrors != null -> conversionErrors
-            else -> Result(convertedDatatypes.collectResults<AppDatatype>().map { it.value }.toSet())
-        }
-    }
 
     internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): ValidatedNel<Error, AppVersionDraft> =
         datatype.validateJsonSchema().andThen {
@@ -501,7 +485,7 @@ internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
         } else {
             null
         }
-    }.any { it.first.computeCompatibility(it.second) !is Result }
+    }.any { it.first.computeCompatibility(it.second) is Validated.Invalid }
 }
 
 data class AppDatatypeDraft private constructor(
@@ -566,7 +550,6 @@ data class AppDatatype private constructor(
 
         fun create(draft: AppDatatypeDraft, version: Long): ValidatedNel<Error, AppDatatype> {
 
-            // TODO #29 any way to not create a new instance every time?
             val datatypeParser: Parser<AppDatatypeParserInput, AppDatatype, Error> = Parser
                 .compose(
                     nameParser.contramap { it.name },

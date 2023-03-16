@@ -1,7 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.ValidatedNel
 import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.combine
+import de.chrgroth.james.Error
 import org.everit.json.schema.ObjectSchema
 
 // TODO #19 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"

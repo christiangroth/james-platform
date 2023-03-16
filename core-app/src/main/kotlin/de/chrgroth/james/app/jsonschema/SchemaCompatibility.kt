@@ -1,7 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.ValidatedNel
+import de.chrgroth.james.Error
 import de.chrgroth.james.ErrorCode
-import de.chrgroth.james.combine
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.CombinedSchema
 import org.everit.json.schema.EnumSchema
@@ -43,7 +44,7 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): ValidatedNel
 
     val removedProperties = currentProperties.minus(nextProperties)
     val removedPropertiesError = if (removedProperties.isNotEmpty()) {
-        Error<Unit>(
+        Error(
             code = SchemaCompatibilityErrorCodes.PROPERTY_REMOVED,
             details = removedProperties.sorted().toString(),
         )
