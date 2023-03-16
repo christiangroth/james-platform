@@ -1,9 +1,10 @@
 package de.chrgroth.james.app.jsonschema
 
-import arrow.core.Validated
 import arrow.core.ValidatedNel
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.createValidation
+import de.chrgroth.james.reduceWithFirstValue
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.Schema
@@ -14,42 +15,30 @@ internal fun <T : Schema> T.validateCommonAnnotations(propertyName: String?): Va
 
     val isTopLevelSchema = propertyName == null
     val hasTitle = title != null && title.isNotBlank()
-    if (isTopLevelSchema xor hasTitle) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
-                details = propertyName,
-            )
-        )
-    }
+    val titleValidation = createValidation(
+        errorCondition = isTopLevelSchema xor hasTitle,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
+        errorDetails = propertyName
+    ) { }
 
     val schemaTypeAllowsDefaultValue = this is StringSchema || this is NumberSchema || this is BooleanSchema
-    if (defaultValue != null && !schemaTypeAllowsDefaultValue) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
-                details = propertyName
-            )
-        )
-    }
+    val defaultValueValidation = createValidation(
+        errorCondition = defaultValue != null && !schemaTypeAllowsDefaultValue,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
+        errorDetails = propertyName
+    ) {}
 
-    if (isReadOnly != null && isReadOnly) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
-                details = propertyName,
-            )
-        )
-    }
+    val readOnlyValidation = createValidation(
+        errorCondition = isReadOnly != null && isReadOnly,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
+        errorDetails = propertyName
+    ) {}
 
-    if (isWriteOnly != null && isWriteOnly) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
-                details = propertyName,
-            )
-        )
-    }
+    val writeOnlyValidation = createValidation(
+        errorCondition = isWriteOnly != null && isWriteOnly,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
+        errorDetails = propertyName
+    ) {}
 
-    return Validated.validNel(Unit)
+    return listOf(titleValidation, defaultValueValidation, readOnlyValidation, writeOnlyValidation).reduceWithFirstValue()
 }

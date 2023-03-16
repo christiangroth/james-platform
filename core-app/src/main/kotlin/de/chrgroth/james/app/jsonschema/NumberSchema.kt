@@ -1,15 +1,18 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.ValidatedNel
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.combine
+import de.chrgroth.james.createValidation
+import de.chrgroth.james.reduceWithFirstValue
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.ObjectSchema
 import kotlin.math.floor
 
-internal fun ObjectSchema.validateNumberProperties() =
+internal fun ObjectSchema.validateNumberProperties(): ValidatedNel<Error, Unit> =
     filterProperties(NumberSchema::class)
-        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
+        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
+        .reduceWithFirstValue()
 
 internal val NumberSchema.minimumNullSafe get() = minimum ?: Int.MIN_VALUE
 internal val NumberSchema.exclusiveMinimumLimitNullSafe get() = exclusiveMinimumLimit ?: Int.MIN_VALUE
@@ -22,58 +25,53 @@ internal val NumberSchema.combinedMaximum get() = if (exclusiveMaximumLimit != n
 internal val NumberSchema.multipleOfNullSafe get() = multipleOf?.toDouble() ?: 0.0
 
 // see: https://json-schema.org/understanding-json-schema/reference/numeric.html
-internal fun NumberSchema.validateDefinition(propertyName: String): Errors<NumberSchema>? {
+internal fun NumberSchema.validateDefinition(propertyName: String): ValidatedNel<Error, Unit> {
 
-    val commonAnnotationsErrors = validateCommonAnnotations(propertyName)
+    val commonAnnotationsValidation = validateCommonAnnotations(propertyName)
 
-    val minAndExclusiveMinError = if (minimum != null && exclusiveMinimumLimit != null) {
-        Error<NumberSchema>(
-            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
-            details = propertyName
-        )
-    } else null
+    val minAndExclusiveMinValidation = createValidation(
+        errorCondition = minimum != null && exclusiveMinimumLimit != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
+        errorDetails = propertyName
+    ) {}
 
-    val maxAndExclusiveMaxError = if (maximum != null && exclusiveMaximumLimit != null) {
-        Error<NumberSchema>(
-            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
-            details = propertyName
-        )
-    } else null
+    val maxAndExclusiveMaxValidation = createValidation(
+        errorCondition = maximum != null && exclusiveMaximumLimit != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
+        errorDetails = propertyName
+    ) {}
 
-    val maxLimitSmallerMinLimitError = if (combinedMaximum.toLong() < combinedMinimum.toLong()) {
-        Error<NumberSchema>(
-            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
-            details = propertyName
-        )
-    } else null
+    val maxLimitSmallerMinLimitValidation = createValidation(
+        errorCondition = combinedMaximum.toLong() < combinedMinimum.toLong(),
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
+        errorDetails = propertyName
+    ) {}
 
-    val multipleOfZeroOrNegativeError = if (multipleOf != null && multipleOf.toDouble() <= 0) {
-        Error<NumberSchema>(
-            code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
-            details = propertyName
-        )
-    } else null
+    val multipleOfZeroOrNegativeValidation = createValidation(
+        errorCondition = multipleOf != null && multipleOf.toDouble() <= 0,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
+        errorDetails = propertyName
+    ) {}
 
-    val floatingPointMultipleOfForIntegerValue =
-        if (requiresInteger() && floor(multipleOfNullSafe) != multipleOfNullSafe) {
-            Error<NumberSchema>(
-                code = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
-                details = propertyName
-            )
-        } else null
+    val floatingPointMultipleOfForIntegerValueValidation = createValidation(
+        errorCondition = requiresInteger() && floor(multipleOfNullSafe) != multipleOfNullSafe,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
+        errorDetails = propertyName
+    ) {}
 
-    val unprocessedPropertiesError = if (unprocessedProperties.isNotEmpty()) {
-        Error<NumberSchema>(
-            code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-            details = "$propertyName: $unprocessedProperties"
-        )
-    } else null
+    val unprocessedPropertiesValidation = createValidation(
+        errorCondition = unprocessedProperties.isNotEmpty(),
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+        errorDetails = "$propertyName: $unprocessedProperties"
+    ) {}
 
-    return commonAnnotationsErrors
-        .combine(minAndExclusiveMinError)
-        .combine(maxAndExclusiveMaxError)
-        .combine(maxLimitSmallerMinLimitError)
-        .combine(multipleOfZeroOrNegativeError)
-        .combine(floatingPointMultipleOfForIntegerValue)
-        .combine(unprocessedPropertiesError)
+    return listOf(
+        commonAnnotationsValidation,
+        minAndExclusiveMinValidation,
+        maxAndExclusiveMaxValidation,
+        maxLimitSmallerMinLimitValidation,
+        multipleOfZeroOrNegativeValidation,
+        floatingPointMultipleOfForIntegerValueValidation,
+        unprocessedPropertiesValidation
+    ).reduceWithFirstValue()
 }

@@ -1,6 +1,8 @@
 package de.chrgroth.james.workspace
 
+import arrow.core.ValidatedNel
 import java.util.UUID
+import de.chrgroth.james.Error
 
 interface WorkspaceQueryPersistencePort {
     fun getOrError(workspaceId: UUID): ValidatedNel<Error, Workspace>

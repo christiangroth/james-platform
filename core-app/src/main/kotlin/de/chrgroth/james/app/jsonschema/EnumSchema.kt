@@ -1,5 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import de.chrgroth.james.Error
 import org.everit.json.schema.EnumSchema
 import org.everit.json.schema.NumberSchema
 import org.everit.json.schema.Schema
@@ -18,8 +21,8 @@ fun Schema.resolveEnumSupportingJsonSchema() = when (this) {
 sealed class EnumSupportingJsonSchema {
     abstract fun enumDefinitionSupported(typeSchema: Schema): Boolean
     abstract fun enumValuesTypeMatches(typeSchema: Schema, enumSchema: EnumSchema): Boolean
-    abstract fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String): Errors<out Schema>?
-    abstract fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema): Errors<Unit>?
+    abstract fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String): ValidatedNel<Error, Unit>
+    abstract fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema): ValidatedNel<Error, Unit>
 }
 
 object StringEnumSchema : EnumSupportingJsonSchema() {
@@ -28,15 +31,19 @@ object StringEnumSchema : EnumSupportingJsonSchema() {
     override fun enumValuesTypeMatches(typeSchema: Schema, enumSchema: EnumSchema) =
         enumSchema.possibleValuesNullSafe.all { it is String }
 
-    override fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String) =
+    override fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String): ValidatedNel<Error, Unit> =
         if (typeSchema is StringSchema) {
             typeSchema.validateDefinition(propertyName)
-        } else null
+        } else {
+            Validated.validNel(Unit)
+        }
 
-    override fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema) =
+    override fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema): ValidatedNel<Error, Unit> =
         if (typeSchema is StringSchema && nextTypeSchema is StringSchema) {
             typeSchema.computeCompatibility(nextTypeSchema)
-        } else null
+        }  else {
+            Validated.validNel(Unit)
+        }
 }
 
 object NumberEnumSchema : EnumSupportingJsonSchema() {
@@ -51,13 +58,17 @@ object NumberEnumSchema : EnumSupportingJsonSchema() {
             }
         }
 
-    override fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String) =
+    override fun delegateTypeSchemaValidation(typeSchema: Schema, propertyName: String): ValidatedNel<Error, Unit> =
         if (typeSchema is NumberSchema) {
             typeSchema.validateDefinition(propertyName)
-        } else null
+        } else {
+            Validated.validNel(Unit)
+        }
 
-    override fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema) =
+    override fun delegateCompatibilityCheck(typeSchema: Schema, nextTypeSchema: Schema): ValidatedNel<Error, Unit> =
         if (typeSchema is NumberSchema && nextTypeSchema is NumberSchema) {
             typeSchema.computeCompatibility(nextTypeSchema)
-        } else null
+        } else {
+            Validated.validNel(Unit)
+        }
 }

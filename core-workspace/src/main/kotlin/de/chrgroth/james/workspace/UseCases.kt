@@ -1,9 +1,13 @@
 package de.chrgroth.james.workspace
 
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.andThen
+import arrow.core.validNel
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppQueryPersistencePort
-import de.chrgroth.james.fold
-import de.chrgroth.james.foldAndShrink
+import de.chrgroth.james.reduceWithFirstValue
 import java.util.UUID
 
 // TODO #28 explicit return type notations (EVERYWHERE!) / force it?
@@ -43,33 +47,34 @@ internal class WorkspaceUseCasesService(
         queryPersistence.findForUser(userId).andThen { persistentWorkspaces ->
             val existingIds = persistentWorkspaces.map { it.id }
 
-            val unknownIdsError: Error<Unit>? = order.minus(existingIds.toSet()).let {
+            val unknownIdsValidation: ValidatedNel<Error, Unit> = order.minus(existingIds.toSet()).let {
                 if (it.isNotEmpty()) {
-                    Error(
-                        code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
-                        details = it.toString(),
+                    Validated.invalidNel(
+                        Error(
+                            code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+                            details = it.toString(),
+                        )
                     )
-                } else null
+                } else Validated.validNel(Unit)
             }
 
-            val missingIdsError: Error<Unit>? = existingIds.minus(order.toSet()).let {
+            val missingIdsValidation: ValidatedNel<Error, Unit> = existingIds.minus(order.toSet()).let {
                 if (it.isNotEmpty()) {
-                    Error(
-                        code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
-                        details = it.toString(),
+                    Validated.invalidNel(
+                        Error(
+                            code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+                            details = it.toString(),
+                        )
                     )
-                } else null
+                } else Validated.validNel(Unit)
             }
 
-            @Suppress("UNCHECKED_CAST")
-            listOf(unknownIdsError, missingIdsError).foldAndShrink()
-                ?: order.mapIndexed { index, workspaceId ->
+            listOf(unknownIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {
+                order.mapIndexed { index, workspaceId ->
                     persistentWorkspaces.first { it.id == workspaceId }.changeOrder(index.toLong())
                         .andThen { updatedWorkspace -> commandPersistence.upsert(updatedWorkspace) }
-                }
-                    .filterIsInstance<Error<Workspace>>()
-                    .map { it as Error<Unit> }
-                    .fold() ?: Result(Unit)
+                }.reduceWithFirstValue().map { }
+            }
         }
 
     override fun renameWorkspace(id: UUID, newName: String): ValidatedNel<Error, Workspace> =
@@ -118,7 +123,7 @@ internal class AppInstallationUseCasesService(
             }
         }
 
-    // TODO #29 allow multiple errors
+    // TODO #29 allow multiple errors -> zip
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<Error, AppInstallation> =
         queryPersistence.getOrError(workspaceId).andThen { workspace ->
             workspace.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->
@@ -141,7 +146,6 @@ internal class AppInstallationUseCasesService(
             commandPersistence.upsert(updatedWorkspace)
         }
 
-    // TODO #29 allow multiple errors
     // TODO #5 trigger data movement, if needed?
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): ValidatedNel<Error, Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).andThen { source ->
@@ -157,7 +161,7 @@ internal class AppInstallationUseCasesService(
             source.acceptAppDemigration(appInstallation).andThen { updatedSource ->
                 commandPersistence.upsert(updatedTarget).andThen { persistedTarget ->
                     commandPersistence.upsert(updatedSource).andThen { persistedSource ->
-                        Result(persistedSource to persistedTarget)
+                        Validated.validNel(persistedSource to persistedTarget)
                     }
                 }
             }

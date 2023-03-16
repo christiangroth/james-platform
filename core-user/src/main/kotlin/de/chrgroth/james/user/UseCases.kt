@@ -3,6 +3,7 @@ package de.chrgroth.james.user
 import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.andThen
+import de.chrgroth.james.Error
 import java.util.UUID
 
 // TODO #22 need to check if user is active

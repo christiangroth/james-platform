@@ -174,7 +174,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
                 "properties": { "postal_code": { "pattern": "[A-Z][0-9][A-Z] [0-9][A-Z][0-9]" } }
               }
             }
-        """.trimIndent().parseToObjectSchema().expectError(
+        """.trimIndent().parseToObjectSchema().expectErrors(Error(
             code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
             details = "CombinedSchema",
         )

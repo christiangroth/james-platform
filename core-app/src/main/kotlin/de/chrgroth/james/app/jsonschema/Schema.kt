@@ -1,7 +1,9 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.andThen
+import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
@@ -24,7 +26,7 @@ import kotlin.reflect.cast
 const val SCHEMA_VERSION = "http://json-schema.org/draft-07/schema"
 
 // TODO #19 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
-fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
+fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String): String =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
@@ -34,7 +36,7 @@ internal fun String.parseToObjectSchema(): ValidatedNel<Error, ObjectSchema> {
 
 internal fun String.parseJsonSchema(): ValidatedNel<Error, ObjectSchema> {
 
-    val loadSchemaResult = runCatching {
+    val loadSchemaResult: Result<Schema> = runCatching {
         SchemaLoader.builder()
             .draftV7Support()
             .useDefaults(true)
@@ -44,24 +46,33 @@ internal fun String.parseJsonSchema(): ValidatedNel<Error, ObjectSchema> {
             .build()
     }
 
-    return if (loadSchemaResult.isSuccess) {
-        val schema = loadSchemaResult.getOrNull()
-            ?: return Error(code = AppErrorCodes.DATATYPE_SCHEMA_NULL, details = null)
+    if (!loadSchemaResult.isSuccess) {
+        return Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
+                details = loadSchemaResult.exceptionOrNull()?.message,
+            )
+        )
+    }
 
-        // ignored properties that are not keywords of a schema
-        when (schema) {
-            !is ObjectSchema -> Error(
+    val schema = loadSchemaResult.getOrNull()
+        ?: return Validated.invalidNel(
+            Error(
+                code = AppErrorCodes.DATATYPE_SCHEMA_NULL,
+                details = null
+            )
+        )
+
+    // ignored properties that are not keywords of a schema
+    return if (schema !is ObjectSchema) {
+        Validated.invalidNel(
+            Error(
                 code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                 details = schema.javaClass.simpleName
             )
-
-            else -> Result(schema)
-        }
-    } else {
-        Error(
-            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
-            details = loadSchemaResult.exceptionOrNull()?.message,
         )
+    } else {
+        Validated.validNel(schema)
     }
 }
 

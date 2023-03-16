@@ -1,7 +1,9 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.ValidatedNel
 import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.combine
+import de.chrgroth.james.Error
+import de.chrgroth.james.reduceWithFirstValue
 import org.everit.json.schema.ObjectSchema
 
 // TODO #19 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
@@ -15,7 +17,7 @@ $schemaContent
 }
 """.trimIndent()
 
-internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<Error, ObjectSchema> {
+internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<Error, Unit> {
     val commonAnnotationsErrors = validateCommonAnnotations(null)
     val objectSchemaErrors = validateDefinition()
     val stringPropertyErrors = validateStringProperties()
@@ -24,21 +26,20 @@ internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<Error, ObjectSc
     val arrayPropertyErrors = validateArrayProperties()
     val combinedPropertyErrors = validateCombinedProperties()
 
-    @Suppress("UNCHECKED_CAST")
-    val errors = commonAnnotationsErrors
-        .combine(objectSchemaErrors)
-        .combine(stringPropertyErrors as Errors<ObjectSchema>?)
-        .combine(numberPropertyErrors as Errors<ObjectSchema>?)
-        .combine(booleanPropertyErrors as Errors<ObjectSchema>?)
-        .combine(arrayPropertyErrors as Errors<ObjectSchema>?)
-        .combine(combinedPropertyErrors as Errors<ObjectSchema>?)
-
-    return errors ?: Result(this)
+    return listOf(
+        commonAnnotationsErrors,
+        objectSchemaErrors,
+        stringPropertyErrors,
+        numberPropertyErrors,
+        booleanPropertyErrors,
+        arrayPropertyErrors,
+        combinedPropertyErrors
+    ).reduceWithFirstValue()
 }
 
 // see: https://json-schema.org/understanding-json-schema/reference/object.html
 @Suppress("LongMethod", "ComplexMethod")
-internal fun ObjectSchema.validateDefinition(): Errors<ObjectSchema>? {
+internal fun ObjectSchema.validateDefinition(): ValidatedNel<Error, Unit> {
 
     val commonAnnotationsErrors = validateCommonAnnotations(null)
 

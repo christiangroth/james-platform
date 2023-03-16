@@ -2,7 +2,8 @@ package de.chrgroth.james.app
 
 import de.chrgroth.james.ErrorCode
 
-internal enum class AppErrorCodes : ErrorCode {
+// TODO #29 making it internal was a good idea, but we are using some codes cross module
+enum class AppErrorCodes : ErrorCode {
     NAME_BLANK,
     DATATYPE_NOT_FOUND,
     DATATYPE_NAME_BLANK,

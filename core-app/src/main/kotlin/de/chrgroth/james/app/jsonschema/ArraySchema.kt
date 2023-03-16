@@ -1,16 +1,18 @@
 package de.chrgroth.james.app.jsonschema
 
-import arrow.core.Validated
 import arrow.core.ValidatedNel
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.createValidation
+import de.chrgroth.james.reduceWithFirstValue
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.EmptySchema
 import org.everit.json.schema.ObjectSchema
 
-internal fun ObjectSchema.validateArrayProperties() =
+internal fun ObjectSchema.validateArrayProperties(): ValidatedNel<Error, Unit> =
     filterProperties(ArraySchema::class)
-        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }.combine()
+        .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
+        .reduceWithFirstValue()
 
 internal val ArraySchema.minItemsNullSafe get() = minItems ?: 0
 internal val ArraySchema.maxItemsNullSafe get() = maxItems ?: Int.MAX_VALUE
@@ -27,134 +29,108 @@ enum class ArraySchemaMode { LIST, TUPLE }
 @Suppress("LongMethod", "ComplexMethod")
 internal fun ArraySchema.validateDefinition(propertyName: String): ValidatedNel<Error, Unit> {
 
-    val commonAnnotationsErrors = validateCommonAnnotations(propertyName)
+    val commonAnnotationsValidation = validateCommonAnnotations(propertyName)
 
-    if (mode == null) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
-                details = propertyName
-            )
-        )
-    }
+    val modeValidation = createValidation(
+        errorCondition = mode == null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.LIST && schemaOfAdditionalItems != null) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val listAndAdditionalItemsValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.LIST && schemaOfAdditionalItems != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.TUPLE && schemaOfAdditionalItems != null) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val tupleAndAdditionalItemsVaidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.TUPLE && schemaOfAdditionalItems != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.LIST && minItemsNullSafe < 0) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val listMinItemsValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.LIST && minItemsNullSafe < 0,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.LIST && maxItemsNullSafe < 1) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val listMaxItemsValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.LIST && maxItemsNullSafe < 1,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.LIST && maxItemsNullSafe < minItemsNullSafe) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val listMaxMinItemsValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.LIST && maxItemsNullSafe < minItemsNullSafe,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.TUPLE && minItems != null) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val tupleMinItemsValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.TUPLE && minItems != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.TUPLE && maxItems != null) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
-                details = propertyName
-            )
-        )
-    }
+    val tupleMaxItemsValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.TUPLE && maxItems != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
+        errorDetails = propertyName
+    ) {}
 
-    if (containedItemSchema != null) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
-                details = propertyName
-            )
-        )
-    }
+    val containedItemSchemaValidation = createValidation(
+        errorCondition = containedItemSchema != null,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
+        errorDetails = propertyName
+    ) {}
 
     val allItemsSchemaNullOrEmptySchema = allItemSchema == null || allItemSchema is EmptySchema
-    if (mode == ArraySchemaMode.LIST && allItemsSchemaNullOrEmptySchema) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
-                details = propertyName
-            )
-        )
-    }
+    val listAllItemSchemaValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.LIST && allItemsSchemaNullOrEmptySchema,
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.LIST && !allItemsSchemaNullOrEmptySchema && !allItemSchema.isValidPropertyType()) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
-                details = propertyName
-            )
-        )
-    }
+    val listAllItemSchemaTypeValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.LIST && !allItemsSchemaNullOrEmptySchema && !allItemSchema.isValidPropertyType(),
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.TUPLE && itemSchemas.isNullOrEmpty()) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
-                details = propertyName
-            )
-        )
-    }
+    val tupleItemSchemaValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.TUPLE && itemSchemas.isNullOrEmpty(),
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
+        errorDetails = propertyName
+    ) {}
 
-    if (mode == ArraySchemaMode.TUPLE && itemSchemas.any { !it.isValidPropertyType() }) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
-                details = propertyName
-            )
-        )
-    }
+    val tupleItemSchemaTypeValidation = createValidation(
+        errorCondition = mode == ArraySchemaMode.TUPLE && itemSchemas.any { !it.isValidPropertyType() },
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+        errorDetails = propertyName
+    ) {}
 
-    if (unprocessedProperties.isNotEmpty()) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                details = "$propertyName: $unprocessedProperties"
-            )
-        )
-    }
+    val unprocessedPropertiesValidation = createValidation(
+        errorCondition = unprocessedProperties.isNotEmpty(),
+        errorCode = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+        errorDetails = "$propertyName: $unprocessedProperties"
+    ) {}
 
-    return Validated.validNel(Unit)
+    return listOf(
+        commonAnnotationsValidation,
+        modeValidation,
+        listAndAdditionalItemsValidation,
+        tupleAndAdditionalItemsVaidation,
+        listMinItemsValidation,
+        listMaxItemsValidation,
+        listMaxMinItemsValidation,
+        tupleMinItemsValidation,
+        tupleMaxItemsValidation,
+        containedItemSchemaValidation,
+        listAllItemSchemaValidation,
+        listAllItemSchemaTypeValidation,
+        tupleItemSchemaValidation,
+        tupleItemSchemaTypeValidation,
+        unprocessedPropertiesValidation
+    ).reduceWithFirstValue()
 }
