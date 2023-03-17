@@ -12,7 +12,7 @@ import org.everit.json.schema.StringSchema
 internal fun ObjectSchema.validateStringProperties(): ValidatedNel<DomainError, Unit> =
     filterProperties(StringSchema::class)
         .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
-        .reduceWithFirstValue()
+        .reduceWithFirstValue(valueProviderIfEmpty = { })
 
 internal val allowedStringPropertyFormats = listOf(
     "date-time",

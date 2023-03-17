@@ -68,11 +68,11 @@ internal fun String.parseJsonSchema(): ValidatedNel<DomainError, ObjectSchema> {
             Validated.invalidNel(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                    details = schemaResult!!.javaClass.simpleName
+                    details = schemaResult.javaClass.simpleName
                 )
             )
 
-        else -> Validated.validNel(schemaResult as ObjectSchema)
+        else -> Validated.validNel(schemaResult)
     }
 }
 

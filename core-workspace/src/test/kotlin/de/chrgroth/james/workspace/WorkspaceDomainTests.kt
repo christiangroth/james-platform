@@ -139,7 +139,7 @@ class WorkspaceDomainTests {
         Workspace.create(userId = existingUserId, order = -1, name = "Existing One").expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.ORDER_NEGATIVE,
-                details = "-1",
+                details = null,
             )
         )
     }

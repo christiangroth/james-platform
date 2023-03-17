@@ -13,7 +13,7 @@ import org.everit.json.schema.ObjectSchema
 internal fun ObjectSchema.validateCombinedProperties(): ValidatedNel<DomainError, Unit> =
     filterProperties(CombinedSchema::class)
         .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
-        .reduceWithFirstValue()
+        .reduceWithFirstValue(valueProviderIfEmpty = { })
 
 internal val CombinedSchema.enumSchemaOrNull get() = subschemas.filterIsInstance<EnumSchema>().firstOrNull()
 internal val CombinedSchema.typeSchemaOrNull get() = subschemas.firstOrNull { it !is EnumSchema }

@@ -11,7 +11,7 @@ import org.everit.json.schema.ObjectSchema
 internal fun ObjectSchema.validateBooleanProperties(): ValidatedNel<DomainError, Unit> =
     filterProperties(BooleanSchema::class)
         .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
-        .reduceWithFirstValue()
+        .reduceWithFirstValue(valueProviderIfEmpty = { })
 
 // see: https://json-schema.org/understanding-json-schema/reference/boolean.html
 internal fun BooleanSchema.validateDefinition(propertyName: String): ValidatedNel<DomainError, Unit> {

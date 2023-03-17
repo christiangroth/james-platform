@@ -12,7 +12,7 @@ import kotlin.math.floor
 internal fun ObjectSchema.validateNumberProperties(): ValidatedNel<DomainError, Unit> =
     filterProperties(NumberSchema::class)
         .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
-        .reduceWithFirstValue()
+        .reduceWithFirstValue(valueProviderIfEmpty = { })
 
 internal val NumberSchema.minimumNullSafe get() = minimum ?: Int.MIN_VALUE
 internal val NumberSchema.exclusiveMinimumLimitNullSafe get() = exclusiveMinimumLimit ?: Int.MIN_VALUE

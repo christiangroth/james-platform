@@ -40,5 +40,10 @@ internal fun <T : Schema> T.validateCommonAnnotations(propertyName: String?): Va
         errorDetails = propertyName
     ) {}
 
-    return listOf(titleValidation, defaultValueValidation, readOnlyValidation, writeOnlyValidation).reduceWithFirstValue()
+    return listOf(
+        titleValidation,
+        defaultValueValidation,
+        readOnlyValidation,
+        writeOnlyValidation
+    ).reduceWithFirstValue()
 }

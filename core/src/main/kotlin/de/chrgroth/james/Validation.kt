@@ -34,6 +34,13 @@ fun <T> createValidation(errorCondition: Boolean, domainErrorCode: DomainErrorCo
         Validated.validNel(valueProvider())
     }
 
+fun <T> List<ValidatedNel<DomainError, T>>.reduceWithFirstValue(valueProviderIfEmpty: () -> T): ValidatedNel<DomainError, T> =
+    if(isEmpty()) {
+        Validated.validNel(valueProviderIfEmpty())
+    } else {
+        reduceWithFirstValue()
+    }
+
 fun <T> List<ValidatedNel<DomainError, T>>.reduceWithFirstValue(): ValidatedNel<DomainError, T> =
     reduce { first, next ->
         first.zip(next) { firstValue, _ ->

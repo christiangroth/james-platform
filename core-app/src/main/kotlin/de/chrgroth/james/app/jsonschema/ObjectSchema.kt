@@ -19,7 +19,7 @@ $schemaContent
 """.trimIndent()
 
 internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<DomainError, ObjectSchema> {
-    val commonAnnotationsValidation = validateCommonAnnotations(null)
+
     val objectSchemaValidation = validateDefinition()
     val stringPropertyValidation = validateStringProperties()
     val numberPropertyValidation = validateNumberProperties()
@@ -28,7 +28,6 @@ internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<DomainError, Ob
     val combinedPropertyValidation = validateCombinedProperties()
 
     return listOf(
-        commonAnnotationsValidation,
         objectSchemaValidation,
         stringPropertyValidation,
         numberPropertyValidation,

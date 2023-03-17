@@ -117,7 +117,6 @@ internal class AppInstallationUseCasesService(
             }
         }
 
-    // TODO #29 allow multiple errors -> zip
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<DomainError, AppInstallation> =
         queryPersistence.getOrError(workspaceId).andThen { workspace ->
             workspace.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->

@@ -1,9 +1,10 @@
 package de.chrgroth.james
 
+import arrow.core.ValidatedNel
 import arrow.core.valueOr
-import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 enum class ValidationTestDomainErrorCodes : DomainErrorCode {
     ERROR, SIDEKICK;
@@ -234,6 +235,15 @@ class ValidationReduceTests {
         domainErrorCode = ValidationTestDomainErrorCodes.SIDEKICK,
         errorDetails = "TEST DETAILS",
     ) { }
+
+    @Test
+    fun `empty`() {
+        val combined: List<ValidatedNel<DomainError, Unit>> = emptyList()
+        assertThrows<UnsupportedOperationException>("Empty collection can't be reduced.") {
+            combined.reduceWithFirstValue()
+        }
+        combined.reduceWithAllValues().expectSuccess()
+    }
 
     @Test
     fun `invalid only`() {

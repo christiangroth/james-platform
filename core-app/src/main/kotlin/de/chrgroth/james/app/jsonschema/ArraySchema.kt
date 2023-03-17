@@ -12,7 +12,7 @@ import org.everit.json.schema.ObjectSchema
 internal fun ObjectSchema.validateArrayProperties(): ValidatedNel<DomainError, Unit> =
     filterProperties(ArraySchema::class)
         .mapNotNull { it.value.validateDefinition(propertyName = it.key) }
-        .reduceWithFirstValue()
+        .reduceWithFirstValue(valueProviderIfEmpty = { })
 
 internal val ArraySchema.minItemsNullSafe get() = minItems ?: 0
 internal val ArraySchema.maxItemsNullSafe get() = maxItems ?: Int.MAX_VALUE

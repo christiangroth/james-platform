@@ -91,16 +91,16 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): ValidatedNel
 
     val keptArrayPropertiesValidation = matchPropertySchemas(ArraySchema::class).map {
         it.first.computeCompatibility(it.second)
-    }.reduceWithFirstValue()
+    }.reduceWithFirstValue(valueProviderIfEmpty = { })
     val keptCombinedPropertiesValidation = matchPropertySchemas(CombinedSchema::class).map {
         it.first.computeCompatibility(it.second)
-    }.reduceWithFirstValue()
+    }.reduceWithFirstValue(valueProviderIfEmpty = { })
     val keptNumberPropertiesValidation = matchPropertySchemas(NumberSchema::class).map {
         it.first.computeCompatibility(it.second)
-    }.reduceWithFirstValue()
+    }.reduceWithFirstValue(valueProviderIfEmpty = { })
     val keptStringPropertiesValidation = matchPropertySchemas(StringSchema::class).map {
         it.first.computeCompatibility(it.second)
-    }.reduceWithFirstValue()
+    }.reduceWithFirstValue(valueProviderIfEmpty = { })
 
     return listOf(
         removedPropertiesValidation,
