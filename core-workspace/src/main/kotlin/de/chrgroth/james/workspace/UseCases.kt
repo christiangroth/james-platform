@@ -3,9 +3,8 @@ package de.chrgroth.james.workspace
 import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.andThen
-import arrow.core.validNel
 import com.github.glwithu06.semver.Semver
-import de.chrgroth.james.Error
+import de.chrgroth.james.DomainError
 import de.chrgroth.james.app.AppQueryPersistencePort
 import de.chrgroth.james.createValidation
 import de.chrgroth.james.reduceWithFirstValue
@@ -16,19 +15,19 @@ import java.util.UUID
 // TODO #22 need to check if user is active
 
 interface WorkspaceUseCases {
-    fun createWorkspace(userId: UUID, name: String): ValidatedNel<Error, Workspace>
-    fun reorderWorkspaces(userId: UUID, order: List<UUID>): ValidatedNel<Error, Unit>
-    fun renameWorkspace(id: UUID, newName: String): ValidatedNel<Error, Workspace>
-    fun deleteWorkspace(id: UUID): ValidatedNel<Error, Unit>
+    fun createWorkspace(userId: UUID, name: String): ValidatedNel<DomainError, Workspace>
+    fun reorderWorkspaces(userId: UUID, order: List<UUID>): ValidatedNel<DomainError, Unit>
+    fun renameWorkspace(id: UUID, newName: String): ValidatedNel<DomainError, Workspace>
+    fun deleteWorkspace(id: UUID): ValidatedNel<DomainError, Unit>
 }
 
 interface AppInstallationUseCases {
-    fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): ValidatedNel<Error, AppInstallation>
-    fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): ValidatedNel<Error, AppInstallation>
-    fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<Error, AppInstallation>
-    fun reorderApps(workspaceId: UUID, order: List<UUID>): ValidatedNel<Error, Workspace>
-    fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): ValidatedNel<Error, Pair<Workspace, Workspace>>
-    fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): ValidatedNel<Error, Workspace>
+    fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): ValidatedNel<DomainError, AppInstallation>
+    fun nameApp(workspaceId: UUID, appInstallationId: UUID, nameSupplement: String?): ValidatedNel<DomainError, AppInstallation>
+    fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<DomainError, AppInstallation>
+    fun reorderApps(workspaceId: UUID, order: List<UUID>): ValidatedNel<DomainError, Workspace>
+    fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): ValidatedNel<DomainError, Pair<Workspace, Workspace>>
+    fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): ValidatedNel<DomainError, Workspace>
 }
 
 internal class WorkspaceUseCasesService(
@@ -36,7 +35,7 @@ internal class WorkspaceUseCasesService(
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : WorkspaceUseCases {
 
-    override fun createWorkspace(userId: UUID, name: String): ValidatedNel<Error, Workspace> =
+    override fun createWorkspace(userId: UUID, name: String): ValidatedNel<DomainError, Workspace> =
         queryPersistence.findForUser(userId).andThen { persistentWorkspaces ->
             val currentMaxOrder = persistentWorkspaces.maxOfOrNull { it.order } ?: -1
             Workspace.create(userId = userId, order = currentMaxOrder + 1, name = name)
@@ -44,22 +43,22 @@ internal class WorkspaceUseCasesService(
             commandPersistence.upsert(it)
         }
 
-    override fun reorderWorkspaces(userId: UUID, order: List<UUID>): ValidatedNel<Error, Unit> =
+    override fun reorderWorkspaces(userId: UUID, order: List<UUID>): ValidatedNel<DomainError, Unit> =
         queryPersistence.findForUser(userId).andThen { persistentWorkspaces ->
             val existingIds = persistentWorkspaces.map { it.id }
 
-            val unknownIdsValidation: ValidatedNel<Error, Unit> = order.minus(existingIds.toSet()).let {
+            val unknownIdsValidation: ValidatedNel<DomainError, Unit> = order.minus(existingIds.toSet()).let {
                 createValidation(
                     errorCondition = it.isNotEmpty(),
-                    errorCode = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+                    domainErrorCode = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
                     errorDetails = it.toString(),
                 ) {}
             }
 
-            val missingIdsValidation: ValidatedNel<Error, Unit> = existingIds.minus(order.toSet()).let {
+            val missingIdsValidation: ValidatedNel<DomainError, Unit> = existingIds.minus(order.toSet()).let {
                 createValidation(
                     errorCondition = it.isNotEmpty(),
-                    errorCode = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+                    domainErrorCode = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
                     errorDetails = it.toString(),
                 ) {}
             }
@@ -72,14 +71,14 @@ internal class WorkspaceUseCasesService(
             }
         }
 
-    override fun renameWorkspace(id: UUID, newName: String): ValidatedNel<Error, Workspace> =
+    override fun renameWorkspace(id: UUID, newName: String): ValidatedNel<DomainError, Workspace> =
         queryPersistence.getOrError(id).andThen {
             it.changeName(newName)
         }.andThen {
             commandPersistence.upsert(it)
         }
 
-    override fun deleteWorkspace(id: UUID): ValidatedNel<Error, Unit> =
+    override fun deleteWorkspace(id: UUID): ValidatedNel<DomainError, Unit> =
         queryPersistence.getOrError(id).andThen { workspace ->
             workspace.verifyDeletion()
         }.andThen {
@@ -94,7 +93,7 @@ internal class AppInstallationUseCasesService(
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : AppInstallationUseCases {
 
-    override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): ValidatedNel<Error, AppInstallation> =
+    override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): ValidatedNel<DomainError, AppInstallation> =
         appQueryPersistence.getOrError(appId, appVersion).andThen {
             queryPersistence.getOrError(workspaceId)
         }.andThen {
@@ -119,7 +118,7 @@ internal class AppInstallationUseCasesService(
         }
 
     // TODO #29 allow multiple errors -> zip
-    override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<Error, AppInstallation> =
+    override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<DomainError, AppInstallation> =
         queryPersistence.getOrError(workspaceId).andThen { workspace ->
             workspace.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->
                 appQueryPersistence.getOrError(appInstallation.appId, targetVersion).andThen { _ ->
@@ -134,7 +133,7 @@ internal class AppInstallationUseCasesService(
             }
         }
 
-    override fun reorderApps(workspaceId: UUID, order: List<UUID>): ValidatedNel<Error, Workspace> =
+    override fun reorderApps(workspaceId: UUID, order: List<UUID>): ValidatedNel<DomainError, Workspace> =
         queryPersistence.getOrError(workspaceId).andThen {
             it.reorderAppInstallations(order)
         }.andThen { updatedWorkspace ->
@@ -142,7 +141,7 @@ internal class AppInstallationUseCasesService(
         }
 
     // TODO #5 trigger data movement, if needed?
-    override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): ValidatedNel<Error, Pair<Workspace, Workspace>> =
+    override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): ValidatedNel<DomainError, Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).andThen { source ->
             source.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->
                 queryPersistence.getOrError(targetWorkspaceId).andThen { target ->
@@ -162,7 +161,7 @@ internal class AppInstallationUseCasesService(
             }
         }
 
-    override fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): ValidatedNel<Error, Workspace> =
+    override fun uninstallApp(workspaceId: UUID, appInstallationId: UUID): ValidatedNel<DomainError, Workspace> =
         queryPersistence.getOrError(workspaceId).andThen {
             it.uninstallApp(appInstallationId)
         }.andThen {

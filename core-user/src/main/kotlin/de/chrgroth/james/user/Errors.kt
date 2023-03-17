@@ -1,9 +1,9 @@
 package de.chrgroth.james.user
 
-import de.chrgroth.james.ErrorCode
+import de.chrgroth.james.DomainErrorCode
 
 // TODO #29 making it internal was a good idea, but we are using some codes cross module
-enum class UserErrorCodes : ErrorCode {
+enum class UserDomainErrorCodes : DomainErrorCode {
     EMAIL_EXISTS,
     EMAIL_BLANK,
     EMAIL_INVALID,

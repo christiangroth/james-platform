@@ -1,9 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
 import arrow.core.ValidatedNel
-import arrow.core.andThen
-import de.chrgroth.james.Error
-import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.app.AppDomainErrorCodes
 import de.chrgroth.james.createValidation
 import de.chrgroth.james.reduceWithFirstValue
 import org.everit.json.schema.ObjectSchema
@@ -19,7 +18,7 @@ $schemaContent
 }
 """.trimIndent()
 
-internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<Error, ObjectSchema> {
+internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<DomainError, ObjectSchema> {
     val commonAnnotationsValidation = validateCommonAnnotations(null)
     val objectSchemaValidation = validateDefinition()
     val stringPropertyValidation = validateStringProperties()
@@ -41,50 +40,50 @@ internal fun ObjectSchema.validateTopLevelSchema(): ValidatedNel<Error, ObjectSc
 
 // see: https://json-schema.org/understanding-json-schema/reference/object.html
 @Suppress("LongMethod", "ComplexMethod")
-internal fun ObjectSchema.validateDefinition(): ValidatedNel<Error, Unit> {
+internal fun ObjectSchema.validateDefinition(): ValidatedNel<DomainError, Unit> {
 
     val commonAnnotationsValidation = validateCommonAnnotations(null)
 
     val minPropertiesValidation = createValidation(
         errorCondition = minProperties != null && minProperties > 0,
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
     val maxPropertiesValidation = createValidation(
         errorCondition = maxProperties != null && maxProperties > 0,
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
     val additionalPropertiesValidation = createValidation(
         errorCondition = permitsAdditionalProperties(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
     @Suppress("DEPRECATION")
     val patternPropertiesValidation = createValidation(
         errorCondition = patternProperties != null && patternProperties.isNotEmpty(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
     val propertyNameSchemaValidation = createValidation(
         errorCondition = propertyNameSchema != null,
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
     val propertyDependenciesValidation = createValidation(
         errorCondition = propertyDependencies != null && propertyDependencies.isNotEmpty(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
     val schemaDependenciesValidation = createValidation(
         errorCondition = schemaDependencies != null && schemaDependencies.isNotEmpty(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
         errorDetails = null,
     ) {}
 
@@ -94,20 +93,20 @@ internal fun ObjectSchema.validateDefinition(): ValidatedNel<Error, Unit> {
     }
     val invalidPropertyTypesValidation = createValidation(
         errorCondition = invalidPropertyTypes.isNotEmpty(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
         errorDetails = invalidPropertyTypes.map { "${it.key}=${it.value.javaClass.simpleName}" }.toList().toString()
     ) {}
 
     val requiredButNotExistingProperties = requiredProperties?.filter { !definesProperty(it) } ?: emptyList()
     val requiredButNotExistingPropertiesValidation = createValidation(
         errorCondition = requiredButNotExistingProperties.isNotEmpty(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
         errorDetails = requiredButNotExistingProperties.sorted().toString()
     ) {}
 
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
-        errorCode = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+        domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
         errorDetails = unprocessedProperties.toString(),
     ) {}
 

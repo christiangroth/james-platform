@@ -10,41 +10,38 @@ import com.sksamuel.tribune.core.strings.match
 import com.sksamuel.tribune.core.strings.notNullOrBlank
 import com.sksamuel.tribune.core.strings.trim
 
-fun regexParer(errorCodeBlank: ErrorCode, pattern: Regex, errorCodeNoMatch: ErrorCode) = Parser
+fun regexParer(domainErrorCodeBlank: DomainErrorCode, pattern: Regex, domainErrorCodeNoMatch: DomainErrorCode) = Parser
     .fromNullableString()
-    .notNullOrBlank { Error(errorCodeBlank) }
-    .match(pattern) { Error(errorCodeNoMatch, "'$it' does not match $pattern") }
+    .notNullOrBlank { DomainError(domainErrorCodeBlank) }
+    .match(pattern) { DomainError(domainErrorCodeNoMatch, "'$it' does not match $pattern") }
     .trim()
 
-fun notBlankParser(errorCode: ErrorCode) = Parser
+fun notBlankParser(domainErrorCode: DomainErrorCode) = Parser
     .fromNullableString()
-    .notNullOrBlank { Error(errorCode) }
+    .notNullOrBlank { DomainError(domainErrorCode) }
     .trim()
 
-fun notNegativeLongParser(errorCode: ErrorCode) = Parser
+fun notNegativeLongParser(domainErrorCode: DomainErrorCode) = Parser
     .fromNullableString()
-    .notNullOrBlank { Error(errorCode) }
-    .long { Error(errorCode) }
-    .min(0) { Error(errorCode) }
+    .notNullOrBlank { DomainError(domainErrorCode) }
+    .long { DomainError(domainErrorCode) }
+    .min(0) { DomainError(domainErrorCode) }
 
-// TODO #29 tests
-fun <T> createValidation(errorCondition: Boolean, errorCode: ErrorCode, errorDetails: String?, valueProvider: () -> T): ValidatedNel<Error, T> =
+fun <T> createValidation(errorCondition: Boolean, domainErrorCode: DomainErrorCode, errorDetails: String?, valueProvider: () -> T): ValidatedNel<DomainError, T> =
     if (errorCondition) {
-        Validated.invalidNel(Error(errorCode, errorDetails))
+        Validated.invalidNel(DomainError(domainErrorCode, errorDetails))
     } else {
         Validated.validNel(valueProvider())
     }
 
-// TODO #29 add tests
-fun <T> List<ValidatedNel<Error, T>>.reduceWithFirstValue(): ValidatedNel<Error, T> =
+fun <T> List<ValidatedNel<DomainError, T>>.reduceWithFirstValue(): ValidatedNel<DomainError, T> =
     reduce { first, next ->
         first.zip(next) { firstValue, _ ->
             firstValue
         }
     }
 
-// TODO #29 add tests
-fun <T> List<ValidatedNel<Error, T>>.reduceWithAllValues(): ValidatedNel<Error, List<T>> =
+fun <T> List<ValidatedNel<DomainError, T>>.reduceWithAllValues(): ValidatedNel<DomainError, List<T>> =
     fold(Validated.validNel(emptyList())) { all, next ->
         all.zip(next) { allValues, nextValue ->
             allValues.plus(nextValue)

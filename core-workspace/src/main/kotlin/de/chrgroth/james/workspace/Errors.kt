@@ -1,8 +1,8 @@
 package de.chrgroth.james.workspace
 
-import de.chrgroth.james.ErrorCode
+import de.chrgroth.james.DomainErrorCode
 
-enum class WorkspaceErrorCodes : ErrorCode {
+enum class WorkspaceDomainErrorCodes : DomainErrorCode {
     ORDER_NEGATIVE,
     NAME_BLANK,
 

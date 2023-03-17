@@ -1,8 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Error
-import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.expectErrors
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.app.AppDomainErrorCodes
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import org.junit.jupiter.api.Test
 
@@ -25,9 +25,9 @@ abstract class AnnotationsBaseTests {
 
     @Test
     fun `readOnly not allowed`() =
-        toPropertyConverter(""" $prefixForAnnotationTests "readOnly": true """).parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
+        toPropertyConverter(""" $prefixForAnnotationTests "readOnly": true """).parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
                 details = expectedDetails
             )
         )
@@ -39,9 +39,9 @@ abstract class AnnotationsBaseTests {
 
     @Test
     fun `writeOnly not allowed`() =
-        toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": true """).parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
+        toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": true """).parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
                 details = expectedDetails
             )
         )

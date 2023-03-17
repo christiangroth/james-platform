@@ -1,7 +1,7 @@
 package de.chrgroth.james.app.jsonschema
 
 import arrow.core.andThen
-import de.chrgroth.james.expectErrors
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
@@ -10,7 +10,7 @@ import de.chrgroth.james.toStringProperty
 import de.chrgroth.james.toTestSchema
 import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
-import de.chrgroth.james.Error
+import de.chrgroth.james.DomainError
 
 class ObjectSchemaCompatibilityTests {
 
@@ -37,8 +37,8 @@ class ObjectSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
                 details = "[credit_card]"
             )
         )
@@ -67,8 +67,8 @@ class ObjectSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
                 details = "[name]"
             )
         )
@@ -109,8 +109,8 @@ class ObjectSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
                 details = "[name]"
             )
         )
@@ -127,8 +127,8 @@ class ObjectSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.PROPERTY_REMOVED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.PROPERTY_REMOVED,
                 details = "[credit_card]"
             )
         )
@@ -144,8 +144,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
                 details = "LIST -> TUPLE",
             )
         )
@@ -158,8 +158,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
                 details = "0 -> 2",
             )
         )
@@ -172,8 +172,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
                 details = "1 -> 2",
             )
         )
@@ -202,8 +202,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
                 details = "${Int.MAX_VALUE} -> 2",
             )
         )
@@ -216,8 +216,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
                 details = "3 -> 2",
             )
         )
@@ -246,8 +246,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
                 details = "NumberSchema -> StringSchema",
             )
         )
@@ -260,8 +260,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
                 details = "TUPLE -> LIST",
             )
         )
@@ -274,8 +274,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
                 details = "[NumberSchema] -> [NumberSchema, NumberSchema]",
             )
         )
@@ -288,8 +288,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
                 details = "[NumberSchema, StringSchema] -> [NumberSchema, NumberSchema]",
             )
         )
@@ -302,8 +302,8 @@ class ArraySchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
                 details = "[NumberSchema, StringSchema] -> [NumberSchema]",
             )
         )
@@ -327,8 +327,8 @@ class CombinedEnumSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
                 details = "[bar]",
             )
         )
@@ -341,8 +341,8 @@ class CombinedEnumSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
                 details = "[bar]",
             )
         )
@@ -355,8 +355,8 @@ class CombinedEnumSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
                 details = "${Int.MIN_VALUE} -> 7",
             )
         )
@@ -369,8 +369,8 @@ class CombinedEnumSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
                 details = "0 -> 7",
             )
         )
@@ -386,8 +386,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
                 details = "${Int.MIN_VALUE} -> 3",
             )
         )
@@ -400,8 +400,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
                 details = "2 -> 3",
             )
         )
@@ -430,8 +430,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
                 details = "${Int.MAX_VALUE} -> 2",
             )
         )
@@ -444,8 +444,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
                 details = "3 -> 2",
             )
         )
@@ -474,8 +474,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "null -> 2",
             )
         )
@@ -488,8 +488,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "2 -> 7",
             )
         )
@@ -502,8 +502,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "2 -> 4",
             )
         )
@@ -516,8 +516,8 @@ class NumberSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "7 -> 2",
             )
         )
@@ -549,8 +549,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
                 details = "0 -> 3",
             )
         )
@@ -563,8 +563,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
                 details = "2 -> 3",
             )
         )
@@ -593,8 +593,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
                 details = "${Int.MAX_VALUE} -> 2",
             )
         )
@@ -607,8 +607,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
                 details = "3 -> 2",
             )
         )
@@ -637,8 +637,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
                 details = "null -> some-pattern",
             )
         )
@@ -651,8 +651,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
                 details = "some-pattern -> some-other-pattern",
             )
         )
@@ -673,8 +673,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
                 details = "unnamed-format -> email",
             )
         )
@@ -687,8 +687,8 @@ class StringSchemaCompatibilityTests {
 
         expectErrors(
             current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
                 details = "date -> date-time",
             )
         )
@@ -708,9 +708,9 @@ private fun expectCompatible(currentSchemaContent: String, nextSchemaContent: St
     current.computeCompatibility(next).expectSuccess()
 }
 
-private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String, vararg expectedErrors: Error) {
+private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String, vararg expectedDomainErrors: DomainError) {
     val (current, next) = expectParsedSchemas(currentSchemaContent, nextSchemaContent)
-    current.computeCompatibility(next).expectErrors(*expectedErrors)
+    current.computeCompatibility(next).expectDomainErrors(*expectedDomainErrors)
 }
 
 private fun expectParsedSchemas(currentSchemaContent: String, nextSchemaContent: String): Pair<ObjectSchema, ObjectSchema> {

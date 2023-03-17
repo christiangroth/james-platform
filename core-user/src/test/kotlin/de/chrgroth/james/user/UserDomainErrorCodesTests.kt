@@ -1,15 +1,15 @@
 package de.chrgroth.james.user
 
-import de.chrgroth.james.user.UserErrorCodes.DELETE_NOT_SUPPORTED
-import de.chrgroth.james.user.UserErrorCodes.EMAIL_BLANK
-import de.chrgroth.james.user.UserErrorCodes.EMAIL_EXISTS
-import de.chrgroth.james.user.UserErrorCodes.EMAIL_INVALID
-import de.chrgroth.james.user.UserErrorCodes.NAME_BLANK
-import de.chrgroth.james.user.UserErrorCodes.NOT_FOUND
+import de.chrgroth.james.user.UserDomainErrorCodes.DELETE_NOT_SUPPORTED
+import de.chrgroth.james.user.UserDomainErrorCodes.EMAIL_BLANK
+import de.chrgroth.james.user.UserDomainErrorCodes.EMAIL_EXISTS
+import de.chrgroth.james.user.UserDomainErrorCodes.EMAIL_INVALID
+import de.chrgroth.james.user.UserDomainErrorCodes.NAME_BLANK
+import de.chrgroth.james.user.UserDomainErrorCodes.NOT_FOUND
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class UserErrorCodesTests {
+class UserDomainErrorCodesTests {
 
     @Test
     fun ensureErrorCodesNotChanged() {
@@ -23,6 +23,6 @@ class UserErrorCodesTests {
 
     @Test
     fun ensureNumberOfErrorCodesNotChanged() {
-        assertThat(UserErrorCodes.values()).hasSize(6)
+        assertThat(UserDomainErrorCodes.values()).hasSize(6)
     }
 }

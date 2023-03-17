@@ -3,8 +3,8 @@ package de.chrgroth.james.app.jsonschema
 import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.andThen
-import de.chrgroth.james.Error
-import de.chrgroth.james.app.AppErrorCodes
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.app.AppDomainErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.CombinedSchema
@@ -30,11 +30,11 @@ fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String): String
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
-internal fun String.parseToObjectSchema(): ValidatedNel<Error, ObjectSchema> {
+internal fun String.parseToObjectSchema(): ValidatedNel<DomainError, ObjectSchema> {
     return parseJsonSchema().andThen { it.validateTopLevelSchema() }
 }
 
-internal fun String.parseJsonSchema(): ValidatedNel<Error, ObjectSchema> {
+internal fun String.parseJsonSchema(): ValidatedNel<DomainError, ObjectSchema> {
 
     val loadSchemaResult: Result<Schema> = runCatching {
         SchemaLoader.builder()
@@ -50,24 +50,24 @@ internal fun String.parseJsonSchema(): ValidatedNel<Error, ObjectSchema> {
     return when {
         !loadSchemaResult.isSuccess ->
             Validated.invalidNel(
-                Error(
-                    code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
                     details = loadSchemaResult.exceptionOrNull()?.message,
                 )
             )
 
         schemaResult == null ->
             Validated.invalidNel(
-                Error(
-                    code = AppErrorCodes.DATATYPE_SCHEMA_NULL,
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_NULL,
                     details = null
                 )
             )
 
         schemaResult !is ObjectSchema ->
             Validated.invalidNel(
-                Error(
-                    code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
                     details = schemaResult!!.javaClass.simpleName
                 )
             )

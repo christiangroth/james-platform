@@ -1,9 +1,9 @@
 package de.chrgroth.james.app
 
-import de.chrgroth.james.ErrorCode
+import de.chrgroth.james.DomainErrorCode
 
 // TODO #29 making it internal was a good idea, but we are using some codes cross module
-enum class AppErrorCodes : ErrorCode {
+enum class AppDomainErrorCodes : DomainErrorCode {
     NAME_BLANK,
     DATATYPE_NOT_FOUND,
     DATATYPE_NAME_BLANK,

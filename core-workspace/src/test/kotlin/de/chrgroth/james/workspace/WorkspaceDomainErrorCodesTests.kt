@@ -1,20 +1,20 @@
 package de.chrgroth.james.workspace
 
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.INSTALLATION_NOT_FOUND
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.UNINSTALL_NOT_SUPPORTED
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.NAME_BLANK
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.NOT_FOUND
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.ORDER_NEGATIVE
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS
-import de.chrgroth.james.workspace.WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.DOWNGRADE_NOT_SUPPORTED
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.NAME_BLANK
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.NOT_FOUND
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.ORDER_NEGATIVE
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.REORDER_APPS_MISSING_IDS
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.REORDER_APPS_UNKNOWN_IDS
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.REORDER_WORKSPACES_MISSING_IDS
+import de.chrgroth.james.workspace.WorkspaceDomainErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class WorkspaceErrorCodesTests {
+class WorkspaceDomainErrorCodesTests {
 
     @Test
     fun ensureErrorCodesNotChanged() {
@@ -33,6 +33,6 @@ class WorkspaceErrorCodesTests {
 
     @Test
     fun ensureNumberOfErrorCodesNotChanged() {
-        assertThat(WorkspaceErrorCodes.values()).hasSize(11)
+        assertThat(WorkspaceDomainErrorCodes.values()).hasSize(11)
     }
 }
