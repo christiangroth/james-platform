@@ -1,5 +1,6 @@
 package de.chrgroth.james.app.jsonschema
 
+import arrow.core.andThen
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
@@ -9,6 +10,7 @@ import de.chrgroth.james.toStringProperty
 import de.chrgroth.james.toTestSchema
 import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
+import de.chrgroth.james.Error
 
 class ObjectSchemaCompatibilityTests {
 
@@ -706,7 +708,7 @@ private fun expectCompatible(currentSchemaContent: String, nextSchemaContent: St
     current.computeCompatibility(next).expectSuccess()
 }
 
-private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String, vararg expectedErrors: Error<Unit>) {
+private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String, vararg expectedErrors: Error) {
     val (current, next) = expectParsedSchemas(currentSchemaContent, nextSchemaContent)
     current.computeCompatibility(next).expectErrors(*expectedErrors)
 }

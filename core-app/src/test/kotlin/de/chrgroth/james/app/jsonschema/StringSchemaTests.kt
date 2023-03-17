@@ -2,7 +2,6 @@ package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.expectError
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toStringProperty
@@ -109,11 +108,13 @@ class StringSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `invalid pattern syntax`() {
         val schemaContent = """ "pattern": "^(\\([0-9]{3}\\)))?[0-9]{3}-[0-9]{4}${'$'}" """.toStringProperty()
-        schemaContent.parseToObjectSchema().expectErrors(Error(
-            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
-            details = """Unmatched closing ')' near index 14
+        schemaContent.parseToObjectSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
+                details = """Unmatched closing ')' near index 14
 ^(\([0-9]{3}\)))?[0-9]{3}-[0-9]{4}${'$'}
               ^""".trimIndent(),
+            )
         )
     }
 

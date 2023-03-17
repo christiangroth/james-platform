@@ -8,7 +8,3 @@ enum class ValidationTestErrorCodes : ErrorCode {
 }
 
 val testRegex = Regex("[A-Z]+")
-
-class ValidationTests {
-
-}

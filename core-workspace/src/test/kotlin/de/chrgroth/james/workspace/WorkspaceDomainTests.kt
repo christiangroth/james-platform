@@ -1,6 +1,6 @@
 package de.chrgroth.james.workspace
 
-import arrow.core.ValidatedNel
+import arrow.core.Validated
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes

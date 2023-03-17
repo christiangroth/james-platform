@@ -7,6 +7,7 @@ import arrow.core.validNel
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppQueryPersistencePort
+import de.chrgroth.james.createValidation
 import de.chrgroth.james.reduceWithFirstValue
 import java.util.UUID
 
@@ -48,25 +49,19 @@ internal class WorkspaceUseCasesService(
             val existingIds = persistentWorkspaces.map { it.id }
 
             val unknownIdsValidation: ValidatedNel<Error, Unit> = order.minus(existingIds.toSet()).let {
-                if (it.isNotEmpty()) {
-                    Validated.invalidNel(
-                        Error(
-                            code = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
-                            details = it.toString(),
-                        )
-                    )
-                } else Validated.validNel(Unit)
+                createValidation(
+                    errorCondition = it.isNotEmpty(),
+                    errorCode = WorkspaceErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
+                    errorDetails = it.toString(),
+                ) {}
             }
 
             val missingIdsValidation: ValidatedNel<Error, Unit> = existingIds.minus(order.toSet()).let {
-                if (it.isNotEmpty()) {
-                    Validated.invalidNel(
-                        Error(
-                            code = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
-                            details = it.toString(),
-                        )
-                    )
-                } else Validated.validNel(Unit)
+                createValidation(
+                    errorCondition = it.isNotEmpty(),
+                    errorCode = WorkspaceErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
+                    errorDetails = it.toString(),
+                ) {}
             }
 
             listOf(unknownIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {

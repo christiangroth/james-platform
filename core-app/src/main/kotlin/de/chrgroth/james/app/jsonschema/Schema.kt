@@ -46,33 +46,33 @@ internal fun String.parseJsonSchema(): ValidatedNel<Error, ObjectSchema> {
             .build()
     }
 
-    if (!loadSchemaResult.isSuccess) {
-        return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
-                details = loadSchemaResult.exceptionOrNull()?.message,
+    val schemaResult = loadSchemaResult.getOrNull()
+    return when {
+        !loadSchemaResult.isSuccess ->
+            Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
+                    details = loadSchemaResult.exceptionOrNull()?.message,
+                )
             )
-        )
-    }
 
-    val schema = loadSchemaResult.getOrNull()
-        ?: return Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_NULL,
-                details = null
+        schemaResult == null ->
+            Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.DATATYPE_SCHEMA_NULL,
+                    details = null
+                )
             )
-        )
 
-    // ignored properties that are not keywords of a schema
-    return if (schema !is ObjectSchema) {
-        Validated.invalidNel(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                details = schema.javaClass.simpleName
+        schemaResult !is ObjectSchema ->
+            Validated.invalidNel(
+                Error(
+                    code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                    details = schemaResult!!.javaClass.simpleName
+                )
             )
-        )
-    } else {
-        Validated.validNel(schema)
+
+        else -> Validated.validNel(schemaResult as ObjectSchema)
     }
 }
 

@@ -48,12 +48,6 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): ValidatedN
             errorDetails = propertyName,
         ) {}
 
-        val enumAndTypeValidationValidation = createValidation(
-            errorCondition = enumSchema != null && typeSchema != null && enumSupportingJsonSchema != null,
-            errorCode = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_NOT_SUPPORTED,
-            errorDetails = propertyName
-        ) {}
-
         val enumValuesMissingValidation = createValidation(
             errorCondition = enumSchema.possibleValues == null || enumSchema.possibleValues.isEmpty(),
             errorCode = AppErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,

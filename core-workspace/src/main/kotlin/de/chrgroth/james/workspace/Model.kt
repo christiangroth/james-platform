@@ -7,6 +7,7 @@ import com.github.glwithu06.semver.Semver
 import com.sksamuel.tribune.core.Parser
 import com.sksamuel.tribune.core.compose
 import de.chrgroth.james.Error
+import de.chrgroth.james.createValidation
 import de.chrgroth.james.notBlankParser
 import de.chrgroth.james.notNegativeLongParser
 import de.chrgroth.james.reduceWithFirstValue
@@ -62,8 +63,11 @@ data class Workspace private constructor(
     val order get() = orderField
     val name get() = nameField
 
-    internal fun changeOrder(order: Long): ValidatedNel<Error, Workspace> = create(id, userId, order, nameField, appInstallations)
-    internal fun changeName(name: String): ValidatedNel<Error, Workspace> = create(id, userId, orderField, name, appInstallations)
+    internal fun changeOrder(order: Long): ValidatedNel<Error, Workspace> =
+        create(id, userId, order, nameField, appInstallations)
+
+    internal fun changeName(name: String): ValidatedNel<Error, Workspace> =
+        create(id, userId, orderField, name, appInstallations)
 
     internal fun installApp(appId: UUID, appVersion: Semver): ValidatedNel<Error, Workspace> =
         AppInstallation.create(
@@ -84,24 +88,18 @@ data class Workspace private constructor(
         val existingIds = appInstallations.map { it.id }
 
         val newIds = order.minus(existingIds.toSet())
-        val newIdsValidation: ValidatedNel<Error, Unit> = if (newIds.isNotEmpty()) {
-            Validated.invalidNel(
-                Error(
-                    code = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
-                    details = newIds.toString(),
-                )
-            )
-        } else Validated.validNel(Unit)
+        val newIdsValidation = createValidation(
+            errorCondition = newIds.isNotEmpty(),
+            errorCode = WorkspaceErrorCodes.REORDER_APPS_UNKNOWN_IDS,
+            errorDetails = newIds.toString(),
+        ) {}
 
         val missingIds = existingIds.minus(order.toSet())
-        val missingIdsValidation: ValidatedNel<Error, Unit> = if (missingIds.isNotEmpty()) {
-            return Validated.invalidNel(
-                Error(
-                    code = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
-                    details = missingIds.toString(),
-                )
-            )
-        } else Validated.validNel(Unit)
+        val missingIdsValidation = createValidation(
+            errorCondition = missingIds.isNotEmpty(),
+            errorCode = WorkspaceErrorCodes.REORDER_APPS_MISSING_IDS,
+            errorDetails = missingIds.toString(),
+        ) {}
 
         return listOf(newIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {
             create(id, userId, orderField, nameField, order.map { orderId ->
@@ -146,30 +144,19 @@ data class Workspace private constructor(
 
     internal fun getAppInstallationOrError(appInstallationId: UUID): ValidatedNel<Error, AppInstallation> =
         appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
-            if (app == null) {
-                Validated.invalidNel(
-                    Error(
-                        code = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
-                        details = appInstallationId.toString(),
-                    )
-                )
-            } else {
-                Validated.validNel(app)
-            }
+            createValidation(
+                errorCondition = app == null,
+                errorCode = WorkspaceErrorCodes.INSTALLATION_NOT_FOUND,
+                errorDetails = appInstallationId.toString(),
+            ) { app!! }
         }
 
-    internal fun verifyDeletion(): ValidatedNel<Error, Unit> = when {
-        appInstallations.isNotEmpty() -> {
-            Validated.invalidNel(
-                Error(
-                    code = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
-                    details = appInstallations.count().toString()
-                )
-            )
-        }
-
-        else -> Validated.validNel(Unit)
-    }
+    internal fun verifyDeletion(): ValidatedNel<Error, Unit> =
+        createValidation(
+            errorCondition = appInstallations.isNotEmpty(),
+            errorCode = WorkspaceErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
+            errorDetails = appInstallations.count().toString()
+        ) {}
 }
 
 // TODO #8 add data sharing options
@@ -204,16 +191,14 @@ data class AppInstallation private constructor(
 
     // TODO #5 trigger data update, handle breaking changes
     internal fun changeVersion(version: Semver): ValidatedNel<Error, AppInstallation> =
-        if (this.version >= version) {
-            Validated.invalidNel(
-                Error(
-                    code = WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
-                    details = "${this.version} >= $version",
-                )
-            )
-        } else {
-            create(id, appId, version, nameSupplementField)
-        }
+        createValidation(
+            this.version >= version,
+            WorkspaceErrorCodes.DOWNGRADE_NOT_SUPPORTED,
+            "${this.version} >= $version",
+        ) {}
+            .andThen {
+                create(id, appId, version, nameSupplementField)
+            }
 
     // TODO #5 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): ValidatedNel<Error, Unit> =

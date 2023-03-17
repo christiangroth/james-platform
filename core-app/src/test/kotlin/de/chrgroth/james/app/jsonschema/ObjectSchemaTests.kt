@@ -2,7 +2,6 @@ package de.chrgroth.james.app.jsonschema
 
 import de.chrgroth.james.Error
 import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.expectError
 import de.chrgroth.james.expectErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toPropertyInSchemaContent
@@ -174,9 +173,11 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
                 "properties": { "postal_code": { "pattern": "[A-Z][0-9][A-Z] [0-9][A-Z][0-9]" } }
               }
             }
-        """.trimIndent().parseToObjectSchema().expectErrors(Error(
-            code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-            details = "CombinedSchema",
+        """.trimIndent().parseToObjectSchema().expectErrors(
+            Error(
+                code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                details = "CombinedSchema",
+            )
         )
     }
 
