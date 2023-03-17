@@ -4,6 +4,7 @@ import de.chrgroth.james.DomainErrorCode
 
 enum class AppDomainErrorCodes : DomainErrorCode {
     NAME_BLANK,
+    APP_DEVELOPER_UNKNOWN,
     DATATYPE_NOT_FOUND,
     DATATYPE_NAME_BLANK,
     DATATYPE_NAME_INVALID,

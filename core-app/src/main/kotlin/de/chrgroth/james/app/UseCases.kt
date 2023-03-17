@@ -4,7 +4,7 @@ import arrow.core.ValidatedNel
 import arrow.core.andThen
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.DomainError
-import de.chrgroth.james.user.UserQueryPersistencePort
+import de.chrgroth.james.createValidation
 import java.util.UUID
 
 interface AppLifecycleUseCases {
@@ -27,16 +27,19 @@ interface AppVersionDevelopmentUseCases {
 }
 
 internal class AppLifecycleUseCasesService(
-    // TODO #32 remove dependency
-    private val userQueryPersistence: UserQueryPersistencePort,
+    private val userCache: UserCache,
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,
 ) : AppLifecycleUseCases {
 
     // TODO #22 verify developer is active
     override fun create(name: String, developerId: UUID, description: String?): ValidatedNel<DomainError, App> =
-        userQueryPersistence.getOrError(developerId).andThen {
-            App.create(name = name, developerId = it.id, description = description).andThen {
+        createValidation(
+            errorCondition = !userCache.contains(developerId),
+            domainErrorCode = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN,
+            errorDetails = null,
+        ) {}.andThen {
+            App.create(name = name, developerId = developerId, description = description).andThen {
                 commandPersistence.upsert(it)
             }
         }
@@ -80,7 +83,13 @@ internal class AppVersionDevelopmentUseCasesService(
             it.nextVersionDraft
         }
 
-    override fun changeDatatype(id: UUID, name: String, schemaContent: String, description: String?, newName: String?): ValidatedNel<DomainError, AppVersionDraft> =
+    override fun changeDatatype(
+        id: UUID,
+        name: String,
+        schemaContent: String,
+        description: String?,
+        newName: String?,
+    ): ValidatedNel<DomainError, AppVersionDraft> =
         queryPersistence.getOrError(id).andThen {
             it.changeNextVersionDraftDatatype(name, schemaContent, description, newName ?: name)
         }.andThen {

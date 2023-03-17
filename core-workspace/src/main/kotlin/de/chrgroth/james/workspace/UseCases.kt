@@ -5,7 +5,6 @@ import arrow.core.ValidatedNel
 import arrow.core.andThen
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.DomainError
-import de.chrgroth.james.app.AppQueryPersistencePort
 import de.chrgroth.james.createValidation
 import de.chrgroth.james.reduceWithFirstValue
 import java.util.UUID
@@ -87,14 +86,17 @@ internal class WorkspaceUseCasesService(
 }
 
 internal class AppInstallationUseCasesService(
-    // TODO #32 remove dependency
-    private val appQueryPersistence: AppQueryPersistencePort,
+    private val appVersionCache: AppVersionCache,
     private val queryPersistence: WorkspaceQueryPersistencePort,
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : AppInstallationUseCases {
 
     override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): ValidatedNel<DomainError, AppInstallation> =
-        appQueryPersistence.getOrError(appId, appVersion).andThen {
+        createValidation(
+            errorCondition = !appVersionCache.contains(appId, appVersion),
+            domainErrorCode = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
+            errorDetails = null,
+        ) {}.andThen {
             queryPersistence.getOrError(workspaceId)
         }.andThen {
             it.installApp(appId, appVersion)
@@ -120,7 +122,11 @@ internal class AppInstallationUseCasesService(
     override fun updateApp(workspaceId: UUID, appInstallationId: UUID, targetVersion: Semver): ValidatedNel<DomainError, AppInstallation> =
         queryPersistence.getOrError(workspaceId).andThen { workspace ->
             workspace.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->
-                appQueryPersistence.getOrError(appInstallation.appId, targetVersion).andThen { _ ->
+                createValidation(
+                    errorCondition = !appVersionCache.contains(appInstallation.appId, targetVersion),
+                    domainErrorCode = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
+                    errorDetails = null,
+                ) {}.andThen { _ ->
                     workspace.updateAppInstallation(appInstallationId, targetVersion)
                 }
             }

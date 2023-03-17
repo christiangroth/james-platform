@@ -6,6 +6,8 @@ enum class WorkspaceDomainErrorCodes : DomainErrorCode {
     ORDER_NEGATIVE,
     NAME_BLANK,
 
+    APP_VERSION_UNKNOWN,
+
     REORDER_APPS_UNKNOWN_IDS,
     REORDER_APPS_MISSING_IDS,
 
