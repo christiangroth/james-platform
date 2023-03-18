@@ -27,15 +27,13 @@ interface AppVersionDevelopmentUseCases {
 }
 
 internal class AppLifecycleUseCasesService(
-    private val userCache: UserCache,
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,
 ) : AppLifecycleUseCases {
 
-    // TODO #22 verify developer is active
     override fun create(name: String, developerId: UUID, description: String?): ValidatedNel<DomainError, App> =
         createValidation(
-            errorCondition = !userCache.contains(developerId),
+            errorCondition = !ActiveUsersCache.contains(developerId),
             domainErrorCode = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN,
             errorDetails = null,
         ) {}.andThen {

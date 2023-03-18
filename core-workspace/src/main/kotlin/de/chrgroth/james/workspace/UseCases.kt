@@ -86,14 +86,13 @@ internal class WorkspaceUseCasesService(
 }
 
 internal class AppInstallationUseCasesService(
-    private val appVersionCache: AppVersionCache,
     private val queryPersistence: WorkspaceQueryPersistencePort,
     private val commandPersistence: WorkspaceCommandPersistencePort,
 ) : AppInstallationUseCases {
 
     override fun installApp(workspaceId: UUID, appId: UUID, appVersion: Semver): ValidatedNel<DomainError, AppInstallation> =
         createValidation(
-            errorCondition = !appVersionCache.contains(appId, appVersion),
+            errorCondition = !ActiveAppVersionsCache.contains(appId, appVersion),
             domainErrorCode = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
             errorDetails = null,
         ) {}.andThen {
@@ -123,7 +122,7 @@ internal class AppInstallationUseCasesService(
         queryPersistence.getOrError(workspaceId).andThen { workspace ->
             workspace.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->
                 createValidation(
-                    errorCondition = !appVersionCache.contains(appInstallation.appId, targetVersion),
+                    errorCondition = !ActiveAppVersionsCache.contains(appInstallation.appId, targetVersion),
                     domainErrorCode = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
                     errorDetails = null,
                 ) {}.andThen { _ ->
