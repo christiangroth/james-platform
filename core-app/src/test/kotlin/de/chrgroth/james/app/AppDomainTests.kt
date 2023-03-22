@@ -3,11 +3,10 @@ package de.chrgroth.james.app
 import arrow.core.Validated
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.DomainError
+import de.chrgroth.james.DomainEvent
+import de.chrgroth.james.EventBus
 import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
-import de.chrgroth.james.user.User
-import de.chrgroth.james.user.UserDomainErrorCodes
-import de.chrgroth.james.user.UserQueryPersistencePort
 import io.mockk.MockKVerificationScope
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -20,8 +19,7 @@ import java.util.UUID
 
 class AppLifecycleUseCasesTests {
 
-    private val developer = User.create(email = "foo@bar.com", name = "Fooby Bar").expectSuccess()
-    private val developerId = developer.id
+    private val developerId = UUID.randomUUID()
 
     private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
     private val developmentAppId = developmentApp.id
@@ -43,18 +41,13 @@ class AppLifecycleUseCasesTests {
         .discontinue().expectSuccess()
     private val discontinuedAppId = discontinuedApp.id
 
-    private lateinit var userQueryPersistence: UserQueryPersistencePort
     private lateinit var queryPersistence: AppQueryPersistencePort
     private lateinit var commandPersistence: AppCommandPersistencePort
+    private lateinit var activeUsersCache: ActiveUsersCache
     private lateinit var appLifecycleUseCases: AppLifecycleUseCases
 
     @BeforeEach
     internal fun initialize() {
-        userQueryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(any()) } returns (Validated.invalidNel(DomainError(UserDomainErrorCodes.NOT_FOUND, null)))
-            every { it.getOrError(developerId) } returns (Validated.validNel(developer))
-        }
-
         queryPersistence = mockk<AppQueryPersistencePort>().also {
             every { it.getOrError(developmentAppId) } returns (Validated.validNel(developmentApp))
             every { it.getOrError(activeAppId) } returns (Validated.validNel(activeApp))
@@ -67,7 +60,12 @@ class AppLifecycleUseCasesTests {
             every { it.delete(any()) } answers { Validated.validNel(Unit) }
         }
 
-        appLifecycleUseCases = AppLifecycleUseCasesService(userQueryPersistence, queryPersistence, commandPersistence)
+        activeUsersCache = mockk<ActiveUsersCache>().also {
+            every { it.contains(any()) } answers { false }
+            every { it.contains(developerId) } answers { true }
+        }
+
+        appLifecycleUseCases = AppLifecycleUseCasesService(queryPersistence, commandPersistence, activeUsersCache)
     }
 
     @Test
@@ -87,8 +85,11 @@ class AppLifecycleUseCasesTests {
 
         appLifecycleUseCases.create("Test App", developerId, "Fancy App").expectSuccess().assertions()
         verifyMocks {
+            activeUsersCache.contains(withArg {
+                assertThat(it).isEqualTo(developerId)
+            })
             commandPersistence.upsert(withArg {
-                (actual as App).assertions()
+                it.assertions()
             })
         }
     }
@@ -101,18 +102,27 @@ class AppLifecycleUseCasesTests {
                 details = null,
             )
         )
-        verifyMocks()
+        verifyMocks {
+            activeUsersCache.contains(withArg {
+                assertThat(it).isEqualTo(developerId)
+            })
+        }
     }
 
     @Test
     fun `create app with unknown developer`() {
-        appLifecycleUseCases.create("Fancy App", UUID.randomUUID(), "Fancy App").expectDomainErrors(
+        val unknownDeveloperId = UUID.randomUUID()
+        appLifecycleUseCases.create("Fancy App", unknownDeveloperId, "Fancy App").expectDomainErrors(
             DomainError(
-                code = UserDomainErrorCodes.NOT_FOUND,
+                code = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN,
                 details = null,
             )
         )
-        verifyMocks()
+        verifyMocks {
+            activeUsersCache.contains(withArg {
+                assertThat(it).isEqualTo(unknownDeveloperId)
+            })
+        }
     }
 
     @Test
@@ -121,7 +131,7 @@ class AppLifecycleUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppMultipleVersionsId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.note).isEqualTo("New note!")
+                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.note).isEqualTo("New note!")
             })
         }
     }
@@ -158,7 +168,7 @@ class AppLifecycleUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).discontinued).isTrue()
+                assertThat(it.discontinued).isTrue()
             })
         }
     }
@@ -204,13 +214,13 @@ class AppLifecycleUseCasesTests {
         }
         confirmVerified(queryPersistence)
         confirmVerified(commandPersistence)
+        confirmVerified(activeUsersCache)
     }
 }
 
 class AppVersionDevelopmentUseCasesTests {
 
-    private val developer = User.create(email = "foo@bar.com", name = "Fooby Bar").expectSuccess()
-    private val developerId = developer.id
+    private val developerId = UUID.randomUUID()
 
     private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
     private val developmentAppId = developmentApp.id
@@ -232,18 +242,13 @@ class AppVersionDevelopmentUseCasesTests {
         .discontinue().expectSuccess()
     private val discontinuedAppId = discontinuedApp.id
 
-    private lateinit var userQueryPersistence: UserQueryPersistencePort
     private lateinit var queryPersistence: AppQueryPersistencePort
     private lateinit var commandPersistence: AppCommandPersistencePort
+    private lateinit var eventBus: EventBus
     private lateinit var appVersionDevelopmentUseCases: AppVersionDevelopmentUseCases
 
     @BeforeEach
     internal fun initialize() {
-        userQueryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(any()) } returns (Validated.invalidNel(DomainError(UserDomainErrorCodes.NOT_FOUND, null)))
-            every { it.getOrError(developerId) } returns (Validated.validNel(developer))
-        }
-
         queryPersistence = mockk<AppQueryPersistencePort>().also {
             every { it.getOrError(developmentAppId) } returns (Validated.validNel(developmentApp))
             every { it.getOrError(activeAppId) } returns (Validated.validNel(activeApp))
@@ -256,7 +261,11 @@ class AppVersionDevelopmentUseCasesTests {
             every { it.delete(any()) } answers { Validated.validNel(Unit) }
         }
 
-        appVersionDevelopmentUseCases = AppVersionDevelopmentUseCasesService(queryPersistence, commandPersistence)
+        eventBus = mockk<EventBus>().also {
+            every { it.publish(any()) } answers { Unit }
+        }
+
+        appVersionDevelopmentUseCases = AppVersionDevelopmentUseCasesService(queryPersistence, commandPersistence, eventBus)
     }
 
     @Test
@@ -304,7 +313,7 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.datatypes).contains(AppDatatypeDraft.create("NewDatatype", "", null).expectSuccess())
+                assertThat(it.nextVersionDraft.datatypes).contains(AppDatatypeDraft.create("NewDatatype", "", null).expectSuccess())
             })
         }
     }
@@ -380,8 +389,8 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.datatypes).hasSize(1)
-                assertThat((actual as App).nextVersionDraft.datatypes.first().name).isEqualTo("NewDatatype")
+                assertThat(it.nextVersionDraft.datatypes).hasSize(1)
+                assertThat(it.nextVersionDraft.datatypes.first().name).isEqualTo("NewDatatype")
             })
         }
 
@@ -434,9 +443,9 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.datatypes).hasSize(1)
-                assertThat((actual as App).nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
-                assertThat((actual as App).nextVersionDraft.datatypes.first().description).isEqualTo("NEW DESC")
+                assertThat(it.nextVersionDraft.datatypes).hasSize(1)
+                assertThat(it.nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
+                assertThat(it.nextVersionDraft.datatypes.first().description).isEqualTo("NEW DESC")
             })
         }
     }
@@ -447,9 +456,9 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.datatypes).hasSize(1)
-                assertThat((actual as App).nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
-                assertThat((actual as App).nextVersionDraft.datatypes.first().description).isNull()
+                assertThat(it.nextVersionDraft.datatypes).hasSize(1)
+                assertThat(it.nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
+                assertThat(it.nextVersionDraft.datatypes.first().description).isNull()
             })
         }
     }
@@ -486,7 +495,7 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.datatypes).isEmpty()
+                assertThat(it.nextVersionDraft.datatypes).isEmpty()
             })
         }
 
@@ -539,7 +548,7 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.reports).contains(AppReport.create("NewReport", null, "").expectSuccess())
+                assertThat(it.nextVersionDraft.reports).contains(AppReport.create("NewReport", null, "").expectSuccess())
             })
         }
     }
@@ -602,8 +611,8 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.reports).hasSize(1)
-                assertThat((actual as App).nextVersionDraft.reports.first().name).isEqualTo("NewReport")
+                assertThat(it.nextVersionDraft.reports).hasSize(1)
+                assertThat(it.nextVersionDraft.reports.first().name).isEqualTo("NewReport")
             })
         }
     }
@@ -640,9 +649,9 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.reports).hasSize(1)
-                assertThat((actual as App).nextVersionDraft.reports.first().source).isEqualTo("NEW SRC")
-                assertThat((actual as App).nextVersionDraft.reports.first().description).isEqualTo("NEW DESC")
+                assertThat(it.nextVersionDraft.reports).hasSize(1)
+                assertThat(it.nextVersionDraft.reports.first().source).isEqualTo("NEW SRC")
+                assertThat(it.nextVersionDraft.reports.first().description).isEqualTo("NEW DESC")
             })
         }
     }
@@ -653,9 +662,9 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.reports).hasSize(1)
-                assertThat((actual as App).nextVersionDraft.reports.first().source).isEqualTo("")
-                assertThat((actual as App).nextVersionDraft.reports.first().description).isNull()
+                assertThat(it.nextVersionDraft.reports).hasSize(1)
+                assertThat(it.nextVersionDraft.reports.first().source).isEqualTo("")
+                assertThat(it.nextVersionDraft.reports.first().description).isNull()
             })
         }
     }
@@ -692,7 +701,7 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft.reports).isEmpty()
+                assertThat(it.nextVersionDraft.reports).isEmpty()
             })
         }
     }
@@ -729,11 +738,17 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(developmentAppId)
             commandPersistence.upsert(withArg {
-                assertThat((actual as App).nextVersionDraft).isNotNull
-                assertThat((actual as App).latestVersion).isNotNull
-                assertThat((actual as App).latestVersion!!.version).isEqualTo(Semver("0.1.0"))
-                assertThat((actual as App).latestVersion!!.releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
-                assertThat((actual as App).latestVersion!!.releaseNotes.note).isEqualTo("Release it!")
+                assertThat(it.nextVersionDraft).isNotNull
+                assertThat(it.latestVersion).isNotNull
+                assertThat(it.latestVersion!!.version).isEqualTo(Semver("0.1.0"))
+                assertThat(it.latestVersion!!.releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
+                assertThat(it.latestVersion!!.releaseNotes.note).isEqualTo("Release it!")
+            })
+            eventBus.publish(withArg {
+                assertThat(it).isInstanceOf(DomainEvent.AppVersionReleased::class.java)
+                val appVersionReleased = it as DomainEvent.AppVersionReleased
+                assertThat(appVersionReleased.appId).isEqualTo(developmentAppId)
+                assertThat(appVersionReleased.version).isEqualTo(Semver("0.1.0"))
             })
         }
     }
@@ -757,5 +772,6 @@ class AppVersionDevelopmentUseCasesTests {
         }
         confirmVerified(queryPersistence)
         confirmVerified(commandPersistence)
+        confirmVerified(eventBus)
     }
 }

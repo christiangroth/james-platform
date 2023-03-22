@@ -1,9 +1,13 @@
 package de.chrgroth.james.user
 
+import arrow.core.NonEmptyList
 import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.andThen
 import de.chrgroth.james.DomainError
+import de.chrgroth.james.DomainEvent
+import de.chrgroth.james.EventBus
+import kotlinx.coroutines.CoroutineScope
 import java.util.UUID
 
 // TODO #22 need to check if user is active
@@ -21,19 +25,22 @@ interface UserSelfServiceUseCases {
 internal class UserAdminUseCasesService(
     private val queryPersistence: UserQueryPersistencePort,
     private val commandPersistence: UserCommandPersistencePort,
+    private val eventBus: EventBus,
 ) : UserAdminUseCases {
 
     // TODO #22 check if registration enabled/allowed
     override fun registerUser(email: String, name: String): ValidatedNel<DomainError, User> =
-        User.create(email = email, name = name).andThen {
-            it.email.ensureUserNotPresent(queryPersistence) {
-                commandPersistence.upsert(it)
+        User.create(email = email, name = name).andThen { user ->
+            user.email.ensureUserNotPresent(queryPersistence) {
+                commandPersistence.upsert(user).also {
+                    eventBus.publish(DomainEvent.UserRegistered(user.id))
+                }
             }
         }
 
     // TODO #22 define when User deletion is supported
     override fun deleteUser(id: UUID): ValidatedNel<DomainError, Unit> =
-        queryPersistence.getOrError(id).andThen {
+        queryPersistence.getOrError(id).andThen<NonEmptyList<DomainError>, User, Unit> {
             Validated.invalidNel(
                 DomainError(
                     code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED,

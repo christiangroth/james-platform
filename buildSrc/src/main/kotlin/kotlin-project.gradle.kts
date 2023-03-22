@@ -78,7 +78,7 @@ tasks {
     }
 
     compileKotlin {
-        // TODO #29 reactivate
+        // TODO reactivate
         // finalizedBy(tasks.getByName("generateUmlDiagrams"))
     }
 

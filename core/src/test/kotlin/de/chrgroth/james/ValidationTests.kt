@@ -237,11 +237,23 @@ class ValidationReduceTests {
     ) { }
 
     @Test
-    fun `empty`() {
+    fun `empty list reduced to first throws exception`() {
         val combined: List<ValidatedNel<DomainError, Unit>> = emptyList()
         assertThrows<UnsupportedOperationException>("Empty collection can't be reduced.") {
             combined.reduceWithFirstValue()
         }
+        combined.reduceWithAllValues().expectSuccess()
+    }
+
+    @Test
+    fun `empty list reduced to first using fallback`() {
+        val combined: List<ValidatedNel<DomainError, Unit>> = emptyList()
+        combined.reduceWithFirstValue { 42 }.expectSuccess()
+    }
+
+    @Test
+    fun `empty list reduced to all is success`() {
+        val combined: List<ValidatedNel<DomainError, Unit>> = emptyList()
         combined.reduceWithAllValues().expectSuccess()
     }
 

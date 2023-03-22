@@ -4,6 +4,8 @@ import arrow.core.ValidatedNel
 import arrow.core.andThen
 import com.github.glwithu06.semver.Semver
 import de.chrgroth.james.DomainError
+import de.chrgroth.james.DomainEvent
+import de.chrgroth.james.EventBus
 import de.chrgroth.james.createValidation
 import java.util.UUID
 
@@ -29,11 +31,12 @@ interface AppVersionDevelopmentUseCases {
 internal class AppLifecycleUseCasesService(
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,
+    private val activeUsersCache: ActiveUsersCache,
 ) : AppLifecycleUseCases {
 
     override fun create(name: String, developerId: UUID, description: String?): ValidatedNel<DomainError, App> =
         createValidation(
-            errorCondition = !ActiveUsersCache.contains(developerId),
+            errorCondition = !activeUsersCache.contains(developerId),
             domainErrorCode = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN,
             errorDetails = null,
         ) {}.andThen {
@@ -70,6 +73,7 @@ internal class AppLifecycleUseCasesService(
 internal class AppVersionDevelopmentUseCasesService(
     private val queryPersistence: AppQueryPersistencePort,
     private val commandPersistence: AppCommandPersistencePort,
+    private val eventBus: EventBus,
 ) : AppVersionDevelopmentUseCases {
 
     override fun addDatatype(id: UUID, datatypeName: String): ValidatedNel<DomainError, AppVersionDraft> =
@@ -135,8 +139,10 @@ internal class AppVersionDevelopmentUseCasesService(
     override fun release(id: UUID, changeType: AppVersionChangeType, note: String): ValidatedNel<DomainError, AppVersion> =
         queryPersistence.getOrError(id).andThen {
             it.releaseNextVersionDraft(changeType, note)
-        }.andThen {
-            commandPersistence.upsert(it)
+        }.andThen { app ->
+            commandPersistence.upsert(app).also {
+                eventBus.publish(DomainEvent.AppVersionReleased(id, app.latestVersion!!.version))
+            }
         }.map {
             it.latestVersion!!
         }

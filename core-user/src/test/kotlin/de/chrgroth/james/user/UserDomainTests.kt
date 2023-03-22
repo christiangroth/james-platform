@@ -2,6 +2,8 @@ package de.chrgroth.james.user
 
 import arrow.core.Validated
 import de.chrgroth.james.DomainError
+import de.chrgroth.james.DomainEvent
+import de.chrgroth.james.EventBus
 import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import io.mockk.MockKVerificationScope
@@ -22,6 +24,7 @@ class UserDomainTests {
 
     private lateinit var queryPersistence: UserQueryPersistencePort
     private lateinit var commandPersistence: UserCommandPersistencePort
+    private lateinit var eventBus: EventBus
     private lateinit var userAdminUseCases: UserAdminUseCases
     private lateinit var userSelfServiceUseCases: UserSelfServiceUseCases
 
@@ -41,7 +44,11 @@ class UserDomainTests {
             every { it.upsert(any()) } answers { Validated.validNel(this.args[0] as User) }
         }
 
-        userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence)
+        eventBus = mockk<EventBus>().also {
+            every { it.publish(any()) } answers { Unit }
+        }
+
+        userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence, eventBus)
         userSelfServiceUseCases = UserSelfServiceUseCasesService(queryPersistence, commandPersistence)
     }
 
@@ -53,11 +60,21 @@ class UserDomainTests {
             assertThat(name).isEqualTo("Some Name")
         }
 
-        userAdminUseCases.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess().assertions()
+        val createdUser = userAdminUseCases.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess()
+        createdUser.assertions()
+
+        fun DomainEvent.assertions() {
+            assertThat(this).isInstanceOf(DomainEvent.UserRegistered::class.java)
+            assertThat((this as DomainEvent.UserRegistered).id).isEqualTo(createdUser.id)
+        }
+
         verifyMocks {
             queryPersistence.getByEmail("someone@james.de")
             commandPersistence.upsert(withArg {
-                (this.actual as User).assertions()
+                it.assertions()
+            })
+            eventBus.publish(withArg {
+                it.assertions()
             })
         }
     }
@@ -121,7 +138,7 @@ class UserDomainTests {
             queryPersistence.getOrError(existingId)
             queryPersistence.getByEmail("someone_new@james.de")
             commandPersistence.upsert(withArg {
-                (this.actual as User).assertions()
+                it.assertions()
             })
         }
     }
@@ -167,7 +184,7 @@ class UserDomainTests {
         verifyMocks {
             queryPersistence.getOrError(existingId)
             commandPersistence.upsert(withArg {
-                (this.actual as User).assertions()
+                it.assertions()
             })
         }
     }
@@ -220,5 +237,6 @@ class UserDomainTests {
         }
         confirmVerified(queryPersistence)
         confirmVerified(commandPersistence)
+        confirmVerified(eventBus)
     }
 }
