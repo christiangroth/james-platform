@@ -44,6 +44,9 @@ dependencies {
 java {
     withSourcesJar()
     withJavadocJar()
+
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 detekt {
@@ -64,14 +67,15 @@ generateUml {
 
 tasks {
     withType<Detekt> {
-        this.jvmTarget = "11"
+        this.jvmTarget = "17"
     }
 
     // see https://kotlinlang.org/docs/gradle.html#compiler-options
     withType<KotlinCompile>().configureEach {
-        kotlinOptions.apiVersion = "1.5"
-        kotlinOptions.languageVersion = "1.5"
-        kotlinOptions.jvmTarget = "11"
+        kotlinOptions.apiVersion = "1.6"
+        kotlinOptions.languageVersion = "1.6"
+
+        kotlinOptions.jvmTarget = "17"
 
         kotlinOptions.allWarningsAsErrors = true
         kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
