@@ -1,4 +1,8 @@
 import io.gitlab.arturbosch.detekt.Detekt
+import kotlinx.kover.api.CounterType
+import kotlinx.kover.api.KoverVerifyConfig
+import kotlinx.kover.api.VerificationTarget
+import kotlinx.kover.api.VerificationValueType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.net.URI
 
@@ -7,9 +11,9 @@ plugins {
     `java-library`
     `java-test-fixtures`
 
-    jacoco
     id("io.gitlab.arturbosch.detekt")
     id("com.xcporter.metaview")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 repositories {
@@ -58,10 +62,6 @@ generateUml {
     }
 }
 
-jacoco {
-    toolVersion = "0.8.7"
-}
-
 tasks {
     withType<Detekt> {
         this.jvmTarget = "11"
@@ -83,24 +83,31 @@ tasks {
     }
 
     test {
-        finalizedBy(jacocoTestReport)
         useJUnitPlatform()
         testLogging {
             events("passed", "skipped", "failed")
         }
     }
 
-    jacocoTestCoverageVerification {
-        violationRules {
+    kover {
+        htmlReport {
+            onCheck.set(true)
+        }
+
+        verify {
+            onCheck.set(true)
+
             rule {
-                limit {
-                    minimum = "0.90".toBigDecimal()
+                name = "Cover coverage bounds"
+                isEnabled = true
+
+                target = VerificationTarget.ALL
+                bound {
+                    minValue = 90
+                    valueType = VerificationValueType.COVERED_PERCENTAGE
+                    counter = CounterType.INSTRUCTION
                 }
             }
         }
-    }
-
-    check {
-        dependsOn(jacocoTestCoverageVerification)
     }
 }
