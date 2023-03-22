@@ -1,4 +1,8 @@
 import io.gitlab.arturbosch.detekt.Detekt
+import kotlinx.kover.api.CounterType
+import kotlinx.kover.api.KoverVerifyConfig
+import kotlinx.kover.api.VerificationTarget
+import kotlinx.kover.api.VerificationValueType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.net.URI
 
@@ -7,9 +11,9 @@ plugins {
     `java-library`
     `java-test-fixtures`
 
-    jacoco
     id("io.gitlab.arturbosch.detekt")
     id("com.xcporter.metaview")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 repositories {
@@ -24,6 +28,9 @@ dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0-Beta")
+
+    api("com.sksamuel.tribune:tribune-core:1.2.4")
 
     testImplementation("org.assertj:assertj-core:3.23.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
@@ -55,10 +62,6 @@ generateUml {
     }
 }
 
-jacoco {
-    toolVersion = "0.8.7"
-}
-
 tasks {
     withType<Detekt> {
         this.jvmTarget = "11"
@@ -75,28 +78,36 @@ tasks {
     }
 
     compileKotlin {
-        finalizedBy(tasks.getByName("generateUmlDiagrams"))
+        // TODO #9 reactivate
+        // finalizedBy(tasks.getByName("generateUmlDiagrams"))
     }
 
     test {
-        finalizedBy(jacocoTestReport)
         useJUnitPlatform()
         testLogging {
             events("passed", "skipped", "failed")
         }
     }
 
-    jacocoTestCoverageVerification {
-        violationRules {
+    kover {
+        htmlReport {
+            onCheck.set(true)
+        }
+
+        verify {
+            onCheck.set(true)
+
             rule {
-                limit {
-                    minimum = "0.90".toBigDecimal()
+                name = "Cover coverage bounds"
+                isEnabled = true
+
+                target = VerificationTarget.ALL
+                bound {
+                    minValue = 90
+                    valueType = VerificationValueType.COVERED_PERCENTAGE
+                    counter = CounterType.INSTRUCTION
                 }
             }
         }
-    }
-
-    check {
-        dependsOn(jacocoTestCoverageVerification)
     }
 }

@@ -1,7 +1,7 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.expectErrors
+import arrow.core.andThen
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import de.chrgroth.james.toIntegerProperty
@@ -10,6 +10,7 @@ import de.chrgroth.james.toStringProperty
 import de.chrgroth.james.toTestSchema
 import org.everit.json.schema.ObjectSchema
 import org.junit.jupiter.api.Test
+import de.chrgroth.james.DomainError
 
 class ObjectSchemaCompatibilityTests {
 
@@ -34,9 +35,10 @@ class ObjectSchemaCompatibilityTests {
             """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" } }, 
             "required": [ "name", "credit_card" ] """.trimMargin().toTestSchema()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
                 details = "[credit_card]"
             )
         )
@@ -63,9 +65,10 @@ class ObjectSchemaCompatibilityTests {
             """ "properties": { "name": { "type": "string" } }, 
             "required": [ "name" ] """.trimMargin().toTestSchema()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
                 details = "[name]"
             )
         )
@@ -104,9 +107,10 @@ class ObjectSchemaCompatibilityTests {
             """ "properties": { "name": { "type": "string" } }, 
             "required": [ "name" ] """.trimMargin().toTestSchema()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
                 details = "[name]"
             )
         )
@@ -121,11 +125,13 @@ class ObjectSchemaCompatibilityTests {
             """ "properties": { "name": { "type": "string" } }, 
             "required": [ "name" ] """.trimMargin().toTestSchema()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.PROPERTY_REMOVED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.PROPERTY_REMOVED,
                 details = "[credit_card]"
-            ))
+            )
+        )
     }
 }
 
@@ -136,9 +142,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": { "type": "number" } """.toArrayProperty()
         val next = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
                 details = "LIST -> TUPLE",
             )
         )
@@ -149,9 +156,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": { "type": "number" } """.toArrayProperty()
         val next = """ "items": { "type": "number" }, "minItems": 2 """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
                 details = "0 -> 2",
             )
         )
@@ -162,9 +170,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": { "type": "number" }, "minItems": 1 """.toArrayProperty()
         val next = """ "items": { "type": "number" }, "minItems": 2 """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
                 details = "1 -> 2",
             )
         )
@@ -191,9 +200,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": { "type": "number" } """.toArrayProperty()
         val next = """ "items": { "type": "number" }, "maxItems": 2 """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
                 details = "${Int.MAX_VALUE} -> 2",
             )
         )
@@ -204,9 +214,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": { "type": "number" }, "maxItems": 3 """.toArrayProperty()
         val next = """ "items": { "type": "number" }, "maxItems": 2 """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
                 details = "3 -> 2",
             )
         )
@@ -233,9 +244,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": { "type": "number" } """.toArrayProperty()
         val next = """ "items": { "type": "string" } """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
                 details = "NumberSchema -> StringSchema",
             )
         )
@@ -246,9 +258,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
         val next = """ "items": { "type": "number" } """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
                 details = "TUPLE -> LIST",
             )
         )
@@ -259,9 +272,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": [ { "type": "number" } ] """.toArrayProperty()
         val next = """ "items": [ { "type": "number" }, { "type": "number" } ] """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
                 details = "[NumberSchema] -> [NumberSchema, NumberSchema]",
             )
         )
@@ -272,9 +286,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
         val next = """ "items": [ { "type": "number" }, { "type": "number" } ] """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
                 details = "[NumberSchema, StringSchema] -> [NumberSchema, NumberSchema]",
             )
         )
@@ -285,9 +300,10 @@ class ArraySchemaCompatibilityTests {
         val current = """ "items": [ { "type": "number" }, { "type": "string" } ] """.toArrayProperty()
         val next = """ "items": [ { "type": "number" } ] """.toArrayProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
                 details = "[NumberSchema, StringSchema] -> [NumberSchema]",
             )
         )
@@ -309,9 +325,10 @@ class CombinedEnumSchemaCompatibilityTests {
         val current = """ "enum": ["foo", "bar"] """.toStringProperty()
         val next = """ "enum": ["foo", "baz"] """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
                 details = "[bar]",
             )
         )
@@ -322,9 +339,10 @@ class CombinedEnumSchemaCompatibilityTests {
         val current = """ "enum": ["foo", "bar"] """.toStringProperty()
         val next = """ "enum": ["foo"] """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
                 details = "[bar]",
             )
         )
@@ -335,9 +353,10 @@ class CombinedEnumSchemaCompatibilityTests {
         val current = """ "enum": [1, 2, 3] """.toNumberProperty()
         val next = """ "enum": [1, 2, 3, 7], "minimum": 7 """.toNumberProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
                 details = "${Int.MIN_VALUE} -> 7",
             )
         )
@@ -348,9 +367,10 @@ class CombinedEnumSchemaCompatibilityTests {
         val current = """ "enum": ["something", "or something other"] """.toStringProperty()
         val next = """ "enum": ["something", "or something other"], "minLength": 7 """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
                 details = "0 -> 7",
             )
         )
@@ -364,9 +384,10 @@ class NumberSchemaCompatibilityTests {
         val current = "".toIntegerProperty()
         val next = """ "minimum": 3 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
                 details = "${Int.MIN_VALUE} -> 3",
             )
         )
@@ -377,9 +398,10 @@ class NumberSchemaCompatibilityTests {
         val current = """ "minimum": 2 """.toIntegerProperty()
         val next = """ "minimum": 3 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
                 details = "2 -> 3",
             )
         )
@@ -406,9 +428,10 @@ class NumberSchemaCompatibilityTests {
         val current = "".toIntegerProperty()
         val next = """ "maximum": 2 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
                 details = "${Int.MAX_VALUE} -> 2",
             )
         )
@@ -419,9 +442,10 @@ class NumberSchemaCompatibilityTests {
         val current = """ "maximum": 3 """.toIntegerProperty()
         val next = """ "maximum": 2 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
                 details = "3 -> 2",
             )
         )
@@ -448,9 +472,10 @@ class NumberSchemaCompatibilityTests {
         val current = "".toIntegerProperty()
         val next = """ "multipleOf": 2 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "null -> 2",
             )
         )
@@ -461,9 +486,10 @@ class NumberSchemaCompatibilityTests {
         val current = """ "multipleOf": 2 """.toIntegerProperty()
         val next = """ "multipleOf": 7 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "2 -> 7",
             )
         )
@@ -474,9 +500,10 @@ class NumberSchemaCompatibilityTests {
         val current = """ "multipleOf": 2 """.toIntegerProperty()
         val next = """ "multipleOf": 4 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "2 -> 4",
             )
         )
@@ -487,9 +514,10 @@ class NumberSchemaCompatibilityTests {
         val current = """ "multipleOf": 7 """.toIntegerProperty()
         val next = """ "multipleOf": 2 """.toIntegerProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
                 details = "7 -> 2",
             )
         )
@@ -519,9 +547,10 @@ class StringSchemaCompatibilityTests {
         val current = "".toStringProperty()
         val next = """ "minLength": 3 """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
                 details = "0 -> 3",
             )
         )
@@ -532,9 +561,10 @@ class StringSchemaCompatibilityTests {
         val current = """ "minLength": 2 """.toStringProperty()
         val next = """ "minLength": 3 """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
                 details = "2 -> 3",
             )
         )
@@ -561,9 +591,10 @@ class StringSchemaCompatibilityTests {
         val current = "".toStringProperty()
         val next = """ "maxLength": 2 """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
                 details = "${Int.MAX_VALUE} -> 2",
             )
         )
@@ -574,9 +605,10 @@ class StringSchemaCompatibilityTests {
         val current = """ "maxLength": 3 """.toStringProperty()
         val next = """ "maxLength": 2 """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
                 details = "3 -> 2",
             )
         )
@@ -603,9 +635,10 @@ class StringSchemaCompatibilityTests {
         val current = "".toStringProperty()
         val next = """ "pattern": "some-pattern" """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
                 details = "null -> some-pattern",
             )
         )
@@ -616,9 +649,10 @@ class StringSchemaCompatibilityTests {
         val current = """ "pattern": "some-pattern" """.toStringProperty()
         val next = """ "pattern": "some-other-pattern" """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
                 details = "some-pattern -> some-other-pattern",
             )
         )
@@ -637,9 +671,10 @@ class StringSchemaCompatibilityTests {
         val current = "".toStringProperty()
         val next = """ "format": "email" """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
                 details = "unnamed-format -> email",
             )
         )
@@ -650,9 +685,10 @@ class StringSchemaCompatibilityTests {
         val current = """ "format": "date" """.toStringProperty()
         val next = """ "format": "date-time" """.toStringProperty()
 
-        expectErrors(current, next,
-            Error(
-                code = SchemaCompatibilityErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
+        expectErrors(
+            current, next,
+            DomainError(
+                code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
                 details = "date -> date-time",
             )
         )
@@ -672,14 +708,14 @@ private fun expectCompatible(currentSchemaContent: String, nextSchemaContent: St
     current.computeCompatibility(next).expectSuccess()
 }
 
-private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String, vararg expectedErrors: Error<Unit>) {
+private fun expectErrors(currentSchemaContent: String, nextSchemaContent: String, vararg expectedDomainErrors: DomainError) {
     val (current, next) = expectParsedSchemas(currentSchemaContent, nextSchemaContent)
-    current.computeCompatibility(next).expectErrors(*expectedErrors)
+    current.computeCompatibility(next).expectDomainErrors(*expectedDomainErrors)
 }
 
 private fun expectParsedSchemas(currentSchemaContent: String, nextSchemaContent: String): Pair<ObjectSchema, ObjectSchema> {
-    val current = currentSchemaContent.parseJsonSchema().flatMap { it.validateTopLevelSchema() }.expectSuccess()
-    val next = nextSchemaContent.parseJsonSchema().flatMap { it.validateTopLevelSchema() }.expectSuccess()
+    val current = currentSchemaContent.parseJsonSchema().andThen { it.validateTopLevelSchema() }.expectSuccess()
+    val next = nextSchemaContent.parseJsonSchema().andThen { it.validateTopLevelSchema() }.expectSuccess()
 
     return current to next
 }

@@ -1,11 +1,12 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.expectError
+import de.chrgroth.james.app.AppDomainErrorCodes
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.toTestSchema
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
+import de.chrgroth.james.DomainError
 
 class SchemaGenerationTests {
 
@@ -92,17 +93,21 @@ class SchemaParsingTests {
     @Test
     fun `invalid json schema syntax fails`() {
         val schemaContent = ",;,;".toTestSchema()
-        schemaContent.parseToObjectSchema().expectError(
-            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
-            details = "Missing value at 111 [character 0 line 6]"
+        schemaContent.parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
+                details = "Missing value at 111 [character 0 line 6]"
+            )
         )
     }
 
     @Test
     fun `not object schema (cannot happen when using datatypes api everytime)`() {
-        """{ "type": "string" }""".parseJsonSchema().expectError(
-            code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-            details = "StringSchema"
+        """{ "type": "string" }""".parseJsonSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                details = "StringSchema"
+            )
         )
     }
 }

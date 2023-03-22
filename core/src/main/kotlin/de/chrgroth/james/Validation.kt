@@ -1,29 +1,56 @@
 package de.chrgroth.james
 
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.zip
+import com.sksamuel.tribune.core.Parser
+import com.sksamuel.tribune.core.long
+import com.sksamuel.tribune.core.min
+import com.sksamuel.tribune.core.strings.match
+import com.sksamuel.tribune.core.strings.notNullOrBlank
+import com.sksamuel.tribune.core.strings.trim
 
-fun validateMatches(value: String, pattern: Regex, codeBlank: ErrorCode, codeNoMatch: ErrorCode): Maybe<String> =
-    value.trim().let {
-        when {
-            it.isBlank() -> Error(code = codeBlank, details = null)
-            it.matches(pattern) -> Result(it)
-            else -> Error(code = codeNoMatch, details = "'$it' does not match $pattern")
-        }
-    }
+fun regexParer(domainErrorCodeBlank: DomainErrorCode, pattern: Regex, domainErrorCodeNoMatch: DomainErrorCode) = Parser
+    .fromNullableString()
+    .notNullOrBlank { DomainError(domainErrorCodeBlank) }
+    .match(pattern) { DomainError(domainErrorCodeNoMatch, "'$it' does not match $pattern") }
+    .trim()
 
-fun validateNotBlank(value: String, codeBlank: ErrorCode): Maybe<String> =
-    value.trim().let {
-        if (it.isBlank()) {
-            Error(code = codeBlank, details = null)
-        } else {
-            Result(it)
-        }
-    }
+fun notBlankParser(domainErrorCode: DomainErrorCode) = Parser
+    .fromNullableString()
+    .notNullOrBlank { DomainError(domainErrorCode) }
+    .trim()
 
-fun validateNotNegative(value: Long, codeNegative: ErrorCode): Maybe<Long> =
-    if (value >= 0) {
-        Result(value)
+fun notNegativeLongParser(domainErrorCode: DomainErrorCode) = Parser
+    .fromNullableString()
+    .notNullOrBlank { DomainError(domainErrorCode) }
+    .long { DomainError(domainErrorCode) }
+    .min(0) { DomainError(domainErrorCode) }
+
+fun <T> createValidation(errorCondition: Boolean, domainErrorCode: DomainErrorCode, errorDetails: String?, valueProvider: () -> T): ValidatedNel<DomainError, T> =
+    if (errorCondition) {
+        Validated.invalidNel(DomainError(domainErrorCode, errorDetails))
     } else {
-        Error(code = codeNegative, details = value.toString())
+        Validated.validNel(valueProvider())
+    }
+
+fun <T> List<ValidatedNel<DomainError, T>>.reduceWithFirstValue(valueProviderIfEmpty: () -> T): ValidatedNel<DomainError, T> =
+    if(isEmpty()) {
+        Validated.validNel(valueProviderIfEmpty())
+    } else {
+        reduceWithFirstValue()
+    }
+
+fun <T> List<ValidatedNel<DomainError, T>>.reduceWithFirstValue(): ValidatedNel<DomainError, T> =
+    reduce { first, next ->
+        first.zip(next) { firstValue, _ ->
+            firstValue
+        }
+    }
+
+fun <T> List<ValidatedNel<DomainError, T>>.reduceWithAllValues(): ValidatedNel<DomainError, List<T>> =
+    fold(Validated.validNel(emptyList())) { all, next ->
+        all.zip(next) { allValues, nextValue ->
+            allValues.plus(nextValue)
+        }
     }

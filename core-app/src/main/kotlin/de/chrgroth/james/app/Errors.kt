@@ -1,9 +1,10 @@
 package de.chrgroth.james.app
 
-import de.chrgroth.james.ErrorCode
+import de.chrgroth.james.DomainErrorCode
 
-enum class AppErrorCodes : ErrorCode {
+internal enum class AppDomainErrorCodes : DomainErrorCode {
     NAME_BLANK,
+    APP_DEVELOPER_UNKNOWN,
     DATATYPE_NOT_FOUND,
     DATATYPE_NAME_BLANK,
     DATATYPE_NAME_INVALID,

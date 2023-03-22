@@ -1,9 +1,10 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.Maybe.Result
-import de.chrgroth.james.app.AppErrorCodes
+import arrow.core.Validated
+import arrow.core.ValidatedNel
+import arrow.core.andThen
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.app.AppDomainErrorCodes
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.CombinedSchema
@@ -19,23 +20,23 @@ import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 
-// TODO #18 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
+// TODO #4 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
 // latest json schema release the library can handle :(
 // latest at all: https://json-schema.org/draft/2020-12/schema
 const val SCHEMA_VERSION = "http://json-schema.org/draft-07/schema"
 
-// TODO #19 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
-fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String) =
+// TODO #4 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
+fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String): String =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
 // see https://github.com/everit-org/json-schema
-internal fun String.parseToObjectSchema(): Maybe<ObjectSchema> {
-    return parseJsonSchema().flatMap { it.validateTopLevelSchema() }
+internal fun String.parseToObjectSchema(): ValidatedNel<DomainError, ObjectSchema> {
+    return parseJsonSchema().andThen { it.validateTopLevelSchema() }
 }
 
-internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
+internal fun String.parseJsonSchema(): ValidatedNel<DomainError, ObjectSchema> {
 
-    val loadSchemaResult = runCatching {
+    val loadSchemaResult: Result<Schema> = runCatching {
         SchemaLoader.builder()
             .draftV7Support()
             .useDefaults(true)
@@ -45,24 +46,33 @@ internal fun String.parseJsonSchema(): Maybe<ObjectSchema> {
             .build()
     }
 
-    return if (loadSchemaResult.isSuccess) {
-        val schema = loadSchemaResult.getOrNull()
-            ?: return Error(code = AppErrorCodes.DATATYPE_SCHEMA_NULL, details = null)
-
-        // ignored properties that are not keywords of a schema
-        when (schema) {
-            !is ObjectSchema -> Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                details = schema.javaClass.simpleName
+    val schemaResult = loadSchemaResult.getOrNull()
+    return when {
+        !loadSchemaResult.isSuccess ->
+            Validated.invalidNel(
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
+                    details = loadSchemaResult.exceptionOrNull()?.message,
+                )
             )
 
-            else -> Result(schema)
-        }
-    } else {
-        Error(
-            code = AppErrorCodes.DATATYPE_SCHEMA_INVALID,
-            details = loadSchemaResult.exceptionOrNull()?.message,
-        )
+        schemaResult == null ->
+            Validated.invalidNel(
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_NULL,
+                    details = null
+                )
+            )
+
+        schemaResult !is ObjectSchema ->
+            Validated.invalidNel(
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
+                    details = schemaResult.javaClass.simpleName
+                )
+            )
+
+        else -> Validated.validNel(schemaResult)
     }
 }
 

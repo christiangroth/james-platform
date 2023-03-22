@@ -1,8 +1,8 @@
 package de.chrgroth.james.app.jsonschema
 
-import de.chrgroth.james.Maybe.Error
-import de.chrgroth.james.app.AppErrorCodes
-import de.chrgroth.james.expectErrors
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.app.AppDomainErrorCodes
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.toArrayProperty
 import org.junit.jupiter.api.Test
@@ -17,27 +17,27 @@ class ArraySchemaTests : AnnotationsBaseTests() {
 
     @Test
     fun `title not allowed`() =
-        """ $prefixForAnnotationTests "title": "Some title" """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
+        """ $prefixForAnnotationTests "title": "Some title" """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
                 details = "testPropertyName"
             )
         )
 
     @Test
     fun `default not allowed`() =
-        """ $prefixForAnnotationTests "default": [1, 2, 3] """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
+        """ $prefixForAnnotationTests "default": [1, 2, 3] """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
                 details = "testPropertyName"
             )
         )
 
     @Test
     fun `without items definition`() {
-        """ "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+        """ "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             )
         )
@@ -55,18 +55,18 @@ class ArraySchemaTests : AnnotationsBaseTests() {
 
     @Test
     fun `list mode with additionalItems defined`() =
-        """ "items": { "type": "number" }, "additionalItems": { "type": "number" } """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
+        """ "items": { "type": "number" }, "additionalItems": { "type": "number" } """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `list mode with empty items definition`() {
-        """ "items": {}, "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
+        """ "items": {}, "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
                 details = "testPropertyName",
             )
         )
@@ -86,18 +86,18 @@ class ArraySchemaTests : AnnotationsBaseTests() {
     @Test
     fun `tuple mode with additionalItems defined`() =
         """ "items": [ { "type": "number" }, { "type": "string" } ], "additionalItems": { "type": "number" } """.toArrayProperty()
-            .parseToObjectSchema().expectErrors(
-                Error(
-                    code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
+            .parseToObjectSchema().expectDomainErrors(
+                DomainError(
+                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
                     details = "testPropertyName",
                 )
             )
 
     @Test
     fun `tuple mode with empty items definition`() {
-        """ "items": [], "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+        """ "items": [], "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             )
         )
@@ -105,102 +105,102 @@ class ArraySchemaTests : AnnotationsBaseTests() {
 
     @Test
     fun `negative minItems in list mode`() =
-        """ "items": { "type": "number" }, "minItems": -1 """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
+        """ "items": { "type": "number" }, "minItems": -1 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `zero maxItems in list mode`() =
-        """ "items": { "type": "number" }, "maxItems": 0 """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
+        """ "items": { "type": "number" }, "maxItems": 0 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `negative maxItems in list mode`() =
-        """ "items": { "type": "number" }, "maxItems": -1 """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
+        """ "items": { "type": "number" }, "maxItems": -1 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
                 details = "testPropertyName",
             ),
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `maxItems smaller minItems in list mode`() =
-        """ "items": { "type": "number" }, "minItems": 3, "maxItems": 2 """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
+        """ "items": { "type": "number" }, "minItems": 3, "maxItems": 2 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `minItems in tuple mode`() =
-        """ "items": [ { "type": "number" }, { "type": "string" } ], "minItems": 2 """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
+        """ "items": [ { "type": "number" }, { "type": "string" } ], "minItems": 2 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `maxItems in tuple mode`() =
-        """ "items": [ { "type": "number" }, { "type": "string" } ], "maxItems": 2 """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
+        """ "items": [ { "type": "number" }, { "type": "string" } ], "maxItems": 2 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `contains schema used`() =
-        """ "contains": { "type": "number" } """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+        """ "contains": { "type": "number" } """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             ),
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `contains object in list mode`() =
-        """ "items": { "type": "object" } """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+        """ "items": { "type": "object" } """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `contains object in tuple mode`() =
-        """ "items": [ { "type": "number" }, { "type": "object" } ] """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
+        """ "items": [ { "type": "number" }, { "type": "object" } ] """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
                 details = "testPropertyName",
             )
         )
 
     @Test
     fun `unprocessed properties`() {
-        """ "bar": "baz" """.toArrayProperty().parseToObjectSchema().expectErrors(
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
+        """ "bar": "baz" """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
                 details = "testPropertyName",
             ),
-            Error(
-                code = AppErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
+            DomainError(
+                code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
                 details = "testPropertyName: {bar=baz}"
             )
         )
