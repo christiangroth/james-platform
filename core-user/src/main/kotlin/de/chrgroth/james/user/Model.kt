@@ -49,7 +49,7 @@ data class User private constructor(
     val email get() = emailField
     val name get() = nameField
 
-    // TODO #22 send user to revalidation status?
+    // TODO #6 send user to revalidation status?
     internal fun changeEmail(email: String): ValidatedNel<DomainError, User> = create(id, email, nameField)
     internal fun changeName(name: String): ValidatedNel<DomainError, User> = create(id, emailField, name)
 }

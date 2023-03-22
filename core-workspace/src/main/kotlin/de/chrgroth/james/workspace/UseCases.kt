@@ -9,9 +9,7 @@ import de.chrgroth.james.createValidation
 import de.chrgroth.james.reduceWithFirstValue
 import java.util.UUID
 
-// TODO #28 explicit return type notations (EVERYWHERE!) / force it?
-
-// TODO #22 need to check if user is active
+// TODO #6 need to check if user is active
 
 interface WorkspaceUseCases {
     fun createWorkspace(userId: UUID, name: String): ValidatedNel<DomainError, Workspace>
@@ -145,7 +143,7 @@ internal class AppInstallationUseCasesService(
             commandPersistence.upsert(updatedWorkspace)
         }
 
-    // TODO #5 trigger data movement, if needed?
+    // TODO #2 trigger data movement, if needed?
     override fun moveApp(sourceWorkspaceId: UUID, appInstallationId: UUID, targetWorkspaceId: UUID): ValidatedNel<DomainError, Pair<Workspace, Workspace>> =
         queryPersistence.getOrError(sourceWorkspaceId).andThen { source ->
             source.getAppInstallationOrError(appInstallationId).andThen { appInstallation ->

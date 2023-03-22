@@ -19,8 +19,6 @@ import java.util.UUID
 import de.chrgroth.james.DomainError
 import de.chrgroth.james.reduceWithAllValues
 
-// TODO #28 make return types explicit (check all files)
-
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
 }
@@ -66,7 +64,7 @@ data class App private constructor(
     val name get() = nameField
     val description get() = descriptionField
 
-    // TODO #22 set to disabled/discontinued if developer is not active
+    // TODO #6 set to disabled/discontinued if developer is not active
     val status by lazy {
         when {
             discontinued -> AppStatus.DISCONTINUED
@@ -236,8 +234,8 @@ data class App private constructor(
         }
     }
 
-    // TODO #36 prevent release if no changes at all
-    // TODO #36 add methods to get all new/changed datatypes/reports
+    // TODO #8 prevent release if no changes at all
+    // TODO #8 add methods to get all new/changed datatypes/reports
     internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
         !status.allowsChanges -> Validated.invalidNel(
             DomainError(
@@ -353,7 +351,7 @@ data class AppVersion private constructor(
     internal fun changeReleaseNote(note: String): ValidatedNel<DomainError, AppVersion> = create(this, note)
 }
 
-// TODO #36 add release notes draft?
+// TODO #8 add release notes draft?
 data class AppVersionDraft private constructor(
     val datatypes: Set<AppDatatypeDraft>,
     val reports: Set<AppReport>,
@@ -426,7 +424,7 @@ enum class AppVersionChangeType {
     BUGFIX, FEATURE
 }
 
-// TODO #35 split up note field to title and optional description?
+// TODO #7 split up note field to title and optional description?
 data class AppVersionReleaseNotes private constructor(
     val changeType: AppVersionChangeType,
     private var noteField: String,
@@ -522,8 +520,8 @@ data class AppDatatypeDraft private constructor(
     val description get() = descriptionField
 
     fun validateJsonSchema(): ValidatedNel<DomainError, ObjectSchema> = jsonObjectSchemaFor(
-        // TODO #19 appId = appId,
-        // TODO #19 version = null,
+        // TODO #4 appId = appId,
+        // TODO #4 version = null,
         name = name,
         description = description ?: "",
         schemaContent = schemaContent,
@@ -570,8 +568,8 @@ data class AppDatatype private constructor(
     val description get() = descriptionField
 
     fun validateJsonSchema(): ValidatedNel<DomainError, ObjectSchema> = jsonObjectSchemaFor(
-        // TODO #19 appId = appId,
-        // TODO #19 version = version.toString(),
+        // TODO #4 appId = appId,
+        // TODO #4 version = version.toString(),
         name = name,
         description = description ?: "",
         schemaContent = schemaContent,

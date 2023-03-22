@@ -134,7 +134,7 @@ data class Workspace private constructor(
             }
         }
 
-    // TODO #5 decide when deleting app is allowed
+    // TODO #2 decide when deleting app is allowed
     internal fun uninstallApp(id: UUID): ValidatedNel<DomainError, Workspace> =
         getAppInstallationOrError(id).andThen { app ->
             app.verifyDeletion()
@@ -159,8 +159,8 @@ data class Workspace private constructor(
         ) {}
 }
 
-// TODO #8 add data sharing options
-// TODO #8 think about access for devices / api keys
+// TODO #1 add data sharing options
+// TODO #1 think about access for devices / api keys
 data class AppInstallation private constructor(
     val id: UUID,
     val appId: UUID,
@@ -189,7 +189,7 @@ data class AppInstallation private constructor(
     internal fun changeNameSupplement(nameSupplement: String?): ValidatedNel<DomainError, AppInstallation> =
         create(id, appId, version, nameSupplement)
 
-    // TODO #5 trigger data update, handle breaking changes
+    // TODO #2 trigger data update, handle breaking changes
     internal fun changeVersion(version: Semver): ValidatedNel<DomainError, AppInstallation> =
         createValidation(
             this.version >= version,
@@ -200,7 +200,7 @@ data class AppInstallation private constructor(
                 create(id, appId, version, nameSupplementField)
             }
 
-    // TODO #5 define rules when to delete app installations. what about the data? what if shared?
+    // TODO #2 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
         Validated.invalidNel(
             DomainError(

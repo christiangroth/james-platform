@@ -5,7 +5,7 @@ import de.chrgroth.james.DomainEvent
 import de.chrgroth.james.EventBus
 import java.util.UUID
 
-// TODO bulk insert on application startup
+// TODO #18 bulk insert on application startup
 class ActiveAppVersionsCache(private val eventBus: EventBus) {
     private val data = mutableSetOf<Pair<UUID, Semver>>()
 

@@ -7,7 +7,7 @@ import de.chrgroth.james.DomainError
 interface WorkspaceQueryPersistencePort {
     fun getOrError(workspaceId: UUID): ValidatedNel<DomainError, Workspace>
 
-    // TODO #16 what about paging and how to design filter parameters??
+    // TODO #10 what about paging and how to design filter parameters??
     fun findForUser(userId: UUID): ValidatedNel<DomainError, List<Workspace>>
 }
 

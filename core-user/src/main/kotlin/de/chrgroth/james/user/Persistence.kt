@@ -8,7 +8,7 @@ interface UserQueryPersistencePort {
     fun getOrError(id: UUID): ValidatedNel<DomainError, User>
     fun getByEmail(email: String): ValidatedNel<DomainError, User?>
 
-    // TODO #16 what about paging and how to design filter parameters??
+    // TODO #10 what about paging and how to design filter parameters??
     fun find(): ValidatedNel<DomainError, Set<User>>
 }
 

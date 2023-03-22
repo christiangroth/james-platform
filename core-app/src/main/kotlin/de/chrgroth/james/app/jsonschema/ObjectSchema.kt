@@ -7,8 +7,8 @@ import de.chrgroth.james.createValidation
 import de.chrgroth.james.reduceWithFirstValue
 import org.everit.json.schema.ObjectSchema
 
-// TODO #19 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
-fun jsonObjectSchemaFor(/* TODO #19 appId: UUID, version: String?, */name: String, description: String, schemaContent: String) = """
+// TODO #4 not sure if an id is needed at all: "${'$'}id": "${jsonSchemaIdFor(appId, version, name)}"
+fun jsonObjectSchemaFor(/* TODO #4 appId: UUID, version: String?, */name: String, description: String, schemaContent: String) = """
 {
   "title": "$name",
   "description": "$description",

@@ -9,7 +9,7 @@ interface AppQueryPersistencePort {
     fun getOrError(id: UUID): ValidatedNel<DomainError, App>
     fun getOrError(id: UUID, version: Semver): ValidatedNel<DomainError, AppVersion>
 
-    // TODO #16 what about paging and how to design filter parameters??
+    // TODO #10 what about paging and how to design filter parameters??
     fun find(): ValidatedNel<DomainError, Set<App>>
 }
 

@@ -10,7 +10,7 @@ import de.chrgroth.james.EventBus
 import kotlinx.coroutines.CoroutineScope
 import java.util.UUID
 
-// TODO #22 need to check if user is active
+// TODO #6 need to check if user is active
 
 interface UserAdminUseCases {
     fun registerUser(email: String, name: String): ValidatedNel<DomainError, User>
@@ -28,7 +28,7 @@ internal class UserAdminUseCasesService(
     private val eventBus: EventBus,
 ) : UserAdminUseCases {
 
-    // TODO #22 check if registration enabled/allowed
+    // TODO #6 check if registration enabled/allowed
     override fun registerUser(email: String, name: String): ValidatedNel<DomainError, User> =
         User.create(email = email, name = name).andThen { user ->
             user.email.ensureUserNotPresent(queryPersistence) {
@@ -38,7 +38,7 @@ internal class UserAdminUseCasesService(
             }
         }
 
-    // TODO #22 define when User deletion is supported
+    // TODO #6 define when User deletion is supported
     override fun deleteUser(id: UUID): ValidatedNel<DomainError, Unit> =
         queryPersistence.getOrError(id).andThen<NonEmptyList<DomainError>, User, Unit> {
             Validated.invalidNel(

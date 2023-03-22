@@ -4,7 +4,8 @@ import de.chrgroth.james.DomainEvent
 import de.chrgroth.james.EventBus
 import java.util.UUID
 
-// TODO bulk insert on application startup
+// TODO #6 update on user status change
+// TODO #18 bulk insert on application startup
 class ActiveUsersCache(private val eventBus: EventBus) {
     private val data = mutableSetOf<UUID>()
 

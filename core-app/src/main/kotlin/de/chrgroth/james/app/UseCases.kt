@@ -54,7 +54,7 @@ internal class AppLifecycleUseCasesService(
             app.releasedVersions.firstOrNull { it.version == version }!!
         }
 
-    // TODO #5 check if user data is still present
+    // TODO #2 check if user data is still present
     override fun discontinue(id: UUID): ValidatedNel<DomainError, App> =
         queryPersistence.getOrError(id).andThen {
             it.discontinue()

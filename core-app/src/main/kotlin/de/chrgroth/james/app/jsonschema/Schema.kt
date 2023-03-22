@@ -20,12 +20,12 @@ import java.util.UUID
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 
-// TODO #18 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
+// TODO #4 not sure why this is rejected: "${'$'}schema": "$SCHEMA_VERSION"
 // latest json schema release the library can handle :(
 // latest at all: https://json-schema.org/draft/2020-12/schema
 const val SCHEMA_VERSION = "http://json-schema.org/draft-07/schema"
 
-// TODO #19 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
+// TODO #4 if ids are used then host needs to be added, but not in core project. Must also be resolvable later.
 fun jsonSchemaIdFor(appId: UUID, version: String?, datatypeName: String): String =
     "/apps/$appId/versions/${version ?: "SNAPSHOT"}/datatypes/$datatypeName.schema.json"
 
