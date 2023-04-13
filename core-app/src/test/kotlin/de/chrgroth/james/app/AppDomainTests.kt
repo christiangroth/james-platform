@@ -34,6 +34,7 @@ class AppLifecycleUseCasesTests {
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .addNextVersionDraftDatatype("TestDatatypeTwo").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
@@ -223,7 +224,11 @@ class AppVersionDevelopmentUseCasesTests {
     private val developerId = UUID.randomUUID()
 
     private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
+        .addNextVersionDraftDatatype("SomeChanges").expectSuccess()
     private val developmentAppId = developmentApp.id
+
+    private val developmentAppNoChanges = App.create(name = "Development App unchanged", developerId = developerId, description = " ").expectSuccess()
+    private val developmentAppIdNoChanges = developmentAppNoChanges.id
 
     private val activeApp = App.create(name = "Active App", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
@@ -235,6 +240,7 @@ class AppVersionDevelopmentUseCasesTests {
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .addNextVersionDraftDatatype("TestDatatypeTwo").expectSuccess()
         .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
@@ -251,6 +257,7 @@ class AppVersionDevelopmentUseCasesTests {
     internal fun initialize() {
         queryPersistence = mockk<AppQueryPersistencePort>().also {
             every { it.getOrError(developmentAppId) } returns (Validated.validNel(developmentApp))
+            every { it.getOrError(developmentAppIdNoChanges) } returns (Validated.validNel(developmentAppNoChanges))
             every { it.getOrError(activeAppId) } returns (Validated.validNel(activeApp))
             every { it.getOrError(activeAppMultipleVersionsId) } returns (Validated.validNel(activeAppMultipleVersions))
             every { it.getOrError(discontinuedAppId) } returns (Validated.validNel(discontinuedApp))
@@ -716,6 +723,19 @@ class AppVersionDevelopmentUseCasesTests {
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
+        }
+    }
+
+    @Test
+    fun `release next version without changes`() {
+        appVersionDevelopmentUseCases.release(developmentAppIdNoChanges, AppVersionChangeType.FEATURE, "Release it!").expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES,
+                details = null,
+            )
+        )
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppIdNoChanges)
         }
     }
 

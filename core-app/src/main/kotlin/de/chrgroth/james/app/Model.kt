@@ -234,12 +234,17 @@ data class App private constructor(
         }
     }
 
-    // TODO #8 prevent release if no changes at all
-    // TODO #8 add methods to get all new/changed datatypes/reports
     internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
         !status.allowsChanges -> Validated.invalidNel(
             DomainError(
                 code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                details = null,
+            )
+        )
+
+        !detectIfNextVersionDraftHasChanges() -> Validated.invalidNel(
+            DomainError(
+                code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES,
                 details = null,
             )
         )
@@ -253,6 +258,16 @@ data class App private constructor(
                 }
             }
         }
+    }
+
+    private fun detectIfNextVersionDraftHasChanges(): Boolean {
+        val currentDatatypes = latestVersion?.datatypes?.associate { it.name to it.schemaContent } ?: emptyMap()
+        val nextDatatypes = nextVersionDraft.datatypes.associate { it.name to it.schemaContent }
+
+        val currentReports = latestVersion?.reports?.associate { it.name to it.source} ?: emptyMap()
+        val nextReports = nextVersionDraft.reports.associate { it.name to it.source }
+
+        return !(currentDatatypes == nextDatatypes && currentReports == nextReports)
     }
 
     private fun createNextVersionDraft(latestVersion: AppVersion): ValidatedNel<DomainError, AppVersionDraft> =

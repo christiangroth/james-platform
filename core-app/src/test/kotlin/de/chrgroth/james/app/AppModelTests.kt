@@ -50,7 +50,9 @@ class AppModelTests {
             description = null,
         ).expectSuccess().let { app ->
             if (releaseDevelopmentVersion) {
-                app.releaseNextVersionDraft(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
+                app
+                    .addNextVersionDraftDatatype("SomeChange").expectSuccess()
+                    .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
             } else {
                 app
             }

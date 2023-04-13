@@ -56,6 +56,7 @@ import de.chrgroth.james.app.AppDomainErrorCodes.REPORT_NAME_BLANK
 import de.chrgroth.james.app.AppDomainErrorCodes.REPORT_NAME_DUPLICATE
 import de.chrgroth.james.app.AppDomainErrorCodes.REPORT_NOT_FOUND
 import de.chrgroth.james.app.AppDomainErrorCodes.VERSION_RELEASE_NOTE_BLANK
+import de.chrgroth.james.app.AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -117,13 +118,14 @@ class AppDomainErrorCodesTests {
         assertThat(REPORT_NAME_BLANK.toGlobalRepresentation()).isEqualTo("APP_050_REPORT_NAME_BLANK")
         assertThat(REPORT_NAME_DUPLICATE.toGlobalRepresentation()).isEqualTo("APP_051_REPORT_NAME_DUPLICATE")
         assertThat(RELEASE_VERSION_NOT_FOUND.toGlobalRepresentation()).isEqualTo("APP_052_RELEASE_VERSION_NOT_FOUND")
-        assertThat(VERSION_RELEASE_NOTE_BLANK.toGlobalRepresentation()).isEqualTo("APP_053_VERSION_RELEASE_NOTE_BLANK")
-        assertThat(DISCONTINUED_NO_CHANGES_ALLOWED.toGlobalRepresentation()).isEqualTo("APP_054_DISCONTINUED_NO_CHANGES_ALLOWED")
-        assertThat(DELETE_STATUS_IS_NOT_DISCONTINUED.toGlobalRepresentation()).isEqualTo("APP_055_DELETE_STATUS_IS_NOT_DISCONTINUED")
+        assertThat(VERSION_RELEASE_NO_CHANGES.toGlobalRepresentation()).isEqualTo("APP_053_VERSION_RELEASE_NO_CHANGES")
+        assertThat(VERSION_RELEASE_NOTE_BLANK.toGlobalRepresentation()).isEqualTo("APP_054_VERSION_RELEASE_NOTE_BLANK")
+        assertThat(DISCONTINUED_NO_CHANGES_ALLOWED.toGlobalRepresentation()).isEqualTo("APP_055_DISCONTINUED_NO_CHANGES_ALLOWED")
+        assertThat(DELETE_STATUS_IS_NOT_DISCONTINUED.toGlobalRepresentation()).isEqualTo("APP_056_DELETE_STATUS_IS_NOT_DISCONTINUED")
     }
 
     @Test
     fun ensureNumberOfErrorCodesNotChanged() {
-        assertThat(AppDomainErrorCodes.values()).hasSize(56)
+        assertThat(AppDomainErrorCodes.values()).hasSize(57)
     }
 }
