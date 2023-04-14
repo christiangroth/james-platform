@@ -27,15 +27,21 @@ class AppLifecycleUseCasesTests {
     private val activeApp = App.create(name = "Active App", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
-        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("First Feature!").expectSuccess()
+        .changeNextVersionReleaseNoteFeatures(listOf("Something really nasty implemented here")).expectSuccess()
+        .releaseNextVersionDraft().expectSuccess()
     private val activeAppId = activeApp.id
 
     private val activeAppMultipleVersions = App.create(name = "Active App Multiple Versions", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
-        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("First Feature!").expectSuccess()
+        .changeNextVersionReleaseNoteFeatures(listOf("Something really nasty implemented here")).expectSuccess()
+        .releaseNextVersionDraft().expectSuccess()
         .addNextVersionDraftDatatype("TestDatatypeTwo").expectSuccess()
-        .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("Nothing changed?!?").expectSuccess()
+        .changeNextVersionReleaseNoteBugfixes(listOf("Just fixed some bugs")).expectSuccess()
+        .releaseNextVersionDraft().expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
     private val discontinuedApp = App.create(name = "Discontinued App", developerId = developerId, description = "").expectSuccess()
@@ -127,19 +133,89 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `change release note`() {
-        appLifecycleUseCases.changeReleaseNote(activeAppMultipleVersionsId, Semver("0.1.0"), "New note!").expectSuccess()
+    fun `change release note title to empty`() {
+        appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("0.1.0"), "").expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK,
+                details = null,
+            )
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `change release note title to blank`() {
+        appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("0.1.0"), " ").expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK,
+                details = null,
+            )
+        )
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+        }
+    }
+
+    @Test
+    fun `change release note title`() {
+        appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("0.1.0"), "New title!").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppMultipleVersionsId)
             commandPersistence.upsert(withArg {
-                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.note).isEqualTo("New note!")
+                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.title).isEqualTo("New title!")
             })
         }
     }
 
     @Test
-    fun `change release note on unknown version`() {
-        appLifecycleUseCases.changeReleaseNote(activeAppMultipleVersionsId, Semver("6.6.6"), "New note!").expectDomainErrors(
+    fun `change release note notes`() {
+        appLifecycleUseCases.changeReleaseNoteNotes(activeAppMultipleVersionsId, Semver("0.1.0"), "New notes").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.notes).isEqualTo("New notes")
+            })
+        }
+    }
+
+    @Test
+    fun `change release note features`() {
+        appLifecycleUseCases.changeReleaseNoteFeatures(activeAppMultipleVersionsId, Semver("0.1.0"), listOf("F1", "F2")).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.features).isEqualTo(listOf("F1", "F2"))
+            })
+        }
+    }
+
+    @Test
+    fun `change release note bugfixes`() {
+        appLifecycleUseCases.changeReleaseNoteBugfixes(activeAppMultipleVersionsId, Semver("0.1.0"), listOf("B1", "B2")).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.bugfixes).isEqualTo(listOf("B1", "B2"))
+            })
+        }
+    }
+
+    @Test
+    fun `change release note misc`() {
+        appLifecycleUseCases.changeReleaseNoteMisc(activeAppMultipleVersionsId, Semver("0.1.0"), listOf("M1", "M2")).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppMultipleVersionsId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.releasedVersions.first { it.version == Semver("0.1.0") }.releaseNotes.misc).isEqualTo(listOf("M1", "M2"))
+            })
+        }
+    }
+
+    @Test
+    fun `change release note data on unknown version`() {
+        appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("6.6.6"), "New title!").expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.RELEASE_VERSION_NOT_FOUND,
                 details = "6.6.6",
@@ -151,8 +227,8 @@ class AppLifecycleUseCasesTests {
     }
 
     @Test
-    fun `change release note on discontinued app`() {
-        appLifecycleUseCases.changeReleaseNote(discontinuedAppId, Semver("0.1.0"), "New note!").expectDomainErrors(
+    fun `change release note data on discontinued app`() {
+        appLifecycleUseCases.changeReleaseNoteTitle(discontinuedAppId, Semver("0.1.0"), "New title!").expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
                 details = null,
@@ -219,29 +295,48 @@ class AppLifecycleUseCasesTests {
     }
 }
 
+@Suppress("LargeClass")
 class AppVersionDevelopmentUseCasesTests {
 
     private val developerId = UUID.randomUUID()
 
     private val developmentApp = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("SomeChanges").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("First Release!").expectSuccess()
+        .changeNextVersionReleaseNoteFeatures(listOf("great new feature")).expectSuccess()
     private val developmentAppId = developmentApp.id
 
+    private val developmentAppNoReleaseNotesTitle = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
+        .addNextVersionDraftDatatype("SomeChanges").expectSuccess()
+        .changeNextVersionReleaseNoteFeatures(listOf("great new feature")).expectSuccess()
+    private val developmentAppNoReleaseNotesTitleId = developmentAppNoReleaseNotesTitle.id
+
+    private val developmentAppNoReleaseNotesFeaturesOrBugfixes = App.create(name = "Development App", developerId = developerId, description = " ").expectSuccess()
+        .addNextVersionDraftDatatype("SomeChanges").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("First Release!").expectSuccess()
+    private val developmentAppNoReleaseNotesFeaturesOrBugfixesId = developmentAppNoReleaseNotesFeaturesOrBugfixes.id
+
     private val developmentAppNoChanges = App.create(name = "Development App unchanged", developerId = developerId, description = " ").expectSuccess()
-    private val developmentAppIdNoChanges = developmentAppNoChanges.id
+    private val developmentAppNoChangesId = developmentAppNoChanges.id
 
     private val activeApp = App.create(name = "Active App", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
-        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("First Feature!").expectSuccess()
+        .changeNextVersionReleaseNoteFeatures(listOf("Something really nasty implemented here")).expectSuccess()
+        .releaseNextVersionDraft().expectSuccess()
     private val activeAppId = activeApp.id
 
     private val activeAppMultipleVersions = App.create(name = "Active App Multiple Versions", developerId = developerId, description = " ").expectSuccess()
         .addNextVersionDraftDatatype("TestDatatype").expectSuccess()
         .addNextVersionDraftReport("TestReport").expectSuccess()
-        .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "First feature!").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("First Feature!").expectSuccess()
+        .changeNextVersionReleaseNoteFeatures(listOf("Something really nasty implemented here")).expectSuccess()
+        .releaseNextVersionDraft().expectSuccess()
         .addNextVersionDraftDatatype("TestDatatypeTwo").expectSuccess()
-        .releaseNextVersionDraft(AppVersionChangeType.BUGFIX, "Nothing changed?!?").expectSuccess()
+        .changeNextVersionReleaseNoteTitle("Nothing changed?!?").expectSuccess()
+        .changeNextVersionReleaseNoteBugfixes(listOf("Just fixed some bugs")).expectSuccess()
+        .releaseNextVersionDraft().expectSuccess()
     private val activeAppMultipleVersionsId = activeAppMultipleVersions.id
 
     private val discontinuedApp = App.create(name = "Discontinued App", developerId = developerId, description = "").expectSuccess()
@@ -257,7 +352,9 @@ class AppVersionDevelopmentUseCasesTests {
     internal fun initialize() {
         queryPersistence = mockk<AppQueryPersistencePort>().also {
             every { it.getOrError(developmentAppId) } returns (Validated.validNel(developmentApp))
-            every { it.getOrError(developmentAppIdNoChanges) } returns (Validated.validNel(developmentAppNoChanges))
+            every { it.getOrError(developmentAppNoReleaseNotesTitleId) } returns (Validated.validNel(developmentAppNoReleaseNotesTitle))
+            every { it.getOrError(developmentAppNoReleaseNotesFeaturesOrBugfixesId) } returns (Validated.validNel(developmentAppNoReleaseNotesFeaturesOrBugfixes))
+            every { it.getOrError(developmentAppNoChangesId) } returns (Validated.validNel(developmentAppNoChanges))
             every { it.getOrError(activeAppId) } returns (Validated.validNel(activeApp))
             every { it.getOrError(activeAppMultipleVersionsId) } returns (Validated.validNel(activeAppMultipleVersions))
             every { it.getOrError(discontinuedAppId) } returns (Validated.validNel(discontinuedApp))
@@ -273,6 +370,72 @@ class AppVersionDevelopmentUseCasesTests {
         }
 
         appVersionDevelopmentUseCases = AppVersionDevelopmentUseCasesService(queryPersistence, commandPersistence, eventBus)
+    }
+
+    @Test
+    fun `change release note empty title`() {
+        appVersionDevelopmentUseCases.changeReleaseNoteTitle(activeAppId, "").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.nextVersionDraft.releaseNotes.title).isEqualTo("")
+            })
+        }
+    }
+
+    @Test
+    fun `change release note title`() {
+        appVersionDevelopmentUseCases.changeReleaseNoteTitle(activeAppId, "Release!").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.nextVersionDraft.releaseNotes.title).isEqualTo("Release!")
+            })
+        }
+    }
+
+    @Test
+    fun `change release note notes`() {
+        appVersionDevelopmentUseCases.changeReleaseNoteNotes(activeAppId, "Some nice notes...").expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.nextVersionDraft.releaseNotes.notes).isEqualTo("Some nice notes...")
+            })
+        }
+    }
+
+    @Test
+    fun `change release note features`() {
+        appVersionDevelopmentUseCases.changeReleaseNoteFeatures(activeAppId, listOf("F1", "F2")).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.nextVersionDraft.releaseNotes.features).isEqualTo(listOf("F1", "F2"))
+            })
+        }
+    }
+
+    @Test
+    fun `change release note bugfixes`() {
+        appVersionDevelopmentUseCases.changeReleaseNoteBugfixes(activeAppId, listOf("B1", "B2")).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.nextVersionDraft.releaseNotes.bugfixes).isEqualTo(listOf("B1", "B2"))
+            })
+        }
+    }
+
+    @Test
+    fun `change release note misc`() {
+        appVersionDevelopmentUseCases.changeReleaseNoteMisc(activeAppId, listOf("M1", "M2")).expectSuccess()
+        verifyMocks {
+            queryPersistence.getOrError(activeAppId)
+            commandPersistence.upsert(withArg {
+                assertThat(it.nextVersionDraft.releaseNotes.misc).isEqualTo(listOf("M1", "M2"))
+            })
+        }
     }
 
     @Test
@@ -728,41 +891,52 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `release next version without changes`() {
-        appVersionDevelopmentUseCases.release(developmentAppIdNoChanges, AppVersionChangeType.FEATURE, "Release it!").expectDomainErrors(
+        appVersionDevelopmentUseCases.release(developmentAppNoChangesId).expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES,
                 details = null,
             )
         )
         verifyMocks {
-            queryPersistence.getOrError(developmentAppIdNoChanges)
+            queryPersistence.getOrError(developmentAppNoChangesId)
         }
     }
 
     @Test
     fun `release next version with blank note`() {
-        appVersionDevelopmentUseCases.release(developmentAppId, AppVersionChangeType.FEATURE, " ").expectDomainErrors(
+        appVersionDevelopmentUseCases.release(developmentAppNoReleaseNotesTitleId).expectDomainErrors(
             DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_BLANK,
+                code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK,
                 details = null,
             )
         )
         verifyMocks {
-            queryPersistence.getOrError(developmentAppId)
+            queryPersistence.getOrError(developmentAppNoReleaseNotesTitleId)
+        }
+    }
+
+    @Test
+    fun `release next version without features or bugfixes information`() {
+        appVersionDevelopmentUseCases.release(developmentAppNoReleaseNotesFeaturesOrBugfixesId).expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES,
+                details = null,
+            )
+        )
+        verifyMocks {
+            queryPersistence.getOrError(developmentAppNoReleaseNotesFeaturesOrBugfixesId)
         }
     }
 
     @Test
     fun `release next version`() {
-        appVersionDevelopmentUseCases.release(developmentAppId, AppVersionChangeType.FEATURE, "Release it!").expectSuccess()
+        appVersionDevelopmentUseCases.release(developmentAppId).expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(developmentAppId)
             commandPersistence.upsert(withArg {
                 assertThat(it.nextVersionDraft).isNotNull
                 assertThat(it.latestVersion).isNotNull
                 assertThat(it.latestVersion!!.version).isEqualTo(Semver("0.1.0"))
-                assertThat(it.latestVersion!!.releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
-                assertThat(it.latestVersion!!.releaseNotes.note).isEqualTo("Release it!")
             })
             eventBus.publish(withArg {
                 assertThat(it).isInstanceOf(DomainEvent.AppVersionReleased::class.java)
@@ -775,7 +949,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `release next version on discontinued app`() {
-        appVersionDevelopmentUseCases.release(discontinuedAppId, AppVersionChangeType.FEATURE, "Note").expectDomainErrors(
+        appVersionDevelopmentUseCases.release(discontinuedAppId).expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
                 details = null,

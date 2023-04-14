@@ -4,6 +4,7 @@ import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.zip
 import com.sksamuel.tribune.core.Parser
+import com.sksamuel.tribune.core.collections.asList
 import com.sksamuel.tribune.core.long
 import com.sksamuel.tribune.core.min
 import com.sksamuel.tribune.core.strings.match
@@ -26,6 +27,10 @@ fun notNegativeLongParser(domainErrorCode: DomainErrorCode) = Parser
     .notNullOrBlank { DomainError(domainErrorCode) }
     .long { DomainError(domainErrorCode) }
     .min(0) { DomainError(domainErrorCode) }
+
+fun notEmptyListParser(domainErrorCode: DomainErrorCode) = Parser
+    .from<String>()
+    .asList(min = 1, max = Int.MAX_VALUE) { DomainError(domainErrorCode) }
 
 fun <T> createValidation(errorCondition: Boolean, domainErrorCode: DomainErrorCode, errorDetails: String?, valueProvider: () -> T): ValidatedNel<DomainError, T> =
     if (errorCondition) {

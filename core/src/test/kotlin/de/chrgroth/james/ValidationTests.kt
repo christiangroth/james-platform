@@ -109,6 +109,28 @@ class NotBlankParserTests {
     }
 }
 
+class NotEmptyListParserTests {
+
+    private val parser = notEmptyListParser(
+        ValidationTestDomainErrorCodes.ERROR,
+    )
+
+    @Test
+    fun `parse empty list`() {
+        parser.parse(emptyList()).expectDomainErrors(
+            DomainError(
+                code = ValidationTestDomainErrorCodes.ERROR,
+                details = null,
+            )
+        )
+    }
+
+    @Test
+    fun `parse filled list`() {
+        parser.parse(listOf("A value!")).expectSuccess()
+    }
+}
+
 class NotNegativeLongParserTests {
 
     private val parser = notNegativeLongParser(

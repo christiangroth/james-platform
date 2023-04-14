@@ -17,6 +17,7 @@ import de.chrgroth.james.trimToNull
 import org.everit.json.schema.ObjectSchema
 import java.util.UUID
 import de.chrgroth.james.DomainError
+import de.chrgroth.james.notEmptyListParser
 import de.chrgroth.james.reduceWithAllValues
 
 enum class AppStatus(val allowsChanges: Boolean) {
@@ -76,6 +77,39 @@ data class App private constructor(
     internal val latestVersion by lazy {
         releasedVersions.firstOrNull()
     }
+
+    internal fun changeNextVersionReleaseNoteTitle(title: String): ValidatedNel<DomainError, App> =
+        changeNextVersionReleaseNoteAspect { it.changeReleaseNoteTitle(title) }
+
+    internal fun changeNextVersionReleaseNoteNotes(notes: String): ValidatedNel<DomainError, App> =
+        changeNextVersionReleaseNoteAspect { it.changeReleaseNoteNotes(notes) }
+
+    internal fun changeNextVersionReleaseNoteFeatures(features: List<String>): ValidatedNel<DomainError, App> =
+        changeNextVersionReleaseNoteAspect { it.changeReleaseNoteFeatures(features) }
+
+    internal fun changeNextVersionReleaseNoteBugfixes(bugfixes: List<String>): ValidatedNel<DomainError, App> =
+        changeNextVersionReleaseNoteAspect { it.changeReleaseNoteBugfixes(bugfixes) }
+
+    internal fun changeNextVersionReleaseNoteMisc(misc: List<String>): ValidatedNel<DomainError, App> =
+        changeNextVersionReleaseNoteAspect { it.changeReleaseNoteMisc(misc) }
+
+    private fun changeNextVersionReleaseNoteAspect(block: (AppVersionDraft) -> ValidatedNel<DomainError, AppVersionDraft>): ValidatedNel<DomainError, App> =
+        when {
+            !status.allowsChanges -> {
+                Validated.invalidNel(
+                    DomainError(
+                        code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
+                        details = null,
+                    )
+                )
+            }
+
+            else -> {
+                block(nextVersionDraft).andThen {
+                    create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+                }
+            }
+        }
 
     internal fun addNextVersionDraftDatatype(datatypeName: String): ValidatedNel<DomainError, App> = when {
 
@@ -234,7 +268,7 @@ data class App private constructor(
         }
     }
 
-    internal fun releaseNextVersionDraft(changeType: AppVersionChangeType, note: String) = when {
+    internal fun releaseNextVersionDraft() = when {
         !status.allowsChanges -> Validated.invalidNel(
             DomainError(
                 code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
@@ -250,7 +284,7 @@ data class App private constructor(
         )
 
         else -> {
-            AppVersionReleaseNotes.create(changeType, note).andThen { releaseNotes ->
+            AppVersionReleaseNotes.create(nextVersionDraft.releaseNotes).andThen { releaseNotes ->
                 AppVersion.create(releaseNotes, nextVersionDraft, latestVersion).andThen { nextVersionRelease ->
                     createNextVersionDraft(nextVersionRelease).andThen { newNextVersionDraft ->
                         create(id, nameField, developerId, description, discontinued, newNextVersionDraft, listOf(nextVersionRelease) + releasedVersions)
@@ -264,7 +298,7 @@ data class App private constructor(
         val currentDatatypes = latestVersion?.datatypes?.associate { it.name to it.schemaContent } ?: emptyMap()
         val nextDatatypes = nextVersionDraft.datatypes.associate { it.name to it.schemaContent }
 
-        val currentReports = latestVersion?.reports?.associate { it.name to it.source} ?: emptyMap()
+        val currentReports = latestVersion?.reports?.associate { it.name to it.source } ?: emptyMap()
         val nextReports = nextVersionDraft.reports.associate { it.name to it.source }
 
         return !(currentDatatypes == nextDatatypes && currentReports == nextReports)
@@ -279,7 +313,22 @@ data class App private constructor(
             }
         }
 
-    internal fun changeReleaseNote(version: Semver, note: String): ValidatedNel<DomainError, App> = when {
+    internal fun changeReleaseNoteTitle(version: Semver, title: String): ValidatedNel<DomainError, App> =
+        changeReleaseNoteAspect(version) { it.changeReleaseNoteTitle(title) }
+
+    internal fun changeReleaseNoteNotes(version: Semver, notes: String): ValidatedNel<DomainError, App> =
+        changeReleaseNoteAspect(version) { it.changeReleaseNoteNotes(notes) }
+
+    internal fun changeReleaseNoteFeatures(version: Semver, features: List<String>): ValidatedNel<DomainError, App> =
+        changeReleaseNoteAspect(version) { it.changeReleaseNoteFeatures(features) }
+
+    internal fun changeReleaseNoteBugfixes(version: Semver, bugfixes: List<String>): ValidatedNel<DomainError, App> =
+        changeReleaseNoteAspect(version) { it.changeReleaseNoteBugfixes(bugfixes) }
+
+    internal fun changeReleaseNoteMisc(version: Semver, misc: List<String>): ValidatedNel<DomainError, App> =
+        changeReleaseNoteAspect(version) { it.changeReleaseNoteMisc(misc) }
+
+    private fun changeReleaseNoteAspect(version: Semver, block: (AppVersion) -> ValidatedNel<DomainError, AppVersion>): ValidatedNel<DomainError, App> = when {
         !status.allowsChanges -> {
             Validated.invalidNel(
                 DomainError(
@@ -298,7 +347,7 @@ data class App private constructor(
         }
 
         else -> {
-            releasedVersions.first { it.version == version }.changeReleaseNote(note).andThen { updatedVersion ->
+            block(releasedVersions.first { it.version == version }).andThen { updatedVersion ->
                 create(id, nameField, developerId, description, discontinued, nextVersionDraft, releasedVersions.map { currentVersion ->
                     if (currentVersion.version == version) updatedVersion else currentVersion
                 })
@@ -352,37 +401,68 @@ data class AppVersion private constructor(
                 )
             }
 
-        private fun create(base: AppVersion, note: String): ValidatedNel<DomainError, AppVersion> =
-            base.releaseNotes.changeNote(note).map {
+        private fun create(base: AppVersion, releaseNotes: AppVersionReleaseNotes): ValidatedNel<DomainError, AppVersion> =
+            Validated.validNel(
                 AppVersion(
                     version = base.version,
-                    releaseNotes = it,
+                    releaseNotes = releaseNotes,
                     datatypes = base.datatypes,
                     reports = base.reports,
                 )
-            }
+            )
     }
 
-    internal fun changeReleaseNote(note: String): ValidatedNel<DomainError, AppVersion> = create(this, note)
+    internal fun changeReleaseNoteTitle(title: String): ValidatedNel<DomainError, AppVersion> = releaseNotes.changeTitle(title).andThen { create(this, it) }
+    internal fun changeReleaseNoteNotes(notes: String): ValidatedNel<DomainError, AppVersion> = releaseNotes.changeNotes(notes).andThen { create(this, it) }
+    internal fun changeReleaseNoteFeatures(features: List<String>): ValidatedNel<DomainError, AppVersion> =
+        releaseNotes.changeFeatures(features).andThen { create(this, it) }
+
+    internal fun changeReleaseNoteBugfixes(bugfixes: List<String>): ValidatedNel<DomainError, AppVersion> =
+        releaseNotes.changeBugfixes(bugfixes).andThen { create(this, it) }
+
+    internal fun changeReleaseNoteMisc(misc: List<String>): ValidatedNel<DomainError, AppVersion> = releaseNotes.changeMisc(misc).andThen { create(this, it) }
 }
 
-// TODO #8 add release notes draft?
 data class AppVersionDraft private constructor(
+    val releaseNotes: AppVersionReleaseNotesDraft,
     val datatypes: Set<AppDatatypeDraft>,
     val reports: Set<AppReport>,
 ) {
 
     companion object {
-        fun create() = create(datatypes = emptySet(), reports = emptySet())
-
-        fun create(appVersion: AppVersion): ValidatedNel<DomainError, AppVersionDraft> =
-            appVersion.datatypes.map { AppDatatypeDraft.create(it) }.reduceWithAllValues().andThen { datatypeDrafts ->
-                create(datatypes = datatypeDrafts.toSet(), reports = appVersion.reports)
-            }
+        fun create() = create(
+            releaseNotes = defaultEmptyReleaseNotesDraft(),
+            datatypes = emptySet(),
+            reports = emptySet(),
+        )
 
         fun create(datatypes: Set<AppDatatypeDraft>, reports: Set<AppReport>): ValidatedNel<DomainError, AppVersionDraft> =
-            Validated.validNel(AppVersionDraft(datatypes = datatypes, reports = reports))
+            create(defaultEmptyReleaseNotesDraft(), datatypes, reports)
+
+        fun create(
+            releaseNotes: AppVersionReleaseNotesDraft,
+            datatypes: Set<AppDatatypeDraft>,
+            reports: Set<AppReport>
+        ): ValidatedNel<DomainError, AppVersionDraft> =
+            Validated.validNel(AppVersionDraft(releaseNotes = releaseNotes, datatypes = datatypes, reports = reports))
+
+        private fun defaultEmptyReleaseNotesDraft() = (AppVersionReleaseNotesDraft.create() as Validated.Valid).value
     }
+
+    internal fun changeReleaseNoteTitle(title: String): ValidatedNel<DomainError, AppVersionDraft> =
+        releaseNotes.changeTitle(title).andThen { create(it, datatypes, reports) }
+
+    internal fun changeReleaseNoteNotes(notes: String): ValidatedNel<DomainError, AppVersionDraft> =
+        releaseNotes.changeNotes(notes).andThen { create(it, datatypes, reports) }
+
+    internal fun changeReleaseNoteFeatures(features: List<String>): ValidatedNel<DomainError, AppVersionDraft> =
+        releaseNotes.changeFeatures(features).andThen { create(it, datatypes, reports) }
+
+    internal fun changeReleaseNoteBugfixes(bugfixes: List<String>): ValidatedNel<DomainError, AppVersionDraft> =
+        releaseNotes.changeBugfixes(bugfixes).andThen { create(it, datatypes, reports) }
+
+    internal fun changeReleaseNoteMisc(misc: List<String>): ValidatedNel<DomainError, AppVersionDraft> =
+        releaseNotes.changeMisc(misc).andThen { create(it, datatypes, reports) }
 
     internal fun createDatatypes(latest: AppVersion?): ValidatedNel<DomainError, Set<AppDatatype>> =
         datatypes.map { draft ->
@@ -400,7 +480,7 @@ data class AppVersionDraft private constructor(
 
     internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): ValidatedNel<DomainError, AppVersionDraft> =
         datatype.validateJsonSchema().andThen {
-            create(datatypes.upsert(name, datatype), reports)
+            create(releaseNotes, datatypes.upsert(name, datatype), reports)
         }
 
     internal fun removeDatatype(datatypeName: String): ValidatedNel<DomainError, AppVersionDraft> = when {
@@ -411,14 +491,14 @@ data class AppVersionDraft private constructor(
             )
         )
 
-        else -> create(datatypes.filterNot { it.name == datatypeName.trim() }.toSet(), reports)
+        else -> create(releaseNotes, datatypes.filterNot { it.name == datatypeName.trim() }.toSet(), reports)
     }
 
     private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft): Set<AppDatatypeDraft> =
         filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
     internal fun upsertReport(name: String, report: AppReport): ValidatedNel<DomainError, AppVersionDraft> =
-        create(datatypes, reports.upsert(name, report))
+        create(releaseNotes, datatypes, reports.upsert(name, report))
 
     internal fun removeReport(reportName: String): ValidatedNel<DomainError, AppVersionDraft> = when {
         reports.none { it.name == reportName.trim() } -> Validated.invalidNel(
@@ -428,7 +508,7 @@ data class AppVersionDraft private constructor(
             )
         )
 
-        else -> create(datatypes, reports.filterNot { it.name == reportName }.toSet())
+        else -> create(releaseNotes, datatypes, reports.filterNot { it.name == reportName }.toSet())
     }
 
     private fun Set<AppReport>.upsert(removeName: String, addReport: AppReport) =
@@ -439,29 +519,112 @@ enum class AppVersionChangeType {
     BUGFIX, FEATURE
 }
 
-// TODO #7 split up note field to title and optional description?
-data class AppVersionReleaseNotes private constructor(
-    val changeType: AppVersionChangeType,
-    private var noteField: String,
+data class AppVersionReleaseNotesDraft private constructor(
+    private var titleField: String?,
+    private var notesField: String?,
+    private var featuresField: List<String>,
+    private var bugfixesField: List<String>,
+    private var miscField: List<String>,
 ) {
 
     companion object {
-        private val noteParser = notBlankParser(
-            AppDomainErrorCodes.VERSION_RELEASE_NOTE_BLANK
+        fun create() = create(
+            title = null,
+            notes = null,
+            features = emptyList(),
+            bugfixes = emptyList(),
+            misc = emptyList()
         )
 
-        fun create(changeType: AppVersionChangeType, note: String): ValidatedNel<DomainError, AppVersionReleaseNotes> =
-            noteParser.parse(note).map { validNote ->
-                AppVersionReleaseNotes(
-                    changeType = changeType,
-                    noteField = validNote,
+        fun create(
+            title: String?,
+            notes: String?,
+            features: List<String>,
+            bugfixes: List<String>,
+            misc: List<String>
+        ): ValidatedNel<DomainError, AppVersionReleaseNotesDraft> =
+            Validated.validNel(
+                AppVersionReleaseNotesDraft(
+                    titleField = title,
+                    notesField = notes,
+                    featuresField = features,
+                    bugfixesField = bugfixes,
+                    miscField = misc,
                 )
+            )
+    }
+
+    val title get() = titleField
+    val notes get() = notesField
+    val features get() = featuresField
+    val bugfixes get() = bugfixesField
+    val misc get() = miscField
+
+    internal fun changeTitle(title: String) = create(title, notes, features, bugfixes, misc)
+    internal fun changeNotes(notes: String) = create(title, notes, features, bugfixes, misc)
+    internal fun changeFeatures(features: List<String>) = create(title, notes, features, bugfixes, misc)
+    internal fun changeBugfixes(bugfixes: List<String>) = create(title, notes, features, bugfixes, misc)
+    internal fun changeMisc(misc: List<String>) = create(title, notes, features, bugfixes, misc)
+}
+
+data class AppVersionReleaseNotes private constructor(
+    private var titleField: String,
+    private var notesField: String?,
+    private var featuresField: List<String>,
+    private var bugfixesField: List<String>,
+    private var miscField: List<String>,
+) {
+
+    companion object {
+        private val titleParser = notBlankParser(
+            AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK
+        )
+
+        private val featuresOrBugfixesParser = notEmptyListParser(
+            AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES
+        )
+
+        fun create(draft: AppVersionReleaseNotesDraft): ValidatedNel<DomainError, AppVersionReleaseNotes> = create(
+            title = draft.title ?: "",
+            notes = draft.notes,
+            features = draft.features,
+            bugfixes = draft.bugfixes,
+            misc = draft.misc,
+        )
+
+        fun create(
+            title: String,
+            notes: String?,
+            features: List<String>,
+            bugfixes: List<String>,
+            misc: List<String>
+        ): ValidatedNel<DomainError, AppVersionReleaseNotes> =
+            titleParser.parse(title).andThen { validTitle ->
+                featuresOrBugfixesParser.parse(features.plus(bugfixes)).map {
+                    AppVersionReleaseNotes(
+                        titleField = validTitle,
+                        notesField = notes,
+                        featuresField = features,
+                        bugfixesField = bugfixes,
+                        miscField = misc,
+                    )
+                }
             }
     }
 
-    val note get() = noteField
+    val title get() = titleField
+    val notes get() = notesField
+    val features get() = featuresField
+    val bugfixes get() = bugfixesField
+    val misc get() = miscField
 
-    internal fun changeNote(note: String) = create(changeType, note)
+    val changeType: AppVersionChangeType get() = if (features.isNotEmpty()) AppVersionChangeType.FEATURE else AppVersionChangeType.BUGFIX
+
+    internal fun changeTitle(title: String) = create(title, notes, features, bugfixes, misc)
+    internal fun changeNotes(notes: String) = create(title, notes, features, bugfixes, misc)
+    internal fun changeFeatures(features: List<String>) = create(title, notes, features, bugfixes, misc)
+    internal fun changeBugfixes(bugfixes: List<String>) = create(title, notes, features, bugfixes, misc)
+    internal fun changeMisc(misc: List<String>) = create(title, notes, features, bugfixes, misc)
 
     internal fun computeVersion(latest: AppVersion?, next: AppVersionDraft): Semver {
         return if (latest == null) {

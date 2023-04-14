@@ -1,6 +1,8 @@
 package de.chrgroth.james.app
 
 import com.github.glwithu06.semver.Semver
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -52,7 +54,9 @@ class AppModelTests {
             if (releaseDevelopmentVersion) {
                 app
                     .addNextVersionDraftDatatype("SomeChange").expectSuccess()
-                    .releaseNextVersionDraft(AppVersionChangeType.FEATURE, "Some Release").expectSuccess()
+                    .changeNextVersionReleaseNoteTitle("Some Release").expectSuccess()
+                    .changeNextVersionReleaseNoteFeatures(listOf("Some feature")).expectSuccess()
+                    .releaseNextVersionDraft().expectSuccess()
             } else {
                 app
             }
@@ -63,4 +67,59 @@ class AppModelTests {
                 app
             }
         }
+}
+
+class AppVersionReleaseNotesModelTests {
+
+    @Test
+    fun `release notes containing feature information only resolve to type FEATURE`() {
+        val releaseNotes = AppVersionReleaseNotes.create(
+            title = "Title",
+            notes = null,
+            features = listOf(element = "feature one"),
+            bugfixes = emptyList(),
+            misc = emptyList()
+        ).expectSuccess()
+        assertThat(releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
+    }
+
+    @Test
+    fun `release notes containing bugfix information only resolve to type BUGFIX`() {
+        val releaseNotes = AppVersionReleaseNotes.create(
+            title = "Title",
+            notes = null,
+            features = emptyList(),
+            bugfixes = listOf("bugfix one"),
+            misc = emptyList()
+        ).expectSuccess()
+        assertThat(releaseNotes.changeType).isEqualTo(AppVersionChangeType.BUGFIX)
+    }
+
+    @Test
+    fun `release notes containing feature and bugfix information resolve to type FEATURE`() {
+        val releaseNotes = AppVersionReleaseNotes.create(
+            title = "Title",
+            notes = null,
+            features = listOf("feature one"),
+            bugfixes = listOf("bugfix one"),
+            misc = emptyList()
+        ).expectSuccess()
+        assertThat(releaseNotes.changeType).isEqualTo(AppVersionChangeType.FEATURE)
+    }
+
+    @Test
+    fun `release notes containing neither feature nor bugfix information cannot be created`() {
+        AppVersionReleaseNotes.create(
+            title = "Title",
+            notes = null,
+            features = emptyList(),
+            bugfixes = emptyList(),
+            misc = emptyList()
+        ).expectDomainErrors(
+            DomainError(
+                code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES,
+                details = null,
+            )
+        )
+    }
 }
