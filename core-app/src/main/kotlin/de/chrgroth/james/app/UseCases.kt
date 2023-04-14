@@ -48,7 +48,7 @@ internal class AppLifecycleUseCasesService(
         createValidation(
             errorCondition = !activeUsersCache.contains(developerId),
             domainErrorCode = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN,
-            errorDetails = null,
+            errorMessage = null,
         ) {}.andThen {
             App.create(name = name, developerId = developerId, description = description).andThen {
                 commandPersistence.upsert(it)

@@ -111,10 +111,7 @@ class WorkspaceDomainTests {
     @Test
     fun `new workspace with blank name`() {
         workspaceUseCases.createWorkspace(existingUserId, " ").expectDomainErrors(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.NAME_BLANK)
         )
         verifyMocks {
             queryPersistence.findForUser(existingUserId)
@@ -124,10 +121,7 @@ class WorkspaceDomainTests {
     @Test
     fun `new workspace with negative order`() {
         Workspace.create(userId = existingUserId, order = -1, name = "Existing One").expectDomainErrors(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.ORDER_NEGATIVE,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.ORDER_NEGATIVE)
         )
     }
 
@@ -152,7 +146,7 @@ class WorkspaceDomainTests {
         workspaceUseCases.reorderWorkspaces(existingUserId, listOf(existingTwoId, existingOneId, unknownId)).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
-                details = listOf(unknownId).toString(),
+                errorMessage = listOf(unknownId).toString(),
             )
         )
         verifyMocks {
@@ -165,7 +159,7 @@ class WorkspaceDomainTests {
         workspaceUseCases.reorderWorkspaces(existingUserId, listOf(existingTwoId)).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
-                details = listOf(existingOneId).toString(),
+                errorMessage = listOf(existingOneId).toString(),
             )
         )
         verifyMocks {
@@ -178,11 +172,11 @@ class WorkspaceDomainTests {
         workspaceUseCases.reorderWorkspaces(existingUserId, listOf(unknownId)).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
-                details = listOf(existingOneId, existingTwoId).toString(),
+                errorMessage = listOf(existingOneId, existingTwoId).toString(),
             ),
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
-                details = listOf(unknownId).toString()
+                errorMessage = listOf(unknownId).toString()
             )
         )
         verifyMocks {
@@ -208,10 +202,7 @@ class WorkspaceDomainTests {
     @Test
     fun `rename workspace to blank name`() {
         workspaceUseCases.renameWorkspace(existingOneId, " ").expectDomainErrors(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.NAME_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(existingOneId)
@@ -221,10 +212,7 @@ class WorkspaceDomainTests {
     @Test
     fun `install unknown app version`() {
         appInstallationUseCases.installApp(existingOneId, existingAppIdOne, unknownAppVersionId).expectDomainErrors(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN)
         )
     }
 
@@ -257,7 +245,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.moveApp(unknownId, existingWorkspaceOneAppInstallationOneId, existingTwoId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -271,7 +259,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.moveApp(existingOneId, unknownId, existingTwoId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -285,7 +273,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.moveApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -352,11 +340,11 @@ class WorkspaceDomainTests {
         appInstallationUseCases.reorderApps(existingOneId, newOrder).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_APPS_UNKNOWN_IDS,
-                details = listOf(unknownId).toString(),
+                errorMessage = listOf(unknownId).toString(),
             ),
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_APPS_MISSING_IDS,
-                details = listOf(existingWorkspaceOneAppInstallationOneId).toString(),
+                errorMessage = listOf(existingWorkspaceOneAppInstallationOneId).toString(),
             ),
         )
 
@@ -382,11 +370,11 @@ class WorkspaceDomainTests {
         ).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_APPS_MISSING_IDS,
-                details = setOf(appInstallationIdTwo).toString(),
+                errorMessage = setOf(appInstallationIdTwo).toString(),
             ),
             DomainError(
                 code = WorkspaceDomainErrorCodes.REORDER_APPS_UNKNOWN_IDS,
-                details = setOf(appInstallationIdUnknown).toString()
+                errorMessage = setOf(appInstallationIdUnknown).toString()
             )
         )
     }
@@ -413,7 +401,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.nameApp(unknownId, existingWorkspaceOneAppInstallationOneId, "FOOOO").expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
         verifyMocks {
@@ -426,7 +414,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.nameApp(existingOneId, unknownId, "FOOOO").expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
-                details = unknownId.toString()
+                errorMessage = unknownId.toString()
             )
         )
 
@@ -465,7 +453,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.updateApp(unknownId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdTwo).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -479,7 +467,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.updateApp(existingOneId, unknownId, existingAppOneVersionIdTwo).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -491,10 +479,7 @@ class WorkspaceDomainTests {
     @Test
     fun `update app installation unknown app version`() {
         appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, unknownAppVersionId).expectDomainErrors(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN)
         )
 
         verifyMocks {
@@ -513,7 +498,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdOne).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.DOWNGRADE_NOT_SUPPORTED,
-                details = "1.0.0 >= 1.0.0",
+                errorMessage = "1.0.0 >= 1.0.0",
             )
         )
 
@@ -533,7 +518,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.updateApp(existingOneId, existingWorkspaceOneAppInstallationOneId, existingAppOneVersionIdZero).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.DOWNGRADE_NOT_SUPPORTED,
-                details = "1.0.0 >= 0.9.4",
+                errorMessage = "1.0.0 >= 0.9.4",
             )
         )
 
@@ -550,10 +535,7 @@ class WorkspaceDomainTests {
     @Test
     fun `uninstall app`() {
         appInstallationUseCases.uninstallApp(existingOneId, existingWorkspaceOneAppInstallationOneId).expectDomainErrors(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED)
         )
 
         verifyMocks {
@@ -566,7 +548,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.uninstallApp(unknownId, existingWorkspaceOneAppInstallationOneId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -580,7 +562,7 @@ class WorkspaceDomainTests {
         appInstallationUseCases.uninstallApp(existingOneId, unknownId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -603,7 +585,7 @@ class WorkspaceDomainTests {
         workspaceUseCases.deleteWorkspace(existingOneId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
-                details = "2",
+                errorMessage = "2",
             )
         )
     }
@@ -613,7 +595,7 @@ class WorkspaceDomainTests {
         workspaceUseCases.deleteWorkspace(unknownId).expectDomainErrors(
             DomainError(
                 code = WorkspaceDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
     }

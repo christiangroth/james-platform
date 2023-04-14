@@ -19,7 +19,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         """ $prefixForAnnotationTests "title": "Some title" """.toStringProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
 
@@ -34,7 +34,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -45,7 +45,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -56,11 +56,11 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             ),
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -71,7 +71,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -100,7 +100,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
-                details = "testPropertyName: format=json-pointer",
+                errorMessage = "testPropertyName: format=json-pointer",
             )
         )
     }
@@ -111,7 +111,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
-                details = """Unmatched closing ')' near index 14
+                errorMessage = """Unmatched closing ')' near index 14
 ^(\([0-9]{3}\)))?[0-9]{3}-[0-9]{4}${'$'}
               ^""".trimIndent(),
             )
@@ -130,7 +130,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                details = "testPropertyName: {bar=baz}"
+                errorMessage = "testPropertyName: {bar=baz}"
             )
         )
     }
@@ -141,7 +141,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
     }
@@ -152,7 +152,7 @@ class StringSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
     }

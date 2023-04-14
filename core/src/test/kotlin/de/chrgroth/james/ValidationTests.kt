@@ -24,30 +24,21 @@ class RegexParserTests {
     @Test
     fun `parse null`() {
         parser.parse(null).expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.SIDEKICK,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.SIDEKICK)
         )
     }
 
     @Test
     fun `parse empty`() {
         parser.parse("").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.SIDEKICK,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.SIDEKICK)
         )
     }
 
     @Test
     fun `parse blank`() {
         parser.parse(" ").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.SIDEKICK,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.SIDEKICK)
         )
     }
 
@@ -61,7 +52,7 @@ class RegexParserTests {
         parser.parse("foobar").expectDomainErrors(
             DomainError(
                 code = ValidationTestDomainErrorCodes.ERROR,
-                details = "'foobar' does not match [A-Z]+",
+                errorMessage = "'foobar' does not match [A-Z]+",
             )
         )
     }
@@ -76,30 +67,21 @@ class NotBlankParserTests {
     @Test
     fun `parse null`() {
         parser.parse(null).expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
     @Test
     fun `parse empty`() {
         parser.parse("").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
     @Test
     fun `parse blank`() {
         parser.parse(" ").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
@@ -118,10 +100,7 @@ class NotEmptyListParserTests {
     @Test
     fun `parse empty list`() {
         parser.parse(emptyList()).expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
@@ -140,50 +119,35 @@ class NotNegativeLongParserTests {
     @Test
     fun `parse null`() {
         parser.parse(null).expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
     @Test
     fun `parse empty`() {
         parser.parse("").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
     @Test
     fun `parse blank`() {
         parser.parse(" ").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
     @Test
     fun `parse non number`() {
         parser.parse("FOO").expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
     @Test
     fun `parse negative`() {
         parser.parse((-1).toString()).expectDomainErrors(
-            DomainError(
-                code = ValidationTestDomainErrorCodes.ERROR,
-                details = null,
-            )
+            DomainError(code = ValidationTestDomainErrorCodes.ERROR)
         )
     }
 
@@ -205,7 +169,7 @@ class ValidationTests {
         val validation = createValidation(
             errorCondition = false,
             domainErrorCode = ValidationTestDomainErrorCodes.ERROR,
-            errorDetails = null,
+            errorMessage = null,
         ) { 42 }
         assertThat(validation.isValid).isTrue
         assertThat(validation.isInvalid).isFalse
@@ -218,7 +182,7 @@ class ValidationTests {
         val validation = createValidation(
             errorCondition = true,
             domainErrorCode = ValidationTestDomainErrorCodes.ERROR,
-            errorDetails = "TEST DETAILS",
+            errorMessage = "TEST DETAILS",
         ) { 42 }
         assertThat(validation.isValid).isFalse
         assertThat(validation.isInvalid).isTrue
@@ -226,7 +190,7 @@ class ValidationTests {
         validation.expectDomainErrors(
             DomainError(
                 code = ValidationTestDomainErrorCodes.ERROR,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             )
         )
     }
@@ -237,25 +201,25 @@ class ValidationReduceTests {
     private val validOne = createValidation(
         errorCondition = false,
         domainErrorCode = ValidationTestDomainErrorCodes.ERROR,
-        errorDetails = null,
+        errorMessage = null,
     ) { 42 }
 
     private val validTwo = createValidation(
         errorCondition = false,
         domainErrorCode = ValidationTestDomainErrorCodes.ERROR,
-        errorDetails = null,
+        errorMessage = null,
     ) { 13 }
 
     private val invalidOne = createValidation(
         errorCondition = true,
         domainErrorCode = ValidationTestDomainErrorCodes.ERROR,
-        errorDetails = "TEST DETAILS",
+        errorMessage = "TEST DETAILS",
     ) { }
 
     private val invalidTwo = createValidation(
         errorCondition = true,
         domainErrorCode = ValidationTestDomainErrorCodes.SIDEKICK,
-        errorDetails = "TEST DETAILS",
+        errorMessage = "TEST DETAILS",
     ) { }
 
     @Test
@@ -288,22 +252,22 @@ class ValidationReduceTests {
         withFirst.expectDomainErrors(
             DomainError(
                 code = ValidationTestDomainErrorCodes.ERROR,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             ),
             DomainError(
                 code = ValidationTestDomainErrorCodes.SIDEKICK,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             ),
         )
 
         withAll.expectDomainErrors(
             DomainError(
                 code = ValidationTestDomainErrorCodes.ERROR,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             ),
             DomainError(
                 code = ValidationTestDomainErrorCodes.SIDEKICK,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             ),
         )
     }
@@ -317,14 +281,14 @@ class ValidationReduceTests {
         withFirst.expectDomainErrors(
             DomainError(
                 code = ValidationTestDomainErrorCodes.ERROR,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             ),
         )
 
         withAll.expectDomainErrors(
             DomainError(
                 code = ValidationTestDomainErrorCodes.ERROR,
-                details = "TEST DETAILS",
+                errorMessage = "TEST DETAILS",
             ),
         )
     }

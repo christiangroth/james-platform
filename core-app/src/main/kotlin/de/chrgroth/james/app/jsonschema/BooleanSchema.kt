@@ -21,7 +21,7 @@ internal fun BooleanSchema.validateDefinition(propertyName: String): ValidatedNe
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-        errorDetails = "$propertyName: $unprocessedProperties"
+        errorMessage = "$propertyName: $unprocessedProperties"
         ) {}
 
     return listOf(

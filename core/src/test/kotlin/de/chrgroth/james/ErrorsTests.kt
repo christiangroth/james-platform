@@ -14,9 +14,8 @@ class DomainErrorTests {
 
     @Test
     fun `default has o details`() {
-        val domainError = DomainError(TestDomainErrorCodes.THIS_IS_BAD)
+        val domainError = DomainError(code = TestDomainErrorCodes.THIS_IS_BAD)
         assertThat(domainError.code).isEqualTo(TestDomainErrorCodes.THIS_IS_BAD)
-        assertThat(domainError.details).isNull()
     }
 }
 

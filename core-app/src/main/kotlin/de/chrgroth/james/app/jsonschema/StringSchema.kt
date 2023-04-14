@@ -34,32 +34,32 @@ internal fun StringSchema.validateDefinition(propertyName: String): ValidatedNel
     val minLengthNegativeValidation = createValidation(
         errorCondition = minLengthNullSafe < 0,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_MIN_LENGTH,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val maxLengthZeroOrNegativeValidation = createValidation(
         errorCondition = maxLengthNullSafe < 1,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_NEGATIVE_OR_ZERO_MAX_LENGTH,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val maxLengthSmallerMinLengthValidation = createValidation(
         errorCondition = maxLengthNullSafe < minLengthNullSafe,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_MAX_LENGTH_SMALLER_MIN_LENGTH,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     // there is no chance to distinguish between unknown format and no/null format, we can only detect known but unsupported formats
     val unsupportedFormatValidation = createValidation(
         errorCondition = formatValidator != FormatValidator.NONE && !allowedStringPropertyFormats.contains(formatValidator.formatName()),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_STRING_PROPERTY_UNSUPPORTED_FORMAT,
-        errorDetails = "$propertyName: format=${formatValidator.formatName()}"
+        errorMessage = "$propertyName: format=${formatValidator.formatName()}"
     ) {}
 
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-        errorDetails = "$propertyName: $unprocessedProperties"
+        errorMessage = "$propertyName: $unprocessedProperties"
     ) {}
 
     return listOf(

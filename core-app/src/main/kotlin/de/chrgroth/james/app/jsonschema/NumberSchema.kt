@@ -32,37 +32,37 @@ internal fun NumberSchema.validateDefinition(propertyName: String): ValidatedNel
     val minAndExclusiveMinValidation = createValidation(
         errorCondition = minimum != null && exclusiveMinimumLimit != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val maxAndExclusiveMaxValidation = createValidation(
         errorCondition = maximum != null && exclusiveMaximumLimit != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val maxLimitSmallerMinLimitValidation = createValidation(
         errorCondition = combinedMaximum.toLong() < combinedMinimum.toLong(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val multipleOfZeroOrNegativeValidation = createValidation(
         errorCondition = multipleOf != null && multipleOf.toDouble() <= 0,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val floatingPointMultipleOfForIntegerValueValidation = createValidation(
         errorCondition = requiresInteger() && floor(multipleOfNullSafe) != multipleOfNullSafe,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-        errorDetails = "$propertyName: $unprocessedProperties"
+        errorMessage = "$propertyName: $unprocessedProperties"
     ) {}
 
     return listOf(

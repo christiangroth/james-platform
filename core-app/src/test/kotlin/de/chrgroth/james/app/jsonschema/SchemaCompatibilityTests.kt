@@ -39,7 +39,7 @@ class ObjectSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
-                details = "[credit_card]"
+                errorMessage = "[credit_card]"
             )
         )
     }
@@ -69,7 +69,7 @@ class ObjectSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
-                details = "[name]"
+                errorMessage = "[name]"
             )
         )
     }
@@ -111,7 +111,7 @@ class ObjectSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
-                details = "[name]"
+                errorMessage = "[name]"
             )
         )
     }
@@ -129,7 +129,7 @@ class ObjectSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.PROPERTY_REMOVED,
-                details = "[credit_card]"
+                errorMessage = "[credit_card]"
             )
         )
     }
@@ -146,7 +146,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
-                details = "LIST -> TUPLE",
+                errorMessage = "LIST -> TUPLE",
             )
         )
     }
@@ -160,7 +160,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
-                details = "0 -> 2",
+                errorMessage = "0 -> 2",
             )
         )
     }
@@ -174,7 +174,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
-                details = "1 -> 2",
+                errorMessage = "1 -> 2",
             )
         )
     }
@@ -204,7 +204,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
-                details = "${Int.MAX_VALUE} -> 2",
+                errorMessage = "${Int.MAX_VALUE} -> 2",
             )
         )
     }
@@ -218,7 +218,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
-                details = "3 -> 2",
+                errorMessage = "3 -> 2",
             )
         )
     }
@@ -248,7 +248,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
-                details = "NumberSchema -> StringSchema",
+                errorMessage = "NumberSchema -> StringSchema",
             )
         )
     }
@@ -262,7 +262,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
-                details = "TUPLE -> LIST",
+                errorMessage = "TUPLE -> LIST",
             )
         )
     }
@@ -276,7 +276,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
-                details = "[NumberSchema] -> [NumberSchema, NumberSchema]",
+                errorMessage = "[NumberSchema] -> [NumberSchema, NumberSchema]",
             )
         )
     }
@@ -290,7 +290,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
-                details = "[NumberSchema, StringSchema] -> [NumberSchema, NumberSchema]",
+                errorMessage = "[NumberSchema, StringSchema] -> [NumberSchema, NumberSchema]",
             )
         )
     }
@@ -304,7 +304,7 @@ class ArraySchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_TUPLE_ITEMS_SCHEMA_CHANGED,
-                details = "[NumberSchema, StringSchema] -> [NumberSchema]",
+                errorMessage = "[NumberSchema, StringSchema] -> [NumberSchema]",
             )
         )
     }
@@ -329,7 +329,7 @@ class CombinedEnumSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
-                details = "[bar]",
+                errorMessage = "[bar]",
             )
         )
     }
@@ -343,7 +343,7 @@ class CombinedEnumSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
-                details = "[bar]",
+                errorMessage = "[bar]",
             )
         )
     }
@@ -357,7 +357,7 @@ class CombinedEnumSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
-                details = "${Int.MIN_VALUE} -> 7",
+                errorMessage = "${Int.MIN_VALUE} -> 7",
             )
         )
     }
@@ -371,7 +371,7 @@ class CombinedEnumSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
-                details = "0 -> 7",
+                errorMessage = "0 -> 7",
             )
         )
     }
@@ -388,7 +388,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
-                details = "${Int.MIN_VALUE} -> 3",
+                errorMessage = "${Int.MIN_VALUE} -> 3",
             )
         )
     }
@@ -402,7 +402,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
-                details = "2 -> 3",
+                errorMessage = "2 -> 3",
             )
         )
     }
@@ -432,7 +432,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
-                details = "${Int.MAX_VALUE} -> 2",
+                errorMessage = "${Int.MAX_VALUE} -> 2",
             )
         )
     }
@@ -446,7 +446,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
-                details = "3 -> 2",
+                errorMessage = "3 -> 2",
             )
         )
     }
@@ -476,7 +476,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
-                details = "null -> 2",
+                errorMessage = "null -> 2",
             )
         )
     }
@@ -490,7 +490,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
-                details = "2 -> 7",
+                errorMessage = "2 -> 7",
             )
         )
     }
@@ -504,7 +504,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
-                details = "2 -> 4",
+                errorMessage = "2 -> 4",
             )
         )
     }
@@ -518,7 +518,7 @@ class NumberSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
-                details = "7 -> 2",
+                errorMessage = "7 -> 2",
             )
         )
     }
@@ -551,7 +551,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
-                details = "0 -> 3",
+                errorMessage = "0 -> 3",
             )
         )
     }
@@ -565,7 +565,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
-                details = "2 -> 3",
+                errorMessage = "2 -> 3",
             )
         )
     }
@@ -595,7 +595,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
-                details = "${Int.MAX_VALUE} -> 2",
+                errorMessage = "${Int.MAX_VALUE} -> 2",
             )
         )
     }
@@ -609,7 +609,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
-                details = "3 -> 2",
+                errorMessage = "3 -> 2",
             )
         )
     }
@@ -639,7 +639,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
-                details = "null -> some-pattern",
+                errorMessage = "null -> some-pattern",
             )
         )
     }
@@ -653,7 +653,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
-                details = "some-pattern -> some-other-pattern",
+                errorMessage = "some-pattern -> some-other-pattern",
             )
         )
     }
@@ -675,7 +675,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
-                details = "unnamed-format -> email",
+                errorMessage = "unnamed-format -> email",
             )
         )
     }
@@ -689,7 +689,7 @@ class StringSchemaCompatibilityTests {
             current, next,
             DomainError(
                 code = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
-                details = "date -> date-time",
+                errorMessage = "date -> date-time",
             )
         )
     }

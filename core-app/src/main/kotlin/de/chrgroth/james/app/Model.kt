@@ -96,12 +96,7 @@ data class App private constructor(
     private fun changeNextVersionReleaseNoteAspect(block: (AppVersionDraft) -> ValidatedNel<DomainError, AppVersionDraft>): ValidatedNel<DomainError, App> =
         when {
             !status.allowsChanges -> {
-                Validated.invalidNel(
-                    DomainError(
-                        code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                        details = null,
-                    )
-                )
+                Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
             }
 
             else -> {
@@ -113,18 +108,10 @@ data class App private constructor(
 
     internal fun addNextVersionDraftDatatype(datatypeName: String): ValidatedNel<DomainError, App> = when {
 
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
         nextVersionDraft.datatypes.any { it.name == datatypeName } -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE,
-                details = datatypeName,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE)
         )
 
         else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).andThen { newDatatype ->
@@ -140,27 +127,14 @@ data class App private constructor(
         description: String?,
         newName: String,
     ): ValidatedNel<DomainError, App> = when {
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
         name != newName && nextVersionDraft.datatypes.any { it.name == newName } -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE,
-                details = newName,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE)
         )
 
         else -> when (val datatype = nextVersionDraft.datatypes.firstOrNull { it.name == name }) {
-            null -> Validated.invalidNel(
-                DomainError(
-                    code = AppDomainErrorCodes.DATATYPE_NOT_FOUND,
-                    details = name,
-                )
-            )
+            null -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND))
 
             else -> {
                 val nameToUse = if (name != newName) newName else name
@@ -178,12 +152,7 @@ data class App private constructor(
     }
 
     internal fun removeNextVersionDraftDatatype(datatypeName: String) = when {
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
         else -> nextVersionDraft.removeDatatype(datatypeName).andThen {
             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
@@ -191,19 +160,9 @@ data class App private constructor(
     }
 
     internal fun addNextVersionDraftReport(reportName: String): ValidatedNel<DomainError, App> = when {
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
-        nextVersionDraft.reports.any { it.name == reportName } -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE,
-                details = reportName,
-            )
-        )
+        nextVersionDraft.reports.any { it.name == reportName } -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE))
 
         else -> AppReport.create(name = reportName, source = "", description = null).andThen { newReport ->
             nextVersionDraft.upsertReport(newReport.name, newReport).andThen {
@@ -218,27 +177,12 @@ data class App private constructor(
         description: String?,
         newName: String,
     ): ValidatedNel<DomainError, App> = when {
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
-        name != newName && nextVersionDraft.reports.any { it.name == newName } -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE,
-                details = newName,
-            )
-        )
+        name != newName && nextVersionDraft.reports.any { it.name == newName } -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE))
 
         else -> when (val report = nextVersionDraft.reports.firstOrNull { it.name == name }) {
-            null -> Validated.invalidNel(
-                DomainError(
-                    code = AppDomainErrorCodes.REPORT_NOT_FOUND,
-                    details = name,
-                )
-            )
+            null -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.REPORT_NOT_FOUND))
 
             else -> {
                 val nameToUse = if (name != newName) newName else name
@@ -256,12 +200,7 @@ data class App private constructor(
     }
 
     internal fun removeNextVersionDraftReport(reportName: String) = when {
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
         else -> nextVersionDraft.removeReport(reportName).andThen {
             create(id, nameField, developerId, description, discontinued, it, releasedVersions)
@@ -269,19 +208,9 @@ data class App private constructor(
     }
 
     internal fun releaseNextVersionDraft() = when {
-        !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
-        )
+        !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
-        !detectIfNextVersionDraftHasChanges() -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES,
-                details = null,
-            )
-        )
+        !detectIfNextVersionDraftHasChanges() -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES))
 
         else -> {
             AppVersionReleaseNotes.create(nextVersionDraft.releaseNotes).andThen { releaseNotes ->
@@ -330,20 +259,11 @@ data class App private constructor(
 
     private fun changeReleaseNoteAspect(version: Semver, block: (AppVersion) -> ValidatedNel<DomainError, AppVersion>): ValidatedNel<DomainError, App> = when {
         !status.allowsChanges -> {
-            Validated.invalidNel(
-                DomainError(
-                    code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                    details = null,
-                )
-            )
+            Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
         }
 
         releasedVersions.firstOrNull { it.version == version } == null -> {
-            Validated.invalidNel(
-                DomainError(
-                    code = AppDomainErrorCodes.RELEASE_VERSION_NOT_FOUND, details = version.toString()
-                )
-            )
+            Validated.invalidNel(DomainError(code = AppDomainErrorCodes.RELEASE_VERSION_NOT_FOUND))
         }
 
         else -> {
@@ -357,10 +277,7 @@ data class App private constructor(
 
     internal fun discontinue(): ValidatedNel<DomainError, App> = when {
         !status.allowsChanges -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
 
         else -> create(id, nameField, developerId, description, true, nextVersionDraft, releasedVersions)
@@ -368,10 +285,7 @@ data class App private constructor(
 
     internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> = when {
         status != AppStatus.DISCONTINUED -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)
         )
 
         else -> Validated.validNel(Unit)
@@ -485,10 +399,7 @@ data class AppVersionDraft private constructor(
 
     internal fun removeDatatype(datatypeName: String): ValidatedNel<DomainError, AppVersionDraft> = when {
         datatypes.none { it.name == datatypeName.trim() } -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NOT_FOUND,
-                details = datatypeName,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND)
         )
 
         else -> create(releaseNotes, datatypes.filterNot { it.name == datatypeName.trim() }.toSet(), reports)
@@ -502,10 +413,7 @@ data class AppVersionDraft private constructor(
 
     internal fun removeReport(reportName: String): ValidatedNel<DomainError, AppVersionDraft> = when {
         reports.none { it.name == reportName.trim() } -> Validated.invalidNel(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NOT_FOUND,
-                details = reportName,
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NOT_FOUND)
         )
 
         else -> create(releaseNotes, datatypes, reports.filterNot { it.name == reportName }.toSet())

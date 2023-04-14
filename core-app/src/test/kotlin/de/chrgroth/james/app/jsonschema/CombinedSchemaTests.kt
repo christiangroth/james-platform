@@ -14,7 +14,7 @@ internal class CombinedSchemaTests {
         """ "enum": [true, false] """.toBooleanProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-                details = "testPropertyName: [BooleanSchema, EnumSchema]"
+                errorMessage = "testPropertyName: [BooleanSchema, EnumSchema]"
             )
         )
 
@@ -23,7 +23,7 @@ internal class CombinedSchemaTests {
         """ "allOf": [ { "multipleOf": 5 }, { "minimum": 7 } ] """.toIntegerProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-                details = "testPropertyName: [CombinedSchema, NumberSchema]"
+                errorMessage = "testPropertyName: [CombinedSchema, NumberSchema]"
             )
         )
 
@@ -32,7 +32,7 @@ internal class CombinedSchemaTests {
         """ "anyOf": [ { "multipleOf": 5 }, { "multipleOf": 7 } ] """.toIntegerProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-                details = "testPropertyName: [CombinedSchema, NumberSchema]"
+                errorMessage = "testPropertyName: [CombinedSchema, NumberSchema]"
             )
         )
 
@@ -41,7 +41,7 @@ internal class CombinedSchemaTests {
         """ "oneOf": [ { "multipleOf": 5 }, { "multipleOf": 7 } ] """.toIntegerProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-                details = "testPropertyName: [CombinedSchema, NumberSchema]"
+                errorMessage = "testPropertyName: [CombinedSchema, NumberSchema]"
             )
         )
 
@@ -50,7 +50,7 @@ internal class CombinedSchemaTests {
         """ "not": { "multipleOf": 7 } """.toIntegerProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-                details = "testPropertyName: [NotSchema, NumberSchema]"
+                errorMessage = "testPropertyName: [NotSchema, NumberSchema]"
             )
         )
 }

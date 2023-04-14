@@ -27,7 +27,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): ValidatedN
     val criterionValidation = createValidation(
         errorCondition = criterion != CombinedSchema.ALL_CRITERION,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_UNSUPPORTED_CRITERION,
-        errorDetails = propertyName,
+        errorMessage = propertyName,
     ) {}
 
     val enumSchema = enumSchemaOrNull
@@ -37,7 +37,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): ValidatedN
     val subSchemasForEnumUsecaseValidation = createValidation(
         errorCondition = !exactTwoSubschemas || enumSchema == null || enumSupportingJsonSchema == null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_COMBINED_PROPERTY_ONLY_SUPPORTS_ENUM_USECASE_FOR_STRING_AND_NUMBER,
-        errorDetails = "$propertyName: ${subschemas.map { it.javaClass.simpleName }.sorted()}"
+        errorMessage = "$propertyName: ${subschemas.map { it.javaClass.simpleName }.sorted()}"
     ) {}
 
     val enumAndTypeValidationValidation: ValidatedNel<DomainError, Unit> = if (enumSchema != null && typeSchema != null && enumSupportingJsonSchema != null) {
@@ -45,19 +45,19 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): ValidatedN
         val enumNotSupportedValidation = createValidation(
             errorCondition = !enumSupportingJsonSchema.enumDefinitionSupported(typeSchema),
             domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_NOT_SUPPORTED,
-            errorDetails = propertyName,
+            errorMessage = propertyName,
         ) {}
 
         val enumValuesMissingValidation = createValidation(
             errorCondition = enumSchema.possibleValues == null || enumSchema.possibleValues.isEmpty(),
             domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
-            errorDetails = propertyName,
+            errorMessage = propertyName,
         ) {}
 
         val enumValuesMismatchingTypeValidation = createValidation(
             errorCondition = !enumSupportingJsonSchema.enumValuesTypeMatches(typeSchema, enumSchema),
             domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
-            errorDetails = propertyName
+            errorMessage = propertyName
         ) {}
 
         val delegatedTypeSchemaValidationValidation =
@@ -76,7 +76,7 @@ internal fun CombinedSchema.validateDefinition(propertyName: String): ValidatedN
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-        errorDetails = "$propertyName: $unprocessedProperties",
+        errorMessage = "$propertyName: $unprocessedProperties",
     ) {}
 
     return listOf(

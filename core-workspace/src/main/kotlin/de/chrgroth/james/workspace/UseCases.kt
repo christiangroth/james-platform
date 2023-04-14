@@ -48,7 +48,7 @@ internal class WorkspaceUseCasesService(
                 createValidation(
                     errorCondition = it.isNotEmpty(),
                     domainErrorCode = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_UNKNOWN_IDS,
-                    errorDetails = it.toString(),
+                    errorMessage = it.toString(),
                 ) {}
             }
 
@@ -56,7 +56,7 @@ internal class WorkspaceUseCasesService(
                 createValidation(
                     errorCondition = it.isNotEmpty(),
                     domainErrorCode = WorkspaceDomainErrorCodes.REORDER_WORKSPACES_MISSING_IDS,
-                    errorDetails = it.toString(),
+                    errorMessage = it.toString(),
                 ) {}
             }
 
@@ -93,7 +93,7 @@ internal class AppInstallationUseCasesService(
         createValidation(
             errorCondition = !activeAppVersionsCache.contains(appId, appVersion),
             domainErrorCode = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
-            errorDetails = null,
+            errorMessage = null,
         ) {}.andThen {
             queryPersistence.getOrError(workspaceId)
         }.andThen {
@@ -123,7 +123,7 @@ internal class AppInstallationUseCasesService(
                 createValidation(
                     errorCondition = !activeAppVersionsCache.contains(appInstallation.appId, targetVersion),
                     domainErrorCode = WorkspaceDomainErrorCodes.APP_VERSION_UNKNOWN,
-                    errorDetails = null,
+                    errorMessage = null,
                 ) {}.andThen { _ ->
                     workspace.updateAppInstallation(appInstallationId, targetVersion)
                 }

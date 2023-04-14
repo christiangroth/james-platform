@@ -5,6 +5,7 @@ import arrow.core.ValidatedNel
 import arrow.core.andThen
 import de.chrgroth.james.DomainError
 import de.chrgroth.james.app.AppDomainErrorCodes
+import de.chrgroth.james.createValidation
 import org.everit.json.schema.ArraySchema
 import org.everit.json.schema.BooleanSchema
 import org.everit.json.schema.CombinedSchema
@@ -52,23 +53,20 @@ internal fun String.parseJsonSchema(): ValidatedNel<DomainError, ObjectSchema> {
             Validated.invalidNel(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
-                    details = loadSchemaResult.exceptionOrNull()?.message,
+                    errorMessage = loadSchemaResult.exceptionOrNull()?.message,
                 )
             )
 
         schemaResult == null ->
             Validated.invalidNel(
-                DomainError(
-                    code = AppDomainErrorCodes.DATATYPE_SCHEMA_NULL,
-                    details = null
-                )
+                DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_NULL)
             )
 
         schemaResult !is ObjectSchema ->
             Validated.invalidNel(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                    details = schemaResult.javaClass.simpleName
+                    errorMessage = schemaResult.javaClass.simpleName
                 )
             )
 

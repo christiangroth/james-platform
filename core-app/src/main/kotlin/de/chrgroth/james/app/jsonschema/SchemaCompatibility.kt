@@ -49,7 +49,7 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): ValidatedNel
     val removedPropertiesValidation = createValidation(
         errorCondition = removedProperties.isNotEmpty(),
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.PROPERTY_REMOVED,
-        errorDetails = removedProperties.sorted().toString(),
+        errorMessage = removedProperties.sorted().toString(),
     ) {}
 
     val newRequiredPropertiesWithoutDefault = nextProperties.minus(currentProperties).toSet()
@@ -58,7 +58,7 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): ValidatedNel
     val newRequiredPropertiesWithoutDefaultValidation = createValidation(
         errorCondition = newRequiredPropertiesWithoutDefault.isNotEmpty(),
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.NEW_REQUIRED_PROPERTY_WITHOUT_DEFAULT,
-        errorDetails = newRequiredPropertiesWithoutDefault.sorted().toString(),
+        errorMessage = newRequiredPropertiesWithoutDefault.sorted().toString(),
     ) {}
 
     val keptProperties = currentProperties.intersect(nextProperties).toSet()
@@ -74,7 +74,7 @@ internal fun ObjectSchema.computeCompatibility(next: ObjectSchema): ValidatedNel
     val keptPropertiesMadeRequiredWithoutDefaultValidation = createValidation(
         errorCondition = keptPropertiesMadeRequiredWithoutDefault.isNotEmpty(),
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.PROPERTY_MADE_REQUIRED_WITHOUT_DEFAULT,
-        errorDetails = keptPropertiesMadeRequiredWithoutDefault.sorted().toString(),
+        errorMessage = keptPropertiesMadeRequiredWithoutDefault.sorted().toString(),
     ) {}
 
     fun <PropertyType : Any> matchPropertySchemas(expectedSchemaType: KClass<PropertyType>) =
@@ -118,7 +118,7 @@ internal fun ArraySchema.computeCompatibility(next: ArraySchema): ValidatedNel<D
     val modeChangedValidation = createValidation(
         errorCondition = modeChanged,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_MODE_CHANGED,
-        errorDetails = "$mode -> ${next.mode}"
+        errorMessage = "$mode -> ${next.mode}"
     ) {}
 
     val modeSpecificValidation = if (mode == ArraySchemaMode.LIST && next.mode == ArraySchemaMode.LIST) {
@@ -137,14 +137,14 @@ internal fun ArraySchema.computeCompatibilityInListMode(next: ArraySchema): Vali
     val minIncreasedValidation = createValidation(
         errorCondition = minIncreased,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MIN_ITEMS_INCREASED,
-        errorDetails = "$minItemsNullSafe -> ${next.minItemsNullSafe}"
+        errorMessage = "$minItemsNullSafe -> ${next.minItemsNullSafe}"
     ) {}
 
     val maxDecreased = maxItemsNullSafe > next.maxItemsNullSafe
     val maxDecreasedValidation = createValidation(
         errorCondition = maxDecreased,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_MAX_ITEMS_DECREASED,
-        errorDetails = "$maxItemsNullSafe -> ${next.maxItemsNullSafe}"
+        errorMessage = "$maxItemsNullSafe -> ${next.maxItemsNullSafe}"
     ) {}
 
     val allItemsSchemaChanged = allItemSchema != null && next.allItemSchema != null &&
@@ -152,7 +152,7 @@ internal fun ArraySchema.computeCompatibilityInListMode(next: ArraySchema): Vali
     val allItemsSchemaChangedValidation = createValidation(
         errorCondition = allItemsSchemaChanged,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.ARRAY_PROPERTY_LIST_ITEMS_SCHEMA_CHANGED,
-        errorDetails = "${allItemSchema.javaClass.simpleName} -> ${next.allItemSchema.javaClass.simpleName}"
+        errorMessage = "${allItemSchema.javaClass.simpleName} -> ${next.allItemSchema.javaClass.simpleName}"
     ) {}
 
     return listOf(minIncreasedValidation, maxDecreasedValidation, allItemsSchemaChangedValidation).reduceWithFirstValue()
@@ -196,7 +196,7 @@ internal fun EnumSchema.computeCompatibility(next: EnumSchema): ValidatedNel<Dom
     return createValidation(
         errorCondition = removedPossibleValues.isNotEmpty(),
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.ENUM_PROPERTY_POSSIBLE_VALUE_REMOVED,
-        errorDetails = removedPossibleValues.sortedBy { it.toString() }.toSet().toString()
+        errorMessage = removedPossibleValues.sortedBy { it.toString() }.toSet().toString()
     ) {}
 }
 
@@ -205,14 +205,14 @@ internal fun NumberSchema.computeCompatibility(next: NumberSchema): ValidatedNel
     val minIncreasedValidation = createValidation(
         errorCondition = minIncreased,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MIN_INCREASED,
-        errorDetails = "$combinedMinimum -> ${next.combinedMinimum}"
+        errorMessage = "$combinedMinimum -> ${next.combinedMinimum}"
     ) {}
 
     val maxDecreased = combinedMaximum.toLong() > next.combinedMaximum.toLong()
     val maxDecreasedValidation = createValidation(
         errorCondition = maxDecreased,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MAX_DECREASED,
-        errorDetails = "$combinedMaximum -> ${next.combinedMaximum}"
+        errorMessage = "$combinedMaximum -> ${next.combinedMaximum}"
     ) {}
 
     val multipleOfIntroduced = multipleOf == null && next.multipleOf != null
@@ -221,7 +221,7 @@ internal fun NumberSchema.computeCompatibility(next: NumberSchema): ValidatedNel
     val multipleOfMoreStrictValidation = createValidation(
         errorCondition = multipleOfMoreStrict,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.NUMBER_PROPERTY_MULTIPLE_OF_MORE_STRICT,
-        errorDetails = "$multipleOf -> ${next.multipleOf}"
+        errorMessage = "$multipleOf -> ${next.multipleOf}"
     ) {}
 
     return listOf(minIncreasedValidation, maxDecreasedValidation, multipleOfMoreStrictValidation).reduceWithFirstValue()
@@ -232,21 +232,21 @@ internal fun StringSchema.computeCompatibility(next: StringSchema): ValidatedNel
     val minIncreasedValidation = createValidation(
         errorCondition = minIncreased,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MIN_LENGTH_INCREASED,
-        errorDetails = "$minLengthNullSafe -> ${next.minLengthNullSafe}"
+        errorMessage = "$minLengthNullSafe -> ${next.minLengthNullSafe}"
     ) {}
 
     val maxDecreased = maxLengthNullSafe > next.maxLengthNullSafe
     val maxDecreasedValidation = createValidation(
         errorCondition = maxDecreased,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_MAX_LENGTH_DECREASED,
-        errorDetails = "$maxLengthNullSafe -> ${next.maxLengthNullSafe}"
+        errorMessage = "$maxLengthNullSafe -> ${next.maxLengthNullSafe}"
     ) {}
 
     val patternChanged = next.pattern != null && pattern != next.pattern
     val patternChangedValidation = createValidation(
         errorCondition = patternChanged,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_PATTERN_CHANGED,
-        errorDetails = "$pattern -> ${next.pattern}"
+        errorMessage = "$pattern -> ${next.pattern}"
     ) {}
 
     val formatChanged = next.formatValidator != null && next.formatValidator != FormatValidator.NONE &&
@@ -254,7 +254,7 @@ internal fun StringSchema.computeCompatibility(next: StringSchema): ValidatedNel
     val formatChangedValidation = createValidation(
         errorCondition = formatChanged,
         domainErrorCode = SchemaCompatibilityDomainErrorCodes.STRING_PROPERTY_FORMAT_CHANGED,
-        errorDetails = "${formatValidator.formatName()} -> ${next.formatValidator.formatName()}"
+        errorMessage = "${formatValidator.formatName()} -> ${next.formatValidator.formatName()}"
     ) {}
 
     return listOf(

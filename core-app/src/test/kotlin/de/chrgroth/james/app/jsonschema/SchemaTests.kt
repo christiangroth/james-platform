@@ -96,7 +96,7 @@ class SchemaParsingTests {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
-                details = "Missing value at 111 [character 0 line 6]"
+                errorMessage = "Missing value at 111 [character 0 line 6]"
             )
         )
     }
@@ -106,7 +106,7 @@ class SchemaParsingTests {
         """{ "type": "string" }""".parseJsonSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                details = "StringSchema"
+                errorMessage = "StringSchema"
             )
         )
     }

@@ -28,7 +28,7 @@ abstract class AnnotationsBaseTests {
         toPropertyConverter(""" $prefixForAnnotationTests "readOnly": true """).parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
-                details = expectedDetails
+                errorMessage = expectedDetails
             )
         )
 
@@ -42,7 +42,7 @@ abstract class AnnotationsBaseTests {
         toPropertyConverter(""" $prefixForAnnotationTests "writeOnly": true """).parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
-                details = expectedDetails
+                errorMessage = expectedDetails
             )
         )
 }

@@ -2,8 +2,7 @@ package de.chrgroth.james
 
 data class DomainError(
     val code: DomainErrorCode,
-    // TODO #12 Really need details?? Won't be usable in frontend as String. Use Map instead?
-    val details: String? = null,
+    val errorMessage: String? = null,
 )
 
 interface DomainErrorCode {

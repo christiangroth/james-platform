@@ -7,7 +7,6 @@ import arrow.core.andThen
 import de.chrgroth.james.DomainError
 import de.chrgroth.james.DomainEvent
 import de.chrgroth.james.EventBus
-import kotlinx.coroutines.CoroutineScope
 import java.util.UUID
 
 // TODO #6 need to check if user is active
@@ -41,12 +40,7 @@ internal class UserAdminUseCasesService(
     // TODO #6 define when User deletion is supported
     override fun deleteUser(id: UUID): ValidatedNel<DomainError, Unit> =
         queryPersistence.getOrError(id).andThen<NonEmptyList<DomainError>, User, Unit> {
-            Validated.invalidNel(
-                DomainError(
-                    code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED,
-                    details = null,
-                )
-            )
+            Validated.invalidNel(DomainError(code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED))
         }
 }
 
@@ -80,11 +74,6 @@ private fun String.ensureUserNotPresent(
         if (existingUser == null) {
             operation.invoke()
         } else {
-            Validated.invalidNel(
-                DomainError(
-                    code = UserDomainErrorCodes.EMAIL_EXISTS,
-                    details = this,
-                )
-            )
+            Validated.invalidNel(DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS))
         }
     }

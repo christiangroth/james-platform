@@ -23,7 +23,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -40,7 +40,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MIN_AND_EXCLUSIVE_MIN_LIMIT,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -51,7 +51,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_AND_EXCLUSIVE_MAX_LIMIT,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -62,7 +62,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -73,7 +73,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -84,7 +84,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -95,7 +95,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MAX_LIMIT_SMALLER_MIN_LIMIT,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -106,7 +106,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -117,7 +117,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_NEGATIVE_OR_ZERO,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -133,7 +133,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
         """ "multipleOf": 0.5 """.toIntegerProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_NUMBER_PROPERTY_MULTIPLE_OF_FLOATING_POINT_FOR_INTEGER,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
 
@@ -148,7 +148,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                    details = "testPropertyName: {bar=baz}"
+                    errorMessage = "testPropertyName: {bar=baz}"
                 )
             )
         }
@@ -159,7 +159,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISSING,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -170,7 +170,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
             it.parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
-                    details = "testPropertyName"
+                    errorMessage = "testPropertyName"
                 )
             )
         }
@@ -186,7 +186,7 @@ class NumberSchemaTests : AnnotationsBaseTests() {
         """ "enum": [ 2, 3, 2.4 ] """.toIntegerProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ENUM_PROPERTY_VALUES_MISMATCHING_TYPE,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
 

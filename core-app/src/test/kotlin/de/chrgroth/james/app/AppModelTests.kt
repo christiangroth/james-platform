@@ -116,10 +116,7 @@ class AppVersionReleaseNotesModelTests {
             bugfixes = emptyList(),
             misc = emptyList()
         ).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES)
         )
     }
 }

@@ -18,26 +18,26 @@ internal fun <T : Schema> T.validateCommonAnnotations(propertyName: String?): Va
     val titleValidation = createValidation(
         errorCondition = isTopLevelSchema xor hasTitle,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) { }
 
     val schemaTypeAllowsDefaultValue = this is StringSchema || this is NumberSchema || this is BooleanSchema
     val defaultValueValidation = createValidation(
         errorCondition = defaultValue != null && !schemaTypeAllowsDefaultValue,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val readOnlyValidation = createValidation(
         errorCondition = isReadOnly != null && isReadOnly,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_READ_ONLY_NOT_SUPPORTED,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val writeOnlyValidation = createValidation(
         errorCondition = isWriteOnly != null && isWriteOnly,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_WRITE_ONLY_NOT_SUPPORTED,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     return listOf(

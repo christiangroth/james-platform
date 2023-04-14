@@ -20,7 +20,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ $prefixForAnnotationTests "title": "Some title" """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
 
@@ -29,7 +29,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ $prefixForAnnotationTests "default": [1, 2, 3] """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
 
@@ -38,7 +38,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -58,7 +58,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": { "type": "number" }, "additionalItems": { "type": "number" } """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -67,7 +67,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": {}, "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -89,7 +89,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
             .parseToObjectSchema().expectDomainErrors(
                 DomainError(
                     code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
-                    details = "testPropertyName",
+                    errorMessage = "testPropertyName",
                 )
             )
 
@@ -98,7 +98,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": [], "additionalItems": false """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
     }
@@ -108,7 +108,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": { "type": "number" }, "minItems": -1 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -117,7 +117,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": { "type": "number" }, "maxItems": 0 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -126,11 +126,11 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": { "type": "number" }, "maxItems": -1 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             ),
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -139,7 +139,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": { "type": "number" }, "minItems": 3, "maxItems": 2 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -148,7 +148,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": [ { "type": "number" }, { "type": "string" } ], "minItems": 2 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -157,7 +157,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": [ { "type": "number" }, { "type": "string" } ], "maxItems": 2 """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -166,11 +166,11 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "contains": { "type": "number" } """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             ),
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -179,7 +179,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": { "type": "object" } """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -188,7 +188,7 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "items": [ { "type": "number" }, { "type": "object" } ] """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             )
         )
 
@@ -197,11 +197,11 @@ class ArraySchemaTests : AnnotationsBaseTests() {
         """ "bar": "baz" """.toArrayProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
-                details = "testPropertyName",
+                errorMessage = "testPropertyName",
             ),
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                details = "testPropertyName: {bar=baz}"
+                errorMessage = "testPropertyName: {bar=baz}"
             )
         )
     }

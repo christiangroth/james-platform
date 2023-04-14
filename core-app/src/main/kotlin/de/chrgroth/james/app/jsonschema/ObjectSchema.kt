@@ -46,44 +46,44 @@ internal fun ObjectSchema.validateDefinition(): ValidatedNel<DomainError, Unit> 
     val minPropertiesValidation = createValidation(
         errorCondition = minProperties != null && minProperties > 0,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     val maxPropertiesValidation = createValidation(
         errorCondition = maxProperties != null && maxProperties > 0,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     val additionalPropertiesValidation = createValidation(
         errorCondition = permitsAdditionalProperties(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     @Suppress("DEPRECATION")
     val patternPropertiesValidation = createValidation(
         errorCondition = patternProperties != null && patternProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     val propertyNameSchemaValidation = createValidation(
         errorCondition = propertyNameSchema != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     val propertyDependenciesValidation = createValidation(
         errorCondition = propertyDependencies != null && propertyDependencies.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     val schemaDependenciesValidation = createValidation(
         errorCondition = schemaDependencies != null && schemaDependencies.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
-        errorDetails = null,
+        errorMessage = null,
     ) {}
 
     // only allows plain values for now, add references and objects later
@@ -93,20 +93,20 @@ internal fun ObjectSchema.validateDefinition(): ValidatedNel<DomainError, Unit> 
     val invalidPropertyTypesValidation = createValidation(
         errorCondition = invalidPropertyTypes.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
-        errorDetails = invalidPropertyTypes.map { "${it.key}=${it.value.javaClass.simpleName}" }.toList().toString()
+        errorMessage = invalidPropertyTypes.map { "${it.key}=${it.value.javaClass.simpleName}" }.toList().toString()
     ) {}
 
     val requiredButNotExistingProperties = requiredProperties?.filter { !definesProperty(it) } ?: emptyList()
     val requiredButNotExistingPropertiesValidation = createValidation(
         errorCondition = requiredButNotExistingProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
-        errorDetails = requiredButNotExistingProperties.sorted().toString()
+        errorMessage = requiredButNotExistingProperties.sorted().toString()
     ) {}
 
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-        errorDetails = unprocessedProperties.toString(),
+        errorMessage = unprocessedProperties.toString(),
     ) {}
 
     return listOf(

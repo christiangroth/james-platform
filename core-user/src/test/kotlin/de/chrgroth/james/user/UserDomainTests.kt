@@ -82,10 +82,7 @@ class UserDomainTests {
     @Test
     internal fun `duplicate email`() {
         userAdminUseCases.registerUser("duplicate@james.de", "Joe").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.EMAIL_EXISTS,
-                details = "duplicate@james.de",
-            )
+            DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS)
         )
         verifyMocks {
             queryPersistence.getByEmail("duplicate@james.de")
@@ -95,10 +92,7 @@ class UserDomainTests {
     @Test
     internal fun `blank email`() {
         userAdminUseCases.registerUser("", "Joe").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.EMAIL_BLANK,
-                details = null,
-            )
+            DomainError(code = UserDomainErrorCodes.EMAIL_BLANK)
         )
         verifyMocks()
     }
@@ -108,7 +102,7 @@ class UserDomainTests {
         userAdminUseCases.registerUser("someone_james.de", "Joe").expectDomainErrors(
             DomainError(
                 code = UserDomainErrorCodes.EMAIL_INVALID,
-                details = "'someone_james.de' does not match .+@.+\\..+",
+                errorMessage = "'someone_james.de' does not match .+@.+\\..+",
             )
         )
         verifyMocks()
@@ -117,10 +111,7 @@ class UserDomainTests {
     @Test
     internal fun `blank name`() {
         userAdminUseCases.registerUser("someone@james.de", " ").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = UserDomainErrorCodes.NAME_BLANK)
         )
         verifyMocks()
     }
@@ -148,7 +139,7 @@ class UserDomainTests {
         userSelfServiceUseCases.changeEmail(unknownId, "someone_other@james.de").expectDomainErrors(
             DomainError(
                 code = UserDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 
@@ -160,10 +151,7 @@ class UserDomainTests {
     @Test
     internal fun `change email duplicate mail`() {
         userSelfServiceUseCases.changeEmail(existingId, "duplicate@james.de").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.EMAIL_EXISTS,
-                details = "duplicate@james.de",
-            )
+            DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS)
         )
 
         verifyMocks {
@@ -192,10 +180,7 @@ class UserDomainTests {
     @Test
     internal fun `change name invalid`() {
         userSelfServiceUseCases.changeName(existingId, "").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.NAME_BLANK,
-                details = null
-            )
+            DomainError(code = UserDomainErrorCodes.NAME_BLANK)
         )
 
         verifyMocks {
@@ -206,10 +191,7 @@ class UserDomainTests {
     @Test
     internal fun `existing user`() {
         userAdminUseCases.deleteUser(existingId).expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED)
         )
 
         verifyMocks {
@@ -222,7 +204,7 @@ class UserDomainTests {
         userAdminUseCases.deleteUser(unknownId).expectDomainErrors(
             DomainError(
                 code = UserDomainErrorCodes.NOT_FOUND,
-                details = unknownId.toString(),
+                errorMessage = unknownId.toString(),
             )
         )
 

@@ -24,20 +24,14 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     @Test
     fun `default not allowed`() =
         """ $prefixForAnnotationTests "default": { "foo": "bar" } """.toTestSchema().parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING,
-                details = null
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_DEFAULT_ONLY_SUPPORTED_BOOLEAN_NUMBER_STRING)
         )
 
     @Test
     fun `min properties in object definition`() {
         val schemaContent = """ "minProperties": 7 """.toTestSchema()
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_MIN_PROPERTIES_NOT_SUPPORTED)
         )
     }
 
@@ -45,10 +39,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `max properties in object definition`() {
         val schemaContent = """ "maxProperties": 7 """.toTestSchema()
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_MAX_PROPERTIES_NOT_SUPPORTED)
         )
     }
 
@@ -56,10 +47,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `additional properties in object definition`() {
         val schemaContent = "".toTestSchema().replace(""""additionalProperties": false""", """"additionalProperties": true""")
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_ADDITIONAL_PROPERTIES_NOT_SUPPORTED)
         )
     }
 
@@ -67,10 +55,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `pattern properties not supported`() {
         val schemaContent = """ "patternProperties": { "^S_": { "type": "string" }, "^I_": { "type": "integer" } } """.toTestSchema()
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_PATTERN_PROPERTIES_NOT_SUPPORTED)
         )
     }
 
@@ -78,10 +63,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
     fun `property names schema not supported`() {
         val schemaContent = """ "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*${'$'}" } """.toTestSchema()
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_NAME_SCHEMA_NOT_SUPPORTED)
         )
     }
 
@@ -91,10 +73,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
             """ "properties": { "name": { "type": "string" }, "credit_card": { "type": "number" }, "billing_address": { "type": "string" } }, 
                  "dependencies": { "credit_card": ["billing_address"], "billing_address": ["credit_card"] } """.trimMargin().toTestSchema()
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTY_DEPENDENCIES_NOT_SUPPORTED)
         )
     }
 
@@ -105,10 +84,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
             "dependencies": { "credit_card": { "properties": { "billing_address": { "type": "string" } }, 
             "required": ["billing_address"] } }""".trimMargin().toTestSchema()
         schemaContent.parseToObjectSchema().expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_SCHEMA_SCHEMA_DEPENDENCIES_NOT_SUPPORTED)
         )
     }
 
@@ -118,7 +94,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
-                details = "[testPropertyName=ObjectSchema]",
+                errorMessage = "[testPropertyName=ObjectSchema]",
             )
         )
     }
@@ -131,7 +107,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_REQUIRED_PROPERTIES_DO_NOT_EXIST,
-                details = "[billingAddress, creditCard]",
+                errorMessage = "[billingAddress, creditCard]",
             )
         )
     }
@@ -142,7 +118,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                details = "{foo=bar}",
+                errorMessage = "{foo=bar}",
             )
         )
     }
@@ -176,7 +152,7 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         """.trimIndent().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_IS_NOT_OBJECT_SCHEMA,
-                details = "CombinedSchema",
+                errorMessage = "CombinedSchema",
             )
         )
     }
@@ -202,11 +178,11 @@ class ObjectSchemaTests : AnnotationsBaseTests() {
         """.trimIndent().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_PROPERTIES_INVALID_TYPE,
-                details = "[billing_address=ReferenceSchema, shipping_address=ReferenceSchema]",
+                errorMessage = "[billing_address=ReferenceSchema, shipping_address=ReferenceSchema]",
             ),
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                details = "{definitions={addressTuple={type=array, items=[{type=string}, {type=string}, {type=string}]}}}",
+                errorMessage = "{definitions={addressTuple={type=array, items=[{type=string}, {type=string}, {type=string}]}}}",
             ),
         )
     }

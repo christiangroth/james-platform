@@ -34,86 +34,86 @@ internal fun ArraySchema.validateDefinition(propertyName: String): ValidatedNel<
     val modeValidation = createValidation(
         errorCondition = mode == null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_OR_TUPLE_MODE_UNDEFINED,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val listAndAdditionalItemsValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.LIST && schemaOfAdditionalItems != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_LIST_MODE_DEFINES_ADDITIONAL_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val tupleAndAdditionalItemsVaidation = createValidation(
         errorCondition = mode == ArraySchemaMode.TUPLE && schemaOfAdditionalItems != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_ADDITIONAL_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val listMinItemsValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.LIST && minItemsNullSafe < 0,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_MIN_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val listMaxItemsValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.LIST && maxItemsNullSafe < 1,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_NEGATIVE_OR_ZERO_MAX_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val listMaxMinItemsValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.LIST && maxItemsNullSafe < minItemsNullSafe,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_MAX_ITEMS_SMALLER_MIN_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val tupleMinItemsValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.TUPLE && minItems != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MIN_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val tupleMaxItemsValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.TUPLE && maxItems != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_TUPLE_MODE_DEFINES_MAX_ITEMS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val containedItemSchemaValidation = createValidation(
         errorCondition = containedItemSchema != null,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_DEFINES_CONTAINS,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val allItemsSchemaNullOrEmptySchema = allItemSchema == null || allItemSchema is EmptySchema
     val listAllItemSchemaValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.LIST && allItemsSchemaNullOrEmptySchema,
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val listAllItemSchemaTypeValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.LIST && !allItemsSchemaNullOrEmptySchema && !allItemSchema.isValidPropertyType(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val tupleItemSchemaValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.TUPLE && itemSchemas.isNullOrEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_NO_TYPES,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val tupleItemSchemaTypeValidation = createValidation(
         errorCondition = mode == ArraySchemaMode.TUPLE && itemSchemas.any { !it.isValidPropertyType() },
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_ARRAY_PROPERTY_CONTAINS_INVALID_TYPE,
-        errorDetails = propertyName
+        errorMessage = propertyName
     ) {}
 
     val unprocessedPropertiesValidation = createValidation(
         errorCondition = unprocessedProperties.isNotEmpty(),
         domainErrorCode = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-        errorDetails = "$propertyName: $unprocessedProperties"
+        errorMessage = "$propertyName: $unprocessedProperties"
     ) {}
 
     return listOf(

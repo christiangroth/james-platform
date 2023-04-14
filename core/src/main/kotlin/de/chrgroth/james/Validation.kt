@@ -13,28 +13,28 @@ import com.sksamuel.tribune.core.strings.trim
 
 fun regexParer(domainErrorCodeBlank: DomainErrorCode, pattern: Regex, domainErrorCodeNoMatch: DomainErrorCode) = Parser
     .fromNullableString()
-    .notNullOrBlank { DomainError(domainErrorCodeBlank) }
-    .match(pattern) { DomainError(domainErrorCodeNoMatch, "'$it' does not match $pattern") }
+    .notNullOrBlank { DomainError(code = domainErrorCodeBlank) }
+    .match(pattern) { DomainError(code = domainErrorCodeNoMatch, errorMessage = "'$it' does not match $pattern") }
     .trim()
 
 fun notBlankParser(domainErrorCode: DomainErrorCode) = Parser
     .fromNullableString()
-    .notNullOrBlank { DomainError(domainErrorCode) }
+    .notNullOrBlank { DomainError(code = domainErrorCode) }
     .trim()
 
 fun notNegativeLongParser(domainErrorCode: DomainErrorCode) = Parser
     .fromNullableString()
-    .notNullOrBlank { DomainError(domainErrorCode) }
-    .long { DomainError(domainErrorCode) }
-    .min(0) { DomainError(domainErrorCode) }
+    .notNullOrBlank { DomainError(code = domainErrorCode) }
+    .long { DomainError(code = domainErrorCode) }
+    .min(0) { DomainError(code = domainErrorCode) }
 
 fun notEmptyListParser(domainErrorCode: DomainErrorCode) = Parser
     .from<String>()
-    .asList(min = 1, max = Int.MAX_VALUE) { DomainError(domainErrorCode) }
+    .asList(min = 1, max = Int.MAX_VALUE) { DomainError(code = domainErrorCode) }
 
-fun <T> createValidation(errorCondition: Boolean, domainErrorCode: DomainErrorCode, errorDetails: String?, valueProvider: () -> T): ValidatedNel<DomainError, T> =
+fun <T> createValidation(errorCondition: Boolean, domainErrorCode: DomainErrorCode, errorMessage: String?, valueProvider: () -> T): ValidatedNel<DomainError, T> =
     if (errorCondition) {
-        Validated.invalidNel(DomainError(domainErrorCode, errorDetails))
+        Validated.invalidNel(DomainError(code = domainErrorCode, errorMessage = errorMessage))
     } else {
         Validated.validNel(valueProvider())
     }

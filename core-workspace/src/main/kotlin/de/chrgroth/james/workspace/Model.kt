@@ -91,14 +91,14 @@ data class Workspace private constructor(
         val newIdsValidation = createValidation(
             errorCondition = newIds.isNotEmpty(),
             domainErrorCode = WorkspaceDomainErrorCodes.REORDER_APPS_UNKNOWN_IDS,
-            errorDetails = newIds.toString(),
+            errorMessage = newIds.toString(),
         ) {}
 
         val missingIds = existingIds.minus(order.toSet())
         val missingIdsValidation = createValidation(
             errorCondition = missingIds.isNotEmpty(),
             domainErrorCode = WorkspaceDomainErrorCodes.REORDER_APPS_MISSING_IDS,
-            errorDetails = missingIds.toString(),
+            errorMessage = missingIds.toString(),
         ) {}
 
         return listOf(newIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {
@@ -147,7 +147,7 @@ data class Workspace private constructor(
             createValidation(
                 errorCondition = app == null,
                 domainErrorCode = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
-                errorDetails = appInstallationId.toString(),
+                errorMessage = appInstallationId.toString(),
             ) { app!! }
         }
 
@@ -155,7 +155,7 @@ data class Workspace private constructor(
         createValidation(
             errorCondition = appInstallations.isNotEmpty(),
             domainErrorCode = WorkspaceDomainErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
-            errorDetails = appInstallations.count().toString()
+            errorMessage = appInstallations.count().toString()
         ) {}
 }
 
@@ -203,9 +203,6 @@ data class AppInstallation private constructor(
     // TODO #2 define rules when to delete app installations. what about the data? what if shared?
     internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
         Validated.invalidNel(
-            DomainError(
-                code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED,
-                details = null,
-            )
+            DomainError(code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED)
         )
 }

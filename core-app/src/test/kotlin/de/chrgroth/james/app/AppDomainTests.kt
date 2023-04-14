@@ -104,10 +104,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `create app with blank name missing`() {
         appLifecycleUseCases.create(" ", developerId, "Fancy App").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.NAME_BLANK)
         )
         verifyMocks {
             activeUsersCache.contains(withArg {
@@ -120,10 +117,7 @@ class AppLifecycleUseCasesTests {
     fun `create app with unknown developer`() {
         val unknownDeveloperId = UUID.randomUUID()
         appLifecycleUseCases.create("Fancy App", unknownDeveloperId, "Fancy App").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.APP_DEVELOPER_UNKNOWN)
         )
         verifyMocks {
             activeUsersCache.contains(withArg {
@@ -135,10 +129,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `change release note title to empty`() {
         appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("0.1.0"), "").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppMultipleVersionsId)
@@ -148,10 +139,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `change release note title to blank`() {
         appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("0.1.0"), " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppMultipleVersionsId)
@@ -216,10 +204,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `change release note data on unknown version`() {
         appLifecycleUseCases.changeReleaseNoteTitle(activeAppMultipleVersionsId, Semver("6.6.6"), "New title!").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.RELEASE_VERSION_NOT_FOUND,
-                details = "6.6.6",
-            )
+            DomainError(code = AppDomainErrorCodes.RELEASE_VERSION_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppMultipleVersionsId)
@@ -229,10 +214,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `change release note data on discontinued app`() {
         appLifecycleUseCases.changeReleaseNoteTitle(discontinuedAppId, Semver("0.1.0"), "New title!").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -253,10 +235,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `discontinue app already discontinued`() {
         appLifecycleUseCases.discontinue(discontinuedAppId).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -266,10 +245,7 @@ class AppLifecycleUseCasesTests {
     @Test
     fun `delete app still active`() {
         appLifecycleUseCases.delete(activeAppId).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DELETE_STATUS_IS_NOT_DISCONTINUED)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -441,10 +417,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `add datatype with blank name`() {
         appVersionDevelopmentUseCases.addDatatype(activeAppId, " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -456,7 +429,7 @@ class AppVersionDevelopmentUseCasesTests {
         appVersionDevelopmentUseCases.addDatatype(activeAppId, "some Datatype").expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_NAME_INVALID,
-                details = "'some Datatype' does not match ([A-Z][a-z]*)+",
+                errorMessage = "'some Datatype' does not match ([A-Z][a-z]*)+",
             )
         )
         verifyMocks {
@@ -467,10 +440,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `add datatype with duplicate name`() {
         appVersionDevelopmentUseCases.addDatatype(activeAppId, "TestDatatype").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE,
-                details = "TestDatatype",
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -491,10 +461,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `add datatype on discontinued app`() {
         appVersionDevelopmentUseCases.addDatatype(discontinuedAppId, " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -504,10 +471,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version datatype to blank name`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -519,7 +483,7 @@ class AppVersionDevelopmentUseCasesTests {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "Test Datatype").expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_NAME_INVALID,
-                details = "'Test Datatype' does not match ([A-Z][a-z]*)+",
+                errorMessage = "'Test Datatype' does not match ([A-Z][a-z]*)+",
             )
         )
         verifyMocks {
@@ -530,10 +494,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version datatype with unknown name`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, "Unknown Datatype").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NOT_FOUND,
-                details = "Unknown",
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -543,10 +504,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version datatype with duplicate name`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, "TestDatatype").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE,
-                details = "TestDatatype",
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -571,10 +529,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version datatype on discontinued app`() {
         appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "", null, "SomeOtherName").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -586,7 +541,7 @@ class AppVersionDevelopmentUseCasesTests {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "NEW SCHEMA", null, null).expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
-                details = "Expected a ':' after a key at 115 [character 1 line 7]",
+                errorMessage = "Expected a ':' after a key at 115 [character 1 line 7]",
             )
         )
         verifyMocks {
@@ -597,10 +552,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `update next version datatype with unknown name`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, null).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NOT_FOUND,
-                details = "Unknown",
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -636,10 +588,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `update next version datatype on discontinued app`() {
         appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "", null, null).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -649,10 +598,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `remove next version unknown datatype`() {
         appVersionDevelopmentUseCases.removeDatatype(activeAppId, "Unknown").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_NOT_FOUND,
-                details = "Unknown",
-            )
+            DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -676,10 +622,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `remove next version datatype on discontinued app`() {
         appVersionDevelopmentUseCases.removeDatatype(discontinuedAppId, "TestDatatype").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -689,10 +632,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `add report with blank name`() {
         appVersionDevelopmentUseCases.addReport(activeAppId, " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NAME_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -702,10 +642,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `add report with duplicate name`() {
         appVersionDevelopmentUseCases.addReport(activeAppId, "TestReport").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE,
-                details = "TestReport",
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -726,10 +663,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `add report on discontinued app`() {
         appVersionDevelopmentUseCases.addReport(discontinuedAppId, " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -739,10 +673,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version report with blank name`() {
         appVersionDevelopmentUseCases.changeReport(activeAppId, "TestReport", "", null, " ").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NAME_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NAME_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -752,10 +683,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version report with unknown name`() {
         appVersionDevelopmentUseCases.changeReport(activeAppId, "Unknown", "", null, "Unknown Report").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NOT_FOUND,
-                details = "Unknown",
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -765,10 +693,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version report with duplicate name`() {
         appVersionDevelopmentUseCases.changeReport(activeAppId, "Unknown", "", null, "TestReport").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE,
-                details = "TestReport",
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NAME_DUPLICATE)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -790,10 +715,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `rename next version report on discontinued app`() {
         appVersionDevelopmentUseCases.changeReport(discontinuedAppId, "TestReport", "", null, "SomeOtherName").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -803,10 +725,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `update next version report with unknown name`() {
         appVersionDevelopmentUseCases.changeReport(activeAppId, "Unknown", "", null, null).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NOT_FOUND,
-                details = "Unknown",
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -842,10 +761,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `update next version report on discontinued app`() {
         appVersionDevelopmentUseCases.changeReport(discontinuedAppId, "TestReport", "", null, null).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -855,10 +771,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `remove next version unknown report`() {
         appVersionDevelopmentUseCases.removeReport(activeAppId, "Unknown").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.REPORT_NOT_FOUND,
-                details = "Unknown",
-            )
+            DomainError(code = AppDomainErrorCodes.REPORT_NOT_FOUND)
         )
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
@@ -879,10 +792,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `remove next version report on discontinued app`() {
         appVersionDevelopmentUseCases.removeReport(discontinuedAppId, "TestReport").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
@@ -892,10 +802,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `release next version without changes`() {
         appVersionDevelopmentUseCases.release(developmentAppNoChangesId).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_NO_CHANGES)
         )
         verifyMocks {
             queryPersistence.getOrError(developmentAppNoChangesId)
@@ -905,10 +812,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `release next version with blank note`() {
         appVersionDevelopmentUseCases.release(developmentAppNoReleaseNotesTitleId).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_TITLE_BLANK)
         )
         verifyMocks {
             queryPersistence.getOrError(developmentAppNoReleaseNotesTitleId)
@@ -918,10 +822,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `release next version without features or bugfixes information`() {
         appVersionDevelopmentUseCases.release(developmentAppNoReleaseNotesFeaturesOrBugfixesId).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.VERSION_RELEASE_NOTE_FEATURES_OR_BUGFIXES)
         )
         verifyMocks {
             queryPersistence.getOrError(developmentAppNoReleaseNotesFeaturesOrBugfixesId)
@@ -950,10 +851,7 @@ class AppVersionDevelopmentUseCasesTests {
     @Test
     fun `release next version on discontinued app`() {
         appVersionDevelopmentUseCases.release(discontinuedAppId).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED,
-                details = null,
-            )
+            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)

@@ -19,7 +19,7 @@ class BooleanSchemaTests : AnnotationsBaseTests() {
         """ $prefixForAnnotationTests "title": "Some title" """.toBooleanProperty().parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_ANNOTATIONS_TITLE_MANDATORY_FOR_TOP_LEVEL_NOT_SUPPORTED_FOR_EVERYTHING_ELSE,
-                details = "testPropertyName"
+                errorMessage = "testPropertyName"
             )
         )
 
@@ -34,7 +34,7 @@ class BooleanSchemaTests : AnnotationsBaseTests() {
         schemaContent.parseToObjectSchema().expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_SCHEMA_CONTAINS_UNPROCESSED_PROPERTIES,
-                details = "testPropertyName: {bar=baz}"
+                errorMessage = "testPropertyName: {bar=baz}"
             )
         )
     }
