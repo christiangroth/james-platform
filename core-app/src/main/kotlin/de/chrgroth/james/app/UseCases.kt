@@ -79,7 +79,6 @@ internal class AppLifecycleUseCasesService(
             app.releasedVersions.firstOrNull { it.version == version }!!
         }
 
-    // TODO #2 check if user data is still present
     override fun discontinue(id: UUID): ValidatedNel<DomainError, App> =
         queryPersistence.getOrError(id).andThen {
             it.discontinue()
@@ -190,7 +189,11 @@ internal class AppVersionDevelopmentUseCasesService(
             it.releaseNextVersionDraft()
         }.andThen { app ->
             commandPersistence.upsert(app).also {
-                eventBus.publish(DomainEvent.AppVersionReleased(id, app.latestVersion!!.version))
+                eventBus.publish(DomainEvent.AppVersionReleased(
+                    appId = id,
+                    version = app.latestVersion!!.version,
+                    datatypesSchemaContent = app.latestVersion!!.datatypes.associate { datatype -> datatype.name to datatype.schemaContent }
+                ))
             }
         }.map {
             it.latestVersion!!

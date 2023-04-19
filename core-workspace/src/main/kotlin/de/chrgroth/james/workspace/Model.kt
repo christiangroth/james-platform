@@ -134,7 +134,6 @@ data class Workspace private constructor(
             }
         }
 
-    // TODO #2 decide when deleting app is allowed
     internal fun uninstallApp(id: UUID): ValidatedNel<DomainError, Workspace> =
         getAppInstallationOrError(id).andThen { app ->
             app.verifyDeletion()
@@ -200,7 +199,8 @@ data class AppInstallation private constructor(
                 create(id, appId, version, nameSupplementField)
             }
 
-    // TODO #2 define rules when to delete app installations. what about the data? what if shared?
+    // TODO #1 define rules for deleting apps with shared data
+    // TODO #2 app may be deleted, data also: implement this
     internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
         Validated.invalidNel(
             DomainError(code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED)

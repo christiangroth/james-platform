@@ -4,7 +4,6 @@ import com.github.glwithu06.semver.Semver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -13,6 +12,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
+
+// TODO #2 maybe switch to Channels and Actors??
 
 class EventBus {
 
@@ -31,6 +32,7 @@ class EventBus {
         }
     }
 
+    // TODO #2 may use collect and not collect latest, we want to get all events!
     inline fun <reified T : DomainEvent> receiver(crossinline handler: (T) -> Unit) {
         eventingScope.launch {
             events.filterIsInstance<T>().collectLatest { handler(it) }
@@ -40,5 +42,7 @@ class EventBus {
 
 sealed class DomainEvent {
     data class UserRegistered(val id: UUID) : DomainEvent()
-    data class AppVersionReleased(val appId: UUID, val version: Semver) : DomainEvent()
+
+    // TODO #2 add parsed TypesystemDatatype instead of plain schema content
+    data class AppVersionReleased(val appId: UUID, val version: Semver, val datatypesSchemaContent: Map<String, String>) : DomainEvent()
 }

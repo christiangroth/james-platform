@@ -40,7 +40,7 @@ class EventingTests {
             gotEvent = true
         }
 
-        eventBus.publish(DomainEvent.AppVersionReleased(UUID.randomUUID(), Semver("1.0.0")))
+        eventBus.publish(DomainEvent.AppVersionReleased(UUID.randomUUID(), Semver("1.0.0"), emptyMap()))
         runBlocking { delay(1.seconds) }
         assertThat(gotEvent).isFalse
     }
