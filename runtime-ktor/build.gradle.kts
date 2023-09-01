@@ -1,6 +1,6 @@
 plugins {
     id("kotlin-project")
-    id("io.ktor.plugin") version "2.3.2"
+    id("io.ktor.plugin") version "2.3.3"
 }
 
 dependencies {
