@@ -3,22 +3,16 @@ package de.chrgroth.james.app
 import arrow.core.Validated
 import arrow.core.ValidatedNel
 import arrow.core.andThen
+import arrow.core.validNel
 import com.github.glwithu06.semver.Semver
-import com.sksamuel.tribune.core.Parser
-import com.sksamuel.tribune.core.compose
-import de.chrgroth.james.app.jsonschema.computeCompatibility
-import de.chrgroth.james.app.jsonschema.jsonObjectSchemaFor
-import de.chrgroth.james.app.jsonschema.parseToObjectSchema
 import de.chrgroth.james.computeNext
 import de.chrgroth.james.notBlankParser
-import de.chrgroth.james.notNegativeLongParser
-import de.chrgroth.james.regexParer
 import de.chrgroth.james.trimToNull
-import org.everit.json.schema.ObjectSchema
 import java.util.UUID
 import de.chrgroth.james.DomainError
 import de.chrgroth.james.notEmptyListParser
-import de.chrgroth.james.reduceWithAllValues
+import de.chrgroth.james.typesystem.Datatype
+import de.chrgroth.james.typesystem.DataobjectFieldSpecFormat
 
 enum class AppStatus(val allowsChanges: Boolean) {
     DEVELOPMENT(true), ACTIVE(true), DISCONTINUED(false)
@@ -114,18 +108,26 @@ data class App private constructor(
             DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE)
         )
 
-        else -> AppDatatypeDraft.create(name = datatypeName, schemaContent = "", description = null).andThen { newDatatype ->
+        else -> {
+            val newDatatype = Datatype.create(
+                name = datatypeName,
+                displayName = datatypeName,
+            )
+
             nextVersionDraft.upsertDatatype(newDatatype.name, newDatatype).andThen {
                 create(id, nameField, developerId, description, discontinued, it, releasedVersions)
             }
         }
     }
 
+    @Suppress("LongParameterList")
     internal fun changeNextVersionDraftDatatype(
         name: String,
-        schemaContent: String,
-        description: String?,
         newName: String,
+        displayName: String,
+        content: String,
+        format: DataobjectFieldSpecFormat,
+        description: String?,
     ): ValidatedNel<DomainError, App> = when {
         !status.allowsChanges -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
 
@@ -137,15 +139,18 @@ data class App private constructor(
             null -> Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND))
 
             else -> {
-                val nameToUse = if (name != newName) newName else name
-                if (datatype.name == nameToUse && datatype.schemaContent == schemaContent && datatype.description == description) {
-                    Validated.validNel(this)
-                } else {
-                    AppDatatypeDraft.create(name = nameToUse, schemaContent = schemaContent, description = description).andThen { updatedDatatype ->
-                        nextVersionDraft.upsertDatatype(name, updatedDatatype).andThen {
-                            create(id, nameField, developerId, description, discontinued, it, releasedVersions)
-                        }
-                    }
+                val updatedDatatype = Datatype.parse(
+                    name = newName,
+                    displayName = displayName,
+                    versionMajor = datatype.versionMajor,
+                    versionMinor = datatype.versionMinor,
+                    content = content,
+                    format = format,
+                    description = description,
+                )
+
+                nextVersionDraft.upsertDatatype(name, updatedDatatype).andThen {
+                    create(id, nameField, developerId, description, discontinued, it, releasedVersions)
                 }
             }
         }
@@ -189,11 +194,12 @@ data class App private constructor(
                 if (report.name == nameToUse && report.source == source && report.description == description) {
                     Validated.Valid(this)
                 } else {
-                    AppReport.create(name = nameToUse, source = source, description = description).andThen { updatedReport ->
-                        nextVersionDraft.upsertReport(name, updatedReport).andThen {
-                            create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+                    AppReport.create(name = nameToUse, source = source, description = description)
+                        .andThen { updatedReport ->
+                            nextVersionDraft.upsertReport(name, updatedReport).andThen {
+                                create(id, nameField, developerId, description, discontinued, it, releasedVersions)
+                            }
                         }
-                    }
                 }
             }
         }
@@ -216,7 +222,15 @@ data class App private constructor(
             AppVersionReleaseNotes.create(nextVersionDraft.releaseNotes).andThen { releaseNotes ->
                 AppVersion.create(releaseNotes, nextVersionDraft, latestVersion).andThen { nextVersionRelease ->
                     createNextVersionDraft(nextVersionRelease).andThen { newNextVersionDraft ->
-                        create(id, nameField, developerId, description, discontinued, newNextVersionDraft, listOf(nextVersionRelease) + releasedVersions)
+                        create(
+                            id,
+                            nameField,
+                            developerId,
+                            description,
+                            discontinued,
+                            newNextVersionDraft,
+                            listOf(nextVersionRelease) + releasedVersions
+                        )
                     }
                 }
             }
@@ -224,8 +238,8 @@ data class App private constructor(
     }
 
     private fun detectIfNextVersionDraftHasChanges(): Boolean {
-        val currentDatatypes = latestVersion?.datatypes?.associate { it.name to it.schemaContent } ?: emptyMap()
-        val nextDatatypes = nextVersionDraft.datatypes.associate { it.name to it.schemaContent }
+        val currentDatatypes = latestVersion?.datatypes?.associate { it.name to it.dump(DataobjectFieldSpecFormat.YAML) } ?: emptyMap()
+        val nextDatatypes = nextVersionDraft.datatypes.associate { it.name to it.dump(DataobjectFieldSpecFormat.YAML) }
 
         val currentReports = latestVersion?.reports?.associate { it.name to it.source } ?: emptyMap()
         val nextReports = nextVersionDraft.reports.associate { it.name to it.source }
@@ -235,11 +249,14 @@ data class App private constructor(
 
     private fun createNextVersionDraft(latestVersion: AppVersion): ValidatedNel<DomainError, AppVersionDraft> =
         latestVersion.let {
-            it.datatypes.map { datatype ->
-                AppDatatypeDraft.create(datatype)
-            }.reduceWithAllValues().andThen { datatypeDrafts ->
-                AppVersionDraft.create(datatypes = datatypeDrafts.toSet(), reports = it.reports)
-            }
+            val datatypesCopies = it.datatypes.map { datatype ->
+                datatype.copy()
+            }.toSet()
+
+            AppVersionDraft.create(
+                datatypes = datatypesCopies,
+                reports = it.reports
+            )
         }
 
     internal fun changeReleaseNoteTitle(version: Semver, title: String): ValidatedNel<DomainError, App> =
@@ -257,7 +274,10 @@ data class App private constructor(
     internal fun changeReleaseNoteMisc(version: Semver, misc: List<String>): ValidatedNel<DomainError, App> =
         changeReleaseNoteAspect(version) { it.changeReleaseNoteMisc(misc) }
 
-    private fun changeReleaseNoteAspect(version: Semver, block: (AppVersion) -> ValidatedNel<DomainError, AppVersion>): ValidatedNel<DomainError, App> = when {
+    private fun changeReleaseNoteAspect(
+        version: Semver,
+        block: (AppVersion) -> ValidatedNel<DomainError, AppVersion>
+    ): ValidatedNel<DomainError, App> = when {
         !status.allowsChanges -> {
             Validated.invalidNel(DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED))
         }
@@ -268,9 +288,16 @@ data class App private constructor(
 
         else -> {
             block(releasedVersions.first { it.version == version }).andThen { updatedVersion ->
-                create(id, nameField, developerId, description, discontinued, nextVersionDraft, releasedVersions.map { currentVersion ->
-                    if (currentVersion.version == version) updatedVersion else currentVersion
-                })
+                create(
+                    id,
+                    nameField,
+                    developerId,
+                    description,
+                    discontinued,
+                    nextVersionDraft,
+                    releasedVersions.map { currentVersion ->
+                        if (currentVersion.version == version) updatedVersion else currentVersion
+                    })
             }
         }
     }
@@ -295,7 +322,7 @@ data class App private constructor(
 data class AppVersion private constructor(
     val version: Semver,
     val releaseNotes: AppVersionReleaseNotes,
-    val datatypes: Set<AppDatatype>,
+    val datatypes: Set<Datatype>,
     val reports: Set<AppReport>,
 ) {
 
@@ -315,7 +342,10 @@ data class AppVersion private constructor(
                 )
             }
 
-        private fun create(base: AppVersion, releaseNotes: AppVersionReleaseNotes): ValidatedNel<DomainError, AppVersion> =
+        private fun create(
+            base: AppVersion,
+            releaseNotes: AppVersionReleaseNotes
+        ): ValidatedNel<DomainError, AppVersion> =
             Validated.validNel(
                 AppVersion(
                     version = base.version,
@@ -326,20 +356,25 @@ data class AppVersion private constructor(
             )
     }
 
-    internal fun changeReleaseNoteTitle(title: String): ValidatedNel<DomainError, AppVersion> = releaseNotes.changeTitle(title).andThen { create(this, it) }
-    internal fun changeReleaseNoteNotes(notes: String): ValidatedNel<DomainError, AppVersion> = releaseNotes.changeNotes(notes).andThen { create(this, it) }
+    internal fun changeReleaseNoteTitle(title: String): ValidatedNel<DomainError, AppVersion> =
+        releaseNotes.changeTitle(title).andThen { create(this, it) }
+
+    internal fun changeReleaseNoteNotes(notes: String): ValidatedNel<DomainError, AppVersion> =
+        releaseNotes.changeNotes(notes).andThen { create(this, it) }
+
     internal fun changeReleaseNoteFeatures(features: List<String>): ValidatedNel<DomainError, AppVersion> =
         releaseNotes.changeFeatures(features).andThen { create(this, it) }
 
     internal fun changeReleaseNoteBugfixes(bugfixes: List<String>): ValidatedNel<DomainError, AppVersion> =
         releaseNotes.changeBugfixes(bugfixes).andThen { create(this, it) }
 
-    internal fun changeReleaseNoteMisc(misc: List<String>): ValidatedNel<DomainError, AppVersion> = releaseNotes.changeMisc(misc).andThen { create(this, it) }
+    internal fun changeReleaseNoteMisc(misc: List<String>): ValidatedNel<DomainError, AppVersion> =
+        releaseNotes.changeMisc(misc).andThen { create(this, it) }
 }
 
 data class AppVersionDraft private constructor(
     val releaseNotes: AppVersionReleaseNotesDraft,
-    val datatypes: Set<AppDatatypeDraft>,
+    val datatypes: Set<Datatype>,
     val reports: Set<AppReport>,
 ) {
 
@@ -350,12 +385,12 @@ data class AppVersionDraft private constructor(
             reports = emptySet(),
         )
 
-        fun create(datatypes: Set<AppDatatypeDraft>, reports: Set<AppReport>): ValidatedNel<DomainError, AppVersionDraft> =
+        fun create(datatypes: Set<Datatype>, reports: Set<AppReport>): ValidatedNel<DomainError, AppVersionDraft> =
             create(defaultEmptyReleaseNotesDraft(), datatypes, reports)
 
         fun create(
             releaseNotes: AppVersionReleaseNotesDraft,
-            datatypes: Set<AppDatatypeDraft>,
+            datatypes: Set<Datatype>,
             reports: Set<AppReport>
         ): ValidatedNel<DomainError, AppVersionDraft> =
             Validated.validNel(AppVersionDraft(releaseNotes = releaseNotes, datatypes = datatypes, reports = reports))
@@ -378,24 +413,32 @@ data class AppVersionDraft private constructor(
     internal fun changeReleaseNoteMisc(misc: List<String>): ValidatedNel<DomainError, AppVersionDraft> =
         releaseNotes.changeMisc(misc).andThen { create(it, datatypes, reports) }
 
-    internal fun createDatatypes(latest: AppVersion?): ValidatedNel<DomainError, Set<AppDatatype>> =
+    internal fun createDatatypes(latest: AppVersion?): ValidatedNel<DomainError, Set<Datatype>> =
         datatypes.map { draft ->
+
             val existingDatatype = latest?.datatypes?.firstOrNull { it.name == draft.name }
-            val newVersion = when {
-                existingDatatype == null -> 1
-                existingDatatype.schemaContent == draft.schemaContent -> existingDatatype.version
-                else -> existingDatatype.version + 1
+            val (newVersionMajor, newVersionMinor) = if(existingDatatype == null) {
+                1.toULong() to 0.toULong()
+            } else {
+                val versionMajor = existingDatatype.versionMajor
+                val versionMinor = existingDatatype.versionMinor
+
+                val breakingChanges = existingDatatype.computeBreakingChanges(draft)
+                if(breakingChanges.isNotEmpty()) {
+                    versionMajor.inc() to 0.toULong()
+                } else {
+                    versionMajor to versionMinor.inc()
+                }
             }
 
-            AppDatatype.create(draft, newVersion)
-        }.reduceWithAllValues().map { datatypes ->
-            datatypes.toSet()
-        }
+            draft.copy(
+                versionMajor = newVersionMajor,
+                versionMinor = newVersionMinor,
+            )
+        }.toSet().validNel()
 
-    internal fun upsertDatatype(name: String, datatype: AppDatatypeDraft): ValidatedNel<DomainError, AppVersionDraft> =
-        datatype.validateJsonSchema().andThen {
-            create(releaseNotes, datatypes.upsert(name, datatype), reports)
-        }
+    internal fun upsertDatatype(name: String, datatype: Datatype): ValidatedNel<DomainError, AppVersionDraft> =
+        create(releaseNotes, datatypes.upsert(name, datatype), reports)
 
     internal fun removeDatatype(datatypeName: String): ValidatedNel<DomainError, AppVersionDraft> = when {
         datatypes.none { it.name == datatypeName.trim() } -> Validated.invalidNel(
@@ -405,7 +448,7 @@ data class AppVersionDraft private constructor(
         else -> create(releaseNotes, datatypes.filterNot { it.name == datatypeName.trim() }.toSet(), reports)
     }
 
-    private fun Set<AppDatatypeDraft>.upsert(removeName: String, addDatatype: AppDatatypeDraft): Set<AppDatatypeDraft> =
+    private fun Set<Datatype>.upsert(removeName: String, addDatatype: Datatype): Set<Datatype> =
         filterNot { it.name == removeName }.plus(addDatatype).toSet()
 
     internal fun upsertReport(name: String, report: AppReport): ValidatedNel<DomainError, AppVersionDraft> =
@@ -556,110 +599,12 @@ internal fun isBreaking(latest: AppVersion, next: AppVersionDraft): Boolean {
 
     return latest.datatypes.asSequence().mapNotNull { existingDatatype ->
         val nextDatatype = next.datatypes.firstOrNull { it.name == existingDatatype.name }
-        if (nextDatatype != null && existingDatatype.schemaContent != nextDatatype.schemaContent) {
+        if (nextDatatype != null) {
             existingDatatype to nextDatatype
         } else {
             null
         }
-    }.map {
-        it.first.validateJsonSchema() to it.second.validateJsonSchema()
-    }.mapNotNull {
-        if (it.first is Validated.Valid && it.second is Validated.Valid) {
-            (it.first as Validated.Valid).value to (it.second as Validated.Valid).value
-        } else {
-            null
-        }
-    }.any { it.first.computeCompatibility(it.second) is Validated.Invalid }
-}
-
-data class AppDatatypeDraft private constructor(
-    private var nameField: String,
-    private var schemaContentField: String,
-    private var descriptionField: String?,
-) {
-
-    companion object {
-        private val nameParser = regexParer(
-            AppDomainErrorCodes.DATATYPE_NAME_BLANK,
-            Regex("([A-Z][a-z]*)+"),
-            AppDomainErrorCodes.DATATYPE_NAME_INVALID,
-        )
-
-        fun create(datatype: AppDatatype): ValidatedNel<DomainError, AppDatatypeDraft> = create(
-            name = datatype.name,
-            schemaContent = datatype.schemaContent,
-            description = datatype.description,
-        )
-
-        fun create(name: String, schemaContent: String, description: String?): ValidatedNel<DomainError, AppDatatypeDraft> =
-            nameParser.parse(name).map { validName ->
-                AppDatatypeDraft(
-                    nameField = validName,
-                    schemaContentField = schemaContent,
-                    descriptionField = description,
-                )
-            }
-    }
-
-    val name get() = nameField
-    val schemaContent get() = schemaContentField
-    val description get() = descriptionField
-
-    fun validateJsonSchema(): ValidatedNel<DomainError, ObjectSchema> = jsonObjectSchemaFor(
-        // TODO #4 appId = appId,
-        // TODO #4 version = null,
-        name = name,
-        description = description ?: "",
-        schemaContent = schemaContent,
-    ).parseToObjectSchema()
-}
-
-data class AppDatatype private constructor(
-    private var nameField: String,
-    private var versionField: Long,
-    private var schemaContentField: String,
-    private var descriptionField: String?,
-) {
-
-    companion object {
-        private val nameParser = notBlankParser(
-            AppDomainErrorCodes.DATATYPE_NAME_BLANK
-        )
-
-        private val versionParser = notNegativeLongParser(
-            AppDomainErrorCodes.DATATYPE_VERSION_NEGATIVE
-        )
-
-        private data class AppDatatypeParserInput(val name: String, val version: Long)
-
-        fun create(draft: AppDatatypeDraft, version: Long): ValidatedNel<DomainError, AppDatatype> {
-
-            val datatypeParser: Parser<AppDatatypeParserInput, AppDatatype, DomainError> = Parser
-                .compose(
-                    nameParser.contramap { it.name },
-                    versionParser.contramap { it.version.toString() },
-                ) { validName, validVersion ->
-                    AppDatatype(
-                        nameField = validName, versionField = validVersion, schemaContentField = draft.schemaContent, descriptionField = draft.description
-                    )
-                }
-
-            return datatypeParser.parse(AppDatatypeParserInput(draft.name, version))
-        }
-    }
-
-    val name get() = nameField
-    val version get() = versionField
-    val schemaContent get() = schemaContentField
-    val description get() = descriptionField
-
-    fun validateJsonSchema(): ValidatedNel<DomainError, ObjectSchema> = jsonObjectSchemaFor(
-        // TODO #4 appId = appId,
-        // TODO #4 version = version.toString(),
-        name = name,
-        description = description ?: "",
-        schemaContent = schemaContent,
-    ).parseToObjectSchema()
+    }.any { it.first.computeBreakingChanges(it.second).isNotEmpty() }
 }
 
 data class AppReport private constructor(

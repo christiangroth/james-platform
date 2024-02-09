@@ -24,7 +24,7 @@ class EventBus {
 
     val eventingScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    fun publish(event: DomainEvent): Unit {
+    fun publish(event: DomainEvent) {
         eventingScope.launch {
             withTimeout(50.milliseconds) {
                 _events.emit(event)
@@ -43,6 +43,5 @@ class EventBus {
 sealed class DomainEvent {
     data class UserRegistered(val id: UUID) : DomainEvent()
 
-    // TODO #2 add parsed TypesystemDatatype instead of plain schema content
-    data class AppVersionReleased(val appId: UUID, val version: Semver, val datatypesSchemaContent: Map<String, String>) : DomainEvent()
+    data class AppVersionReleased(val appId: UUID, val version: Semver, val datatypesYamlContent: Map<String, String>) : DomainEvent()
 }

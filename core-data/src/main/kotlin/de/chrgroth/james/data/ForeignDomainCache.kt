@@ -13,7 +13,7 @@ class AppVersionDatatypesSchemaContentCache(private val eventBus: EventBus) {
 
     init {
         eventBus.receiver<DomainEvent.AppVersionReleased> { event ->
-            event.datatypesSchemaContent.forEach {
+            event.datatypesYamlContent.forEach {
                 add(CacheKey(event.appId, event.version, it.key), it.value)
             }
         }

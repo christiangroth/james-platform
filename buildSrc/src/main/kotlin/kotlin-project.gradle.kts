@@ -1,6 +1,5 @@
 import io.gitlab.arturbosch.detekt.Detekt
 import kotlinx.kover.api.CounterType
-import kotlinx.kover.api.KoverVerifyConfig
 import kotlinx.kover.api.VerificationTarget
 import kotlinx.kover.api.VerificationValueType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -34,11 +33,11 @@ dependencies {
 
     testImplementation("org.assertj:assertj-core:3.23.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
-    testImplementation("io.mockk:mockk:1.12.2")
+    testImplementation("io.mockk:mockk:1.13.9")
 
     testFixturesImplementation("org.assertj:assertj-core:3.23.1")
     testFixturesImplementation("org.junit.jupiter:junit-jupiter:5.9.0")
-    testFixturesImplementation("io.mockk:mockk:1.12.2")
+    testFixturesImplementation("io.mockk:mockk:1.13.9")
 }
 
 java {
@@ -51,7 +50,7 @@ java {
 
 detekt {
     buildUponDefaultConfig = true
-    config = files("${rootProject.projectDir}/detekt-config.yaml")
+    config.setFrom(files("${rootProject.projectDir}/detekt-config.yaml"))
 }
 
 generateUml {
@@ -72,12 +71,12 @@ tasks {
 
     // see https://kotlinlang.org/docs/gradle.html#compiler-options
     withType<KotlinCompile>().configureEach {
-        kotlinOptions.apiVersion = "1.6"
-        kotlinOptions.languageVersion = "1.6"
+        kotlinOptions.apiVersion = "1.9"
+        kotlinOptions.languageVersion = "1.9"
 
         kotlinOptions.jvmTarget = "17"
 
-        kotlinOptions.allWarningsAsErrors = true
+        kotlinOptions.allWarningsAsErrors = false
         kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
     }
 
