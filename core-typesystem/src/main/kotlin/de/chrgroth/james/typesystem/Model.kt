@@ -55,6 +55,8 @@ enum class DatatypeBreakingChange {
 
     DATE_TIME_FIELD_RESTRICTS_MIN_VALUE,
     DATE_TIME_FIELD_RESTRICTS_MAX_VALUE,
+
+    REFERENCE_FIELD_CHANGES_TARGET_DATATYPE,
 }
 
 data class Datatype(
@@ -779,12 +781,23 @@ data class DataobjectReferenceFieldSpec(
     val datatypeName: String,
 ) : FieldSpec<UUID>() {
 
+    // TODO #2 check if datatype is known somehow?
     override fun validate(): List<DomainError> {
-        TODO("Not yet implemented")
+        val datatypeIssue = if (datatypeName.isBlank()) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.REFERENCE_FIELD_MISSING_DATATYPE,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(datatypeIssue)
     }
 
+    // TODO #2 check if object with this id and datatype is known somehow?
     override fun validateValue(value: UUID): List<DomainError> {
-        TODO("Not yet implemented")
+        return emptyList()
     }
 
     override fun convert(value: Any): Either<List<DomainError>, UUID> =
@@ -799,9 +812,12 @@ data class DataobjectReferenceFieldSpec(
             value as UUID
         })
 
-    @Suppress("UnusedParameter")
     fun computeBreakingChanges(newVersion: DataobjectReferenceFieldSpec): List<DatatypeBreakingChange> {
-        TODO("Not yet implemented")
+        val datatypeChanged = if (datatypeName != newVersion.datatypeName) {
+            DatatypeBreakingChange.REFERENCE_FIELD_CHANGES_TARGET_DATATYPE
+        } else null
+
+        return listOfNotNull(datatypeChanged)
     }
 }
 
