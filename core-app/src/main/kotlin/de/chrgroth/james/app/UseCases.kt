@@ -202,7 +202,7 @@ internal class AppVersionDevelopmentUseCasesService(
             it.releaseNextVersionDraft()
         }.andThen { app ->
             commandPersistence.upsert(app).also {
-                // TODO #2 unable to reference Datatye in eventing module and parsing from YAML lacks metadata written to comments only
+                // TODO #2 unable to reference Datatype in eventing module and parsing from YAML lacks metadata written to comments only
                 eventBus.publish(DomainEvent.AppVersionReleased(
                     appId = id,
                     version = app.latestVersion!!.version,

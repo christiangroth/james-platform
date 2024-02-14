@@ -540,22 +540,6 @@ class AppVersionDevelopmentUseCasesTests {
         }
     }
 
-
-    @Test
-    @Disabled
-    // TODO #2 enable again after YAML parsing was implemented
-    fun `update next version datatype with invalid schema`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "TestDatatype", "TestDatatype", "INVALID YAML CONTENT", YAML, "").expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
-                errorMessage = "Expected a ':' after a key at 115 [character 1 line 7]",
-            )
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppId)
-        }
-    }
-
     @Test
     fun `update next version datatype`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "NewDatatype", "DisplayName", "", YAML, "New description").expectSuccess()

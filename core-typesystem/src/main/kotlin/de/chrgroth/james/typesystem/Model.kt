@@ -18,6 +18,7 @@ data class Dataobject(
     val datatypeName: String,
     val datatypeVersionMajor: ULong,
     val datatypeVersionMinor: ULong,
+    // TODO #2 maybe define a FieldPath instead of string to avoid nested maps? or ensure no "." and "[]" in values key
     val values: Map<String, Any>
 )
 
@@ -45,6 +46,15 @@ enum class DatatypeBreakingChange {
 
     NUMERIC_FIELD_RESTRICTS_MIN_VALUE,
     NUMERIC_FIELD_RESTRICTS_MAX_VALUE,
+
+    DATE_FIELD_RESTRICTS_MIN_VALUE,
+    DATE_FIELD_RESTRICTS_MAX_VALUE,
+
+    TIME_FIELD_RESTRICTS_MIN_VALUE,
+    TIME_FIELD_RESTRICTS_MAX_VALUE,
+
+    DATE_TIME_FIELD_RESTRICTS_MIN_VALUE,
+    DATE_TIME_FIELD_RESTRICTS_MAX_VALUE,
 }
 
 data class Datatype(
@@ -560,11 +570,38 @@ data class LocalDateFieldSpec(
 ) : FieldSpec<LocalDate>() {
 
     override fun validate(): List<DomainError> {
-        TODO("Not yet implemented")
+        val minMaxIssue = if (min != null && max != null &&  min > max) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.DATE_FIELD_MIN_GREATER_MAX,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(minMaxIssue)
     }
 
     override fun validateValue(value: LocalDate): List<DomainError> {
-        TODO("Not yet implemented")
+        val minIssue = if (min != null && min > value) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.DATE_VALUE_BELOW_MIN,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        val maxIssue = if (max != null && max < value) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.DATE_VALUE_ABOVE_MAX,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(minIssue, maxIssue)
     }
 
     override fun convert(value: Any): Either<List<DomainError>, LocalDate> =
@@ -579,9 +616,20 @@ data class LocalDateFieldSpec(
             value as LocalDate
         })
 
-    @Suppress("UnusedParameter")
     fun computeBreakingChanges(newVersion: LocalDateFieldSpec): List<DatatypeBreakingChange> {
-        TODO("Not yet implemented")
+        val minIntroduced = min == null && newVersion.min != null
+        val minRestricted = min != null && newVersion.min != null && min < newVersion.min
+        val minValueBreakingChange = if (minIntroduced || minRestricted) {
+            DatatypeBreakingChange.DATE_FIELD_RESTRICTS_MIN_VALUE
+        } else null
+
+        val maxIntroduced = max == null && newVersion.max != null
+        val maxRestricted = max != null && newVersion.max != null && max > newVersion.max
+        val maxValueBreakingChange = if (maxIntroduced || maxRestricted) {
+            DatatypeBreakingChange.DATE_FIELD_RESTRICTS_MAX_VALUE
+        } else null
+
+        return listOfNotNull(minValueBreakingChange, maxValueBreakingChange)
     }
 }
 
@@ -593,11 +641,38 @@ data class LocalTimeFieldSpec(
 ) : FieldSpec<LocalTime>() {
 
     override fun validate(): List<DomainError> {
-        TODO("Not yet implemented")
+        val minMaxIssue = if (min != null && max != null &&  min > max) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.TIME_FIELD_MIN_GREATER_MAX,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(minMaxIssue)
     }
 
     override fun validateValue(value: LocalTime): List<DomainError> {
-        TODO("Not yet implemented")
+        val minIssue = if (min != null && min > value) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.TIME_VALUE_BELOW_MIN,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        val maxIssue = if (max != null && max < value) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.TIME_VALUE_ABOVE_MAX,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(minIssue, maxIssue)
     }
 
     override fun convert(value: Any): Either<List<DomainError>, LocalTime> =
@@ -612,9 +687,20 @@ data class LocalTimeFieldSpec(
             value as LocalTime
         })
 
-    @Suppress("UnusedParameter")
     fun computeBreakingChanges(newVersion: LocalTimeFieldSpec): List<DatatypeBreakingChange> {
-        TODO("Not yet implemented")
+        val minIntroduced = min == null && newVersion.min != null
+        val minRestricted = min != null && newVersion.min != null && min < newVersion.min
+        val minValueBreakingChange = if (minIntroduced || minRestricted) {
+            DatatypeBreakingChange.TIME_FIELD_RESTRICTS_MIN_VALUE
+        } else null
+
+        val maxIntroduced = max == null && newVersion.max != null
+        val maxRestricted = max != null && newVersion.max != null && max > newVersion.max
+        val maxValueBreakingChange = if (maxIntroduced || maxRestricted) {
+            DatatypeBreakingChange.TIME_FIELD_RESTRICTS_MAX_VALUE
+        } else null
+
+        return listOfNotNull(minValueBreakingChange, maxValueBreakingChange)
     }
 }
 
@@ -626,11 +712,38 @@ data class LocalDateTimeFieldSpec(
 ) : FieldSpec<LocalDateTime>() {
 
     override fun validate(): List<DomainError> {
-        TODO("Not yet implemented")
+        val minMaxIssue = if (min != null && max != null &&  min > max) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.DATE_TIME_FIELD_MIN_GREATER_MAX,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(minMaxIssue)
     }
 
     override fun validateValue(value: LocalDateTime): List<DomainError> {
-        TODO("Not yet implemented")
+        val minIssue = if (min != null && min > value) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.DATE_TIME_VALUE_BELOW_MIN,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        val maxIssue = if (max != null && max < value) {
+            DomainError(
+                code = TypesystemDomainErrorCodes.DATE_TIME_VALUE_ABOVE_MAX,
+                errorMessage = null,
+            )
+        } else {
+            null
+        }
+
+        return listOfNotNull(minIssue, maxIssue)
     }
 
     override fun convert(value: Any): Either<List<DomainError>, LocalDateTime> =
@@ -645,9 +758,20 @@ data class LocalDateTimeFieldSpec(
             value as LocalDateTime
         })
 
-    @Suppress("UnusedParameter")
     fun computeBreakingChanges(newVersion: LocalDateTimeFieldSpec): List<DatatypeBreakingChange> {
-        TODO("Not yet implemented")
+        val minIntroduced = min == null && newVersion.min != null
+        val minRestricted = min != null && newVersion.min != null && min < newVersion.min
+        val minValueBreakingChange = if (minIntroduced || minRestricted) {
+            DatatypeBreakingChange.DATE_TIME_FIELD_RESTRICTS_MIN_VALUE
+        } else null
+
+        val maxIntroduced = max == null && newVersion.max != null
+        val maxRestricted = max != null && newVersion.max != null && max > newVersion.max
+        val maxValueBreakingChange = if (maxIntroduced || maxRestricted) {
+            DatatypeBreakingChange.DATE_TIME_FIELD_RESTRICTS_MAX_VALUE
+        } else null
+
+        return listOfNotNull(minValueBreakingChange, maxValueBreakingChange)
     }
 }
 

@@ -32,10 +32,9 @@ class EventBus {
         }
     }
 
-    // TODO #2 may use collect and not collect latest, we want to get all events!
     inline fun <reified T : DomainEvent> receiver(crossinline handler: (T) -> Unit) {
         eventingScope.launch {
-            events.filterIsInstance<T>().collectLatest { handler(it) }
+            events.filterIsInstance<T>().collect { handler(it) }
         }
     }
 }
