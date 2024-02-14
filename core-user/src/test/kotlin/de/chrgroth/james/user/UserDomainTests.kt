@@ -45,7 +45,7 @@ class UserDomainTests {
         }
 
         eventBus = mockk<EventBus>().also {
-            every { it.publish(any()) } answers { Unit }
+            every { it.publish(any<DomainEvent.UserRegistered>()) } answers { Unit }
         }
 
         userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence, eventBus)

@@ -7,6 +7,9 @@ import de.chrgroth.james.DomainEvent
 import de.chrgroth.james.EventBus
 import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
+import de.chrgroth.james.typesystem.DataobjectFieldSpecFormat
+import de.chrgroth.james.typesystem.DataobjectFieldSpecFormat.YAML
+import de.chrgroth.james.typesystem.Datatype
 import io.mockk.MockKVerificationScope
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -14,6 +17,7 @@ import io.mockk.mockk
 import io.mockk.verifySequence
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
@@ -453,7 +457,7 @@ class AppVersionDevelopmentUseCasesTests {
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
-                assertThat(it.nextVersionDraft.datatypes).contains(AppDatatypeDraft.create("NewDatatype", "", null).expectSuccess())
+                assertThat(it.nextVersionDraft.datatypes).contains(Datatype.create("NewDatatype", "NewDatatype"))
             })
         }
     }
@@ -470,7 +474,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype to blank name`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, " ").expectDomainErrors(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", " ", "TestDatatype", "", YAML, "").expectDomainErrors(
             DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_BLANK)
         )
         verifyMocks {
@@ -480,7 +484,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype with invalid name`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "Test Datatype").expectDomainErrors(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "Test Datatype", "TestDatatype", "", YAML, "").expectDomainErrors(
             DomainError(
                 code = AppDomainErrorCodes.DATATYPE_NAME_INVALID,
                 errorMessage = "'Test Datatype' does not match ([A-Z][a-z]*)+",
@@ -493,7 +497,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype with unknown name`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, "Unknown Datatype").expectDomainErrors(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "Unknown", "Unknown", "", YAML, "").expectDomainErrors(
             DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND)
         )
         verifyMocks {
@@ -503,7 +507,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype with duplicate name`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, "TestDatatype").expectDomainErrors(
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "TestDatatype", "Unknown", "", YAML, "").expectDomainErrors(
             DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_DUPLICATE)
         )
         verifyMocks {
@@ -513,7 +517,7 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype`() {
-        val nextVersion = appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, "NewDatatype").expectSuccess()
+        val nextVersion = appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "NewDatatype", "Unknown", "", YAML, "NewDatatype").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
@@ -528,70 +532,25 @@ class AppVersionDevelopmentUseCasesTests {
 
     @Test
     fun `rename next version datatype on discontinued app`() {
-        appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "", null, "SomeOtherName").expectDomainErrors(
+        appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "TestDatatype", "TestDatatype", "", YAML, "").expectDomainErrors(
             DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
         )
         verifyMocks {
             queryPersistence.getOrError(discontinuedAppId)
-        }
-    }
-
-    @Test
-    fun `update next version datatype with invalid schema`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "NEW SCHEMA", null, null).expectDomainErrors(
-            DomainError(
-                code = AppDomainErrorCodes.DATATYPE_SCHEMA_INVALID,
-                errorMessage = "Expected a ':' after a key at 115 [character 1 line 7]",
-            )
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppId)
-        }
-    }
-
-    @Test
-    fun `update next version datatype with unknown name`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "Unknown", "", null, null).expectDomainErrors(
-            DomainError(code = AppDomainErrorCodes.DATATYPE_NOT_FOUND)
-        )
-        verifyMocks {
-            queryPersistence.getOrError(activeAppId)
         }
     }
 
     @Test
     fun `update next version datatype`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", "NEW DESC", null).expectSuccess()
+        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "NewDatatype", "DisplayName", "", YAML, "New description").expectSuccess()
         verifyMocks {
             queryPersistence.getOrError(activeAppId)
             commandPersistence.upsert(withArg {
                 assertThat(it.nextVersionDraft.datatypes).hasSize(1)
-                assertThat(it.nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
-                assertThat(it.nextVersionDraft.datatypes.first().description).isEqualTo("NEW DESC")
+                assertThat(it.nextVersionDraft.datatypes.first().name).isEqualTo("NewDatatype")
+                assertThat(it.nextVersionDraft.datatypes.first().displayName).isEqualTo("DisplayName")
+                assertThat(it.nextVersionDraft.datatypes.first().dataobjectDefinition.description).isEqualTo("New description")
             })
-        }
-    }
-
-    @Test
-    fun `update next version datatype with same schema and description`() {
-        appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "", null, null).expectSuccess()
-        verifyMocks {
-            queryPersistence.getOrError(activeAppId)
-            commandPersistence.upsert(withArg {
-                assertThat(it.nextVersionDraft.datatypes).hasSize(1)
-                assertThat(it.nextVersionDraft.datatypes.first().schemaContent).isEqualTo("")
-                assertThat(it.nextVersionDraft.datatypes.first().description).isNull()
-            })
-        }
-    }
-
-    @Test
-    fun `update next version datatype on discontinued app`() {
-        appVersionDevelopmentUseCases.changeDatatype(discontinuedAppId, "TestDatatype", "", null, null).expectDomainErrors(
-            DomainError(code = AppDomainErrorCodes.DISCONTINUED_NO_CHANGES_ALLOWED)
-        )
-        verifyMocks {
-            queryPersistence.getOrError(discontinuedAppId)
         }
     }
 

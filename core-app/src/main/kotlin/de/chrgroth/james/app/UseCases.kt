@@ -7,6 +7,7 @@ import de.chrgroth.james.DomainError
 import de.chrgroth.james.DomainEvent
 import de.chrgroth.james.EventBus
 import de.chrgroth.james.createValidation
+import de.chrgroth.james.typesystem.DataobjectFieldSpecFormat
 import java.util.UUID
 
 interface AppLifecycleUseCases {
@@ -28,7 +29,16 @@ interface AppVersionDevelopmentUseCases {
     fun changeReleaseNoteMisc(id: UUID, misc: List<String>): ValidatedNel<DomainError, AppVersionDraft>
 
     fun addDatatype(id: UUID, datatypeName: String): ValidatedNel<DomainError, AppVersionDraft>
-    fun changeDatatype(id: UUID, name: String, schemaContent: String, description: String?, newName: String?): ValidatedNel<DomainError, AppVersionDraft>
+    @Suppress("LongParameterList")
+    fun changeDatatype(
+        id: UUID,
+        name: String,
+        newName: String?,
+        displayName: String,
+        content: String,
+        format: DataobjectFieldSpecFormat,
+        description: String?,
+    ): ValidatedNel<DomainError, AppVersionDraft>
     fun removeDatatype(id: UUID, datatypeName: String): ValidatedNel<DomainError, AppVersionDraft>
 
     fun addReport(id: UUID, reportName: String): ValidatedNel<DomainError, AppVersionDraft>
@@ -79,7 +89,6 @@ internal class AppLifecycleUseCasesService(
             app.releasedVersions.firstOrNull { it.version == version }!!
         }
 
-    // TODO #2 check if user data is still present
     override fun discontinue(id: UUID): ValidatedNel<DomainError, App> =
         queryPersistence.getOrError(id).andThen {
             it.discontinue()
@@ -134,15 +143,18 @@ internal class AppVersionDevelopmentUseCasesService(
             it.nextVersionDraft
         }
 
+    @Suppress("LongParameterList")
     override fun changeDatatype(
         id: UUID,
         name: String,
-        schemaContent: String,
-        description: String?,
         newName: String?,
+        displayName: String,
+        content: String,
+        format: DataobjectFieldSpecFormat,
+        description: String?,
     ): ValidatedNel<DomainError, AppVersionDraft> =
         queryPersistence.getOrError(id).andThen {
-            it.changeNextVersionDraftDatatype(name, schemaContent, description, newName ?: name)
+            it.changeNextVersionDraftDatatype(name, newName ?: name, displayName, content, format, description)
         }.andThen {
             commandPersistence.upsert(it)
         }.map {
@@ -190,7 +202,12 @@ internal class AppVersionDevelopmentUseCasesService(
             it.releaseNextVersionDraft()
         }.andThen { app ->
             commandPersistence.upsert(app).also {
-                eventBus.publish(DomainEvent.AppVersionReleased(id, app.latestVersion!!.version))
+                // TODO #2 unable to reference Datatype in eventing module and parsing from YAML lacks metadata written to comments only
+                eventBus.publish(DomainEvent.AppVersionReleased(
+                    appId = id,
+                    version = app.latestVersion!!.version,
+                    datatypesYamlContent = app.latestVersion!!.datatypes.associate { datatype -> datatype.name to datatype.dump(DataobjectFieldSpecFormat.YAML) }
+                ))
             }
         }.map {
             it.latestVersion!!
