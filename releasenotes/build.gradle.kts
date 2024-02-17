@@ -3,5 +3,6 @@ plugins {
 }
 
 releasenotes {
+    this.mainBranch = "main"
 
 }

@@ -1,10 +1,5 @@
 package de.chrgroth.gradle.plugins.releasenotes
 
-import de.chrgroth.gradle.plugins.createWithText
-import de.chrgroth.gradle.plugins.prepend
-import de.chrgroth.gradle.plugins.readOrNull
-import de.chrgroth.gradle.plugins.replaceAll
-import org.gradle.api.Project
 import org.gradle.kotlin.dsl.support.listFilesOrdered
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -20,6 +15,8 @@ private const val HIGHLIGHT_TEMPLATE_FILE = "highlight"
 private const val UPDATE_NOTICE_TEMPLATE_FILE = "update-notice"
 private const val NEXT_VERSION_TEMPLATE_FILE = "next-version"
 
+private const val OUTPUT_FOLDER = "releasenotes"
+
 enum class ReleasenoteSnippetType(val filenamePostfix: String, val nextVersionReplacementVariableName: String) {
     FEATURE("-feature", "features"),
     BUGFIX("-bugfix", "bugfixes"),
@@ -28,6 +25,7 @@ enum class ReleasenoteSnippetType(val filenamePostfix: String, val nextVersionRe
 }
 
 class ReleaseNotesProcessor(
+    private val name: String,
     private val outputFile: File,
     private val snippetsFolder: File,
     private val templatesFolder: File,
@@ -73,9 +71,15 @@ class ReleaseNotesProcessor(
 
     private val nextVersionTemplateContent: String
         get() = nextVersionTemplate.readOrNull() ?: """
-            |# {version} - {date}
-            |{highlights}{updateNotices}{features}{bugfixes}
+            # {version} - {date}
+            {highlights}{updateNotices}{features}{bugfixes}
         """.trimIndent()
+
+    private fun File.readOrNull() = if (canRead()) {
+        readText()
+    } else {
+        null
+    }
 
     fun createFolderStructure() {
         outputFile.apply {
@@ -94,58 +98,91 @@ class ReleaseNotesProcessor(
         nextVersionTemplate.createWithText(nextVersionTemplateContent)
     }
 
-    fun createBugfix(branch: String) =
-        createSnippet(bugfixTemplateContent, branch, ReleasenoteSnippetType.BUGFIX)
+    fun createBugfix(currentBranch: String) =
+        createSnippet(bugfixTemplateContent, currentBranch, ReleasenoteSnippetType.BUGFIX)
 
-    fun createFeature(branch: String) =
-        createSnippet(featureTemplateContent, branch, ReleasenoteSnippetType.FEATURE)
+    fun createFeature(currentBranch: String) =
+        createSnippet(featureTemplateContent, currentBranch, ReleasenoteSnippetType.FEATURE)
 
-    fun createHighlight(branch: String) =
-        createSnippet(highlightTemplateContent, branch, ReleasenoteSnippetType.HIGHLIGHT)
+    fun createHighlight(currentBranch: String) =
+        createSnippet(highlightTemplateContent, currentBranch, ReleasenoteSnippetType.HIGHLIGHT)
 
-    fun createUpdateNotice(branch: String) =
-        createSnippet(updateNoticeTemplateContent, branch, ReleasenoteSnippetType.UPDATENOTICE)
+    fun createUpdateNotice(currentBranch: String) =
+        createSnippet(updateNoticeTemplateContent, currentBranch, ReleasenoteSnippetType.UPDATENOTICE)
 
-    private fun createSnippet(text: String, branch: String, snippet: ReleasenoteSnippetType) {
-        val branch = branch.substringAfterLast("/")
+    private fun createSnippet(text: String, currentBranch: String, snippet: ReleasenoteSnippetType) {
+        val branchPrefix = currentBranch.substringAfterLast("/")
         snippetsFolder
-            .resolve(branch + snippet.filenamePostfix + outputFile.extension)
-            .createWithText(text.replace("{gitbranch}", branch))
+            .resolve(branchPrefix + snippet.filenamePostfix + "." + outputFile.extension)
+            .createWithText(text.replace("{gitbranch}", branchPrefix))
     }
 
-    fun buildReleasenotes(project: Project) {
-        val bugfixes = renderSnippets(ReleasenoteSnippetType.BUGFIX, bugfixesHeader, bugfixesFooter)
-        val features = renderSnippets(ReleasenoteSnippetType.FEATURE, featuresHeader, featuresFooter)
-        val highlights = renderSnippets(ReleasenoteSnippetType.HIGHLIGHT, highlightsHeader, highlightsFooter)
-        val updateNotices =
-            renderSnippets(ReleasenoteSnippetType.UPDATENOTICE, updateNoticesHeader, updateNoticesFooter)
+    private fun File.createWithText(text: String) {
+        parentFile.mkdirs()
+        createNewFile()
+        writeText(text)
+    }
 
-        val renderedSnippetsAsVariables = mapOf(
-            ReleasenoteSnippetType.BUGFIX to features,
-            ReleasenoteSnippetType.FEATURE to bugfixes,
-            ReleasenoteSnippetType.HIGHLIGHT to highlights,
-            ReleasenoteSnippetType.UPDATENOTICE to updateNotices,
+    fun buildReleasenotes(
+        enforceOnNonMainBranch: Boolean,
+        mainBranch: String,
+        branch: String,
+        buildDir: File,
+        versionReplacement: String
+    ) {
+
+        val renderedSnippets = mapOf(
+            ReleasenoteSnippetType.BUGFIX to renderSnippets(
+                ReleasenoteSnippetType.BUGFIX,
+                bugfixesHeader,
+                bugfixesFooter
+            ),
+            ReleasenoteSnippetType.FEATURE to renderSnippets(
+                ReleasenoteSnippetType.FEATURE,
+                featuresHeader,
+                featuresFooter
+            ),
+            ReleasenoteSnippetType.HIGHLIGHT to renderSnippets(
+                ReleasenoteSnippetType.HIGHLIGHT,
+                highlightsHeader,
+                highlightsFooter
+            ),
+            ReleasenoteSnippetType.UPDATENOTICE to renderSnippets(
+                ReleasenoteSnippetType.UPDATENOTICE,
+                updateNoticesHeader,
+                updateNoticesFooter
+            ),
         )
 
-        if (project.enforceReleasenotes() && renderedSnippetsAsVariables.values.all { it.isBlank() }) {
-            logger.error("No release note snippets found, failing build!")
-            logger.info("You may opt-out of enforcing release notes by configuring the plugin extension in your build.")
-            throw IllegalStateException("Stopping build due to missing release note snippets!")
+        val noContent = renderedSnippets.values.all { it.isBlank() }
+        if (noContent) {
+            if (enforceOnNonMainBranch && mainBranch != branch.substringAfter("/")) {
+                logger.error("No release note snippets found, failing build!")
+                logger.info("You may opt-out of enforcing releasenotes by configuring the plugin extension in your build.")
+                throw IllegalStateException("Stopping build due to missing release note snippets!")
+            }
+            return
         }
 
-        // TODO fix this file resolving
-        val releaseNotesFileInBuild = project.buildDir.resolve(outputFile)
-        // templateFiles.releasenotes.parentFile.copyRecursively(releaseNotesFileInBuild.parentFile, overwrite = true)
+        val targetFile = resolveTargetFile(buildDir)
+        if (!targetFile.exists()) {
+            targetFile.mkdirs()
+            targetFile.createNewFile()
+        }
 
-        val nextVersionText = nextVersionTemplateContent.replaceAll(renderedSnippetsAsVariables)
-            .replace("{version}", project.version.toString())
+        if (outputFile.exists()) {
+            outputFile.copyTo(targetFile, overwrite = true)
+        }
+
+        val nextVersionText = nextVersionTemplateContent.replaceAll(renderedSnippets)
+            .replace("{version}", versionReplacement)
             .replace("{date}", SimpleDateFormat(dateFormat).format(Date()))
 
-        releaseNotesFileInBuild.prepend(nextVersionText)
+        targetFile.prepend(nextVersionText)
     }
 
     private fun renderSnippets(snippetType: ReleasenoteSnippetType, header: String, footer: String): String =
-        snippetsFolder.listFilesOrdered { it.detectReleasenoteSnippetType() == snippetType }.let { snippets ->
+        findSnippetFiles(snippetType).let { snippets ->
             if (snippets.isEmpty()) {
                 return ""
             }
@@ -157,16 +194,42 @@ class ReleaseNotesProcessor(
             "$header\n$contents$footer"
         }
 
+    private fun findSnippetFiles(snippetType: ReleasenoteSnippetType) =
+        snippetsFolder.listFilesOrdered { it.detectReleasenoteSnippetType() == snippetType }
+
     private fun File.detectReleasenoteSnippetType() = when {
-        name.endsWith(ReleasenoteSnippetType.FEATURE.filenamePostfix + outputFile.extension) -> ReleasenoteSnippetType.FEATURE
-        name.endsWith(ReleasenoteSnippetType.BUGFIX.filenamePostfix + outputFile.extension) -> ReleasenoteSnippetType.BUGFIX
-        name.endsWith(ReleasenoteSnippetType.HIGHLIGHT.filenamePostfix + outputFile.extension) -> ReleasenoteSnippetType.HIGHLIGHT
-        name.endsWith(ReleasenoteSnippetType.UPDATENOTICE.filenamePostfix + outputFile.extension) -> ReleasenoteSnippetType.UPDATENOTICE
+        name.endsWith(ReleasenoteSnippetType.FEATURE.filenamePostfix + "." + outputFile.extension) -> ReleasenoteSnippetType.FEATURE
+        name.endsWith(ReleasenoteSnippetType.BUGFIX.filenamePostfix + "."  + outputFile.extension) -> ReleasenoteSnippetType.BUGFIX
+        name.endsWith(ReleasenoteSnippetType.HIGHLIGHT.filenamePostfix + "."  + outputFile.extension) -> ReleasenoteSnippetType.HIGHLIGHT
+        name.endsWith(ReleasenoteSnippetType.UPDATENOTICE.filenamePostfix + "."  + outputFile.extension) -> ReleasenoteSnippetType.UPDATENOTICE
         else -> null
     }
 
-    private fun Project.enforceReleasenotes() = !currentBranch.contains(
-        (extensions.findByType(ReleasenotesExtension::class.java)
-            ?: throw IllegalStateException("Please add a releasenotes extension to your project!")).mainBranch
-    )
+    private fun String.replaceAll(placeholders: Map<ReleasenoteSnippetType, String>): String =
+        placeholders.entries.fold(this) { result, snippets ->
+            result.replace("{${snippets.key.nextVersionReplacementVariableName}}", snippets.value)
+        }
+
+    private fun File.prepend(nextVersionText: String) {
+        writeText(nextVersionText + readText())
+    }
+
+    fun copyBuiltReleaseNotesToSources(buildDir: File) {
+        val targetFile = resolveTargetFile(buildDir)
+        if (!targetFile.exists()) {
+            logger.error("Unable to copy built releasenotes back to sources, no target file found: ${targetFile.absolutePath}!")
+            return
+        }
+
+        targetFile.copyTo(outputFile, overwrite = true)
+    }
+
+    private fun resolveTargetFile(buildDir: File) = buildDir
+        .resolve(OUTPUT_FOLDER)
+        .resolve(name)
+        .resolve(outputFile.absolutePath.substringAfterLast("/"))
+
+    fun deleteSnippets() {
+        snippetsFolder.deleteRecursively()
+    }
 }
