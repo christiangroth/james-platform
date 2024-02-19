@@ -38,36 +38,37 @@ class ReleaseNotesProcessor(
     private val updateNoticesHeader: String,
     private val updateNoticesFooter: String,
     private val dateFormat: String,
+    private val buildDir: File,
 ) {
 
     private val bugfixTemplate: File
-        get() = templatesFolder.resolve(BUGFIX_TEMPLATE_FILE)
+        get() = templatesFolder.resolve(BUGFIX_TEMPLATE_FILE + "." + outputFile.extension)
 
     private val bugfixTemplateContent: String
         get() = bugfixTemplate.readOrNull()
             ?: "* {gitbranch}: Answer to the ultimate question of life, the universe, and everything."
 
     private val featureTemplate: File
-        get() = templatesFolder.resolve(FEATURE_TEMPLATE_FILE)
+        get() = templatesFolder.resolve(FEATURE_TEMPLATE_FILE + "." + outputFile.extension)
 
     private val featureTemplateContent: String
         get() = featureTemplate.readOrNull()
             ?: "* {gitbranch}: Answer to the ultimate question of life, the universe, and everything."
 
     private val highlightTemplate: File
-        get() = templatesFolder.resolve(HIGHLIGHT_TEMPLATE_FILE)
+        get() = templatesFolder.resolve(HIGHLIGHT_TEMPLATE_FILE + "." + outputFile.extension)
 
     private val highlightTemplateContent: String
         get() = highlightTemplate.readOrNull() ?: "Good news everyone: {gitbranch} is here."
 
     private val updateNoticwTemplate: File
-        get() = templatesFolder.resolve(UPDATE_NOTICE_TEMPLATE_FILE)
+        get() = templatesFolder.resolve(UPDATE_NOTICE_TEMPLATE_FILE + "." + outputFile.extension)
 
     private val updateNoticeTemplateContent: String
         get() = updateNoticwTemplate.readOrNull() ?: "Caution, {gitbranch} may eventually break something!"
 
     private val nextVersionTemplate: File
-        get() = templatesFolder.resolve(NEXT_VERSION_TEMPLATE_FILE)
+        get() = templatesFolder.resolve(NEXT_VERSION_TEMPLATE_FILE + "." + outputFile.extension)
 
     private val nextVersionTemplateContent: String
         get() = nextVersionTemplate.readOrNull() ?: """
@@ -88,6 +89,18 @@ class ReleaseNotesProcessor(
         }
 
         snippetsFolder.mkdirs()
+    }
+
+    fun cleanupGeneratedFiles() {
+        val targetFolder = resolveTargetFolder()
+        if (targetFolder.exists()) {
+            targetFolder.deleteRecursively()
+        }
+
+        val outputFolder = resolveOutputFolder()
+        if(outputFolder.exists() && outputFolder.listFiles().isEmpty()) {
+            outputFolder.deleteRecursively()
+        }
     }
 
     fun createTemplatesFiles() {
@@ -127,7 +140,6 @@ class ReleaseNotesProcessor(
         enforceOnNonMainBranch: Boolean,
         mainBranch: String,
         branch: String,
-        buildDir: File,
         versionReplacement: String
     ) {
 
@@ -164,7 +176,7 @@ class ReleaseNotesProcessor(
             return
         }
 
-        val targetFile = resolveTargetFile(buildDir)
+        val targetFile = resolveTargetFile()
         if (!targetFile.exists()) {
             targetFile.mkdirs()
             targetFile.createNewFile()
@@ -214,8 +226,8 @@ class ReleaseNotesProcessor(
         writeText(nextVersionText + readText())
     }
 
-    fun copyBuiltReleaseNotesToSources(buildDir: File) {
-        val targetFile = resolveTargetFile(buildDir)
+    fun copyBuiltReleaseNotesToSources() {
+        val targetFile = resolveTargetFile()
         if (!targetFile.exists()) {
             logger.error("Unable to copy built releasenotes back to sources, no target file found: ${targetFile.absolutePath}!")
             return
@@ -224,10 +236,11 @@ class ReleaseNotesProcessor(
         targetFile.copyTo(outputFile, overwrite = true)
     }
 
-    private fun resolveTargetFile(buildDir: File) = buildDir
-        .resolve(OUTPUT_FOLDER)
-        .resolve(name)
-        .resolve(outputFile.absolutePath.substringAfterLast("/"))
+    private fun resolveTargetFile() = resolveTargetFolder().resolve(outputFile.absolutePath.substringAfterLast("/"))
+
+    private fun resolveTargetFolder() = resolveOutputFolder().resolve(name)
+
+    private fun resolveOutputFolder() = buildDir.resolve(OUTPUT_FOLDER)
 
     fun deleteSnippets() {
         snippetsFolder.deleteRecursively()

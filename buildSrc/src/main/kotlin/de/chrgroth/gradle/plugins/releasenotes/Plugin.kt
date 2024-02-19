@@ -13,7 +13,6 @@ import java.util.regex.Pattern
 const val EXTENSION_NAME = "releasenotes"
 const val TASK_GROUP_NAME = "releasenotes"
 
-// TODO add clean task and remove build files
 class ReleasenotesPlugin : Plugin<Project> {
     private lateinit var extension: ReleasenotesExtension
 
@@ -29,7 +28,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).createFolderStructure()
+                        it.init(projectDir, buildDir).createFolderStructure()
                     }
                 }
             }
@@ -40,12 +39,28 @@ class ReleasenotesPlugin : Plugin<Project> {
                 dependsOn(init)
             }
 
+            tasks.register(cleanup) {
+                group = TASK_GROUP_NAME
+
+                doLast {
+                    extension.configurations.forEach {
+                        it.init(projectDir, buildDir).cleanupGeneratedFiles()
+                    }
+                }
+            }
+
+            val cleanOrNull = tasks.findByName("clean")
+            cleanOrNull?.apply {
+                logger.info("Task with path 'clean' found, will depend on $cleanup")
+                dependsOn(cleanup)
+            }
+
             tasks.register(createTemplates) {
                 group = TASK_GROUP_NAME
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).createTemplatesFiles()
+                        it.init(projectDir, buildDir).createTemplatesFiles()
                     }
                 }
             }
@@ -56,7 +71,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).createFeature(currentBranch)
+                        it.init(projectDir, buildDir).createFeature(currentBranch)
                     }
 
                     project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
@@ -76,7 +91,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).createBugfix(currentBranch)
+                        it.init(projectDir, buildDir).createBugfix(currentBranch)
                     }
                 }
             }
@@ -87,7 +102,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).createHighlight(currentBranch)
+                        it.init(projectDir, buildDir).createHighlight(currentBranch)
                     }
                 }
             }
@@ -98,7 +113,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).createUpdateNotice(currentBranch)
+                        it.init(projectDir, buildDir).createUpdateNotice(currentBranch)
                     }
 
                     project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
@@ -112,7 +127,7 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(buildReleasenotes) {
+            tasks.register(generateReleasenotes) {
                 group = TASK_GROUP_NAME
 
                 doLast {
@@ -122,11 +137,10 @@ class ReleasenotesPlugin : Plugin<Project> {
                         if (projectVersion == null) {
                             logger.error("Unable to parse project version, skipping releasenotes build!")
                         } else {
-                            it.init(projectDir).buildReleasenotes(
+                            it.init(projectDir, buildDir).buildReleasenotes(
                                 enforceOnNonMainBranch = extension.enforceOnNonMainBranch,
                                 mainBranch = extension.mainBranch,
                                 branch = currentBranch,
-                                buildDir = buildDir,
                                 versionReplacement = projectVersion.toString(),
                             )
                         }
@@ -141,11 +155,11 @@ class ReleasenotesPlugin : Plugin<Project> {
 
             tasks.register(copyBuiltReleaseNotesToSources) {
                 group = TASK_GROUP_NAME
-                dependsOn(buildReleasenotes)
+                dependsOn(generateReleasenotes)
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).copyBuiltReleaseNotesToSources(project.buildDir)
+                        it.init(projectDir, buildDir).copyBuiltReleaseNotesToSources()
                     }
                 }
             }.let { copyBuiltReleaseNotesToSourcesTask ->
@@ -159,11 +173,11 @@ class ReleasenotesPlugin : Plugin<Project> {
 
             tasks.register(deleteSnippets) {
                 group = TASK_GROUP_NAME
-                mustRunAfter(buildReleasenotes, copyBuiltReleaseNotesToSources)
+                mustRunAfter(generateReleasenotes, copyBuiltReleaseNotesToSources)
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir).deleteSnippets()
+                        it.init(projectDir, buildDir).deleteSnippets()
                     }
                 }
             }.let { deleteReleasenotesTask ->
@@ -248,6 +262,7 @@ class ReleasenotesPlugin : Plugin<Project> {
         private const val afterReleaseBuildTaskName = ":afterReleaseBuild"
 
         const val init = "init"
+        const val cleanup = "cleanup"
         const val createTemplates = "createTemplates"
 
         const val createFeature = "createFeature"
@@ -255,7 +270,7 @@ class ReleasenotesPlugin : Plugin<Project> {
         const val createHighlight = "createHighlight"
         const val createUpdateNotice = "createUpdateNotice"
 
-        const val buildReleasenotes = "buildReleasenotes"
+        const val generateReleasenotes = "generateReleasenotes"
         const val copyBuiltReleaseNotesToSources = "copyBuiltReleaseNotesToSources"
         const val deleteSnippets = "deleteSnippets"
     }
