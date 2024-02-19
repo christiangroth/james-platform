@@ -10,8 +10,25 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
-const val EXTENSION_NAME = "releasenotes"
-const val TASK_GROUP_NAME = "releasenotes"
+private const val EXTENSION_NAME = "releasenotes"
+private const val TASK_GROUP_NAME = "releasenotes"
+
+private const val TASK_PATH_AFTER_RELEASE_BUILD = ":afterReleaseBuild"
+private const val TASK_PATH_ASSEMBLE = ":assemble"
+private const val TASK_PATH_CLEAN = ":clean"
+
+private const val TASK_NAME_INIT = "releasenotesInit"
+private const val TASK_NAME_CLEANUP = "releasenotesCleanup"
+private const val TASK_NAME_CREATE_TEMPLATES = "releasenotesCreateTemplates"
+
+private const val TASK_NAME_CREATE_BUGFIX = "releasenotesCreateBugfix"
+private const val TASK_NAME_CREATE_FEATURE = "releasenotesCreateFeature"
+private const val TASK_NAME_CREATE_HIGHLIGHT = "releasenotesCreateHighlight"
+private const val TASK_NAME_CREATE_UPDATE_NOTICE = "releasenotesCreateUpdateNotice"
+
+private const val TASK_NAME_GENERATE = "releasenotesGenerate"
+private const val TASK_NAME_COPY_TO_SOURCES = "releasenotesCopyToSources"
+private const val TASK_NAME_DELETE_SNIPPETS = "releasenotesDeleteSnippets"
 
 class ReleasenotesPlugin : Plugin<Project> {
     private lateinit var extension: ReleasenotesExtension
@@ -21,9 +38,15 @@ class ReleasenotesPlugin : Plugin<Project> {
             project.extensions.add(EXTENSION_NAME, this)
         }
 
+        val numberOfUniqueNames = extension.configurations.distinctBy { it.name }.size
+        if(numberOfUniqueNames != extension.configurations.size) {
+            project.logger.error("All configuration names must be unique!")
+            throw IllegalStateException("Stopping build due to duplicate releasenotes configuration names!")
+        }
+
         project.run {
 
-            tasks.register(init) {
+            tasks.register(TASK_NAME_INIT) {
                 group = TASK_GROUP_NAME
 
                 doLast {
@@ -33,13 +56,13 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            val assembleOrNull = tasks.findByName("assemble")
+            val assembleOrNull = tasks.findByPath(TASK_PATH_ASSEMBLE)
             assembleOrNull?.apply {
-                logger.info("Task with path 'assemble' found, will depend on $init")
-                dependsOn(init)
+                logger.info("Task with path $TASK_PATH_ASSEMBLE found, will depend on $TASK_NAME_INIT")
+                dependsOn(TASK_NAME_INIT)
             }
 
-            tasks.register(cleanup) {
+            tasks.register(TASK_NAME_CLEANUP) {
                 group = TASK_GROUP_NAME
 
                 doLast {
@@ -49,13 +72,13 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            val cleanOrNull = tasks.findByName("clean")
+            val cleanOrNull = tasks.findByPath(TASK_PATH_CLEAN)
             cleanOrNull?.apply {
-                logger.info("Task with path 'clean' found, will depend on $cleanup")
-                dependsOn(cleanup)
+                logger.info("Task with path $TASK_PATH_CLEAN found, will depend on $TASK_NAME_CLEANUP")
+                dependsOn(TASK_NAME_CLEANUP)
             }
 
-            tasks.register(createTemplates) {
+            tasks.register(TASK_NAME_CREATE_TEMPLATES) {
                 group = TASK_GROUP_NAME
 
                 doLast {
@@ -65,9 +88,9 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(createFeature) {
+            tasks.register(TASK_NAME_CREATE_FEATURE) {
                 group = TASK_GROUP_NAME
-                dependsOn(init)
+                dependsOn(TASK_NAME_INIT)
 
                 doLast {
                     extension.configurations.forEach {
@@ -85,9 +108,9 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(createBugfix) {
+            tasks.register(TASK_NAME_CREATE_BUGFIX) {
                 group = TASK_GROUP_NAME
-                dependsOn(init)
+                dependsOn(TASK_NAME_INIT)
 
                 doLast {
                     extension.configurations.forEach {
@@ -96,9 +119,9 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(createHighlight) {
+            tasks.register(TASK_NAME_CREATE_HIGHLIGHT) {
                 group = TASK_GROUP_NAME
-                dependsOn(init)
+                dependsOn(TASK_NAME_INIT)
 
                 doLast {
                     extension.configurations.forEach {
@@ -107,9 +130,9 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(createUpdateNotice) {
+            tasks.register(TASK_NAME_CREATE_UPDATE_NOTICE) {
                 group = TASK_GROUP_NAME
-                dependsOn(init)
+                dependsOn(TASK_NAME_INIT)
 
                 doLast {
                     extension.configurations.forEach {
@@ -127,7 +150,7 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(generateReleasenotes) {
+            tasks.register(TASK_NAME_GENERATE) {
                 group = TASK_GROUP_NAME
 
                 doLast {
@@ -153,9 +176,9 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.register(copyBuiltReleaseNotesToSources) {
+            tasks.register(TASK_NAME_COPY_TO_SOURCES) {
                 group = TASK_GROUP_NAME
-                dependsOn(generateReleasenotes)
+                dependsOn(TASK_NAME_GENERATE)
 
                 doLast {
                     extension.configurations.forEach {
@@ -164,16 +187,16 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }.let { copyBuiltReleaseNotesToSourcesTask ->
                 afterEvaluate {
-                    tasks.findByPath(afterReleaseBuildTaskName)?.let { afterReleaseBuildTask ->
+                    tasks.findByPath(TASK_PATH_AFTER_RELEASE_BUILD)?.let { afterReleaseBuildTask ->
                         logger.info("Task '${afterReleaseBuildTask.path}' found, will depend on ${copyBuiltReleaseNotesToSourcesTask.name}")
                         afterReleaseBuildTask.dependsOn(copyBuiltReleaseNotesToSourcesTask)
                     }
                 }
             }
 
-            tasks.register(deleteSnippets) {
+            tasks.register(TASK_NAME_DELETE_SNIPPETS) {
                 group = TASK_GROUP_NAME
-                mustRunAfter(generateReleasenotes, copyBuiltReleaseNotesToSources)
+                mustRunAfter(TASK_NAME_GENERATE, TASK_NAME_COPY_TO_SOURCES)
 
                 doLast {
                     extension.configurations.forEach {
@@ -182,7 +205,7 @@ class ReleasenotesPlugin : Plugin<Project> {
                 }
             }.let { deleteReleasenotesTask ->
                 afterEvaluate {
-                    tasks.findByPath(afterReleaseBuildTaskName)?.let { afterReleaseBuildTask ->
+                    tasks.findByPath(TASK_PATH_AFTER_RELEASE_BUILD)?.let { afterReleaseBuildTask ->
                         logger.info("Task '${afterReleaseBuildTask.path}' found, will depend on ${deleteReleasenotesTask.name}")
                         afterReleaseBuildTask.dependsOn(deleteReleasenotesTask)
                     }
@@ -256,23 +279,6 @@ class ReleasenotesPlugin : Plugin<Project> {
         } else {
             ProjectVersion(projectVersionString, null)
         }
-    }
-
-    companion object {
-        private const val afterReleaseBuildTaskName = ":afterReleaseBuild"
-
-        const val init = "init"
-        const val cleanup = "cleanup"
-        const val createTemplates = "createTemplates"
-
-        const val createFeature = "createFeature"
-        const val createBugfix = "createBugfix"
-        const val createHighlight = "createHighlight"
-        const val createUpdateNotice = "createUpdateNotice"
-
-        const val generateReleasenotes = "generateReleasenotes"
-        const val copyBuiltReleaseNotesToSources = "copyBuiltReleaseNotesToSources"
-        const val deleteSnippets = "deleteSnippets"
     }
 }
 

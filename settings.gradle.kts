@@ -6,5 +6,3 @@ include("core-data")
 include("core-typesystem")
 include("core-user")
 include("core-workspace")
-
-include("releasenotes")
