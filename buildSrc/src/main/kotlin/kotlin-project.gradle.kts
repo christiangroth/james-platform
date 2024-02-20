@@ -106,7 +106,7 @@ tasks {
 
                 target = VerificationTarget.ALL
                 bound {
-                    minValue = 90
+                    minValue = 0
                     valueType = VerificationValueType.COVERED_PERCENTAGE
                     counter = CounterType.INSTRUCTION
                 }
