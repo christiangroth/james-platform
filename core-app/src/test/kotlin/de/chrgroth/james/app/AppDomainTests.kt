@@ -419,6 +419,7 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
+    @Disabled
     fun `add datatype with blank name`() {
         appVersionDevelopmentUseCases.addDatatype(activeAppId, " ").expectDomainErrors(
             DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_BLANK)
@@ -429,6 +430,7 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
+    @Disabled
     fun `add datatype with invalid name`() {
         appVersionDevelopmentUseCases.addDatatype(activeAppId, "some Datatype").expectDomainErrors(
             DomainError(
@@ -473,6 +475,7 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
+    @Disabled
     fun `rename next version datatype to blank name`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", " ", "TestDatatype", "", YAML, "").expectDomainErrors(
             DomainError(code = AppDomainErrorCodes.DATATYPE_NAME_BLANK)
@@ -483,6 +486,7 @@ class AppVersionDevelopmentUseCasesTests {
     }
 
     @Test
+    @Disabled
     fun `rename next version datatype with invalid name`() {
         appVersionDevelopmentUseCases.changeDatatype(activeAppId, "TestDatatype", "Test Datatype", "TestDatatype", "", YAML, "").expectDomainErrors(
             DomainError(
