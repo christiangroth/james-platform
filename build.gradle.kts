@@ -38,3 +38,9 @@ releasenotes {
         )
     }
 }
+
+release {
+    git {
+        requireBranch = "main"
+    }
+}
