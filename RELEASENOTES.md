@@ -1,3 +1,8 @@
+# 0.0.12 (2024.02.21)
+
+## New Features
+* Added yaml format releasenotes to be parsed by quarkus and served at runtime
+
 # 0.0.11 (2024.02.21)
 
 ## New Features
