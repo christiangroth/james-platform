@@ -51,7 +51,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).createFolderStructure()
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).createFolderStructure()
                     }
                 }
             }
@@ -67,7 +67,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).cleanupGeneratedFiles()
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).cleanupGeneratedFiles()
                     }
                 }
             }
@@ -83,7 +83,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).createTemplatesFiles()
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).createTemplatesFiles()
                     }
                 }
             }
@@ -94,7 +94,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).createFeature(currentBranch)
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).createFeature(currentBranch)
                     }
 
                     project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
@@ -114,7 +114,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).createBugfix(currentBranch)
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).createBugfix(currentBranch)
                     }
                 }
             }
@@ -125,7 +125,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).createHighlight(currentBranch)
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).createHighlight(currentBranch)
                     }
                 }
             }
@@ -136,7 +136,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).createUpdateNotice(currentBranch)
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).createUpdateNotice(currentBranch)
                     }
 
                     project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
@@ -160,7 +160,7 @@ class ReleasenotesPlugin : Plugin<Project> {
                         if (projectVersion == null) {
                             logger.error("Unable to parse project version, skipping releasenotes build!")
                         } else {
-                            it.init(projectDir, buildDir).buildReleasenotes(
+                            it.init(projectDir, layout.buildDirectory.asFile.get()).buildReleasenotes(
                                 enforceOnNonMainBranch = extension.enforceOnNonMainBranch,
                                 mainBranch = extension.mainBranch,
                                 branch = currentBranch,
@@ -182,7 +182,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).copyBuiltReleaseNotesToSources()
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).copyBuiltReleaseNotesToSources()
                     }
                 }
             }.let { copyBuiltReleaseNotesToSourcesTask ->
@@ -200,7 +200,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
                 doLast {
                     extension.configurations.forEach {
-                        it.init(projectDir, buildDir).deleteSnippets()
+                        it.init(projectDir, layout.buildDirectory.asFile.get()).deleteSnippets()
                     }
                 }
             }.let { deleteReleasenotesTask ->

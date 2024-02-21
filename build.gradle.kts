@@ -22,18 +22,38 @@ releasenotes {
 
     configure {
         ReleasenotesConfiguration(
-            name = "default",
+            name = "repo-markdown",
             outputPath = "RELEASENOTES.md",
             snippetsPath = "releasenotes-snippets",
             templatesPath = "releasenotes-templates",
-            bugfixesHeader = "## Bugfixes\n",
+            bugfixesHeader = "## Bugfixes",
+            bugfixesFooter = "\n",
+            featuresHeader = "## New Features",
+            featuresFooter = "\n",
+            highlightsHeader = "## Highlights",
+            highlightsFooter = "\n",
+            updateNoticesHeader = "## Breaking Changes",
+            updateNoticesFooter = "\n",
+            preserveWhitespace = false,
+            dateFormat = "yyyy.MM.dd",
+        )
+    }
+
+    configure {
+        ReleasenotesConfiguration(
+            name = "quarkus",
+            outputPath = "runtime-quarkus/src/main/resources/releasenotes.yaml",
+            snippetsPath = "runtime-quarkus/src/main/resources/releasenotes-snippets",
+            templatesPath = "runtime-quarkus/src/main/resources/releasenotes-templates",
+            bugfixesHeader = "  bugfixes:",
             bugfixesFooter = "",
-            featuresHeader = "## New Features\n",
+            featuresHeader = "  features:",
             featuresFooter = "",
-            highlightsHeader = "## Highlights\n",
+            highlightsHeader = "  highlights:",
             highlightsFooter = "",
-            updateNoticesHeader = "## Breaking Changes\n",
+            updateNoticesHeader = "  breaking:",
             updateNoticesFooter = "",
+            preserveWhitespace = true,
             dateFormat = "yyyy.MM.dd",
         )
     }

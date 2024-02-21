@@ -17,6 +17,7 @@ data class ReleasenotesConfiguration(
     val updateNoticesHeader: String,
     val updateNoticesFooter: String,
     val dateFormat: String,
+    val preserveWhitespace: Boolean,
 ) {
     fun init(projectDir: File, buildDir: File): ReleaseNotesProcessor = ReleaseNotesProcessor(
         name = name,
@@ -32,6 +33,7 @@ data class ReleasenotesConfiguration(
         updateNoticesHeader = updateNoticesHeader,
         updateNoticesFooter = updateNoticesFooter,
         dateFormat = dateFormat,
+        preserveWhitespace = preserveWhitespace,
         buildDir = buildDir,
     )
 }

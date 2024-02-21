@@ -38,6 +38,7 @@ class ReleaseNotesProcessor(
     private val updateNoticesHeader: String,
     private val updateNoticesFooter: String,
     private val dateFormat: String,
+    private val preserveWhitespace: Boolean,
     private val buildDir: File,
 ) {
 
@@ -124,6 +125,7 @@ class ReleaseNotesProcessor(
         createSnippet(updateNoticeTemplateContent, currentBranch, ReleasenoteSnippetType.UPDATENOTICE)
 
     private fun createSnippet(text: String, currentBranch: String, snippet: ReleasenoteSnippetType) {
+        logger.info("Creating $snippet for $name")
         val branchPrefix = currentBranch.substringAfterLast("/")
         snippetsFolder
             .resolve(branchPrefix + snippet.filenamePostfix + "." + outputFile.extension)
@@ -199,11 +201,11 @@ class ReleaseNotesProcessor(
                 return ""
             }
 
-            val contents = snippets.joinToString("") {
-                it.readText().trim() + "\n\n"
+            val contents = snippets.joinToString("") { snippetFile ->
+                snippetFile.readText().let { if(preserveWhitespace) it else it.trim() }
             }
 
-            "$header\n$contents$footer"
+            "$header\n$contents\n$footer"
         }
 
     private fun findSnippetFiles(snippetType: ReleasenoteSnippetType) =
