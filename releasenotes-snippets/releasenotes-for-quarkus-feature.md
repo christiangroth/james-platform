@@ -1,0 +1,1 @@
+* Added yaml format releasenotes to be parsed by quarkus and served at runtime
