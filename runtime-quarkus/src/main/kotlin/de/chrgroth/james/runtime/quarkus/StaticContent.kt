@@ -9,7 +9,7 @@ import mu.KLogging
 
 
 private const val PATH = "/*"
-private const val FOLDER = "ui/"
+private const val FOLDER = "static/"
 
 @Suppress("unused")
 class StaticResources {

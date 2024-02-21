@@ -7,6 +7,8 @@ import java.net.URI
 
 plugins {
     kotlin("jvm")
+    id("org.jetbrains.kotlin.plugin.serialization")
+
     `java-library`
     `java-test-fixtures`
 
@@ -28,6 +30,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0-Beta")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("io.github.microutils:kotlin-logging:1.8.3")
 
     api("com.sksamuel.tribune:tribune-core:1.2.4")
@@ -78,7 +81,7 @@ tasks {
         kotlinOptions.jvmTarget = "17"
 
         kotlinOptions.allWarningsAsErrors = false
-        kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.time.ExperimentalTime"
+        kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.time.ExperimentalTime"
     }
 
     compileKotlin {

@@ -14,6 +14,9 @@ dependencies {
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
 
+    // YAML parsing
+    implementation("com.charleskorn.kaml:kaml:0.57.0")
+
     // james-platform modules
     implementation(project(":core"))
     implementation(project(":core-app"))
