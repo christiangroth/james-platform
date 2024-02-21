@@ -1,3 +1,10 @@
+# 0.0.11 (2024.02.21)
+
+## New Features
+
+* added Quarkus runtime to start UI prototyping
+* basic Quarkus configuration
+
 # 0.0.10 (2024.02.20)
 
 ## New Features
