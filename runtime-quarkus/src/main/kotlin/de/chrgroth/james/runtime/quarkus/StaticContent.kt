@@ -9,14 +9,14 @@ import mu.KLogging
 
 
 private const val PATH = "/*"
-private const val FOLDER = "static/"
+private const val FOLDER = "frontend/"
 
 @Suppress("unused")
-class StaticResources {
+class FrontendResources {
 
     fun installRoute(@Observes startupEvent: StartupEvent?, router: Router) {
         logger.info { "serving static content at $PATH" }
-        router.route().path(PATH).handler(create(FileSystemAccess.RELATIVE, FOLDER))
+        router.route(PATH).handler(create(FileSystemAccess.RELATIVE, FOLDER))
     }
 
     companion object : KLogging()
