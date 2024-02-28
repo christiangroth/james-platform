@@ -1,0 +1,3 @@
+- version: {version}
+  date: {date}
+{highlights}{updateNotices}{features}{bugfixes}

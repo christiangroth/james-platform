@@ -39,12 +39,12 @@ releasenotes {
         )
     }
 
-    configure {
+    val runtimeReleasenotes = { runtimeName: String ->
         ReleasenotesConfiguration(
-            name = "quarkus",
-            outputPath = "runtime-quarkus/src/main/resources/releasenotes.yaml",
-            snippetsPath = "runtime-quarkus/src/main/resources/releasenotes-snippets",
-            templatesPath = "runtime-quarkus/src/main/resources/releasenotes-templates",
+            name = runtimeName,
+            outputPath = "runtime-$runtimeName/src/main/resources/releasenotes.yaml",
+            snippetsPath = "runtime-$runtimeName/src/main/resources/releasenotes-snippets",
+            templatesPath = "runtime-$runtimeName/src/main/resources/releasenotes-templates",
             bugfixesHeader = "  bugfixes:",
             bugfixesFooter = "",
             featuresHeader = "  features:",
@@ -56,6 +56,14 @@ releasenotes {
             preserveWhitespace = true,
             dateFormat = "yyyy.MM.dd",
         )
+    }
+
+    configure {
+        runtimeReleasenotes("quarkus")
+    }
+
+    configure {
+        runtimeReleasenotes("http4k")
     }
 }
 
