@@ -10,7 +10,7 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
-    implementation("org.jetbrains.kotlin:kotlin-serialization:1.9.20")
+    implementation("org.jetbrains.kotlin:kotlin-serialization:1.9.22")
     implementation("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.23.3")
     implementation("com.xcporter:metaview:0.0.6")
     implementation("org.jetbrains.kotlinx:kover:0.6.1")
