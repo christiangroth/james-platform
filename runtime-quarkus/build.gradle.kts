@@ -6,7 +6,7 @@ plugins {
 dependencies {
 
     // Quarkus
-    implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.7.3"))
+    implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.8.1"))
     implementation("io.quarkus:quarkus-kotlin")
     implementation("io.quarkus:quarkus-resteasy")
     implementation("io.quarkus:quarkus-arc")
