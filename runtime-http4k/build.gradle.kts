@@ -1,6 +1,5 @@
 plugins {
     id("kotlin-project")
-    id("io.quarkus") version "3.7.3"
 }
 
 dependencies {

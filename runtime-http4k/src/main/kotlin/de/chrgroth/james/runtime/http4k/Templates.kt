@@ -16,5 +16,4 @@ data class AppViewModel(val dummy: String = UUID.randomUUID().toString()) : Name
 data class AppsViewModel(val dummy: String = UUID.randomUUID().toString()) : NamedViewModel
 data class DevelopmentViewModel(val dummy: String = UUID.randomUUID().toString()) : NamedViewModel
 data class LoginViewModel(val dummy: String = UUID.randomUUID().toString()) : NamedViewModel
-data class ReleasenotesViewModel(val releasenotes: List<ReleasenotesEntry>) : NamedViewModel
 data class WorkspaceViewModel(val dummy: String = UUID.randomUUID().toString()) : NamedViewModel

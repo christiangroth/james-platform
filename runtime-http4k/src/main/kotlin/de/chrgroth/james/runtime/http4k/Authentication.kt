@@ -65,32 +65,30 @@ class AuthService(
 
     fun createRoues(templates: TemplateRenderer): RoutingHttpHandler =
         routes(
-            "api" bind routes(
-                "authentication" bind Method.GET to {
-                    Response(Status.OK).body(templates(LoginViewModel())).header("content-type", "text/html")
-                },
-                "authentication" bind Method.POST to {
-                    val idField = FormField.string().optional("id", "user identifier")
-                    val passwordField = FormField.string().optional("password", "password")
-                    val loginForm = Body.webForm(Validator.Strict, idField, passwordField).toLens().extract(it)
+            "authentication" bind Method.GET to {
+                Response(Status.OK).body(templates(LoginViewModel())).header("content-type", "text/html")
+            },
+            "authentication" bind Method.POST to {
+                val idField = FormField.string().optional("id", "user identifier")
+                val passwordField = FormField.string().optional("password", "password")
+                val loginForm = Body.webForm(Validator.Strict, idField, passwordField).toLens().extract(it)
 
-                    val id = idField.extract(loginForm) ?: ""
-                    val password = passwordField.extract(loginForm) ?: ""
+                val id = idField.extract(loginForm) ?: ""
+                val password = passwordField.extract(loginForm) ?: ""
 
-                    val token = login(id, password)
-                    if (token != null) {
-                        Response(Status.FOUND).header("Location", "/").replaceCookie(createJwtCookie(token))
-                    } else {
-                        Response(Status.UNAUTHORIZED).body(templates(LoginViewModel()))
-                            .header("content-type", "text/html")
-                            .invalidateCookie(COOKIE_NAME)
-                    }
-                },
-                "authentication/logout" bind Method.GET to {
-                    Response(Status.TEMPORARY_REDIRECT).header("Location", "/api/authentication")
-                        .replaceCookie(createJwtCookie())
-                },
-            )
+                val token = login(id, password)
+                if (token != null) {
+                    Response(Status.FOUND).header("Location", "/").replaceCookie(createJwtCookie(token))
+                } else {
+                    Response(Status.UNAUTHORIZED).body(templates(LoginViewModel()))
+                        .header("content-type", "text/html")
+                        .invalidateCookie(COOKIE_NAME)
+                }
+            },
+            "authentication/logout" bind Method.GET to {
+                Response(Status.TEMPORARY_REDIRECT).header("Location", "/api/authentication")
+                    .replaceCookie(createJwtCookie())
+            },
         )
 
     fun login(id: String, password: String): String? {
