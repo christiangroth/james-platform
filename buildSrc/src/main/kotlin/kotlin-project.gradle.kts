@@ -19,9 +19,9 @@ plugins {
 
 repositories {
     mavenCentral()
-    jcenter()
     maven {
-        url = URI("https://jitpack.io")
+        this.name = "Jitpack.io"
+        url = uri("https://jitpack.io")
     }
 }
 
