@@ -39,6 +39,7 @@ releasenotes {
         )
     }
 
+    /*
     val runtimeReleasenotes = { runtimeName: String ->
         ReleasenotesConfiguration(
             name = runtimeName,
@@ -65,6 +66,7 @@ releasenotes {
     configure {
         runtimeReleasenotes("http4k")
     }
+    */
 }
 
 release {

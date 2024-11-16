@@ -1,5 +1,0 @@
-    - >
-      Caution, {gitbranch} may eventually break something!
-      You may use multi-line strings in yaml lists here.
-      
-      End!
