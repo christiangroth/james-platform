@@ -1,1 +1,0 @@
-TODO placeholder: want to decouple direct json schema implementation. think it's better to again have a proprietary typesystem implementation and have json schema as one representation, but do not create a hard dependency/coupling on json schema itself.

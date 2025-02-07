@@ -62,10 +62,6 @@ releasenotes {
     configure {
         runtimeReleasenotes("quarkus")
     }
-
-    configure {
-        runtimeReleasenotes("http4k")
-    }
     */
 }
 

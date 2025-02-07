@@ -1,6 +1,6 @@
 # Create a sustainable domain-focused architecture
 
-* Status: in progress
+* Status: accepted
 * Deciders: Chris
 * Date: 2022-02-10
 
@@ -42,29 +42,11 @@ If more structure or further concepts are needed when growing the core module, a
 
 As Hexagonal Architecture does give a lot of freedom to design the core module, the following guidelines should be used for a little finer grained design:
 
-* one package per bounded context
-* UseCases.kt
-  * primary/driven ports are named UseCases and their implementations UseCasesService
-  * contain less logic as possible, orchestrates domain objects
-  * __TODO Ticket??__ should be domain and usecase driven
-    * accepts domain command as input parameter
-    * triggers domain event(s)
-    * returns domain command result
-* Model.kt
-  * contains domain models
-  * contain as much business logic as possible
-  * less external dependencies as possible
-* __TODO Ticket??__ Persistence.kt
-  * Repositories and Persistence Ports (secondary ports), (lower level) command in?, do not trigger events, return (lower level) command results
-* __TODO Ticket??__ Errors.kt
-  * defines domain objects validation errors
-
-Not designed yet:
-
-* think how security is added to services
-* think about validation and maybe use JSR-303?
-* think about separating bounded contexts using ports/adapters?
-* maybe replace errors implementation with kotlin-result
+* one Gradle module per bounded context
+* module naming is
+  * application-* for packaging modules
+  * adapter-in-* and adapter-out-* for driving and driven adapters
+  * domain-* for domain logic and ports
 
 ## Further reading
 

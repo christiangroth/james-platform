@@ -3,13 +3,6 @@
 ## New Features
 * Added yaml format releasenotes to be parsed by quarkus and served at runtime
 
-# 0.0.11 (2024.02.21)
-
-## New Features
-
-* added Quarkus runtime to start UI prototyping
-* basic Quarkus configuration
-
 # 0.0.10 (2024.02.20)
 
 ## New Features

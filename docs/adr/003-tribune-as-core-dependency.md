@@ -1,6 +1,6 @@
 # Add dependency to tribune to core modules
 
-* Status: accepted
+* Status: in progress
 * Deciders: Chris
 * Date: 2023-03-16
 
@@ -18,8 +18,9 @@ In the first approach parsing, validating and error handling was self-implemente
 ## Considered Options
 
 * [Tribune (based on Arrow)](https://github.com/sksamuel/tribune)
+* [Arrow](https://arrow-kt.io/)
 * [kotlin-result](https://github.com/michaelbull/kotlin-result)
 
-## Decision Outcome
+## Decision Outcome (?)
 
 **Tribune**: Due to the included parsing options I chose to go with tribune. Also kotlin-result did not feel that fluent, i.e. for object creation usecases
