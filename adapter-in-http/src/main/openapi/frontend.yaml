@@ -1,0 +1,266 @@
+openapi: 3.0.0
+info:
+  title: James Platform
+  description: API endpoints for James Platform browser UI.
+  version: 0.1.0
+
+# TODO use several tags or several files?
+
+paths:
+
+  #
+  # User
+  #
+
+  # TODO add info about needed roles
+
+  /api/user:
+    get:
+      summary: Get all users.
+      operationId: getAllUsers
+      security:
+        - JWT
+      tags:
+        - user
+      responses:
+        200:
+          description: Returns all user objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+    put:
+      summary: Create a new user.
+      operationId: registration
+      security:
+        - JWT
+      tags:
+        - user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationData'
+      responses:
+        201:
+          description: If the user was created
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        409:
+          description: If user not unique.
+
+  /api/user/{userId}:
+    # TODO deduplicate parameter
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get user by id.
+      operationId: getUserById
+      security:
+        - JWT
+      tags:
+        - user
+      responses:
+        200:
+          description: Returns the user objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        404:
+          description: If user not found.
+    delete:
+      summary: Deletes user by id.
+      operationId: deleteUserById
+      security:
+        - JWT
+      tags:
+        - user
+      responses:
+        204:
+          description: If deletion was successful.
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        404:
+          description: If user not found.
+
+  /api/user/{userId}/password:
+    # TODO deduplicate parameter
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      summary: Resets the users password
+      operationId: resetPassword
+      security:
+        - JWT
+      tags:
+        - user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordData'
+      responses:
+        204:
+          description: If password reset was successful.
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        404:
+          description: If user not found.
+
+  /api/user/{userId}/deactivate:
+    # TODO deduplicate parameter
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Deactivates the user.
+      operationId: deactivateUser
+      security:
+        - JWT
+      tags:
+        - user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivationData'
+      responses:
+        204:
+          description: If deactivation was successful.
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        404:
+          description: If user not found.
+
+  /api/user/{userId}/activate:
+    # TODO deduplicate parameter
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Activates the user.
+      operationId: activateUser
+      security:
+        - JWT
+      tags:
+        - user
+      responses:
+        204:
+          description: If activation was successful.
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        404:
+          description: If user not found.
+
+# TODO deduplicate default responses
+components:
+  schemas:
+    RegistrationData:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRole'
+      required:
+        - username
+        - password
+        - roles
+    ChangePasswordData:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+    DeactivationData:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+    UserList:
+      type: array
+      items:
+        $ref: '#/components/schemas/User'
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserRole'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        statusReason:
+          type: string
+        deactivationCounter:
+          type: integer
+      required:
+        - id
+        - username
+        - roles
+        - status
+        - deactivationCounter
+    UserRole:
+      type: string
+      enum:
+        - ADMIN
+        - DEVELOPER
+        - USER
+    UserStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+
+  securitySchemes:
+    JWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,9 +1,9 @@
 plugins {
-    id("kotlin-project")
+  id("kotlin-project")
 }
 
 dependencies {
-    api("com.github.glwithu06:semver.kt:1.0.1")
+  api("com.github.glwithu06:semver.kt:1.0.1")
 
-    testImplementation(testFixtures(project(":core")))
+  testImplementation(testFixtures(project(":core")))
 }
