@@ -1,0 +1,93 @@
+{#include base}
+{#title}James Platform - User Management{/title}
+<section>
+    <table class="striped">
+        <thead>
+        <tr>
+            <th scope="col">Username</th>
+            <th scope="col">Roles</th>
+            <th scope="col">Status</th>
+            <th scope="col">Counter</th>
+            <th scope="col">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <th scope="row">admin</th>
+            <td>admin</td>
+            <td>active</td>
+            <td>0</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th scope="row">developer</th>
+            <td>developer, user</td>
+            <td>active</td>
+            <td>0</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th scope="row">user</th>
+            <td>user</td>
+            <td>active</td>
+            <td>0</td>
+            <td></td>
+        </tr>
+        </tbody>
+        <tfoot>
+        <tr>
+            <td colspan="4"></td>
+            <td>
+                <button class="outline"
+                        onclick="document.getElementsByTagName('html')[0].classList.toggle('modal-is-open'); document.getElementsByTagName('html')[0].classList.toggle('modal-is-opening'); getElementById('new-user-dialog').setAttribute('open', '');">
+                    New
+                </button>
+            </td>
+        </tr>
+        </tfoot>
+    </table>
+</section>
+
+<dialog id="new-user-dialog">
+    <article>
+        <h2>Register new user</h2>
+        <form>
+            <fieldset>
+                <input
+                        name="username"
+                        placeholder="Username"
+                        aria-label="Username"
+                />
+                <input
+                        type="password"
+                        name="password"
+                        placeholder="Password"
+                        aria-label="Password"
+                />
+                <!-- https://picocss.com/docs/dropdown -->
+                <label>
+                    <input type="checkbox" name="role_admin" aria-invalid="false"/>
+                    Admin
+                </label>
+                <label>
+                    <input type="checkbox" name="role_developer" aria-invalid="false"/>
+                    Developer
+                </label>
+                <label>
+                    <input type="checkbox" name="role_user" aria-invalid="false"/>
+                    User
+                </label>
+                <input type="submit" value="Register"/>
+            </fieldset>
+        </form>
+        <footer>
+            <button class="secondary outline"
+                    onclick="document.getElementsByTagName('html')[0].classList.toggle('modal-is-opening'); document.getElementsByTagName('html')[0].classList.toggle('modal-is-closing'); getElementById('new-user-dialog').removeAttribute('open');">
+                Cancel
+            </button>
+            <button class="outline" onclick="getElementById('new-user-dialog').removeAttribute('open');">Confirm
+            </button>
+        </footer>
+    </article>
+</dialog>
+{/include}

@@ -1,0 +1,15 @@
+{#include base}
+{#title}James Platform - Login{/title}
+<div class="grid">
+    <div></div>
+    <div x-data="{ isLoginError: new URLSearchParams(location.search).get('loginError') == 'true' }">
+        <p x-show="isLoginError">Login failed.</p>
+        <form action="/auth/login" method="post">
+            <input type="text" placeholder="Username" name="username" required>
+            <input type="password" placeholder="Password" name="password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    <div></div>
+</div>
+{/include}
