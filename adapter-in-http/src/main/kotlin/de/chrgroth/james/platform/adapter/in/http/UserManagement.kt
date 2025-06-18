@@ -4,9 +4,11 @@ import de.chrgroth.james.platform.adapter.incoming.http.api.UserApi
 import de.chrgroth.james.platform.adapter.incoming.http.api.model.ChangePasswordData
 import de.chrgroth.james.platform.adapter.incoming.http.api.model.DeactivationData
 import de.chrgroth.james.platform.adapter.incoming.http.api.model.RegistrationData
+import de.chrgroth.james.platform.domain.user.USER_ROLE_ADMIN
 import de.chrgroth.james.platform.domain.user.port.`in`.UserCommandPort
 import de.chrgroth.james.platform.domain.user.port.`in`.UserQueryPort
 import de.chrgroth.james.platform.domain.user.toUserid
+import jakarta.annotation.security.RolesAllowed
 import jakarta.inject.Inject
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
@@ -22,7 +24,7 @@ typealias DomainUserRole = de.chrgroth.james.platform.domain.user.UserRole
 
 // TODO most part are not rest but command pattern like
 
-@AdminAccess
+@RolesAllowed(value = [USER_ROLE_ADMIN])
 @Path("/api/user")
 @Suppress("Unused")
 internal class UserResource : UserApi {

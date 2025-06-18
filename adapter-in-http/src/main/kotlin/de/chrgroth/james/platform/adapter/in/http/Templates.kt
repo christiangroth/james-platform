@@ -1,8 +1,12 @@
 package de.chrgroth.james.platform.adapter.`in`.http
 
+import de.chrgroth.james.platform.domain.user.USER_ROLE_ADMIN
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
+import io.quarkus.security.Authenticated
+import jakarta.annotation.security.PermitAll
+import jakarta.annotation.security.RolesAllowed
 import jakarta.inject.Inject
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.Path
@@ -18,7 +22,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 // TODO configure caching in non dev mode
 // TODO add favicon
 
-@PublicAccess
+@PermitAll
 @Path("/")
 @Suppress("Unused")
 class RootRedirect {
@@ -40,7 +44,7 @@ class RootRedirect {
   }
 }
 
-@PublicAccess
+@PermitAll
 @Path("/ui/login")
 @Suppress("Unused")
 class LoginTemplate {
@@ -55,7 +59,7 @@ class LoginTemplate {
   }
 }
 
-@PrivateAccess
+@Authenticated
 @Path("/ui")
 @Suppress("Unused")
 class UserTemplates {
@@ -72,7 +76,7 @@ class UserTemplates {
   }
 }
 
-@AdminAccess
+@RolesAllowed(value = [USER_ROLE_ADMIN])
 @Path("/ui/admin")
 @Suppress("Unused")
 class AdminTemplates {

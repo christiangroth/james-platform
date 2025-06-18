@@ -11,6 +11,7 @@ import io.quarkus.security.identity.request.UsernamePasswordAuthenticationReques
 import io.quarkus.security.runtime.QuarkusPrincipal
 import io.quarkus.security.runtime.QuarkusSecurityIdentity
 import io.smallrye.mutiny.Uni
+import jakarta.annotation.security.PermitAll
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.ws.rs.GET
@@ -39,10 +40,13 @@ internal class JamesFormLoginIdentityProvider : IdentityProvider<UsernamePasswor
     context: AuthenticationRequestContext,
   ): Uni<SecurityIdentity> =
     context.runBlocking {
+      logger.info { "Authenticating form data $request" }
       port.authenticate(request.username, request.password.password.concatToString()).fold({
         throw AuthenticationFailedException()
       }, { user ->
-        user.toPrincipal()
+        user.toPrincipal().also {
+          logger.info { "${it.principal.name} ${it.roles} ${it.attributes}" }
+        }
       })
     }
 
@@ -64,10 +68,13 @@ internal class JamesAuthCookieIdentityProvider : IdentityProvider<TrustedAuthent
     context: AuthenticationRequestContext,
   ): Uni<SecurityIdentity> =
     context.runBlocking {
+      logger.info { "Authenticating cookie data ${request.principal} ${request.attributes}" }
       port.byUsername(request.principal).fold({
         throw AuthenticationFailedException()
       }, { user ->
-        user?.toPrincipal()
+        user?.toPrincipal()?.also {
+          logger.info { "${it.principal.name} ${it.roles} ${it.attributes}" }
+        }
           ?: throw AuthenticationFailedException()
       })
     }
@@ -82,7 +89,7 @@ private fun User.toPrincipal(): QuarkusSecurityIdentity =
     .addRoles(this.roles.map { it.value }.toSet())
     .build()
 
-@PublicAccess
+@PermitAll
 @Path("/auth/logout")
 @Suppress("Unused")
 internal class AuthenticationResource {
