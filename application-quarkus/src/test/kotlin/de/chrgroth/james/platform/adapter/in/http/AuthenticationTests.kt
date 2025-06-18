@@ -21,7 +21,6 @@ import org.hamcrest.Matchers.greaterThan
 import org.hamcrest.Matchers.`is`
 import org.hamcrest.Matchers.lessThan
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -87,18 +86,17 @@ class AuthenticationTests {
   }
 
   @Test
-  @Disabled("Receives 404 as soon as the endpoint is somewhat secured, or 200 it not secured")
   fun `redirect after login is executed`() {
     val initialPageResponse = given()
-      .headers("accept", "*")
+      .redirects().follow(false)
       .`when`()
-      .get("/AuthenticationTests/endpoint")
+      .get("/ui/dashboard")
       .then()
       .statusCode(302)
-      .header("location", "${rootUrl}login?loginError=true")
+      .header("location", "${rootUrl}ui/login")
       .cookies(
         mapOf(
-          "quarkus-redirect-location" to "/AuthenticationTests/endpoint"
+          "quarkus-redirect-location" to "${rootUrl}ui/dashboard"
         )
       )
       .extract()
@@ -107,7 +105,7 @@ class AuthenticationTests {
       it.cookie(initialPageResponse.cookie("quarkus-redirect-location"))
     }.then()
       .statusCode(302)
-      .header("location", "${rootUrl}AuthenticationTests/endpoint")
+      .header("location", "${rootUrl}ui/dashboard")
       .assertCredentialsCookie(
         valueMatcher = not(`is`(emptyOrNullString())),
         requestTime = Instant.now(),
@@ -121,7 +119,7 @@ class AuthenticationTests {
   fun `logout without login is ignored`() {
     val response = logout(null).then()
       .statusCode(302)
-      .header("location", "${rootUrl}login")
+      .header("location", "${rootUrl}ui/login")
       .assertInvalidatedCredentialsCookie()
       .extract()
 
@@ -134,7 +132,7 @@ class AuthenticationTests {
 
     val response = logout(loginResponse.detailedCookie("credential")).then()
       .statusCode(302)
-      .header("location", "${rootUrl}login")
+      .header("location", "${rootUrl}ui/login")
       .assertInvalidatedCredentialsCookie()
       .extract()
 
@@ -156,10 +154,7 @@ class AuthenticationTests {
       .post("/auth/login")
 
   private fun logout(cookie: Cookie?) = given()
-    .headers(
-      "content-type", "application/x-www-form-urlencoded",
-      "accept", "*",
-    )
+    .redirects().follow(false)
     .also {
       if (cookie != null) {
         it.cookie(cookie)
