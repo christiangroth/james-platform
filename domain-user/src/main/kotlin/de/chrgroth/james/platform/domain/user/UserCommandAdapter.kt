@@ -10,14 +10,54 @@ import de.chrgroth.james.platform.domain.user.port.`in`.DomainUserEvents
 import de.chrgroth.james.platform.domain.user.port.`in`.EVENT_TOPIC_TO_DOMAIN_USER
 import de.chrgroth.james.platform.domain.user.port.`in`.UserCommandPort
 import de.chrgroth.james.platform.domain.user.port.out.UserPersistencePort
+import io.quarkus.arc.DefaultBean
 import io.quarkus.vertx.ConsumeEvent
 import jakarta.enterprise.context.ApplicationScoped
+import jakarta.enterprise.inject.Produces
 import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
 
 // TODO run checks in parallel
 // TODO validate password policy
+
+@Singleton
+class UserDomainConfig {
+
+  @ConfigProperty(name = "domain.user.defaultAdminUsername")
+  lateinit var adminUsername: String
+
+  @ConfigProperty(name = "domain.user.defaultAdminPassword")
+  lateinit var adminPassword: String
+
+  @ConfigProperty(name = "domain.user.defaultUsers")
+  lateinit var defaultUsers: List<String>
+
+  @Produces
+  @DefaultBean
+  fun produceDefaultUsers(): List<DefaultUser> {
+    return defaultUsers.map { userConfig ->
+      val parts = userConfig.split('|')
+
+      val name = parts[0]
+      checkNotNull(name) { "Default user name must be provided!" }
+
+      val role = parts[1]
+      checkNotNull(role) { "Default user role must be provided!" }
+
+      DefaultUser(
+        name = name,
+        role = UserRole.valueOf(role)
+      )
+    }
+  }
+}
+
+data class DefaultUser(
+  val name: String,
+  val role: UserRole,
+)
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -26,11 +66,11 @@ internal class UserCommandAdapter : UserCommandPort {
   @Inject
   private lateinit var persistence: UserPersistencePort
 
-  @ConfigProperty(name = "domain.user.defaultAdminUsername")
-  private lateinit var defaultAdminUsername: String
+  @Inject
+  private lateinit var config: UserDomainConfig
 
-  @ConfigProperty(name = "domain.user.defaultAdminPassword")
-  private lateinit var defaultAdminPassword: String
+  @Inject
+  lateinit var defaultUsers: List<DefaultUser>
 
   @ConsumeEvent(EVENT_TOPIC_TO_DOMAIN_USER)
   fun consume(@Suppress("Unused", "UnusedParameter") event: DomainUserEvents.PersistenceInitialized) {
@@ -38,8 +78,8 @@ internal class UserCommandAdapter : UserCommandPort {
       if (users.isEmpty() || users.none { it.roles.contains(UserRole.ADMIN) }) {
         logger.info { "No user with admin role found, creating default admin user..." }
         register(
-          username = defaultAdminUsername,
-          password = defaultAdminPassword,
+          username = config.adminUsername,
+          password = config.adminPassword,
           roles = setOf(UserRole.ADMIN)
         )
       } else {
@@ -48,8 +88,28 @@ internal class UserCommandAdapter : UserCommandPort {
     }.fold({
       logger.error { "Unable to ensure admin user: ${it.map { error -> error.toLogString() }}" }
     }, {
-      logger.info { "Please login and change password for automatically created admin user: $defaultAdminUsername / $defaultAdminPassword" }
+      logger.info { "Please login and change password for automatically created admin user: ${config.adminUsername} / ${config.adminPassword}" }
     })
+
+    defaultUsers.forEach { defaultUser ->
+      persistence.byUsername(defaultUser.name).map { user ->
+        if (user == null) {
+          logger.info { "No default user with name ${defaultUser.name} found, creating ..." }
+          register(
+            username = defaultUser.name,
+            password = defaultUser.name,
+            roles = setOf(defaultUser.role)
+          )
+        } else {
+          logger.info { "Default user with name ${defaultUser.name} already exists." }
+          Unit.validNel()
+        }
+      }.fold({
+        logger.error { "Unable to ensure default user ${defaultUser.name}: ${it.map { error -> error.toLogString() }}" }
+      }, {
+        logger.info { "Please login and change password for automatically created user: ${defaultUser.name} / ${defaultUser.name}" }
+      })
+    }
   }
 
   override fun register(username: String, password: String, roles: Set<UserRole>): ValidatedNel<DomainError, Unit> {
