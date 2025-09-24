@@ -14,20 +14,22 @@ import org.junit.jupiter.api.Test
 @QuarkusTest
 class UserPersistenceAdapterTest {
 
+  private val numberOfDefaultUsers = 3
+
   @Inject
   private lateinit var persistence: UserPersistencePort
 
   @Test
   fun `ensure entity lifecycle`() {
     persistence.all().expectSuccess().let {
-      assertThat(it).hasSize(1) // automatic admin user
+      assertThat(it).hasSize(numberOfDefaultUsers)
     }
 
     val initialUser = createTestUser()
     persistence.create(initialUser).expectSuccess()
 
     persistence.all().expectSuccess().let {
-      assertThat(it).hasSize(2)
+      assertThat(it).hasSize(numberOfDefaultUsers + 1)
       assertThat(it).contains(initialUser)
     }
     persistence.byId(initialUser.id).expectSuccess().let {
@@ -47,7 +49,7 @@ class UserPersistenceAdapterTest {
 
     persistence.delete(updatedUser.id).expectSuccess()
     persistence.all().expectSuccess().let {
-      assertThat(it).hasSize(1)
+      assertThat(it).hasSize(numberOfDefaultUsers)
     }
   }
 
