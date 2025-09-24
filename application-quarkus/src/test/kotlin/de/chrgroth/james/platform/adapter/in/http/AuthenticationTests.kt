@@ -1,6 +1,5 @@
 package de.chrgroth.james.platform.adapter.`in`.http;
 
-import io.quarkus.security.Authenticated
 import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured
@@ -9,9 +8,6 @@ import io.restassured.http.Cookie
 import io.restassured.matcher.RestAssuredMatchers
 import io.restassured.response.ValidatableResponse
 import io.restassured.specification.RequestSpecification
-import jakarta.ws.rs.GET
-import jakarta.ws.rs.Path
-import jakarta.ws.rs.Produces
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.CoreMatchers.not
 import org.hamcrest.CoreMatchers.nullValue
@@ -45,7 +41,7 @@ class AuthenticationTests {
   fun `valid login creates cookie`() {
     val response = login("admin", "admin").then()
       .statusCode(302)
-      .header("location", "${rootUrl}ui/dashboard")
+      .header("location", "${rootUrl}auth/login-redirect")
       .assertCredentialsCookie(
         valueMatcher = not(`is`(emptyOrNullString())),
         requestTime = Instant.now(),
@@ -62,7 +58,7 @@ class AuthenticationTests {
       it.cookie(loginResponse.cookie("credential"))
     }.then()
       .statusCode(302)
-      .header("location", "${rootUrl}ui/dashboard")
+      .header("location", "${rootUrl}auth/login-redirect")
       .assertCredentialsCookie(
         valueMatcher = not(`is`(emptyOrNullString())),
         requestTime = Instant.now(),
@@ -70,19 +66,6 @@ class AuthenticationTests {
       .extract()
 
     assertThat(response.cookies()).doesNotContainKeys("quarkus-redirect-location")
-  }
-
-  @Authenticated
-  @Path("/AuthenticationTests/endpoint")
-  @Suppress("Unused")
-  class AuthenticatedTestResource {
-
-    @GET
-    @Produces("text/plain")
-    @Suppress("FunctionOnlyReturningConstant")
-    fun greet(): String {
-      return ""
-    }
   }
 
   @Test
@@ -105,7 +88,7 @@ class AuthenticationTests {
       it.cookie(initialPageResponse.cookie("quarkus-redirect-location"))
     }.then()
       .statusCode(302)
-      .header("location", "${rootUrl}ui/dashboard")
+      .header("location", "${rootUrl}auth/login-redirect")
       .assertCredentialsCookie(
         valueMatcher = not(`is`(emptyOrNullString())),
         requestTime = Instant.now(),
@@ -139,8 +122,44 @@ class AuthenticationTests {
     assertThat(response.cookies()).doesNotContainKeys("quarkus-redirect-location")
   }
 
-  private fun login(username: String, password: String, extraConfig: (RequestSpecification) -> Unit = {}) =
+  @Test
+  fun `no access to admin resource as user`() {
+    val loginResponse = login("user", "user")
+    navigate("/ui/admin/users", loginResponse.detailedCookie("credential")).then()
+      .statusCode(403)
+  }
+
+  @Test
+  fun `no access to admin resource as developer`() {
+    val loginResponse = login("dev", "dev")
+    navigate("/ui/admin/users", loginResponse.detailedCookie("credential")).then()
+      .statusCode(403)
+      .extract()
+  }
+
+  @Test
+  fun `no access to developer resource as user`() {
+    val loginResponse = login("user", "user")
+    navigate("/ui/developer/dashboard", loginResponse.detailedCookie("credential")).then()
+      .statusCode(403)
+      .extract()
+  }
+
+  @Test
+  fun `developer login leads to dashboard`() {
+    val loginResponse = login("dev", "dev")
+    navigate("/auth/login-redirect", loginResponse.detailedCookie("credential")).then()
+      .statusCode(303)
+      .header("location", "${rootUrl}ui/developer/dashboard")
+  }
+
+  private fun login(
+    username: String,
+    password: String,
+    extraConfig: (RequestSpecification) -> Unit = {},
+  ) =
     given()
+      .`when`()
       .headers(
         "content-type", "application/x-www-form-urlencoded",
         "accept", "*",
@@ -150,10 +169,9 @@ class AuthenticationTests {
         "password", password
       )
       .also(extraConfig)
-      .`when`()
       .post("/auth/login")
 
-  private fun logout(cookie: Cookie?) = given()
+  private fun navigate(path: String, cookie: Cookie?) = given()
     .redirects().follow(false)
     .also {
       if (cookie != null) {
@@ -161,7 +179,10 @@ class AuthenticationTests {
       }
     }
     .`when`()
-    .get("/auth/logout")
+    .get(path)
+
+  private fun logout(cookie: Cookie?) =
+    navigate("/auth/logout", cookie)
 
   private fun ValidatableResponse.assertCredentialsCookie(
     valueMatcher: Matcher<String>,

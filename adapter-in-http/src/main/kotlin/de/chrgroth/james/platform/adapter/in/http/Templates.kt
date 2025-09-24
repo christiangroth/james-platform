@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.http
 
 import de.chrgroth.james.platform.domain.user.USER_ROLE_ADMIN
+import de.chrgroth.james.platform.domain.user.USER_ROLE_DEVELOPER
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
@@ -15,7 +16,9 @@ import jakarta.ws.rs.core.HttpHeaders
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.core.UriInfo
+import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
+
 
 // TODO tests for template routes
 // TODO roles checks do not work, all is public
@@ -91,4 +94,24 @@ class AdminTemplates {
   fun users(): TemplateInstance {
     return users.data(Unit)
   }
+}
+
+@RolesAllowed(value = [USER_ROLE_DEVELOPER])
+@Path("/ui/developer")
+@Suppress("Unused")
+class DeveloperTemplates {
+
+  @Inject
+  @Location("developer/dashboard")
+  private lateinit var dashboard: Template
+
+  @GET
+  @Path("/dashboard")
+  @Produces(MediaType.TEXT_HTML)
+  fun dashboard(): TemplateInstance {
+    logger.info { "developer dashboard" }
+    return dashboard.data(Unit)
+  }
+
+  companion object : KLogging()
 }
