@@ -1,3 +1,12 @@
+# 0.1.0 (2025.09.25)
+
+## Highlights
+Added quarkus runtime and first deployment infrastructure.
+
+## New Features
+* Implemented basic user management
+* Added Quarkus runtime
+
 # 0.0.12 (2024.02.21)
 
 ## New Features
