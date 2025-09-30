@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.user.UserStatus
 import de.chrgroth.james.platform.domain.user.port.out.UserPersistencePort
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
+import jakarta.transaction.Transactional
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -20,6 +21,7 @@ class UserPersistenceAdapterTest {
   private lateinit var persistence: UserPersistencePort
 
   @Test
+  @Transactional
   fun `ensure entity lifecycle`() {
     persistence.all().expectSuccess().let {
       assertThat(it).hasSize(numberOfDefaultUsers)
@@ -54,6 +56,7 @@ class UserPersistenceAdapterTest {
   }
 
   @Test
+  @Transactional
   fun `find non existing user`() {
     persistence.byId(UserId()).expectSuccess().let {
       assertThat(it).isNull()
@@ -64,6 +67,7 @@ class UserPersistenceAdapterTest {
   }
 
   @Test
+  @Transactional
   fun `update non persistent user`() {
     createTestUser().also { testUser ->
       persistence.update(testUser).expectSuccess()
@@ -74,6 +78,7 @@ class UserPersistenceAdapterTest {
   }
 
   @Test
+  @Transactional
   fun `delete non existing user`() {
     persistence.delete(UserId()).expectSuccess()
   }

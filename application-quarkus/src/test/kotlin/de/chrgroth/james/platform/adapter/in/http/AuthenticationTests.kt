@@ -8,6 +8,9 @@ import io.restassured.http.Cookie
 import io.restassured.matcher.RestAssuredMatchers
 import io.restassured.response.ValidatableResponse
 import io.restassured.specification.RequestSpecification
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Date
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.CoreMatchers.not
 import org.hamcrest.CoreMatchers.nullValue
@@ -18,9 +21,6 @@ import org.hamcrest.Matchers.`is`
 import org.hamcrest.Matchers.lessThan
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.util.Date
 
 
 @QuarkusTest

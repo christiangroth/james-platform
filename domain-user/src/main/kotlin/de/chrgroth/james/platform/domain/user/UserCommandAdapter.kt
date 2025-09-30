@@ -12,10 +12,12 @@ import de.chrgroth.james.platform.domain.user.port.`in`.UserCommandPort
 import de.chrgroth.james.platform.domain.user.port.out.UserPersistencePort
 import io.quarkus.arc.DefaultBean
 import io.quarkus.vertx.ConsumeEvent
+import io.smallrye.common.annotation.Blocking
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import jakarta.transaction.Transactional
 import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
 
@@ -72,6 +74,8 @@ internal class UserCommandAdapter : UserCommandPort {
   @Inject
   lateinit var defaultUsers: List<DefaultUser>
 
+  @Blocking
+  @Transactional
   @ConsumeEvent(EVENT_TOPIC_TO_DOMAIN_USER)
   fun consume(@Suppress("Unused", "UnusedParameter") event: DomainUserEvents.PersistenceInitialized) {
     persistence.all().map { users ->
