@@ -49,7 +49,6 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
   }.fold(
     onSuccess = { it.valid() },
     onFailure = {
-      logger.error(it) { "Database operation failed" }
       DomainError(
         code = UserDomainErrorCodes.USER_QUERY_FAILED,
         errorMessage = it.message
@@ -65,7 +64,6 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
   }.fold(
     onSuccess = { it.valid() },
     onFailure = {
-      logger.error(it) { "Database operation failed" }
       DomainError(
         code = UserDomainErrorCodes.USER_QUERY_FAILED,
         errorMessage = it.message
@@ -81,7 +79,6 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
   }.fold(
     onSuccess = { it.valid() },
     onFailure = {
-      logger.error(it) { "Database operation failed" }
       DomainError(
         code = UserDomainErrorCodes.USER_QUERY_FAILED,
         errorMessage = it.message
@@ -108,10 +105,9 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
       if (it is DataAccessException && it.message?.contains("duplicate key") == true) {
         DomainError(
           code = UserDomainErrorCodes.REGISTRATION_USERNAME_EXISTS,
-          errorMessage = "User with username already exists"
+          errorMessage = null,
         ).invalidNel()
       } else {
-        logger.error(it) { "Database operation failed" }
         DomainError(
           code = UserDomainErrorCodes.USER_QUERY_FAILED,
           errorMessage = it.message
@@ -133,14 +129,13 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
       .execute()
 
     if (updated == 0) {
-      DomainError(code = UserDomainErrorCodes.USER_UNKNOWN, errorMessage = "User not found").invalidNel()
+      DomainError(code = UserDomainErrorCodes.USER_UNKNOWN, errorMessage = null).invalidNel()
     } else {
       Unit.valid()
     }
   }.fold(
     onSuccess = { it },
     onFailure = {
-      logger.error(it) { "Database operation failed" }
       DomainError(
         code = UserDomainErrorCodes.USER_QUERY_FAILED,
         errorMessage = it.message
@@ -154,14 +149,13 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
       .execute()
 
     if (deleted == 0) {
-      DomainError(code = UserDomainErrorCodes.USER_UNKNOWN, errorMessage = "User not found").invalidNel()
+      DomainError(code = UserDomainErrorCodes.USER_UNKNOWN, errorMessage = null).invalidNel()
     } else {
       Unit.valid()
     }
   }.fold(
     onSuccess = { it },
     onFailure = {
-      logger.error(it) { "Database operation failed" }
       DomainError(
         code = UserDomainErrorCodes.USER_QUERY_FAILED,
         errorMessage = it.message

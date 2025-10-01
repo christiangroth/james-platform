@@ -22,7 +22,7 @@ dependencies {
   jooqGenerator("org.testcontainers:postgresql:1.19.0")
 }
 
-val jooqOutputDir = "build/generated-src/jooq/main"
+val jooqOutputDir = "build/generated/sources/jooq/main"
 
 jooq {
   configurations {
@@ -35,7 +35,7 @@ jooq {
         generator.apply {
           database.apply {
             name = "org.jooq.meta.postgres.PostgresDatabase"
-            inputSchema = "public"
+            inputSchema = "user_domain"
             includes = ".*"
           }
           target.apply {
@@ -56,6 +56,7 @@ tasks.register("generateJooqInitScript") {
 
     outputFile.parentFile.mkdirs()
     outputFile.writeText("")
+    outputFile.appendText("CREATE SCHEMA user_domain;SET SEARCH_PATH = user_domain;\n\n")
 
     migrationDir.listFiles()
       ?.filter { it.extension == "sql" }
