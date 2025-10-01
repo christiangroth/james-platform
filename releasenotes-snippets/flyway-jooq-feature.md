@@ -1,1 +1,1 @@
-* Answer to the ultimate question of life, the universe, and everything.
+* Implemented basic persistence infrastructure using Flyway and JOOQ
