@@ -1,6 +1,6 @@
 plugins {
   id("kotlin-project")
-  id("app.cash.sqldelight") version "2.0.2"
+  id("app.cash.sqldelight") version "2.1.0"
 }
 
 dependencies {
@@ -11,8 +11,8 @@ dependencies {
   api("io.quarkus:quarkus-jdbc-postgresql")
   api("io.quarkus:quarkus-vertx")
 
-  api("app.cash.sqldelight:jdbc-driver:2.0.2")
-  api("app.cash.sqldelight:postgresql-dialect:2.0.2")
+  api("app.cash.sqldelight:jdbc-driver:2.1.0")
+  api("app.cash.sqldelight:postgresql-dialect:2.1.0")
 }
 
 sqldelight {
@@ -22,7 +22,7 @@ sqldelight {
       verifyMigrations.set(true)
       deriveSchemaFromMigrations.set(true)
       migrationOutputFileFormat = "sql"
-      dialect("app.cash.sqldelight:postgresql-dialect:2.0.2")
+      dialect("app.cash.sqldelight:postgresql-dialect:2.1.0")
     }
   }
 }
