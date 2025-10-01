@@ -7,7 +7,7 @@ dependencies {
   implementation(project(":domain-user"))
 
   // TODO deduplicate
-  api(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+  api(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.28.1"))
   api("io.quarkus:quarkus-jdbc-postgresql")
   api("io.quarkus:quarkus-vertx")
 

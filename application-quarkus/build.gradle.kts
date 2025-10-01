@@ -11,7 +11,7 @@ dependencies {
 
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
-  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.28.1"))
   implementation("io.quarkus:quarkus-arc")
   implementation("io.quarkus:quarkus-kotlin")
   implementation("io.quarkus:quarkus-container-image-docker")
