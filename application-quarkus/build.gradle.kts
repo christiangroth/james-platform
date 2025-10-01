@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
   implementation(project(":adapter-in-http"))
+  implementation(project(":adapter-out-postgres"))
   implementation(project(":adapter-out-postgres-app"))
   implementation(project(":adapter-out-postgres-user"))
   implementation(project(":domain-app"))
