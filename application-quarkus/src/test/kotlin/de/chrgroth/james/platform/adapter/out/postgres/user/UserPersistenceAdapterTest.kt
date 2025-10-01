@@ -1,7 +1,10 @@
 package de.chrgroth.james.platform.adapter.out.postgres.user
 
+import de.chrgroth.james.DomainError
+import de.chrgroth.james.expectDomainErrors
 import de.chrgroth.james.expectSuccess
 import de.chrgroth.james.platform.domain.user.User
+import de.chrgroth.james.platform.domain.user.UserDomainErrorCodes
 import de.chrgroth.james.platform.domain.user.UserId
 import de.chrgroth.james.platform.domain.user.UserRole
 import de.chrgroth.james.platform.domain.user.UserStatus
@@ -70,17 +73,24 @@ class UserPersistenceAdapterTest {
   @Transactional
   fun `update non persistent user`() {
     createTestUser().also { testUser ->
-      persistence.update(testUser).expectSuccess()
-      persistence.byId(testUser.id).expectSuccess().also {
-        assertThat(it).isNull()
-      }
+      persistence.update(testUser).expectDomainErrors(
+        DomainError(
+          code = UserDomainErrorCodes.USER_UNKNOWN,
+          errorMessage = null,
+        )
+      )
     }
   }
 
   @Test
   @Transactional
   fun `delete non existing user`() {
-    persistence.delete(UserId()).expectSuccess()
+    persistence.delete(UserId()).expectDomainErrors(
+      DomainError(
+        code = UserDomainErrorCodes.USER_UNKNOWN,
+        errorMessage = null,
+      )
+    )
   }
 
   private fun createTestUser() = User(
