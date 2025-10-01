@@ -30,29 +30,29 @@ class UserPersistenceAdapterTest {
       assertThat(it).hasSize(numberOfDefaultUsers)
     }
 
-    val initialUser = createTestUser()
-    persistence.create(initialUser).expectSuccess()
+    val initial = createTestEntity()
+    persistence.create(initial).expectSuccess()
 
     persistence.all().expectSuccess().let {
       assertThat(it).hasSize(numberOfDefaultUsers + 1)
-      assertThat(it).contains(initialUser)
+      assertThat(it).contains(initial)
     }
-    persistence.byId(initialUser.id).expectSuccess().let {
-      assertThat(it).isEqualTo(initialUser)
+    persistence.byId(initial.id).expectSuccess().let {
+      assertThat(it).isEqualTo(initial)
     }
-    persistence.byUsername(initialUser.username).expectSuccess().let {
-      assertThat(it).isEqualTo(initialUser)
+    persistence.byUsername(initial.username).expectSuccess().let {
+      assertThat(it).isEqualTo(initial)
     }
 
-    val updatedUser = initialUser.deactivate("deactivated for tests").expectSuccess()
-    persistence.update(updatedUser).expectSuccess()
-    persistence.byId(updatedUser.id).expectSuccess().let {
+    val updated = initial.deactivate("deactivated for tests").expectSuccess()
+    persistence.update(updated).expectSuccess()
+    persistence.byId(updated.id).expectSuccess().let {
       assertThat(it).isNotNull
       assertThat(it!!.status).isEqualTo(UserStatus.INACTIVE)
       assertThat(it.statusReason).isEqualTo("deactivated for tests")
     }
 
-    persistence.delete(updatedUser.id).expectSuccess()
+    persistence.delete(updated.id).expectSuccess()
     persistence.all().expectSuccess().let {
       assertThat(it).hasSize(numberOfDefaultUsers)
     }
@@ -60,7 +60,7 @@ class UserPersistenceAdapterTest {
 
   @Test
   @Transactional
-  fun `find non existing user`() {
+  fun `find non existing`() {
     persistence.byId(UserId()).expectSuccess().let {
       assertThat(it).isNull()
     }
@@ -71,8 +71,8 @@ class UserPersistenceAdapterTest {
 
   @Test
   @Transactional
-  fun `update non persistent user`() {
-    createTestUser().also { testUser ->
+  fun `update non existing`() {
+    createTestEntity().also { testUser ->
       persistence.update(testUser).expectDomainErrors(
         DomainError(
           code = UserDomainErrorCodes.USER_UNKNOWN,
@@ -84,7 +84,7 @@ class UserPersistenceAdapterTest {
 
   @Test
   @Transactional
-  fun `delete non existing user`() {
+  fun `delete non existing`() {
     persistence.delete(UserId()).expectDomainErrors(
       DomainError(
         code = UserDomainErrorCodes.USER_UNKNOWN,
@@ -93,7 +93,7 @@ class UserPersistenceAdapterTest {
     )
   }
 
-  private fun createTestUser() = User(
+  private fun createTestEntity() = User(
     username = "test-user",
     passwordHash = "password-hash",
     roles = setOf(UserRole.USER, UserRole.DEVELOPER)
