@@ -19,6 +19,6 @@ enum class UserDomainErrorCodes : DomainErrorCode {
     override fun logLevel(): LogLevel = ERROR
   };
 
-  override val prefix = "TYPESYSTEM"
+  override val prefix = "USER"
   override val id = ordinal.toLong()
 }

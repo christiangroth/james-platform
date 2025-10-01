@@ -1,8 +1,10 @@
 rootProject.name = "james-platform"
 
 include("adapter-in-http")
+include("adapter-out-postgres-app")
 include("adapter-out-postgres-user")
 include("application-quarkus")
+include("domain-app")
 include("domain-user")
 
 include("core")
