@@ -7,13 +7,10 @@ import de.chrgroth.james.DomainError
 import de.chrgroth.james.platform.domain.app.App
 import de.chrgroth.james.platform.domain.app.AppDomainErrorCodes
 import de.chrgroth.james.platform.domain.app.AppId
-import de.chrgroth.james.platform.domain.app.port.`in`.DomainAppEvents
-import de.chrgroth.james.platform.domain.app.port.`in`.EVENT_TOPIC_TO_DOMAIN_APP
 import de.chrgroth.james.platform.domain.app.port.out.AppPersistencePort
 import io.quarkus.runtime.StartupEvent
 import io.vertx.core.eventbus.EventBus
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.enterprise.event.Observes
 import jakarta.inject.Inject
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -57,17 +54,7 @@ open class AppEntity(
 class AppPersistenceAdapter : AppPersistencePort {
 
     @Inject
-    private lateinit var eventBus: EventBus
-
-    @Inject
-    @PersistenceUnit(unitName = "app")
     lateinit var entityManager: EntityManager
-
-    @Suppress("Unused")
-    fun startup(@Observes @Suppress("UnusedParameter") event: StartupEvent) {
-        logger.info { "AppDatabase created." }
-        eventBus.publish(EVENT_TOPIC_TO_DOMAIN_APP, DomainAppEvents.PersistenceInitialized)
-    }
 
     override fun byId(id: AppId): ValidatedNel<DomainError, App?> = runCatching {
         entityManager.find(AppEntity::class.java, id.value)?.toDomain()
