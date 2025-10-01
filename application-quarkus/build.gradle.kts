@@ -6,7 +6,9 @@ plugins {
 
 dependencies {
   implementation(project(":adapter-in-http"))
+  implementation(project(":adapter-out-postgres-app"))
   implementation(project(":adapter-out-postgres-user"))
+  implementation(project(":domain-app"))
   implementation(project(":domain-user"))
 
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")

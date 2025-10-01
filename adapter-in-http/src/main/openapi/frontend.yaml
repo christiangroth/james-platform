@@ -188,6 +188,42 @@ paths:
         404:
           description: If user not found.
 
+  /api/app:
+    get:
+      summary: Get all apps.
+      operationId: getAllApps
+      security:
+        - JWT
+      tags:
+        - app
+      responses:
+        200:
+          description: Returns all app objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppList'
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+    put:
+      summary: Create a new app.
+      operationId: create
+      security:
+        - JWT
+      tags:
+        - app
+      responses:
+        201:
+          description: If the app was created
+        401:
+          description: If not authenticated.
+        403:
+          description: If not authorized.
+        409:
+          description: If app not unique.
+
 # TODO deduplicate default responses
 components:
   schemas:
@@ -258,6 +294,17 @@ components:
       enum:
         - ACTIVE
         - INACTIVE
+    AppList:
+      type: array
+      items:
+        $ref: '#/components/schemas/App'
+    App:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
 
   securitySchemes:
     JWT:

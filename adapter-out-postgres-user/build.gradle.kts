@@ -15,14 +15,3 @@ dependencies {
   implementation("io.quarkus:quarkus-hibernate-orm")
   implementation("io.quarkus:quarkus-hibernate-validator")
 }
-
-/*
-flyway {
-  url = "jdbc:postgresql://localhost:5432/mydb"
-  user = "dbuser"
-  password = "dbpass"
-  schemas = arrayOf("user_domain")
-  locations = arrayOf("classpath:db/migration")
-  table = "flyway_schema_history_user" // separate History-Tabelle
-}
-*/
