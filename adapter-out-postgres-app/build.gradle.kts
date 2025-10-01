@@ -71,7 +71,8 @@ tasks.register("generateJooqInitScript") {
 }
 
 // Vor jOOQ-Generation das Skript erstellen
-tasks.named("generateAppJooq") {
+val jooqTaskName = "generateAppJooq"
+tasks.named(jooqTaskName) {
   dependsOn("generateJooqInitScript")
 }
 
@@ -88,7 +89,6 @@ sourceSets {
 idea {
   module {
     generatedSourceDirs.add(file(jooqOutputDir))
-    // Optional: Output-Dir auch als "generated" markieren
     isDownloadSources = true
   }
 }
@@ -100,9 +100,9 @@ tasks.clean {
 
 // Automatisch generieren vor dem Kompilieren
 tasks.compileKotlin {
-  dependsOn(tasks.named("generateAppJooq"))
+  dependsOn(tasks.named(jooqTaskName))
 }
 
 tasks.compileJava {
-  dependsOn(tasks.named("generateAppJooq"))
+  dependsOn(tasks.named(jooqTaskName))
 }

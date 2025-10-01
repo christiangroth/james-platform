@@ -5,6 +5,7 @@ import arrow.core.invalidNel
 import arrow.core.valid
 import de.chrgroth.james.DomainError
 import de.chrgroth.james.platform.adapter.out.postgres.app.jooq.tables.Apps.APPS
+import de.chrgroth.james.platform.adapter.out.postgres.app.jooq.tables.records.AppsRecord
 import de.chrgroth.james.platform.domain.app.App
 import de.chrgroth.james.platform.domain.app.AppDomainErrorCodes
 import de.chrgroth.james.platform.domain.app.AppId
@@ -60,11 +61,7 @@ class AppPersistenceAdapter : AppPersistencePort {
   override fun all(): ValidatedNel<DomainError, Set<App>> = runCatching {
     dsl.selectFrom(APPS)
       .fetch()
-      .map { record ->
-        App.fromEntity(
-          id = AppId(record.id!!)
-        )
-      }
+      .map { it.toDomain() }
       .toSet()
   }.fold(
     onSuccess = { it.valid() },
@@ -102,6 +99,11 @@ class AppPersistenceAdapter : AppPersistencePort {
       }.invalidNel()
     }
   )
+
+  private fun AppsRecord.toDomain(): App =
+    App.fromEntity(
+      id = AppId(id)
+    )
 
   companion object : KLogging()
 }
