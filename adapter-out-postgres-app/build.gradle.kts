@@ -1,17 +1,108 @@
 plugins {
-    id("kotlin-project")
+  id("kotlin-project")
+  id("nu.studer.jooq") version "10.1.1"
+  idea
 }
 
 // TODO manage version constants somehow
 dependencies {
-    implementation(project(":domain-app"))
+  implementation(project(":domain-app"))
 
-    // TODO deduplicate
-    implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+  // TODO deduplicate
+  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
 
-    // Database
-    implementation("io.quarkus:quarkus-flyway")
-    implementation("io.quarkus:quarkus-jdbc-postgresql")
-    implementation("io.quarkus:quarkus-hibernate-orm")
-    implementation("io.quarkus:quarkus-hibernate-validator")
+  // Database
+  implementation("io.quarkus:quarkus-flyway")
+  implementation("io.quarkus:quarkus-jdbc-postgresql")
+  implementation("io.quarkus:quarkus-agroal")
+  implementation("org.jooq:jooq:3.20.5")
+
+  // Code Generator
+  jooqGenerator("org.postgresql:postgresql:42.7.7")
+  jooqGenerator("org.testcontainers:postgresql:1.19.0")
+}
+
+val jooqOutputDir = "build/generated-src/jooq/main"
+
+jooq {
+  configurations {
+    create("app") {
+      jooqConfiguration.apply {
+        jdbc.apply {
+          driver = "org.testcontainers.jdbc.ContainerDatabaseDriver"
+          url = "jdbc:tc:postgresql:15:///app?TC_INITSCRIPT=file:build/jooq-init.sql"
+        }
+        generator.apply {
+          database.apply {
+            name = "org.jooq.meta.postgres.PostgresDatabase"
+            inputSchema = "public"
+            includes = ".*"
+          }
+          target.apply {
+            packageName = "de.chrgroth.james.platform.adapter.out.postgres.app.jooq"
+            directory = jooqOutputDir
+          }
+        }
+      }
+    }
+  }
+}
+
+// Gradle Task zum Generieren des Skripts
+tasks.register("generateJooqInitScript") {
+  doLast {
+    val migrationDir = file("src/main/resources/db/migration/app")
+    val outputFile = file("build/jooq-init.sql")
+
+    outputFile.parentFile.mkdirs()
+    outputFile.writeText("")
+
+    migrationDir.listFiles()
+      ?.filter { it.extension == "sql" }
+      ?.sorted()
+      ?.forEach { sqlFile ->
+        outputFile.appendText("-- ${sqlFile.name}\n")
+        outputFile.appendText(sqlFile.readText())
+        outputFile.appendText("\n")
+      }
+
+    println("Generated jOOQ init script: ${outputFile.absolutePath}")
+  }
+}
+
+// Vor jOOQ-Generation das Skript erstellen
+tasks.named("generateAppJooq") {
+  dependsOn("generateJooqInitScript")
+}
+
+// Source-Verzeichnis registrieren
+sourceSets {
+  main {
+    java {
+      srcDir(jooqOutputDir)
+    }
+  }
+}
+
+// IntelliJ Integration
+idea {
+  module {
+    generatedSourceDirs.add(file(jooqOutputDir))
+    // Optional: Output-Dir auch als "generated" markieren
+    isDownloadSources = true
+  }
+}
+
+// Bei clean löschen
+tasks.clean {
+  delete(jooqOutputDir)
+}
+
+// Automatisch generieren vor dem Kompilieren
+tasks.compileKotlin {
+  dependsOn(tasks.named("generateAppJooq"))
+}
+
+tasks.compileJava {
+  dependsOn(tasks.named("generateAppJooq"))
 }
