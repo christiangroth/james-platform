@@ -1,7 +1,6 @@
 package de.chrgroth.james.platform.adapter.out.postgres.app
 
 import io.agroal.api.AgroalDataSource
-import io.quarkus.agroal.DataSource
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.inject.Produces
 import jakarta.inject.Inject
@@ -19,7 +18,6 @@ annotation class AppDatabase
 class JooqConfiguration {
 
   @Inject
-  @DataSource("app")
   lateinit var dataSource: AgroalDataSource
 
   @Produces

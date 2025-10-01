@@ -7,13 +7,13 @@ plugins {
 // TODO manage version constants somehow
 dependencies {
   implementation(project(":domain-app"))
+  implementation(project(":adapter-out-postgres"))
 
   // TODO deduplicate
   implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
 
   // Database
   implementation("io.quarkus:quarkus-flyway")
-  implementation("io.quarkus:quarkus-jdbc-postgresql")
   implementation("io.quarkus:quarkus-agroal")
   implementation("org.jooq:jooq:3.20.5")
 
