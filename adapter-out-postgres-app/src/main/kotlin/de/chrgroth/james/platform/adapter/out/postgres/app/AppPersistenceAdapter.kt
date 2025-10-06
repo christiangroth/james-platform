@@ -14,6 +14,7 @@ import de.chrgroth.james.platform.domain.app.port.`in`.EVENT_TOPIC_TO_DOMAIN_APP
 import de.chrgroth.james.platform.domain.app.port.out.AppPersistencePort
 import io.quarkus.runtime.StartupEvent
 import io.vertx.core.eventbus.EventBus
+import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.event.Observes
 import jakarta.inject.Inject
@@ -33,9 +34,8 @@ class AppPersistenceAdapter : AppPersistencePort {
   @AppDatabase
   lateinit var dsl: DSLContext
 
-  @Suppress("Unused")
-  fun startup(@Observes @Suppress("UnusedParameter") event: StartupEvent) {
-    logger.info { "AppDatabase created." }
+  @Suppress("Unused", "UnusedParameter")
+  fun startup(@Observes @Priority(2) event: StartupEvent) {
     eventBus.publish(EVENT_TOPIC_TO_DOMAIN_APP, DomainAppEvents.PersistenceInitialized)
   }
 

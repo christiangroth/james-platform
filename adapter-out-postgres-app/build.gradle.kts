@@ -13,7 +13,6 @@ dependencies {
   implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
 
   // Database
-  implementation("io.quarkus:quarkus-flyway")
   implementation("io.quarkus:quarkus-agroal")
   implementation("org.jooq:jooq:3.20.5")
 

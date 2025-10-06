@@ -10,4 +10,5 @@ dependencies {
 
   // Database
   api("io.quarkus:quarkus-jdbc-postgresql")
+  api("io.quarkus:quarkus-flyway")
 }
