@@ -15,6 +15,7 @@ import org.jooq.impl.DSL
 annotation class UserDatabase
 
 @ApplicationScoped
+@Suppress("Unused")
 class JooqConfiguration {
 
   @Inject

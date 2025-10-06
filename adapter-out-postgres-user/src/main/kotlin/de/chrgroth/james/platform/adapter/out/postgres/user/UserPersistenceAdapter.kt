@@ -17,6 +17,7 @@ import de.chrgroth.james.platform.domain.user.port.`in`.EVENT_TOPIC_TO_DOMAIN_US
 import de.chrgroth.james.platform.domain.user.port.out.UserPersistencePort
 import io.quarkus.runtime.StartupEvent
 import io.vertx.core.eventbus.EventBus
+import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.event.Observes
 import jakarta.inject.Inject
@@ -35,9 +36,8 @@ class UserPersistenceAdapterJooq : UserPersistencePort {
   @UserDatabase
   private lateinit var dsl: DSLContext
 
-  @Suppress("Unused")
-  fun startup(@Observes @Suppress("UnusedParameter") event: StartupEvent) {
-    logger.info { "UserDatabase JOOQ adapter initialized." }
+  @Suppress("Unused", "UnusedParameter")
+  fun startup(@Observes @Priority(2) event: StartupEvent) {
     eventBus.publish(EVENT_TOPIC_TO_DOMAIN_USER, DomainUserEvents.PersistenceInitialized)
   }
 
