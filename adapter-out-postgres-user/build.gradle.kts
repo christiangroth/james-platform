@@ -21,6 +21,8 @@ dependencies {
   jooqGenerator("org.testcontainers:postgresql:1.19.0")
 }
 
+// TODO deduplicate JOOQ setup
+
 val jooqOutputDir = "build/generated/sources/jooq/main"
 
 jooq {
@@ -47,7 +49,6 @@ jooq {
   }
 }
 
-// Gradle Task zum Generieren des Skripts
 tasks.register("generateJooqInitScript") {
   doLast {
     val migrationDir = file("src/main/resources/db/migration/user")
@@ -70,13 +71,11 @@ tasks.register("generateJooqInitScript") {
   }
 }
 
-// Vor jOOQ-Generation das Skript erstellen
 val jooqTaskName = "generateUserJooq"
 tasks.named(jooqTaskName) {
   dependsOn("generateJooqInitScript")
 }
 
-// Source-Verzeichnis registrieren
 sourceSets {
   main {
     java {
@@ -85,7 +84,6 @@ sourceSets {
   }
 }
 
-// IntelliJ Integration
 idea {
   module {
     generatedSourceDirs.add(file(jooqOutputDir))
@@ -93,12 +91,10 @@ idea {
   }
 }
 
-// Bei clean löschen
 tasks.clean {
   delete(jooqOutputDir)
 }
 
-// Automatisch generieren vor dem Kompilieren
 tasks.compileKotlin {
   dependsOn(tasks.named(jooqTaskName))
 }
