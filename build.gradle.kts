@@ -22,7 +22,7 @@ koverMerged {
 
 releasenotes {
   mainBranch = "main"
-  enforceOnNonMainBranch = true
+  skipReleaseNotesOnBranchPrefixes = listOf("main", "dependabot/")
 
   configure {
     ReleasenotesConfiguration(

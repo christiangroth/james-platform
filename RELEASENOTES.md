@@ -1,9 +1,11 @@
 # 0.3.0 (2025.10.06)
 
 ## Highlights
+
 Basic configurations for health and matrics
 
 ## New Features
+
 * Added Smallrye Health for default health checks
 * Added Smallrye Metrics for default prometheus metrics
 
@@ -35,7 +37,7 @@ Added quarkus runtime and first deployment infrastructure.
 
 ## New Features
 
-* implemented versioning and releasenotes infrastructure
+* implemented versioning and release notes infrastructure
 * almost complete domain logic for
     * app development
     * data storage and typesystem (beta)
