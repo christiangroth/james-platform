@@ -1,3 +1,12 @@
+# 0.3.0 (2025.10.06)
+
+## Highlights
+Basic configurations for health and matrics
+
+## New Features
+* Added Smallrye Health for default health checks
+* Added Smallrye Metrics for default prometheus metrics
+
 # 0.2.0 (2025.10.06)
 
 ## Highlights
