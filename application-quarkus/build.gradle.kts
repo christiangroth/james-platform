@@ -17,7 +17,8 @@ dependencies {
   implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
   implementation("io.quarkus:quarkus-arc")
   implementation("io.quarkus:quarkus-kotlin")
-  implementation("io.quarkus:quarkus-container-image-docker")
+  implementation("io.quarkus:quarkus-smallrye-health")
+  implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
 
   testImplementation("io.quarkus:quarkus-junit5")
   testImplementation("io.quarkus:quarkus-junit5-mockito")

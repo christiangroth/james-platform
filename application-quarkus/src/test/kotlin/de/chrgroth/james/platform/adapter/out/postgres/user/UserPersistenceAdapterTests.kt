@@ -16,7 +16,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 @QuarkusTest
-class UserPersistenceAdapterTest {
+class UserPersistenceAdapterTests {
 
   private val numberOfDefaultUsers = 3
 
