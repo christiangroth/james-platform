@@ -1,2 +1,2 @@
 docker run -it --env HTTP_AUTH_ENCRYPTION_KEY=123 --env DB_POSTGRES_URL=jdbc:postgresql://localhost:5432/james_platform --env DB_POSTGRES_USERNAME=james --env DB_POSTGRES_PASSWORD=james ghcr.io/christiangroth/james-platform/james-platform:0.3.5-SNAPSHOT
-gr build -x test -x testNative -x koverHtmlReport -x koverVerify -Dquarkus.container-image.push=true
+
