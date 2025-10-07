@@ -94,7 +94,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
         doLast {
           extension.configurations.forEach {
-            it.init(projectDir, layout.buildDirectory.asFile.get()).createFeature(currentBranch)
+            it.init(projectDir, layout.buildDirectory.asFile.get()).createFeature(currentBranchNameLastSegment)
           }
 
           project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
@@ -114,7 +114,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
         doLast {
           extension.configurations.forEach {
-            it.init(projectDir, layout.buildDirectory.asFile.get()).createBugfix(currentBranch)
+            it.init(projectDir, layout.buildDirectory.asFile.get()).createBugfix(currentBranchNameLastSegment)
           }
         }
       }
@@ -125,7 +125,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
         doLast {
           extension.configurations.forEach {
-            it.init(projectDir, layout.buildDirectory.asFile.get()).createHighlight(currentBranch)
+            it.init(projectDir, layout.buildDirectory.asFile.get()).createHighlight(currentBranchNameLastSegment)
           }
         }
       }
@@ -136,7 +136,7 @@ class ReleasenotesPlugin : Plugin<Project> {
 
         doLast {
           extension.configurations.forEach {
-            it.init(projectDir, layout.buildDirectory.asFile.get()).createUpdateNotice(currentBranch)
+            it.init(projectDir, layout.buildDirectory.asFile.get()).createUpdateNotice(currentBranchNameLastSegment)
           }
 
           project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
@@ -162,8 +162,7 @@ class ReleasenotesPlugin : Plugin<Project> {
             } else {
               it.init(projectDir, layout.buildDirectory.asFile.get()).buildReleasenotes(
                 skipReleaseNotesOnBranchPrefixes = extension.skipReleaseNotesOnBranchPrefixes,
-                mainBranch = extension.mainBranch,
-                branch = currentBranch,
+                branchName = currentBranchName,
                 versionReplacement = projectVersion.toString(),
               )
             }
@@ -214,8 +213,11 @@ class ReleasenotesPlugin : Plugin<Project> {
     }
   }
 
-  private val Project.currentBranch
-    get() = Grgit.open(mapOf("currentDir" to rootDir)).branch.current().name.substringAfterLast("/")
+  private val Project.currentBranchNameLastSegment
+    get() = currentBranchName.substringAfterLast("/")
+
+  private val Project.currentBranchName
+    get() = Grgit.open(mapOf("currentDir" to rootDir)).branch.current().name
 
   private fun Project.changeProjectVersion(newVersionProvider: (ProjectVersion, ProjectVersion) -> ProjectVersion?) {
     val mainBranchProjectVersion =

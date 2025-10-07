@@ -140,8 +140,7 @@ class ReleaseNotesProcessor(
 
   fun buildReleasenotes(
     skipReleaseNotesOnBranchPrefixes: List<String>,
-    mainBranch: String,
-    branch: String,
+    branchName: String,
     versionReplacement: String,
   ) {
 
@@ -170,10 +169,11 @@ class ReleaseNotesProcessor(
 
     val noContent = renderedSnippets.values.all { it.isBlank() }
     if (noContent) {
-      val skipReleaseNotesAllowed = skipReleaseNotesOnBranchPrefixes.any { branch.startsWith(it) }
+      val skipReleaseNotesAllowed = skipReleaseNotesOnBranchPrefixes.any { branchName.startsWith(it) }
       if (!skipReleaseNotesAllowed) {
         logger.error("Missing release notes snippets, failing build!")
         logger.info("You may opt-out of enforcing release notes by configuring the plugin extension in your build.")
+        logger.info("Current branch: $branchName")
         check(false) { "Stopping build due to missing release note snippets!" }
       } else {
         logger.info("Ignoring missing release notes snippets.")
