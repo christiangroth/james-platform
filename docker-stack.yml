@@ -2,6 +2,9 @@ version: "3"
 services:
   quarkus:
     image: ghcr.io/christiangroth/james-platform/quarkus:${DOCKER_TAG:?please export DOCKER_TAG}
+    depends_on:
+      db:
+        condition: service_healthy
     deploy:
       replicas: 1
       restart_policy:
@@ -18,11 +21,39 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       - HTTP_AUTH_ENCRYPTION_KEY=${HTTP_AUTH_ENCRYPTION_KEY:?please export HTTP_AUTH_ENCRYPTION_KEY}
-      - DB_POSTGRES_URL=jdbc:postgresql://localhost:5432/james_platform
+      - DB_POSTGRES_URL=jdbc:postgresql://db:5432/james_platform
       - DB_POSTGRES_USERNAME=${DB_POSTGRES_USERNAME:?please export DB_POSTGRES_USERNAME}
       - DB_POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD:?please export DB_POSTGRES_PASSWORD}
     networks:
+      - james_platform
       - global_router
+
+  db:
+    image: postgres:17.6-alpine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - james_platform_pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=james_platform
+      - POSTGRES_USER=${DB_POSTGRES_USERNAME:?please export DB_POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD:?please export DB_POSTGRES_PASSWORD}
+    networks:
+      - james_platform
+
+volumes:
+  james_platform_pgdata:
+
 networks:
+  james_platform:
   global_router:
     external: true
