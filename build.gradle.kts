@@ -1,4 +1,5 @@
 import de.chrgroth.gradle.plugins.releasenotes.ReleasenotesConfiguration
+import java.time.Duration
 
 plugins {
   id("kotlin-project")
@@ -12,6 +13,13 @@ plugins {
   // TODO install dot executable
   // see: https://github.com/savvasdalkitsis/module-dependency-graph
   id("com.savvasdalkitsis.module-dependency-graph") version "0.10"
+
+  id("com.asarkar.gradle.build-time-tracker") version "5.0.1"
+}
+
+buildTimeTracker {
+  maxWidth = 120
+  minTaskDuration = Duration.ofMillis(250)
 }
 
 // TODO #34 automate
