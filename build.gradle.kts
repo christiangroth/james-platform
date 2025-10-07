@@ -39,42 +39,17 @@ releasenotes {
       snippetsPath = "releasenotes-snippets",
       templatesPath = "releasenotes-templates",
       bugfixesHeader = "## Bugfixes",
-      bugfixesFooter = "\n",
+      bugfixesFooter = "",
       featuresHeader = "## New Features",
-      featuresFooter = "\n",
-      highlightsHeader = "## Highlights",
-      highlightsFooter = "\n",
+      featuresFooter = "",
+      highlightsHeader = "",
+      highlightsFooter = "",
       updateNoticesHeader = "## Breaking Changes",
-      updateNoticesFooter = "\n",
-      preserveWhitespace = false,
+      updateNoticesFooter = "",
+      preserveWhitespace = true,
       dateFormat = "yyyy.MM.dd",
     )
   }
-
-  /*
-  val runtimeReleasenotes = { runtimeName: String ->
-      ReleasenotesConfiguration(
-          name = runtimeName,
-          outputPath = "runtime-$runtimeName/src/main/resources/releasenotes.yaml",
-          snippetsPath = "runtime-$runtimeName/src/main/resources/releasenotes-snippets",
-          templatesPath = "runtime-$runtimeName/src/main/resources/releasenotes-templates",
-          bugfixesHeader = "  bugfixes:",
-          bugfixesFooter = "",
-          featuresHeader = "  features:",
-          featuresFooter = "",
-          highlightsHeader = "  highlights:",
-          highlightsFooter = "",
-          updateNoticesHeader = "  breaking:",
-          updateNoticesFooter = "",
-          preserveWhitespace = true,
-          dateFormat = "yyyy.MM.dd",
-      )
-  }
-
-  configure {
-      runtimeReleasenotes("quarkus")
-  }
-  */
 }
 
 release {
