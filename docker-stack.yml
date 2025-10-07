@@ -1,0 +1,28 @@
+version: "3"
+services:
+  quarkus:
+    image: ghcr.io/christiangroth/james-platform/quarkus:${DOCKER_TAG:?please export DOCKER_TAG}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.jamesplatform.rule=${TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE:?please export TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE}"
+        - "traefik.http.routers.jamesplatform.entryPoints=websecure"
+        - "traefik.http.routers.jamesplatform.tls=true"
+        - "traefik.http.services.jamesplatform-svc.loadbalancer.server.port=8080"
+        - "traefik.swarm.network=global_router"
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - HTTP_AUTH_ENCRYPTION_KEY=${HTTP_AUTH_ENCRYPTION_KEY:?please export HTTP_AUTH_ENCRYPTION_KEY}
+      - DB_POSTGRES_URL=jdbc:postgresql://localhost:5432/james_platform
+      - DB_POSTGRES_USERNAME=${DB_POSTGRES_USERNAME:?please export DB_POSTGRES_USERNAME}
+      - DB_POSTGRES_PASSWORD=${DB_POSTGRES_PASSWORD:?please export DB_POSTGRES_PASSWORD}
+    networks:
+      - global_router
+networks:
+  global_router:
+    external: true

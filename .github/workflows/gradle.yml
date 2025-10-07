@@ -41,3 +41,62 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: ./gradlew build release -x test -x testNative -x koverHtmlReport -x koverVerify -Dquarkus.container-image.push=true
+
+  deployment:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: release
+    steps:
+      - run: |
+          docker images
+          docker images ghcr.io/christiangroth/james-platform/james-platform
+          docker images ghcr.io/christiangroth/james-platform/james-platform --format "{{.Tag}} {{.CreatedAt}}"
+          docker images ghcr.io/christiangroth/james-platform/james-platform --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2
+          docker images ghcr.io/christiangroth/james-platform/james-platform --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2 | awk 'NR==1{print $1}'
+          export DOCKER_TAG=$(docker images ghcr.io/christiangroth/james-platform/james-platform --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2 | awk 'NR==1{print $1}')
+          echo "DOCKER_TAG=DOCKER_TAG" >> $GITHUB_ENV
+      #- uses: appleboy/ssh-action@v1.0.3
+      #  env:
+      #    GIT_PROJECT: "james-platform"
+      #    DOCKER_STACK: "james-platform"
+      #    DOCKER_TAG: ${{ env.DOCKER_TAG }}
+      #    HTTP_AUTH_ENCRYPTION_KEY: ${{ secrets.HTTP_AUTH_ENCRYPTION_KEY }}
+      #    DB_POSTGRES_USERNAME: ${{ secrets.DB_POSTGRES_USERNAME }}
+      #    DB_POSTGRES_PASSWORD: ${{ secrets.DB_POSTGRES_PASSWORD }}
+      #    TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE: ${{ secrets.TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE }}
+      #  with:
+      #    host: ${{ secrets.CONTABO_SSH_HOST }}
+      #    username: github-deployer
+      #    key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+      #    port: 22
+      #    envs: GIT_PROJECT,DOCKER_STACK,DOCKER_TAG,HTTP_AUTH_ENCRYPTION_KEY,DB_POSTGRES_USERNAME,DB_POSTGRES_PASSWORD,TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE
+      #    script_stop: true # stop on first failure
+      #    script: |
+      #      echo "removing old git repo clone"
+      #      rm -rf $GIT_PROJECT
+      #
+      #      echo "cloning git repo"
+      #      GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git clone --depth 1 git@github.com:christiangroth/$GIT_PROJECT.git $GIT_PROJECT
+      #      cd $GIT_PROJECT
+      #
+      #      echo "deploying docker stack"
+      #      DOCKER_TAG=DOCKER_TAG HTTP_AUTH_ENCRYPTION_KEY=HTTP_AUTH_ENCRYPTION_KEY DB_POSTGRES_USERNAME=DB_POSTGRES_USERNAME \
+      #        DB_POSTGRES_PASSWORD=DB_POSTGRES_PASSWORD TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE=TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE \
+      #        docker stack deploy --detach=false --prune --with-registry-auth --resolve-image changed -c docker-stack.yml $DOCKER_STACK
+      #      sleep 5
+      #
+      #      echo
+      #      echo "----- ----- -----"
+      #      echo "----- ----- -----"
+      #      echo "----- ----- -----"
+      #      echo
+      #
+      #      docker stack ls
+      #      echo
+      #      docker stack services $DOCKER_STACK
+      #      echo
+      #      docker stack ps $DOCKER_STACK
+      #
+      #      echo "removing git repo clone"
+      #      cd ..
+      #      rm -rf $GIT_PROJECT
