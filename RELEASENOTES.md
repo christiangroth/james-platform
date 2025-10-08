@@ -1,3 +1,18 @@
+# 0.4.0 (2025.10.08)
+
+
+## Native Docker Builds
+
+## New Features
+* Configured Quarkus Docker extension
+* Made native Docker build default
+* Configured ghcr.io publish
+* Prepared VPS deployment
+
+
+
+---
+
 # 0.3.0 (2025.10.06)
 
 ## Basic configurations for health and matrics
