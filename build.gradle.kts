@@ -52,7 +52,7 @@ releasenotes {
   }
 }
 
-tasks.afterReleaseBuild {
+tasks.beforeReleaseBuild {
   dependsOn(":application-quarkus:imagePush")
 }
 
