@@ -3,7 +3,7 @@ import java.time.Duration
 
 plugins {
   id("kotlin-project")
-  id("net.researchgate.release") version "3.0.2"
+  id("net.researchgate.release") version "3.1.0"
 
   id("se.patrikerdes.use-latest-versions") version "0.2.18"
   id("com.github.ben-manes.versions") version "0.49.0"
@@ -52,11 +52,13 @@ releasenotes {
   }
 }
 
-tasks.beforeReleaseBuild {
-  dependsOn(":application-quarkus:imagePush")
-}
+//tasks.afterReleaseBuild {
+//  dependsOn()
+//}
 
 release {
+  buildTasks = listOf("clean", "build", ":application-quarkus:imagePush")
+
   git {
     requireBranch = "main"
   }
