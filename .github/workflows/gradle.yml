@@ -31,7 +31,6 @@ jobs:
       - run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
-          if: ${{ github.ref == 'refs/heads/main' }}
       - name: Log into registry ghcr.io
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
