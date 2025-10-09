@@ -1,31 +1,20 @@
 name: Java CI/CD with Gradle
 
-on: push
-
-permissions:
-  contents: write
+on:
+  push:
+    tags:
+      - "*"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-      - uses: gradle/actions/setup-gradle@v5
-      - run: ./gradlew --info --stacktrace build
-
-  release:
+  push-docker:
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
-    needs: build
     permissions:
-      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          cat gradle.properties
       - uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -40,7 +29,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: ./gradlew -info --stacktrace build release -x test -x testNative -x koverHtmlReport -x koverVerify
+      - run: ./gradlew -info --stacktrace build -x test -x testNative -x koverHtmlReport -x koverVerify -Dquarkus.container-image.push=true
       - run: |
           docker images
           docker images ghcr.io/christiangroth/james-platform/james-platform
