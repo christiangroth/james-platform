@@ -6,15 +6,21 @@ on:
     - cron: '0 1 * * *'
 
 jobs:
-  remove-old-artifacts:
+  cleanup:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
+    permissions:
+      actions: write
+      packages: write
     steps:
-    - name: Remove old artifacts
-      uses: c-hive/gha-remove-artifacts@v1
-      with:
-        age: '14 days' # '<number> <unit>', e.g. 5 days, 2 years, 90 seconds, parsed by Moment.js
-        # Optional inputs
-        # skip-tags: true
-        # skip-recent: 5
+      - name: Remove old artifacts
+        uses: c-hive/gha-remove-artifacts@v1.4.0
+        with:
+          age: '14 days'
+          skip-recent: 3
+      - name: Remove old packages
+        uses: smartsquaregmbh/delete-old-packages@v0.8.1
+        with:
+          organization: my-organization
+          type: docker
+          keep: 3
