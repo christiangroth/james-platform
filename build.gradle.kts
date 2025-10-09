@@ -52,12 +52,8 @@ releasenotes {
   }
 }
 
-//tasks.afterReleaseBuild {
-//  dependsOn()
-//}
-
 release {
-  buildTasks = listOf("clean", "build", ":application-quarkus:imagePush")
+  buildTasks = listOf("build", ":application-quarkus:imagePush")
 
   git {
     requireBranch = "main"
