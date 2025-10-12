@@ -1,3 +1,12 @@
+# 0.4.13 (2025.10.12)
+
+## Bugfixes
+* Replaced Tribune by Arrow to keep things more compact and focused.
+
+
+
+---
+
 # 0.4.0 (2025.10.08)
 
 
