@@ -53,7 +53,7 @@ jobs:
           TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE: ${{ secrets.TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
         with:
-          host: ${{ secrets.CONTABO_SSH_HOST }}
+          host: james.chrgroth.de
           username: github-deployer
           key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
           port: 22
