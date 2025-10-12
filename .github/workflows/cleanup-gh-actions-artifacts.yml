@@ -21,6 +21,8 @@ jobs:
       - name: Remove old packages
         uses: smartsquaregmbh/delete-old-packages@v0.8.1
         with:
-          organization: my-organization
           type: docker
+          user: christiangroth
+          names: |
+            quarkus
           keep: 3
