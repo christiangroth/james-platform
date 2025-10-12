@@ -30,8 +30,7 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0-Beta")
   implementation("io.github.microutils:kotlin-logging:1.8.3")
 
-  // TODO replace with arrow
-  api("com.sksamuel.tribune:tribune-core:1.2.4")
+  api("io.arrow-kt:arrow-core:1.1.2")
 
   testImplementation("org.assertj:assertj-core:3.23.1")
   testImplementation("org.junit.jupiter:junit-jupiter:5.9.0")

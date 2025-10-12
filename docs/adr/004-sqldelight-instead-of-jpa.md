@@ -1,6 +1,6 @@
 # Using SQLDelight instead of JPA
 
-* Status: rejected
+* Status: superseded by [ADR-007](007-flyway-and-jooq.md)
 * Deciders: Chris
 * Date: 2025-02-13
 
