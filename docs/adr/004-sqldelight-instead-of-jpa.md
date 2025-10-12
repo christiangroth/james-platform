@@ -1,6 +1,6 @@
 # Using SQLDelight instead of JPA
 
-* Status: in progress
+* Status: rejected
 * Deciders: Chris
 * Date: 2025-02-13
 

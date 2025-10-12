@@ -1,4 +1,4 @@
-# Integrate with Quarkus authentication system
+# Quarkus Qute Templating Engine
 
 * Status: accepted
 * Deciders: Chris

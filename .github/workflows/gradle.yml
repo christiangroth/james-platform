@@ -39,7 +39,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: ./gradlew -info --stacktrace release -x test -x testNative -x koverHtmlReport -x koverVerify
       - run: |
-          export DOCKER_TAG=$(docker images ghcr.io/christiangroth/james-platform/james-platform --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2 | awk 'NR==1{print $1}')
+          export DOCKER_TAG=$(docker images ghcr.io/christiangroth/james-platform/quarkus --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2 | awk 'NR==1{print $1}')
           echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
           echo "Computed docker tag for next deployment $DOCKER_TAG"
       - uses: appleboy/ssh-action@v1.0.3
@@ -51,16 +51,20 @@ jobs:
           DB_POSTGRES_USERNAME: ${{ secrets.DB_POSTGRES_USERNAME }}
           DB_POSTGRES_PASSWORD: ${{ secrets.DB_POSTGRES_PASSWORD }}
           TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE: ${{ secrets.TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         with:
           host: ${{ secrets.CONTABO_SSH_HOST }}
           username: github-deployer
           key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
           port: 22
-          envs: GIT_PROJECT,DOCKER_STACK,DOCKER_TAG,HTTP_AUTH_ENCRYPTION_KEY,DB_POSTGRES_USERNAME,DB_POSTGRES_PASSWORD,TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE
+          envs: GIT_PROJECT,DOCKER_STACK,DOCKER_TAG,HTTP_AUTH_ENCRYPTION_KEY,DB_POSTGRES_USERNAME,DB_POSTGRES_PASSWORD,TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE,GHCR_PAT
           script_stop: true
           script: |
             echo "removing old git repo clone"
             rm -rf $GIT_PROJECT
+            
+            echo "login to ghcr.io"
+            echo $GHCR_PAT | docker login ghcr.io -u christiangroth --password-stdin
             
             echo "cloning git repo"
             GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git clone --depth 1 git@github.com:christiangroth/$GIT_PROJECT.git $GIT_PROJECT
