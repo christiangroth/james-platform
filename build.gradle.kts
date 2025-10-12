@@ -10,10 +10,6 @@ plugins {
 
   id("de.chrgroth.gradle.plugins.releasenotes")
 
-  // TODO install dot executable
-  // see: https://github.com/savvasdalkitsis/module-dependency-graph
-  id("com.savvasdalkitsis.module-dependency-graph") version "0.10"
-
   id("com.asarkar.gradle.build-time-tracker") version "5.0.1"
 }
 

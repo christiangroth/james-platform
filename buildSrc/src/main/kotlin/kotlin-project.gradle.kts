@@ -66,11 +66,6 @@ tasks {
     compilerOptions.optIn = listOf("kotlin.time.ExperimentalTime")
   }
 
-  compileKotlin {
-    // TODO #9 reactivate
-    // finalizedBy(tasks.getByName("generateUmlDiagrams"))
-  }
-
   test {
     useJUnitPlatform()
     testLogging {
