@@ -34,7 +34,7 @@ releasenotes {
       outputPath = "RELEASENOTES.md",
       snippetsPath = "releasenotes-snippets",
       templatesPath = "releasenotes-templates",
-      bugfixesHeader = "## Bugfixes",
+      bugfixesHeader = "## Bugfixes / Chore",
       bugfixesFooter = "",
       featuresHeader = "## New Features",
       featuresFooter = "",

@@ -1,6 +1,6 @@
 # 0.4.13 (2025.10.12)
 
-## Bugfixes
+## Bugfixes / Chore
 * Replaced Tribune by Arrow to keep things more compact and focused.
 
 
