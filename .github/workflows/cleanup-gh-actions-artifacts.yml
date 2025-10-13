@@ -23,6 +23,5 @@ jobs:
         with:
           type: docker
           user: christiangroth
-          names: |
-            quarkus
+          names: james-platform/quarkus
           keep: 3
