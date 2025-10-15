@@ -1,3 +1,12 @@
+# 0.4.14 (2025.10.15)
+
+## Bugfixes
+* Code cleanup for user domain
+
+
+
+---
+
 # 0.4.13 (2025.10.12)
 
 ## Bugfixes
