@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.http
 import de.chrgroth.james.platform.domain.user.USER_ROLE_ADMIN
 import de.chrgroth.james.platform.domain.user.USER_ROLE_DEVELOPER
 import de.chrgroth.james.platform.domain.user.User
+import de.chrgroth.james.platform.domain.user.port.`in`.UserCommandPort
 import de.chrgroth.james.platform.domain.user.port.`in`.UserQueryPort
 import io.quarkus.security.Authenticated
 import io.quarkus.security.AuthenticationFailedException
@@ -27,18 +28,18 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.NewCookie
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.core.UriInfo
+import java.time.Instant
+import java.util.Date
 import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.jboss.resteasy.reactive.RestResponse
-import java.time.Instant
-import java.util.Date
 
 @ApplicationScoped
 @Suppress("Unused")
 internal class JamesFormLoginIdentityProvider : IdentityProvider<UsernamePasswordAuthenticationRequest> {
 
   @Inject
-  private lateinit var port: UserQueryPort
+  private lateinit var port: UserCommandPort
 
   override fun getRequestType(): Class<UsernamePasswordAuthenticationRequest> =
     UsernamePasswordAuthenticationRequest::class.java

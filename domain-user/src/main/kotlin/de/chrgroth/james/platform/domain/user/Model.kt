@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.domain.user
 
 import arrow.core.ValidatedNel
+import arrow.core.andThen
 import arrow.core.invalidNel
 import arrow.core.validNel
 import arrow.core.zip
@@ -47,6 +48,26 @@ data class User(
           passwordStatus = PasswordStatus.ONE_TIME,
           deactivationCounter = 0u,
         )
+      }
+
+  fun changeUsername(username: String): ValidatedNel<DomainError, User> =
+    ensure(UserStatus.ACTIVE, UserDomainErrorCodes.USER_ALREADY_INACTIVE)
+      .andThen {
+        username.check().map { validUsername ->
+          it.copy(
+            username = validUsername
+          )
+        }
+      }
+
+  fun changeRoles(roles: Set<UserRole>): ValidatedNel<DomainError, User> =
+    ensure(UserStatus.ACTIVE, UserDomainErrorCodes.USER_ALREADY_INACTIVE)
+      .andThen {
+        roles.check().map { _ ->
+          it.copy(
+            roles = roles
+          )
+        }
       }
 
   fun deactivate(statusReason: String): ValidatedNel<DomainError, User> =

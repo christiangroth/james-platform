@@ -9,5 +9,4 @@ interface UserQueryPort {
   fun all(): ValidatedNel<DomainError, Set<User>>
   fun byId(id: UserId): ValidatedNel<DomainError, User?>
   fun byUsername(username: String): ValidatedNel<DomainError, User?>
-  fun authenticate(username: String, password: String): ValidatedNel<DomainError, User>
 }
