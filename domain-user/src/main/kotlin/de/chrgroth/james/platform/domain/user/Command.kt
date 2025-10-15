@@ -10,56 +10,15 @@ import de.chrgroth.james.platform.domain.user.port.`in`.DomainUserEvents
 import de.chrgroth.james.platform.domain.user.port.`in`.EVENT_TOPIC_TO_DOMAIN_USER
 import de.chrgroth.james.platform.domain.user.port.`in`.UserCommandPort
 import de.chrgroth.james.platform.domain.user.port.out.UserPersistencePort
-import io.quarkus.arc.DefaultBean
 import io.quarkus.vertx.ConsumeEvent
 import io.smallrye.common.annotation.Blocking
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.enterprise.inject.Produces
 import jakarta.inject.Inject
-import jakarta.inject.Singleton
 import jakarta.transaction.Transactional
 import mu.KLogging
-import org.eclipse.microprofile.config.inject.ConfigProperty
 
 // TODO run checks in parallel
 // TODO validate password policy
-
-@Singleton
-class UserDomainConfig {
-
-  @ConfigProperty(name = "domain.user.defaultAdminUsername")
-  lateinit var adminUsername: String
-
-  @ConfigProperty(name = "domain.user.defaultAdminPassword")
-  lateinit var adminPassword: String
-
-  @ConfigProperty(name = "domain.user.defaultUsers")
-  lateinit var defaultUsers: List<String>
-
-  @Produces
-  @DefaultBean
-  fun produceDefaultUsers(): List<DefaultUser> {
-    return defaultUsers.map { userConfig ->
-      val parts = userConfig.split('|')
-
-      val name = parts[0]
-      checkNotNull(name) { "Default user name must be provided!" }
-
-      val role = parts[1]
-      checkNotNull(role) { "Default user role must be provided!" }
-
-      DefaultUser(
-        name = name,
-        role = UserRole.valueOf(role)
-      )
-    }
-  }
-}
-
-data class DefaultUser(
-  val name: String,
-  val role: UserRole,
-)
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -116,6 +75,30 @@ internal class UserCommandAdapter : UserCommandPort {
     }
   }
 
+  override fun authenticate(username: String, password: String): ValidatedNel<DomainError, User> {
+    val passwordHashCheck = password.hashPassword()
+    val persistenceCheck = persistence.byUsername(username).andThen {
+      it?.validNel()
+        ?: DomainError(
+          code = UserDomainErrorCodes.USER_UNKNOWN,
+          errorMessage = null,
+        ).invalidNel()
+    }
+
+    return passwordHashCheck.zip(persistenceCheck) { passwordHash, user ->
+      user to passwordHash
+    }.andThen { (user, passwordHash) ->
+      if (user.passwordHash == passwordHash) {
+        user.validNel()
+      } else {
+        DomainError(
+          code = UserDomainErrorCodes.USER_AUTHENTICATION_FAILED,
+          errorMessage = null,
+        ).invalidNel()
+      }
+    }
+  }
+
   override fun register(username: String, password: String, roles: Set<UserRole>): ValidatedNel<DomainError, Unit> {
     val persistenceCheck = persistence.byUsername(username).andThen {
       if (it != null) {
@@ -168,6 +151,36 @@ internal class UserCommandAdapter : UserCommandPort {
       persistence.update(it)
     }
   }
+
+  // TODO create password hash
+  private fun String.hashPassword(): ValidatedNel<DomainError, String> {
+    return this.validNel()
+  }
+
+  override fun changeUsername(id: UserId, username: String): ValidatedNel<DomainError, Unit> =
+    ensureUser(id)
+      .andThen { user ->
+        persistence.byUsername(username).andThen {
+          if (it != null) {
+            DomainError(
+              code = UserDomainErrorCodes.REGISTRATION_USERNAME_EXISTS,
+              errorMessage = null,
+            ).invalidNel()
+          } else {
+            user.changeUsername(username)
+          }
+        }
+      }.andThen {
+        persistence.update(it)
+      }
+
+  override fun changeRoles(id: UserId, roles: Set<UserRole>): ValidatedNel<DomainError, Unit> =
+    ensureUser(id)
+      .andThen { user ->
+        user.changeRoles(roles)
+      }.andThen {
+        persistence.update(it)
+      }
 
   override fun deactivate(id: UserId, statusReason: String): ValidatedNel<DomainError, Unit> =
     ensureUser(id)
