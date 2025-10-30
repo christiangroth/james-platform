@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.http
 
 import de.chrgroth.james.platform.domain.user.USER_ROLE_ADMIN
 import de.chrgroth.james.platform.domain.user.USER_ROLE_DEVELOPER
+import de.chrgroth.james.platform.domain.user.port.`in`.UserQueryPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
@@ -68,7 +69,7 @@ class LoginTemplate {
 class UserTemplates {
 
   @Inject
-  @Location("dashboard")
+  @Location("user/dashboard")
   private lateinit var dashboard: Template
 
   @GET
@@ -76,23 +77,6 @@ class UserTemplates {
   @Produces(MediaType.TEXT_HTML)
   fun dashboard(): TemplateInstance {
     return dashboard.data(Unit)
-  }
-}
-
-@RolesAllowed(value = [USER_ROLE_ADMIN])
-@Path("/ui/admin")
-@Suppress("Unused")
-class AdminTemplates {
-
-  @Inject
-  @Location("admin/users")
-  private lateinit var users: Template
-
-  @GET
-  @Path("/users")
-  @Produces(MediaType.TEXT_HTML)
-  fun users(): TemplateInstance {
-    return users.data(Unit)
   }
 }
 
@@ -114,4 +98,45 @@ class DeveloperTemplates {
   }
 
   companion object : KLogging()
+}
+
+@RolesAllowed(value = [USER_ROLE_ADMIN])
+@Path("/ui/admin")
+@Suppress("Unused")
+class AdminTemplates {
+
+  @Inject
+  private lateinit var userQueryPort: UserQueryPort
+
+  @Inject
+  @Location("admin/dashboard")
+  private lateinit var dashboard: Template
+
+  @Inject
+  @Location("admin/users")
+  private lateinit var users: Template
+
+  @GET
+  @Path("/dashboard")
+  @Produces(MediaType.TEXT_HTML)
+  fun dashboard(): TemplateInstance {
+    return userQueryPort.all().fold({
+      // TODO error handling
+      dashboard.data(Unit)
+    }, {
+      dashboard.data("numberOfUsers", it.size)
+    })
+  }
+
+  @GET
+  @Path("/users")
+  @Produces(MediaType.TEXT_HTML)
+  fun users(): TemplateInstance {
+    return userQueryPort.all().fold({
+      // TODO error handling
+      users.data(Unit)
+    }, {
+      users.data("users", it.toList().sortedBy { u -> u.username })
+    })
+  }
 }

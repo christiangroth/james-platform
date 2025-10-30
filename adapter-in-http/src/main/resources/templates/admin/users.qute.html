@@ -1,70 +1,8 @@
 {#include base}
 {#title}James Platform - User Management{/title}
-<section>
-    <table>
-        <thead>
-        <tr>
-            <th scope="col">Username</th>
-            <th scope="col">Roles</th>
-            <th scope="col">Status</th>
-            <th scope="col">Counter</th>
-            <th scope="col">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <th scope="row">admin</th>
-            <td>admin</td>
-            <td>active</td>
-            <td>0</td>
-            <td></td>
-        </tr>
-        <tr>
-            <th scope="row">developer</th>
-            <td>developer, user</td>
-            <td>active</td>
-            <td>0</td>
-            <td></td>
-        </tr>
-        <tr>
-            <th scope="row">user</th>
-            <td>user</td>
-            <td>active</td>
-            <td>0</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td colspan="4"></td>
-            <td>
-                <button popovertarget="newUserDialog" id="openNewUserDialog">New</button>
-            </td>
-        </tr>
-        </tbody>
-    </table>
+<section class="contact-section bg-black">
+  <div class="container px-4 px-lg-5">
+    ...
+  </div>
 </section>
-
-<dialog popover="auto" id="newUserDialog">
-    <section>
-        <form action="/api/user" method="put">
-            <header>
-                <h3>Register new user</h3>
-            </header>
-            <label>Username</label>
-            <input name="username"/>
-            <label>Password</label>
-            <input type="password" name="password"/>
-            <label>Roles</label>
-            <input id="adminrole" type="checkbox" name="role_admin" aria-invalid="false"/>
-            <label for="adminrole">Admin</label>
-            <br>
-            <input id="developerrole" type="checkbox" name="role_developer" aria-invalid="false"/>
-            <label for="developerrole">Developer</label>
-            <br>
-            <input id="userrole" type="checkbox" name="role_user" aria-invalid="false"/>
-            <label for="userrole">User</label>
-            <br>
-            <input type="submit" value="Register"/>
-        </form>
-    </section>
-</dialog>
 {/include}

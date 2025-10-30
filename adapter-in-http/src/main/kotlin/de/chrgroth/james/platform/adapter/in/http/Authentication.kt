@@ -27,11 +27,11 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.NewCookie
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.core.UriInfo
+import java.time.Instant
+import java.util.Date
 import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.jboss.resteasy.reactive.RestResponse
-import java.time.Instant
-import java.util.Date
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -102,8 +102,9 @@ class AfterLoginRedirectHandler {
   @Produces(MediaType.TEXT_HTML)
   fun afterRedirectLogin(@Context uriInfo: UriInfo): RestResponse<Void> {
     val roles = identity.identity.roles
+    // TODO simplify and use one url only??
     val redirectPath = when {
-      roles.contains(USER_ROLE_ADMIN) -> "admin/users"
+      roles.contains(USER_ROLE_ADMIN) -> "admin/dashboard"
       roles.contains(USER_ROLE_DEVELOPER) -> "developer/dashboard"
       else -> "dashboard"
     }
