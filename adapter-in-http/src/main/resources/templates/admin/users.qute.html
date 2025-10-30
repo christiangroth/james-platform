@@ -1,8 +1,86 @@
 {#include base}
 {#title}James Platform - User Management{/title}
-<section class="contact-section bg-black">
+{#scripts}
+<script src="/js/admin/users.js"></script>
+{/scripts}
+{#homeLink}/ui/admin/dashboard{/homeLink}
+<section class="contact-section bg-black" x-data="userTable()" x-init="fetchUsers()">
   <div class="container px-4 px-lg-5">
-    ...
+    <div class="card shadow mb-4">
+      <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">User Management</h6>
+        <a href="#" class="btn btn-primary btn-sm">
+          <i class="fas fa-plus me-1"></i> Add User
+        </a>
+      </div>
+      <div class="card-body">
+        <!-- Loading State -->
+        <div x-show="loading" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading users...</p>
+        </div>
+        
+        <!-- Error State -->
+        <div x-show="error" class="alert alert-danger" x-text="error"></div>
+        
+        <!-- Table Content -->
+        <div x-show="!loading && !error" class="table-responsive">
+          <table class="table table-bordered table-hover" width="100%" cellspacing="0">
+            <thead class="table-dark">
+              <tr>
+                <th>Username</th>
+                <th>Roles</th>
+                <th>Password Status</th>
+                <th>Status</th>
+                <th>Failed Logins</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="user in users" :key="user.id">
+                <tr>
+                  <td x-text="user.username"></td>
+                  <td x-text="user.roles.join(', ')"></td>
+                  <td>
+                    <span class="badge" :class="getPasswordStatusBadgeClass(user.passwordStatus)">
+                      <span x-text="formatPasswordStatus(user.passwordStatus)"></span>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" :class="getStatusBadgeClass(user.status)">
+                      <span x-text="formatStatus(user.status)"></span>
+                    </span>
+                    <template x-if="user.statusReason">
+                      <div class="text-muted small" x-text="'(' + user.statusReason + ')'"></div>
+                    </template>
+                  </td>
+                  <td x-text="user.deactivationCounter"></td>
+                  <td>
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-cog"></i>
+                      </button>
+                      <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">Reset Password</a></li>
+                        <li><a class="dropdown-item" href="#">Deactivate User</a></li>
+                        <li><a class="dropdown-item" href="#">View Details</a></li>
+                      </ul>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <template x-if="!loading && !error && users.length === 0">
+                <tr>
+                  <td colspan="7" class="text-center">No users found</td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 {/include}

@@ -132,11 +132,6 @@ class AdminTemplates {
   @Path("/users")
   @Produces(MediaType.TEXT_HTML)
   fun users(): TemplateInstance {
-    return userQueryPort.all().fold({
-      // TODO error handling
-      users.data(Unit)
-    }, {
-      users.data("users", it.toList().sortedBy { u -> u.username })
-    })
+    return users.data(Unit)
   }
 }
