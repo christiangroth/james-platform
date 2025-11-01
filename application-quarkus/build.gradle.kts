@@ -1,7 +1,7 @@
 plugins {
   id("kotlin-project")
   kotlin("plugin.allopen") version "2.0.21"
-  id("io.quarkus") version "3.18.3"
+  id("io.quarkus") version "3.29.0"
 }
 
 dependencies {
