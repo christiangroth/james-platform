@@ -14,5 +14,5 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kover:0.6.1")
 
   // releasenotes plugin
-  implementation("org.ajoberstar.grgit:grgit-core:5.3.0")
+  implementation("org.ajoberstar.grgit:grgit-core:5.3.3")
 }
