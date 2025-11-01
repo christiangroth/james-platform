@@ -42,7 +42,7 @@ jobs:
           export DOCKER_TAG=$(docker images ghcr.io/christiangroth/james-platform/quarkus --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2 | awk 'NR==1{print $1}')
           echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
           echo "Computed docker tag for next deployment $DOCKER_TAG"
-      - uses: appleboy/ssh-action@v1.0.3
+      - uses: appleboy/ssh-action@v1.2.2
         env:
           GIT_PROJECT: "james-platform"
           DOCKER_STACK: "james-platform"
