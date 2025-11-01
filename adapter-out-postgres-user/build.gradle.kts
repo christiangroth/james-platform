@@ -10,7 +10,7 @@ dependencies {
   implementation(project(":adapter-out-postgres"))
 
   // TODO deduplicate
-  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.29.0"))
 
   // Database
   implementation("io.quarkus:quarkus-agroal")

@@ -6,7 +6,7 @@ plugins {
 dependencies {
 
   // TODO deduplicate
-  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.29.0"))
 
   // Database
   api("io.quarkus:quarkus-jdbc-postgresql")

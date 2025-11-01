@@ -10,7 +10,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
-    api(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+    api(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.29.0"))
     api("io.quarkus:quarkus-rest-jackson")
     api("io.quarkus:quarkus-security")
 
