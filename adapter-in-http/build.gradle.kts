@@ -16,7 +16,7 @@ dependencies {
 
     api("io.quarkiverse.qute.web:quarkus-qute-web")
     api("io.quarkus:quarkus-web-dependency-locator")
-    api("org.webjars.npm:picocss__pico:2.0.6")
+    api("org.webjars.npm:picocss__pico:2.1.1")
     api("org.webjars.npm:mvp.css:1.15.0")
     api("org.webjars.npm:alpinejs:3.14.8")
 }
