@@ -29,6 +29,7 @@ typealias DomainPasswordStatus = de.chrgroth.james.platform.domain.user.Password
 typealias DomainUserStatus = de.chrgroth.james.platform.domain.user.UserStatus
 typealias DomainUserRole = de.chrgroth.james.platform.domain.user.UserRole
 
+// TODO logging
 // TODO most part are not rest but command pattern like
 
 @RolesAllowed(value = [USER_ROLE_ADMIN])
