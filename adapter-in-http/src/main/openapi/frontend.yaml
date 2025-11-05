@@ -14,7 +14,7 @@ paths:
 
   # TODO add info about needed roles
 
-  /api/user:
+  /api/users:
     get:
       summary: Get all users.
       operationId: getAllUsers
@@ -56,7 +56,7 @@ paths:
         409:
           description: If user not unique.
 
-  /api/user/{userId}:
+  /api/users/{userId}:
     # TODO deduplicate parameter
     parameters:
       - name: userId
@@ -101,7 +101,7 @@ paths:
         404:
           description: If user not found.
 
-  /api/user/{userId}/password:
+  /api/users/{userId}/password:
     # TODO deduplicate parameter
     parameters:
       - name: userId
@@ -132,7 +132,7 @@ paths:
         404:
           description: If user not found.
 
-  /api/user/{userId}/deactivate:
+  /api/users/{userId}/deactivate:
     # TODO deduplicate parameter
     parameters:
       - name: userId
@@ -163,7 +163,7 @@ paths:
         404:
           description: If user not found.
 
-  /api/user/{userId}/activate:
+  /api/users/{userId}/activate:
     # TODO deduplicate parameter
     parameters:
       - name: userId
@@ -188,7 +188,7 @@ paths:
         404:
           description: If user not found.
 
-  /api/app:
+  /api/apps:
     get:
       summary: Get all apps.
       operationId: getAllApps
@@ -271,6 +271,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserRole'
+        passwordStatus:
+          $ref: '#/components/schemas/PasswordStatus'
         status:
           $ref: '#/components/schemas/UserStatus'
         statusReason:
@@ -289,6 +291,11 @@ components:
         - ADMIN
         - DEVELOPER
         - USER
+    PasswordStatus:
+      type: string
+      enum:
+        - ONE_TIME
+        - PERMANENT
     UserStatus:
       type: string
       enum:

@@ -14,7 +14,6 @@
         </a>
       </div>
       <div class="card-body">
-        <!-- Loading State -->
         <div x-show="loading" class="text-center py-4">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -22,10 +21,8 @@
           <p class="mt-2">Loading users...</p>
         </div>
         
-        <!-- Error State -->
         <div x-show="error" class="alert alert-danger" x-text="error"></div>
         
-        <!-- Table Content -->
         <div x-show="!loading && !error" class="table-responsive">
           <table class="table table-bordered table-hover" width="100%" cellspacing="0">
             <thead class="table-dark">
@@ -65,7 +62,7 @@
                       <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="#">Reset Password</a></li>
                         <li><a class="dropdown-item" href="#">Deactivate User</a></li>
-                        <li><a class="dropdown-item" href="#">View Details</a></li>
+                        <li><a class="dropdown-item" href="#">Delete</a></li>
                       </ul>
                     </div>
                   </td>

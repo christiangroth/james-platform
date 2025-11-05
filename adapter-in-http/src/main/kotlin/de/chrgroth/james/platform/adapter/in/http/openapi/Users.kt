@@ -1,33 +1,39 @@
-package de.chrgroth.james.platform.adapter.`in`.http
+package de.chrgroth.james.platform.adapter.`in`.http.openapi
 
+import de.chrgroth.james.platform.adapter.`in`.http.CustomStatusException
+import de.chrgroth.james.platform.adapter.`in`.http.DomainErrorsException
 import de.chrgroth.james.platform.adapter.incoming.http.api.UserApi
 import de.chrgroth.james.platform.adapter.incoming.http.api.model.ChangePasswordData
 import de.chrgroth.james.platform.adapter.incoming.http.api.model.DeactivationData
+import de.chrgroth.james.platform.adapter.incoming.http.api.model.PasswordStatus
 import de.chrgroth.james.platform.adapter.incoming.http.api.model.RegistrationData
+import de.chrgroth.james.platform.adapter.incoming.http.api.model.User
+import de.chrgroth.james.platform.adapter.incoming.http.api.model.UserRole
+import de.chrgroth.james.platform.adapter.incoming.http.api.model.UserStatus
 import de.chrgroth.james.platform.domain.user.USER_ROLE_ADMIN
 import de.chrgroth.james.platform.domain.user.port.`in`.UserCommandPort
 import de.chrgroth.james.platform.domain.user.port.`in`.UserQueryPort
 import de.chrgroth.james.platform.domain.user.toUserid
 import jakarta.annotation.security.RolesAllowed
 import jakarta.inject.Inject
-import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.core.Response
 
-typealias ApiUser = de.chrgroth.james.platform.adapter.incoming.http.api.model.User
-typealias ApiUserStatus = de.chrgroth.james.platform.adapter.incoming.http.api.model.UserStatus
-typealias ApiUserRole = de.chrgroth.james.platform.adapter.incoming.http.api.model.UserRole
+typealias ApiUser = User
+typealias ApiPasswordStatus = PasswordStatus
+typealias ApiUserStatus = UserStatus
+typealias ApiUserRole = UserRole
 
 typealias DomainUser = de.chrgroth.james.platform.domain.user.User
+typealias DomainPasswordStatus = de.chrgroth.james.platform.domain.user.PasswordStatus
 typealias DomainUserStatus = de.chrgroth.james.platform.domain.user.UserStatus
 typealias DomainUserRole = de.chrgroth.james.platform.domain.user.UserRole
 
 // TODO most part are not rest but command pattern like
 
 @RolesAllowed(value = [USER_ROLE_ADMIN])
-@Path("/api/user")
 @Suppress("Unused")
-internal class UserResource : UserApi {
+internal class UsersResource : UserApi {
 
   @Inject
   private lateinit var query: UserQueryPort
@@ -100,10 +106,17 @@ fun DomainUser.toApiUser() =
     id = id.value,
     username = username,
     roles = roles.map { it.toApiUserRole() },
+    passwordStatus = passwordStatus.toApiUserPasswordStatus(),
     status = status.toApiUserStatus(),
     statusReason = statusReason,
     deactivationCounter = deactivationCounter.toInt(),
   )
+
+fun DomainPasswordStatus.toApiUserPasswordStatus(): ApiPasswordStatus =
+  when (this) {
+    DomainPasswordStatus.ONE_TIME -> ApiPasswordStatus.ONE_TIME
+    DomainPasswordStatus.PERMANENT -> ApiPasswordStatus.PERMANENT
+  }
 
 fun DomainUserStatus.toApiUserStatus(): ApiUserStatus =
   when (this) {

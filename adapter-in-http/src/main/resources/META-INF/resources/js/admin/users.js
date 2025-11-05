@@ -10,7 +10,7 @@ function userTable() {
       this.error = null;
 
       try {
-        const response = await fetch('/api/admin/users');
+        const response = await fetch('/api/users');
         if (!response.ok) {
           throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
         }
