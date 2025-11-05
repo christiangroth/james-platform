@@ -1,5 +1,3 @@
-import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
-
 plugins {
   id("kotlin-project")
   kotlin("plugin.allopen") version "2.0.21"
@@ -60,31 +58,6 @@ project.layout.buildDirectory.dir("generated/openapi/src/main/kotlin").get().asF
 }
 
 tasks {
-  val openApiGenerateFrontend = register<GenerateTask>("openApiGenerateFrontend") {
-    generatorName.set("javascript")
-    inputSpec.set("$projectDir/src/main/openapi/frontend.yaml")
-    outputDir.set("${buildDir}/generated/openapi-frontend")
-    configOptions.set(
-      mapOf(
-        "projectName" to "james-platform-api",
-        "usePromises" to "true",
-        "useES6" to "true"
-      )
-    )
-
-    // Output to resources so it's included in the JAR
-    doLast {
-      copy {
-        from("${buildDir}/generated/openapi-frontend/src")
-        into("${buildDir}/resources/main/META-INF/resources/js/open-api")
-      }
-    }
-  }
-
-  processResources {
-    dependsOn(openApiGenerateFrontend)
-  }
-
   compileKotlin {
     dependsOn(openApiGenerate)
   }

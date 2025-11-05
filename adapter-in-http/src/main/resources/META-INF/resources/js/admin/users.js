@@ -1,31 +1,56 @@
-// In your users.js
-import { UserApi, Configuration } from '../open-api/index.js';
-
-const config = new Configuration({
-    basePath: '/api' // Your API base path
-});
-
-const userApi = new UserApi(config);
-
-// Now you can use it in your Alpine component
+// user-table.js
 function userTable() {
-    return {
-        users: [],
-        loading: false,
-        error: null,
-        
-        async fetchUsers() {
-            this.loading = true;
-            this.error = null;
-            try {
-                // The generated client will handle the fetch calls
-                this.users = await userApi.getAllUsers();
-            } catch (e) {
-                console.error('API Error:', e);
-                this.error = e.message;
-            } finally {
-                this.loading = false;
-            }
+  return {
+    loading: true,
+    error: null,
+    users: [],
+
+    async fetchUsers() {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const response = await fetch('/api/admin/users');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
         }
-    };
+        this.users = await response.json();
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        this.error = 'Failed to load users. Please try again later.';
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    getStatusBadgeClass(status) {
+      return {
+        'bg-success': status === 'ACTIVE',
+        'bg-danger': status === 'INACTIVE'
+      };
+    },
+
+    getPasswordStatusBadgeClass(status) {
+      return {
+        'bg-success': status === 'PERMANENT',
+        'bg-warning': status === 'ONE_TIME'
+      };
+    },
+
+    formatStatus(status) {
+      const statusMap = {
+        'ACTIVE': 'Active',
+        'INACTIVE': 'Inactive',
+      };
+      return statusMap[status] || status;
+    },
+
+    formatPasswordStatus(status) {
+      const statusMap = {
+        'PERMANENT': 'Permanent',
+        'ONE_TIME': 'One-Time',
+      };
+      return statusMap[status] || status;
+    }
+  };
 }
