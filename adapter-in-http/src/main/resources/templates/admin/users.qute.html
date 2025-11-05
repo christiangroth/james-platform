@@ -9,9 +9,9 @@
     <div class="card shadow mb-4">
       <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">User Management</h6>
-        <a href="#" class="btn btn-primary btn-sm">
+        <button @click="showCreateUserForm()" class="btn btn-primary btn-sm">
           <i class="fas fa-plus me-1"></i> Add User
-        </a>
+        </button>
       </div>
       <!-- Alert Notification -->
         <div x-show="alert.show" 
@@ -77,17 +77,25 @@
                         <i class="fas fa-cog"></i>
                       </button>
                       <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
-                  <template x-if="user.status === 'ACTIVE'">
-                    <span>Deactivate User</span>
-                  </template>
-                  <template x-if="user.status === 'INACTIVE'">
-                    <span>Activate User</span>
-                  </template>
-                </a></li>
-                <li><a class="dropdown-item" href="#">Reset Password</a></li>
+                        <template x-if="user.status === 'ACTIVE'">
+                  <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
+                    Deactivate User
+                  </a></li>
+                </template>
+                <template x-if="user.status === 'INACTIVE'">
+                  <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
+                    Activate User
+                  </a></li>
+                </template>
+                <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); showResetPasswordForm(user)">Reset Password</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="#">Delete</a></li>
+                <li>
+                  <a class="dropdown-item text-danger" 
+                     href="#" 
+                     @click.prevent="$event.stopPropagation(); confirmDeleteUser(user)">
+                    Delete User
+                  </a>
+                </li>
                       </ul>
                     </div>
                   </td>
@@ -126,6 +134,8 @@
         </div>
         <div class="mt-2">
           <p class="text-sm text-gray-500" x-text="modalMessage"></p>
+          
+          <!-- Deactivation Reason -->
           <div x-show="modalTitle === 'Deactivate User'" class="mt-4">
             <label for="deactivationReason" class="block text-sm font-medium text-gray-700">Reason (optional):</label>
             <input type="text" 
@@ -135,13 +145,85 @@
                    @keyup.enter="modalAction()"
                    placeholder="Enter reason for deactivation">
           </div>
+          
+          <!-- Reset Password Form -->
+          <div x-show="modalTitle === 'Reset Password'" class="mt-4 space-y-4">
+            <div>
+              <label for="newPassword" class="block text-sm font-medium text-gray-700">New Password</label>
+              <input type="password" 
+                     id="newPassword" 
+                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                     x-model="modalInput.newPassword"
+                     placeholder="Enter new password"
+                     required>
+            </div>
+            
+            <div>
+              <label for="confirmNewPassword" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+              <input type="password" 
+                     id="confirmNewPassword" 
+                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                     x-model="modalInput.confirmPassword"
+                     @keyup.enter="modalAction()"
+                     placeholder="Confirm new password"
+                     required>
+            </div>
+          </div>
+          
+          <!-- Create User Form -->
+          <div x-show="modalTitle === 'Create New User'" class="mt-4 space-y-4">
+            <div>
+              <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+              <input type="text" 
+                     id="username" 
+                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                     x-model="modalInput.username"
+                     placeholder="Enter username"
+                     required>
+            </div>
+            
+            <div>
+              <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+              <input type="password" 
+                     id="password" 
+                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                     x-model="modalInput.password"
+                     placeholder="Enter password"
+                     required>
+            </div>
+            
+            <div>
+              <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+              <input type="password" 
+                     id="confirmPassword" 
+                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                     x-model="modalInput.confirmPassword"
+                     @keyup.enter="modalAction()"
+                     placeholder="Confirm password"
+                     required>
+            </div>
+            
+            <div>
+              <label for="roles" class="block text-sm font-medium text-gray-700">Roles (comma-separated)</label>
+              <input type="text" 
+                     id="roles" 
+                     class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                     x-model="modalInput.roles"
+                     placeholder="e.g., USER,ADMIN"
+                     value="USER">
+            </div>
+          </div>
         </div>
       </div>
       <div class="px-6 py-4 bg-gray-50 sm:flex sm:flex-row-reverse">
         <button type="button" 
-                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white border border-transparent rounded-md shadow-sm"
+                :class="{
+                  'bg-red-600 hover:bg-red-700 focus:ring-red-500': modalTitle === 'Delete User' || modalTitle === 'Reset Password',
+                  'bg-primary-600 hover:bg-primary-700 focus:ring-primary-500': modalTitle !== 'Delete User' && modalTitle !== 'Reset Password'
+                }"
                 @click="modalAction()">
-          <span x-text="modalTitle"></span>
+          <span x-text="modalTitle === 'Reset Password' ? 'Update Password' : modalTitle"></span>
         </button>
         <button type="button" 
                 class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"

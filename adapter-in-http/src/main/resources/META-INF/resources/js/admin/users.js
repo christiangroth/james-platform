@@ -62,6 +62,66 @@ function userTable() {
       }
     },
 
+    async deleteUser(user) {
+      try {
+        const response = await fetch(`/api/users/${user.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to delete user');
+        }
+
+        this.showAlert('User deleted successfully!', 'success');
+        this.fetchUsers();
+      } catch (err) {
+        console.error('Error deleting user:', err);
+        this.showAlert(`Failed to delete user: ${err.message}`, 'danger');
+      } finally {
+        this.closeModal();
+      }
+    },
+
+    async createUser() {
+      const { username, password, confirmPassword, roles } = this.modalInput;
+      
+      if (password !== confirmPassword) {
+        this.showAlert('Passwords do not match', 'danger');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/users', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username,
+            password,
+            roles: roles ? roles.split(',').map(r => r.trim()) : []
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to create user');
+        }
+
+        this.showAlert('User created successfully!', 'success');
+        this.fetchUsers();
+      } catch (err) {
+        console.error('Error creating user:', err);
+        this.showAlert(`Failed to create user: ${err.message}`, 'danger');
+      } finally {
+        this.closeModal();
+      }
+    },
+
     confirmToggleStatus(user) {
       const isActive = user.status === 'ACTIVE';
       this.modalTitle = isActive ? 'Deactivate User' : 'Activate User';
@@ -72,6 +132,71 @@ function userTable() {
       this.modalAction = () => this.toggleUserStatus(user);
       this.modalInput = { reason: '' };
       this.showModal = true;
+    },
+
+    confirmDeleteUser(user) {
+      this.modalTitle = 'Delete User';
+      this.modalMessage = `Are you sure you want to delete user ${user.username}? This action cannot be undone.`;
+      this.modalAction = () => this.deleteUser(user);
+      this.modalInput = {};
+      this.showModal = true;
+    },
+
+    showCreateUserForm() {
+      this.modalTitle = 'Create New User';
+      this.modalMessage = '';
+      this.modalAction = () => this.createUser();
+      this.modalInput = {
+        username: '',
+        password: '',
+        confirmPassword: '',
+        roles: 'USER'
+      };
+      this.showModal = true;
+    },
+
+    showResetPasswordForm(user) {
+      this.currentUser = user;
+      this.modalTitle = 'Reset Password';
+      this.modalMessage = `Reset password for ${user.username}`;
+      this.modalAction = () => this.resetPassword(user);
+      this.modalInput = {
+        newPassword: '',
+        confirmPassword: ''
+      };
+      this.showModal = true;
+    },
+
+    async resetPassword(user) {
+      const { newPassword, confirmPassword } = this.modalInput;
+      
+      if (newPassword !== confirmPassword) {
+        this.showAlert('Passwords do not match', 'danger');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/users/${user.id}/password`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            password: newPassword
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to reset password');
+        }
+
+        this.showAlert('Password reset successfully!', 'success');
+        this.closeModal();
+      } catch (err) {
+        console.error('Error resetting password:', err);
+        this.showAlert(`Failed to reset password: ${err.message}`, 'danger');
+      }
     },
 
     showAlert(message, type = 'success') {
