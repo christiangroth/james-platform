@@ -1,217 +1,132 @@
-function userTable() {
+import { ApiClient } from '../api-client.js';
+import { AlertHandler } from '../alert-handler.js';
+import { ModalHandler } from '../modal-handler.js';
+
+export function userTable() {
   return {
+    BASE_URL: '/api/users',
+
     loading: true,
-    error: null,
     users: [],
-    showModal: false,
-    modalTitle: '',
-    modalMessage: '',
-    modalAction: null,
-    modalInput: {},
-    alert: {
-      show: false,
-      message: '',
-      type: 'success'
-    },
+
+    api: new ApiClient('/api/users'),
+    alert: new AlertHandler(),
+    modal: new ModalHandler(),
 
     async fetchUsers() {
       this.loading = true;
-      this.error = null;
 
-      try {
-        const response = await fetch('/api/users');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
-        }
-        this.users = await response.json();
-      } catch (err) {
-        console.error('Error fetching users:', err);
-        this.showAlert('Failed to load users. Please try again later.', 'danger');
-      } finally {
-        this.loading = false;
-      }
+      await this.api.executeAction(() => this.api.getRequest(), {
+        errorMessage: 'Failed to load users. Please try again later',
+        alertHandler: this.alert,
+        onSuccess: (users) => this.users = users,
+        onFinally: () => this.loading = false
+      });
     },
 
     async toggleUserStatus(user) {
       const isActive = user.status === 'ACTIVE';
       const action = isActive ? 'deactivate' : 'activate';
-      const reason = this.modalInput.reason || '';
-      
-      try {
-        const url = `/api/users/${user.id}/${action}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: isActive ? JSON.stringify({ reason }) : '{}'
-        });
+      const body = isActive ? { reason: this.modal.input.reason || '' } : null;
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || `Failed to ${action} user`);
-        }
-
-        this.showAlert(`User ${action}d successfully!`, 'success');
-        this.fetchUsers();
-      } catch (err) {
-        console.error(`Error ${action}ing user:`, err);
-        this.showAlert(`Failed to ${action} user: ${err.message}`, 'danger');
-      } finally {
-        this.closeModal();
-      }
+      await this.api.executeAction(() => this.api.postRequest(`/${user.id}/${action}`, body), {
+        successMessage: `User ${action}d successfully!`,
+        errorMessage: `Failed to ${action} user`,
+        alertHandler: this.alert,
+        onSuccess: () => this.fetchUsers(),
+        onFinally: () => this.modal.close()
+      });
     },
 
     async deleteUser(user) {
-      try {
-        const response = await fetch(`/api/users/${user.id}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to delete user');
-        }
-
-        this.showAlert('User deleted successfully!', 'success');
-        this.fetchUsers();
-      } catch (err) {
-        console.error('Error deleting user:', err);
-        this.showAlert(`Failed to delete user: ${err.message}`, 'danger');
-      } finally {
-        this.closeModal();
-      }
+      await this.api.executeAction(this.api.deleteRequest(`/${user.id}`), {
+        successMessage: 'User deleted successfully!',
+        errorMessage: 'Failed to delete user',
+        alertHandler: this.alert,
+        onSuccess: () => this.fetchUsers(),
+        onFinally: () => this.modal.close()
+      });
     },
 
     async createUser() {
-      const { username, password, confirmPassword, roles } = this.modalInput;
-      
+      const { username, password, confirmPassword, roles } = this.modal.input;
+
       if (password !== confirmPassword) {
-        this.showAlert('Passwords do not match', 'danger');
+        this.alert.showAlert('Passwords do not match', 'danger');
         return;
       }
 
-      try {
-        const response = await fetch('/api/users', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username,
-            password,
-            roles: roles ? roles.split(',').map(r => r.trim()) : []
-          })
-        });
+      const body = {
+        username,
+        password,
+        roles: roles ? roles.split(',').map(r => r.trim()) : []
+      };
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to create user');
-        }
+      await this.api.executeAction(() => this.api.putRequest('', body), {
+        successMessage: 'User created successfully!',
+        errorMessage: 'Failed to create user',
+        alertHandler: this.alert,
+        onSuccess: () => this.fetchUsers(),
+        onFinally: () => this.modal.close()
+      });
+    },
 
-        this.showAlert('User created successfully!', 'success');
-        this.fetchUsers();
-      } catch (err) {
-        console.error('Error creating user:', err);
-        this.showAlert(`Failed to create user: ${err.message}`, 'danger');
-      } finally {
-        this.closeModal();
+    async resetPassword(user) {
+      const { newPassword, confirmPassword } = this.modal.input;
+
+      if (newPassword !== confirmPassword) {
+        this.alert.showAlert('Passwords do not match', 'danger');
+        return;
       }
+
+      await this.api.executeAction(() => this.api.deleteRequest(`/${user.id}/password`, { password: newPassword }), {
+        successMessage: 'Password reset successfully!',
+        errorMessage: 'Failed to reset password',
+        alertHandler: this.alert,
+        onFinally: () => this.modal.close()
+      });
     },
 
     confirmToggleStatus(user) {
       const isActive = user.status === 'ACTIVE';
-      this.modalTitle = isActive ? 'Deactivate User' : 'Activate User';
-      this.modalMessage = isActive 
-        ? 'Please provide a reason for deactivation (optional):' 
-        : 'Are you sure you want to activate this user?';
-      
-      this.modalAction = () => this.toggleUserStatus(user);
-      this.modalInput = { reason: '' };
-      this.showModal = true;
+      this.modal.open(
+        isActive ? 'Deactivate User' : 'Activate User',
+        isActive ? 'Please provide a reason for deactivation (optional):' : 'Are you sure you want to activate this user?',
+        () => this.toggleUserStatus(user),
+        { reason: '' }
+      );
     },
 
     confirmDeleteUser(user) {
-      this.modalTitle = 'Delete User';
-      this.modalMessage = `Are you sure you want to delete user ${user.username}? This action cannot be undone.`;
-      this.modalAction = () => this.deleteUser(user);
-      this.modalInput = {};
-      this.showModal = true;
+      this.modal.confirm(
+        'Delete User',
+        `Are you sure you want to delete user ${user.username}? This action cannot be undone.`,
+        () => this.deleteUser(user)
+      );
     },
 
     showCreateUserForm() {
-      this.modalTitle = 'Create New User';
-      this.modalMessage = '';
-      this.modalAction = () => this.createUser();
-      this.modalInput = {
-        username: '',
-        password: '',
-        confirmPassword: '',
-        roles: 'USER'
-      };
-      this.showModal = true;
+      this.modal.form(
+        'Create New User',
+        () => this.createUser(),
+        {
+          username: '',
+          password: '',
+          confirmPassword: '',
+          roles: 'USER'
+        }
+      );
     },
 
     showResetPasswordForm(user) {
-      this.currentUser = user;
-      this.modalTitle = 'Reset Password';
-      this.modalMessage = `Reset password for ${user.username}`;
-      this.modalAction = () => this.resetPassword(user);
-      this.modalInput = {
-        newPassword: '',
-        confirmPassword: ''
-      };
-      this.showModal = true;
-    },
-
-    async resetPassword(user) {
-      const { newPassword, confirmPassword } = this.modalInput;
-      
-      if (newPassword !== confirmPassword) {
-        this.showAlert('Passwords do not match', 'danger');
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/users/${user.id}/password`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            password: newPassword
-          })
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to reset password');
+      this.modal.form(
+        'Reset Password',
+        () => this.resetPassword(user),
+        {
+          newPassword: '',
+          confirmPassword: ''
         }
-
-        this.showAlert('Password reset successfully!', 'success');
-        this.closeModal();
-      } catch (err) {
-        console.error('Error resetting password:', err);
-        this.showAlert(`Failed to reset password: ${err.message}`, 'danger');
-      }
-    },
-
-    showAlert(message, type = 'success') {
-      this.alert = { show: true, message, type };
-      setTimeout(() => {
-        this.alert.show = false;
-      }, 10000);
-    },
-
-    closeModal() {
-      this.showModal = false;
-      this.modalTitle = '';
-      this.modalMessage = '';
-      this.modalAction = null;
-      this.modalInput = {};
+      );
     },
 
     getStatusBadgeClass(status) {
@@ -229,19 +144,14 @@ function userTable() {
     },
 
     formatStatus(status) {
-      const statusMap = {
-        'ACTIVE': 'Active',
-        'INACTIVE': 'Inactive',
-      };
-      return statusMap[status] || status;
+      return { 'ACTIVE': 'Active', 'INACTIVE': 'Inactive' }[status] || status;
     },
 
     formatPasswordStatus(status) {
-      const statusMap = {
-        'PERMANENT': 'Permanent',
-        'ONE_TIME': 'One-Time',
-      };
-      return statusMap[status] || status;
+      return { 'PERMANENT': 'Permanent', 'ONE_TIME': 'One-Time' }[status] || status;
     }
   };
 }
+
+// Global verfügbar machen für AlpineJS
+window.userTable = userTable;

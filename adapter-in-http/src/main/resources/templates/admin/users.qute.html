@@ -1,7 +1,7 @@
 {#include base}
 {#title}James Platform - User Management{/title}
 {#scripts}
-<script src="/js/admin/users.js"></script>
+<script type="module" src="/js/admin/users.js"></script>
 {/scripts}
 {#homeLink}/ui/admin/dashboard{/homeLink}
 <section class="contact-section bg-black" x-data="userTable()" x-init="fetchUsers()">
@@ -9,123 +9,125 @@
     <div class="card shadow mb-4">
       <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">User Management</h6>
-        <button @click="showCreateUserForm()" class="btn btn-primary btn-sm">
+        <button @click="modal.form('Create New User', () => createUser(), { username: '', password: '', confirmPassword: '', roles: 'USER' })" class="btn btn-primary btn-sm">
           <i class="fas fa-plus me-1"></i> Add User
         </button>
       </div>
+      
       <!-- Alert Notification -->
-        <div x-show="alert.show" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform translate-y-2"
-             x-transition:enter-end="opacity-100 transform translate-y-0"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="alert" 
-             :class="{
-               'alert-success': alert.type === 'success',
-               'alert-danger': alert.type === 'danger'
-             }">
-          <div class="d-flex justify-content-between align-items-center">
-            <span x-text="alert.message"></span>
-            <button @click="alert.show = false" class="btn-close"></button>
-          </div>
+      <div x-show="alert.show"
+           x-transition:enter="transition ease-out duration-300"
+           x-transition:enter-start="opacity-0 transform translate-y-2"
+           x-transition:enter-end="opacity-100 transform translate-y-0"
+           x-transition:leave="transition ease-in duration-200"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="alert"
+           :class="{
+             'alert-success': alert.type === 'success',
+             'alert-danger': alert.type === 'danger'
+           }">
+        <div class="d-flex justify-content-between align-items-center">
+          <span x-text="alert.message"></span>
+          <button @click="alert.hide()" class="btn-close"></button>
         </div>
-        
-        <!-- Loading State -->
-        <div x-show="loading" class="text-center py-4">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="mt-2">Loading users...</p>
+      </div>
+      
+      <!-- Loading State -->
+      <div x-show="loading" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
         </div>
-        
-        <div x-show="!loading && !error" class="table-responsive">
-          <table class="table table-bordered table-hover" width="100%" cellspacing="0">
-            <thead class="table-dark">
+        <p class="mt-2">Loading users...</p>
+      </div>
+      
+      <div x-show="!loading" class="table-responsive">
+        <table class="table table-bordered table-hover" width="100%" cellspacing="0">
+          <thead class="table-dark">
+            <tr>
+              <th>Username</th>
+              <th>Roles</th>
+              <th>Password Status</th>
+              <th>Status</th>
+              <th>Failed Logins</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="user in users" :key="user.id">
               <tr>
-                <th>Username</th>
-                <th>Roles</th>
-                <th>Password Status</th>
-                <th>Status</th>
-                <th>Failed Logins</th>
-                <th>Actions</th>
+                <td x-text="user.username"></td>
+                <td x-text="user.roles.join(', ')"></td>
+                <td>
+                  <span class="badge" :class="getPasswordStatusBadgeClass(user.passwordStatus)">
+                    <span x-text="formatPasswordStatus(user.passwordStatus)"></span>
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" :class="getStatusBadgeClass(user.status)">
+                    <span x-text="formatStatus(user.status)"></span>
+                  </span>
+                  <template x-if="user.statusReason">
+                    <div class="text-muted small" x-text="'(' + user.statusReason + ')'"></div>
+                  </template>
+                </td>
+                <td x-text="user.deactivationCounter"></td>
+                <td>
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                      <i class="fas fa-cog"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                      <template x-if="user.status === 'ACTIVE'">
+                        <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
+                          Deactivate User
+                        </a></li>
+                      </template>
+                      <template x-if="user.status === 'INACTIVE'">
+                        <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
+                          Activate User
+                        </a></li>
+                      </template>
+                      <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); showResetPasswordForm(user)">Reset Password</a></li>
+                      <li>
+                        <hr class="dropdown-divider">
+                      </li>
+                      <li>
+                        <a class="dropdown-item text-danger"
+                           href="#"
+                           @click.prevent="$event.stopPropagation(); confirmDeleteUser(user)">
+                          Delete User
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              <template x-for="user in users" :key="user.id">
-                <tr>
-                  <td x-text="user.username"></td>
-                  <td x-text="user.roles.join(', ')"></td>
-                  <td>
-                    <span class="badge" :class="getPasswordStatusBadgeClass(user.passwordStatus)">
-                      <span x-text="formatPasswordStatus(user.passwordStatus)"></span>
-                    </span>
-                  </td>
-                  <td>
-                    <span class="badge" :class="getStatusBadgeClass(user.status)">
-                      <span x-text="formatStatus(user.status)"></span>
-                    </span>
-                    <template x-if="user.statusReason">
-                      <div class="text-muted small" x-text="'(' + user.statusReason + ')'"></div>
-                    </template>
-                  </td>
-                  <td x-text="user.deactivationCounter"></td>
-                  <td>
-                    <div class="dropdown">
-                      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-cog"></i>
-                      </button>
-                      <ul class="dropdown-menu">
-                        <template x-if="user.status === 'ACTIVE'">
-                  <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
-                    Deactivate User
-                  </a></li>
-                </template>
-                <template x-if="user.status === 'INACTIVE'">
-                  <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
-                    Activate User
-                  </a></li>
-                </template>
-                <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); showResetPasswordForm(user)">Reset Password</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                  <a class="dropdown-item text-danger" 
-                     href="#" 
-                     @click.prevent="$event.stopPropagation(); confirmDeleteUser(user)">
-                    Delete User
-                  </a>
-                </li>
-                      </ul>
-                    </div>
-                  </td>
-                </tr>
-              </template>
-              <template x-if="!loading && !error && users.length === 0">
-                <tr>
-                  <td colspan="7" class="text-center">No users found</td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
+            </template>
+            <template x-if="users.length === 0">
+              <tr>
+                <td colspan="6" class="text-center">No users found</td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
   
-  <!-- Status Change Modal -->
-  <div x-show="showModal" 
+  <!-- Universal Modal -->
+  <div x-show="modal.show"
        x-transition.opacity
-       style="display: block;" 
+       style="display: none;"
        class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="fixed inset-0 bg-black/50" @click="closeModal()"></div>
+    <div class="fixed inset-0 bg-black/50" @click="modal.close()"></div>
     <div class="relative z-10 w-full max-w-md bg-white rounded-lg shadow-xl">
       <div class="p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-medium text-gray-900" x-text="modalTitle"></h3>
-          <button type="button" 
-                  class="text-gray-400 hover:text-gray-500" 
-                  @click="closeModal()">
+          <h3 class="text-lg font-medium text-gray-900" x-text="modal.title"></h3>
+          <button type="button"
+                  class="text-gray-400 hover:text-gray-500"
+                  @click="modal.close()">
             <span class="sr-only">Close</span>
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -133,101 +135,100 @@
           </button>
         </div>
         <div class="mt-2">
-          <p class="text-sm text-gray-500" x-text="modalMessage"></p>
+          <p class="text-sm text-gray-500" x-text="modal.message"></p>
           
           <!-- Deactivation Reason -->
-          <div x-show="modalTitle === 'Deactivate User'" class="mt-4">
+          <div x-show="modal.title === 'Deactivate User'" class="mt-4">
             <label for="deactivationReason" class="block text-sm font-medium text-gray-700">Reason (optional):</label>
-            <input type="text" 
-                   id="deactivationReason" 
+            <input type="text"
+                   id="deactivationReason"
                    class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                   x-model="modalInput.reason"
-                   @keyup.enter="modalAction()"
+                   x-model="modal.input.reason"
+                   @keyup.enter="modal.action()"
                    placeholder="Enter reason for deactivation">
           </div>
           
           <!-- Reset Password Form -->
-          <div x-show="modalTitle === 'Reset Password'" class="mt-4 space-y-4">
+          <div x-show="modal.title === 'Reset Password'" class="mt-4 space-y-4">
             <div>
               <label for="newPassword" class="block text-sm font-medium text-gray-700">New Password</label>
-              <input type="password" 
-                     id="newPassword" 
+              <input type="password"
+                     id="newPassword"
                      class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                     x-model="modalInput.newPassword"
+                     x-model="modal.input.newPassword"
                      placeholder="Enter new password"
                      required>
             </div>
             
             <div>
               <label for="confirmNewPassword" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
-              <input type="password" 
-                     id="confirmNewPassword" 
+              <input type="password"
+                     id="confirmNewPassword"
                      class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                     x-model="modalInput.confirmPassword"
-                     @keyup.enter="modalAction()"
+                     x-model="modal.input.confirmPassword"
+                     @keyup.enter="modal.action()"
                      placeholder="Confirm new password"
                      required>
             </div>
           </div>
           
           <!-- Create User Form -->
-          <div x-show="modalTitle === 'Create New User'" class="mt-4 space-y-4">
+          <div x-show="modal.title === 'Create New User'" class="mt-4 space-y-4">
             <div>
               <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-              <input type="text" 
-                     id="username" 
+              <input type="text"
+                     id="username"
                      class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                     x-model="modalInput.username"
+                     x-model="modal.input.username"
                      placeholder="Enter username"
                      required>
             </div>
             
             <div>
               <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-              <input type="password" 
-                     id="password" 
+              <input type="password"
+                     id="password"
                      class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                     x-model="modalInput.password"
+                     x-model="modal.input.password"
                      placeholder="Enter password"
                      required>
             </div>
             
             <div>
               <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password</label>
-              <input type="password" 
-                     id="confirmPassword" 
+              <input type="password"
+                     id="confirmPassword"
                      class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                     x-model="modalInput.confirmPassword"
-                     @keyup.enter="modalAction()"
+                     x-model="modal.input.confirmPassword"
+                     @keyup.enter="modal.action()"
                      placeholder="Confirm password"
                      required>
             </div>
             
             <div>
               <label for="roles" class="block text-sm font-medium text-gray-700">Roles (comma-separated)</label>
-              <input type="text" 
-                     id="roles" 
+              <input type="text"
+                     id="roles"
                      class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                     x-model="modalInput.roles"
-                     placeholder="e.g., USER,ADMIN"
-                     value="USER">
+                     x-model="modal.input.roles"
+                     placeholder="e.g., USER,ADMIN">
             </div>
           </div>
         </div>
       </div>
       <div class="px-6 py-4 bg-gray-50 sm:flex sm:flex-row-reverse">
-        <button type="button" 
+        <button type="button"
                 class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white border border-transparent rounded-md shadow-sm"
                 :class="{
-                  'bg-red-600 hover:bg-red-700 focus:ring-red-500': modalTitle === 'Delete User' || modalTitle === 'Reset Password',
-                  'bg-primary-600 hover:bg-primary-700 focus:ring-primary-500': modalTitle !== 'Delete User' && modalTitle !== 'Reset Password'
+                  'bg-red-600 hover:bg-red-700 focus:ring-red-500': modal.title === 'Delete User' || modal.title === 'Reset Password',
+                  'bg-primary-600 hover:bg-primary-700 focus:ring-primary-500': modal.title !== 'Delete User' && modal.title !== 'Reset Password'
                 }"
-                @click="modalAction()">
-          <span x-text="modalTitle === 'Reset Password' ? 'Update Password' : modalTitle"></span>
+                @click="modal.action()">
+          <span x-text="modal.title === 'Reset Password' ? 'Update Password' : modal.title"></span>
         </button>
-        <button type="button" 
+        <button type="button"
                 class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                @click="closeModal()">
+                @click="modal.close()">
           Cancel
         </button>
       </div>
