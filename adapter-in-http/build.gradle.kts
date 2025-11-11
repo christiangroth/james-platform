@@ -17,6 +17,7 @@ dependencies {
   api("io.quarkiverse.qute.web:quarkus-qute-web")
   api("io.quarkus:quarkus-web-dependency-locator")
   api("org.webjars.npm:alpinejs:3.15.1")
+  api("org.webjars.npm:marked:12.0.2")
 }
 
 openApiGenerate {
@@ -58,6 +59,18 @@ project.layout.buildDirectory.dir("generated/openapi/src/main/kotlin").get().asF
 }
 
 tasks {
+  val copyReleaseNotes = register<Copy>("copyReleaseNotes") {
+    from(project.rootDir) {
+      include("RELEASENOTES.md")
+    }
+
+    into(layout.buildDirectory.dir("resources/main/META-INF/resources"))
+  }
+
+  processResources {
+    dependsOn(copyReleaseNotes)
+  }
+
   compileKotlin {
     dependsOn(openApiGenerate)
   }
