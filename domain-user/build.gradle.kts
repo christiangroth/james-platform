@@ -1,12 +1,11 @@
 plugins {
-  id("kotlin-project")
+    id("kotlin-project")
 }
 
 dependencies {
-  api(project(":core"))
+    api(project(":core"))
 
-  // TODO deduplicate
-  api(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
-  api("io.quarkus:quarkus-arc")
-  api("io.quarkus:quarkus-vertx")
+    api(enforcedPlatform(libs.quarkusBom))
+    api("io.quarkus:quarkus-arc")
+    api("io.quarkus:quarkus-vertx")
 }

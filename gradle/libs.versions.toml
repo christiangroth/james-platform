@@ -1,0 +1,74 @@
+[versions]
+
+# java & kotlin
+kotlin = "2.0.21"
+kotlinxCoroutines = "1.7.0-Beta"
+
+# quarkus
+quarkus = "3.18.3"
+
+# jooq
+jooq = "3.20.5"
+jooqPlugin = "10.1.1"
+jooqGeneratorPostgres = "42.7.7"
+jooqGeneratorPostgresTestcontainers = "1.19.0"
+
+# libraries
+arrow = "1.1.2"
+assertJ = "3.23.1"
+junit = "5.9.0"
+kotlinLogging = "1.8.3"
+mockk = "1.13.9"
+semverKt = "1.0.1"
+webjarAlpinejs = "3.15.1"
+
+# tools & plugins
+buildTimeTracker = "5.0.1"
+detekt = "1.23.3"
+grgit = "5.3.0"
+kover = "0.6.1"
+openapiGenerator = "7.11.0"
+release = "3.1.0"
+
+[libraries]
+
+# kotlin
+kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+
+# quarkus
+quarkusBom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
+quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
+
+# jooq
+jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
+jooqGeneratorPostgres = { module = "org.postgresql:postgresql", version.ref = "jooqGeneratorPostgres" }
+jooqGeneratorPostgresTestcontainers = { module = "org.testcontainers:postgresql", version.ref = "jooqGeneratorPostgresTestcontainers" }
+
+# libraries
+arrow = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
+assertJ = { module = "org.assertj:assertj-core", version.ref = "assertJ" }
+junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+kotlinLogging = { module = "io.github.microutils:kotlin-logging", version.ref = "kotlinLogging" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+semverKt = { module = "com.github.glwithu06:semver.kt", version.ref = "semverKt" }
+webjarAlpinejs = { module = "org.webjars.npm:alpinejs", version.ref = "webjarAlpinejs" }
+
+# tools & plugins
+detekt = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+grgit = { module = "org.ajoberstar.grgit:grgit-core", version.ref = "grgit" }
+kover = { module = "org.jetbrains.kotlinx:kover", version.ref = "kover" }
+
+[bundles]
+
+jooq = ["quarkusAgroal", "jooq"]
+jooqGenerator = ["jooqGeneratorPostgres", "jooqGeneratorPostgresTestcontainers"]
+
+[plugins]
+
+allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
+buildTimeTracker = { id = "com.asarkar.gradle.build-time-tracker", version.ref = "buildTimeTracker" }
+jooq = { id = "nu.studer.jooq", version.ref = "jooqPlugin" }
+openapiGenerator = { id = "org.openapi.generator", version.ref = "openapiGenerator" }
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }
+release = { id = "net.researchgate.release", version.ref = "release" }

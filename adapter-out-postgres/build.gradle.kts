@@ -1,14 +1,9 @@
 plugins {
-  id("kotlin-project")
+    id("kotlin-project")
 }
 
-// TODO manage version constants somehow
 dependencies {
-
-  // TODO deduplicate
-  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
-
-  // Database
-  api("io.quarkus:quarkus-jdbc-postgresql")
-  api("io.quarkus:quarkus-flyway")
+    api(enforcedPlatform(libs.quarkusBom))
+    api("io.quarkus:quarkus-jdbc-postgresql")
+    api("io.quarkus:quarkus-flyway")
 }
