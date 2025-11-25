@@ -1,6 +1,5 @@
 package de.chrgroth.james.platform.application.quarkus
 
-import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured.given
 import org.assertj.core.api.Assertions.assertThat

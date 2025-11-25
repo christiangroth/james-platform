@@ -10,31 +10,31 @@ import kotlin.time.Duration.Companion.seconds
 
 class EventingTests {
 
-    private val eventBus = EventBus()
+  private val eventBus = EventBus()
 
-    @Test
-    fun `published events gets consumed`() {
+  @Test
+  fun `published events gets consumed`() {
 
-        var gotEvent = false
-        eventBus.receiver<DomainEvent.UserRegistered> {
-            gotEvent = true
-        }
-
-        eventBus.publish(DomainEvent.UserRegistered(UUID.randomUUID()))
-        runBlocking { delay(1.seconds) }
-        assertThat(gotEvent).isTrue
+    var gotEvent = false
+    eventBus.receiver<DomainEvent.UserRegistered> {
+      gotEvent = true
     }
 
-    @Test
-    fun `no side effects if no matching receiver`() {
+    eventBus.publish(DomainEvent.UserRegistered(UUID.randomUUID()))
+    runBlocking { delay(1.seconds) }
+    assertThat(gotEvent).isTrue
+  }
 
-        var gotEvent = false
-        eventBus.receiver<DomainEvent.UserRegistered> {
-            gotEvent = true
-        }
+  @Test
+  fun `no side effects if no matching receiver`() {
 
-        eventBus.publish(DomainEvent.AppVersionReleased(UUID.randomUUID(), Semver("1.0.0"), emptyMap()))
-        runBlocking { delay(1.seconds) }
-        assertThat(gotEvent).isFalse
+    var gotEvent = false
+    eventBus.receiver<DomainEvent.UserRegistered> {
+      gotEvent = true
     }
+
+    eventBus.publish(DomainEvent.AppVersionReleased(UUID.randomUUID(), Semver("1.0.0"), emptyMap()))
+    runBlocking { delay(1.seconds) }
+    assertThat(gotEvent).isFalse
+  }
 }

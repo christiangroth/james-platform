@@ -9,11 +9,12 @@
     <div class="card shadow mb-4">
       <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">User Management</h6>
-        <button @click="modal.form('Create New User', () => createUser(), { username: '', password: '', confirmPassword: '', roles: 'USER' })" class="btn btn-primary btn-sm">
+        <button @click="modal.form('Create New User', () => createUser(), { username: '', password: '', confirmPassword: '', roles: 'USER' })"
+                class="btn btn-primary btn-sm">
           <i class="fas fa-plus me-1"></i> Add User
         </button>
       </div>
-      
+
       <!-- Alert Notification -->
       <div x-show="alert.show"
            x-transition:enter="transition ease-out duration-300"
@@ -33,7 +34,7 @@
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      
+
       <!-- Loading State -->
       <div x-show="loading" class="text-center py-4">
         <div class="spinner-border text-primary" role="status">
@@ -41,81 +42,81 @@
         </div>
         <p class="mt-2">Loading users...</p>
       </div>
-      
+
       <div x-show="!loading" class="table-responsive">
         <table class="table table-bordered table-hover" width="100%" cellspacing="0">
           <thead class="table-dark">
-            <tr>
-              <th>Username</th>
-              <th>Roles</th>
-              <th>Password Status</th>
-              <th>Status</th>
-              <th>Failed Logins</th>
-              <th>Actions</th>
-            </tr>
+          <tr>
+            <th>Username</th>
+            <th>Roles</th>
+            <th>Password Status</th>
+            <th>Status</th>
+            <th>Failed Logins</th>
+            <th>Actions</th>
+          </tr>
           </thead>
           <tbody>
-            <template x-for="user in users" :key="user.id">
-              <tr>
-                <td x-text="user.username"></td>
-                <td x-text="user.roles.join(', ')"></td>
-                <td>
+          <template x-for="user in users" :key="user.id">
+            <tr>
+              <td x-text="user.username"></td>
+              <td x-text="user.roles.join(', ')"></td>
+              <td>
                   <span class="badge" :class="getPasswordStatusBadgeClass(user.passwordStatus)">
                     <span x-text="formatPasswordStatus(user.passwordStatus)"></span>
                   </span>
-                </td>
-                <td>
+              </td>
+              <td>
                   <span class="badge" :class="getStatusBadgeClass(user.status)">
                     <span x-text="formatStatus(user.status)"></span>
                   </span>
-                  <template x-if="user.statusReason">
-                    <div class="text-muted small" x-text="'(' + user.statusReason + ')'"></div>
-                  </template>
-                </td>
-                <td x-text="user.deactivationCounter"></td>
-                <td>
-                  <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                      <i class="fas fa-cog"></i>
-                    </button>
-                    <ul class="dropdown-menu">
-                      <template x-if="user.status === 'ACTIVE'">
-                        <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
-                          Deactivate User
-                        </a></li>
-                      </template>
-                      <template x-if="user.status === 'INACTIVE'">
-                        <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
-                          Activate User
-                        </a></li>
-                      </template>
-                      <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); showResetPasswordForm(user)">Reset Password</a></li>
-                      <li>
-                        <hr class="dropdown-divider">
-                      </li>
-                      <li>
-                        <a class="dropdown-item text-danger"
-                           href="#"
-                           @click.prevent="$event.stopPropagation(); confirmDeleteUser(user)">
-                          Delete User
-                        </a>
-                      </li>
-                    </ul>
-                  </div>
-                </td>
-              </tr>
-            </template>
-            <template x-if="users.length === 0">
-              <tr>
-                <td colspan="6" class="text-center">No users found</td>
-              </tr>
-            </template>
+                <template x-if="user.statusReason">
+                  <div class="text-muted small" x-text="'(' + user.statusReason + ')'"></div>
+                </template>
+              </td>
+              <td x-text="user.deactivationCounter"></td>
+              <td>
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-cog"></i>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <template x-if="user.status === 'ACTIVE'">
+                      <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
+                        Deactivate User
+                      </a></li>
+                    </template>
+                    <template x-if="user.status === 'INACTIVE'">
+                      <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); confirmToggleStatus(user)">
+                        Activate User
+                      </a></li>
+                    </template>
+                    <li><a class="dropdown-item" href="#" @click.prevent="$event.stopPropagation(); showResetPasswordForm(user)">Reset Password</a></li>
+                    <li>
+                      <hr class="dropdown-divider">
+                    </li>
+                    <li>
+                      <a class="dropdown-item text-danger"
+                         href="#"
+                         @click.prevent="$event.stopPropagation(); confirmDeleteUser(user)">
+                        Delete User
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <template x-if="users.length === 0">
+            <tr>
+              <td colspan="6" class="text-center">No users found</td>
+            </tr>
+          </template>
           </tbody>
         </table>
       </div>
     </div>
   </div>
-  
+
   <!-- Universal Modal -->
   <div x-show="modal.show"
        x-transition.opacity
@@ -130,11 +131,11 @@
           &times;
         </button>
       </div>
-      
+
       <!-- Modal Body -->
       <div class="modal-body">
         <p class="text-sm text-gray-500 mb-4" x-text="modal.message" x-show="modal.message"></p>
-        
+
         <!-- Deactivation Reason -->
         <div x-show="modal.title === 'Deactivate User'" class="form-group">
           <label for="deactivationReason" class="form-label">Reason (optional):</label>
@@ -145,7 +146,7 @@
                  @keyup.enter="modal.action()"
                  placeholder="Enter reason for deactivation">
         </div>
-        
+
         <!-- Reset Password Form -->
         <div x-show="modal.title === 'Reset Password'" class="space-y-4">
           <div class="form-group">
@@ -157,7 +158,7 @@
                    placeholder="Enter new password"
                    required>
           </div>
-          
+
           <div class="form-group">
             <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
             <input type="password"
@@ -169,7 +170,7 @@
                    required>
           </div>
         </div>
-        
+
         <!-- Create User Form -->
         <div x-show="modal.title === 'Create New User'" class="space-y-4">
           <div class="form-group">
@@ -181,7 +182,7 @@
                    placeholder="Enter username"
                    required>
           </div>
-          
+
           <div class="form-group">
             <label for="password" class="form-label">Password</label>
             <input type="password"
@@ -191,7 +192,7 @@
                    placeholder="Enter password"
                    required>
           </div>
-          
+
           <div class="form-group">
             <label for="confirmPassword" class="form-label">Confirm Password</label>
             <input type="password"
@@ -201,7 +202,7 @@
                    placeholder="Confirm password"
                    required>
           </div>
-          
+
           <div class="form-group">
             <label for="roles" class="form-label">Roles</label>
             <select id="roles"
@@ -216,7 +217,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Modal Footer -->
       <div class="modal-footer">
         <button type="button"

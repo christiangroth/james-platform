@@ -1,9 +1,9 @@
 plugins {
-    id("kotlin-project")
+  id("kotlin-project")
 }
 
 dependencies {
-    implementation(project(":core"))
+  implementation(project(":core"))
 
-    testImplementation(testFixtures(project(":core")))
+  testImplementation(testFixtures(project(":core")))
 }

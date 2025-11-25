@@ -1,11 +1,11 @@
 package de.chrgroth.gradle.plugins.releasenotes
 
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
 import org.gradle.kotlin.dsl.support.listFilesOrdered
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 
 private val logger: Logger = LoggerFactory.getLogger("Releasenotes")
 

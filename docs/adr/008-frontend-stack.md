@@ -6,7 +6,7 @@
 
 ## Context and Problem Statement
 
-We require a frontend stack that enables rapid development while maintaining simplicity. 
+We require a frontend stack that enables rapid development while maintaining simplicity.
 The frontend needs to integrate with a Quarkus backend and provide a responsive, interactive user interface for administrative tasks and user management.
 
 ## Decision Drivers
@@ -43,6 +43,7 @@ Chosen option: **Lightweight Framework (Alpine.js) with Vanilla JavaScript**
 ## Technology Choices
 
 ### 1. Alpine.js
+
 - **Purpose**: Lightweight reactivity framework for interactive components
 - **Benefits**:
   - Minimal learning curve
@@ -51,6 +52,7 @@ Chosen option: **Lightweight Framework (Alpine.js) with Vanilla JavaScript**
   - Plays well with server-rendered HTML
 
 ### 2. Bootstrap 5
+
 - **Purpose**: CSS framework for responsive design and UI components
 - **Benefits**:
   - Comprehensive component library
@@ -59,6 +61,7 @@ Chosen option: **Lightweight Framework (Alpine.js) with Vanilla JavaScript**
   - Extensive documentation
 
 ### 3. Vanilla JavaScript with Fetch API
+
 - **Purpose**: AJAX functionality and API communication
 - **Benefits**:
   - No additional HTTP client libraries needed
@@ -67,6 +70,7 @@ Chosen option: **Lightweight Framework (Alpine.js) with Vanilla JavaScript**
   - No build step required
 
 ### 4. Server-Side Rendering with Qute
+
 - **Purpose**: Initial page rendering and progressive enhancement
 - **Benefits**:
   - Fast initial page loads
@@ -76,11 +80,13 @@ Chosen option: **Lightweight Framework (Alpine.js) with Vanilla JavaScript**
 ## Rejected Options
 
 ### OpenAPI/TypeScript Code Generation
+
 - **Reason**: Found to be too cumbersome for frontend development
 - **Alternative**: Using vanilla JavaScript with clear API contracts
 - **Risk Mitigation**: Clear API documentation and manual type checking
 
 ### TypeScript
+
 - **Reason**: Added complexity without sufficient benefit for current scale
 - **Alternative**: Vanilla JavaScript with JSDoc comments for documentation
 - **Risk Mitigation**: Comprehensive testing and code reviews

@@ -5,13 +5,13 @@ import de.chrgroth.james.DomainError
 import java.util.UUID
 
 interface UserQueryPersistencePort {
-    fun getOrError(id: UUID): ValidatedNel<DomainError, User>
-    fun getByEmail(email: String): ValidatedNel<DomainError, User?>
+  fun getOrError(id: UUID): ValidatedNel<DomainError, User>
+  fun getByEmail(email: String): ValidatedNel<DomainError, User?>
 
-    // TODO #10 what about paging and how to design filter parameters??
-    fun find(): ValidatedNel<DomainError, Set<User>>
+  // TODO #10 what about paging and how to design filter parameters??
+  fun find(): ValidatedNel<DomainError, Set<User>>
 }
 
 interface UserCommandPersistencePort {
-    fun upsert(item: User): ValidatedNel<DomainError, User>
+  fun upsert(item: User): ValidatedNel<DomainError, User>
 }

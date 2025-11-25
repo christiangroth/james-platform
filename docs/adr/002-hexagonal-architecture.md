@@ -28,12 +28,12 @@ This may of course change during implementation, but I think for now that I do n
 All in all it consists of a few simple concepts and allows exchanging technical implementations without changing core domain implementation.
 If more structure or further concepts are needed when growing the core module, a mix of these architectures may be possible inside core module.
 
-### Positive Consequences 
+### Positive Consequences
 
 * heavy focus on business domain
 * lightweight (starter-) approach on DDD
 
-### Negative Consequences 
+### Negative Consequences
 
 * needs a little practice getting the concepts right
 * freedom in structuring core module also lacks guidelines which also takes additional time until a good design may be found
@@ -50,8 +50,9 @@ As Hexagonal Architecture does give a lot of freedom to design the core module, 
 
 ## Further reading
 
-* What a complete (and thus more complex) solution might look like: https://herbertograca.com/2017/11/16/explicit-architecture-01-ddd-hexagonal-onion-clean-cqrs-how-i-put-it-all-together/
-* Hexagonal Architecture overview and implementation strategies: 
+* What a complete (and thus more complex) solution might look
+  like: https://herbertograca.com/2017/11/16/explicit-architecture-01-ddd-hexagonal-onion-clean-cqrs-how-i-put-it-all-together/
+* Hexagonal Architecture overview and implementation strategies:
   * https://blog.codecentric.de/en/2020/07/hexagon-schmexagon-1/
   * https://netflixtechblog.com/ready-for-changes-with-hexagonal-architecture-b315ec967749
   * https://reflectoring.io/spring-hexagonal/

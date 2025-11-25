@@ -1,70 +1,70 @@
 <!DOCTYPE html>
 <html lang="de">
-  <head>
-    <title>{#insert title}James Platform{/}</title>
-    
-    <meta charset="utf-8" />
-    <meta name="author" content="Christian Groth" />
-    <meta name="description" content="Die Low-Code-Plattform für volle Kontrolle über deine Daten. Strukturen, Reports und Prozesse frei definierbar.">
-    <meta name="keywords" content="Low-Code, Self-Hosted, Private Cloud, Reports, No-Code">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    
-    <meta name="author" content="James Platform">
-    
-    <meta name="referrer" content="no-referrer">
-    <meta name="revisit-after" content="14 days">
-    <meta name="language" content="de">
-    
-    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
-    <link href="https://fonts.googleapis.com/css?family=Varela+Round" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet" />
-    
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="stylesheet" href="/css/styles.css" />
-    <link rel="stylesheet" href="/css/custom-styles.css" />
-  </head>
-  <body id="page-top">
-    <nav class="navbar navbar-expand-lg navbar-light fixed-top" id="mainNav">
-      <div class="container px-4 px-lg-5">
-        {#insert navLeft}
-        <a class="navbar-brand" href="{#insert homeLink}#page-top{/}">Home</a>
+<head>
+  <title>{#insert title}James Platform{/}</title>
+
+  <meta charset="utf-8"/>
+  <meta name="author" content="Christian Groth"/>
+  <meta name="description" content="Die Low-Code-Plattform für volle Kontrolle über deine Daten. Strukturen, Reports und Prozesse frei definierbar.">
+  <meta name="keywords" content="Low-Code, Self-Hosted, Private Cloud, Reports, No-Code">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+
+  <meta name="author" content="James Platform">
+
+  <meta name="referrer" content="no-referrer">
+  <meta name="revisit-after" content="14 days">
+  <meta name="language" content="de">
+
+  <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css?family=Varela+Round" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet"/>
+
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="stylesheet" href="/css/styles.css"/>
+  <link rel="stylesheet" href="/css/custom-styles.css"/>
+</head>
+<body id="page-top">
+<nav class="navbar navbar-expand-lg navbar-light fixed-top" id="mainNav">
+  <div class="container px-4 px-lg-5">
+    {#insert navLeft}
+    <a class="navbar-brand" href="{#insert homeLink}#page-top{/}">Home</a>
+    {/}
+    <div class="collapse navbar-collapse" id="navbarResponsive">
+      <ul class="navbar-nav ms-auto">
+        {#insert navRight}
+        <li class="nav-item">
+          <a class="nav-link" href="#" onclick="showAboutModal(); return false;">
+            <i class="fas fa-info-circle me-1"></i> About
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/auth/logout">
+            <i class="fas fa-sign-out-alt me-1"></i> Logout
+          </a>
+        </li>
         {/}
-        <div class="collapse navbar-collapse" id="navbarResponsive">
-          <ul class="navbar-nav ms-auto">
-            {#insert navRight}
-            <li class="nav-item">
-              <a class="nav-link" href="#" onclick="showAboutModal(); return false;">
-                <i class="fas fa-info-circle me-1"></i> About
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/auth/logout">
-                <i class="fas fa-sign-out-alt me-1"></i> Logout
-              </a>
-            </li>
-            {/}
-          </ul>
-        </div>
-      </div>
-    </nav>
-    
-    {#insert}{/}
-    
-    <!-- About modal will be injected by JavaScript -->
-    
-    {#insert scripts /}
-    
-    <!-- Load dependencies first -->
-    <script src="/webjars/marked/12.0.2/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Load Alpine.js -->
-    <script src="/webjars/alpinejs/3.15.1/dist/cdn.min.js"></script>
-    
-    <!-- Load our scripts -->
-    <script src="/js/scripts.js"></script>
-    <script src="/js/about.js"></script>
-    
-    <!-- About modal will be initialized by about.js -->
-  </body>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+{#insert}{/}
+
+<!-- About modal will be injected by JavaScript -->
+
+{#insert scripts /}
+
+<!-- Load dependencies first -->
+<script src="/webjars/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Load Alpine.js -->
+<script src="/webjars/alpinejs/3.15.1/dist/cdn.min.js"></script>
+
+<!-- Load our scripts -->
+<script src="/js/scripts.js"></script>
+<script src="/js/about.js"></script>
+
+<!-- About modal will be initialized by about.js -->
+</body>
 </html>

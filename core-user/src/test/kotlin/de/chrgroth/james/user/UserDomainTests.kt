@@ -18,207 +18,207 @@ import java.util.UUID
 
 class UserDomainTests {
 
-    private val existingUser = User.create(email = "existing@james.de", name = "Existing").expectSuccess()
-    private val existingId = existingUser.id
-    private val unknownId = UUID.randomUUID()
+  private val existingUser = User.create(email = "existing@james.de", name = "Existing").expectSuccess()
+  private val existingId = existingUser.id
+  private val unknownId = UUID.randomUUID()
 
-    private lateinit var queryPersistence: UserQueryPersistencePort
-    private lateinit var commandPersistence: UserCommandPersistencePort
-    private lateinit var eventBus: EventBus
-    private lateinit var userAdminUseCases: UserAdminUseCases
-    private lateinit var userSelfServiceUseCases: UserSelfServiceUseCases
+  private lateinit var queryPersistence: UserQueryPersistencePort
+  private lateinit var commandPersistence: UserCommandPersistencePort
+  private lateinit var eventBus: EventBus
+  private lateinit var userAdminUseCases: UserAdminUseCases
+  private lateinit var userSelfServiceUseCases: UserSelfServiceUseCases
 
-    @BeforeEach
-    internal fun initialize() {
-        queryPersistence = mockk<UserQueryPersistencePort>().also {
-            every { it.getOrError(existingId) } returns (Validated.validNel(existingUser))
-            every { it.getOrError(unknownId) } returns (Validated.invalidNel(DomainError(UserDomainErrorCodes.NOT_FOUND, unknownId.toString())))
+  @BeforeEach
+  internal fun initialize() {
+    queryPersistence = mockk<UserQueryPersistencePort>().also {
+      every { it.getOrError(existingId) } returns (Validated.validNel(existingUser))
+      every { it.getOrError(unknownId) } returns (Validated.invalidNel(DomainError(UserDomainErrorCodes.NOT_FOUND, unknownId.toString())))
 
-            every { it.getByEmail(any()) } returns (Validated.validNel(null))
+      every { it.getByEmail(any()) } returns (Validated.validNel(null))
 
-            val duplicateUser = User.create(email = "duplicate@james.de", name = "Duplicate").expectSuccess()
-            every { it.getByEmail(duplicateUser.email) } returns (Validated.validNel(duplicateUser))
-        }
-
-        commandPersistence = mockk<UserCommandPersistencePort>().also {
-            every { it.upsert(any()) } answers { Validated.validNel(this.args[0] as User) }
-        }
-
-        eventBus = mockk<EventBus>().also {
-            every { it.publish(any<DomainEvent.UserRegistered>()) } answers { Unit }
-        }
-
-        userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence, eventBus)
-        userSelfServiceUseCases = UserSelfServiceUseCasesService(queryPersistence, commandPersistence)
+      val duplicateUser = User.create(email = "duplicate@james.de", name = "Duplicate").expectSuccess()
+      every { it.getByEmail(duplicateUser.email) } returns (Validated.validNel(duplicateUser))
     }
 
-    @Test
-    internal fun `valid user`() {
-        fun User.assertions() {
-            assertThat(id).isNotIn(existingId, unknownId)
-            assertThat(email).isEqualTo("someone@james.de")
-            assertThat(name).isEqualTo("Some Name")
-        }
-
-        val createdUser = userAdminUseCases.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess()
-        createdUser.assertions()
-
-        fun DomainEvent.assertions() {
-            assertThat(this).isInstanceOf(DomainEvent.UserRegistered::class.java)
-            assertThat((this as DomainEvent.UserRegistered).id).isEqualTo(createdUser.id)
-        }
-
-        verifyMocks {
-            queryPersistence.getByEmail("someone@james.de")
-            commandPersistence.upsert(withArg {
-                it.assertions()
-            })
-            eventBus.publish(withArg {
-                it.assertions()
-            })
-        }
+    commandPersistence = mockk<UserCommandPersistencePort>().also {
+      every { it.upsert(any()) } answers { Validated.validNel(this.args[0] as User) }
     }
 
-    @Test
-    internal fun `duplicate email`() {
-        userAdminUseCases.registerUser("duplicate@james.de", "Joe").expectDomainErrors(
-            DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS)
-        )
-        verifyMocks {
-            queryPersistence.getByEmail("duplicate@james.de")
-        }
+    eventBus = mockk<EventBus>().also {
+      every { it.publish(any<DomainEvent.UserRegistered>()) } answers { Unit }
     }
 
-    @Test
-    internal fun `blank email`() {
-        userAdminUseCases.registerUser("", "Joe").expectDomainErrors(
-            DomainError(code = UserDomainErrorCodes.EMAIL_BLANK)
-        )
-        verifyMocks()
+    userAdminUseCases = UserAdminUseCasesService(queryPersistence, commandPersistence, eventBus)
+    userSelfServiceUseCases = UserSelfServiceUseCasesService(queryPersistence, commandPersistence)
+  }
+
+  @Test
+  internal fun `valid user`() {
+    fun User.assertions() {
+      assertThat(id).isNotIn(existingId, unknownId)
+      assertThat(email).isEqualTo("someone@james.de")
+      assertThat(name).isEqualTo("Some Name")
     }
 
-    @Test
-    internal fun `invalid email`() {
-        userAdminUseCases.registerUser("someone_james.de", "Joe").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.EMAIL_INVALID,
-                errorMessage = "'someone_james.de' does not match .+@.+\\..+",
-            )
-        )
-        verifyMocks()
+    val createdUser = userAdminUseCases.registerUser("  someone@james.de   ", " Some Name   \t").expectSuccess()
+    createdUser.assertions()
+
+    fun DomainEvent.assertions() {
+      assertThat(this).isInstanceOf(DomainEvent.UserRegistered::class.java)
+      assertThat((this as DomainEvent.UserRegistered).id).isEqualTo(createdUser.id)
     }
 
-    @Test
-    internal fun `blank name`() {
-        userAdminUseCases.registerUser("someone@james.de", " ").expectDomainErrors(
-            DomainError(code = UserDomainErrorCodes.NAME_BLANK)
-        )
-        verifyMocks()
+    verifyMocks {
+      queryPersistence.getByEmail("someone@james.de")
+      commandPersistence.upsert(withArg {
+        it.assertions()
+      })
+      eventBus.publish(withArg {
+        it.assertions()
+      })
+    }
+  }
+
+  @Test
+  internal fun `duplicate email`() {
+    userAdminUseCases.registerUser("duplicate@james.de", "Joe").expectDomainErrors(
+      DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS)
+    )
+    verifyMocks {
+      queryPersistence.getByEmail("duplicate@james.de")
+    }
+  }
+
+  @Test
+  internal fun `blank email`() {
+    userAdminUseCases.registerUser("", "Joe").expectDomainErrors(
+      DomainError(code = UserDomainErrorCodes.EMAIL_BLANK)
+    )
+    verifyMocks()
+  }
+
+  @Test
+  internal fun `invalid email`() {
+    userAdminUseCases.registerUser("someone_james.de", "Joe").expectDomainErrors(
+      DomainError(
+        code = UserDomainErrorCodes.EMAIL_INVALID,
+        errorMessage = "'someone_james.de' does not match .+@.+\\..+",
+      )
+    )
+    verifyMocks()
+  }
+
+  @Test
+  internal fun `blank name`() {
+    userAdminUseCases.registerUser("someone@james.de", " ").expectDomainErrors(
+      DomainError(code = UserDomainErrorCodes.NAME_BLANK)
+    )
+    verifyMocks()
+  }
+
+  @Test
+  internal fun `change email`() {
+    fun User.assertions() {
+      assertThat(id).isEqualTo(existingId)
+      assertThat(email).isEqualTo("someone_new@james.de")
+      assertThat(name).isEqualTo("Existing")
     }
 
-    @Test
-    internal fun `change email`() {
-        fun User.assertions() {
-            assertThat(id).isEqualTo(existingId)
-            assertThat(email).isEqualTo("someone_new@james.de")
-            assertThat(name).isEqualTo("Existing")
-        }
+    userSelfServiceUseCases.changeEmail(existingId, "someone_new@james.de").expectSuccess().assertions()
+    verifyMocks {
+      queryPersistence.getOrError(existingId)
+      queryPersistence.getByEmail("someone_new@james.de")
+      commandPersistence.upsert(withArg {
+        it.assertions()
+      })
+    }
+  }
 
-        userSelfServiceUseCases.changeEmail(existingId, "someone_new@james.de").expectSuccess().assertions()
-        verifyMocks {
-            queryPersistence.getOrError(existingId)
-            queryPersistence.getByEmail("someone_new@james.de")
-            commandPersistence.upsert(withArg {
-                it.assertions()
-            })
-        }
+  @Test
+  internal fun `change email unknown user`() {
+    userSelfServiceUseCases.changeEmail(unknownId, "someone_other@james.de").expectDomainErrors(
+      DomainError(
+        code = UserDomainErrorCodes.NOT_FOUND,
+        errorMessage = unknownId.toString(),
+      )
+    )
+
+    verifyMocks {
+      queryPersistence.getOrError(unknownId)
+    }
+  }
+
+  @Test
+  internal fun `change email duplicate mail`() {
+    userSelfServiceUseCases.changeEmail(existingId, "duplicate@james.de").expectDomainErrors(
+      DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS)
+    )
+
+    verifyMocks {
+      queryPersistence.getOrError(existingId)
+      queryPersistence.getByEmail("duplicate@james.de")
+    }
+  }
+
+  @Test
+  internal fun `change name`() {
+    fun User.assertions() {
+      assertThat(id).isEqualTo(existingId)
+      assertThat(email).isEqualTo("existing@james.de")
+      assertThat(name).isEqualTo("James")
     }
 
-    @Test
-    internal fun `change email unknown user`() {
-        userSelfServiceUseCases.changeEmail(unknownId, "someone_other@james.de").expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.NOT_FOUND,
-                errorMessage = unknownId.toString(),
-            )
-        )
-
-        verifyMocks {
-            queryPersistence.getOrError(unknownId)
-        }
+    userSelfServiceUseCases.changeName(existingId, "James").expectSuccess().assertions()
+    verifyMocks {
+      queryPersistence.getOrError(existingId)
+      commandPersistence.upsert(withArg {
+        it.assertions()
+      })
     }
+  }
 
-    @Test
-    internal fun `change email duplicate mail`() {
-        userSelfServiceUseCases.changeEmail(existingId, "duplicate@james.de").expectDomainErrors(
-            DomainError(code = UserDomainErrorCodes.EMAIL_EXISTS)
-        )
+  @Test
+  internal fun `change name invalid`() {
+    userSelfServiceUseCases.changeName(existingId, "").expectDomainErrors(
+      DomainError(code = UserDomainErrorCodes.NAME_BLANK)
+    )
 
-        verifyMocks {
-            queryPersistence.getOrError(existingId)
-            queryPersistence.getByEmail("duplicate@james.de")
-        }
+    verifyMocks {
+      queryPersistence.getOrError(existingId)
     }
+  }
 
-    @Test
-    internal fun `change name`() {
-        fun User.assertions() {
-            assertThat(id).isEqualTo(existingId)
-            assertThat(email).isEqualTo("existing@james.de")
-            assertThat(name).isEqualTo("James")
-        }
+  @Test
+  internal fun `existing user`() {
+    userAdminUseCases.deleteUser(existingId).expectDomainErrors(
+      DomainError(code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED)
+    )
 
-        userSelfServiceUseCases.changeName(existingId, "James").expectSuccess().assertions()
-        verifyMocks {
-            queryPersistence.getOrError(existingId)
-            commandPersistence.upsert(withArg {
-                it.assertions()
-            })
-        }
+    verifyMocks {
+      queryPersistence.getOrError(existingId)
     }
+  }
 
-    @Test
-    internal fun `change name invalid`() {
-        userSelfServiceUseCases.changeName(existingId, "").expectDomainErrors(
-            DomainError(code = UserDomainErrorCodes.NAME_BLANK)
-        )
+  @Test
+  internal fun `unknown user`() {
+    userAdminUseCases.deleteUser(unknownId).expectDomainErrors(
+      DomainError(
+        code = UserDomainErrorCodes.NOT_FOUND,
+        errorMessage = unknownId.toString(),
+      )
+    )
 
-        verifyMocks {
-            queryPersistence.getOrError(existingId)
-        }
+    verifyMocks {
+      queryPersistence.getOrError(unknownId)
     }
+  }
 
-    @Test
-    internal fun `existing user`() {
-        userAdminUseCases.deleteUser(existingId).expectDomainErrors(
-            DomainError(code = UserDomainErrorCodes.DELETE_NOT_SUPPORTED)
-        )
-
-        verifyMocks {
-            queryPersistence.getOrError(existingId)
-        }
+  private fun verifyMocks(verifyBlock: (MockKVerificationScope.() -> Unit)? = null) {
+    if (verifyBlock != null) {
+      verifySequence(inverse = false, verifyBlock = verifyBlock)
     }
-
-    @Test
-    internal fun `unknown user`() {
-        userAdminUseCases.deleteUser(unknownId).expectDomainErrors(
-            DomainError(
-                code = UserDomainErrorCodes.NOT_FOUND,
-                errorMessage = unknownId.toString(),
-            )
-        )
-
-        verifyMocks {
-            queryPersistence.getOrError(unknownId)
-        }
-    }
-
-    private fun verifyMocks(verifyBlock: (MockKVerificationScope.() -> Unit)? = null) {
-        if (verifyBlock != null) {
-            verifySequence(inverse = false, verifyBlock = verifyBlock)
-        }
-        confirmVerified(queryPersistence)
-        confirmVerified(commandPersistence)
-        confirmVerified(eventBus)
-    }
+    confirmVerified(queryPersistence)
+    confirmVerified(commandPersistence)
+    confirmVerified(eventBus)
+  }
 }

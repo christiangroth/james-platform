@@ -1,38 +1,33 @@
 package de.chrgroth.james.platform.domain.app
 
-import arrow.core.ValidatedNel
-import arrow.core.invalidNel
-import arrow.core.validNel
-import arrow.core.zip
-import de.chrgroth.james.DomainError
 import java.util.UUID
 
 @JvmInline
 // TODO change to UUID, but it's not serializable
 value class AppId(val value: String) {
-    companion object {
-        operator fun invoke(): AppId = AppId(UUID.randomUUID().toString())
-    }
+  companion object {
+    operator fun invoke(): AppId = AppId(UUID.randomUUID().toString())
+  }
 }
 
 fun String.toAppId(): AppId =
-    AppId(this)
+  AppId(this)
 
 data class App(
-    val id: AppId,
+  val id: AppId,
 ) {
-    companion object {
+  companion object {
 
-        // TODO run checks in parallel
-        operator fun invoke(): App =
-            App(
-                id = AppId(),
-            )
+    // TODO run checks in parallel
+    operator fun invoke(): App =
+      App(
+        id = AppId(),
+      )
 
-        fun fromEntity(
-            id: AppId,
-        ): App = App(
-            id = id,
-        )
-    }
+    fun fromEntity(
+      id: AppId,
+    ): App = App(
+      id = id,
+    )
+  }
 }

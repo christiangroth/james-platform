@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import java.util.*
+import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
 // TODO #2 maybe switch to Channels and Actors??

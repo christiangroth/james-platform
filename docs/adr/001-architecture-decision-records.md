@@ -6,7 +6,7 @@
 
 ## Context and Problem Statement
 
-To avoid forgetting about made decisions, especially when not working continuously on a project, the decision process should be documented. 
+To avoid forgetting about made decisions, especially when not working continuously on a project, the decision process should be documented.
 As there is no team involved in my personal spare-time projects, the decision-making should be directed in a structured but still lightweight way.
 The process of all decisions should be documented as close to the code as possible, e.g. in SCM.
 

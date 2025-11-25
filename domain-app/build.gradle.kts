@@ -1,11 +1,11 @@
 plugins {
-    id("kotlin-project")
+  id("kotlin-project")
 }
 
 dependencies {
-    api(project(":core"))
+  api(project(":core"))
 
-    api(enforcedPlatform(libs.quarkusBom))
-    api("io.quarkus:quarkus-arc")
-    api("io.quarkus:quarkus-vertx")
+  api(enforcedPlatform(libs.quarkusBom))
+  api("io.quarkus:quarkus-arc")
+  api("io.quarkus:quarkus-vertx")
 }

@@ -6,7 +6,9 @@
 
 ## Context and Problem Statement
 
-We needed a robust solution for database schema management and type-safe data access in our Quarkus-based application. The previous approach using SQLDelight proved problematic as it wasn't production-ready, had integration issues with JTA transaction management, and required manual schema evolution.
+We needed a robust solution for database schema management and type-safe data access in our Quarkus-based application.
+The previous approach using SQLDelight proved problematic as it wasn't production-ready, had integration issues with
+JTA transaction management, and required manual schema evolution.
 
 ## Decision Drivers
 
@@ -19,14 +21,17 @@ We needed a robust solution for database schema management and type-safe data ac
 ## Considered Options
 
 ### 1. Exposed
+
 * **Pros**: Native Kotlin DSL, type-safe queries
 * **Cons**: Poor Quarkus integration, custom transaction management, own lifecycle management
 
 ### 2. Flyway & JPA
+
 * **Pros**: De facto standard, good Quarkus integration
 * **Cons**: Duplicate schema definition (SQL + JPA entities), runtime type safety only
 
 ### 3. Flyway & jOOQ
+
 * **Pros**: Single source of truth (SQL migrations), compile-time type safety, good Quarkus integration
 * **Cons**: Build-time code generation adds complexity
 
@@ -41,7 +46,9 @@ We chose Flyway for schema migration and jOOQ for type-safe data access because:
 3. **Quarkus Integration**: Both tools integrate well with Quarkus and Kotlin
 4. **Transaction Management**: Works seamlessly with standard JTA annotations
 
-The build overhead of jOOQ code generation was deemed acceptable given the benefits of type safety and reduced maintenance. The application uses separate Gradle modules for subdomains, each with its own database schema, Flyway configurations, and jOOQ code generation, while sharing a single Quarkus default datasource to maintain simplicity.
+The build overhead of jOOQ code generation was deemed acceptable given the benefits of type safety and reduced maintenance.
+The application uses separate Gradle modules for subdomains, each with its own database schema, Flyway configurations, and
+jOOQ code generation, while sharing a single Quarkus default datasource to maintain simplicity.
 
 ### Positive Consequences
 
@@ -58,7 +65,8 @@ The build overhead of jOOQ code generation was deemed acceptable given the benef
 
 ## Implementation Details
 
-The basic configuration and minimal glue code are located in the `adapter-out-postgres` Gradle module, which serves as the foundation for database access across subdomains. Each subdomain module contains:
+The basic configuration and minimal glue code are located in the `adapter-out-postgres` Gradle module, which serves as the foundation for database access across subdomains.
+Each subdomain module contains:
 
 1. Flyway migration scripts in `src/main/resources/db/migration`
 2. jOOQ configuration for code generation

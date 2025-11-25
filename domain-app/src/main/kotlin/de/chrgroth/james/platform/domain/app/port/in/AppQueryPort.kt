@@ -6,6 +6,6 @@ import de.chrgroth.james.platform.domain.app.App
 import de.chrgroth.james.platform.domain.app.AppId
 
 interface AppQueryPort {
-    fun all(): ValidatedNel<DomainError, Set<App>>
-    fun byId(id: AppId): ValidatedNel<DomainError, App?>
+  fun all(): ValidatedNel<DomainError, Set<App>>
+  fun byId(id: AppId): ValidatedNel<DomainError, App?>
 }

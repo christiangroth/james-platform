@@ -18,10 +18,10 @@ import jakarta.annotation.Priority
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.event.Observes
 import jakarta.inject.Inject
-import java.sql.SQLIntegrityConstraintViolationException
 import mu.KLogging
 import org.jooq.DSLContext
 import org.jooq.exception.IntegrityConstraintViolationException
+import java.sql.SQLIntegrityConstraintViolationException
 
 @ApplicationScoped
 @Suppress("Unused")

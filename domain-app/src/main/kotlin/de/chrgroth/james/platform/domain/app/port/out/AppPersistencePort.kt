@@ -6,7 +6,7 @@ import de.chrgroth.james.platform.domain.app.App
 import de.chrgroth.james.platform.domain.app.AppId
 
 interface AppPersistencePort {
-    fun byId(id: AppId): ValidatedNel<DomainError, App?>
-    fun all(): ValidatedNel<DomainError, Set<App>>
-    fun create(app: App): ValidatedNel<DomainError, Unit>
+  fun byId(id: AppId): ValidatedNel<DomainError, App?>
+  fun all(): ValidatedNel<DomainError, Set<App>>
+  fun create(app: App): ValidatedNel<DomainError, Unit>
 }

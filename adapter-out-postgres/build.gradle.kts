@@ -1,9 +1,9 @@
 plugins {
-    id("kotlin-project")
+  id("kotlin-project")
 }
 
 dependencies {
-    api(enforcedPlatform(libs.quarkusBom))
-    api("io.quarkus:quarkus-jdbc-postgresql")
-    api("io.quarkus:quarkus-flyway")
+  api(enforcedPlatform(libs.quarkusBom))
+  api("io.quarkus:quarkus-jdbc-postgresql")
+  api("io.quarkus:quarkus-flyway")
 }

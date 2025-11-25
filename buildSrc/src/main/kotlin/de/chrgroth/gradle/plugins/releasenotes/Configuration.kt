@@ -1,7 +1,7 @@
 package de.chrgroth.gradle.plugins.releasenotes
 
-import java.io.File
 import org.gradle.api.Project
+import java.io.File
 
 // TODO would be great to have a single source of truth and multiple renderers
 // TODO render to sourcesDir directly to always have the latest version available (i.e. for quarkus dev mode)

@@ -1,10 +1,10 @@
 plugins {
-    id("kotlin-project")
+  id("kotlin-project")
 }
 
 dependencies {
-    // TODO remove from API?
-    api(libs.semverKt)
+  // TODO remove from API?
+  api(libs.semverKt)
 
-    testImplementation(testFixtures(project(":core")))
+  testImplementation(testFixtures(project(":core")))
 }

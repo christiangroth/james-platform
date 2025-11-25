@@ -15,194 +15,194 @@ import de.chrgroth.james.trimToNull
 import java.util.UUID
 
 data class Workspace private constructor(
-    val id: UUID,
-    val userId: UUID,
-    private var orderField: Long,
-    private var nameField: String,
-    val appInstallations: List<AppInstallation>,
+  val id: UUID,
+  val userId: UUID,
+  private var orderField: Long,
+  private var nameField: String,
+  val appInstallations: List<AppInstallation>,
 ) {
 
-    companion object {
+  companion object {
 
-        private val orderParser = notNegativeLongParser(
-            WorkspaceDomainErrorCodes.ORDER_NEGATIVE
-        )
+    private val orderParser = notNegativeLongParser(
+      WorkspaceDomainErrorCodes.ORDER_NEGATIVE
+    )
 
-        private val nameParser = notBlankParser(
-            WorkspaceDomainErrorCodes.NAME_BLANK
-        )
+    private val nameParser = notBlankParser(
+      WorkspaceDomainErrorCodes.NAME_BLANK
+    )
 
-        private data class WorkspaceParserInput(val order: Long, val name: String)
+    private data class WorkspaceParserInput(val order: Long, val name: String)
 
-        fun create(
-            id: UUID = UUID.randomUUID(),
-            userId: UUID,
-            order: Long,
-            name: String,
-            appInstallations: List<AppInstallation> = emptyList(),
-        ): ValidatedNel<DomainError, Workspace> {
+    fun create(
+      id: UUID = UUID.randomUUID(),
+      userId: UUID,
+      order: Long,
+      name: String,
+      appInstallations: List<AppInstallation> = emptyList(),
+    ): ValidatedNel<DomainError, Workspace> {
 
-            val workspaceParser: Parser<WorkspaceParserInput, Workspace, DomainError> = Parser
-                .compose(
-                    orderParser.contramap { it.order.toString() },
-                    nameParser.contramap { it.name },
-                ) { validOrder, validName ->
-                    Workspace(
-                        id = id,
-                        userId = userId,
-                        orderField = validOrder,
-                        nameField = validName,
-                        appInstallations = appInstallations,
-                    )
-                }
-
-            return workspaceParser.parse(WorkspaceParserInput(order, name))
+      val workspaceParser: Parser<WorkspaceParserInput, Workspace, DomainError> = Parser
+        .compose(
+          orderParser.contramap { it.order.toString() },
+          nameParser.contramap { it.name },
+        ) { validOrder, validName ->
+          Workspace(
+            id = id,
+            userId = userId,
+            orderField = validOrder,
+            nameField = validName,
+            appInstallations = appInstallations,
+          )
         }
+
+      return workspaceParser.parse(WorkspaceParserInput(order, name))
+    }
+  }
+
+  val order get() = orderField
+  val name get() = nameField
+
+  internal fun changeOrder(order: Long): ValidatedNel<DomainError, Workspace> =
+    create(id, userId, order, nameField, appInstallations)
+
+  internal fun changeName(name: String): ValidatedNel<DomainError, Workspace> =
+    create(id, userId, orderField, name, appInstallations)
+
+  internal fun installApp(appId: UUID, appVersion: Semver): ValidatedNel<DomainError, Workspace> =
+    AppInstallation.create(
+      appId = appId,
+      version = appVersion,
+      nameSupplement = null,
+    ).andThen {
+      create(id, userId, orderField, nameField, appInstallations.plus(it))
     }
 
-    val order get() = orderField
-    val name get() = nameField
+  internal fun acceptAppMigration(app: AppInstallation): ValidatedNel<DomainError, Workspace> =
+    create(id, userId, orderField, nameField, appInstallations.plus(app))
 
-    internal fun changeOrder(order: Long): ValidatedNel<DomainError, Workspace> =
-        create(id, userId, order, nameField, appInstallations)
+  internal fun acceptAppDemigration(app: AppInstallation): ValidatedNel<DomainError, Workspace> =
+    create(id, userId, orderField, nameField, appInstallations.minus(app))
 
-    internal fun changeName(name: String): ValidatedNel<DomainError, Workspace> =
-        create(id, userId, orderField, name, appInstallations)
+  internal fun reorderAppInstallations(order: List<UUID>): ValidatedNel<DomainError, Workspace> {
+    val existingIds = appInstallations.map { it.id }
 
-    internal fun installApp(appId: UUID, appVersion: Semver): ValidatedNel<DomainError, Workspace> =
-        AppInstallation.create(
-            appId = appId,
-            version = appVersion,
-            nameSupplement = null,
-        ).andThen {
-            create(id, userId, orderField, nameField, appInstallations.plus(it))
-        }
+    val newIds = order.minus(existingIds.toSet())
+    val newIdsValidation = createValidation(
+      errorCondition = newIds.isNotEmpty(),
+      domainErrorCode = WorkspaceDomainErrorCodes.REORDER_APPS_UNKNOWN_IDS,
+      errorMessage = newIds.toString(),
+    ) {}
 
-    internal fun acceptAppMigration(app: AppInstallation): ValidatedNel<DomainError, Workspace> =
-        create(id, userId, orderField, nameField, appInstallations.plus(app))
+    val missingIds = existingIds.minus(order.toSet())
+    val missingIdsValidation = createValidation(
+      errorCondition = missingIds.isNotEmpty(),
+      domainErrorCode = WorkspaceDomainErrorCodes.REORDER_APPS_MISSING_IDS,
+      errorMessage = missingIds.toString(),
+    ) {}
 
-    internal fun acceptAppDemigration(app: AppInstallation): ValidatedNel<DomainError, Workspace> =
-        create(id, userId, orderField, nameField, appInstallations.minus(app))
+    return listOf(newIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {
+      create(id, userId, orderField, nameField, order.map { orderId ->
+        appInstallations.first { it.id == orderId }
+      })
+    }
+  }
 
-    internal fun reorderAppInstallations(order: List<UUID>): ValidatedNel<DomainError, Workspace> {
-        val existingIds = appInstallations.map { it.id }
-
-        val newIds = order.minus(existingIds.toSet())
-        val newIdsValidation = createValidation(
-            errorCondition = newIds.isNotEmpty(),
-            domainErrorCode = WorkspaceDomainErrorCodes.REORDER_APPS_UNKNOWN_IDS,
-            errorMessage = newIds.toString(),
-        ) {}
-
-        val missingIds = existingIds.minus(order.toSet())
-        val missingIdsValidation = createValidation(
-            errorCondition = missingIds.isNotEmpty(),
-            domainErrorCode = WorkspaceDomainErrorCodes.REORDER_APPS_MISSING_IDS,
-            errorMessage = missingIds.toString(),
-        ) {}
-
-        return listOf(newIdsValidation, missingIdsValidation).reduceWithFirstValue().andThen {
-            create(id, userId, orderField, nameField, order.map { orderId ->
-                appInstallations.first { it.id == orderId }
-            })
-        }
+  internal fun nameAppInstallation(id: UUID, nameSupplement: String?): ValidatedNel<DomainError, Workspace> =
+    modifyAppInstallation(id) {
+      it.changeNameSupplement(nameSupplement)
     }
 
-    internal fun nameAppInstallation(id: UUID, nameSupplement: String?): ValidatedNel<DomainError, Workspace> =
-        modifyAppInstallation(id) {
-            it.changeNameSupplement(nameSupplement)
-        }
+  internal fun updateAppInstallation(id: UUID, version: Semver): ValidatedNel<DomainError, Workspace> =
+    modifyAppInstallation(id) {
+      it.changeVersion(version)
+    }
 
-    internal fun updateAppInstallation(id: UUID, version: Semver): ValidatedNel<DomainError, Workspace> =
-        modifyAppInstallation(id) {
-            it.changeVersion(version)
-        }
+  private fun modifyAppInstallation(
+    appInstallationId: UUID,
+    modifier: (AppInstallation) -> ValidatedNel<DomainError, AppInstallation>,
+  ): ValidatedNel<DomainError, Workspace> =
+    getAppInstallationOrError(appInstallationId).andThen {
+      modifier(it).andThen { updatedAppInstallation ->
+        create(id, userId, orderField, nameField, appInstallations.map {
+          if (it.id == appInstallationId) {
+            updatedAppInstallation
+          } else {
+            it
+          }
+        })
+      }
+    }
 
-    private fun modifyAppInstallation(
-        appInstallationId: UUID,
-        modifier: (AppInstallation) -> ValidatedNel<DomainError, AppInstallation>,
-    ): ValidatedNel<DomainError, Workspace> =
-        getAppInstallationOrError(appInstallationId).andThen {
-            modifier(it).andThen { updatedAppInstallation ->
-                create(id, userId, orderField, nameField, appInstallations.map {
-                    if (it.id == appInstallationId) {
-                        updatedAppInstallation
-                    } else {
-                        it
-                    }
-                })
-            }
-        }
+  internal fun uninstallApp(id: UUID): ValidatedNel<DomainError, Workspace> =
+    getAppInstallationOrError(id).andThen { app ->
+      app.verifyDeletion()
+    }.andThen {
+      create(id, userId, orderField, nameField, appInstallations.filterNot { it.id == id })
+    }
 
-    internal fun uninstallApp(id: UUID): ValidatedNel<DomainError, Workspace> =
-        getAppInstallationOrError(id).andThen { app ->
-            app.verifyDeletion()
-        }.andThen {
-            create(id, userId, orderField, nameField, appInstallations.filterNot { it.id == id })
-        }
+  internal fun getAppInstallationOrError(appInstallationId: UUID): ValidatedNel<DomainError, AppInstallation> =
+    appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
+      createValidation(
+        errorCondition = app == null,
+        domainErrorCode = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
+        errorMessage = appInstallationId.toString(),
+      ) { app!! }
+    }
 
-    internal fun getAppInstallationOrError(appInstallationId: UUID): ValidatedNel<DomainError, AppInstallation> =
-        appInstallations.firstOrNull { it.id == appInstallationId }.let { app ->
-            createValidation(
-                errorCondition = app == null,
-                domainErrorCode = WorkspaceDomainErrorCodes.INSTALLATION_NOT_FOUND,
-                errorMessage = appInstallationId.toString(),
-            ) { app!! }
-        }
-
-    internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
-        createValidation(
-            errorCondition = appInstallations.isNotEmpty(),
-            domainErrorCode = WorkspaceDomainErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
-            errorMessage = appInstallations.count().toString()
-        ) {}
+  internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
+    createValidation(
+      errorCondition = appInstallations.isNotEmpty(),
+      domainErrorCode = WorkspaceDomainErrorCodes.DELETE_WORKSPACE_INSTALLED_APPS,
+      errorMessage = appInstallations.count().toString()
+    ) {}
 }
 
 // TODO #1 add data sharing options
 // TODO #1 think about access for devices / api keys
 data class AppInstallation private constructor(
-    val id: UUID,
-    val appId: UUID,
-    val version: Semver,
-    private var nameSupplementField: String?,
+  val id: UUID,
+  val appId: UUID,
+  val version: Semver,
+  private var nameSupplementField: String?,
 ) {
 
-    companion object {
-        fun create(id: UUID = UUID.randomUUID(), appId: UUID, version: Semver, nameSupplement: String?): ValidatedNel<DomainError, AppInstallation> =
-            Validated.validNel(
-                AppInstallation(
-                    id = id,
-                    appId = appId,
-                    version = version,
-                    nameSupplementField = nameSupplement
-                )
-            )
-    }
-
-    init {
-        nameSupplementField = nameSupplementField.trimToNull()
-    }
-
-    val nameSupplement get() = nameSupplementField
-
-    internal fun changeNameSupplement(nameSupplement: String?): ValidatedNel<DomainError, AppInstallation> =
-        create(id, appId, version, nameSupplement)
-
-    // TODO #2 trigger data update, handle breaking changes
-    internal fun changeVersion(version: Semver): ValidatedNel<DomainError, AppInstallation> =
-        createValidation(
-            this.version >= version,
-            WorkspaceDomainErrorCodes.DOWNGRADE_NOT_SUPPORTED,
-            "${this.version} >= $version",
-        ) {}
-            .andThen {
-                create(id, appId, version, nameSupplementField)
-            }
-
-    // TODO #1 define rules for deleting apps with shared data
-    // TODO #2 app may be deleted, data also: implement this
-    internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
-        Validated.invalidNel(
-            DomainError(code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED)
+  companion object {
+    fun create(id: UUID = UUID.randomUUID(), appId: UUID, version: Semver, nameSupplement: String?): ValidatedNel<DomainError, AppInstallation> =
+      Validated.validNel(
+        AppInstallation(
+          id = id,
+          appId = appId,
+          version = version,
+          nameSupplementField = nameSupplement
         )
+      )
+  }
+
+  init {
+    nameSupplementField = nameSupplementField.trimToNull()
+  }
+
+  val nameSupplement get() = nameSupplementField
+
+  internal fun changeNameSupplement(nameSupplement: String?): ValidatedNel<DomainError, AppInstallation> =
+    create(id, appId, version, nameSupplement)
+
+  // TODO #2 trigger data update, handle breaking changes
+  internal fun changeVersion(version: Semver): ValidatedNel<DomainError, AppInstallation> =
+    createValidation(
+      this.version >= version,
+      WorkspaceDomainErrorCodes.DOWNGRADE_NOT_SUPPORTED,
+      "${this.version} >= $version",
+    ) {}
+      .andThen {
+        create(id, appId, version, nameSupplementField)
+      }
+
+  // TODO #1 define rules for deleting apps with shared data
+  // TODO #2 app may be deleted, data also: implement this
+  internal fun verifyDeletion(): ValidatedNel<DomainError, Unit> =
+    Validated.invalidNel(
+      DomainError(code = WorkspaceDomainErrorCodes.UNINSTALL_NOT_SUPPORTED)
+    )
 }

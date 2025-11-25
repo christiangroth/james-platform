@@ -1,18 +1,18 @@
 plugins {
-    `kotlin-dsl`
-    `java-gradle-plugin`
+  `kotlin-dsl`
+  `java-gradle-plugin`
 }
 
 repositories {
-    mavenCentral()
-    gradlePluginPortal()
+  mavenCentral()
+  gradlePluginPortal()
 }
 
 dependencies {
-    implementation(libs.kotlinGradlePlugin)
-    implementation(libs.detekt)
-    implementation(libs.kover)
+  implementation(libs.kotlinGradlePlugin)
+  implementation(libs.detekt)
+  implementation(libs.kover)
 
-    // releasenotes plugin
-    implementation(libs.grgit)
+  // releasenotes plugin
+  implementation(libs.grgit)
 }

@@ -1,14 +1,14 @@
 package de.chrgroth.gradle.plugins.releasenotes
 
 import de.chrgroth.gradle.plugins.releasenotes.ProjectVersion.Companion.toProjectVersion
-import java.io.File
-import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
 import org.ajoberstar.grgit.Grgit
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.io.File
+import java.util.concurrent.TimeUnit
+import java.util.regex.Pattern
 
 private const val EXTENSION_NAME = "releasenotes"
 private const val TASK_GROUP_NAME = "releasenotes"

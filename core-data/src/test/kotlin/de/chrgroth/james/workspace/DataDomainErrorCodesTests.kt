@@ -7,13 +7,13 @@ import org.junit.jupiter.api.Test
 
 class DataDomainErrorCodesTests {
 
-    @Test
-    fun ensureErrorCodesNotChanged() {
-        assertThat(NOT_FOUND.toGlobalRepresentation()).isEqualTo("DATA_000_NOT_FOUND")
-    }
+  @Test
+  fun ensureErrorCodesNotChanged() {
+    assertThat(NOT_FOUND.toGlobalRepresentation()).isEqualTo("DATA_000_NOT_FOUND")
+  }
 
-    @Test
-    fun ensureNumberOfErrorCodesNotChanged() {
-        assertThat(DataDomainErrorCodes.values()).hasSize(1)
-    }
+  @Test
+  fun ensureNumberOfErrorCodesNotChanged() {
+    assertThat(DataDomainErrorCodes.values()).hasSize(1)
+  }
 }

@@ -4,5 +4,5 @@ import arrow.core.ValidatedNel
 import de.chrgroth.james.DomainError
 
 interface AppCommandPort {
-    fun create(): ValidatedNel<DomainError, Unit>
+  fun create(): ValidatedNel<DomainError, Unit>
 }
