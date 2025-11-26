@@ -1,8 +1,7 @@
 [versions]
 # @pin
 arrow = "1.1.2"
-# @pin
-assertJ = "3.23.1"
+assertJ = "3.27.6"
 buildTimeTracker = "5.0.1"
 detekt = "1.23.8"
 grgit = "5.3.3"
@@ -19,8 +18,8 @@ kover = "0.6.1"
 # @pin
 mockk = "1.13.9"
 openapiGenerator = "7.17.0"
-# @pin -> break tests in gradle: probably due to unaligned versions of the junit-platform-engine and junit-platform-launcher jars on the classpath/module path.
-quarkus = "3.18.3"
+# @pin -> keep LTS version: https://github.com/quarkusio/quarkus/wiki/Migration-Guides
+quarkus = "3.20.3"
 release = "3.1.0"
 semverKt = "1.0.1"
 versionCatalogUpdate = "1.0.1"
