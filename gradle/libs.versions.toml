@@ -2,16 +2,15 @@
 arrow = "1.1.2"
 assertJ = "3.23.1"
 buildTimeTracker = "5.0.1"
-detekt = "1.23.3"
-grgit = "5.3.0"
-jooq = "3.20.5"
-jooqGeneratorPostgres = "42.7.7"
-jooqGeneratorPostgresTestcontainers = "1.19.0"
+detekt = "1.23.8"
+grgit = "5.3.3"
+jooq = "3.20.9"
+jooqGeneratorPostgres = "42.7.8"
+jooqGeneratorPostgresTestcontainers = "1.21.3"
 jooqPlugin = "10.1.1"
 junit = "5.9.0"
 kotlin = "2.0.21"
-kotlinLogging = "1.8.3"
-kotlinxCoroutines = "1.7.0-Beta"
+kotlinLogging = "3.0.5"
 kover = "0.6.1"
 mockk = "1.13.9"
 openapiGenerator = "7.11.0"
@@ -19,8 +18,8 @@ quarkus = "3.18.3"
 release = "3.1.0"
 semverKt = "1.0.1"
 versionCatalogUpdate = "1.0.1"
-webjarAlpinejs = "3.15.1"
-webjarMarked = "12.0.2"
+webjarAlpinejs = "3.15.2"
+webjarMarked = "16.4.1"
 
 [libraries]
 arrow = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
@@ -33,7 +32,6 @@ jooqGeneratorPostgresTestcontainers = { module = "org.testcontainers:postgresql"
 junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinLogging = { module = "io.github.microutils:kotlin-logging", version.ref = "kotlinLogging" }
-kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kover = { module = "org.jetbrains.kotlinx:kover", version.ref = "kover" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
