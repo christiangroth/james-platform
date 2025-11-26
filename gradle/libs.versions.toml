@@ -14,8 +14,8 @@ junit = "5.9.0"
 kotlin = "2.2.21"
 kotlinLogging = "3.0.5"
 kover = "0.6.1"
-# @pin
-mockk = "1.13.9"
+# @pin -> 1.14.3 introduces a breaking change due to a junit update
+mockk = "1.14.2"
 openapiGenerator = "7.17.0"
 # @pin -> keep LTS version: https://github.com/quarkusio/quarkus/wiki/Migration-Guides
 quarkus = "3.20.3"
