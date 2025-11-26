@@ -1,5 +1,7 @@
 [versions]
+# @pin
 arrow = "1.1.2"
+# @pin
 assertJ = "3.23.1"
 buildTimeTracker = "5.0.1"
 detekt = "1.23.8"
@@ -8,12 +10,16 @@ jooq = "3.20.9"
 jooqGeneratorPostgres = "42.7.8"
 jooqGeneratorPostgresTestcontainers = "1.21.3"
 jooqPlugin = "10.1.1"
+# @pin -> junit 6 needs kotlin 2.2
 junit = "5.9.0"
+# @pin -> break tests in gradle: probably due to unaligned versions of the junit-platform-engine and junit-platform-launcher jars on the classpath/module path.
 kotlin = "2.0.21"
 kotlinLogging = "3.0.5"
 kover = "0.6.1"
+# @pin
 mockk = "1.13.9"
-openapiGenerator = "7.11.0"
+openapiGenerator = "7.17.0"
+# @pin -> break tests in gradle: probably due to unaligned versions of the junit-platform-engine and junit-platform-launcher jars on the classpath/module path.
 quarkus = "3.18.3"
 release = "3.1.0"
 semverKt = "1.0.1"

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./gradlew updateVersionCatalog
+./gradlew versionCatalogUpdate
