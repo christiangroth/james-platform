@@ -30,7 +30,6 @@ dependencies {
   implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
   implementation("org.jetbrains.kotlin:kotlin-reflect")
-  implementation(libs.findLibrary("kotlinxCoroutines").get())
   implementation(libs.findLibrary("kotlinLogging").get())
 
   api(libs.findLibrary("arrow").get())
