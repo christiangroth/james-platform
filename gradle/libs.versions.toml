@@ -11,8 +11,7 @@ jooqGeneratorPostgresTestcontainers = "1.21.3"
 jooqPlugin = "10.1.1"
 # @pin -> junit 6 needs kotlin 2.2
 junit = "5.9.0"
-# @pin -> break tests in gradle: probably due to unaligned versions of the junit-platform-engine and junit-platform-launcher jars on the classpath/module path.
-kotlin = "2.0.21"
+kotlin = "2.2.21"
 kotlinLogging = "3.0.5"
 kover = "0.6.1"
 # @pin
