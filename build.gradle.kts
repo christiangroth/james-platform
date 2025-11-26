@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.release)
   id("de.chrgroth.gradle.plugins.releasenotes")
   alias(libs.plugins.buildTimeTracker)
+  alias(libs.plugins.versionCatalogUpdate)
 }
 
 buildTimeTracker {
