@@ -5,7 +5,6 @@ import de.chrgroth.james.platform.domain.user.USER_ROLE_DEVELOPER
 import de.chrgroth.james.platform.domain.user.port.`in`.UserQueryPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
-import io.quarkus.qute.TemplateInstance
 import io.quarkus.security.Authenticated
 import jakarta.annotation.security.PermitAll
 import jakarta.annotation.security.RolesAllowed
@@ -58,8 +57,8 @@ class LoginTemplate {
 
   @GET
   @Produces(MediaType.TEXT_HTML)
-  fun login(): TemplateInstance {
-    return login.data(Unit)
+  fun login(): String {
+    return login.data(Unit).render()
   }
 }
 
@@ -75,8 +74,8 @@ class UserTemplates {
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
-  fun dashboard(): TemplateInstance {
-    return dashboard.data(Unit)
+  fun dashboard(): String {
+    return dashboard.data(Unit).render()
   }
 }
 
@@ -92,9 +91,9 @@ class DeveloperTemplates {
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
-  fun dashboard(): TemplateInstance {
+  fun dashboard(): String {
     logger.info { "developer dashboard" }
-    return dashboard.data(Unit)
+    return dashboard.data(Unit).render()
   }
 
   companion object : KLogging()
@@ -119,19 +118,19 @@ class AdminTemplates {
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
-  fun dashboard(): TemplateInstance {
+  fun dashboard(): String {
     return userQueryPort.all().fold({
       // TODO error handling
       dashboard.data(Unit)
     }, {
       dashboard.data("numberOfUsers", it.size)
-    })
+    }).render()
   }
 
   @GET
   @Path("/users")
   @Produces(MediaType.TEXT_HTML)
-  fun users(): TemplateInstance {
-    return users.data(Unit)
+  fun users(): String {
+    return users.data(Unit).render()
   }
 }

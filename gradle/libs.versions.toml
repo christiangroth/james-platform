@@ -21,6 +21,8 @@ kotlinLogging = "1.8.3"
 mockk = "1.13.9"
 semverKt = "1.0.1"
 webjarAlpinejs = "3.15.1"
+webjarBootstrap = "5.3.8"
+webjarFontawesome = "7.0.1"
 webjarMarked = "12.0.2"
 
 # tools & plugins
@@ -54,6 +56,8 @@ kotlinLogging = { module = "io.github.microutils:kotlin-logging", version.ref = 
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 semverKt = { module = "com.github.glwithu06:semver.kt", version.ref = "semverKt" }
 webjarAlpinejs = { module = "org.webjars.npm:alpinejs", version.ref = "webjarAlpinejs" }
+webjarBootstrap = { module = "org.webjars:bootstrap", version.ref = "webjarBootstrap" }
+webjarFontawesome = { module = "org.webjars:font-awesome", version.ref = "webjarFontawesome" }
 webjarMarked = { module = "org.webjars.npm:marked", version.ref = "webjarMarked" }
 
 # tools & plugins

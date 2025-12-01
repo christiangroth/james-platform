@@ -32,6 +32,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.jboss.resteasy.reactive.RestResponse
 import java.time.Instant
 import java.util.Date
+import kotlin.time.Duration.Companion.seconds
+
+const val FAILED_LOGIN_DELAY_SECONDS = 5
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -49,6 +52,7 @@ internal class JamesFormLoginIdentityProvider : IdentityProvider<UsernamePasswor
   ): Uni<SecurityIdentity> =
     context.runBlocking {
       port.authenticate(request.username, request.password.password.concatToString()).fold({
+        Thread.sleep(FAILED_LOGIN_DELAY_SECONDS.seconds.inWholeMilliseconds)
         throw AuthenticationFailedException()
       }, { user ->
         user.toPrincipal()
@@ -74,6 +78,7 @@ internal class JamesAuthCookieIdentityProvider : IdentityProvider<TrustedAuthent
   ): Uni<SecurityIdentity> =
     context.runBlocking {
       port.byUsername(request.principal).fold({
+        Thread.sleep(FAILED_LOGIN_DELAY_SECONDS.seconds.inWholeMilliseconds)
         throw AuthenticationFailedException()
       }, { user ->
         user?.toPrincipal() ?: throw AuthenticationFailedException()

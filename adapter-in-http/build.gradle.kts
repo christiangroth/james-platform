@@ -17,6 +17,8 @@ dependencies {
   api("io.quarkus:quarkus-web-dependency-locator")
 
   api(libs.webjarAlpinejs)
+  api(libs.webjarBootstrap)
+  api(libs.webjarFontawesome)
   api(libs.webjarMarked)
 }
 
