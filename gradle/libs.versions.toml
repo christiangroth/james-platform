@@ -1,80 +1,68 @@
 [versions]
-
-# java & kotlin
-kotlin = "2.0.21"
-kotlinxCoroutines = "1.7.0-Beta"
-
-# quarkus
-quarkus = "3.18.3"
-
-# jooq
-jooq = "3.20.5"
-jooqPlugin = "10.1.1"
-jooqGeneratorPostgres = "42.7.7"
-jooqGeneratorPostgresTestcontainers = "1.19.0"
-
-# libraries
+# @pin
 arrow = "1.1.2"
-assertJ = "3.23.1"
+assertJ = "3.27.6"
+buildTimeTracker = "5.0.1"
+detekt = "1.23.8"
+grgit = "5.3.3"
+jooq = "3.20.9"
+jooqGeneratorPostgres = "42.7.8"
+jooqGeneratorPostgresTestcontainers = "1.21.3"
+jooqPlugin = "10.1.1"
+# @pin -> gradle error: probably due to unaligned versions of the junit-platform-engine and junit-platform-launcher jars on the classpath/module path
 junit = "5.9.0"
-kotlinLogging = "1.8.3"
-mockk = "1.13.9"
+kotlin = "2.2.21"
+kotlinLogging = "3.0.5"
+kover = "0.6.1"
+# @pin -> 1.14.3 introduces a breaking change due to a junit update
+mockk = "1.14.2"
+openapiGenerator = "7.17.0"
+# @pin -> keep LTS version: https://github.com/quarkusio/quarkus/wiki/Migration-Guides
+quarkus = "3.20.3"
+release = "3.1.0"
 semverKt = "1.0.1"
-webjarAlpinejs = "3.15.1"
+versionCatalogUpdate = "1.0.1"
+webjarAlpinejs = "3.15.2"
 webjarBootstrap = "5.3.8"
 webjarFontawesome = "7.0.1"
-webjarMarked = "12.0.2"
-
-# tools & plugins
-buildTimeTracker = "5.0.1"
-detekt = "1.23.3"
-grgit = "5.3.0"
-kover = "0.6.1"
-openapiGenerator = "7.11.0"
-release = "3.1.0"
+webjarMarked = "16.4.1"
 
 [libraries]
-
-# kotlin
-kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
-kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
-
-# quarkus
-quarkusBom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
-quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
-
-# jooq
+arrow = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
+assertJ = { module = "org.assertj:assertj-core", version.ref = "assertJ" }
+detekt = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+grgit = { module = "org.ajoberstar.grgit:grgit-core", version.ref = "grgit" }
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 jooqGeneratorPostgres = { module = "org.postgresql:postgresql", version.ref = "jooqGeneratorPostgres" }
 jooqGeneratorPostgresTestcontainers = { module = "org.testcontainers:postgresql", version.ref = "jooqGeneratorPostgresTestcontainers" }
-
-# libraries
-arrow = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
-assertJ = { module = "org.assertj:assertj-core", version.ref = "assertJ" }
 junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinLogging = { module = "io.github.microutils:kotlin-logging", version.ref = "kotlinLogging" }
+kover = { module = "org.jetbrains.kotlinx:kover", version.ref = "kover" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
+quarkusBom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
 semverKt = { module = "com.github.glwithu06:semver.kt", version.ref = "semverKt" }
 webjarAlpinejs = { module = "org.webjars.npm:alpinejs", version.ref = "webjarAlpinejs" }
 webjarBootstrap = { module = "org.webjars:bootstrap", version.ref = "webjarBootstrap" }
 webjarFontawesome = { module = "org.webjars:font-awesome", version.ref = "webjarFontawesome" }
 webjarMarked = { module = "org.webjars.npm:marked", version.ref = "webjarMarked" }
 
-# tools & plugins
-detekt = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
-grgit = { module = "org.ajoberstar.grgit:grgit-core", version.ref = "grgit" }
-kover = { module = "org.jetbrains.kotlinx:kover", version.ref = "kover" }
-
 [bundles]
-
-jooq = ["quarkusAgroal", "jooq"]
-jooqGenerator = ["jooqGeneratorPostgres", "jooqGeneratorPostgresTestcontainers"]
+jooq = [
+    "jooq",
+    "quarkusAgroal",
+]
+jooqGenerator = [
+    "jooqGeneratorPostgres",
+    "jooqGeneratorPostgresTestcontainers",
+]
 
 [plugins]
-
 allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
 buildTimeTracker = { id = "com.asarkar.gradle.build-time-tracker", version.ref = "buildTimeTracker" }
 jooq = { id = "nu.studer.jooq", version.ref = "jooqPlugin" }
 openapiGenerator = { id = "org.openapi.generator", version.ref = "openapiGenerator" }
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }
 release = { id = "net.researchgate.release", version.ref = "release" }
+versionCatalogUpdate = { id = "nl.littlerobots.version-catalog-update", version.ref = "versionCatalogUpdate" }
