@@ -32,7 +32,7 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
       - name: Log into registry ghcr.io
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
