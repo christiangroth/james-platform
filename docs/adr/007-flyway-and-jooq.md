@@ -1,6 +1,6 @@
 # Using Flyway and jOOQ for Schema Evolution and Persistence Code Generation
 
-* Status: accepted / reopen
+* Status: accepted
 * Deciders: Chris
 * Date: 2025-10-01
 
