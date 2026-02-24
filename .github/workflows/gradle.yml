@@ -67,7 +67,7 @@ jobs:
             echo $GHCR_PAT | docker login ghcr.io -u christiangroth --password-stdin
             
             echo "cloning git repo"
-            GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git clone --depth 1 git@github.com:christiangroth/$GIT_PROJECT.git $GIT_PROJECT
+            GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git clone -v --depth 1 git@github.com:christiangroth/$GIT_PROJECT.git $GIT_PROJECT
             cd $GIT_PROJECT
             
             echo "deploying docker stack"
