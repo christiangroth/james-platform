@@ -14,6 +14,7 @@ services:
         - "traefik.http.routers.jamesplatform.rule=${TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE:?please export TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE}"
         - "traefik.http.routers.jamesplatform.entryPoints=websecure"
         - "traefik.http.routers.jamesplatform.tls=true"
+        - "traefik.http.routers.jamesplatform.tls.certresolver=le"
         - "traefik.http.services.jamesplatform-svc.loadbalancer.server.port=8080"
         - "traefik.swarm.network=global_router"
     volumes:
