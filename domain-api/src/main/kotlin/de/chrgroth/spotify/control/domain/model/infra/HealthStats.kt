@@ -1,7 +1,6 @@
 package de.chrgroth.spotify.control.domain.model.infra
 
 data class HealthStats(
-  val outgoingRequestStats: List<OutgoingRequestStats>,
   val outboxPartitions: List<OutboxPartitionStats>,
   val mongoCollectionStats: List<MongoCollectionStats>,
   val mongoQueryStats: List<MongoQueryStats>,

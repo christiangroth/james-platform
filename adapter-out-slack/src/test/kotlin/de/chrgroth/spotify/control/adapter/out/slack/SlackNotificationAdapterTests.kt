@@ -15,8 +15,6 @@ class SlackNotificationAdapterTests {
     stoppingEnabled: Boolean = false,
     partitionPausedEnabled: Boolean = false,
     partitionResumedEnabled: Boolean = false,
-    checkPassedEnabled: Boolean = false,
-    violationsChangedEnabled: Boolean = false,
   ) = SlackNotificationAdapter(
     version = "1.0.0-TEST",
     webhookUrl = webhookUrl,
@@ -26,8 +24,6 @@ class SlackNotificationAdapterTests {
     stoppingEnabled = stoppingEnabled,
     partitionPausedEnabled = partitionPausedEnabled,
     partitionResumedEnabled = partitionResumedEnabled,
-    checkPassedEnabled = checkPassedEnabled,
-    violationsChangedEnabled = violationsChangedEnabled,
   )
 
   @Test
@@ -89,37 +85,4 @@ class SlackNotificationAdapterTests {
   fun `partition resumed notification does not throw when no webhook url configured`() {
     adapter(partitionResumedEnabled = true).onPartitionActivated("test-partition")
   }
-
-  @Test
-  fun `check passed notification does not throw when disabled`() {
-    adapter().notifyCheckPassed(buildCheck())
-  }
-
-  @Test
-  fun `check passed notification does not throw when no webhook url configured`() {
-    adapter(checkPassedEnabled = true).notifyCheckPassed(buildCheck())
-  }
-
-  @Test
-  fun `violations changed notification does not throw when disabled`() {
-    adapter().notifyViolationsChanged(buildCheck(violations = listOf("Artist – Track")))
-  }
-
-  @Test
-  fun `violations changed notification does not throw when no webhook url configured`() {
-    adapter(violationsChangedEnabled = true).notifyViolationsChanged(buildCheck(violations = listOf("Artist – Track")))
-  }
-
-  private fun buildCheck(
-    playlistId: String = "playlist-1",
-    checkId: String = "playlist-1:duplicate-tracks",
-    succeeded: Boolean = true,
-    violations: List<String> = emptyList(),
-  ) = de.chrgroth.spotify.control.domain.model.playlist.AppPlaylistCheck(
-    checkId = checkId,
-    playlistId = de.chrgroth.spotify.control.domain.model.playlist.PlaylistId(playlistId),
-    lastCheck = kotlin.time.Clock.System.now(),
-    succeeded = succeeded,
-    violations = violations,
-  )
 }

@@ -9,33 +9,6 @@
             <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Communication</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-sm-6 col-lg-6">
-                    <div id="snippet-outgoing-http-calls" class="card h-100 app-card">
-                        {#fragment id="snippet_outgoing_http_calls"}
-                        <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">Outgoing HTTP Requests (Last 24h)</p>
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0 app-table" data-testid="outgoing-requests-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Endpoint</th>
-                                            <th class="text-end">#</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {#for r in stats.outgoingRequestStats}
-                                        <tr>
-                                            <td>{r.endpoint}</td>
-                                            <td class="text-end">{r.requestCountLast24h.formatted}</td>
-                                        </tr>
-                                        {/for}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        {/fragment}
-                    </div>
-                </div>
-                <div class="col-12 col-sm-6 col-lg-6">
                     <div id="snippet-outbox-partitions" class="card h-100 app-card">
                         {#fragment id="snippet_outbox_partitions"}
                         <div class="card-body">
@@ -341,9 +314,7 @@
             updatePredicateLastChecks();
 
             connectSse('/health/events', function (event) {
-                if (event.data === 'refresh-outgoing-http-calls') {
-                    fadeUpdate('snippet-outgoing-http-calls', '/health/snippets/outgoing-http-calls');
-                } else if (event.data === 'refresh-outbox-partitions') {
+                if (event.data === 'refresh-outbox-partitions') {
                     if (outboxBlockedUntilInterval) {
                         clearInterval(outboxBlockedUntilInterval);
                         outboxBlockedUntilInterval = null;
