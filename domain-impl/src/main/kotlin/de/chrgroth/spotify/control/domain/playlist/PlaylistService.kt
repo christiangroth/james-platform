@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.playlist
 
+/*
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
@@ -234,3 +235,4 @@ class PlaylistService(
     private val YEAR_NAME_REGEX = Regex("\\d{4}")
   }
 }
+*/

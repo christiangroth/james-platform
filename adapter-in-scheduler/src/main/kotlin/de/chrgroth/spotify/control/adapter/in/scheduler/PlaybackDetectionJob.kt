@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.scheduler
 
+/*
 import de.chrgroth.spotify.control.domain.port.`in`.playback.PlaybackPort
 import io.quarkus.scheduler.Scheduled
 import jakarta.enterprise.context.ApplicationScoped
@@ -19,3 +20,4 @@ class PlaybackDetectionJob(
 
   companion object : KLogging()
 }
+*/

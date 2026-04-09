@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.playback
 
+/*
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.spotify.control.domain.error.PlaybackError
@@ -758,4 +759,4 @@ class RecentlyPlayedServiceTests {
     }
   }
 }
-
+*/

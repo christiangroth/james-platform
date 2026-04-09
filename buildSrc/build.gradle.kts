@@ -13,4 +13,5 @@ dependencies {
   implementation(libs.kotlinGradleSerializationPlugin)
   implementation(libs.detekt)
   implementation(libs.kover)
+  implementation("org.ajoberstar.grgit:grgit-core:5.3.0")
 }

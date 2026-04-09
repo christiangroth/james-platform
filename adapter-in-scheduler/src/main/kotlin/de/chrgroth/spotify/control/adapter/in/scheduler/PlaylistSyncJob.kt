@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.scheduler
 
+/*
 import de.chrgroth.spotify.control.domain.port.`in`.playlist.PlaylistPort
 import de.chrgroth.quarkus.starters.domain.ScheduledSkipPredicate
 import io.quarkus.scheduler.Scheduled
@@ -20,3 +21,4 @@ class PlaylistSyncJob(
 
   companion object : KLogging()
 }
+*/

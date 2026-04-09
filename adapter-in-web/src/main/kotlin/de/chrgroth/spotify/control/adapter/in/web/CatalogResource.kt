@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import de.chrgroth.spotify.control.domain.model.catalog.AlbumBrowseItem
 import de.chrgroth.spotify.control.domain.model.catalog.ArtistBrowseItem
 import de.chrgroth.spotify.control.domain.model.catalog.TrackBrowseItem
@@ -102,3 +103,4 @@ class CatalogResource {
 
   companion object : KLogging()
 }
+*/

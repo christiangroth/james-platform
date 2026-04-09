@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.catalog
 
+/*
 import arrow.core.Either
 import arrow.core.flatMap
 import arrow.core.left
@@ -181,3 +182,4 @@ class CatalogService(
 
   companion object : KLogging()
 }
+*/

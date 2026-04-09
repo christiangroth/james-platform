@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import de.chrgroth.spotify.control.domain.error.OAuthError
 import de.chrgroth.spotify.control.domain.port.`in`.user.LoginServicePort
 import de.chrgroth.spotify.control.domain.port.out.user.TokenEncryptionPort
@@ -136,3 +137,4 @@ class OAuthResource(
     private const val SESSION_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
   }
 }
+*/

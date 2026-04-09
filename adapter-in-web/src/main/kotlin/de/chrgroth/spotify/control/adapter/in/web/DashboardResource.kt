@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import de.chrgroth.spotify.control.domain.model.DashboardStats
 import de.chrgroth.spotify.control.domain.model.user.UserId
 import de.chrgroth.spotify.control.domain.port.`in`.infra.DashboardPort
@@ -106,3 +107,4 @@ class DashboardResource(
     return dashboardTemplate.getFragment("snippet_catalog_stats").data("stats", stats)
   }
 }
+*/

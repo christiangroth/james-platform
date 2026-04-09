@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import de.chrgroth.spotify.control.domain.model.playlist.AppPlaylistCheck
 import de.chrgroth.spotify.control.domain.model.user.UserId
 import de.chrgroth.spotify.control.domain.port.`in`.playlist.PlaylistCheckPort
@@ -116,3 +117,4 @@ class PlaylistChecksResource {
     }
   }
 }
+*/

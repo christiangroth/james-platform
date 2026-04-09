@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.outbox
 
+/*
 import arrow.core.Either
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxDispatcher
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxEvent
@@ -78,3 +79,4 @@ class DomainOutboxTaskDispatcher(
 
   companion object : KLogging()
 }
+*/

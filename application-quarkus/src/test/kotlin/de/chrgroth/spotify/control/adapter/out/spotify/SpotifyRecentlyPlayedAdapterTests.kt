@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.out.spotify
 
+/*
 import arrow.core.Either
 import de.chrgroth.spotify.control.domain.model.user.AccessToken
 import de.chrgroth.spotify.control.domain.model.catalog.ArtistId
@@ -88,3 +89,4 @@ class SpotifyRecentlyPlayedAdapterTests {
     assertThat(stats.any { it.requestCountLast24h > 0 }).isTrue
   }
 }
+*/

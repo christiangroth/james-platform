@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.playback
 
+/*
 import arrow.core.Either
 import arrow.core.flatMap
 import arrow.core.right
@@ -312,3 +313,4 @@ class PlaybackService(
     private const val RESTART_THRESHOLD_MS = 10_000L
   }
 }
+*/

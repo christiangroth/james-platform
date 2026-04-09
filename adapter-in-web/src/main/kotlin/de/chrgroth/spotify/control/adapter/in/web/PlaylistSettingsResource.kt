@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import de.chrgroth.spotify.control.domain.error.PlaylistSyncError
 import mu.KLogging
 import de.chrgroth.spotify.control.domain.model.playlist.PlaylistInfo
@@ -182,3 +183,4 @@ class PlaylistSettingsResource(
 
   companion object : KLogging()
 }
+*/

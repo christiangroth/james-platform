@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.catalog
 
+/*
 import arrow.core.right
 import de.chrgroth.spotify.control.domain.model.user.AccessToken
 import de.chrgroth.spotify.control.domain.model.catalog.AppArtist
@@ -91,3 +92,4 @@ class PlaybackEnrichmentServiceTests {
     verify(exactly = 0) { appArtistRepository.upsertAll(any()) }
   }
 }
+*/

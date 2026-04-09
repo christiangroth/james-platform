@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.port.out.playlist
 
+/*
 import arrow.core.Either
 import de.chrgroth.spotify.control.domain.error.DomainError
 import de.chrgroth.spotify.control.domain.model.user.AccessToken
@@ -16,3 +17,4 @@ interface SpotifyPlaylistPort {
   fun addPlaylistTracks(userId: UserId, accessToken: AccessToken, playlistId: String, trackIds: List<String>): Either<DomainError, Unit>
   fun replacePlaylistTrack(userId: UserId, accessToken: AccessToken, playlistId: String, oldTrackId: String, newTrackId: String, position: Int): Either<DomainError, Unit>
 }
+*/

@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import io.quarkus.arc.profile.IfBuildProfile
 import jakarta.annotation.security.PermitAll
 import jakarta.enterprise.context.ApplicationScoped
@@ -87,3 +88,4 @@ class SpotifyMockResource {
       """{"id":"album-1","name":"Album One","album_type":"album","total_tracks":2,"artists":[{"id":"artist-1","name":"Artist One"}],"images":[{"url":"https://example.com/cover.jpg"}],"release_date":"2024-01-01","release_date_precision":"day","tracks":{"items":[{"id":"track-1","name":"Track One","type":"track","is_local":false,"artists":[{"id":"artist-1","name":"Artist One"}],"disc_number":1,"track_number":1,"duration_ms":180000},{"id":"track-2","name":"Track Two","type":"track","is_local":false,"artists":[{"id":"artist-1","name":"Artist One"}],"disc_number":1,"track_number":2,"duration_ms":200000}],"next":null,"total":2}}"""
   }
 }
+*/

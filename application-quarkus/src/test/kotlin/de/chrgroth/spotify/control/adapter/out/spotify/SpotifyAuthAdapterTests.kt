@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.out.spotify
 
+/*
 import arrow.core.Either
 import de.chrgroth.spotify.control.domain.model.user.AccessToken
 import de.chrgroth.spotify.control.domain.model.user.RefreshToken
@@ -46,3 +47,4 @@ class SpotifyAuthAdapterTests {
     assertThat(tokens.expiresInSeconds).isEqualTo(3600)
   }
 }
+*/

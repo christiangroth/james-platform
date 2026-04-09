@@ -1,19 +1,24 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
-import de.chrgroth.spotify.control.domain.error.AuthError
-import de.chrgroth.spotify.control.domain.error.OAuthError
-import de.chrgroth.spotify.control.domain.error.TokenError
+import de.chrgroth.spotify.control.domain.error.LoginError
+import de.chrgroth.spotify.control.domain.model.user.UserRole
+import de.chrgroth.spotify.control.domain.port.`in`.user.LoginServicePort
+import de.chrgroth.spotify.control.domain.port.out.user.TokenEncryptionPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.PermitAll
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
+import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.FormParam
 import jakarta.ws.rs.GET
+import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.NewCookie
 import jakarta.ws.rs.core.Response
 import java.net.URI
 
@@ -29,27 +34,82 @@ class LoginResource {
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
+  @Inject
+  private lateinit var loginService: LoginServicePort
+
+  @Inject
+  private lateinit var tokenEncryption: TokenEncryptionPort
+
   @GET
   @PermitAll
   @Produces(MediaType.TEXT_HTML)
   fun index(@QueryParam("error") error: String?): Response {
     if (!securityIdentity.isAnonymous) {
-      return Response.temporaryRedirect(URI.create("/dashboard")).build()
+      return Response.temporaryRedirect(URI.create(dashboardUri(securityIdentity))).build()
     }
     return Response.ok(loginTemplate.data("errorMessage", error?.let { errorMessage(it) })).build()
   }
 
+  @POST
+  @Path("/login")
+  @PermitAll
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  fun login(
+    @FormParam("username") username: String?,
+    @FormParam("password") password: String?,
+  ): Response {
+    if (username.isNullOrBlank() || password.isNullOrBlank()) {
+      return Response.temporaryRedirect(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build()
+    }
+    val result = loginService.login(username, password)
+    return result.fold(
+      ifLeft = { Response.temporaryRedirect(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
+      ifRight = { user ->
+        val encrypted = tokenEncryption.encrypt(user.username).getOrNull()
+          ?: return Response.temporaryRedirect(URI.create("/?error=session")).build()
+        val cookie = NewCookie.Builder(SpotifyCookieAuthMechanism.COOKIE_NAME)
+          .value(encrypted)
+          .path("/")
+          .httpOnly(true)
+          .build()
+        val primaryRole = when {
+          user.roles.contains(UserRole.ADMIN) -> "admin"
+          user.roles.contains(UserRole.DEVELOPER) -> "developer"
+          else -> "user"
+        }
+        Response.temporaryRedirect(URI.create("/ui/$primaryRole/dashboard"))
+          .cookie(cookie)
+          .build()
+      },
+    )
+  }
+
+  @GET
+  @Path("/logout")
+  @PermitAll
+  fun logout(): Response {
+    val expiredCookie = NewCookie.Builder(SpotifyCookieAuthMechanism.COOKIE_NAME)
+      .value("")
+      .path("/")
+      .httpOnly(true)
+      .maxAge(0)
+      .build()
+    return Response.temporaryRedirect(URI.create("/"))
+      .cookie(expiredCookie)
+      .build()
+  }
+
+  private fun dashboardUri(identity: SecurityIdentity): String {
+    val roles = identity.roles
+    return when {
+      roles.contains(UserRole.ADMIN.name) -> "/ui/admin/dashboard"
+      roles.contains(UserRole.DEVELOPER.name) -> "/ui/developer/dashboard"
+      else -> "/ui/user/dashboard"
+    }
+  }
+
   private fun errorMessage(code: String): String = when (code) {
-      AuthError.USER_NOT_ALLOWED.code -> "You are not allowed to log in with this Spotify account."
-      AuthError.TOKEN_EXCHANGE_FAILED.code -> "Could not exchange the authorisation code with Spotify. Please try again."
-      AuthError.PROFILE_FETCH_FAILED.code -> "Could not retrieve your Spotify profile. Please try again."
-      AuthError.TOKEN_REFRESH_FAILED.code -> "Could not refresh your access token. Please log in again."
-      TokenError.ENCRYPTION_FAILED.code -> "An internal error occurred (encryption). Please contact support."
-      TokenError.DECRYPTION_FAILED.code -> "Your session could not be verified. Please log in again."
-      TokenError.INVALID_FORMAT.code -> "Your session is invalid. Please log in again."
-      OAuthError.SPOTIFY_DENIED.code -> "Spotify login was denied. Please try again."
-      OAuthError.INVALID_REQUEST.code -> "The login request was invalid. Please try again."
-      OAuthError.STATE_MISMATCH.code -> "Login state validation failed. Please try again."
-      else -> "An unexpected error occurred. Please try again."
+    LoginError.INVALID_CREDENTIALS.code -> "Invalid username or password. Please try again."
+    else -> "An unexpected error occurred. Please try again."
   }
 }

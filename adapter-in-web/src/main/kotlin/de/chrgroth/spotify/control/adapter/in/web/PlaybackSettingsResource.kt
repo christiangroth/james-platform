@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.adapter.`in`.web
 
+/*
 import de.chrgroth.spotify.control.domain.error.ArtistSettingsError
 import de.chrgroth.spotify.control.domain.model.user.UserId
 import de.chrgroth.spotify.control.domain.port.`in`.catalog.CatalogPort
@@ -96,3 +97,4 @@ class PlaybackSettingsResource(
 
   companion object : KLogging()
 }
+*/

@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.user
 
+/*
 import arrow.core.Either
 import arrow.core.right
 import de.chrgroth.spotify.control.domain.error.DomainError
@@ -51,3 +52,4 @@ class UserProfileService(
 
   companion object : KLogging()
 }
+*/

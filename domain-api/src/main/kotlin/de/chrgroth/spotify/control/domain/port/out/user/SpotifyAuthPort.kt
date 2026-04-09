@@ -1,5 +1,6 @@
 package de.chrgroth.spotify.control.domain.port.out.user
 
+/*
 import arrow.core.Either
 import de.chrgroth.spotify.control.domain.error.DomainError
 import de.chrgroth.spotify.control.domain.model.user.AccessToken
@@ -13,3 +14,4 @@ interface SpotifyAuthPort {
   fun getUserProfile(accessToken: AccessToken): Either<DomainError, SpotifyProfile>
   fun refreshToken(refreshToken: RefreshToken): Either<DomainError, SpotifyRefreshedTokens>
 }
+*/
