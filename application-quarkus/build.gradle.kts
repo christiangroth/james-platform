@@ -1,33 +1,43 @@
 plugins {
   id("kotlin-project")
-  kotlin("plugin.allopen") version "2.0.21"
-  id("io.quarkus") version "3.18.3"
+  alias(libs.plugins.allopen)
+  alias(libs.plugins.quarkus)
 }
 
 dependencies {
-  implementation(project(":adapter-in-http"))
-  implementation(project(":adapter-out-postgres"))
-  implementation(project(":adapter-out-postgres-app"))
-  implementation(project(":adapter-out-postgres-user"))
-  implementation(project(":domain-app"))
-  implementation(project(":domain-user"))
+  implementation(project(":adapter-in-outbox"))
+  implementation(project(":adapter-in-scheduler"))
+  implementation(project(":adapter-in-starter"))
+  implementation(project(":adapter-in-web"))
+  implementation(project(":adapter-out-config"))
+  implementation(project(":adapter-out-mongodb"))
+  implementation(project(":adapter-out-outbox"))
+  implementation(project(":adapter-out-scheduler"))
+  implementation(project(":adapter-out-slack"))
+  implementation(project(":adapter-out-spotify"))
+  implementation(project(":domain-impl"))
+
+  implementation(libs.quarkusOutboxAdapterInScheduler)
+  implementation(libs.quarkusOutboxAdapterOutExecutor)
+  implementation(libs.quarkusOutboxAdapterOutPersistenceMongodb)
+  implementation(libs.quarkusOutboxDomainImpl)
+  implementation(libs.quarkusStartersDomainImpl)
+  implementation(libs.quarkusStartersAdapterOutPersistenceMongodb)
 
   implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
-  implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:3.18.3"))
+  api(enforcedPlatform(libs.quarkusBom))
   implementation("io.quarkus:quarkus-arc")
   implementation("io.quarkus:quarkus-kotlin")
   implementation("io.quarkus:quarkus-smallrye-health")
   implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
+  implementation("io.quarkus:quarkus-logging-json")
   implementation("io.quarkus:quarkus-container-image-docker")
 
   testImplementation("io.quarkus:quarkus-junit5")
   testImplementation("io.quarkus:quarkus-junit5-mockito")
-  testImplementation("io.quarkus:quarkus-jdbc-postgresql")
   testImplementation("io.quarkus:quarkus-test-security")
   testImplementation("io.rest-assured:rest-assured")
-
-  testImplementation(testFixtures(project(":core")))
 }
 
 tasks.withType<Test> {
@@ -37,6 +47,5 @@ tasks.withType<Test> {
 allOpen {
   annotation("jakarta.ws.rs.Path")
   annotation("jakarta.enterprise.context.ApplicationScoped")
-  annotation("jakarta.persistence.Entity")
   annotation("io.quarkus.test.junit.QuarkusTest")
 }

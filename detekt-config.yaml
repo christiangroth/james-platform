@@ -9,6 +9,8 @@ complexity:
 style:
   MaxLineLength:
     maxLineLength: 170
+  ReturnCount:
+    max: 3
 
 naming:
   MatchingDeclarationName:

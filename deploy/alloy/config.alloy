@@ -1,0 +1,65 @@
+// Grafana Alloy config (River syntax)
+
+// ── Metrics ──────────────────────────────────────────────────────────────────
+prometheus.scrape "james_platform" {
+  targets = [{ "__address__" = "quarkus:8080", "__metrics_path__" = "/q/metrics" }]
+  scrape_interval = "30s"
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_METRICS_URL")
+    basic_auth {
+      username = env("GRAFANA_CLOUD_METRICS_USERNAME")
+      password = env("GRAFANA_CLOUD_METRICS_API_KEY")
+    }
+  }
+}
+
+// ── Logs ─────────────────────────────────────────────────────────────────────
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "james-platform_containers" {
+  targets = discovery.docker.containers.targets
+
+  // Keep only containers that belong to the james-platform Docker Swarm stack
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_stack_namespace"]
+    regex         = "james-platform"
+    action        = "keep"
+  }
+
+  // Add container name as label for log filtering
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container_name"
+    replacement   = "$1"
+  }
+
+  // Add Docker Swarm service name as label for log filtering
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_swarm_service_name"]
+    target_label  = "service_name"
+  }
+}
+
+loki.source.docker "james-platform_logs" {
+  host    = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.james-platform_containers.output
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_LOGS_URL")
+    basic_auth {
+      username = env("GRAFANA_CLOUD_LOGS_USERNAME")
+      password = env("GRAFANA_CLOUD_LOGS_API_KEY")
+    }
+  }
+  external_labels = { service_name = "james-platform" }
+}
