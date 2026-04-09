@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{#insert title}SpCtl{/insert}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/webjars/bootstrap/css/bootstrap.min.css">
+    <style>
+        :root {
+            --spotify-green: #1db954;
+            --color-bg-card: #1e1e1e;
+            --color-bg-nested: #161616;
+            --color-border: #333;
+            --color-border-muted: #444;
+            --color-text-primary: #e0e0e0;
+            --color-text-muted: #888;
+            --color-danger: #dc3545;
+            --color-bg-depth-albums: #161616;
+            --color-bg-depth-tracks: #111;
+            --color-border-depth-albums: #2a2a2a;
+            --color-border-depth-tracks: #1a1a1a;
+        }
+        body {
+            background-color: #121212;
+            color: var(--color-text-primary);
+        }
+        .app-navbar {
+            background-color: #000000;
+        }
+        .app-navbar .app-name {
+            color: #ffffff;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+        .app-navbar .app-version {
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+        }
+        .app-navbar .nav-link {
+            padding-left: 0.375rem;
+            padding-right: 0.375rem;
+        }
+        .btn-spotify {
+            background-color: var(--spotify-green);
+            color: #000000;
+            font-weight: 600;
+            border: none;
+            border-radius: 500px;
+        }
+        .btn-spotify:hover {
+            background-color: #1ed760;
+            color: #000000;
+        }
+        /* Dark card with app border */
+        .app-card {
+            background-color: var(--color-bg-card);
+            border-color: var(--color-border) !important;
+        }
+        /* Section label / card subtitle */
+        .app-section-label {
+            color: var(--color-text-muted);
+            font-size: .8rem;
+        }
+        /* Transparent table used in dark cards (health, config) */
+        .app-table {
+            --bs-table-color: var(--color-text-primary);
+            color: var(--color-text-primary);
+            background-color: transparent;
+        }
+        .app-table th,
+        .app-table td {
+            border-color: var(--color-border) !important;
+            background-color: transparent !important;
+        }
+        .app-table thead th {
+            color: var(--color-text-muted);
+            font-weight: 400;
+        }
+        /* Override Bootstrap's dark table border and text color with app values */
+        .table-dark {
+            --bs-table-color: var(--color-text-primary);
+            color: var(--color-text-primary);
+            --bs-table-border-color: var(--color-border);
+        }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        /* Histogram bar hover state */
+        .histogram-bar:hover {
+            opacity: 0.7;
+        }
+        .docs-content h1, .docs-content h2, .docs-content h3 {
+            color: var(--color-text-primary);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 0.3em;
+            margin-top: 1.5em;
+        }
+        .docs-content code {
+            background-color: var(--color-bg-card);
+            padding: 0.1em 0.4em;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .docs-content pre {
+            background-color: var(--color-bg-card);
+            padding: 1em;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .docs-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .docs-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1em;
+        }
+        .docs-content th, .docs-content td {
+            border: 1px solid var(--color-border);
+            padding: 0.5em 0.75em;
+        }
+        .docs-content th {
+            background-color: var(--color-bg-card);
+        }
+        .docs-content a {
+            color: var(--spotify-green);
+        }
+        .docs-content {
+            max-width: 860px;
+        }
+        .form-control::placeholder {
+            color: var(--color-text-muted);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <svg style="display:none" aria-hidden="true">
+        <defs>
+            <symbol id="icon-check-circle" viewBox="0 0 16 16">
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+            </symbol>
+            <symbol id="icon-x-circle" viewBox="0 0 16 16">
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293z"/>
+            </symbol>
+            <symbol id="icon-outbox" viewBox="0 0 16 16">
+                <path d="M4.5 11.5A.5.5 0 0 1 5 11h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m-2-4A.5.5 0 0 1 3 7h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m-2-4A.5.5 0 0 1 1 3h14a.5.5 0 0 1 0 1H1a.5.5 0 0 1-.5-.5"/>
+            </symbol>
+            <symbol id="icon-music" viewBox="0 0 16 16">
+                <path d="M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13s1.12-2 2.5-2 2.5.895 2.5 2m9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2"/><path d="M14 11V2h1v9zM6 3v10H5V3z"/><path d="M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4z"/>
+            </symbol>
+            <symbol id="icon-user-placeholder" viewBox="0 0 16 16">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+                <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
+            </symbol>
+
+            <symbol id="icon-nav-tools" viewBox="0 0 16 16">
+                <path d="M1 0 0 1l2.2 3.081a1 1 0 0 0 .815.419h.07a1 1 0 0 1 .708.293l2.675 2.675-2.617 2.654A3.003 3.003 0 0 0 0 13a3 3 0 1 0 5.878-.851l2.654-2.617.968.968-.305.914a1 1 0 0 0 .242 1.023l3.27 3.27a.997.997 0 0 0 1.414 0l1.586-1.586a.997.997 0 0 0 0-1.414l-3.27-3.27a1 1 0 0 0-1.023-.242L10.5 9.5l-.96-.96 2.68-2.643A3.005 3.005 0 0 0 16 3q0-.405-.102-.777l-2.14 2.141L12 4l-.364-1.757L13.777.102a3 3 0 0 0-3.675 3.68L7.462 6.46 4.793 3.793a1 1 0 0 1-.293-.707v-.071a1 1 0 0 0-.419-.814zm9.646 10.646a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708M3 11l.471.242.529.026.287.445.445.287.026.529L5 13l-.242.471-.026.529-.445.287-.287.445-.529.026L3 15l-.471-.242L2 14.732l-.287-.445L1.268 14l-.026-.529L1 13l.242-.471.026-.529.445-.287.287-.445.529-.026z"/>
+            </symbol>
+            <symbol id="icon-nav-health" viewBox="0 0 16 16">
+                <path d="M6 2a.5.5 0 0 1 .47.33L10 12.036l1.53-4.208A.5.5 0 0 1 12 7.5h3.5a.5.5 0 0 1 0 1h-3.15l-1.88 5.17a.5.5 0 0 1-.94 0L6 3.964 4.47 8.171A.5.5 0 0 1 4 8.5H.5a.5.5 0 0 1 0-1h3.15l1.88-5.17A.5.5 0 0 1 6 2"/>
+            </symbol>
+            <symbol id="icon-nav-outbox-viewer" viewBox="0 0 16 16">
+                <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+            </symbol>
+            <symbol id="icon-nav-config" viewBox="0 0 16 16">
+                <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z"/>
+            </symbol>
+            <symbol id="icon-nav-grafana" viewBox="-181.1 -67 264.2 318">
+                <polygon points="-127.3,-58.2 -127.5,-59.1 -128.3,-58.9"/><polygon points="-108.3,219.3 -130.7,223.8 -126.2,246.3 -103.8,241.8"/><polygon points="-27.8,190 71.3,170.1 66.8,147.7 -32.3,167.5"/><polygon points="-67.5,174.6 -63,197 -40.5,192.5 -45,170.1"/><polygon points="-68.6,234.7 -73.1,212.3 -95.6,216.8 -91.1,239.2"/><polygon points="-133.3,211.1 -110.8,206.6 -115.3,184.2 -137.8,188.7"/><polygon points="73.8,182.8 -25.3,202.7 -20.8,225.1 78.3,205.3"/><polygon points="-60.4,209.7 -55.9,232.2 -33.5,227.7 -38,205.2"/><polygon points="-98.1,204.1 -75.7,199.6 -80.2,177.1 -102.6,181.6"/><polygon points="-140.3,176 -130.8,174.1 -166.8,-5.6 -176.3,-3.7"/><polygon points="-127.3,173.4 -117.8,171.5 -156.4,-21.4 -165.9,-19.5"/><polygon points="-105,168.9 -95.5,167 -139.7,-53.3 -149.2,-51.4"/><polygon points="-92,166.3 -82.5,164.4 -123,-37.9 -132.5,-36"/><polygon points="-70,161.9 -60.5,160 -93.7,-5.7 -103.2,-3.8"/><polygon points="-57,159.3 -47.5,157.4 -81.9,-14.6 -91.4,-12.7"/>
+            </symbol>
+            <symbol id="icon-nav-mongodb" viewBox="0 0 16 16">
+                <path d="M4.318 2.687C5.234 2.271 6.536 2 8 2s2.766.27 3.682.687C12.644 3.125 13 3.627 13 4c0 .374-.356.875-1.318 1.313C10.766 5.729 9.464 6 8 6s-2.766-.27-3.682-.687C3.356 4.875 3 4.373 3 4c0-.374.356-.875 1.318-1.313M13 5.698V7c0 .374-.356.875-1.318 1.313C10.766 8.729 9.464 9 8 9s-2.766-.27-3.682-.687C3.356 8.875 3 8.373 3 8V5.698c.271.202.58.378.904.525C5.109 6.702 6.498 7 8 7s2.89-.298 4.096-.777A5 5 0 0 0 13 5.698M14 4c0-1.007-.875-1.755-1.904-2.223C11.022 1.289 9.573 1 8 1s-3.022.289-4.096.777C2.875 2.245 2 2.993 2 4v9c0 1.007.875 1.755 1.904 2.223C4.978 15.71 6.427 16 8 16s3.022-.289 4.096-.777C13.125 14.755 14 14.007 14 13zm-1 4.698V10c0 .374-.356.875-1.318 1.313C10.766 11.729 9.464 12 8 12s-2.766-.27-3.682-.687C3.356 10.875 3 10.373 3 10V8.698c.271.202.58.378.904.525C5.109 9.702 6.498 10 8 10s2.89-.298 4.096-.777A5 5 0 0 0 13 8.698m0 3V13c0 .374-.356.875-1.318 1.313C10.766 14.729 9.464 15 8 15s-2.766-.27-3.682-.687C3.356 13.875 3 13.373 3 13v-1.302c.271.202.58.378.904.525C5.109 12.702 6.498 13 8 13s2.89-.298 4.096-.777c.324-.147.633-.323.904-.525"/>
+            </symbol>
+            <symbol id="icon-nav-docs" viewBox="0 0 16 16">
+                <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.923c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783"/>
+            </symbol>
+            <symbol id="icon-nav-github" viewBox="0 0 16 16">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/>
+            </symbol>
+            <symbol id="icon-nav-spotify" viewBox="0 0 168 168">
+                <path d="M84 0C37.6 0 0 37.6 0 84s37.6 84 84 84 84-37.6 84-84S130.4 0 84 0zm38.6 121.2c-1.5 2.5-4.7 3.3-7.2 1.8-19.6-12-44.2-14.7-73.2-8-2.8.6-5.5-1.1-6.2-3.9-.6-2.8 1.1-5.5 3.9-6.2 31.7-7.2 58.9-4.1 80.9 9.3 2.5 1.5 3.3 4.7 1.8 7zm10.3-22.8c-1.9 3.1-5.9 4-9 2.1-22.5-13.8-56.7-17.8-83.3-9.7-3.4 1-7.1-.9-8.1-4.3-1-3.4.9-7.1 4.3-8.1 30.4-9.2 68.2-4.7 94 11.1 3.1 1.9 4 5.9 2.1 9zm.9-23.8C108.2 59 63.9 57.3 41.3 63.4c-4.1 1.1-8.5-1.3-9.6-5.5-1.1-4.1 1.3-8.5 5.5-9.6 26-7 69.4-5.6 96.9 10.5 3.7 2.2 5 6.9 2.8 10.6-2.2 3.8-6.9 5-10.6 2.8z"/>
+            </symbol>
+        </defs>
+    </svg>
+    <nav class="app-navbar d-flex align-items-center px-3 py-2">
+        <a href="/" class="d-flex align-items-center text-decoration-none me-2">
+            <img src="/favicon.svg" alt="SpCtl Logo" width="24" height="24" class="me-2">
+            <span class="app-name">SpCtl</span>
+        </a>
+        {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
+        {#insert leftNavLinks}
+        <div class="d-flex align-items-center ms-1" id="navbar-health-indicators">
+            <div class="position-relative me-2" id="navbar-outbox-wrapper" style="cursor:default;">
+                <button type="button" id="navbar-outbox-icon" class="btn p-0 border-0 bg-transparent lh-1" aria-label="Outbox Status" title="Outbox Status" data-testid="navbar-outbox-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" id="navbar-outbox-svg" fill="#888888" viewBox="0 0 16 16" style="vertical-align:middle;"><use href="#icon-outbox"/></svg>
+                </button>
+                <div id="navbar-outbox-popup" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9999;min-width:340px;background-color:#1e1e1e;border:1px solid #333;border-radius:.375rem;box-shadow:0 4px 16px rgba(0,0,0,.6);">
+                    <div id="navbar-outbox-popup-content" style="color:#e0e0e0;"></div>
+                </div>
+            </div>
+            <button type="button" id="navbar-playback-icon" class="btn p-0 border-0 bg-transparent lh-1 me-2" aria-label="Playback Status" title="Playback Status" data-testid="navbar-playback-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" id="navbar-playback-svg" fill="#888888" viewBox="0 0 16 16" style="vertical-align:middle;"><use href="#icon-music"/></svg>
+            </button>
+        </div>
+        <span class="me-auto"></span>
+        {/insert}
+        {#insert navLinks}
+        <div class="dropdown me-3">
+            <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="Technical"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
+            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>Health</a></li>
+                <li><a href="/outbox-viewer" class="dropdown-item" data-testid="outbox-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-outbox-viewer"/></svg>Outbox</a></li>
+                <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>Config</a></li>
+                <li><a href="https://spotifycontrolprod.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Logs</a></li>
+                <li><a href="https://spotifycontrolprod.grafana.net/d/quarkus-spotify-control/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Metrics</a></li>
+                <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Viewer</a></li>
+                <li><a href="https://cloud.mongodb.com/v2/699f08e3a7adcacf36dd2d4a#/explorer" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Atlas</a></li>
+                <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>Docs</a></li>
+                <li><a href="https://github.com/christiangroth/spotify-control" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>Code</a></li>
+                <li><a href="https://developer.spotify.com/documentation/web-api" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="spotify-api-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 168 168" aria-label="Spotify logo"><use href="#icon-nav-spotify"/></svg>API</a></li>
+            </ul>
+        </div>
+        <a href="/logout" class="btn btn-sm btn-outline-secondary" data-testid="logout-link">Logout</a>
+        {/insert}
+    </nav>
+    <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/webjars/marked/lib/marked.umd.js"></script>
+    <script src="/sse-utils.js"></script>
+    {#insert scripts}{/insert}
+    {#insert navbarSse}
+    <script>
+        (function () {
+            var outboxWrapper = document.getElementById('navbar-outbox-wrapper');
+            var outboxSvg = document.getElementById('navbar-outbox-svg');
+            var outboxPopup = document.getElementById('navbar-outbox-popup');
+            var outboxPopupContent = document.getElementById('navbar-outbox-popup-content');
+            var playbackSvg = document.getElementById('navbar-playback-svg');
+            var outboxPopupCountdownInterval;
+
+            function updateNavbarOutboxPopupCountdown() {
+                if (!outboxPopupContent) return;
+                outboxPopupContent.querySelectorAll('[data-blocked-until]').forEach(function (row) {
+                    var blockedUntil = parseInt(row.dataset.blockedUntil, 10);
+                    var remaining = blockedUntil - Date.now();
+                    var cell = row.querySelector('.outbox-blocked-until');
+                    if (!cell) return;
+                    if (remaining <= 1000) {
+                        cell.textContent = 'now';
+                    } else if (remaining < TWENTY_FOUR_HOURS_MS) {
+                        cell.textContent = formatCountdown(remaining);
+                    } else {
+                        cell.textContent = formatBlockedUntil(blockedUntil);
+                    }
+                });
+            }
+
+            function startNavbarOutboxPopupCountdown() {
+                if (outboxPopupCountdownInterval) {
+                    clearInterval(outboxPopupCountdownInterval);
+                }
+                updateNavbarOutboxPopupCountdown();
+                outboxPopupCountdownInterval = setInterval(updateNavbarOutboxPopupCountdown, 500);
+            }
+
+            function updateNavbarOutboxStatus() {
+                fetch('/health/snippets/navbar-outbox-status')
+                    .then(function (r) { return r.text(); })
+                    .then(function (text) {
+                        if (outboxSvg) outboxSvg.setAttribute('fill', text.trim() === 'ok' ? '#1db954' : '#dc3545');
+                    })
+                    .catch(function () {});
+            }
+
+            function updateNavbarPlaybackStatus() {
+                fetch('/health/snippets/navbar-playback-status')
+                    .then(function (r) { return r.text(); })
+                    .then(function (text) {
+                        if (playbackSvg) playbackSvg.setAttribute('fill', text.trim() === 'active' ? '#1db954' : '#888888');
+                    })
+                    .catch(function () {});
+            }
+
+            function refreshOutboxPopupContent() {
+                fetch('/health/snippets/outbox-partitions')
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        if (outboxPopupContent) {
+                            outboxPopupContent.innerHTML = html;
+                            startNavbarOutboxPopupCountdown();
+                        }
+                    })
+                    .catch(function () {});
+            }
+
+            function resumeOutboxPartition(partitionKey) {
+                fetch('/health/outbox-partitions/' + encodeURIComponent(partitionKey) + '/activate', { method: 'POST' })
+                    .then(function () {
+                        updateNavbarOutboxStatus();
+                        refreshOutboxPopupContent();
+                    })
+                    .catch(function (err) { console.error('Failed to resume partition', err); });
+            }
+            window.resumeOutboxPartition = window.resumeOutboxPartition || resumeOutboxPartition;
+
+            if (outboxWrapper && outboxPopup) {
+                outboxWrapper.addEventListener('mouseenter', function () { outboxPopup.style.display = 'block'; });
+                outboxWrapper.addEventListener('mouseleave', function () { outboxPopup.style.display = 'none'; });
+                refreshOutboxPopupContent();
+            }
+
+            connectSse('/health/events', function (event) {
+                if (event.data === 'refresh-outbox-partitions') {
+                    updateNavbarOutboxStatus();
+                    refreshOutboxPopupContent();
+                } else if (event.data === 'refresh-playback-state') {
+                    updateNavbarPlaybackStatus();
+                }
+            }, function () {
+                updateNavbarOutboxStatus();
+                updateNavbarPlaybackStatus();
+            });
+        })();
+    </script>
+    <script>
+        (function() {
+            const path = window.location.pathname;
+            document.querySelectorAll('.dropdown-menu a.dropdown-item[href]').forEach(function(link) {
+                if (link.getAttribute('href') === path) {
+                    link.classList.add('active');
+                }
+            });
+        })();
+    </script>
+    {/insert}
+    {#insert content /}
+</body>
+</html>

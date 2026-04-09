@@ -1,0 +1,54 @@
+[versions]
+arrow = "2.2.1.1"
+assertJ = "3.27.7"
+bootstrap = "5.3.8"
+buildTimeTracker = "5.0.1"
+detekt = "2.0.0-alpha.2"
+junit = "6.0.3"
+kotlin = "2.3.10"
+kotlinLogging = "3.0.5"
+kotlinxCoroutines = "1.10.2"
+kotlinxDatetime = "0.7.1"
+kotlinxSerialization = "1.7.3"
+kover = "0.9.7"
+marked = "17.0.3"
+mockk = "1.14.9"
+quarkus = "3.32.1"
+quarkusOutbox = "0.8.0"
+quarkusStarters = "0.6.1"
+release = "3.1.0"
+versionCatalogUpdate = "1.1.0"
+
+[libraries]
+arrowCore = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
+assertJ = { module = "org.assertj:assertj-core", version.ref = "assertJ" }
+bootstrap = { module = "org.webjars:bootstrap", version.ref = "bootstrap" }
+detekt = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlinGradleSerializationPlugin = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }
+kotlinLogging = { module = "io.github.microutils:kotlin-logging", version.ref = "kotlinLogging" }
+kotlinxCoroutinesCore = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinxDatetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", version.ref = "kotlinxDatetime" }
+kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kover = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
+marked = { module = "org.webjars.npm:marked", version.ref = "marked" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
+quarkusBom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
+quarkusOutboxAdapterInScheduler = { module = "de.chrgroth.quarkus.outbox:adapter-in-scheduler", version.ref = "quarkusOutbox" }
+quarkusOutboxAdapterOutExecutor = { module = "de.chrgroth.quarkus.outbox:adapter-out-executor", version.ref = "quarkusOutbox" }
+quarkusOutboxAdapterOutPersistenceMongodb = { module = "de.chrgroth.quarkus.outbox:adapter-out-persistence-mongodb", version.ref = "quarkusOutbox" }
+quarkusOutboxDomainApi = { module = "de.chrgroth.quarkus.outbox:domain-api", version.ref = "quarkusOutbox" }
+quarkusOutboxDomainImpl = { module = "de.chrgroth.quarkus.outbox:domain-impl", version.ref = "quarkusOutbox" }
+quarkusStartersDomainApi = { module = "de.chrgroth.quarkus.starters:domain-api", version.ref = "quarkusStarters" }
+quarkusStartersDomainImpl = { module = "de.chrgroth.quarkus.starters:domain-impl", version.ref = "quarkusStarters" }
+quarkusStartersAdapterOutPersistenceMongodb = { module = "de.chrgroth.quarkus.starters:adapter-out-persistence-mongodb", version.ref = "quarkusStarters" }
+
+[plugins]
+allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
+buildTimeTracker = { id = "com.asarkar.gradle.build-time-tracker", version.ref = "buildTimeTracker" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }
+release = { id = "net.researchgate.release", version.ref = "release" }
+versionCatalogUpdate = { id = "nl.littlerobots.version-catalog-update", version.ref = "versionCatalogUpdate" }

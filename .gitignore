@@ -6,3 +6,5 @@
 *.ipr
 *.iws
 *.DS_Store
+.env
+

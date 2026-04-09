@@ -1,0 +1,359 @@
+{#include layout.html}
+    {#title}SpCtl – Health{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+
+        <h1 class="mb-4 fs-4 fw-semibold">System Health</h1>
+
+        <div id="health-section">
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Communication</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-sm-6 col-lg-6">
+                    <div id="snippet-outgoing-http-calls" class="card h-100 app-card">
+                        {#fragment id="snippet_outgoing_http_calls"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">Outgoing HTTP Requests (Last 24h)</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="outgoing-requests-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Endpoint</th>
+                                            <th class="text-end">#</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for r in stats.outgoingRequestStats}
+                                        <tr>
+                                            <td>{r.endpoint}</td>
+                                            <td class="text-end">{r.requestCountLast24h.formatted}</td>
+                                        </tr>
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-6">
+                    <div id="snippet-outbox-partitions" class="card h-100 app-card">
+                        {#fragment id="snippet_outbox_partitions"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">Outbox Partitions</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="outbox-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Partition</th>
+                                            <th class="text-end">Blocked</th>
+                                            <th class="text-end">#</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for p in stats.outboxPartitions}
+                                        <tr {#if p.blockedUntil}data-blocked-until="{p.blockedUntil.toEpochMilliseconds()}"{/if}>
+                                            <td>
+                                                {#status-icon condition=(p.status == "ACTIVE") size=16/}
+                                                {p.name}
+                                            </td>
+                                            <td class="outbox-blocked-until text-end">-</td>
+                                            <td class="text-end" data-testid="outbox-doc-count">{p.documentCount.formatted}</td>
+                                        </tr>
+                                        {#if p.documentCount > 0}
+                                        <tr class="outbox-detail-row" data-partition="{p.name}">
+                                            <td colspan="3" style="padding:4px 8px 4px 24px;background-color:var(--color-bg-nested);">
+                                                <table class="table table-sm mb-0" style="--bs-table-color:#aaa;background-color:transparent;font-size:0.8rem;">
+                                                    <tbody>
+                                                        {#for etc in p.eventTypeCounts}
+                                                        <tr>
+                                                            <td>{etc.eventType}</td>
+                                                            <td class="text-end">{etc.count.formatted}</td>
+                                                        </tr>
+                                                        {/for}
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        {/if}
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Cronjobs &amp; State</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-lg-6">
+                    <div id="snippet-cronjobs" class="card h-100 app-card">
+                        {#fragment id="snippet_cronjobs"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">Cronjobs</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="cronjobs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Job</th>
+                                            <th>Cron</th>
+                                            <th class="text-end">Next</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for job in stats.cronjobStats}
+                                        <tr {#if job.nextExecution}data-next-execution="{job.nextExecution.toEpochMilliseconds()}"{/if}>
+                                            <td>
+                                                {#status-icon condition=job.running size=16/}
+                                                {job.simpleName}
+                                            </td>
+                                            <td>{job.cronSchedule}</td>
+                                            <td class="cronjob-countdown text-end">{#if job.nextExecution}-{#else}N/A{/if}</td>
+                                        </tr>
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <div id="snippet-predicates" class="card h-100 app-card">
+                        {#fragment id="snippet_predicates"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">State</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="predicates-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Predicate</th>
+                                            <th class="text-end">Since</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for p in stats.predicateStats}
+                                        <tr>
+                                            <td>
+                                                {#if p.active}
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#1db954" viewBox="0 0 16 16" style="vertical-align:middle;margin-right:4px;">
+                                                    <use href="#icon-check-circle"/>
+                                                </svg>
+                                                {#else}
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#888888" viewBox="0 0 16 16" style="vertical-align:middle;margin-right:4px;">
+                                                    <use href="#icon-x-circle"/>
+                                                </svg>
+                                                {/if}
+                                                {p.name}
+                                            </td>
+                                            <td class="predicate-last-check text-end" {#if p.lastCheck}data-last-check="{p.lastCheck.toEpochMilliseconds()}"{/if}>{#if p.lastCheck}-{#else}N/A{/if}</td>
+                                        </tr>
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">MongoDB</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-sm-6 col-lg-6">
+                    <div id="snippet-mongodb-collections" class="card h-100 app-card">
+                        {#fragment id="snippet_mongodb_collections"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">Collections</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="mongodb-collections-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Collection</th>
+                                            <th class="text-end">#</th>
+                                            <th class="text-end">Size</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for c in stats.mongoCollectionStats}
+                                        <tr>
+                                            <td>{c.name}</td>
+                                            <td class="text-end">{c.documentCount.formatted}</td>
+                                            <td class="text-end">{c.sizeKb.formatted} kb</td>
+                                        </tr>
+                                        {/for}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="border-top:2px solid #555;">
+                                            <td style="color:#888;">Total</td>
+                                            <td class="text-end" style="color:#888;">{stats.mongoCollectionDocumentTotal.formatted}</td>
+                                            <td class="text-end" style="color:#888;">{stats.mongoCollectionSizeTotalKb.formatted} kb</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-6">
+                    <div id="snippet-mongodb-queries" class="card h-100 app-card">
+                        {#fragment id="snippet_mongodb_queries"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">Queries (Last 24h)</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="mongodb-queries-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Query</th>
+                                            <th class="text-end">Executions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for q in stats.mongoQueryStats}
+                                        <tr>
+                                            <td>{q.name}</td>
+                                            <td class="text-end">
+                                                {#if q.slowQueryCount > 0}
+                                                <span style="color:#f90;">{q.slowQueryCount.formatted}</span>
+                                                {#else}
+                                                <span style="color:#e0e0e0;">{q.slowQueryCount.formatted}</span>
+                                                {/if}
+                                                <span style="color:#e0e0e0;"> / {q.executionCountLast24h.formatted}</span>
+                                            </td>
+                                        </tr>
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <span style="display:none;">{#fragment id="snippet_navbar_outbox_status"}{#if stats.outboxAllActive}ok{#else}error{/if}{/fragment}{#fragment id="snippet_navbar_playback_status"}{#if stats.playbackActive}active{#else}inactive{/if}{/fragment}</span>
+
+    <style>
+        @keyframes cronjob-pulse-green {
+            0%   { background-color: transparent; }
+            30%  { background-color: rgba(30, 215, 96, 0.35); }
+            70%  { background-color: rgba(30, 215, 96, 0.35); }
+            100% { background-color: transparent; }
+        }
+        .cronjob-pulse {
+            animation: cronjob-pulse-green 5s ease-in-out forwards;
+        }
+    </style>
+    <script>
+        (function () {
+            var outboxBlockedUntilInterval;
+
+            function sortCronjobTable() {
+                var tbody = document.querySelector('[data-testid="cronjobs-table"] tbody');
+                if (!tbody) return;
+                var rows = Array.from(tbody.querySelectorAll('tr'));
+                var now = Date.now();
+                var pulsingRows = [], sortableRows = [];
+                rows.forEach(function (row) {
+                    if (row.dataset.pulsing === 'true') {
+                        pulsingRows.push(row);
+                    } else {
+                        sortableRows.push(row);
+                    }
+                });
+                sortableRows.sort(function (a, b) {
+                    var aVal = a.dataset.nextExecution ? parseInt(a.dataset.nextExecution, 10) - now : Infinity;
+                    var bVal = b.dataset.nextExecution ? parseInt(b.dataset.nextExecution, 10) - now : Infinity;
+                    return aVal - bVal;
+                });
+                var newOrder = pulsingRows.concat(sortableRows);
+                var hasChanged = newOrder.some(function (row, i) { return row !== rows[i]; });
+                if (hasChanged) {
+                    newOrder.forEach(function (row) { tbody.appendChild(row); });
+                }
+            }
+
+            function updateCronjobCountdowns() {
+                document.querySelectorAll('[data-next-execution]').forEach(function (row) {
+                    var nextExec = parseInt(row.dataset.nextExecution, 10);
+                    var remaining = nextExec - Date.now();
+                    var cell = row.querySelector('.cronjob-countdown');
+                    if (remaining <= 0) {
+                        if (cell) cell.textContent = 'now';
+                    } else {
+                        if (cell) cell.textContent = formatCountdown(remaining);
+                    }
+                    if (remaining < 1000 && !row.dataset.pulsing) {
+                        row.dataset.pulsing = 'true';
+                        row.classList.add('cronjob-pulse');
+                        setTimeout(function () {
+                            fadeUpdate('snippet-cronjobs', '/health/snippets/cronjobs', function () {
+                                updateCronjobCountdowns();
+                            });
+                        }, 5000);
+                    }
+                });
+                sortCronjobTable();
+            }
+
+            function updateOutboxBlockedUntilCountdowns() {
+                document.querySelectorAll('[data-blocked-until]').forEach(function (row) {
+                    var blockedUntil = parseInt(row.dataset.blockedUntil, 10);
+                    var remaining = blockedUntil - Date.now();
+                    var cell = row.querySelector('.outbox-blocked-until');
+                    if (!cell) return;
+                    if (remaining <= 1000) {
+                        cell.textContent = 'now';
+                    } else if (remaining < TWENTY_FOUR_HOURS_MS) {
+                        cell.textContent = formatCountdown(remaining);
+                    } else {
+                        cell.textContent = formatBlockedUntil(blockedUntil);
+                    }
+                });
+            }
+
+            function startOutboxBlockedUntilInterval() {
+                if (outboxBlockedUntilInterval) {
+                    clearInterval(outboxBlockedUntilInterval);
+                }
+                updateOutboxBlockedUntilCountdowns();
+                outboxBlockedUntilInterval = setInterval(updateOutboxBlockedUntilCountdowns, 500);
+            }
+
+            setInterval(updateCronjobCountdowns, 500);
+            updateCronjobCountdowns();
+            startOutboxBlockedUntilInterval();
+
+            function updatePredicateLastChecks() {
+                document.querySelectorAll('.predicate-last-check[data-last-check]').forEach(function (cell) {
+                    var ms = parseInt(cell.dataset.lastCheck, 10);
+                    var d = new Date(ms);
+                    var h = String(d.getHours()).padStart(2, '0');
+                    var m = String(d.getMinutes()).padStart(2, '0');
+                    var s = String(d.getSeconds()).padStart(2, '0');
+                    cell.textContent = h + ':' + m + ':' + s;
+                });
+            }
+            updatePredicateLastChecks();
+
+            connectSse('/health/events', function (event) {
+                if (event.data === 'refresh-outgoing-http-calls') {
+                    fadeUpdate('snippet-outgoing-http-calls', '/health/snippets/outgoing-http-calls');
+                } else if (event.data === 'refresh-outbox-partitions') {
+                    if (outboxBlockedUntilInterval) {
+                        clearInterval(outboxBlockedUntilInterval);
+                        outboxBlockedUntilInterval = null;
+                    }
+                    fadeUpdate('snippet-outbox-partitions', '/health/snippets/outbox-partitions', startOutboxBlockedUntilInterval);
+                } else if (event.data === 'refresh-playback-state') {
+                    fadeUpdate('snippet-predicates', '/health/snippets/predicates', updatePredicateLastChecks);
+                }
+            });
+        })();
+    </script>
+    {/content}
+{/include}

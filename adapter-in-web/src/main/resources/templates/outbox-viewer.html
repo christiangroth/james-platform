@@ -1,0 +1,76 @@
+{#include layout.html}
+    {#title}SpCtl – Outbox{/title}
+    {#scripts}
+    <script>
+        (function () {
+            connectSse('/health/events', function (event) {
+                if (event.data === 'refresh-outbox-partitions') {
+                    fadeUpdate('snippet-outbox-tasks', '/outbox-viewer/snippets/tasks');
+                }
+            });
+        })();
+    </script>
+    {/scripts}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+
+        <h1 class="mb-4 fs-4 fw-semibold">Outbox</h1>
+
+        <div id="snippet-outbox-tasks">
+            {#fragment id="snippet_tasks"}
+            {#for partition in partitions}
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">{partition.key}</h2>
+            {#if partition.tasks.empty}
+            <p class="text-secondary small mb-4">No pending tasks in this partition.</p>
+            {#else}
+            <div class="table-responsive mb-4">
+                <table class="table table-dark table-hover align-middle" data-testid="outbox-tasks-table-{partition.key}">
+                    <thead>
+                        <tr class="app-section-label" style="font-size:.8rem;">
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Type</th>
+                            <th>Deduplication Key</th>
+                            <th class="text-end">Attempts</th>
+                            <th>Next Retry</th>
+                            <th>Last Error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#for task in partition.tasks}
+                        <tr>
+                            <td>
+                                {#if task.status == "PROCESSING"}
+                                <span class="badge" style="background-color:#0d6efd;color:#fff;">{task.status}</span>
+                                {#else if task.status == "FAILED"}
+                                <span class="badge" style="background-color:#dc3545;color:#fff;">{task.status}</span>
+                                {#else}
+                                <span class="badge" style="background-color:#555;color:#fff;">{task.status}</span>
+                                {/if}
+                            </td>
+                            <td style="white-space:nowrap;">{task.createdAt.formatted}</td>
+                            <td>
+                                {task.eventType}
+                                {#if task.isHighPriority}
+                                <span class="badge ms-1" style="background-color:#dc3545;color:#fff;">HIGH</span>
+                                {#else}
+                                <span class="badge ms-1" style="background-color:#555;color:#fff;">MEDIUM</span>
+                                {/if}
+                            </td>
+                            <td style="color:#aaa;font-size:0.8rem;word-break:break-all;">{task.deduplicationKey}</td>
+                            <td style="text-align:right;">{task.attempts}</td>
+                            <td style="white-space:nowrap;">{#if task.nextRetryAt}{task.nextRetryAt.formatted}{#else}-{/if}</td>
+                            <td style="color:#e07070;font-size:0.8rem;">{#if task.lastError}{task.lastError}{#else}-{/if}</td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+            </div>
+            {/if}
+            {/for}
+            {/fragment}
+        </div>
+
+    </div>
+    {/content}
+{/include}

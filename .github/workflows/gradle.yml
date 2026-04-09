@@ -1,6 +1,8 @@
 name: Java CI/CD with Gradle
 
-on: push
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -9,10 +11,65 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v5
-      - run: ./gradlew --info --stacktrace build
+      - run: ./gradlew build
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+
+  provision-grafana-dashboard:
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Provision Grafana dashboards
+        env:
+          GRAFANA_CLOUD_SA_TOKEN: ${{ secrets.GRAFANA_CLOUD_SA_TOKEN }}
+        run: |
+          if [ -z "$GRAFANA_CLOUD_SA_TOKEN" ]; then
+            echo "Error: GRAFANA_CLOUD_SA_TOKEN secret must be set" >&2
+            exit 1
+          fi
+
+          provision_dashboard() {
+            local dashboard_file="$1"
+            if [ ! -f "$dashboard_file" ]; then
+              echo "Error: Dashboard file not found: $dashboard_file" >&2
+              return 1
+            fi
+            local payload
+            payload=$(jq -n \
+              --argjson dashboard "$(cat "$dashboard_file")" \
+              --arg message "Provisioned by GitHub Actions (commit ${{ github.sha }})" \
+              '{dashboard: $dashboard, overwrite: true, message: $message}')
+            local delays=(30 60 120 300)
+            local attempt=0
+            while true; do
+              echo "Provisioning $dashboard_file (attempt $((attempt+1)))..."
+              if curl --fail-with-body -s -X POST \
+                "https://jamesplatform.grafana.net/api/dashboards/db" \
+                -H "Authorization: Bearer $GRAFANA_CLOUD_SA_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "$payload"; then
+                echo ""
+                echo "Successfully provisioned $dashboard_file"
+                return 0
+              fi
+              if [ "$attempt" -ge "${#delays[@]}" ]; then
+                echo "Error: Failed to provision $dashboard_file after all retries" >&2
+                return 1
+              fi
+              local wait_time="${delays[$attempt]}"
+              echo "Retrying in ${wait_time}s..."
+              sleep "$wait_time"
+              attempt=$((attempt+1))
+            done
+          }
+
+          provision_dashboard "monitoring/grafana/quarkus-metrics.json"
+          provision_dashboard "monitoring/grafana/quarkus-logs.json"
 
   release:
     runs-on: ubuntu-latest
@@ -25,7 +82,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v5
       - run: |
@@ -37,57 +94,77 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: ./gradlew -info --stacktrace release -x test -x testNative -x koverHtmlReport -x koverVerify
+      - run: ./gradlew release -x test -x testNative -x koverHtmlReport -x koverVerify
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
       - run: |
           export DOCKER_TAG=$(docker images ghcr.io/christiangroth/james-platform/quarkus --format "{{.Tag}} {{.CreatedAt}}" | sort -rk 2 | awk 'NR==1{print $1}')
           echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
           echo "Computed docker tag for next deployment $DOCKER_TAG"
+      - name: Encode docker stack file
+        run: echo "DOCKER_STACK_FILE=$(base64 -w 0 deploy/docker-stack.yml)" >> $GITHUB_ENV
+      - name: Encode alloy config file
+        run: echo "ALLOY_CONFIG_FILE=$(base64 -w 0 deploy/alloy/config.alloy)" >> $GITHUB_ENV
       - uses: appleboy/ssh-action@v1.0.3
         env:
-          GIT_PROJECT: "james-platform"
           DOCKER_STACK: "james-platform"
           DOCKER_TAG: ${{ env.DOCKER_TAG }}
+          DOCKER_STACK_FILE: ${{ env.DOCKER_STACK_FILE }}
+          ALLOY_CONFIG_FILE: ${{ env.ALLOY_CONFIG_FILE }}
+          MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING }}
+          APP_OAUTH_REDIRECT_URI: ${{ secrets.APP_OAUTH_REDIRECT_URI }}
+          APP_TOKEN_ENCRYPTION_KEY: ${{ secrets.APP_TOKEN_ENCRYPTION_KEY }}
           HTTP_AUTH_ENCRYPTION_KEY: ${{ secrets.HTTP_AUTH_ENCRYPTION_KEY }}
-          DB_POSTGRES_USERNAME: ${{ secrets.DB_POSTGRES_USERNAME }}
-          DB_POSTGRES_PASSWORD: ${{ secrets.DB_POSTGRES_PASSWORD }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE: ${{ secrets.TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GRAFANA_CLOUD_METRICS_URL: ${{ secrets.GRAFANA_CLOUD_METRICS_URL }}
+          GRAFANA_CLOUD_METRICS_USERNAME: ${{ secrets.GRAFANA_CLOUD_METRICS_USERNAME }}
+          GRAFANA_CLOUD_METRICS_API_KEY: ${{ secrets.GRAFANA_CLOUD_METRICS_API_KEY }}
+          GRAFANA_CLOUD_LOGS_URL: ${{ secrets.GRAFANA_CLOUD_LOGS_URL }}
+          GRAFANA_CLOUD_LOGS_USERNAME: ${{ secrets.GRAFANA_CLOUD_LOGS_USERNAME }}
+          GRAFANA_CLOUD_LOGS_API_KEY: ${{ secrets.GRAFANA_CLOUD_LOGS_API_KEY }}
         with:
-          host: james.chrgroth.de
-          username: github-deployer
+          host: ${{ secrets.CONTABO_SSH_HOST }}
+          username: ${{ secrets.CONTABO_SSH_USER }}
           key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
           port: 22
-          envs: GIT_PROJECT,DOCKER_STACK,DOCKER_TAG,HTTP_AUTH_ENCRYPTION_KEY,DB_POSTGRES_USERNAME,DB_POSTGRES_PASSWORD,TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE,GHCR_PAT
+          envs: DOCKER_STACK,DOCKER_TAG,DOCKER_STACK_FILE,ALLOY_CONFIG_FILE,MONGODB_CONNECTION_STRING,APP_OAUTH_REDIRECT_URI,APP_TOKEN_ENCRYPTION_KEY,HTTP_AUTH_ENCRYPTION_KEY,SLACK_WEBHOOK_URL,TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE,GHCR_PAT,GRAFANA_CLOUD_METRICS_URL,GRAFANA_CLOUD_METRICS_USERNAME,GRAFANA_CLOUD_METRICS_API_KEY,GRAFANA_CLOUD_LOGS_URL,GRAFANA_CLOUD_LOGS_USERNAME,GRAFANA_CLOUD_LOGS_API_KEY
           script_stop: true
           script: |
-            echo "removing old git repo clone"
-            rm -rf $GIT_PROJECT
-            
+            echo "writing docker stack file"
+            mkdir -p ~/$DOCKER_STACK/alloy
+            echo "$DOCKER_STACK_FILE" | base64 -d > ~/$DOCKER_STACK/docker-stack.yml
+            echo "$ALLOY_CONFIG_FILE" | base64 -d > ~/$DOCKER_STACK/alloy/config.alloy
+
             echo "login to ghcr.io"
             echo $GHCR_PAT | docker login ghcr.io -u christiangroth --password-stdin
-            
-            echo "cloning git repo"
-            GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git clone -v --depth 1 git@github.com:christiangroth/$GIT_PROJECT.git $GIT_PROJECT
-            cd $GIT_PROJECT
-            
+
             echo "deploying docker stack"
-            DOCKER_TAG=DOCKER_TAG HTTP_AUTH_ENCRYPTION_KEY=HTTP_AUTH_ENCRYPTION_KEY DB_POSTGRES_USERNAME=DB_POSTGRES_USERNAME \
-              DB_POSTGRES_PASSWORD=DB_POSTGRES_PASSWORD TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE=TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE \
-              docker stack deploy --detach=false --prune --with-registry-auth --resolve-image changed -c docker-stack.yml $DOCKER_STACK
+            DOCKER_TAG="$DOCKER_TAG" \
+              MONGODB_CONNECTION_STRING="$MONGODB_CONNECTION_STRING" \
+              APP_OAUTH_REDIRECT_URI="$APP_OAUTH_REDIRECT_URI" \
+              APP_TOKEN_ENCRYPTION_KEY="$APP_TOKEN_ENCRYPTION_KEY" \
+              HTTP_AUTH_ENCRYPTION_KEY="$HTTP_AUTH_ENCRYPTION_KEY" \
+              SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL" \
+              TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE="$TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE" \
+              GRAFANA_CLOUD_METRICS_URL="$GRAFANA_CLOUD_METRICS_URL" \
+              GRAFANA_CLOUD_METRICS_USERNAME="$GRAFANA_CLOUD_METRICS_USERNAME" \
+              GRAFANA_CLOUD_METRICS_API_KEY="$GRAFANA_CLOUD_METRICS_API_KEY" \
+              GRAFANA_CLOUD_LOGS_URL="$GRAFANA_CLOUD_LOGS_URL" \
+              GRAFANA_CLOUD_LOGS_USERNAME="$GRAFANA_CLOUD_LOGS_USERNAME" \
+              GRAFANA_CLOUD_LOGS_API_KEY="$GRAFANA_CLOUD_LOGS_API_KEY" \
+              docker stack deploy --detach=false --prune --with-registry-auth --resolve-image changed -c ~/$DOCKER_STACK/docker-stack.yml $DOCKER_STACK
             sleep 5
-            
+
             echo
             echo "----- ----- -----"
             echo "----- ----- -----"
             echo "----- ----- -----"
             echo
-            
+
             docker stack ls
             echo
             docker stack services $DOCKER_STACK
             echo
             docker stack ps $DOCKER_STACK
-            
-            echo "removing git repo clone"
-            cd ..
-            rm -rf $GIT_PROJECT

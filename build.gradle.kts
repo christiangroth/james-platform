@@ -3,26 +3,32 @@ import java.time.Duration
 
 plugins {
   id("kotlin-project")
-  id("net.researchgate.release") version "3.1.0"
+  alias(libs.plugins.buildTimeTracker)
+  alias(libs.plugins.versionCatalogUpdate)
 
-  id("se.patrikerdes.use-latest-versions") version "0.2.18"
-  id("com.github.ben-manes.versions") version "0.49.0"
+  alias(libs.plugins.release)
+  id("de.chrgroth.gradle.release-notes") version "1.0.1"
 
-  id("de.chrgroth.gradle.plugins.releasenotes")
-
-  id("com.asarkar.gradle.build-time-tracker") version "5.0.1"
+  id("dev.iurysouza.modulegraph") version "0.13.0"
 }
 
 buildTimeTracker {
   maxWidth = 120
-  minTaskDuration = Duration.ofMillis(250)
+  minTaskDuration = Duration.ofMillis(50)
 }
 
-// TODO #34 automate
-// call task koverMergedReport for merged report manually
-koverMerged {
-  enable()
+moduleGraphConfig {
+  includeIsolatedModules = true
+  readmePath = layout.buildDirectory.file("reports/modulegraph/modules.md").get().asFile.path
 }
+
+kover {
+  merge {
+    allProjects()
+  }
+}
+
+private val releasenotesBasePath = "docs/releasenotes/"
 
 releasenotes {
   mainBranch = "main"
@@ -31,10 +37,10 @@ releasenotes {
   configure {
     ReleasenotesConfiguration(
       name = "repo-markdown",
-      outputPath = "RELEASENOTES.md",
-      snippetsPath = "releasenotes-snippets",
-      templatesPath = "releasenotes-templates",
-      bugfixesHeader = "## Bugfixes",
+      outputPath = "$releasenotesBasePath/RELEASENOTES.md",
+      snippetsPath = "$releasenotesBasePath/snippets",
+      templatesPath = "$releasenotesBasePath/templates",
+      bugfixesHeader = "## Bugfixes / Chore",
       bugfixesFooter = "",
       featuresHeader = "## New Features",
       featuresFooter = "",
@@ -53,7 +59,12 @@ tasks.afterReleaseBuild {
 }
 
 release {
+  failOnSnapshotDependencies = false
   git {
     requireBranch = "main"
   }
+}
+
+tasks.named("checkSnapshotDependencies") {
+  enabled = false
 }

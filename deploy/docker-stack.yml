@@ -1,0 +1,58 @@
+version: "3"
+services:
+  quarkus:
+    image: ghcr.io/christiangroth/james-platform/quarkus:${DOCKER_TAG}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.jamesplatform.rule=${TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE}"
+        - "traefik.http.routers.jamesplatform.entryPoints=websecure"
+        - "traefik.http.routers.jamesplatform.tls=true"
+        - "traefik.http.routers.jamesplatform.tls.certresolver=le"
+        - "traefik.http.services.jamesplatform-svc.loadbalancer.server.port=8080"
+        - "traefik.swarm.network=global_router"
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - QUARKUS_PROFILE=prod
+      - MONGODB_CONNECTION_STRING=${MONGODB_CONNECTION_STRING}
+      - APP_OAUTH_REDIRECT_URI=${APP_OAUTH_REDIRECT_URI}
+      - APP_TOKEN_ENCRYPTION_KEY=${APP_TOKEN_ENCRYPTION_KEY}
+      - HTTP_AUTH_ENCRYPTION_KEY=${HTTP_AUTH_ENCRYPTION_KEY}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    networks:
+      - james_platform
+      - global_router
+
+  alloy:
+    image: grafana/alloy:v1.13.2
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "~/james-platform/alloy/config.alloy:/etc/alloy/config.alloy:ro"
+    environment:
+      - GRAFANA_CLOUD_METRICS_URL=${GRAFANA_CLOUD_METRICS_URL}
+      - GRAFANA_CLOUD_METRICS_USERNAME=${GRAFANA_CLOUD_METRICS_USERNAME}
+      - GRAFANA_CLOUD_METRICS_API_KEY=${GRAFANA_CLOUD_METRICS_API_KEY}
+      - GRAFANA_CLOUD_LOGS_URL=${GRAFANA_CLOUD_LOGS_URL}
+      - GRAFANA_CLOUD_LOGS_USERNAME=${GRAFANA_CLOUD_LOGS_USERNAME}
+      - GRAFANA_CLOUD_LOGS_API_KEY=${GRAFANA_CLOUD_LOGS_API_KEY}
+    networks:
+      - james_platform
+    command:
+      - run
+      - /etc/alloy/config.alloy
+
+networks:
+  james_platform:
+  global_router:
+    external: true

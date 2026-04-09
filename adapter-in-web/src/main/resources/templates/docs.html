@@ -1,0 +1,13 @@
+{#include layout.html}
+    {#title}SpCtl – {title}{/title}
+    {#content}
+    <div class="container py-4">
+        <div id="docs-rendered" class="docs-content"></div>
+        <textarea id="docs-raw" class="d-none">{markdownContent}</textarea>
+    </div>
+    <script>
+        document.getElementById('docs-rendered').innerHTML =
+            marked.parse(document.getElementById('docs-raw').value);
+    </script>
+    {/content}
+{/include}
