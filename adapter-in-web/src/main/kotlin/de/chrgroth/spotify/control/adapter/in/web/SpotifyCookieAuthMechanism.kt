@@ -22,9 +22,8 @@ class SpotifyCookieAuthMechanism(
 ) : HttpAuthenticationMechanism {
 
   override fun authenticate(context: RoutingContext, identityProviderManager: IdentityProviderManager): Uni<SecurityIdentity> {
-    val cookieValue = context.request().getCookie(COOKIE_NAME)?.value
-      ?: return Uni.createFrom().optional(Optional.empty())
-    val username = tokenEncryption.decrypt(cookieValue).getOrNull()
+    val username = context.request().getCookie(COOKIE_NAME)?.value
+      ?.let { tokenEncryption.decrypt(it).getOrNull() }
       ?: return Uni.createFrom().optional(Optional.empty())
     val user = userRepository.findByUsername(username)
       ?: return Uni.createFrom().optional(Optional.empty())
