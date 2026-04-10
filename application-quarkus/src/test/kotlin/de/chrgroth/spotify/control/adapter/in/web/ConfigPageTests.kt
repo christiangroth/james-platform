@@ -100,49 +100,6 @@ class ConfigPageTests {
   }
 
   @Test
-  fun `config page contains runtime config section as first sub heading`() {
-    given()
-      .`when`()
-      .get("/config")
-      .then()
-      .statusCode(200)
-      .body(containsString("Runtime Config"))
-  }
-
-  @Test
-  fun `config page displays throttle interval input`() {
-    given()
-      .`when`()
-      .get("/config")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="throttle-interval-input""""))
-  }
-
-  @Test
-  fun `config page displays save and reset buttons for runtime config`() {
-    given()
-      .`when`()
-      .get("/config")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="throttle-save-btn""""))
-      .body(containsString("""data-testid="throttle-reset-btn""""))
-  }
-
-  @Test
-  fun `config page displays default throttle interval`() {
-    given()
-      .`when`()
-      .get("/config")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="default-throttle-interval""""))
-      .body(containsString("10"))
-  }
-
-
-  @Test
   fun `config page contains health link in navbar`() {
     given()
       .`when`()

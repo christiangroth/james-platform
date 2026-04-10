@@ -41,6 +41,7 @@ class LoginService(
     private const val ITERATIONS = 100_000
     private const val KEY_LENGTH = 256
     private const val SALT_LENGTH = 16
+    private const val HASH_PARTS_COUNT = 3
 
     fun hashPassword(password: String): String {
       val salt = ByteArray(SALT_LENGTH).also { SecureRandom().nextBytes(it) }
@@ -51,7 +52,7 @@ class LoginService(
 
     fun verifyPassword(password: String, storedHash: String): Boolean {
       val parts = storedHash.split(":")
-      if (parts.size != 3) return false
+      if (parts.size != HASH_PARTS_COUNT) return false
       return try {
         val iterations = parts[0].toInt()
         val decoder = Base64.getDecoder()
@@ -60,6 +61,7 @@ class LoginService(
         val actualHash = deriveKey(password, salt, iterations)
         expectedHash.contentEquals(actualHash)
       } catch (e: Exception) {
+        logger.warn(e) { "Password verification failed due to unexpected error" }
         false
       }
     }

@@ -1,49 +1,9 @@
 {#include layout.html}
     {#title}SpCtl – Config{/title}
-    {#scripts}<script src="/settings-utils.js"></script>{/scripts}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
 
         <h1 class="mb-4 fs-4 fw-semibold">Configuration</h1>
-
-        <div id="runtime-config-section" class="mb-4">
-            <h2 class="fs-5 fw-semibold mb-3">Runtime Config</h2>
-
-            <div id="runtime-config-status-banner" class="alert d-none mb-3" role="alert"></div>
-
-            <p class="text-secondary small mb-3">
-                These settings take effect immediately but are <strong>transient</strong> — they reset to their default values on the next application restart.
-            </p>
-
-            <div class="card h-100 app-card">
-                <div class="card-body">
-                    <p class="card-subtitle mb-1 fw-semibold" style="color:#e0e0e0;">Spotify Request Throttling</p>
-                    <p class="text-secondary small mb-3">
-                        Minimum interval between outgoing Spotify API requests.
-                        Increasing this value slows down catalog sync but reduces the risk of hitting Spotify rate limits.
-                        Default: <span data-testid="default-throttle-interval">{runtimeConfig.defaultThrottleIntervalSeconds}</span> s.
-                    </p>
-                    <div class="row g-2 align-items-end">
-                        <div class="col-auto">
-                            <label for="throttle-interval-input" class="form-label text-secondary small mb-1">Interval (s)</label>
-                            <input
-                                type="number"
-                                id="throttle-interval-input"
-                                class="form-control form-control-sm bg-dark text-white border-secondary"
-                                style="width:140px"
-                                min="0"
-                                value="{runtimeConfig.throttleIntervalSeconds}"
-                                data-testid="throttle-interval-input"
-                            >
-                        </div>
-                        <div class="col-auto">
-                            <button id="throttle-save-btn" class="btn btn-spotify btn-sm" data-testid="throttle-save-btn">Save</button>
-                            <button id="throttle-reset-btn" class="btn btn-outline-secondary btn-sm ms-1" data-testid="throttle-reset-btn">Reset to Default</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <div id="config-section">
             <div class="row g-3 mb-4">
@@ -102,49 +62,5 @@
             </div>
         </div>
     </div>
-    <script>
-        const defaultThrottleIntervalSeconds = {runtimeConfig.defaultThrottleIntervalSeconds};
-        const CONFIG_BANNER_ID = 'runtime-config-status-banner';
-
-        function doThrottleRequest(intervalSeconds, successMsg, btn, inputEl) {
-            btn.disabled = true;
-            fetch('/settings/runtime-config/throttle-interval', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ intervalSeconds: intervalSeconds })
-            })
-            .then(function(response) {
-                return response.json().then(function(data) { return { ok: response.ok, data: data }; });
-            })
-            .then(function(result) {
-                if (result.ok) {
-                    if (inputEl) inputEl.value = result.data.intervalSeconds;
-                    showBanner(successMsg, 'success', CONFIG_BANNER_ID);
-                } else {
-                    showBanner('Failed to update throttle interval: ' + (result.data.error || 'Unknown error'), 'danger', CONFIG_BANNER_ID);
-                }
-            })
-            .catch(function(err) {
-                showBanner('Request failed: ' + err.message, 'danger', CONFIG_BANNER_ID);
-            })
-            .finally(function() { btn.disabled = false; });
-        }
-
-        document.getElementById('throttle-save-btn').addEventListener('click', function() {
-            const input = document.getElementById('throttle-interval-input');
-            const intervalSeconds = parseInt(input.value, 10);
-            if (isNaN(intervalSeconds) || intervalSeconds < 0) {
-                showBanner('Please enter a valid non-negative number.', 'danger', CONFIG_BANNER_ID);
-                return;
-            }
-            doThrottleRequest(intervalSeconds, 'Throttle interval updated to ' + intervalSeconds + ' s.', this, input);
-        });
-
-        document.getElementById('throttle-reset-btn').addEventListener('click', function() {
-            const input = document.getElementById('throttle-interval-input');
-            input.value = defaultThrottleIntervalSeconds;
-            doThrottleRequest(defaultThrottleIntervalSeconds, 'Throttle interval reset to default (' + defaultThrottleIntervalSeconds + ' s).', this, null);
-        });
-    </script>
     {/content}
 {/include}
