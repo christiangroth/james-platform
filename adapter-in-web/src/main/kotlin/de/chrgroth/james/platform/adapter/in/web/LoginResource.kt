@@ -67,7 +67,7 @@ class LoginResource {
       ifRight = { user ->
         val encrypted = tokenEncryption.encrypt(user.username).getOrNull()
           ?: return Response.temporaryRedirect(URI.create("/?error=session")).build()
-        val cookie = NewCookie.Builder(SpotifyCookieAuthMechanism.COOKIE_NAME)
+        val cookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
           .value(encrypted)
           .path("/")
           .httpOnly(true)
@@ -88,7 +88,7 @@ class LoginResource {
   @Path("/logout")
   @PermitAll
   fun logout(): Response {
-    val expiredCookie = NewCookie.Builder(SpotifyCookieAuthMechanism.COOKIE_NAME)
+    val expiredCookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
       .value("")
       .path("/")
       .httpOnly(true)

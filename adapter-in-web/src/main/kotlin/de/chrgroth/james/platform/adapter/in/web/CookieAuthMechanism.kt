@@ -16,7 +16,7 @@ import java.util.Optional
 
 @ApplicationScoped
 @Suppress("Unused")
-class SpotifyCookieAuthMechanism(
+class CookieAuthMechanism(
   private val tokenEncryption: TokenEncryptionPort,
   private val userRepository: UserRepositoryPort,
 ) : HttpAuthenticationMechanism {
