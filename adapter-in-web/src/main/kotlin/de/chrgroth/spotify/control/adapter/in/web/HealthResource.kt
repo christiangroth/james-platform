@@ -44,13 +44,6 @@ class HealthResource {
     healthTemplate.getFragment("snippet_cronjobs").data("stats", health.getStats())
 
   @GET
-  @Path("/snippets/outgoing-http-calls")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun snippetOutgoingHttpCalls(): TemplateInstance =
-    healthTemplate.getFragment("snippet_outgoing_http_calls").data("stats", health.getStats())
-
-  @GET
   @Path("/snippets/outbox-partitions")
   @Authenticated
   @Produces(MediaType.TEXT_HTML)

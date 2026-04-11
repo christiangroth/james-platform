@@ -49,7 +49,7 @@ include("adapter-out-mongodb")
 include("adapter-out-outbox")
 include("adapter-out-scheduler")
 include("adapter-out-slack")
-include("adapter-out-spotify")
+
 include("application-quarkus")
 include("domain-api")
 include("domain-impl")

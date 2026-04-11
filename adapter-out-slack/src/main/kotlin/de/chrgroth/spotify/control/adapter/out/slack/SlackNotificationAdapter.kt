@@ -1,8 +1,7 @@
 package de.chrgroth.spotify.control.adapter.out.slack
 
-import de.chrgroth.spotify.control.domain.model.playlist.AppPlaylistCheck
+import de.chrgroth.spotify.control.domain.port.out.infra.NotificationPort
 import de.chrgroth.spotify.control.domain.port.out.infra.OutboxPartitionObserver
-import de.chrgroth.spotify.control.domain.port.out.playlist.PlaylistCheckNotificationPort
 import io.quarkus.runtime.ShutdownEvent
 import io.quarkus.runtime.StartupEvent
 import jakarta.enterprise.context.ApplicationScoped
@@ -43,11 +42,7 @@ class SlackNotificationAdapter(
   private val partitionPausedEnabled: Boolean,
   @param:ConfigProperty(name = "app.slack.system-notifications.outbox-partition-resumed")
   private val partitionResumedEnabled: Boolean,
-  @param:ConfigProperty(name = "app.slack.playlist-check-notifications.check-passed")
-  private val checkPassedEnabled: Boolean,
-  @param:ConfigProperty(name = "app.slack.playlist-check-notifications.violations-changed")
-  private val violationsChangedEnabled: Boolean,
-) : OutboxPartitionObserver, PlaylistCheckNotificationPort {
+) : OutboxPartitionObserver, NotificationPort {
 
   private val enabled: Boolean = webhookUrl.orElse("").isNotBlank()
 
@@ -61,12 +56,12 @@ class SlackNotificationAdapter(
 
   @Suppress("UnusedParameter")
   fun onStartup(@Observes event: StartupEvent) {
-    if (startupEnabled) send("SpCtl $version started")
+    if (startupEnabled) send("James Platform $version started")
   }
 
   @Suppress("UnusedParameter")
   fun onShutdown(@Observes event: ShutdownEvent) {
-    if (stoppingEnabled) send("SpCtl $version about to stop")
+    if (stoppingEnabled) send("James Platform $version about to stop")
   }
 
   override fun onPartitionPaused(partitionKey: String, reason: String) {
@@ -78,15 +73,8 @@ class SlackNotificationAdapter(
     if (partitionResumedEnabled) send("Outbox partition $partitionKey resumed")
   }
 
-  override fun notifyCheckPassed(check: AppPlaylistCheck) {
-    if (checkPassedEnabled) send("Playlist check passed for playlist ${check.playlistId} (check: ${check.checkId})")
-  }
-
-  override fun notifyViolationsChanged(check: AppPlaylistCheck) {
-    if (violationsChangedEnabled) {
-      val violationList = check.violations.joinToString(", ")
-      send("Playlist check violations changed for playlist ${check.playlistId} (check: ${check.checkId}): $violationList")
-    }
+  override fun notify(message: String) {
+    send(message)
   }
 
   private fun send(text: String) {

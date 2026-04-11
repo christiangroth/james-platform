@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{#insert title}SpCtl{/insert}</title>
+    <title>{#insert title}James Platform{/insert}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/webjars/bootstrap/css/bootstrap.min.css">
     <style>
@@ -178,15 +178,15 @@
             <symbol id="icon-nav-github" viewBox="0 0 16 16">
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/>
             </symbol>
-            <symbol id="icon-nav-spotify" viewBox="0 0 168 168">
-                <path d="M84 0C37.6 0 0 37.6 0 84s37.6 84 84 84 84-37.6 84-84S130.4 0 84 0zm38.6 121.2c-1.5 2.5-4.7 3.3-7.2 1.8-19.6-12-44.2-14.7-73.2-8-2.8.6-5.5-1.1-6.2-3.9-.6-2.8 1.1-5.5 3.9-6.2 31.7-7.2 58.9-4.1 80.9 9.3 2.5 1.5 3.3 4.7 1.8 7zm10.3-22.8c-1.9 3.1-5.9 4-9 2.1-22.5-13.8-56.7-17.8-83.3-9.7-3.4 1-7.1-.9-8.1-4.3-1-3.4.9-7.1 4.3-8.1 30.4-9.2 68.2-4.7 94 11.1 3.1 1.9 4 5.9 2.1 9zm.9-23.8C108.2 59 63.9 57.3 41.3 63.4c-4.1 1.1-8.5-1.3-9.6-5.5-1.1-4.1 1.3-8.5 5.5-9.6 26-7 69.4-5.6 96.9 10.5 3.7 2.2 5 6.9 2.8 10.6-2.2 3.8-6.9 5-10.6 2.8z"/>
+            <symbol id="icon-nav-app" viewBox="0 0 16 16">
+                <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
             </symbol>
         </defs>
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
         <a href="/" class="d-flex align-items-center text-decoration-none me-2">
-            <img src="/favicon.svg" alt="SpCtl Logo" width="24" height="24" class="me-2">
-            <span class="app-name">SpCtl</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#ffffff" viewBox="0 0 16 16" class="me-2" aria-label="James Platform Logo"><use href="#icon-nav-app"/></svg>
+            <span class="app-name">James Platform</span>
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
@@ -199,9 +199,6 @@
                     <div id="navbar-outbox-popup-content" style="color:#e0e0e0;"></div>
                 </div>
             </div>
-            <button type="button" id="navbar-playback-icon" class="btn p-0 border-0 bg-transparent lh-1 me-2" aria-label="Playback Status" title="Playback Status" data-testid="navbar-playback-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" id="navbar-playback-svg" fill="#888888" viewBox="0 0 16 16" style="vertical-align:middle;"><use href="#icon-music"/></svg>
-            </button>
         </div>
         <span class="me-auto"></span>
         {/insert}
@@ -212,13 +209,12 @@
                 <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>Health</a></li>
                 <li><a href="/outbox-viewer" class="dropdown-item" data-testid="outbox-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-outbox-viewer"/></svg>Outbox</a></li>
                 <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>Config</a></li>
-                <li><a href="https://spotifycontrolprod.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Logs</a></li>
-                <li><a href="https://spotifycontrolprod.grafana.net/d/quarkus-spotify-control/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Metrics</a></li>
+                <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Logs</a></li>
+                <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Metrics</a></li>
                 <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Viewer</a></li>
-                <li><a href="https://cloud.mongodb.com/v2/699f08e3a7adcacf36dd2d4a#/explorer" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Atlas</a></li>
+                <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Atlas</a></li>
                 <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>Docs</a></li>
-                <li><a href="https://github.com/christiangroth/spotify-control" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>Code</a></li>
-                <li><a href="https://developer.spotify.com/documentation/web-api" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="spotify-api-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 168 168" aria-label="Spotify logo"><use href="#icon-nav-spotify"/></svg>API</a></li>
+                <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>Code</a></li>
             </ul>
         </div>
         <a href="/logout" class="btn btn-sm btn-outline-secondary" data-testid="logout-link">Logout</a>
@@ -235,7 +231,6 @@
             var outboxSvg = document.getElementById('navbar-outbox-svg');
             var outboxPopup = document.getElementById('navbar-outbox-popup');
             var outboxPopupContent = document.getElementById('navbar-outbox-popup-content');
-            var playbackSvg = document.getElementById('navbar-playback-svg');
             var outboxPopupCountdownInterval;
 
             function updateNavbarOutboxPopupCountdown() {
@@ -272,15 +267,6 @@
                     .catch(function () {});
             }
 
-            function updateNavbarPlaybackStatus() {
-                fetch('/health/snippets/navbar-playback-status')
-                    .then(function (r) { return r.text(); })
-                    .then(function (text) {
-                        if (playbackSvg) playbackSvg.setAttribute('fill', text.trim() === 'active' ? '#1db954' : '#888888');
-                    })
-                    .catch(function () {});
-            }
-
             function refreshOutboxPopupContent() {
                 fetch('/health/snippets/outbox-partitions')
                     .then(function (r) { return r.text(); })
@@ -313,12 +299,9 @@
                 if (event.data === 'refresh-outbox-partitions') {
                     updateNavbarOutboxStatus();
                     refreshOutboxPopupContent();
-                } else if (event.data === 'refresh-playback-state') {
-                    updateNavbarPlaybackStatus();
                 }
             }, function () {
                 updateNavbarOutboxStatus();
-                updateNavbarPlaybackStatus();
             });
         })();
     </script>

@@ -14,7 +14,6 @@ dependencies {
   implementation(project(":adapter-out-outbox"))
   implementation(project(":adapter-out-scheduler"))
   implementation(project(":adapter-out-slack"))
-  implementation(project(":adapter-out-spotify"))
   implementation(project(":domain-impl"))
 
   implementation(libs.quarkusOutboxAdapterInScheduler)

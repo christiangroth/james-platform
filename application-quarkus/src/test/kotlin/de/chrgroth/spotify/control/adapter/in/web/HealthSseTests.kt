@@ -3,7 +3,6 @@ package de.chrgroth.spotify.control.adapter.`in`.web
 import de.chrgroth.spotify.control.adapter.`in`.web.HealthSseAdapter
 import de.chrgroth.spotify.control.domain.model.user.UserId
 import de.chrgroth.spotify.control.domain.port.out.infra.OutboxTaskCountObserver
-import de.chrgroth.spotify.control.domain.port.out.infra.OutgoingRequestStatsObserver
 import io.quarkus.test.junit.QuarkusTest
 import io.smallrye.mutiny.subscription.Cancellable
 import jakarta.inject.Inject
@@ -21,30 +20,7 @@ class HealthSseTests {
   lateinit var healthSseService: HealthSseAdapter
 
   @Inject
-  lateinit var outgoingRequestStatsObserver: OutgoingRequestStatsObserver
-
-  @Inject
   lateinit var outboxTaskCountObserver: OutboxTaskCountObserver
-
-  @Test
-  fun `sse endpoint delivers refresh-outgoing-http-calls event when outgoing request is recorded`() {
-    val userId = UserId("test-user-health-sse-http")
-    val received = CopyOnWriteArrayList<String>()
-    val latch = CountDownLatch(1)
-
-    val cancellable: Cancellable = healthSseService.stream(userId)
-      .subscribe().with(
-        { event: String -> received.add(event); latch.countDown() },
-        { _: Throwable -> /* ignore errors */ },
-      )
-
-    outgoingRequestStatsObserver.onRequestRecorded()
-
-    assertTrue(latch.await(5, TimeUnit.SECONDS), "SSE refresh event should be received within 5 seconds")
-    assertEquals(listOf("refresh-outgoing-http-calls"), received.toList())
-
-    cancellable.cancel()
-  }
 
   @Test
   fun `sse endpoint delivers refresh-outbox-partitions event when partition is activated`() {

@@ -1,15 +1,13 @@
 package de.chrgroth.spotify.control.adapter.out.mongodb
 
 import de.chrgroth.spotify.control.domain.model.user.User
-import de.chrgroth.spotify.control.domain.model.user.UserId
+import de.chrgroth.spotify.control.domain.model.user.UserRole
 import de.chrgroth.spotify.control.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Instant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.time.Instant
 import java.util.UUID
 
 @QuarkusTest
@@ -19,59 +17,56 @@ class UserRepositoryTests {
   lateinit var userRepository: UserRepositoryPort
 
   @Test
-  fun `findById returns null when user does not exist`() {
-    assertThat(userRepository.findById(UserId("unknown-user"))).isNull()
+  fun `findByUsername returns null when user does not exist`() {
+    assertThat(userRepository.findByUsername("unknown-user")).isNull()
   }
 
   @Test
-  fun `upsert creates user on first login and findById retrieves it`() {
-    val userId = UserId("test-${UUID.randomUUID()}")
-    val now = Clock.System.now().let { Instant.fromEpochMilliseconds(it.toEpochMilliseconds()) }
+  fun `save creates user and findByUsername retrieves it`() {
+    val username = "test-${UUID.randomUUID()}"
     val user = User(
-      spotifyUserId = userId,
-      displayName = "Test User",
-      encryptedAccessToken = "encrypted-access",
-      encryptedRefreshToken = "encrypted-refresh",
-      tokenExpiresAt = now + 1.hours,
-      lastLoginAt = now,
+      username = username,
+      passwordHash = "hashed-password",
+      roles = setOf(UserRole.USER),
+      createdAt = Instant.now(),
     )
 
-    userRepository.upsert(user)
+    userRepository.save(user)
 
-    val found = userRepository.findById(userId)
+    val found = userRepository.findByUsername(username)
     assertThat(found).isNotNull()
-    assertThat(found!!.spotifyUserId).isEqualTo(userId)
-    assertThat(found.displayName).isEqualTo("Test User")
-    assertThat(found.encryptedAccessToken).isEqualTo("encrypted-access")
-    assertThat(found.encryptedRefreshToken).isEqualTo("encrypted-refresh")
+    assertThat(found!!.username).isEqualTo(username)
+    assertThat(found.passwordHash).isEqualTo("hashed-password")
+    assertThat(found.roles).containsExactly(UserRole.USER)
   }
 
   @Test
-  fun `upsert updates tokens on subsequent login`() {
-    val userId = UserId("test-${UUID.randomUUID()}")
-    val now = Clock.System.now().let { Instant.fromEpochMilliseconds(it.toEpochMilliseconds()) }
-    val firstLogin = User(
-      spotifyUserId = userId,
-      displayName = "Test User",
-      encryptedAccessToken = "first-access",
-      encryptedRefreshToken = "first-refresh",
-      tokenExpiresAt = now + 1.hours,
-      lastLoginAt = now,
+  fun `save updates existing user`() {
+    val username = "test-${UUID.randomUUID()}"
+    val original = User(
+      username = username,
+      passwordHash = "original-hash",
+      roles = setOf(UserRole.USER),
+      createdAt = Instant.now(),
     )
-    userRepository.upsert(firstLogin)
+    userRepository.save(original)
 
-    val laterLogin = now + 2.hours
-    val secondLogin = firstLogin.copy(
-      encryptedAccessToken = "second-access",
-      encryptedRefreshToken = "second-refresh",
-      tokenExpiresAt = laterLogin + 1.hours,
-      lastLoginAt = laterLogin,
-    )
-    userRepository.upsert(secondLogin)
+    val updated = original.copy(passwordHash = "updated-hash", roles = setOf(UserRole.ADMIN))
+    userRepository.save(updated)
 
-    val found = userRepository.findById(userId)!!
-    assertThat(found.encryptedAccessToken).isEqualTo("second-access")
-    assertThat(found.encryptedRefreshToken).isEqualTo("second-refresh")
-    assertThat(found.lastLoginAt).isEqualTo(laterLogin)
+    val found = userRepository.findByUsername(username)!!
+    assertThat(found.passwordHash).isEqualTo("updated-hash")
+    assertThat(found.roles).containsExactly(UserRole.ADMIN)
+  }
+
+  @Test
+  fun `findAll returns all users`() {
+    val username1 = "test-${UUID.randomUUID()}"
+    val username2 = "test-${UUID.randomUUID()}"
+    userRepository.save(User(username1, "hash1", setOf(UserRole.USER), Instant.now()))
+    userRepository.save(User(username2, "hash2", setOf(UserRole.DEVELOPER), Instant.now()))
+
+    val all = userRepository.findAll().map { it.username }
+    assertThat(all).contains(username1, username2)
   }
 }

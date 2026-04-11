@@ -21,6 +21,28 @@ class LoginPageTests {
   }
 
   @Test
+  fun `login page displays username and password fields`() {
+    given()
+      .`when`()
+      .get("/")
+      .then()
+      .statusCode(200)
+      .body(containsString("""name="username""""))
+      .body(containsString("""name="password""""))
+      .body(containsString("""action="/login""""))
+  }
+
+  @Test
+  fun `login page displays James Platform title`() {
+    given()
+      .`when`()
+      .get("/")
+      .then()
+      .statusCode(200)
+      .body(containsString("James Platform"))
+  }
+
+  @Test
   fun `login page displays dynamic app version from build`() {
     given()
       .`when`()
