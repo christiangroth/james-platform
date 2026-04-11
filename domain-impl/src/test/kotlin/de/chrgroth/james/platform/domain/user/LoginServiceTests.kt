@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.user
 import de.chrgroth.james.platform.domain.error.LoginError
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserRole
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
 import io.mockk.mockk
@@ -18,7 +19,7 @@ class LoginServiceTests {
   private val testPassword = "test-password"
   private val testPasswordHash = LoginService.hashPassword(testPassword)
   private val testUser = User(
-    username = "test-user",
+    username = Username("test-user"),
     passwordHash = testPasswordHash,
     roles = setOf(UserRole.USER),
     createdAt = Instant.now(),
@@ -26,17 +27,17 @@ class LoginServiceTests {
 
   @Test
   fun `login succeeds with correct credentials`() {
-    every { userRepository.findByUsername("test-user") } returns testUser
+    every { userRepository.findByUsername(Username("test-user")) } returns testUser
 
     val result = loginService.login("test-user", testPassword)
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.username).isEqualTo("test-user")
+    assertThat(result.getOrNull()?.username).isEqualTo(Username("test-user"))
   }
 
   @Test
   fun `login fails with wrong password`() {
-    every { userRepository.findByUsername("test-user") } returns testUser
+    every { userRepository.findByUsername(Username("test-user")) } returns testUser
 
     val result = loginService.login("test-user", "wrong-password")
 
@@ -46,7 +47,7 @@ class LoginServiceTests {
 
   @Test
   fun `login fails when user not found`() {
-    every { userRepository.findByUsername("unknown") } returns null
+    every { userRepository.findByUsername(Username("unknown")) } returns null
 
     val result = loginService.login("unknown", "any-password")
 
