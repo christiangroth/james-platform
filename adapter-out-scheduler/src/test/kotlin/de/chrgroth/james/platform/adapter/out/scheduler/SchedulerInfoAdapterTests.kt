@@ -2,7 +2,21 @@ package de.chrgroth.james.platform.adapter.out.scheduler
 
 import io.mockk.every
 import io.mockk.mockk
+import io.quarkus.scheduler.Scheduled
 import io.quarkus.scheduler.Scheduler
+import jakarta.enterprise.context.ApplicationScoped
+
+@ApplicationScoped
+internal class TestCronjob {
+  @Scheduled(every = "1h")
+  fun run() = Unit
+}
+
+@ApplicationScoped
+internal class AnotherTestCronjob {
+  @Scheduled(every = "2h")
+  fun run() = Unit
+}
 import io.quarkus.scheduler.Trigger
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
