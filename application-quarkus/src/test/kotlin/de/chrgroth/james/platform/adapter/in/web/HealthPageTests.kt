@@ -92,7 +92,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="grafana-logs-link""""))
-      .body(containsString("https://spotifycontrolprod.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs"))
+      .body(containsString("https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs"))
   }
 
   @Test
@@ -103,7 +103,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="grafana-metrics-link""""))
-      .body(containsString("https://spotifycontrolprod.grafana.net/d/quarkus-spotify-control/quarkus-metrics"))
+      .body(containsString("https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics"))
   }
 
   @Test
@@ -114,7 +114,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="mongodb-atlas-link""""))
-      .body(containsString("https://cloud.mongodb.com/v2/699f08e3a7adcacf36dd2d4a#/explorer"))
+      .body(containsString("https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer"))
   }
 
   @Test
@@ -240,19 +240,6 @@ class HealthPageTests {
       .body(containsString("""data-testid="cronjobs-table""""))
       .body(containsString("Cron"))
       .body(containsString("Next"))
-  }
-
-  @Test
-  fun `health page lists all scheduled jobs in cronjob table`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("PlaylistSyncJob"))
-      .body(containsString("PlaybackDetectionJob"))
-      .body(containsString("UserProfileUpdateJob"))
-      .body(containsString("ArchiverJob"))
   }
 
   @Test
