@@ -30,13 +30,6 @@ class HealthResource {
   fun health(): TemplateInstance = healthTemplate.data("stats", health.getStats())
 
   @GET
-  @Path("/snippets/predicates")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun snippetPredicates(): TemplateInstance =
-    healthTemplate.getFragment("snippet_predicates").data("stats", health.getStats())
-
-  @GET
   @Path("/snippets/cronjobs")
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
@@ -70,11 +63,4 @@ class HealthResource {
   @Produces(MediaType.TEXT_HTML)
   fun snippetNavbarOutboxStatus(): TemplateInstance =
     healthTemplate.getFragment("snippet_navbar_outbox_status").data("stats", health.getStats())
-
-  @GET
-  @Path("/snippets/navbar-playback-status")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun snippetNavbarPlaybackStatus(): TemplateInstance =
-    healthTemplate.getFragment("snippet_navbar_playback_status").data("stats", health.getStats())
 }

@@ -382,52 +382,6 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page displays state section with predicates table`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("State"))
-      .body(containsString("""data-testid="predicates-table""""))
-  }
-
-  @Test
-  fun `health page predicates table shows icon before name and since column instead of active column`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="predicates-table""""))
-      .body(containsString("Since"))
-      .body(not(containsString(">Active<")))
-  }
-
-  @Test
-  fun `health page state and cronjobs sections are combined in one row`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("Cronjobs &amp; State"))
-      .body(containsString("""id="snippet-cronjobs""""))
-      .body(containsString("""id="snippet-predicates""""))
-  }
-
-  @Test
-  fun `health snippet endpoint for predicates is available`() {
-    given()
-      .`when`()
-      .get("/health/snippets/predicates")
-      .then()
-      .statusCode(200)
-      .contentType(containsString("text/html"))
-      .body(containsString("""data-testid="predicates-table""""))
-  }
-
-  @Test
   fun `health snippet endpoint for navbar outbox status is available`() {
     given()
       .`when`()
@@ -436,40 +390,6 @@ class HealthPageTests {
       .statusCode(200)
       .contentType(containsString("text/html"))
       .body(containsString("ok"))
-  }
-
-  @Test
-  fun `health snippet endpoint for navbar playback status is available`() {
-    given()
-      .`when`()
-      .get("/health/snippets/navbar-playback-status")
-      .then()
-      .statusCode(200)
-      .contentType(containsString("text/html"))
-      .body(containsString("inactive"))
-  }
-
-  @Test
-  fun `health page contains predicate last check javascript`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("updatePredicateLastChecks"))
-      .body(containsString("predicate-last-check"))
-      .body(containsString("data-last-check"))
-  }
-
-  @Test
-  fun `health page sse handles refresh-playback-state event for predicates`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("refresh-playback-state"))
-      .body(containsString("snippet-predicates"))
   }
 
   @Test
@@ -492,7 +412,6 @@ class HealthPageTests {
       .statusCode(200)
       .body(containsString("connectSse('/health/events'"))
       .body(containsString("updateNavbarOutboxStatus"))
-      .body(containsString("updateNavbarPlaybackStatus"))
   }
 
   @Test

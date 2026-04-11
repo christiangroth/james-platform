@@ -92,44 +92,6 @@
                         {/fragment}
                     </div>
                 </div>
-                <div class="col-12 col-lg-6">
-                    <div id="snippet-predicates" class="card h-100 app-card">
-                        {#fragment id="snippet_predicates"}
-                        <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">State</p>
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0 app-table" data-testid="predicates-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Predicate</th>
-                                            <th class="text-end">Since</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {#for p in stats.predicateStats}
-                                        <tr>
-                                            <td>
-                                                {#if p.active}
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#1db954" viewBox="0 0 16 16" style="vertical-align:middle;margin-right:4px;">
-                                                    <use href="#icon-check-circle"/>
-                                                </svg>
-                                                {#else}
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#888888" viewBox="0 0 16 16" style="vertical-align:middle;margin-right:4px;">
-                                                    <use href="#icon-x-circle"/>
-                                                </svg>
-                                                {/if}
-                                                {p.name}
-                                            </td>
-                                            <td class="predicate-last-check text-end" {#if p.lastCheck}data-last-check="{p.lastCheck.toEpochMilliseconds()}"{/if}>{#if p.lastCheck}-{#else}N/A{/if}</td>
-                                        </tr>
-                                        {/for}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        {/fragment}
-                    </div>
-                </div>
             </div>
 
             <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">MongoDB</h2>
@@ -208,7 +170,7 @@
         </div>
     </div>
 
-    <span style="display:none;">{#fragment id="snippet_navbar_outbox_status"}{#if stats.outboxAllActive}ok{#else}error{/if}{/fragment}{#fragment id="snippet_navbar_playback_status"}{#if stats.playbackActive}active{#else}inactive{/if}{/fragment}</span>
+    <span style="display:none;">{#fragment id="snippet_navbar_outbox_status"}{#if stats.outboxAllActive}ok{#else}error{/if}{/fragment}</span>
 
     <style>
         @keyframes cronjob-pulse-green {
@@ -301,18 +263,6 @@
             updateCronjobCountdowns();
             startOutboxBlockedUntilInterval();
 
-            function updatePredicateLastChecks() {
-                document.querySelectorAll('.predicate-last-check[data-last-check]').forEach(function (cell) {
-                    var ms = parseInt(cell.dataset.lastCheck, 10);
-                    var d = new Date(ms);
-                    var h = String(d.getHours()).padStart(2, '0');
-                    var m = String(d.getMinutes()).padStart(2, '0');
-                    var s = String(d.getSeconds()).padStart(2, '0');
-                    cell.textContent = h + ':' + m + ':' + s;
-                });
-            }
-            updatePredicateLastChecks();
-
             connectSse('/health/events', function (event) {
                 if (event.data === 'refresh-outbox-partitions') {
                     if (outboxBlockedUntilInterval) {
@@ -320,8 +270,6 @@
                         outboxBlockedUntilInterval = null;
                     }
                     fadeUpdate('snippet-outbox-partitions', '/health/snippets/outbox-partitions', startOutboxBlockedUntilInterval);
-                } else if (event.data === 'refresh-playback-state') {
-                    fadeUpdate('snippet-predicates', '/health/snippets/predicates', updatePredicateLastChecks);
                 }
             });
         })();

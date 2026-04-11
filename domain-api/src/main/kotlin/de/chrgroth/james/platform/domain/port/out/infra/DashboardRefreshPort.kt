@@ -5,6 +5,5 @@ import de.chrgroth.james.platform.domain.model.user.Username
 interface DashboardRefreshPort {
   fun notifyUserPlaybackData(username: Username)
   fun notifyUserPlaylistMetadata(username: Username)
-  fun notifyUserPlaylistChecks(username: Username)
   fun notifyCatalogData()
 }

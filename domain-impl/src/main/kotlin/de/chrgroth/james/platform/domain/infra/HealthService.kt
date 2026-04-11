@@ -34,7 +34,6 @@ class HealthService(
       mongoCollectionStats = mongoCollectionStatsAsync.await(),
       mongoQueryStats = mongoQueryStatsAsync.await(),
       cronjobStats = cronjobStatsAsync.await(),
-      predicateStats = emptyList(),
       configurationStats = configurationStatsAsync.await(),
     )
   }

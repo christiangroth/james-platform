@@ -61,24 +61,4 @@ class HealthSseTests {
 
     cancellable.cancel()
   }
-
-  @Test
-  fun `sse endpoint delivers refresh-playback-state event when playback is detected`() {
-    val userId = Username("test-user-health-sse-playback")
-    val received = CopyOnWriteArrayList<String>()
-    val latch = CountDownLatch(1)
-
-    val cancellable: Cancellable = healthSseService.stream(userId)
-      .subscribe().with(
-        { event: String -> received.add(event); latch.countDown() },
-        { _: Throwable -> /* ignore errors */ },
-      )
-
-    healthSseService.onPlaybackDetected()
-
-    assertTrue(latch.await(5, TimeUnit.SECONDS), "SSE refresh event should be received within 5 seconds")
-    assertEquals(listOf("refresh-playback-state"), received.toList())
-
-    cancellable.cancel()
-  }
 }
