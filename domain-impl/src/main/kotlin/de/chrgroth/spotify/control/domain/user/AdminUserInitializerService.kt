@@ -2,6 +2,7 @@ package de.chrgroth.spotify.control.domain.user
 
 import de.chrgroth.spotify.control.domain.model.user.User
 import de.chrgroth.spotify.control.domain.model.user.UserRole
+import de.chrgroth.spotify.control.domain.port.`in`.user.AdminUserInitializerPort
 import de.chrgroth.spotify.control.domain.port.out.infra.NotificationPort
 import de.chrgroth.spotify.control.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -14,9 +15,9 @@ import java.time.Instant
 class AdminUserInitializerService(
   private val userRepository: UserRepositoryPort,
   private val notificationPort: NotificationPort,
-) {
+) : AdminUserInitializerPort {
 
-  fun initializeAdminUser() {
+  override fun initializeAdminUser() {
     val existing = userRepository.findByUsername(ADMIN_USERNAME)
     if (existing != null) {
       logger.info { "Admin user already exists, skipping initialization" }
