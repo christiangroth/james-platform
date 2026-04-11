@@ -47,7 +47,7 @@ class PlaybackAggregationService(
     val users = userRepository.findAll()
     logger.info { "Enqueuing day aggregation for $date for ${users.size} user(s)" }
     users.forEach { user ->
-      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(user.spotifyUserId, AggregationPeriodType.DAY, date))
+      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(UserId(user.username), AggregationPeriodType.DAY, date))
     }
   }
 
@@ -55,7 +55,7 @@ class PlaybackAggregationService(
     val users = userRepository.findAll()
     logger.info { "Enqueuing week aggregation for $weekStart for ${users.size} user(s)" }
     users.forEach { user ->
-      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(user.spotifyUserId, AggregationPeriodType.WEEK, weekStart))
+      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(UserId(user.username), AggregationPeriodType.WEEK, weekStart))
     }
   }
 
@@ -63,7 +63,7 @@ class PlaybackAggregationService(
     val users = userRepository.findAll()
     logger.info { "Enqueuing month aggregation for $monthStart for ${users.size} user(s)" }
     users.forEach { user ->
-      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(user.spotifyUserId, AggregationPeriodType.MONTH, monthStart))
+      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(UserId(user.username), AggregationPeriodType.MONTH, monthStart))
     }
   }
 
@@ -71,7 +71,7 @@ class PlaybackAggregationService(
     val users = userRepository.findAll()
     logger.info { "Enqueuing quarter aggregation for $quarterStart for ${users.size} user(s)" }
     users.forEach { user ->
-      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(user.spotifyUserId, AggregationPeriodType.QUARTER, quarterStart))
+      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(UserId(user.username), AggregationPeriodType.QUARTER, quarterStart))
     }
   }
 
@@ -79,7 +79,7 @@ class PlaybackAggregationService(
     val users = userRepository.findAll()
     logger.info { "Enqueuing year aggregation for $yearStart for ${users.size} user(s)" }
     users.forEach { user ->
-      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(user.spotifyUserId, AggregationPeriodType.YEAR, yearStart))
+      outboxPort.enqueue(DomainOutboxEvent.AggregatePlaybackData(UserId(user.username), AggregationPeriodType.YEAR, yearStart))
     }
   }
 
