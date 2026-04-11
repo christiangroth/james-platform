@@ -6,6 +6,7 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.LoginError
 import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.`in`.user.LoginServicePort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -23,7 +24,7 @@ class LoginService(
 ) : LoginServicePort {
 
   override fun login(username: String, password: String): Either<DomainError, User> {
-    val user = userRepository.findByUsername(username) ?: run {
+    val user = userRepository.findByUsername(Username(username)) ?: run {
       logger.warn { "Login failed: user not found: $username" }
       return LoginError.INVALID_CREDENTIALS.left()
     }

@@ -65,7 +65,7 @@ class LoginResource {
     return result.fold(
       ifLeft = { Response.temporaryRedirect(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
       ifRight = { user ->
-        val encrypted = tokenEncryption.encrypt(user.username).getOrNull()
+        val encrypted = tokenEncryption.encrypt(user.username.value).getOrNull()
           ?: return Response.temporaryRedirect(URI.create("/?error=session")).build()
         val cookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
           .value(encrypted)

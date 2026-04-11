@@ -25,6 +25,7 @@ The domain model lives exclusively in `domain-api`. Keep it clean:
 
 - **Data classes** for all domain objects – no mutable state, no ORM annotations
 - **Sealed classes** for discriminated results and typed domain errors
+- **Co-locate related types** in the same file – value classes, enums, and supporting types that logically belong to a domain object should live in the same file (e.g., `UserRole` and `Username` in `User.kt`)
 - **Value objects** for typed identifiers to prevent accidental ID mix-ups
 - **Enums** for named states (e.g. `PlaybackProcessingStatus`) – never replace with boolean flags
 - **No framework annotations** in domain model classes (`@JsonProperty`, `@BsonProperty`, etc.) – CDI and MicroProfile Config annotations (`@ApplicationScoped`, `@ConfigProperty`)

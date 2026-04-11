@@ -1,13 +1,11 @@
 package de.chrgroth.james.platform.domain.infra
 
 import de.chrgroth.james.platform.domain.model.infra.HealthStats
-import de.chrgroth.james.platform.domain.model.infra.PredicateStats
 import de.chrgroth.james.platform.domain.port.`in`.infra.HealthPort
 import de.chrgroth.james.platform.domain.port.out.infra.ConfigurationInfoPort
 import de.chrgroth.james.platform.domain.port.out.infra.CronjobInfoPort
 import de.chrgroth.james.platform.domain.port.out.infra.MongoStatsPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
-import de.chrgroth.james.platform.domain.port.out.playback.PlaybackActivityPort
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ThreadContextElement
@@ -22,7 +20,6 @@ class HealthService(
   private val mongoStats: MongoStatsPort,
   private val cronjobInfo: CronjobInfoPort,
   private val configurationInfo: ConfigurationInfoPort,
-  private val playbackActivity: PlaybackActivityPort,
 ) : HealthPort {
 
   override fun getStats(): HealthStats = runBlocking {
@@ -31,17 +28,13 @@ class HealthService(
     val mongoCollectionStatsAsync = async(dispatcher) { mongoStats.getCollectionStats() }
     val mongoQueryStatsAsync = async(dispatcher) { mongoStats.getQueryStats() }
     val cronjobStatsAsync = async(dispatcher) { cronjobInfo.getCronjobStats() }
-    val playbackActiveAsync = async(dispatcher) { playbackActivity.isPlaybackActive() }
-    val lastActivityTimestampAsync = async(dispatcher) { playbackActivity.lastActivityTimestamp() }
     val configurationStatsAsync = async(dispatcher) { configurationInfo.getConfigurationStats() }
     HealthStats(
       outboxPartitions = outboxPartitionsAsync.await(),
       mongoCollectionStats = mongoCollectionStatsAsync.await(),
       mongoQueryStats = mongoQueryStatsAsync.await(),
       cronjobStats = cronjobStatsAsync.await(),
-      predicateStats = listOf(
-        PredicateStats(name = "playbackActive", active = playbackActiveAsync.await(), lastCheck = lastActivityTimestampAsync.await()),
-      ),
+      predicateStats = emptyList(),
       configurationStats = configurationStatsAsync.await(),
     )
   }

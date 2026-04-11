@@ -1,6 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
-import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPartitionObserver
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxTaskCountObserver
 import de.chrgroth.james.platform.domain.port.out.playback.PlaybackDetectedObserver
@@ -15,10 +15,10 @@ class HealthSseAdapter : OutboxPartitionObserver, OutboxTaskCountObserver, Playb
 
   private val emittersByUser = ConcurrentHashMap<String, CopyOnWriteArrayList<MultiEmitter<in String>>>()
 
-  fun stream(userId: UserId): Multi<String> = Multi.createFrom().emitter { emitter ->
-    emittersByUser.getOrPut(userId.value) { CopyOnWriteArrayList() }.add(emitter)
+  fun stream(username: Username): Multi<String> = Multi.createFrom().emitter { emitter ->
+    emittersByUser.getOrPut(username.value) { CopyOnWriteArrayList() }.add(emitter)
     emitter.onTermination {
-      emittersByUser.computeIfPresent(userId.value) { _, list ->
+      emittersByUser.computeIfPresent(username.value) { _, list ->
         list.remove(emitter)
         list.takeIf { it.isNotEmpty() }
       }
@@ -37,7 +37,7 @@ class HealthSseAdapter : OutboxPartitionObserver, OutboxTaskCountObserver, Playb
 
   private fun notifyAllUsers(event: String) = emittersByUser.keys.toList().forEach { emitToUser(it, event) }
 
-  private fun emitToUser(userId: String, event: String) {
-    emittersByUser[userId]?.forEach { runCatching { it.emit(event) } }
+  private fun emitToUser(username: String, event: String) {
+    emittersByUser[username]?.forEach { runCatching { it.emit(event) } }
   }
 }

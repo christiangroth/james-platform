@@ -1,7 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.adapter.`in`.web.DashboardSseAdapter
-import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.infra.DashboardRefreshPort
 import io.quarkus.test.junit.QuarkusTest
 import io.smallrye.mutiny.subscription.Cancellable
@@ -24,7 +24,7 @@ class DashboardSseTests {
 
   @Test
   fun `sse endpoint delivers refresh-playback-data event when user is notified`() {
-    val userId = UserId("test-user-sse")
+    val userId = Username("test-user-sse")
     val received = CopyOnWriteArrayList<String>()
     val latch = CountDownLatch(1)
 
@@ -45,7 +45,7 @@ class DashboardSseTests {
 
   @Test
   fun `sse endpoint delivers refresh-playlist-metadata event when playlist metadata is notified`() {
-    val userId = UserId("test-user-sse-playlist")
+    val userId = Username("test-user-sse-playlist")
     val received = CopyOnWriteArrayList<String>()
     val latch = CountDownLatch(1)
 
@@ -65,7 +65,7 @@ class DashboardSseTests {
 
   @Test
   fun `sse endpoint delivers refresh-catalog-data event when catalog data is notified`() {
-    val userId = UserId("test-user-sse-catalog")
+    val userId = Username("test-user-sse-catalog")
     val received = CopyOnWriteArrayList<String>()
     val latch = CountDownLatch(1)
 

@@ -1,6 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
-import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.model.user.Username
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import io.smallrye.mutiny.Multi
@@ -26,5 +26,5 @@ class DashboardSseResource(
   @Authenticated
   @Produces(MediaType.SERVER_SENT_EVENTS)
   @RestStreamElementType(MediaType.TEXT_PLAIN)
-  fun events(): Multi<String> = sseAdapter.stream(UserId(securityIdentity.principal.name))
+  fun events(): Multi<String> = sseAdapter.stream(Username(securityIdentity.principal.name))
 }

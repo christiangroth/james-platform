@@ -1,10 +1,10 @@
 package de.chrgroth.james.platform.domain.port.out.infra
 
-import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.model.user.Username
 
 interface DashboardRefreshPort {
-  fun notifyUserPlaybackData(userId: UserId)
-  fun notifyUserPlaylistMetadata(userId: UserId)
-  fun notifyUserPlaylistChecks(userId: UserId)
+  fun notifyUserPlaybackData(username: Username)
+  fun notifyUserPlaylistMetadata(username: Username)
+  fun notifyUserPlaylistChecks(username: Username)
   fun notifyCatalogData()
 }

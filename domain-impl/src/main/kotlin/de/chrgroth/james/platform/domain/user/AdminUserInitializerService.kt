@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.user
 
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserRole
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserInitializerPort
 import de.chrgroth.james.platform.domain.port.out.infra.NotificationPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
@@ -18,7 +19,7 @@ class AdminUserInitializerService(
 ) : AdminUserInitializerPort {
 
   override fun initializeAdminUser() {
-    val existing = userRepository.findByUsername(ADMIN_USERNAME)
+    val existing = userRepository.findByUsername(Username(ADMIN_USERNAME))
     if (existing != null) {
       logger.info { "Admin user already exists, skipping initialization" }
       return
@@ -27,7 +28,7 @@ class AdminUserInitializerService(
     val password = generateRandomPassword()
     val passwordHash = LoginService.hashPassword(password)
     val admin = User(
-      username = ADMIN_USERNAME,
+      username = Username(ADMIN_USERNAME),
       passwordHash = passwordHash,
       roles = setOf(UserRole.ADMIN),
       createdAt = Instant.now(),

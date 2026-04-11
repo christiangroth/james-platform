@@ -4,6 +4,7 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserRole
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import java.time.Instant
@@ -14,9 +15,9 @@ class UserRepositoryAdapter(
   private val mongoQueryMetrics: MongoQueryMetrics,
 ) : UserRepositoryPort {
 
-  override fun findByUsername(username: String): User? =
+  override fun findByUsername(username: Username): User? =
     mongoQueryMetrics.timed("app_user.findByUsername") {
-      userDocumentRepository.findById(username)?.toDomain()
+      userDocumentRepository.findById(username.value)?.toDomain()
     }
 
   override fun findAll(): List<User> =
@@ -28,7 +29,7 @@ class UserRepositoryAdapter(
     mongoQueryMetrics.timed("app_user.save") {
       val doc = user.toDocument()
       userDocumentRepository.mongoCollection().replaceOne(
-        Filters.eq(ID_FIELD, user.username),
+        Filters.eq(ID_FIELD, user.username.value),
         doc,
         ReplaceOptions().upsert(true),
       )
@@ -36,14 +37,14 @@ class UserRepositoryAdapter(
   }
 
   private fun UserDocument.toDomain() = User(
-    username = username,
+    username = Username(username),
     passwordHash = passwordHash,
     roles = roles.mapNotNull { runCatching { UserRole.valueOf(it) }.getOrNull() }.toSet(),
     createdAt = createdAt,
   )
 
   private fun User.toDocument() = UserDocument().also { doc ->
-    doc.username = username
+    doc.username = username.value
     doc.passwordHash = passwordHash
     doc.roles = roles.map { it.name }.toSet()
     doc.createdAt = createdAt

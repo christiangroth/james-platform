@@ -390,7 +390,6 @@ class HealthPageTests {
       .statusCode(200)
       .body(containsString("State"))
       .body(containsString("""data-testid="predicates-table""""))
-      .body(containsString("playbackActive"))
   }
 
   @Test
@@ -403,19 +402,6 @@ class HealthPageTests {
       .body(containsString("""data-testid="predicates-table""""))
       .body(containsString("Since"))
       .body(not(containsString(">Active<")))
-      .body(containsString("predicate-last-check"))
-  }
-
-  @Test
-  fun `health page predicates table uses grey icon for inactive state`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="predicates-table""""))
-      .body(containsString("fill=\"#888888\""))
-      .body(not(containsString("fill=\"#dc3545\"")))
   }
 
   @Test

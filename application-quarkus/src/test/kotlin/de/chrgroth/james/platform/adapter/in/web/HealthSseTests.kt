@@ -1,7 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.adapter.`in`.web.HealthSseAdapter
-import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxTaskCountObserver
 import io.quarkus.test.junit.QuarkusTest
 import io.smallrye.mutiny.subscription.Cancellable
@@ -24,7 +24,7 @@ class HealthSseTests {
 
   @Test
   fun `sse endpoint delivers refresh-outbox-partitions event when partition is activated`() {
-    val userId = UserId("test-user-health-sse-outbox")
+    val userId = Username("test-user-health-sse-outbox")
     val received = CopyOnWriteArrayList<String>()
     val latch = CountDownLatch(1)
 
@@ -44,7 +44,7 @@ class HealthSseTests {
 
   @Test
   fun `sse endpoint delivers refresh-outbox-partitions event when outbox task count changes`() {
-    val userId = UserId("test-user-health-sse-outbox-count")
+    val userId = Username("test-user-health-sse-outbox-count")
     val received = CopyOnWriteArrayList<String>()
     val latch = CountDownLatch(1)
 
@@ -64,7 +64,7 @@ class HealthSseTests {
 
   @Test
   fun `sse endpoint delivers refresh-playback-state event when playback is detected`() {
-    val userId = UserId("test-user-health-sse-playback")
+    val userId = Username("test-user-health-sse-playback")
     val received = CopyOnWriteArrayList<String>()
     val latch = CountDownLatch(1)
 

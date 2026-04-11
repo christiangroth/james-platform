@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
+import de.chrgroth.james.platform.domain.model.user.Username
 import io.quarkus.security.identity.IdentityProviderManager
 import io.quarkus.security.identity.SecurityIdentity
 import io.quarkus.security.runtime.QuarkusSecurityIdentity
@@ -25,7 +26,7 @@ class CookieAuthMechanism(
     val username = context.request().getCookie(COOKIE_NAME)?.value
       ?.let { tokenEncryption.decrypt(it).getOrNull() }
       ?: return Uni.createFrom().optional(Optional.empty())
-    val user = userRepository.findByUsername(username)
+    val user = userRepository.findByUsername(Username(username))
       ?: return Uni.createFrom().optional(Optional.empty())
     val identityBuilder = QuarkusSecurityIdentity.builder()
       .setPrincipal(Principal { username })
