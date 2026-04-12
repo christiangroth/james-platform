@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured.given
+import jakarta.ws.rs.core.MediaType
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.Test
@@ -74,5 +75,51 @@ class LoginPageTests {
       .statusCode(200)
       .body(not(containsString("updateNavbarOutboxStatus")))
       .body(not(containsString("updateNavbarPlaybackStatus")))
+  }
+}
+
+@QuarkusTest
+class LoginRedirectTests {
+
+  @Test
+  fun `login with blank username redirects to login page with error using see other`() {
+    given()
+      .redirects().follow(false)
+      .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+      .formParam("username", "")
+      .formParam("password", "secret")
+      .`when`()
+      .post("/login")
+      .then()
+      .statusCode(303)
+      .header("Location", containsString("/?error="))
+  }
+
+  @Test
+  fun `login with blank password redirects to login page with error using see other`() {
+    given()
+      .redirects().follow(false)
+      .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+      .formParam("username", "admin")
+      .formParam("password", "")
+      .`when`()
+      .post("/login")
+      .then()
+      .statusCode(303)
+      .header("Location", containsString("/?error="))
+  }
+
+  @Test
+  fun `login with invalid credentials redirects to login page with error using see other`() {
+    given()
+      .redirects().follow(false)
+      .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+      .formParam("username", "unknown-user")
+      .formParam("password", "wrong-password")
+      .`when`()
+      .post("/login")
+      .then()
+      .statusCode(303)
+      .header("Location", containsString("/?error="))
   }
 }
