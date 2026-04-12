@@ -1,4 +1,3 @@
-import dev.detekt.gradle.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_3
 
@@ -9,7 +8,6 @@ plugins {
   `java-library`
   `java-test-fixtures`
 
-  id("dev.detekt")
   id("org.jetbrains.kotlinx.kover")
 }
 
@@ -62,16 +60,7 @@ kover {
   }
 }
 
-detekt {
-  buildUponDefaultConfig = true
-  config.setFrom(files("${rootProject.projectDir}/detekt-config.yaml"))
-}
-
 tasks {
-
-  withType<Detekt> {
-    this.jvmTarget.set(JVM_25.target)
-  }
 
   kotlin {
     compilerOptions.apiVersion = KOTLIN_2_3
