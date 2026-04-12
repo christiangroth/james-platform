@@ -14,4 +14,5 @@ class UserDocument {
   lateinit var roles: Set<String>
   lateinit var createdAt: Instant
   var lastLoginAt: Instant? = null
+  var active: Boolean = true
 }

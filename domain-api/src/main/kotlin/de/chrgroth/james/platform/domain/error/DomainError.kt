@@ -24,3 +24,12 @@ enum class UserProfileError(override val code: String) : DomainError {
   PASSWORDS_DO_NOT_MATCH("PROFILE-005"),
   ;
 }
+
+enum class UserAdminError(override val code: String) : DomainError {
+  USER_NOT_FOUND("ADMIN-001"),
+  USERNAME_ALREADY_EXISTS("ADMIN-002"),
+  BLANK_INPUT("ADMIN-003"),
+  CANNOT_DEACTIVATE_SELF("ADMIN-004"),
+  CANNOT_DELETE_SELF("ADMIN-005"),
+  ;
+}

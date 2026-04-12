@@ -29,6 +29,10 @@ class LoginService(
       logger.warn { "Login failed: user not found: $username" }
       return LoginError.INVALID_CREDENTIALS.left()
     }
+    if (!user.active) {
+      logger.warn { "Login failed: user is deactivated: $username" }
+      return LoginError.INVALID_CREDENTIALS.left()
+    }
     return if (verifyPassword(password, user.passwordHash)) {
       logger.info { "Login successful for user: $username" }
       val updatedUser = user.copy(lastLoginAt = Instant.now())

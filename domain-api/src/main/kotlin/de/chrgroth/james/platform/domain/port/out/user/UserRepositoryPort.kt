@@ -8,4 +8,5 @@ interface UserRepositoryPort {
   fun findAll(): List<User>
   fun save(user: User)
   fun delete(username: Username)
+  fun backfillCreatedAtAndActive()
 }
