@@ -65,12 +65,13 @@ class LoginResource {
     return result.fold(
       ifLeft = { Response.seeOther(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
       ifRight = { user ->
-        val encrypted = tokenEncryption.encrypt(user.username.value).getOrNull()
+        val encrypted = tokenEncryption.encrypt(CookieAuthMechanism.buildPayload(user.username.value)).getOrNull()
           ?: return Response.seeOther(URI.create("/?error=session")).build()
         val cookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
           .value(encrypted)
           .path("/")
           .httpOnly(true)
+          .maxAge(CookieAuthMechanism.COOKIE_MAX_AGE_SECONDS)
           .build()
         val primaryRole = when {
           user.roles.contains(UserRole.ADMIN) -> "admin"
