@@ -1,0 +1,20 @@
+{#include layout.html}
+    {#title}James Platform – Error{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <h1 class="mb-4 fs-4 fw-semibold" data-testid="error-heading">Error {statusCode}</h1>
+        <div class="alert alert-danger mb-4" role="alert">
+            <div class="fw-semibold" data-testid="error-type">{errorType}</div>
+            {#if errorMessage}
+            <div class="mt-1" data-testid="error-message">{errorMessage}</div>
+            {/if}
+        </div>
+        {#if stackTrace}
+        <div class="card app-card p-4">
+            <h2 class="fs-6 fw-semibold mb-3 app-section-label">Stack Trace</h2>
+            <pre class="mb-0" style="color: var(--color-text-muted); font-size: 0.8rem; white-space: pre-wrap; word-break: break-all;" data-testid="error-stack-trace">{stackTrace}</pre>
+        </div>
+        {/if}
+    </div>
+    {/content}
+{/include}
