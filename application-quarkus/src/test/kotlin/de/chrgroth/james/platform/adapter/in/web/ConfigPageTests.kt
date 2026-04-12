@@ -8,7 +8,7 @@ import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.Test
 
 @QuarkusTest
-@TestSecurity(user = "test-user-a")
+@TestSecurity(user = "test-user-a", roles = ["ADMIN"])
 class ConfigPageTests {
 
   @Test

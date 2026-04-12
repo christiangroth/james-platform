@@ -8,7 +8,7 @@ import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.Test
 
 @QuarkusTest
-@TestSecurity(user = "test-user-a")
+@TestSecurity(user = "test-user-a", roles = ["ADMIN"])
 class DashboardPageTests {
 
   @Test
@@ -36,15 +36,14 @@ class DashboardPageTests {
   }
 
   @Test
-  fun `admin dashboard page is available and displays welcome message`() {
+  fun `admin dashboard page is available and displays user count tile`() {
     given()
       .`when`()
       .get("/ui/admin/dashboard")
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("""data-testid="welcome-message""""))
-      .body(containsString("test-user-a"))
+      .body(containsString("""data-testid="user-count-tile""""))
   }
 
   @Test

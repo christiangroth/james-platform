@@ -50,6 +50,7 @@ class UserRepositoryAdapter(
     roles = roles.mapNotNull { runCatching { UserRole.valueOf(it) }.getOrNull() }.toSet(),
     createdAt = createdAt,
     lastLoginAt = lastLoginAt,
+    active = active,
   )
 
   private fun User.toDocument() = UserDocument().also { doc ->
@@ -58,6 +59,7 @@ class UserRepositoryAdapter(
     doc.roles = roles.map { it.name }.toSet()
     doc.createdAt = createdAt
     doc.lastLoginAt = lastLoginAt
+    doc.active = active
   }
 
   companion object {
