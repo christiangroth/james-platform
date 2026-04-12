@@ -65,13 +65,13 @@ class LoginResource {
     return result.fold(
       ifLeft = { Response.temporaryRedirect(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
       ifRight = { user ->
-        val encrypted = tokenEncryption.encrypt(user.username.value).getOrNull()
+        val encrypted = tokenEncryption.encrypt(CookieAuthMechanism.buildPayload(user.username.value)).getOrNull()
           ?: return Response.temporaryRedirect(URI.create("/?error=session")).build()
         val cookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
           .value(encrypted)
           .path("/")
           .httpOnly(true)
-          .maxAge(COOKIE_MAX_AGE_SECONDS)
+          .maxAge(CookieAuthMechanism.COOKIE_MAX_AGE_SECONDS)
           .build()
         val primaryRole = when {
           user.roles.contains(UserRole.ADMIN) -> "admin"
@@ -112,9 +112,5 @@ class LoginResource {
   private fun errorMessage(code: String): String = when (code) {
     LoginError.INVALID_CREDENTIALS.code -> "Invalid username or password. Please try again."
     else -> "An unexpected error occurred. Please try again."
-  }
-
-  companion object {
-    private const val COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
   }
 }
