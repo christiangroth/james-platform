@@ -149,11 +149,13 @@
         (function () {
             var modal = document.getElementById('setPasswordModal');
             if (!modal) return;
+            var usernameDisplay = document.getElementById('setPasswordUsername');
+            var form = document.getElementById('setPasswordForm');
             modal.addEventListener('show.bs.modal', function (event) {
                 var trigger = event.relatedTarget;
                 var username = trigger ? trigger.getAttribute('data-username') : '';
-                document.getElementById('setPasswordUsername').value = username;
-                document.getElementById('setPasswordForm').action = '/ui/admin/users/' + encodeURIComponent(username) + '/password';
+                usernameDisplay.value = username;
+                form.action = '/ui/admin/users/' + encodeURIComponent(username) + '/password';
             });
         }());
     </script>

@@ -94,7 +94,7 @@ class AdminUserManagementResource {
     @FormParam("newPassword") newPassword: String?,
   ): Response {
     if (newPassword.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${UserAdminError.BLANK_INPUT.code}")).build()
+      return Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=password-blank")).build()
     }
     return adminUserManagement.setPassword(username, newPassword).fold(
       ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
@@ -135,6 +135,7 @@ class AdminUserManagementResource {
     UserAdminError.BLANK_INPUT.code -> "All fields are required."
     UserAdminError.CANNOT_DEACTIVATE_SELF.code -> "You cannot deactivate your own account."
     UserAdminError.CANNOT_DELETE_SELF.code -> "You cannot delete your own account."
+    "password-blank" -> "Password must not be empty."
     else -> "An unexpected error occurred. Please try again."
   }
 }
