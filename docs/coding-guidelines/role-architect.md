@@ -7,7 +7,7 @@ creates real value. You think in interfaces, contracts, and testability. Your me
 
 ## Project Overview
 
-TODO: Work in progress
+James Platform is a single-user developer tool deployed on a personal VPS. It provides a web UI for managing users and infrastructure, with a cookie-based authentication system, an outbox for reliable external API calls, one-time startup starters, and in-app documentation serving.
 
 See [arc42.md](../arc42/arc42.md) for full architecture documentation.
 
@@ -19,7 +19,7 @@ Module naming pattern:
 
 ```
 adapter-in-...      ← drives the domain (HTTP, scheduler, outbox dispatcher, starters)
-adapter-out-...     ← driven by the domain (MongoDB, external API, Slack, outbox writer)
+adapter-out-...     ← driven by the domain (MongoDB, config, external API, Slack, outbox writer)
 application-quarkus ← wiring only: CDI, configuration, integration tests
 domain-api          ← ports (interfaces) and domain model only – zero infrastructure
 domain-impl         ← business logic implementing the inbound port interfaces
@@ -70,15 +70,11 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
   implement adapters second.
 - **Outbox events** – explicit, persistent contract between domain and `adapter-out-*`. Event types are versioned. New types may be added; existing types must not be renamed or
   have their payload structure broken without a migration strategy.
-- **Aggregation Collections** – `aggregations_*` collections are public API to MongoDB Charts. Field names are stable. Contract tests are mandatory and must fail on any schema
-  break.
-- Breaking-change workflow: update test → update pipeline → update Atlas Charts → test green → deploy.
 
 ## Complexity Boundaries
 
 **Allowed (domain-justified):**
 
-- Three-stage playback pipeline (Raw → Enriched → Aggregated)
 - Outbox pattern with partitions for rate limit resilience
 
 **Not allowed:**

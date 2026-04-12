@@ -20,7 +20,7 @@ tasks {
   val syncDocsMd by registering(Sync::class) {
     mustRunAfter(rootProject.tasks.named("releasenotesCopyToSources"))
     from(rootProject.layout.projectDirectory.dir("docs/arc42")) {
-      include("arc42.md", "outbox.md", "starters.md")
+      include("arc42.md")
       into("arc42")
     }
     from(rootProject.layout.projectDirectory.dir("docs/adr")) {

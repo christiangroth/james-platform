@@ -11,7 +11,6 @@ focused libraries with a clear purpose. Your code is as minimal as needed and as
 - **CSS:** Bootstrap 5 via WebJar
 - **Interactivity:** Vanilla JS with `fetch()` API
 - **Icons:** Font Awesome via WebJar
-- **Charts:** MongoDB Charts Embedding SDK
 - **Live Updates:** Server-Sent Events via `sse-utils.js` helper
 - **Markdown rendering:** marked via WebJar (used exclusively on docs and release notes pages)
 - **Not used:** React, Vue, Angular, TypeScript, Webpack, npm, Node.js, htmx
@@ -28,10 +27,10 @@ dedicated view model class inside `adapter-in-web`.
 
 - All WebJar includes belong exclusively in `layout.html` – no inline CSS in templates
 - Interactions and form submissions via `fetch()` API; use `postWithButton` helper from `settings-utils.js` for standard POST actions
-- Vanilla JS only; kept minimal and commented for non-trivial logic (e.g., MongoDB Charts SDK, SSE handling)
+- Vanilla JS only; kept minimal and commented for non-trivial logic (e.g., SSE handling)
 - Fragments are independently renderable – they work as both SSE push targets and initial page loads
 - WebJar dependencies (Bootstrap, Font Awesome) are managed via the Gradle version catalog (`libs.versions.toml`)
-- The visible application name rendered in HTML is **SpCtl**
+- The visible application name rendered in HTML is **James Platform**
 - No business logic in templates – domain decisions belong in the backend, presentation transformations belong in the resource class or `adapter-in-web`
 
 ## Live Updates via SSE
@@ -41,10 +40,10 @@ SSE streams deliver named string events (e.g. `refresh-playback-data`) from the 
 
 **Available SSE endpoints:**
 
-| Endpoint            | Events                                                                                                  | Triggers                                                        |
-|---------------------|---------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| `/dashboard/events` | `refresh-playback-data`, `refresh-playlist-metadata`, `refresh-playlist-checks`, `refresh-catalog-data` | Domain processing completes for the logged-in user              |
-| `/health/events`    | `refresh-outbox-partitions`, `refresh-outgoing-http-calls`, `refresh-playback-state`                    | Outbox partition changes, HTTP call recorded, playback detected |
+| Endpoint            | Events                                                                  | Triggers                                                   |
+|---------------------|-------------------------------------------------------------------------|------------------------------------------------------------|
+| `/dashboard/events` | `refresh-playback-data`, `refresh-playlist-metadata`, `refresh-catalog-data` | Domain processing completes for the logged-in user    |
+| `/health/events`    | `refresh-outbox-partitions`                                             | Outbox partition changes or task count changes             |
 
 **Rules for adding new live update fragments:**
 

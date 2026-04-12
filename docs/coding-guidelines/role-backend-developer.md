@@ -82,7 +82,7 @@ All domain failures use Arrow's `Either<DomainError, T>`:
 - Infrastructure adapters catch all exceptions and return `Either.Left<DomainError>` – never let exceptions cross port boundaries
 - Domain services use the `either { }` DSL with `bind()` to compose fallible operations
 - Web adapters use `.fold(ifLeft = { ... }, ifRight = { ... })` to translate domain failures to HTTP responses
-- Error codes follow the convention `<AREA>-<NNN>` (e.g. `AUTH-001`). Codes are stable once published; deprecated codes are kept as `DEPRECATED_<NAME>`
+- Error codes follow the convention `<AREA>-<NNN>` (e.g. `LOGIN-001`). Codes are stable once published; deprecated codes are kept as `DEPRECATED_<NAME>`
 
 ## Outbox Pattern
 
