@@ -1,3 +1,12 @@
+# 0.1.8 (2026.04.12)
+
+## Bugfixes / Chore
+* Fixed user management page not rendering usernames correctly.
+
+
+
+---
+
 # 0.1.7 (2026.04.12)
 
 ## New Features
