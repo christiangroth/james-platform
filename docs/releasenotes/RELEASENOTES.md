@@ -1,3 +1,15 @@
+# 0.1.7 (2026.04.12)
+
+## New Features
+* Added a custom HTML error page that displays the exception type, message, and stack trace when an unhandled error occurs.
+
+## Bugfixes / Chore
+* Fixed user count on admin dashboard not being readable due to poor text contrast on the dark card background.
+
+
+
+---
+
 # 0.1.6 (2026.04.12)
 
 ## New Features
