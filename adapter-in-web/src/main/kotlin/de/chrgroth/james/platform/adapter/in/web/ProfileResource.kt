@@ -56,11 +56,11 @@ class ProfileResource {
   fun changeUsername(@FormParam("newUsername") newUsername: String?): Response {
     val currentUsername = securityIdentity.principal.name
     if (newUsername.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
+      return Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
     }
     return userProfileService.changeUsername(currentUsername, newUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/profile/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/profile/success?msg=username-changed")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/profile/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/profile/success?msg=username-changed")).build() },
     )
   }
 
@@ -74,14 +74,14 @@ class ProfileResource {
   ): Response {
     val username = securityIdentity.principal.name
     if (currentPassword.isNullOrBlank() || newPassword.isNullOrBlank() || confirmPassword.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
+      return Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
     }
     if (newPassword != confirmPassword) {
-      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=${UserProfileError.PASSWORDS_DO_NOT_MATCH.code}")).build()
+      return Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.PASSWORDS_DO_NOT_MATCH.code}")).build()
     }
     return userProfileService.changePassword(username, currentPassword, newPassword).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/profile/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/profile/success?msg=password-changed")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/profile/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/profile/success?msg=password-changed")).build() },
     )
   }
 

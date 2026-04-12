@@ -59,12 +59,12 @@ class AdminUserManagementResource {
     @FormParam("password") password: String?,
   ): Response {
     if (username.isNullOrBlank() || password.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${UserAdminError.BLANK_INPUT.code}")).build()
+      return Response.seeOther(URI.create("/ui/admin/users/error?error=${UserAdminError.BLANK_INPUT.code}")).build()
     }
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.createUser(username, password, callingUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-created")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-created")).build() },
     )
   }
 
@@ -72,8 +72,8 @@ class AdminUserManagementResource {
   @Path("/{username}/activate")
   fun activateUser(@PathParam("username") username: String): Response =
     adminUserManagement.activateUser(username).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-activated")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-activated")).build() },
     )
 
   @POST
@@ -81,8 +81,8 @@ class AdminUserManagementResource {
   fun deactivateUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deactivateUser(username, callingUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-deactivated")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-deactivated")).build() },
     )
   }
 
@@ -94,11 +94,11 @@ class AdminUserManagementResource {
     @FormParam("newPassword") newPassword: String?,
   ): Response {
     if (newPassword.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=password-blank")).build()
+      return Response.seeOther(URI.create("/ui/admin/users/error?error=password-blank")).build()
     }
     return adminUserManagement.setPassword(username, newPassword).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=password-set")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=password-set")).build() },
     )
   }
 
@@ -107,8 +107,8 @@ class AdminUserManagementResource {
   fun deleteUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deleteUser(username, callingUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-deleted")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-deleted")).build() },
     )
   }
 
