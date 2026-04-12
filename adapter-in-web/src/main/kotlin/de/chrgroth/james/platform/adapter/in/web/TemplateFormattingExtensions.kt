@@ -13,7 +13,10 @@ import java.time.Instant as JavaInstant
 @Suppress("Unused")
 object TemplateFormattingExtensions {
 
-  /** Returns the username string value. Used because [Username] is a [JvmInline] value class, whose JVM getter is name-mangled, preventing Qute from resolving it via reflection. */
+  /**
+   * Returns the username string value. Used because [Username] is a [JvmInline] value class,
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
   @JvmStatic
   fun username(user: User): String = user.username.value
 
