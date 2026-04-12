@@ -10,8 +10,8 @@
             <div class="row g-2 align-items-end">
                 <div class="col-auto">
                     <label for="collection-select" class="form-label text-secondary small mb-1">Collection</label>
-                    <select id="collection-select" name="collection" class="form-select form-select-sm"
-                            style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);min-width:220px;"
+                    <select id="collection-select" name="collection" class="form-select form-select-sm app-select"
+                            style="min-width:220px;"
                             onchange="changeCollection(this.value)">
                         <option value="">-- select collection --</option>
                         {#for c in result.collections}
@@ -33,26 +33,22 @@
                     {#for field in result.fields}
                     {#if field.fieldType.name == "STRING"}
                     <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge" style="background-color:#333;color:#aaa;font-size:.7rem;font-weight:400;">contains</span></label>
+                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge app-badge-muted" style="font-size:.7rem;font-weight:400;">contains</span></label>
                         <input type="text" name="fc_{field.name}" value="{field.containsValue}"
-                               class="form-control form-control-sm"
-                               style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);"
+                               class="form-control form-control-sm app-form-control"
                                placeholder="contains (case insensitive)">
                     </div>
                     {#else}
                     <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge" style="background-color:#333;color:#aaa;font-size:.7rem;font-weight:400;">id</span></label>
+                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge app-badge-muted" style="font-size:.7rem;font-weight:400;">id</span></label>
                         <input type="text" name="feq_{field.name}" value="{field.equalsValue}"
-                               class="form-control form-control-sm mb-1"
-                               style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);"
+                               class="form-control form-control-sm app-form-control mb-1"
                                placeholder="equals">
                         <input type="text" name="fin_{field.name}" value="{field.inValue}"
-                               class="form-control form-control-sm mb-1"
-                               style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);"
+                               class="form-control form-control-sm app-form-control mb-1"
                                placeholder="in (comma-separated)">
                         <input type="text" name="fnin_{field.name}" value="{field.notInValue}"
-                               class="form-control form-control-sm"
-                               style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);"
+                               class="form-control form-control-sm app-form-control"
                                placeholder="not in (comma-separated)">
                     </div>
                     {/if}
@@ -65,8 +61,8 @@
                 <h2 class="fs-6 fw-semibold mb-2" style="color:#888;letter-spacing:.04em;">Sort</h2>
                 <div class="row g-2 align-items-center">
                     <div class="col-auto">
-                        <select name="sort" class="form-select form-select-sm"
-                                style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);min-width:180px;">
+                        <select name="sort" class="form-select form-select-sm app-select"
+                                style="min-width:180px;">
                             <option value="">-- no sort --</option>
                             {#for field in result.fields}
                             <option value="{field.name}" {#if field.name == result.sortField}selected{/if}>{field.name}</option>
@@ -89,7 +85,7 @@
             <!-- Apply button -->
             <input type="hidden" name="page" value="1">
             <input type="hidden" name="pageSize" value="{result.pageSize}">
-            <button type="submit" class="btn btn-sm btn-spotify">Apply Filters</button>
+            <button type="submit" class="btn btn-sm btn-app-primary">Apply Filters</button>
             {/if}
 
             {/if}
@@ -107,8 +103,8 @@
             </h2>
             <div class="d-flex align-items-center gap-2">
                 <label class="text-secondary small mb-0">Per page:</label>
-                <select onchange="changePageSize(this.value)" class="form-select form-select-sm"
-                        style="background-color:var(--color-bg-card);border-color:var(--color-border-muted);color:var(--color-text-primary);width:auto;">
+                <select onchange="changePageSize(this.value)" class="form-select form-select-sm app-select"
+                        style="width:auto;">
                     {#for ps in pageSizes}
                     <option value="{ps}" {#if ps == result.pageSize}selected{/if}>{ps}</option>
                     {/for}
@@ -130,9 +126,9 @@
                 Page {result.page} of {result.totalPages}
             </div>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="goToPage({result.prevPage})"
+                <button type="button" class="btn btn-sm btn-app-secondary" onclick="goToPage({result.prevPage})"
                         {#if !result.hasPrev}disabled{/if}>← Prev</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="goToPage({result.nextPage})"
+                <button type="button" class="btn btn-sm btn-app-secondary" onclick="goToPage({result.nextPage})"
                         {#if !result.hasNext}disabled{/if}>Next →</button>
             </div>
         </div>
