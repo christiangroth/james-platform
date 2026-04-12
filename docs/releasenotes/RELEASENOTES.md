@@ -1,3 +1,12 @@
+# 0.1.3 (2026.04.12)
+
+## New Features
+* Added a butler app icon (serving tray with bow tie) used as favicon, in the navigation bar, and on the login page.
+
+
+
+---
+
 # 0.1.2 (2026.04.12)
 
 ## Bugfixes / Chore
