@@ -38,7 +38,7 @@
                     <tbody>
                         {#for user in users}
                         <tr data-testid="user-row">
-                            <td data-testid="user-name">{user.username.value}</td>
+                            <td data-testid="user-name">{user.username}</td>
                             <td>
                                 {#if user.active}
                                 <span class="badge app-badge-processing" data-testid="user-status-active">Active</span>
@@ -56,23 +56,23 @@
                                     <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
                                         {#if user.active}
                                         <li>
-                                            <form method="post" action="/ui/admin/users/{user.username.value}/deactivate" class="d-inline">
+                                            <form method="post" action="/ui/admin/users/{user.username}/deactivate" class="d-inline">
                                                 <button type="submit" class="dropdown-item" data-testid="deactivate-user-button">Deactivate</button>
                                             </form>
                                         </li>
                                         {#else}
                                         <li>
-                                            <form method="post" action="/ui/admin/users/{user.username.value}/activate" class="d-inline">
+                                            <form method="post" action="/ui/admin/users/{user.username}/activate" class="d-inline">
                                                 <button type="submit" class="dropdown-item" data-testid="activate-user-button">Activate</button>
                                             </form>
                                         </li>
                                         {/if}
                                         <li>
-                                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#setPasswordModal" data-username="{user.username.value}" data-testid="set-password-button">Set Password</a>
+                                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#setPasswordModal" data-username="{user.username}" data-testid="set-password-button">Set Password</a>
                                         </li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li>
-                                            <form method="post" action="/ui/admin/users/{user.username.value}/delete" class="d-inline">
+                                            <form method="post" action="/ui/admin/users/{user.username}/delete" class="d-inline">
                                                 <button type="submit" class="dropdown-item text-danger" data-testid="delete-user-button">Delete</button>
                                             </form>
                                         </li>
