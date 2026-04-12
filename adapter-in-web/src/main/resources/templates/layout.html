@@ -15,7 +15,10 @@
             --color-border-muted: #444;
             --color-text-primary: #e0e0e0;
             --color-text-muted: #888;
+            --color-action: #0d6efd;
+            --color-action-hover: #0b5ed7;
             --color-danger: #dc3545;
+            --color-danger-hover: #bb2d3b;
             --color-bg-depth-albums: #161616;
             --color-bg-depth-tracks: #111;
             --color-border-depth-albums: #2a2a2a;
@@ -51,6 +54,97 @@
         .btn-spotify:hover {
             background-color: #1ed760;
             color: #000000;
+        }
+        /* Primary action button (OK, Save, Submit, general actions) */
+        .btn-app-primary {
+            background-color: var(--color-action);
+            color: #ffffff;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+        }
+        .btn-app-primary:hover {
+            background-color: var(--color-action-hover);
+            color: #ffffff;
+        }
+        .btn-app-primary:disabled {
+            background-color: var(--color-action);
+            color: #ffffff;
+            opacity: 0.6;
+        }
+        /* Destructive action button (Delete, Remove, irreversible actions) */
+        .btn-app-danger {
+            background-color: var(--color-danger);
+            color: #ffffff;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+        }
+        .btn-app-danger:hover {
+            background-color: var(--color-danger-hover);
+            color: #ffffff;
+        }
+        .btn-app-danger:disabled {
+            background-color: var(--color-danger);
+            color: #ffffff;
+            opacity: 0.6;
+        }
+        /* Secondary / muted button (navigation, pagination, cancel) */
+        .btn-app-secondary {
+            background-color: transparent;
+            color: var(--color-text-muted);
+            border: 1px solid var(--color-border-muted);
+            border-radius: 4px;
+        }
+        .btn-app-secondary:hover {
+            background-color: var(--color-bg-card);
+            color: var(--color-text-primary);
+            border-color: var(--color-border);
+        }
+        .btn-app-secondary:disabled {
+            color: var(--color-text-muted);
+            opacity: 0.5;
+        }
+        /* Form control in the dark theme – combine with Bootstrap .form-control */
+        .app-form-control {
+            background-color: transparent !important;
+            color: var(--color-text-primary) !important;
+            border-color: var(--color-border-muted) !important;
+        }
+        .app-form-control:focus {
+            background-color: transparent !important;
+            color: var(--color-text-primary) !important;
+            border-color: var(--color-action) !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+        }
+        /* Select / dropdown in the dark theme – combine with Bootstrap .form-select */
+        .app-select {
+            background-color: var(--color-bg-card) !important;
+            color: var(--color-text-primary) !important;
+            border-color: var(--color-border-muted) !important;
+        }
+        .app-select:focus {
+            background-color: var(--color-bg-card) !important;
+            color: var(--color-text-primary) !important;
+            border-color: var(--color-action) !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+        }
+        /* Status badges */
+        .app-badge-processing {
+            background-color: var(--color-action);
+            color: #ffffff;
+        }
+        .app-badge-failed {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+        .app-badge-high {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+        .app-badge-muted {
+            background-color: #555555;
+            color: #ffffff;
         }
         /* Dark card with app border */
         .app-card {
@@ -226,7 +320,7 @@
             </ul>
         </div>
         <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="Profile"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-profile"/></svg></a>
-        <a href="/logout" class="btn btn-sm btn-outline-secondary" data-testid="logout-link">Logout</a>
+        <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link">Logout</a>
         {/insert}
     </nav>
     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js"></script>
