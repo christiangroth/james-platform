@@ -5,10 +5,10 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.TokenError
+import de.chrgroth.james.platform.domain.port.out.user.EncryptionKeyRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
-import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
@@ -18,12 +18,24 @@ import javax.crypto.spec.SecretKeySpec
 @ApplicationScoped
 @Suppress("Unused", "TooGenericExceptionCaught")
 class TokenEncryptionAdapter(
-  @ConfigProperty(name = "app.token-encryption-key")
-  encryptionKeyBase64: String,
+  private val encryptionKeyRepository: EncryptionKeyRepositoryPort,
 ) : TokenEncryptionPort {
 
-  private val secretKey = SecretKeySpec(Base64.getDecoder().decode(encryptionKeyBase64), "AES")
+  private val secretKey: SecretKeySpec
   private val random = SecureRandom()
+
+  init {
+    val keyBase64 = encryptionKeyRepository.findKey() ?: generateAndStoreKey()
+    secretKey = SecretKeySpec(Base64.getDecoder().decode(keyBase64), "AES")
+  }
+
+  private fun generateAndStoreKey(): String {
+    val keyBytes = ByteArray(KEY_SIZE_BYTES).also { SecureRandom().nextBytes(it) }
+    val keyBase64 = Base64.getEncoder().encodeToString(keyBytes)
+    encryptionKeyRepository.saveKey(keyBase64)
+    logger.info { "Generated and stored new token encryption key" }
+    return keyBase64
+  }
 
   override fun encrypt(plaintext: String): Either<DomainError, String> = try {
     val iv = ByteArray(GCM_IV_LENGTH).also { random.nextBytes(it) }
@@ -57,5 +69,6 @@ class TokenEncryptionAdapter(
     private const val AES_GCM_NO_PADDING = "AES/GCM/NoPadding"
     private const val GCM_IV_LENGTH = 12
     private const val GCM_TAG_LENGTH = 128
+    private const val KEY_SIZE_BYTES = 32
   }
 }

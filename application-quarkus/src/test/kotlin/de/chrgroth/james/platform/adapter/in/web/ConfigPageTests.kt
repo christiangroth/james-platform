@@ -84,7 +84,6 @@ class ConfigPageTests {
       .get("/config")
       .then()
       .statusCode(200)
-      .body(containsString("app.token-encryption-key"))
       .body(not(containsString("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=")))
   }
 
