@@ -36,8 +36,8 @@ class UserProfileService(
       return UserProfileError.USERNAME_ALREADY_EXISTS.left()
     }
     val updatedUser = user.copy(username = Username(newUsername))
-    userRepository.delete(Username(currentUsername))
     userRepository.save(updatedUser)
+    userRepository.delete(Username(currentUsername))
     logger.info { "Username changed from $currentUsername to $newUsername" }
     return updatedUser.right()
   }

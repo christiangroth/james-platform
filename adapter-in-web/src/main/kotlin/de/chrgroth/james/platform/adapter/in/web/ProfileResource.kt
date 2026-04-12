@@ -36,77 +36,19 @@ class ProfileResource {
 
   @GET
   @Produces(MediaType.TEXT_HTML)
-  fun profile(): Any {
-    val username = securityIdentity.principal.name
-    return userProfileService.getProfile(username).fold(
-      ifLeft = {
-        profileTemplate
-          .data("username", username)
-          .data("createdAt", null)
-          .data("lastLoginAt", null)
-          .data("successMessage", null)
-          .data("errorMessage", null)
-      },
-      ifRight = { user ->
-        profileTemplate
-          .data("username", user.username.value)
-          .data("createdAt", user.createdAt)
-          .data("lastLoginAt", user.lastLoginAt)
-          .data("successMessage", null)
-          .data("errorMessage", null)
-      },
-    )
-  }
+  fun profile(): Any = renderProfile()
 
   @GET
   @Produces(MediaType.TEXT_HTML)
   @Path("/success")
-  fun profileSuccess(@jakarta.ws.rs.QueryParam("msg") msg: String?): Any {
-    val username = securityIdentity.principal.name
-    return userProfileService.getProfile(username).fold(
-      ifLeft = {
-        profileTemplate
-          .data("username", username)
-          .data("createdAt", null)
-          .data("lastLoginAt", null)
-          .data("successMessage", msg?.let { successMessage(it) })
-          .data("errorMessage", null)
-      },
-      ifRight = { user ->
-        profileTemplate
-          .data("username", user.username.value)
-          .data("createdAt", user.createdAt)
-          .data("lastLoginAt", user.lastLoginAt)
-          .data("successMessage", msg?.let { successMessage(it) })
-          .data("errorMessage", null)
-      },
-    )
-  }
+  fun profileSuccess(@jakarta.ws.rs.QueryParam("msg") msg: String?): Any =
+    renderProfile(successMsg = msg?.let { successMessage(it) })
 
   @GET
   @Produces(MediaType.TEXT_HTML)
   @Path("/error")
-  fun profileError(@jakarta.ws.rs.QueryParam("error") error: String?): Any {
-    val username = securityIdentity.principal.name
-    return userProfileService.getProfile(username).fold(
-      ifLeft = {
-        profileTemplate
-          .data("username", username)
-          .data("createdAt", null)
-          .data("lastLoginAt", null)
-          .data("successMessage", null)
-          .data("errorMessage", error?.let { errorMessage(it) })
-      },
-      ifRight = { user ->
-        profileTemplate
-          .data("username", user.username.value)
-          .data("createdAt", user.createdAt)
-          .data("lastLoginAt", user.lastLoginAt)
-          .data("successMessage", null)
-          .data("errorMessage", error?.let { errorMessage(it) })
-      },
-    )
-  }
+  fun profileError(@jakarta.ws.rs.QueryParam("error") error: String?): Any =
+    renderProfile(errorMsg = error?.let { errorMessage(it) })
 
   @POST
   @Path("/username")
@@ -114,7 +56,7 @@ class ProfileResource {
   fun changeUsername(@FormParam("newUsername") newUsername: String?): Response {
     val currentUsername = securityIdentity.principal.name
     if (newUsername.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=PROFILE-004")).build()
+      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
     }
     return userProfileService.changeUsername(currentUsername, newUsername).fold(
       ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/profile/error?error=${error.code}")).build() },
@@ -132,10 +74,10 @@ class ProfileResource {
   ): Response {
     val username = securityIdentity.principal.name
     if (currentPassword.isNullOrBlank() || newPassword.isNullOrBlank() || confirmPassword.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=PROFILE-004")).build()
+      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
     }
     if (newPassword != confirmPassword) {
-      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=PROFILE-005")).build()
+      return Response.temporaryRedirect(URI.create("/ui/profile/error?error=${UserProfileError.PASSWORDS_DO_NOT_MATCH.code}")).build()
     }
     return userProfileService.changePassword(username, currentPassword, newPassword).fold(
       ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/profile/error?error=${error.code}")).build() },
@@ -153,8 +95,30 @@ class ProfileResource {
     UserProfileError.USER_NOT_FOUND.code -> "User not found."
     UserProfileError.USERNAME_ALREADY_EXISTS.code -> "Username already exists. Please choose a different username."
     UserProfileError.INVALID_CURRENT_PASSWORD.code -> "Current password is incorrect."
-    "PROFILE-004" -> "All fields are required."
-    "PROFILE-005" -> "New passwords do not match."
+    UserProfileError.BLANK_INPUT.code -> "All fields are required."
+    UserProfileError.PASSWORDS_DO_NOT_MATCH.code -> "New passwords do not match."
     else -> "An unexpected error occurred. Please try again."
+  }
+
+  private fun renderProfile(successMsg: String? = null, errorMsg: String? = null): Any {
+    val username = securityIdentity.principal.name
+    return userProfileService.getProfile(username).fold(
+      ifLeft = {
+        profileTemplate
+          .data("username", username)
+          .data("createdAt", null)
+          .data("lastLoginAt", null)
+          .data("successMessage", successMsg)
+          .data("errorMessage", errorMsg)
+      },
+      ifRight = { user ->
+        profileTemplate
+          .data("username", user.username.value)
+          .data("createdAt", user.createdAt)
+          .data("lastLoginAt", user.lastLoginAt)
+          .data("successMessage", successMsg)
+          .data("errorMessage", errorMsg)
+      },
+    )
   }
 }
