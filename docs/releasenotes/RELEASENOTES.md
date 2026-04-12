@@ -1,3 +1,13 @@
+# 0.1.2 (2026.04.12)
+
+## Bugfixes / Chore
+* Slack notifications now report as James Platform instead of SpCtl.
+* Page titles in admin/developer pages now consistently show James Platform instead of SpCtl.
+
+
+
+---
+
 # 0.1.0 (2026.04.12)
 
 ## Bugfixes / Chore
