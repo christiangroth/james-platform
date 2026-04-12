@@ -1,5 +1,17 @@
 # 0.1.0 (2026.04.12)
 
+## Bugfixes / Chore
+* Added `copilot-setup-steps.yml` workflow to pre-install Java 25 and Gradle dependencies for the Copilot agent environment.
+* Updated in-app documentation to reflect current project state.
+* Fixed module overview, authentication description, and error code examples in arc42.
+* Corrected SSE event list and application name in coding guidelines.
+
+
+
+---
+
+# 0.1.0 (2026.04.12)
+
 ## New Features
 * Rebranded application from SpCtl to James Platform.
 * Changed authentication from Spotify OAuth to local username/password login.
