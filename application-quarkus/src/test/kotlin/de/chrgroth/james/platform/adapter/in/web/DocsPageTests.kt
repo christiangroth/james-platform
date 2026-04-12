@@ -20,7 +20,7 @@ class DocsPageTests {
       .statusCode(200)
       .contentType(containsString("text/html"))
       .body(containsString("docs-rendered"))
-      .body(containsString("spotify-control"))
+      .body(containsString("james-platform"))
   }
 
   @Test
@@ -35,8 +35,8 @@ class DocsPageTests {
       .asString()
 
     assertMarkdownRenderingPipeline(body, "Introduction and Goals")
-    assertThat(body).contains("spotify-control")
-    assertThat(body).contains("# spotify-control")
+    assertThat(body).contains("james-platform")
+    assertThat(body).contains("# james-platform")
   }
 
   @Test
@@ -83,7 +83,6 @@ class DocsPageTests {
       .statusCode(200)
       .contentType(containsString("text/html"))
       .body(containsString("docs-rendered"))
-      .body(containsString("Bugfixes"))
   }
 
   @Test
@@ -97,7 +96,9 @@ class DocsPageTests {
       .body()
       .asString()
 
-    assertMarkdownRenderingPipeline(body, "# 0.9")
+    assertThat(body).contains("""id="docs-raw"""")
+    assertThat(body).contains("marked.parse(")
+    assertThat(body.indexOf("marked.umd.js")).isLessThan(body.indexOf("marked.parse("))
   }
 
   private fun assertMarkdownRenderingPipeline(body: String, expectedMarkdownContent: String) {

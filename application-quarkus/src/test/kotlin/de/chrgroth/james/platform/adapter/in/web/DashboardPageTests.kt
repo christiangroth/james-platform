@@ -118,6 +118,10 @@ class DashboardPageTests {
       .statusCode(200)
       .body(not(containsString("""data-testid="navbar-playback-icon""")))
   }
+}
+
+@QuarkusTest
+class DashboardPageUnauthenticatedTests {
 
   @Test
   fun `unauthenticated access to dashboard redirects to login`() {
