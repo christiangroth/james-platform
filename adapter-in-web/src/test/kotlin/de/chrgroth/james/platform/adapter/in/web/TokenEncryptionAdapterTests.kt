@@ -2,7 +2,6 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.TokenError
-import de.chrgroth.james.platform.domain.port.out.user.EncryptionKeyRepositoryPort
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -10,10 +9,7 @@ class TokenEncryptionAdapterTests {
 
   // 32-byte key encoded as base64 (all zeros for testing)
   private val testKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-  private val adapter = TokenEncryptionAdapter(object : EncryptionKeyRepositoryPort {
-    override fun findKey() = testKey
-    override fun saveKey(key: String) = Unit
-  })
+  private val adapter = TokenEncryptionAdapter(testKey)
 
   @Test
   fun `encrypt and decrypt round-trip succeeds`() {
@@ -47,24 +43,5 @@ class TokenEncryptionAdapterTests {
     val result = adapter.decrypt(tampered)
     assertThat(result.isLeft()).isTrue()
     assertThat((result as Either.Left).value).isEqualTo(TokenError.DECRYPTION_FAILED)
-  }
-
-  @Test
-  fun `generates and stores key when repository has no key`() {
-    var storedKey: String? = null
-    val adapterWithEmptyRepo = TokenEncryptionAdapter(object : EncryptionKeyRepositoryPort {
-      override fun findKey(): String? = null
-      override fun saveKey(key: String) { storedKey = key }
-    })
-
-    assertThat(storedKey).isNotNull()
-    assertThat(storedKey!!.length).isGreaterThan(0)
-
-    val plaintext = "test"
-    val encryptResult = adapterWithEmptyRepo.encrypt(plaintext)
-    assertThat(encryptResult.isRight()).isTrue()
-    val decryptResult = adapterWithEmptyRepo.decrypt((encryptResult as Either.Right).value)
-    assertThat(decryptResult.isRight()).isTrue()
-    assertThat((decryptResult as Either.Right).value).isEqualTo(plaintext)
   }
 }
