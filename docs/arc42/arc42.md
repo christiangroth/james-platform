@@ -40,6 +40,24 @@
 
 *work in progress*
 
+### Module Overview
+
+Base package: `de.chrgroth.james.platform`
+
+| Module                | Direction  | Responsibility                                                                        |
+|-----------------------|------------|---------------------------------------------------------------------------------------|
+| `domain-api`          | –          | Ports (interfaces) and domain model only – zero infrastructure                        |
+| `domain-impl`         | –          | Business logic implementing the inbound port interfaces                               |
+| `adapter-in-web`      | inbound    | HTTP endpoints, Qute SSR templates, SSE adapters, cookie auth mechanism               |
+| `adapter-in-outbox`   | inbound    | Listens to outbox CDI events and notifies domain observers                            |
+| `adapter-in-starter`  | inbound    | One-time startup beans (starters) for data migrations and one-time bugfixes           |
+| `adapter-out-config`  | outbound   | Reads Quarkus/MicroProfile config and environment variables for health/config display |
+| `adapter-out-mongodb` | outbound   | MongoDB persistence: user repository, MongoDB viewer, stats adapter                  |
+| `adapter-out-outbox`  | outbound   | Wraps the outbox library; enqueues and queries outbox tasks                           |
+| `adapter-out-scheduler` | outbound | Reads Quarkus scheduler metadata for health/cronjob display                          |
+| `adapter-out-slack`   | outbound   | Slack notification adapter                                                            |
+| `application-quarkus` | –          | Wiring only: CDI, configuration, integration tests                                   |
+
 ### External Dependencies
 
 #### `de.chrgroth.quarkus.outbox`
@@ -128,7 +146,14 @@ Layer 5 applies to adapter modules where the logic is pure (e.g. `adapter-in-sta
 
 ## Authentication and Access Control
 
-*work in progress*
+Authentication is cookie-based:
+
+- The user logs in via a username/password form (`POST /login`).
+- On success, a `LoginServicePort` validates the credentials; the password hash is verified against the stored bcrypt hash.
+- An encrypted session token (AES via `TokenEncryptionPort`) is written into an `HttpOnly` cookie named `james-session`.
+- Every subsequent request is authenticated by `CookieAuthMechanism`, which decrypts the cookie, loads the user from `UserRepositoryPort`, and builds a `QuarkusSecurityIdentity` with the user's roles.
+- On logout (`GET /logout`), the cookie is invalidated by setting it to an empty value with `maxAge=0`.
+- Users have one of three roles (`USER`, `DEVELOPER`, `ADMIN`), which control which dashboard is shown after login.
 
 ## Error Handling
 
@@ -139,7 +164,7 @@ All domain failures are represented as typed `DomainError` values wrapped in Arr
   boundaries.
 - Domain services compose multiple fallible operations using the Arrow `either { }` DSL with `bind()`.
 - Web adapters translate `Either.Left<DomainError>` to HTTP error responses (redirect with `?error=<code>`).
-- Error codes follow the convention `<AREA>-<NNN>` (e.g. `AUTH-001`). Codes are stable once published.
+- Error codes follow the convention `<AREA>-<NNN>` (e.g. `LOGIN-001`). Codes are stable once published.
 
 ## Outbox Pattern
 
