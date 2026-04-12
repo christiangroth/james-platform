@@ -71,6 +71,7 @@ class LoginResource {
           .value(encrypted)
           .path("/")
           .httpOnly(true)
+          .maxAge(COOKIE_MAX_AGE_SECONDS)
           .build()
         val primaryRole = when {
           user.roles.contains(UserRole.ADMIN) -> "admin"
@@ -111,5 +112,9 @@ class LoginResource {
   private fun errorMessage(code: String): String = when (code) {
     LoginError.INVALID_CREDENTIALS.code -> "Invalid username or password. Please try again."
     else -> "An unexpected error occurred. Please try again."
+  }
+
+  companion object {
+    private const val COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
   }
 }
