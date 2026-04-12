@@ -13,4 +13,5 @@ class UserDocument {
   lateinit var passwordHash: String
   lateinit var roles: Set<String>
   lateinit var createdAt: Instant
+  var lastLoginAt: Instant? = null
 }

@@ -36,11 +36,20 @@ class UserRepositoryAdapter(
     }
   }
 
+  override fun delete(username: Username) {
+    mongoQueryMetrics.timed("app_user.delete") {
+      userDocumentRepository.mongoCollection().deleteOne(
+        Filters.eq(ID_FIELD, username.value),
+      )
+    }
+  }
+
   private fun UserDocument.toDomain() = User(
     username = Username(username),
     passwordHash = passwordHash,
     roles = roles.mapNotNull { runCatching { UserRole.valueOf(it) }.getOrNull() }.toSet(),
     createdAt = createdAt,
+    lastLoginAt = lastLoginAt,
   )
 
   private fun User.toDocument() = UserDocument().also { doc ->
@@ -48,6 +57,7 @@ class UserRepositoryAdapter(
     doc.passwordHash = passwordHash
     doc.roles = roles.map { it.name }.toSet()
     doc.createdAt = createdAt
+    doc.lastLoginAt = lastLoginAt
   }
 
   companion object {
