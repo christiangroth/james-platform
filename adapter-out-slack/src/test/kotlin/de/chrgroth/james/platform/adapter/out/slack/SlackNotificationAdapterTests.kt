@@ -9,7 +9,7 @@ class SlackNotificationAdapterTests {
 
   private fun adapter(
     webhookUrl: Optional<String> = Optional.empty(),
-    username: String = "SpCtl",
+    username: String = "James Platform",
     iconEmoji: String = ":robot_face:",
     startupEnabled: Boolean = false,
     stoppingEnabled: Boolean = false,
