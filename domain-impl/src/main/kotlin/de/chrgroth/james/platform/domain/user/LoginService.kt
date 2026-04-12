@@ -13,6 +13,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.security.SecureRandom
 import java.security.spec.KeySpec
+import java.time.Instant
 import java.util.Base64
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
@@ -30,7 +31,9 @@ class LoginService(
     }
     return if (verifyPassword(password, user.passwordHash)) {
       logger.info { "Login successful for user: $username" }
-      user.right()
+      val updatedUser = user.copy(lastLoginAt = Instant.now())
+      userRepository.save(updatedUser)
+      updatedUser.right()
     } else {
       logger.warn { "Login failed: invalid password for user: $username" }
       LoginError.INVALID_CREDENTIALS.left()

@@ -6,7 +6,9 @@ import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
+import io.mockk.justRun
 import io.mockk.mockk
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -28,11 +30,13 @@ class LoginServiceTests {
   @Test
   fun `login succeeds with correct credentials`() {
     every { userRepository.findByUsername(Username("test-user")) } returns testUser
+    justRun { userRepository.save(any()) }
 
     val result = loginService.login("test-user", testPassword)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.username).isEqualTo(Username("test-user"))
+    verify { userRepository.save(match { it.lastLoginAt != null }) }
   }
 
   @Test

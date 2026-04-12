@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.time.Instant
 import kotlin.time.toJavaInstant
+import java.time.Instant as JavaInstant
 
 @TemplateExtension
 @Suppress("Unused")
@@ -25,6 +26,9 @@ object TemplateFormattingExtensions {
 
   @JvmStatic
   fun formatted(instant: Instant): String = DATETIME_FORMATTER.format(instant.toJavaInstant())
+
+  @JvmStatic
+  fun formatted(instant: JavaInstant): String = DATETIME_FORMATTER.format(instant)
 
   @JvmStatic
   fun formattedShort(instant: Instant): String = DATETIME_SHORT_FORMATTER.format(instant.toJavaInstant())

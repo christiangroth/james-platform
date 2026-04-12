@@ -10,6 +10,7 @@ data class User(
   val passwordHash: String,
   val roles: Set<UserRole>,
   val createdAt: Instant,
+  val lastLoginAt: Instant? = null,
 )
 
 enum class UserRole {

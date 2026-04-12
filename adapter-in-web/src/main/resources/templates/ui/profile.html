@@ -1,0 +1,76 @@
+{#include layout.html}
+    {#title}James Platform – Profile{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <h1 class="mb-4 fs-4 fw-semibold">Profile</h1>
+
+        {#if successMessage}
+        <div class="alert alert-success alert-dismissible mb-4" role="alert" data-testid="success-message">
+            {successMessage}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {/if}
+        {#if errorMessage}
+        <div class="alert alert-danger alert-dismissible mb-4" role="alert" data-testid="error-message">
+            {errorMessage}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {/if}
+
+        <div class="row g-4">
+
+            <!-- Account Information (read-only) -->
+            <div class="col-12 col-md-6">
+                <div class="card app-card p-4 h-100">
+                    <h2 class="fs-6 fw-semibold mb-3" data-testid="account-info-heading">Account Information</h2>
+                    <dl class="mb-0">
+                        <dt class="app-section-label">Username</dt>
+                        <dd class="mb-3" data-testid="profile-username">{username}</dd>
+                        <dt class="app-section-label">Created</dt>
+                        <dd class="mb-3" data-testid="profile-created-at">{#if createdAt}{createdAt.formatted}{#else}–{/if}</dd>
+                        <dt class="app-section-label">Last Login</dt>
+                        <dd class="mb-0" data-testid="profile-last-login-at">{#if lastLoginAt}{lastLoginAt.formatted}{#else}–{/if}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Change Username -->
+            <div class="col-12 col-md-6">
+                <div class="card app-card p-4 h-100">
+                    <h2 class="fs-6 fw-semibold mb-3">Change Username</h2>
+                    <form method="post" action="/ui/profile/username">
+                        <div class="mb-3">
+                            <label for="newUsername" class="form-label">New Username</label>
+                            <input type="text" class="form-control bg-transparent text-white border-secondary" id="newUsername" name="newUsername" required data-testid="new-username-input">
+                        </div>
+                        <button type="submit" class="btn btn-spotify" data-testid="change-username-button">Change Username</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="col-12 col-md-6">
+                <div class="card app-card p-4 h-100">
+                    <h2 class="fs-6 fw-semibold mb-3">Change Password</h2>
+                    <form method="post" action="/ui/profile/password">
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control bg-transparent text-white border-secondary" id="currentPassword" name="currentPassword" autocomplete="current-password" required data-testid="current-password-input">
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control bg-transparent text-white border-secondary" id="newPassword" name="newPassword" autocomplete="new-password" required data-testid="new-password-input">
+                        </div>
+                        <div class="mb-4">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control bg-transparent text-white border-secondary" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required data-testid="confirm-password-input">
+                        </div>
+                        <button type="submit" class="btn btn-spotify" data-testid="change-password-button">Change Password</button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    {/content}
+{/include}
