@@ -57,13 +57,39 @@ SSE streams deliver named string events (e.g. `refresh-playback-data`) from the 
 
 Dark, technical appearance – fitting a developer tool. No generic Bootstrap default styling.
 
-- Green and/or orange as accent colors – used sparingly for active states, CTAs, live indicators
+- Dark backgrounds (#121212 page, #1e1e1e cards, #000000 navbar) with light text (#e0e0e0)
+- **Blue** (`--color-action: #0d6efd`) for primary action buttons (OK, Save, Submit, general actions) → use `.btn-app-primary`
+- **Red** (`--color-danger: #dc3545`) for destructive action buttons (Delete, Remove, irreversible actions) → use `.btn-app-danger`
+- **Muted/secondary** buttons for navigation and non-critical actions (Logout, Pagination) → use `.btn-app-secondary`
+- Green (`--spotify-green: #1db954`) reserved exclusively for Spotify-integration buttons → use `.btn-spotify`
 - Cards have a subtle border, no heavy shadow stack
 - Monospace font for technical values (track IDs, timestamps, queue numbers)
 - Live indicators (●) in green with subtle CSS pulse animation
 - No clutter – whitespace is a design element
 - Empty states are designed – no raw "No data found" text; include a descriptive message and context
 - Error states are designed – Bootstrap toast notifications with clear, user-friendly messages
+
+## CSS Component Classes
+
+All app-specific CSS classes are defined in the `<style>` block in `layout.html`. Use these instead of inline styles or Bootstrap utility-class combinations.
+
+| Class | Purpose |
+|---|---|
+| `.app-card` | Dark card with app border – use on `<div class="card">` |
+| `.app-table` | Transparent table for use inside dark cards |
+| `.app-section-label` | Muted small subtitle / section label inside cards |
+| `.app-navbar` | Navbar background |
+| `.app-form-control` | Dark-themed form input – add alongside Bootstrap `.form-control` |
+| `.app-select` | Dark-themed select dropdown – add alongside Bootstrap `.form-select` |
+| `.btn-app-primary` | **Blue** primary action button (OK, Save, Submit) – add alongside Bootstrap `.btn` |
+| `.btn-app-danger` | **Red** destructive button (Delete, Remove) – add alongside Bootstrap `.btn` |
+| `.btn-app-secondary` | Muted secondary button (navigation, cancel, pagination) – add alongside Bootstrap `.btn` |
+| `.btn-spotify` | Spotify-green button for Spotify-specific auth/action flows – add alongside Bootstrap `.btn` |
+| `.app-badge-processing` | Blue status badge (`PROCESSING`) – add alongside Bootstrap `.badge` |
+| `.app-badge-failed` | Red status badge (`FAILED`) – add alongside Bootstrap `.badge` |
+| `.app-badge-high` | Red priority badge (`HIGH`) – add alongside Bootstrap `.badge` |
+| `.app-badge-muted` | Grey status/label badge – add alongside Bootstrap `.badge` |
+| `.docs-content` | Markdown-rendered documentation pages |
 
 ## UX Standards
 

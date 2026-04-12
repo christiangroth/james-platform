@@ -41,20 +41,20 @@
                         <tr>
                             <td>
                                 {#if task.status == "PROCESSING"}
-                                <span class="badge" style="background-color:#0d6efd;color:#fff;">{task.status}</span>
+                                <span class="badge app-badge-processing">{task.status}</span>
                                 {#else if task.status == "FAILED"}
-                                <span class="badge" style="background-color:#dc3545;color:#fff;">{task.status}</span>
+                                <span class="badge app-badge-failed">{task.status}</span>
                                 {#else}
-                                <span class="badge" style="background-color:#555;color:#fff;">{task.status}</span>
+                                <span class="badge app-badge-muted">{task.status}</span>
                                 {/if}
                             </td>
                             <td style="white-space:nowrap;">{task.createdAt.formatted}</td>
                             <td>
                                 {task.eventType}
                                 {#if task.isHighPriority}
-                                <span class="badge ms-1" style="background-color:#dc3545;color:#fff;">HIGH</span>
+                                <span class="badge ms-1 app-badge-high">HIGH</span>
                                 {#else}
-                                <span class="badge ms-1" style="background-color:#555;color:#fff;">MEDIUM</span>
+                                <span class="badge ms-1 app-badge-muted">MEDIUM</span>
                                 {/if}
                             </td>
                             <td style="color:#aaa;font-size:0.8rem;word-break:break-all;">{task.deduplicationKey}</td>

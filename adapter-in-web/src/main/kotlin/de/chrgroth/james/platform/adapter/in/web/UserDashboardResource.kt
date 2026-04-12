@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
@@ -31,6 +32,9 @@ class UserDashboardResource {
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
+  @Inject
+  private lateinit var userRepository: UserRepositoryPort
+
   @GET
   @Path("/user/dashboard")
   @Authenticated
@@ -47,5 +51,5 @@ class UserDashboardResource {
   @Path("/admin/dashboard")
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
-  fun adminDashboard() = adminDashboardTemplate.data("username", securityIdentity.principal.name)
+  fun adminDashboard() = adminDashboardTemplate.data("userCount", userRepository.findAll().size)
 }

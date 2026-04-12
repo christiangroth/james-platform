@@ -59,14 +59,14 @@ class LoginResource {
     @FormParam("password") password: String?,
   ): Response {
     if (username.isNullOrBlank() || password.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build()
+      return Response.seeOther(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build()
     }
     val result = loginService.login(username, password)
     return result.fold(
-      ifLeft = { Response.temporaryRedirect(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
+      ifLeft = { Response.seeOther(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
       ifRight = { user ->
         val encrypted = tokenEncryption.encrypt(CookieAuthMechanism.buildPayload(user.username.value)).getOrNull()
-          ?: return Response.temporaryRedirect(URI.create("/?error=session")).build()
+          ?: return Response.seeOther(URI.create("/?error=session")).build()
         val cookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
           .value(encrypted)
           .path("/")
@@ -78,7 +78,7 @@ class LoginResource {
           user.roles.contains(UserRole.DEVELOPER) -> "developer"
           else -> "user"
         }
-        Response.temporaryRedirect(URI.create("/ui/$primaryRole/dashboard"))
+        Response.seeOther(URI.create("/ui/$primaryRole/dashboard"))
           .cookie(cookie)
           .build()
       },

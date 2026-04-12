@@ -1,3 +1,71 @@
+# 0.1.8 (2026.04.12)
+
+## Bugfixes / Chore
+* Fixed user management page not rendering usernames correctly.
+
+
+
+---
+
+# 0.1.7 (2026.04.12)
+
+## New Features
+* Added a custom HTML error page that displays the exception type, message, and stack trace when an unhandled error occurs.
+
+## Bugfixes / Chore
+* Fixed user count on admin dashboard not being readable due to poor text contrast on the dark card background.
+
+
+
+---
+
+# 0.1.6 (2026.04.12)
+
+## New Features
+* Added user administration to the admin dashboard: the greeting has been replaced by a user count tile that links to the user management page.
+* User management page shows all users with their status, last login, and creation date, plus an action menu to activate, deactivate, set password, or delete users.
+* New users can be created by admins directly from the user management page.
+* The profile icon in the navigation menu has been moved to the left of the Tools dropdown.
+* The Tools dropdown in the navigation menu is now only visible to admin users.
+
+
+
+---
+
+# 0.1.5 (2026.04.12)
+
+## New Features
+* Introduced basic dark-theme CSS component classes: blue primary action buttons, red destructive buttons, muted secondary buttons, dark form controls and select dropdowns, and status badge helpers.
+* Applied consistent button and form styling across login, profile, MongoDB viewer, and outbox viewer pages.
+
+## Bugfixes / Chore
+* Fixed white page displayed after login by using the correct HTTP 303 redirect, so the browser navigates to the dashboard with a GET request.
+
+
+
+---
+
+# 0.1.4 (2026.04.12)
+
+## New Features
+* Add profile page for authenticated users to view and change their profile details.
+* Users can change their username (must be unique) and password from the profile page.
+* Profile page shows read-only account metadata: creation date and last login time.
+* Last login time is now recorded in the database on each successful login.
+
+
+
+---
+
+# 0.1.3 (2026.04.12)
+
+## New Features
+* Added a butler app icon (serving tray with bow tie) used as favicon, in the navigation bar, and on the login page.
+
+
+
+---
+
 # 0.1.2 (2026.04.12)
 
 ## Bugfixes / Chore

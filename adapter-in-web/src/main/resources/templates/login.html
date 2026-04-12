@@ -10,17 +10,20 @@
             <div class="alert alert-danger mb-4 text-start" role="alert">{errorMessage}</div>
             {/if}
             <div class="card app-card p-4">
-                <h1 class="fs-5 fw-semibold text-center mb-4">James Platform</h1>
+                <div class="text-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="#ffffff" viewBox="0 0 16 16" class="mb-2" aria-hidden="true"><use href="#icon-nav-app"/></svg>
+                    <h1 class="fs-5 fw-semibold mb-0">James Platform</h1>
+                </div>
                 <form method="post" action="/login">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control bg-transparent text-white border-secondary" id="username" name="username" autocomplete="username" required>
+                        <input type="text" class="form-control app-form-control" id="username" name="username" autocomplete="username" required>
                     </div>
                     <div class="mb-4">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control bg-transparent text-white border-secondary" id="password" name="password" autocomplete="current-password" required>
+                        <input type="password" class="form-control app-form-control" id="password" name="password" autocomplete="current-password" required>
                     </div>
-                    <button type="submit" class="btn btn-spotify w-100" data-testid="login-button">Log in</button>
+                    <button type="submit" class="btn btn-app-primary w-100" data-testid="login-button">Log in</button>
                 </form>
             </div>
         </div>
