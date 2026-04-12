@@ -1,3 +1,16 @@
+# 0.1.5 (2026.04.12)
+
+## New Features
+* Introduced basic dark-theme CSS component classes: blue primary action buttons, red destructive buttons, muted secondary buttons, dark form controls and select dropdowns, and status badge helpers.
+* Applied consistent button and form styling across login, profile, MongoDB viewer, and outbox viewer pages.
+
+## Bugfixes / Chore
+* Fixed white page displayed after login by using the correct HTTP 303 redirect, so the browser navigates to the dashboard with a GET request.
+
+
+
+---
+
 # 0.1.4 (2026.04.12)
 
 ## New Features
