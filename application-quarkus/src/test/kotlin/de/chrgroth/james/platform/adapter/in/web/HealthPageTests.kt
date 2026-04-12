@@ -33,7 +33,6 @@ class HealthPageTests {
       .body(containsString("Communication"))
       .body(containsString("Cronjobs &amp; State"))
       .body(containsString("MongoDB"))
-      .body(containsString("Outgoing HTTP Requests"))
       .body(containsString("Outbox Partitions"))
       .body(containsString("Collections"))
       .body(containsString("Queries (Last 24h)"))
@@ -69,7 +68,6 @@ class HealthPageTests {
       .get("/health")
       .then()
       .statusCode(200)
-      .body(containsString("refresh-outgoing-http-calls"))
       .body(containsString("refresh-outbox-partitions"))
       .body(containsString("fadeUpdate"))
   }
@@ -115,17 +113,6 @@ class HealthPageTests {
       .statusCode(200)
       .body(containsString("""data-testid="mongodb-atlas-link""""))
       .body(containsString("https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer"))
-  }
-
-  @Test
-  fun `health snippet endpoint for outgoing http calls is available`() {
-    given()
-      .`when`()
-      .get("/health/snippets/outgoing-http-calls")
-      .then()
-      .statusCode(200)
-      .contentType(containsString("text/html"))
-      .body(containsString("Outgoing HTTP Requests"))
   }
 
   @Test
