@@ -98,5 +98,24 @@ class AdminUserManagementService(
     return Unit.right()
   }
 
+  override fun setRoles(username: String, roles: Set<UserRole>, callingUsername: String): Either<DomainError, User> {
+    if (roles.isEmpty()) {
+      logger.warn { "Set roles failed: blank input for $username" }
+      return UserAdminError.BLANK_INPUT.left()
+    }
+    if (username == callingUsername && !roles.contains(UserRole.ADMIN)) {
+      logger.warn { "Set roles failed: cannot remove own admin role: $username" }
+      return UserAdminError.CANNOT_REMOVE_OWN_ADMIN_ROLE.left()
+    }
+    val user = userRepository.findByUsername(Username(username)) ?: run {
+      logger.warn { "Set roles failed: user not found: $username" }
+      return UserAdminError.USER_NOT_FOUND.left()
+    }
+    val updatedUser = user.copy(roles = roles)
+    userRepository.save(updatedUser)
+    logger.info { "Roles set for user: $username to $roles by $callingUsername" }
+    return updatedUser.right()
+  }
+
   companion object : KLogging()
 }

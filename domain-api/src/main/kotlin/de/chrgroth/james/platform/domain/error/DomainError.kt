@@ -31,5 +31,7 @@ enum class UserAdminError(override val code: String) : DomainError {
   BLANK_INPUT("ADMIN-003"),
   CANNOT_DEACTIVATE_SELF("ADMIN-004"),
   CANNOT_DELETE_SELF("ADMIN-005"),
+  PASSWORDS_DO_NOT_MATCH("ADMIN-006"),
+  CANNOT_REMOVE_OWN_ADMIN_ROLE("ADMIN-007"),
   ;
 }

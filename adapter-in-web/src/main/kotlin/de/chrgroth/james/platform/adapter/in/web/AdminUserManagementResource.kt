@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.error.UserAdminError
+import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
@@ -59,12 +60,12 @@ class AdminUserManagementResource {
     @FormParam("password") password: String?,
   ): Response {
     if (username.isNullOrBlank() || password.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${UserAdminError.BLANK_INPUT.code}")).build()
+      return Response.seeOther(URI.create("/ui/admin/users/error?error=${UserAdminError.BLANK_INPUT.code}")).build()
     }
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.createUser(username, password, callingUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-created")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-created")).build() },
     )
   }
 
@@ -72,8 +73,8 @@ class AdminUserManagementResource {
   @Path("/{username}/activate")
   fun activateUser(@PathParam("username") username: String): Response =
     adminUserManagement.activateUser(username).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-activated")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-activated")).build() },
     )
 
   @POST
@@ -81,8 +82,8 @@ class AdminUserManagementResource {
   fun deactivateUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deactivateUser(username, callingUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-deactivated")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-deactivated")).build() },
     )
   }
 
@@ -92,13 +93,35 @@ class AdminUserManagementResource {
   fun setPassword(
     @PathParam("username") username: String,
     @FormParam("newPassword") newPassword: String?,
+    @FormParam("confirmPassword") confirmPassword: String?,
   ): Response {
-    if (newPassword.isNullOrBlank()) {
-      return Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=password-blank")).build()
+    if (newPassword.isNullOrBlank() || confirmPassword.isNullOrBlank()) {
+      return Response.seeOther(URI.create("/ui/admin/users/error?error=password-blank")).build()
+    }
+    if (newPassword != confirmPassword) {
+      return Response.seeOther(URI.create("/ui/admin/users/error?error=${UserAdminError.PASSWORDS_DO_NOT_MATCH.code}")).build()
     }
     return adminUserManagement.setPassword(username, newPassword).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=password-set")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=password-set")).build() },
+    )
+  }
+
+  @POST
+  @Path("/{username}/roles")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  fun setRoles(
+    @PathParam("username") username: String,
+    @FormParam("roles") roleNames: List<String>?,
+  ): Response {
+    val roles = roleNames
+      ?.mapNotNull { runCatching { UserRole.valueOf(it) }.getOrNull() }
+      ?.toSet()
+      ?: emptySet()
+    val callingUsername = securityIdentity.principal.name
+    return adminUserManagement.setRoles(username, roles, callingUsername).fold(
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=roles-updated")).build() },
     )
   }
 
@@ -107,8 +130,8 @@ class AdminUserManagementResource {
   fun deleteUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deleteUser(username, callingUsername).fold(
-      ifLeft = { error -> Response.temporaryRedirect(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.temporaryRedirect(URI.create("/ui/admin/users/success?msg=user-deleted")).build() },
+      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-deleted")).build() },
     )
   }
 
@@ -116,6 +139,7 @@ class AdminUserManagementResource {
     val users = adminUserManagement.listUsers()
     return usersTemplate
       .data("users", users)
+      .data("allRoles", UserRole.entries)
       .data("successMessage", successMsg)
       .data("errorMessage", errorMsg)
   }
@@ -125,6 +149,7 @@ class AdminUserManagementResource {
     "user-activated" -> "User activated successfully."
     "user-deactivated" -> "User deactivated successfully."
     "password-set" -> "Password set successfully."
+    "roles-updated" -> "Roles updated successfully."
     "user-deleted" -> "User deleted successfully."
     else -> "Operation completed successfully."
   }
@@ -135,6 +160,8 @@ class AdminUserManagementResource {
     UserAdminError.BLANK_INPUT.code -> "All fields are required."
     UserAdminError.CANNOT_DEACTIVATE_SELF.code -> "You cannot deactivate your own account."
     UserAdminError.CANNOT_DELETE_SELF.code -> "You cannot delete your own account."
+    UserAdminError.PASSWORDS_DO_NOT_MATCH.code -> "Passwords do not match."
+    UserAdminError.CANNOT_REMOVE_OWN_ADMIN_ROLE.code -> "You cannot remove your own admin role."
     "password-blank" -> "Password must not be empty."
     else -> "An unexpected error occurred. Please try again."
   }
