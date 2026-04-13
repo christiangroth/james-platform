@@ -161,15 +161,11 @@
         <div class="modal-dialog">
             <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
                 <div class="modal-header" style="border-color:#333;">
-                    <h5 class="modal-title" id="manageRolesModalLabel">Manage Roles</h5>
+                    <h5 class="modal-title" id="manageRolesModalLabel">Manage Roles – <span id="manageRolesUsernameTitle" data-testid="manage-roles-username-display"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="post" id="manageRolesForm" action="/ui/admin/users/__username__/roles">
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">User</label>
-                            <input type="text" class="form-control app-form-control" id="manageRolesUsername" readonly data-testid="manage-roles-username-display">
-                        </div>
                         <div class="mb-3">
                             <label class="form-label">Roles</label>
                             {#for role in allRoles}
@@ -209,14 +205,14 @@
         (function () {
             var modal = document.getElementById('manageRolesModal');
             if (!modal) return;
-            var usernameDisplay = document.getElementById('manageRolesUsername');
+            var usernameTitle = document.getElementById('manageRolesUsernameTitle');
             var form = document.getElementById('manageRolesForm');
             modal.addEventListener('show.bs.modal', function (event) {
                 var trigger = event.relatedTarget;
                 var username = trigger ? trigger.getAttribute('data-username') : '';
                 var rolesAttr = trigger ? trigger.getAttribute('data-roles') : '';
                 var currentRoles = rolesAttr ? rolesAttr.split(',').map(function (r) { return r.trim(); }) : [];
-                usernameDisplay.value = username;
+                usernameTitle.textContent = username;
                 form.action = '/ui/admin/users/' + encodeURIComponent(username) + '/roles';
                 var checkboxes = modal.querySelectorAll('input[type="checkbox"][name="roles"]');
                 checkboxes.forEach(function (cb) {
