@@ -25,14 +25,14 @@
 
         <div class="card app-card">
             <div class="table-responsive">
-                <table class="table table-sm mb-0 app-table" data-testid="users-table">
+                <table class="table table-sm table-striped mb-0 app-table" data-testid="users-table">
                     <thead>
                         <tr>
                             <th>Name</th>
                             <th>Roles</th>
                             <th>Status</th>
-                            <th>Last Login</th>
                             <th>Since</th>
+                            <th>Last Login</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
@@ -52,12 +52,12 @@
                                 <span class="badge app-badge-muted" data-testid="user-status-inactive">Inactive</span>
                                 {/if}
                             </td>
-                            <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
                             <td data-testid="user-created-at">{user.createdAt.formatted}</td>
+                            <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
                             <td class="text-end">
                                 <div class="dropdown">
-                                    <button type="button" class="btn btn-sm btn-app-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-testid="user-actions-dropdown">
-                                        Actions
+                                    <button type="button" class="btn btn-sm btn-app-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="User actions" data-testid="user-actions-dropdown">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52z"/></svg>
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
                                         {#if user.active}
@@ -161,15 +161,11 @@
         <div class="modal-dialog">
             <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
                 <div class="modal-header" style="border-color:#333;">
-                    <h5 class="modal-title" id="manageRolesModalLabel">Manage Roles</h5>
+                    <h5 class="modal-title" id="manageRolesModalLabel">Manage Roles – <span id="manageRolesUsernameTitle" data-testid="manage-roles-username-display"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="post" id="manageRolesForm" action="/ui/admin/users/__username__/roles">
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">User</label>
-                            <input type="text" class="form-control app-form-control" id="manageRolesUsername" readonly data-testid="manage-roles-username-display">
-                        </div>
                         <div class="mb-3">
                             <label class="form-label">Roles</label>
                             {#for role in allRoles}
@@ -209,14 +205,14 @@
         (function () {
             var modal = document.getElementById('manageRolesModal');
             if (!modal) return;
-            var usernameDisplay = document.getElementById('manageRolesUsername');
+            var usernameTitle = document.getElementById('manageRolesUsernameTitle');
             var form = document.getElementById('manageRolesForm');
             modal.addEventListener('show.bs.modal', function (event) {
                 var trigger = event.relatedTarget;
                 var username = trigger ? trigger.getAttribute('data-username') : '';
                 var rolesAttr = trigger ? trigger.getAttribute('data-roles') : '';
                 var currentRoles = rolesAttr ? rolesAttr.split(',').map(function (r) { return r.trim(); }) : [];
-                usernameDisplay.value = username;
+                usernameTitle.textContent = username;
                 form.action = '/ui/admin/users/' + encodeURIComponent(username) + '/roles';
                 var checkboxes = modal.querySelectorAll('input[type="checkbox"][name="roles"]');
                 checkboxes.forEach(function (cb) {
