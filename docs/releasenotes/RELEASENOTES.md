@@ -1,3 +1,17 @@
+# 0.1.10 (2026.04.13)
+
+## New Features
+* Admins can now assign roles (USER, DEVELOPER, ADMIN) to users from the User Management UI.
+* Added password confirmation field when setting a user's password in the User Management UI.
+
+## Bugfixes / Chore
+* Fixed HTTP 405 error when creating or deleting users in the User Management UI.
+* Fixed HTTP 405 error when changing username or password in the Profile UI.
+
+
+
+---
+
 # 0.1.9 (2026.04.12)
 
 ## Bugfixes / Chore
