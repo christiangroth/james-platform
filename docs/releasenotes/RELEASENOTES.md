@@ -1,3 +1,12 @@
+# 0.1.13 (2026.04.14)
+
+## New Features
+* Changed application logo to a stylized person in a dark circle, inspired by the GitHub logo style.
+
+
+
+---
+
 # 0.1.12 (2026.04.14)
 
 ## Bugfixes / Chore
