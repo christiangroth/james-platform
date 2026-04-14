@@ -73,14 +73,18 @@
                                     <button type="button" class="btn btn-sm btn-app-secondary"
                                             data-bs-toggle="modal" data-bs-target="#setPasswordModal"
                                             data-username="{user.username}"
+                                            title="Set Password"
+                                            aria-label="Set password for {user.username}"
                                             data-testid="set-password-button">
-                                        Set Password
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 8a4 4 0 0 1 7.465-2H14a.5.5 0 0 1 .354.146l1.5 1.5a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0L13 9.207l-.646.647a.5.5 0 0 1-.708 0L11 9.207l-.646.647a.5.5 0 0 1-.354.146H7.465A4 4 0 0 1 0 8m4-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6m.5 2.5a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1"/></svg>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-app-danger ms-1"
                                             data-action="delete-user"
                                             data-username="{user.username}"
+                                            title="Delete user"
+                                            aria-label="Delete user {user.username}"
                                             data-testid="delete-user-button">
-                                        Delete
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
                                     </button>
                                 </td>
                             </tr>
@@ -198,7 +202,7 @@
 
             async function refreshTable() {
                 try {
-                    var response = await fetch('/ui/admin/users/table');
+                    var response = await fetch('/ui/admin/users/table', { cache: 'no-store' });
                     var html = await response.text();
                     document.getElementById('users-table-container').innerHTML = html;
                 } catch (e) {
