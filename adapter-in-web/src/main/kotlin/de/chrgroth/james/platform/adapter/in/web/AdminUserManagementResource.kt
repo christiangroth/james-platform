@@ -10,15 +10,18 @@ import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.FormParam
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
+import jakarta.ws.rs.PUT
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import java.net.URI
+
+data class ApiResult(val ok: Boolean, val message: String)
 
 @Path("/ui/admin/users")
 @ApplicationScoped
@@ -41,75 +44,73 @@ class AdminUserManagementResource {
   fun users(): Any = renderUsers()
 
   @GET
-  @Path("/success")
+  @Path("/table")
   @Produces(MediaType.TEXT_HTML)
-  fun usersSuccess(@jakarta.ws.rs.QueryParam("msg") msg: String?): Any =
-    renderUsers(successMsg = msg?.let { successMessage(it) })
+  fun usersTable(): Any = renderUsersTable()
 
-  @GET
-  @Path("/error")
-  @Produces(MediaType.TEXT_HTML)
-  fun usersError(@jakarta.ws.rs.QueryParam("error") error: String?): Any =
-    renderUsers(errorMsg = error?.let { errorMessage(it) })
-
-  @POST
-  @Path("/create")
+  @PUT
+  @Path("/{username}")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
   fun createUser(
-    @FormParam("username") username: String?,
+    @PathParam("username") username: String,
     @FormParam("password") password: String?,
   ): Response {
-    if (username.isNullOrBlank() || password.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/ui/admin/users/error?error=${UserAdminError.BLANK_INPUT.code}")).build()
+    if (password.isNullOrBlank()) {
+      return Response.ok(ApiResult(false, errorMessage(UserAdminError.BLANK_INPUT.code))).build()
     }
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.createUser(username, password, callingUsername).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-created")).build() },
+      ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
+      ifRight = { Response.ok(ApiResult(true, "User created successfully.")).build() },
     )
   }
 
   @POST
-  @Path("/{username}/activate")
+  @Path("/{username}/activation")
+  @Produces(MediaType.APPLICATION_JSON)
   fun activateUser(@PathParam("username") username: String): Response =
     adminUserManagement.activateUser(username).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-activated")).build() },
+      ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
+      ifRight = { Response.ok(ApiResult(true, "User activated successfully.")).build() },
     )
 
-  @POST
-  @Path("/{username}/deactivate")
+  @DELETE
+  @Path("/{username}/activation")
+  @Produces(MediaType.APPLICATION_JSON)
   fun deactivateUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deactivateUser(username, callingUsername).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-deactivated")).build() },
+      ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
+      ifRight = { Response.ok(ApiResult(true, "User deactivated successfully.")).build() },
     )
   }
 
   @POST
   @Path("/{username}/password")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
   fun setPassword(
     @PathParam("username") username: String,
     @FormParam("newPassword") newPassword: String?,
     @FormParam("confirmPassword") confirmPassword: String?,
   ): Response {
     if (newPassword.isNullOrBlank() || confirmPassword.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/ui/admin/users/error?error=password-blank")).build()
+      return Response.ok(ApiResult(false, errorMessage("password-blank"))).build()
     }
     if (newPassword != confirmPassword) {
-      return Response.seeOther(URI.create("/ui/admin/users/error?error=${UserAdminError.PASSWORDS_DO_NOT_MATCH.code}")).build()
+      return Response.ok(ApiResult(false, errorMessage(UserAdminError.PASSWORDS_DO_NOT_MATCH.code))).build()
     }
     return adminUserManagement.setPassword(username, newPassword).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=password-set")).build() },
+      ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
+      ifRight = { Response.ok(ApiResult(true, "Password set successfully.")).build() },
     )
   }
 
   @POST
   @Path("/{username}/roles")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
   fun setRoles(
     @PathParam("username") username: String,
     @FormParam("roles") roleNames: List<String>?,
@@ -120,38 +121,34 @@ class AdminUserManagementResource {
       ?: emptySet()
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.setRoles(username, roles, callingUsername).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=roles-updated")).build() },
+      ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
+      ifRight = { Response.ok(ApiResult(true, "Roles updated successfully.")).build() },
     )
   }
 
-  @POST
-  @Path("/{username}/delete")
+  @DELETE
+  @Path("/{username}")
+  @Produces(MediaType.APPLICATION_JSON)
   fun deleteUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deleteUser(username, callingUsername).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/admin/users/error?error=${error.code}")).build() },
-      ifRight = { Response.seeOther(URI.create("/ui/admin/users/success?msg=user-deleted")).build() },
+      ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
+      ifRight = { Response.ok(ApiResult(true, "User deleted successfully.")).build() },
     )
   }
 
-  private fun renderUsers(successMsg: String? = null, errorMsg: String? = null): Any {
+  private fun renderUsers(): Any {
     val users = adminUserManagement.listUsers()
     return usersTemplate
       .data("users", users)
       .data("allRoles", UserRole.entries)
-      .data("successMessage", successMsg)
-      .data("errorMessage", errorMsg)
   }
 
-  private fun successMessage(code: String): String = when (code) {
-    "user-created" -> "User created successfully."
-    "user-activated" -> "User activated successfully."
-    "user-deactivated" -> "User deactivated successfully."
-    "password-set" -> "Password set successfully."
-    "roles-updated" -> "Roles updated successfully."
-    "user-deleted" -> "User deleted successfully."
-    else -> "Operation completed successfully."
+  private fun renderUsersTable(): Any {
+    val users = adminUserManagement.listUsers()
+    return usersTemplate.getFragment("users_table")
+      .data("users", users)
+      .data("allRoles", UserRole.entries)
   }
 
   private fun errorMessage(code: String): String = when (code) {
