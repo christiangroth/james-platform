@@ -111,6 +111,13 @@ class AdminUserManagementService(
       logger.warn { "Set roles failed: user not found: $username" }
       return UserAdminError.USER_NOT_FOUND.left()
     }
+    if (roles.contains(UserRole.ADMIN) && !user.roles.contains(UserRole.ADMIN)) {
+      val hasExistingAdmin = userRepository.findAll().any { it.roles.contains(UserRole.ADMIN) }
+      if (hasExistingAdmin) {
+        logger.warn { "Set roles failed: single admin violation for $username" }
+        return UserAdminError.SINGLE_ADMIN_VIOLATION.left()
+      }
+    }
     val updatedUser = user.copy(roles = roles)
     userRepository.save(updatedUser)
     logger.info { "Roles set for user: $username to $roles by $callingUsername" }
