@@ -1,3 +1,12 @@
+# 0.1.16 (2026.04.14)
+
+## Bugfixes / Chore
+* Fixed Grafana logs dashboard provisioning by removing the numeric id from the dashboard definition.
+
+
+
+---
+
 # 0.1.15 (2026.04.14)
 
 ## New Features
