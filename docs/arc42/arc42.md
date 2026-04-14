@@ -262,7 +262,7 @@ Build the application as a Quarkus native Docker image, push to the GitHub Conta
 - **Snippet requirement** – every branch that is not `main` or `dependabot/*` **must** contain at least one release note snippet in `docs/releasenotes/snippets/`; the build fails
   without it. Create snippets with the corresponding Gradle tasks (`releasenotesCreateFeature`, `releasenotesCreateBugfix`, …); filenames follow the pattern
   `{branch-last-segment}-{type}.md`. The `releasenotesEnsureVersion` task (automatically hooked to `beforeReleaseBuild`) scans snippets at release time and bumps the project
-  version to the correct semver level: minor bump when feature snippets are present, major bump when update-notice snippets are present.
+  version to minor level when feature snippets are present, ensuring correct semver regardless of how snippets were created.
 
 # Cross-cutting Concepts
 
