@@ -5,12 +5,11 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppName
 import de.chrgroth.james.platform.domain.model.app.AppStatus
-import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
+import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
-import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -22,8 +21,7 @@ import java.time.Instant
 class AppManagementServiceTests {
 
   private val appRepository: AppRepositoryPort = mockk()
-  private val appVersionRepository: AppVersionRepositoryPort = mockk()
-  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository)
+  private val service: AppManagementService = AppManagementService(appRepository)
 
   private val existingApp = app(id = "app-1", name = "My App")
 
@@ -213,55 +211,39 @@ class AppManagementServiceTests {
 
   // endregion
 
-  // region deleteApp
+  // region deactivateApp
 
   @Test
-  fun `deleteApp succeeds when app has no published versions`() {
+  fun `deactivateApp succeeds for active app`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
-    justRun { appVersionRepository.deleteAllByAppId(AppId("app-1")) }
-    justRun { appRepository.delete(AppId("app-1")) }
+    justRun { appRepository.save(any()) }
 
-    val result = service.deleteApp("app-1")
+    val result = service.deactivateApp("app-1")
 
     assertThat(result.isRight()).isTrue()
-    verify { appVersionRepository.deleteAllByAppId(AppId("app-1")) }
-    verify { appRepository.delete(AppId("app-1")) }
+    assertThat(result.getOrNull()?.status).isEqualTo(AppStatus.INACTIVE)
+    verify { appRepository.save(match { it.status == AppStatus.INACTIVE }) }
   }
 
   @Test
-  fun `deleteApp succeeds when app has only draft versions`() {
-    val draftVersion = version(appId = "app-1", status = AppVersionStatus.DRAFT)
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
-    justRun { appVersionRepository.deleteAllByAppId(AppId("app-1")) }
-    justRun { appRepository.delete(AppId("app-1")) }
-
-    val result = service.deleteApp("app-1")
-
-    assertThat(result.isRight()).isTrue()
-  }
-
-  @Test
-  fun `deleteApp fails when app has published versions`() {
-    val publishedVersion = version(appId = "app-1", status = AppVersionStatus.PUBLISHED)
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
-
-    val result = service.deleteApp("app-1")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppError.HAS_PUBLISHED_VERSIONS)
-  }
-
-  @Test
-  fun `deleteApp fails when app not found`() {
+  fun `deactivateApp fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.deleteApp("unknown")
+    val result = service.deactivateApp("unknown")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `deactivateApp fails when app is already inactive`() {
+    val inactiveApp = existingApp.copy(status = AppStatus.INACTIVE)
+    every { appRepository.findById(AppId("app-1")) } returns inactiveApp
+
+    val result = service.deactivateApp("app-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.ALREADY_INACTIVE)
   }
 
   // endregion
@@ -285,9 +267,7 @@ class AppManagementServiceTests {
       id = AppVersionId(id),
       appId = AppId(appId),
       versionNumber = VersionNumber(versionNumber),
-      releaseNotes = null,
       status = status,
-      publishedAt = if (status == AppVersionStatus.PUBLISHED || status == AppVersionStatus.DEPRECATED) Instant.now() else null,
       createdAt = Instant.now(),
     )
   }

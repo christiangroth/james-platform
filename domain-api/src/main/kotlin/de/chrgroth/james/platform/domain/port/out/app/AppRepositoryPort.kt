@@ -9,5 +9,4 @@ interface AppRepositoryPort {
   fun findByName(name: AppName): App?
   fun findAll(): List<App>
   fun save(app: App)
-  fun delete(appId: AppId)
 }

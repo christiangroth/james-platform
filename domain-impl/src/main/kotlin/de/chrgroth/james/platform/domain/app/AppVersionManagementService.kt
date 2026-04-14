@@ -33,7 +33,7 @@ class AppVersionManagementService(
     return appVersionRepository.findAllByAppId(AppId(appId)).right()
   }
 
-  override fun createVersion(appId: String, versionNumber: String, releaseNotes: String?): Either<DomainError, AppVersion> {
+  override fun createVersion(appId: String, versionNumber: String): Either<DomainError, AppVersion> {
     if (versionNumber.isBlank()) {
       logger.warn { "Create version failed: blank version number" }
       return AppVersionError.BLANK_INPUT.left()
@@ -46,22 +46,37 @@ class AppVersionManagementService(
       logger.warn { "Create version failed: app not found: $appId" }
       return AppVersionError.APP_NOT_FOUND.left()
     }
-    if (appVersionRepository.findByAppIdAndVersionNumber(AppId(appId), VersionNumber(versionNumber)) != null) {
+    val existingVersions = appVersionRepository.findAllByAppId(AppId(appId))
+    if (existingVersions.any { it.status == AppVersionStatus.DRAFT }) {
+      logger.warn { "Create version failed: draft version already exists for app $appId" }
+      return AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.left()
+    }
+    if (existingVersions.any { it.versionNumber == VersionNumber(versionNumber) }) {
       logger.warn { "Create version failed: version number already exists: $versionNumber in app $appId" }
       return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }
-    val version = AppVersion(
-      id = AppVersionId(UUID.randomUUID().toString()),
-      appId = AppId(appId),
-      versionNumber = VersionNumber(versionNumber),
-      releaseNotes = releaseNotes?.takeIf { it.isNotBlank() },
-      status = AppVersionStatus.DRAFT,
-      publishedAt = null,
-      createdAt = Instant.now(),
-    )
-    appVersionRepository.save(version)
-    logger.info { "App version created: $versionNumber for app $appId (${version.id.value})" }
-    return version.right()
+    val latestPublished = existingVersions
+      .filter { it.status == AppVersionStatus.PUBLISHED }
+      .maxByOrNull { it.createdAt }
+    val newVersion = if (latestPublished != null) {
+      latestPublished.copy(
+        id = AppVersionId(UUID.randomUUID().toString()),
+        versionNumber = VersionNumber(versionNumber),
+        status = AppVersionStatus.DRAFT,
+        createdAt = Instant.now(),
+      )
+    } else {
+      AppVersion(
+        id = AppVersionId(UUID.randomUUID().toString()),
+        appId = AppId(appId),
+        versionNumber = VersionNumber(versionNumber),
+        status = AppVersionStatus.DRAFT,
+        createdAt = Instant.now(),
+      )
+    }
+    appVersionRepository.save(newVersion)
+    logger.info { "App version created: $versionNumber for app $appId (${newVersion.id.value})" }
+    return newVersion.right()
   }
 
   override fun getVersion(appId: String, versionId: String): Either<DomainError, AppVersion> {
@@ -89,50 +104,10 @@ class AppVersionManagementService(
       logger.warn { "Publish version failed: version $versionId is not in DRAFT status" }
       return AppVersionError.VERSION_NOT_IN_DRAFT.left()
     }
-    val publishedVersion = version.copy(
-      status = AppVersionStatus.PUBLISHED,
-      publishedAt = Instant.now(),
-    )
+    val publishedVersion = version.copy(status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
     logger.info { "App version published: ${version.versionNumber.value} (${version.id.value})" }
     return publishedVersion.right()
-  }
-
-  override fun deprecateVersion(appId: String, versionId: String): Either<DomainError, AppVersion> {
-    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: run {
-      logger.warn { "Deprecate version failed: not found: $versionId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
-    }
-    if (version.appId != AppId(appId)) {
-      logger.warn { "Deprecate version failed: version $versionId does not belong to app $appId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
-    }
-    if (version.status != AppVersionStatus.PUBLISHED) {
-      logger.warn { "Deprecate version failed: version $versionId is not in PUBLISHED status" }
-      return AppVersionError.VERSION_NOT_PUBLISHED.left()
-    }
-    val deprecatedVersion = version.copy(status = AppVersionStatus.DEPRECATED)
-    appVersionRepository.save(deprecatedVersion)
-    logger.info { "App version deprecated: ${version.versionNumber.value} (${version.id.value})" }
-    return deprecatedVersion.right()
-  }
-
-  override fun deleteVersion(appId: String, versionId: String): Either<DomainError, Unit> {
-    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: run {
-      logger.warn { "Delete version failed: not found: $versionId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
-    }
-    if (version.appId != AppId(appId)) {
-      logger.warn { "Delete version failed: version $versionId does not belong to app $appId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
-    }
-    if (version.status != AppVersionStatus.DRAFT) {
-      logger.warn { "Delete version failed: version $versionId is not in DRAFT status" }
-      return AppVersionError.CANNOT_DELETE_NON_DRAFT_VERSION.left()
-    }
-    appVersionRepository.delete(AppVersionId(versionId))
-    logger.info { "App version deleted: ${version.versionNumber.value} (${version.id.value})" }
-    return Unit.right()
   }
 
   companion object : KLogging() {

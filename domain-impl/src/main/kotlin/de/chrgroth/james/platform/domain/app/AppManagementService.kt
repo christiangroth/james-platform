@@ -9,10 +9,8 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppName
 import de.chrgroth.james.platform.domain.model.app.AppStatus
-import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
-import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -22,7 +20,6 @@ import java.util.UUID
 @Suppress("Unused")
 class AppManagementService(
   private val appRepository: AppRepositoryPort,
-  private val appVersionRepository: AppVersionRepositoryPort,
 ) : AppManagementPort {
 
   override fun listApps(): List<App> = appRepository.findAll()
@@ -82,21 +79,19 @@ class AppManagementService(
     return updatedApp.right()
   }
 
-  override fun deleteApp(appId: String): Either<DomainError, Unit> {
-    appRepository.findById(AppId(appId)) ?: run {
-      logger.warn { "Delete app failed: not found: $appId" }
+  override fun deactivateApp(appId: String): Either<DomainError, App> {
+    val app = appRepository.findById(AppId(appId)) ?: run {
+      logger.warn { "Deactivate app failed: not found: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
-    val publishedVersions = appVersionRepository.findAllByAppId(AppId(appId))
-      .filter { it.status == AppVersionStatus.PUBLISHED }
-    if (publishedVersions.isNotEmpty()) {
-      logger.warn { "Delete app failed: has published versions: $appId" }
-      return AppError.HAS_PUBLISHED_VERSIONS.left()
+    if (app.status == AppStatus.INACTIVE) {
+      logger.warn { "Deactivate app failed: already inactive: $appId" }
+      return AppError.ALREADY_INACTIVE.left()
     }
-    appVersionRepository.deleteAllByAppId(AppId(appId))
-    appRepository.delete(AppId(appId))
-    logger.info { "App deleted: $appId" }
-    return Unit.right()
+    val updatedApp = app.copy(status = AppStatus.INACTIVE, updatedAt = Instant.now())
+    appRepository.save(updatedApp)
+    logger.info { "App deactivated: $appId" }
+    return updatedApp.right()
   }
 
   companion object : KLogging()

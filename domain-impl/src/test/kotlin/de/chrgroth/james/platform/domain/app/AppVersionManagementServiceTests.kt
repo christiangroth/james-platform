@@ -25,7 +25,6 @@ class AppVersionManagementServiceTests {
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.DRAFT)
   private val publishedVersion = version(id = "ver-2", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-  private val deprecatedVersion = version(id = "ver-3", appId = "app-1", versionNumber = "0.9.0", status = AppVersionStatus.DEPRECATED)
 
   // region listVersions
 
@@ -55,35 +54,35 @@ class AppVersionManagementServiceTests {
   // region createVersion
 
   @Test
-  fun `createVersion succeeds with valid semantic version`() {
+  fun `createVersion creates fresh draft when no versions exist`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("2.0.0")) } returns null
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.createVersion("app-1", "2.0.0", "New features")
+    val result = service.createVersion("app-1", "1.0.0")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.0.0"))
+    assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.DRAFT)
+  }
+
+  @Test
+  fun `createVersion copies from latest published version when one exists`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.createVersion("app-1", "2.0.0")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.DRAFT)
-    assertThat(result.getOrNull()?.releaseNotes).isEqualTo("New features")
-    assertThat(result.getOrNull()?.publishedAt).isNull()
-  }
-
-  @Test
-  fun `createVersion discards blank release notes`() {
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("2.0.0")) } returns null
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.createVersion("app-1", "2.0.0", "   ")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.releaseNotes).isNull()
+    assertThat(result.getOrNull()?.appId).isEqualTo(AppId("app-1"))
   }
 
   @Test
   fun `createVersion fails when version number is blank`() {
-    val result = service.createVersion("app-1", "  ", null)
+    val result = service.createVersion("app-1", "  ")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
@@ -92,7 +91,7 @@ class AppVersionManagementServiceTests {
   @Test
   fun `createVersion fails for invalid version number format`() {
     listOf("1", "1.0", "v1.0.0", "1.0.0.0", "1.0.x", "abc").forEach { invalid ->
-      val result = service.createVersion("app-1", invalid, null)
+      val result = service.createVersion("app-1", invalid)
       assertThat(result.isLeft()).withFailMessage { "Expected failure for: $invalid" }.isTrue()
       assertThat(result.leftOrNull()).withFailMessage { "Expected INVALID_VERSION_NUMBER_FORMAT for: $invalid" }
         .isEqualTo(AppVersionError.INVALID_VERSION_NUMBER_FORMAT)
@@ -103,10 +102,10 @@ class AppVersionManagementServiceTests {
   fun `createVersion accepts valid semantic version formats`() {
     listOf("0.0.0", "1.0.0", "10.20.30", "0.0.1").forEach { valid ->
       every { appRepository.findById(AppId("app-1")) } returns existingApp
-      every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber(valid)) } returns null
+      every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
       justRun { appVersionRepository.save(any()) }
 
-      val result = service.createVersion("app-1", valid, null)
+      val result = service.createVersion("app-1", valid)
       assertThat(result.isRight()).withFailMessage { "Expected success for: $valid" }.isTrue()
     }
   }
@@ -115,18 +114,29 @@ class AppVersionManagementServiceTests {
   fun `createVersion fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.createVersion("unknown", "1.0.0", null)
+    val result = service.createVersion("unknown", "1.0.0")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_NOT_FOUND)
   }
 
   @Test
+  fun `createVersion fails when a draft version already exists for the app`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
+
+    val result = service.createVersion("app-1", "2.0.0")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DRAFT_VERSION_ALREADY_EXISTS)
+  }
+
+  @Test
   fun `createVersion fails when version number already exists for app`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns draftVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
 
-    val result = service.createVersion("app-1", "1.0.0", null)
+    val result = service.createVersion("app-1", "1.1.0")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NUMBER_ALREADY_EXISTS)
@@ -180,7 +190,6 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
-    assertThat(result.getOrNull()?.publishedAt).isNotNull()
     verify { appVersionRepository.save(match { it.status == AppVersionStatus.PUBLISHED }) }
   }
 
@@ -213,129 +222,6 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
-  }
-
-  @Test
-  fun `publishVersion fails when version is deprecated`() {
-    every { appVersionRepository.findById(AppVersionId("ver-3")) } returns deprecatedVersion
-
-    val result = service.publishVersion("app-1", "ver-3")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
-  }
-
-  // endregion
-
-  // region deprecateVersion
-
-  @Test
-  fun `deprecateVersion succeeds for published version`() {
-    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.deprecateVersion("app-1", "ver-2")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.DEPRECATED)
-    verify { appVersionRepository.save(match { it.status == AppVersionStatus.DEPRECATED }) }
-  }
-
-  @Test
-  fun `deprecateVersion fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
-
-    val result = service.deprecateVersion("app-1", "unknown")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `deprecateVersion fails when version belongs to different app`() {
-    val versionOfOtherApp = version(id = "ver-2", appId = "app-2", status = AppVersionStatus.PUBLISHED)
-    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns versionOfOtherApp
-
-    val result = service.deprecateVersion("app-1", "ver-2")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `deprecateVersion fails when version is still in draft`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
-
-    val result = service.deprecateVersion("app-1", "ver-1")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_PUBLISHED)
-  }
-
-  @Test
-  fun `deprecateVersion fails when version is already deprecated`() {
-    every { appVersionRepository.findById(AppVersionId("ver-3")) } returns deprecatedVersion
-
-    val result = service.deprecateVersion("app-1", "ver-3")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_PUBLISHED)
-  }
-
-  // endregion
-
-  // region deleteVersion
-
-  @Test
-  fun `deleteVersion succeeds for draft version`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
-    justRun { appVersionRepository.delete(AppVersionId("ver-1")) }
-
-    val result = service.deleteVersion("app-1", "ver-1")
-
-    assertThat(result.isRight()).isTrue()
-    verify { appVersionRepository.delete(AppVersionId("ver-1")) }
-  }
-
-  @Test
-  fun `deleteVersion fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
-
-    val result = service.deleteVersion("app-1", "unknown")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `deleteVersion fails when version belongs to different app`() {
-    val versionOfOtherApp = version(id = "ver-1", appId = "app-2")
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns versionOfOtherApp
-
-    val result = service.deleteVersion("app-1", "ver-1")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `deleteVersion fails for published version`() {
-    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
-
-    val result = service.deleteVersion("app-1", "ver-2")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.CANNOT_DELETE_NON_DRAFT_VERSION)
-  }
-
-  @Test
-  fun `deleteVersion fails for deprecated version`() {
-    every { appVersionRepository.findById(AppVersionId("ver-3")) } returns deprecatedVersion
-
-    val result = service.deleteVersion("app-1", "ver-3")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.CANNOT_DELETE_NON_DRAFT_VERSION)
   }
 
   // endregion

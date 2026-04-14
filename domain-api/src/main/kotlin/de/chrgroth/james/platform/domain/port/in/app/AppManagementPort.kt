@@ -9,5 +9,5 @@ interface AppManagementPort {
   fun createApp(name: String, description: String?): Either<DomainError, App>
   fun getApp(appId: String): Either<DomainError, App>
   fun updateApp(appId: String, name: String, description: String?): Either<DomainError, App>
-  fun deleteApp(appId: String): Either<DomainError, Unit>
+  fun deactivateApp(appId: String): Either<DomainError, App>
 }

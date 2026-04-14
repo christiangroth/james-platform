@@ -12,14 +12,11 @@ data class AppVersion(
   val id: AppVersionId,
   val appId: AppId,
   val versionNumber: VersionNumber,
-  val releaseNotes: String?,
   val status: AppVersionStatus,
-  val publishedAt: Instant?,
   val createdAt: Instant,
 )
 
 enum class AppVersionStatus {
   DRAFT,
   PUBLISHED,
-  DEPRECATED,
 }
