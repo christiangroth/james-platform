@@ -19,6 +19,8 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
+data class ApiResult(val ok: Boolean, val message: String)
+
 @Path("/ui/admin/users")
 @ApplicationScoped
 @RolesAllowed("ADMIN")
@@ -160,4 +162,3 @@ class AdminUserManagementResource {
   }
 }
 
-data class ApiResult(val ok: Boolean, val message: String)
