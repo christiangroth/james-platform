@@ -9,6 +9,8 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
@@ -114,7 +116,97 @@ class AppVersionManagementService(
     return publishedVersion.right()
   }
 
+  override fun computeVersionBump(appId: String, draftVersionId: String): Either<DomainError, VersionBumpResult> {
+    appRepository.findById(AppId(appId)) ?: run {
+      logger.warn { "Compute version bump failed: app not found: $appId" }
+      return AppVersionError.APP_NOT_FOUND.left()
+    }
+    val draft = appVersionRepository.findById(AppVersionId(draftVersionId)) ?: run {
+      logger.warn { "Compute version bump failed: version not found: $draftVersionId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    if (draft.appId != AppId(appId)) {
+      logger.warn { "Compute version bump failed: version $draftVersionId does not belong to app $appId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    if (draft.status != AppVersionStatus.DRAFT) {
+      logger.warn { "Compute version bump failed: version $draftVersionId is not in DRAFT status" }
+      return AppVersionError.VERSION_NOT_IN_DRAFT.left()
+    }
+    val latestPublished = appVersionRepository.findAllByAppId(AppId(appId))
+      .filter { it.status == AppVersionStatus.PUBLISHED }
+      .maxByOrNull { it.createdAt }
+    if (latestPublished == null) {
+      val firstVersion = VersionNumber(FIRST_VERSION)
+      logger.info { "Compute version bump: first release for app $appId → $FIRST_VERSION" }
+      return VersionBumpResult(
+        hasBreakingChanges = false,
+        suggestedVersionOnBreaking = firstVersion,
+        suggestedVersionOnFeature = firstVersion,
+        suggestedVersionOnBugfix = firstVersion,
+      ).right()
+    }
+    val hasBreaking = hasBreakingChanges(latestPublished, draft)
+    val (onBreaking, onFeature, onBugfix) = nextVersions(latestPublished.versionNumber)
+    logger.info { "Compute version bump for app $appId: breaking=$hasBreaking, breaking→${onBreaking.value}, feature→${onFeature.value}, bugfix→${onBugfix.value}" }
+    return VersionBumpResult(
+      hasBreakingChanges = hasBreaking,
+      suggestedVersionOnBreaking = onBreaking,
+      suggestedVersionOnFeature = onFeature,
+      suggestedVersionOnBugfix = onBugfix,
+    ).right()
+  }
+
+  private fun hasBreakingChanges(published: AppVersion, draft: AppVersion): Boolean {
+    val publishedEntityIds = published.entityDefinitions.map { it.id }.toSet()
+    val draftEntityIds = draft.entityDefinitions.map { it.id }.toSet()
+    if (!draftEntityIds.containsAll(publishedEntityIds)) return true
+    for (publishedEntity in published.entityDefinitions) {
+      val draftEntity = draft.entityDefinitions.find { it.id == publishedEntity.id } ?: return true
+      val publishedPropIds = publishedEntity.properties.map { it.id }.toSet()
+      val draftPropIds = draftEntity.properties.map { it.id }.toSet()
+      if (!draftPropIds.containsAll(publishedPropIds)) return true
+      for (publishedProp in publishedEntity.properties) {
+        val draftProp = draftEntity.properties.find { it.id == publishedProp.id } ?: return true
+        if (draftProp.type != publishedProp.type) return true
+        if (publishedProp.nullable && !draftProp.nullable) return true
+        val addedConstraints = draftProp.constraints - publishedProp.constraints
+        if (addedConstraints.any { it is PropertyConstraint.NotNull }) return true
+        if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
+      }
+    }
+    return false
+  }
+
+  private fun isRestrictiveConstraint(constraint: PropertyConstraint): Boolean = when (constraint) {
+    is PropertyConstraint.MinLong,
+    is PropertyConstraint.MaxLong,
+    is PropertyConstraint.MinDouble,
+    is PropertyConstraint.MaxDouble,
+    is PropertyConstraint.MinLength,
+    is PropertyConstraint.MaxLength,
+    is PropertyConstraint.Pattern,
+    is PropertyConstraint.MinSize,
+    is PropertyConstraint.MaxSize,
+    -> true
+    else -> false
+  }
+
+  private fun nextVersions(current: VersionNumber): Triple<VersionNumber, VersionNumber, VersionNumber> {
+    // current is always a stored published version whose format was enforced by SEMANTIC_VERSION_REGEX on creation
+    val parts = current.value.split(".").map { it.toInt() }
+    val major = parts[0]
+    val minor = parts[1]
+    val patch = parts[2]
+    return Triple(
+      VersionNumber("${major + 1}.0.0"),
+      VersionNumber("$major.${minor + 1}.0"),
+      VersionNumber("$major.$minor.${patch + 1}"),
+    )
+  }
+
   companion object : KLogging() {
     private val SEMANTIC_VERSION_REGEX = Regex("""^\d+\.\d+\.\d+$""")
+    internal const val FIRST_VERSION = "0.1.0"
   }
 }

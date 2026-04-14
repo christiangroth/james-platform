@@ -8,6 +8,10 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
@@ -240,6 +244,228 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
 
     val result = service.publishVersion("app-1", "ver-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
+  }
+
+  // endregion
+
+  // region computeVersionBump
+
+  @Test
+  fun `computeVersionBump returns first version 0_1_0 when no published versions exist`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
+
+    val result = service.computeVersionBump("app-1", "ver-1")
+
+    assertThat(result.isRight()).isTrue()
+    val bump = result.getOrNull()!!
+    assertThat(bump.hasBreakingChanges).isFalse()
+    assertThat(bump.suggestedVersionOnFeature).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
+    assertThat(bump.suggestedVersionOnBugfix).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
+    assertThat(bump.suggestedVersionOnBreaking).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
+  }
+
+  @Test
+  fun `computeVersionBump suggests correct next versions based on latest published`() {
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    val bump = result.getOrNull()!!
+    assertThat(bump.suggestedVersionOnBreaking).isEqualTo(VersionNumber("2.0.0"))
+    assertThat(bump.suggestedVersionOnFeature).isEqualTo(VersionNumber("1.2.0"))
+    assertThat(bump.suggestedVersionOnBugfix).isEqualTo(VersionNumber("1.1.1"))
+  }
+
+  @Test
+  fun `computeVersionBump detects no breaking changes when draft is identical to published`() {
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDef))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
+  }
+
+  @Test
+  fun `computeVersionBump detects no breaking changes when entity definition added`() {
+    val pub = publishedVersion.copy(entityDefinitions = emptyList())
+    val newEntity = EntityDefinition(id = EntityDefinitionId("e-new"), name = "Customer")
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(newEntity))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
+  }
+
+  @Test
+  fun `computeVersionBump detects breaking change when entity definition removed`() {
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = emptyList())
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump detects breaking change when property removed`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entityWithProp = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val entityWithoutProp = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = emptyList())
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityWithProp))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityWithoutProp))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump detects breaking change when property type changed`() {
+    val propPublished = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val propDraft = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.STRING)
+    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
+    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDraft))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump detects breaking change when property made non-nullable`() {
+    val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = false)
+    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
+    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDraft))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump detects breaking change when NOT_NULL constraint added to existing property`() {
+    val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING)
+    val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.NotNull))
+    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
+    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDraft))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump detects breaking change when type-specific constraint added to existing property`() {
+    val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING)
+    val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MaxLength(50)))
+    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
+    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDraft))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump fails when app not found`() {
+    every { appRepository.findById(AppId("unknown")) } returns null
+
+    val result = service.computeVersionBump("unknown", "ver-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `computeVersionBump fails when version not found`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.computeVersionBump("app-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `computeVersionBump fails when version belongs to different app`() {
+    val versionOfOtherApp = version(id = "ver-1", appId = "app-2")
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns versionOfOtherApp
+
+    val result = service.computeVersionBump("app-1", "ver-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `computeVersionBump fails when version is not a draft`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
+
+    val result = service.computeVersionBump("app-1", "ver-2")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
