@@ -4,11 +4,103 @@
 
 ## Requirements Overview
 
-*work in progress*
+James Platform is a personal Low Code system for building and running data-centric apps without writing boilerplate infrastructure code.
+
+### Roles
+
+| Role      | Description                                                                                         |
+|-----------|-----------------------------------------------------------------------------------------------------|
+| Admin     | Platform administrator. Manages users. Cannot be a User or Developer at the same time.             |
+| Developer | Creates and maintains Apps. Defines entities, properties, and reports.                              |
+| User      | Installs and uses App Versions. Enters, edits, deletes, and views data through the generic UI.     |
+
+### User Management
+
+- Self-registration is not supported; only an Admin can register new accounts.
+- An Admin can: register users, delete accounts, block/unblock accounts, reset passwords.
+- Every account has a unique username, a bcrypt password hash, and one or more roles.
+
+### Apps and Versions
+
+- A Developer creates an **App** and publishes it as a series of **Versions**.
+- Each Version carries a **semver** number derived automatically from entity changes:
+  - *Breaking change* (removed/renamed entity or property, changed immutable ID) → mandatory **Major** release.
+  - *Non-breaking change* → Developer chooses between **Feature** or **Bugfix** release.
+  - The version number is never entered manually.
+- A released Version records a release date and release notes.
+
+### Entities and Properties
+
+- A Version defines **Entities** and **Reports**.
+- An Entity has:
+  - A name unique within the App.
+  - A globally unique internal ID (immutable).
+  - An ordered list of **Properties**.
+- A Property has:
+  - A name unique within the Entity (mutable).
+  - An ID unique within the Entity (immutable).
+  - A data type and associated constraints.
+
+### Supported Data Types
+
+| Type       | Description                                                                                           |
+|------------|-------------------------------------------------------------------------------------------------------|
+| `long`     | 64-bit integer                                                                                        |
+| `Double`   | 64-bit floating-point                                                                                 |
+| `boolean`  | True/false                                                                                            |
+| `String`   | Text                                                                                                  |
+| `date`     | Calendar date                                                                                         |
+| `time`     | Time of day                                                                                           |
+| `datetime` | Combined date and time                                                                                |
+| `ref`      | Reference to an object of the same or another Entity within the same App Version                      |
+| `List`     | Ordered list of any type except `List`                                                                |
+| `object`   | Inline nested object with its own property list (analogous to an anonymous Entity without a global ID) |
+
+Cyclic reference graphs via `ref` are detected and rejected at schema-definition time.
+
+### Constraints
+
+| Constraint   | Applies to    | Description                                                     |
+|--------------|---------------|-----------------------------------------------------------------|
+| `NOT NULL`   | all types     | Value must be present                                           |
+| `UNIQUE KEY` | all types     | All values across all objects of this Entity must be distinct   |
+
+Additional type-specific constraints (e.g. min/max for numbers, regex for strings) are defined in future versions.
+
+### Generic User Interface
+
+- **List view** – shows all objects of an Entity; supports deletion.
+- **Create / Edit form** – generated automatically from the Entity definition.
+
+### Data Sharing
+
+A User can invite another User to share the data of an installed App Version.
+The shared installation is treated as a separate installation. Supported sharing modes:
+
+| Mode                     | Description                                                                          |
+|--------------------------|--------------------------------------------------------------------------------------|
+| Full sharing             | All participants can read, write, and delete all objects.                            |
+| Read-all / Edit-own      | All participants can see all objects; each can only modify their own.                |
+| Selective object sharing | Individual objects are shared with explicit read, write, or delete permissions.      |
+
+### Reports
+
+- A Report belongs to one App and has a unique name within that App.
+- A Report contains at least one **Page**; each Page provides HTML markup and JavaScript logic.
+- A Report may declare which entities to load and may define per-Entity filter expressions.
+- A set of built-in helper functions (charts, aggregation, date handling, …) is available to every Report; this code is maintained as part of the platform and is not user-supplied.
+- A Report may only access data from its own App installation (sandbox boundary).
+- The platform must prevent Developers from embedding malicious code in Reports (concept to be finalised).
 
 ## Quality Goals
 
-*work in progress*
+| Priority | Quality Goal     | Motivation                                                                                    |
+|----------|------------------|-----------------------------------------------------------------------------------------------|
+| 1        | Correctness      | Entity schema constraints and cyclic-reference detection must be enforced without exception.  |
+| 2        | Security         | Role-based access control, cookie security, and Report sandboxing protect user data.          |
+| 3        | Developer UX     | App and schema creation must feel lightweight; no boilerplate for common CRUD patterns.       |
+| 4        | Reliability      | External operations (e.g. notifications) are reliably delivered via the outbox pattern.       |
+| 5        | Maintainability  | Hexagonal architecture and clear module boundaries keep the codebase understandable.          |
 
 ## Stakeholders
 
@@ -18,21 +110,64 @@
 
 # Architecture Constraints
 
-*work in progress*
+| Constraint                          | Rationale                                                                                                 |
+|-------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| Single developer / hobby project    | Low operational overhead is paramount; no team conventions, no enterprise tooling.                       |
+| No self-registration                | The platform is invite-only; all accounts are created by an Admin.                                       |
+| No separate frontend deployment     | Qute SSR keeps the stack simple; no npm/Node.js build step.                                              |
+| VPS + Docker Swarm deployment       | The platform runs on an existing personal VPS; no Kubernetes or cloud-managed container orchestration.   |
+| MongoDB Atlas as data store         | Flexible document model suits dynamic entity schemas; cloud-managed removes operational burden.           |
+| Reports must be sandboxed           | Developers must not be able to inject code that accesses data outside their own App installation.         |
+| Version numbers are never manual    | Semver is derived automatically from schema changes to guarantee semantic accuracy.                      |
+| No cyclic entity references         | Cycle detection is enforced at schema-definition time to prevent infinite loops during data traversal.    |
 
 # Context and Scope
 
 ## Business Context
 
-*work in progress*
+James Platform is a personal Low Code system. Its primary purpose is to let a single Developer define data models (Entities) and user-facing views (Reports), then let Users install and operate those App Versions to manage their own data – all without writing infrastructure code.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        James Platform                            │
+│                                                                  │
+│  Admin ──► User Management                                       │
+│  Developer ──► App/Version/Entity/Report definition              │
+│  User ──► App Version installation, data management, sharing     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**External actors:**
+
+| Actor     | Interaction                                                              |
+|-----------|--------------------------------------------------------------------------|
+| Admin     | Registers, blocks, resets passwords for, and deletes user accounts       |
+| Developer | Creates Apps, Versions, Entities (with properties), and Reports          |
+| User      | Installs App Versions, manages objects via generic UI, shares data        |
 
 ## Technical Context
 
-*work in progress*
+| Component          | Technology                     | Notes                                                         |
+|--------------------|--------------------------------|---------------------------------------------------------------|
+| Backend            | Quarkus (Kotlin, JVM / native) | Hexagonal architecture; all business logic in `domain-impl`   |
+| Templating         | Qute (Quarkus SSR)             | Server-side rendering; no separate frontend project           |
+| Database           | MongoDB Atlas                  | Document model for dynamic entity schemas                     |
+| Authentication     | Cookie-based (AES session)     | Bcrypt password hashing; role-enforced via `QuarkusIdentity`  |
+| Outbox             | `quarkus-outbox` library       | Reliable external API calls (e.g. Slack notifications)        |
+| Reverse proxy      | Traefik                        | TLS termination, HTTPS, on existing VPS                       |
+| CI/CD              | GitHub Actions                 | Build, test, native Docker image, deploy to Docker Swarm      |
 
 # Solution Strategy
 
-*work in progress*
+| Goal              | Design decision                                                                                                    |
+|-------------------|--------------------------------------------------------------------------------------------------------------------|
+| Correctness       | Constraint validation and cyclic-reference detection in the domain layer; enforced before any persistence write.   |
+| Security          | Role-based access via `QuarkusSecurityIdentity`; Report sandbox (concept TBD); `HttpOnly` AES session cookie.      |
+| Developer UX      | Generic CRUD UI generated from Entity metadata; semver auto-derived; no boilerplate for common patterns.           |
+| Reliability       | All external operations (notifications, …) routed through the persistent outbox.                                   |
+| Maintainability   | Hexagonal architecture with strict module-dependency rules; zero infrastructure in `domain-api` / `domain-impl`.   |
+| Flexible schemas  | MongoDB document model maps naturally to dynamic Entity/Property definitions.                                      |
+| Simple deployment | Quarkus native Docker image + Docker Swarm on existing VPS; MongoDB Atlas as managed database.                     |
 
 # Building Block View
 
@@ -246,4 +381,21 @@ All sensitive configuration is provided via environment variables:
 
 # Glossary
 
-*work in progress*
+| Term              | Definition                                                                                                        |
+|-------------------|-------------------------------------------------------------------------------------------------------------------|
+| App               | A named, reusable data application defined by a Developer. Contains one or more Versions.                         |
+| Version           | A released snapshot of an App. Carries a semver number, release date, and release notes.                          |
+| Entity            | A named, typed data model within a Version. Has a globally unique ID and a list of Properties.                    |
+| Property          | A named, typed field within an Entity. Has an immutable intra-entity ID, a data type, and constraints.            |
+| Data type         | One of: `long`, `Double`, `boolean`, `String`, `date`, `time`, `datetime`, `ref`, `List`, `object`.               |
+| Ref               | A property type representing a reference to an object of the same or another Entity in the same App Version.      |
+| Object            | An inline nested structure with its own property list. Analogous to an anonymous Entity without a global ID.      |
+| Constraint        | A validation rule attached to a Property (e.g. `NOT NULL`, `UNIQUE KEY`).                                         |
+| Report            | A named view within an App. Contains one or more Pages; may load filtered entity data.                            |
+| Page              | A single HTML + JavaScript unit within a Report.                                                                  |
+| Installation      | A User's personal instance of an App Version, containing that User's data objects.                                |
+| Data sharing      | A feature allowing a User to invite another User to share data within a shared installation.                      |
+| Semver            | Semantic versioning (Major.Minor.Patch). Version numbers in James Platform are derived automatically.              |
+| Breaking change   | A schema change that is incompatible with existing data (e.g. removing an Entity or renaming an immutable ID).    |
+| Starter           | A one-time startup bean that executes exactly once (data migrations, schema fixes).                               |
+| Outbox            | A persistent queue for reliable delivery of external API operations (at-least-once).                              |
