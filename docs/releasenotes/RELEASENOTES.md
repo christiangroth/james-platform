@@ -1,3 +1,13 @@
+# 0.1.17 (2026.04.14)
+
+## Bugfixes / Chore
+* Removed unused OAuth redirect URI configuration parameter.
+* Masked HTTP auth encryption key in the Config UI.
+
+
+
+---
+
 # 0.1.16 (2026.04.14)
 
 ## Bugfixes / Chore
