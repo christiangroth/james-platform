@@ -1,3 +1,12 @@
+# 0.1.19 (2026.04.14)
+
+## Bugfixes / Chore
+* Version is now automatically bumped to the correct semver level (minor for features, major for breaking changes) based on snippet types when releasing, even when snippets were created manually.
+
+
+
+---
+
 # 0.1.18 (2026.04.14)
 
 ## Bugfixes / Chore
