@@ -51,10 +51,10 @@ class AdminUserManagementServiceTests {
       createdAt = Instant.now(),
     )
     every { userRepository.findByUsername(Username("user2")) } returns userWithNoAdmin
-    every { userRepository.findAll() } returns listOf(userWithNoAdmin)
+    every { userRepository.findAll() } returns listOf(userWithNoAdmin, regularUser)
     justRun { userRepository.save(any()) }
 
-    val result = service.setRoles("user2", setOf(UserRole.ADMIN), "user2")
+    val result = service.setRoles("user2", setOf(UserRole.ADMIN), "admin")
 
     assertThat(result.isRight()).isTrue()
   }
