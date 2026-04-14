@@ -12,4 +12,10 @@ data class Report(
 data class ReportPage(
   val html: String,
   val script: String,
+  val entityFilters: List<ReportEntityFilter> = emptyList(),
+)
+
+data class ReportEntityFilter(
+  val entityId: EntityDefinitionId,
+  val filterExpression: String? = null,
 )

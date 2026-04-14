@@ -17,7 +17,13 @@ data class Property(
   val name: String,
   val type: PropertyType,
   val nullable: Boolean = true,
+  val constraints: Set<PropertyConstraint> = emptySet(),
 )
+
+enum class PropertyConstraint {
+  NOT_NULL,
+  UNIQUE_KEY,
+}
 
 enum class PropertyType {
   LONG,

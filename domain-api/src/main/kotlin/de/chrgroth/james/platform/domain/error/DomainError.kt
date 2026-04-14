@@ -55,3 +55,9 @@ enum class AppVersionError(override val code: String) : DomainError {
   DRAFT_VERSION_ALREADY_EXISTS("APPVER-007"),
   ;
 }
+
+enum class PropertyConstraintViolation(override val code: String) : DomainError {
+  NOT_NULL_VIOLATION("PROP-001"),
+  UNIQUE_KEY_VIOLATION("PROP-002"),
+  ;
+}
