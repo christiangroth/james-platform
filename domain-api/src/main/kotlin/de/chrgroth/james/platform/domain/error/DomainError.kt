@@ -36,3 +36,23 @@ enum class UserAdminError(override val code: String) : DomainError {
   SINGLE_ADMIN_VIOLATION("ADMIN-008"),
   ;
 }
+
+enum class AppError(override val code: String) : DomainError {
+  APP_NOT_FOUND("APP-001"),
+  APP_NAME_ALREADY_EXISTS("APP-002"),
+  BLANK_INPUT("APP-003"),
+  HAS_PUBLISHED_VERSIONS("APP-004"),
+  ;
+}
+
+enum class AppVersionError(override val code: String) : DomainError {
+  APP_NOT_FOUND("APPVER-001"),
+  VERSION_NOT_FOUND("APPVER-002"),
+  VERSION_NUMBER_ALREADY_EXISTS("APPVER-003"),
+  BLANK_INPUT("APPVER-004"),
+  INVALID_VERSION_NUMBER_FORMAT("APPVER-005"),
+  VERSION_NOT_IN_DRAFT("APPVER-006"),
+  VERSION_NOT_PUBLISHED("APPVER-007"),
+  CANNOT_DELETE_NON_DRAFT_VERSION("APPVER-008"),
+  ;
+}
