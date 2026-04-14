@@ -109,7 +109,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="newUserUsername" class="form-label">Username</label>
-                            <input type="text" class="form-control app-form-control" id="newUserUsername" name="username" required autocomplete="off" data-testid="create-user-username-input">
+                            <input type="text" class="form-control app-form-control" id="newUserUsername" required autocomplete="off" data-testid="create-user-username-input">
                         </div>
                         <div class="mb-3">
                             <label for="newUserPassword" class="form-label">Password</label>
@@ -237,14 +237,15 @@
             if (createUserForm) {
                 createUserForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
-                    var formData = new FormData(this);
-                    var username = formData.get('username') || '';
-                    formData.delete('username');
-                    var result = await fetchForm('PUT', '/ui/admin/users/' + encodeURIComponent(username), formData);
-                    bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
-                    this.reset();
+                    var username = document.getElementById('newUserUsername').value.trim();
+                    if (!username) { showMessage(false, 'Username is required.'); return; }
+                    var result = await fetchForm('PUT', '/ui/admin/users/' + encodeURIComponent(username), new FormData(this));
+                    if (result.ok) {
+                        bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+                        this.reset();
+                        await refreshTable();
+                    }
                     showMessage(result.ok, result.message);
-                    if (result.ok) { await refreshTable(); }
                 });
             }
 
