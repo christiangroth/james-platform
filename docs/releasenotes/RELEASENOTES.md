@@ -1,3 +1,12 @@
+# 0.1.15 (2026.04.14)
+
+## New Features
+* Extended arc42 documentation with requirements overview, quality goals, architecture constraints, context and scope, solution strategy, and glossary.
+
+
+
+---
+
 # 0.1.14 (2026.04.14)
 
 ## New Features
