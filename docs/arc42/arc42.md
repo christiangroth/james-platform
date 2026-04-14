@@ -40,6 +40,7 @@ James Platform is a personal Low Code system for building and running data-centr
   - A name unique within the Entity (mutable).
   - An ID unique within the Entity (immutable).
   - A data type and associated constraints.
+- **Computed properties** – a Developer may define derived properties by providing a piece of code that computes the value based on the entity and its other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. The execution environment (backend Kotlin Script vs. browser JavaScript) will be decided later – only one option will be implemented. Sandboxing and error-handling rules are to be defined.
 
 ### Supported Data Types
 
@@ -69,19 +70,18 @@ Additional type-specific constraints (e.g. min/max for numbers, regex for string
 
 ### Generic User Interface
 
-- **List view** – shows all objects of an Entity; supports deletion.
-- **Create / Edit form** – generated automatically from the Entity definition.
+- **List view** – shows all objects of an Entity; supports deletion, sorting by any column, and user-defined sort parameters. A Developer may configure default sort parameters; the User may override them at runtime.
+- **Create / Edit form** – generated automatically from the Entity definition. Future versions will add multi-create workflows and creation templates.
 
 ### Data Sharing
 
 A User can invite another User to share the data of an installed App Version.
 The shared installation is treated as a separate installation. Supported sharing modes:
 
-| Mode                     | Description                                                                          |
-|--------------------------|--------------------------------------------------------------------------------------|
-| Full sharing             | All participants can read, write, and delete all objects.                            |
-| Read-all / Edit-own      | All participants can see all objects; each can only modify their own.                |
-| Selective object sharing | Individual objects are shared with explicit read, write, or delete permissions.      |
+| Mode                | Description                                                                          |
+|---------------------|--------------------------------------------------------------------------------------|
+| Full sharing        | All participants can read, write, and delete all objects.                            |
+| Read-all / Edit-own | All participants can see all objects; each can only modify their own.                |
 
 ### Reports
 
