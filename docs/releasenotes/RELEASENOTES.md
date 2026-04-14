@@ -1,3 +1,12 @@
+# 0.1.20 (2026.04.14)
+
+## Bugfixes / Chore
+* Removed app title text from the navigation bar.
+
+
+
+---
+
 # 0.1.19 (2026.04.14)
 
 ## Bugfixes / Chore
