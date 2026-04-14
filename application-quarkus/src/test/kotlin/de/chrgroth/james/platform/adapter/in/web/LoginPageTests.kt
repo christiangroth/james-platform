@@ -62,7 +62,6 @@ class LoginPageTests {
       .then()
       .statusCode(200)
       .body(not(containsString("""id="navbar-health-indicators"""")))
-      .body(not(containsString("""data-testid="navbar-outbox-icon"""")))
       .body(not(containsString("""data-testid="navbar-playback-icon"""")))
   }
 

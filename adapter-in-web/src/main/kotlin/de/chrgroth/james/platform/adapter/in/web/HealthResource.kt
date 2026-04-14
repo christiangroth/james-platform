@@ -56,11 +56,4 @@ class HealthResource {
   @Produces(MediaType.TEXT_HTML)
   fun snippetMongoDbQueries(): TemplateInstance =
     healthTemplate.getFragment("snippet_mongodb_queries").data("stats", health.getStats())
-
-  @GET
-  @Path("/snippets/navbar-outbox-status")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun snippetNavbarOutboxStatus(): TemplateInstance =
-    healthTemplate.getFragment("snippet_navbar_outbox_status").data("stats", health.getStats())
 }

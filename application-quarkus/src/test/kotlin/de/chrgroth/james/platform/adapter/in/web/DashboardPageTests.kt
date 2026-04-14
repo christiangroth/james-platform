@@ -98,17 +98,6 @@ class DashboardPageTests {
   }
 
   @Test
-  fun `dashboard pages contain navbar health indicator icons`() {
-    given()
-      .`when`()
-      .get("/ui/admin/dashboard")
-      .then()
-      .statusCode(200)
-      .body(containsString("""id="navbar-health-indicators""""))
-      .body(containsString("""data-testid="navbar-outbox-icon""""))
-  }
-
-  @Test
   fun `dashboard pages do not display playback status badge`() {
     given()
       .`when`()
