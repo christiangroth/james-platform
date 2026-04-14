@@ -1,3 +1,12 @@
+# 0.1.18 (2026.04.14)
+
+## Bugfixes / Chore
+* Removed outbox status badge from the navigation bar.
+
+
+
+---
+
 # 0.1.17 (2026.04.14)
 
 ## Bugfixes / Chore
