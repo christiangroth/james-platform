@@ -126,15 +126,11 @@
         <div class="modal-dialog">
             <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
                 <div class="modal-header" style="border-color:#333;">
-                    <h5 class="modal-title" id="setPasswordModalLabel">Set Password</h5>
+                    <h5 class="modal-title" id="setPasswordModalLabel">Set Password – <span id="setPasswordUsernameTitle" data-testid="set-password-username-display"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="setPasswordForm">
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="setPasswordUsername" class="form-label">User</label>
-                            <input type="text" class="form-control app-form-control" id="setPasswordUsername" readonly data-testid="set-password-username-display">
-                        </div>
                         <div class="mb-3">
                             <label for="setPasswordNew" class="form-label">New Password</label>
                             <input type="password" class="form-control app-form-control" id="setPasswordNew" name="newPassword" required autocomplete="new-password" data-testid="set-password-new-input">
@@ -248,14 +244,14 @@
                 });
             }
 
-            // Set password modal – populate username display and store on form
+            // Set password modal – populate username title and store on form
             var setPasswordModal = document.getElementById('setPasswordModal');
             if (setPasswordModal) {
-                var usernameDisplay = document.getElementById('setPasswordUsername');
+                var setPasswordUsernameTitle = document.getElementById('setPasswordUsernameTitle');
                 setPasswordModal.addEventListener('show.bs.modal', function (event) {
                     var trigger = event.relatedTarget;
                     var username = trigger ? trigger.getAttribute('data-username') : '';
-                    usernameDisplay.value = username;
+                    setPasswordUsernameTitle.textContent = username;
                     setPasswordModal.setAttribute('data-username', username);
                 });
             }
