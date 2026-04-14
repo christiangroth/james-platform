@@ -356,17 +356,6 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health snippet endpoint for navbar outbox status is available`() {
-    given()
-      .`when`()
-      .get("/health/snippets/navbar-outbox-status")
-      .then()
-      .statusCode(200)
-      .contentType(containsString("text/html"))
-      .body(containsString("ok"))
-  }
-
-  @Test
   fun `health page outbox detail row is expanded by default`() {
     given()
       .`when`()
@@ -385,18 +374,5 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("connectSse('/health/events'"))
-      .body(containsString("updateNavbarOutboxStatus"))
-  }
-
-  @Test
-  fun `health page navbar popup shows blocked countdown for paused outbox partitions`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("updateNavbarOutboxPopupCountdown"))
-      .body(containsString("startNavbarOutboxPopupCountdown"))
-      .body(containsString("outboxPopupCountdownInterval"))
   }
 }

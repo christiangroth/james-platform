@@ -292,16 +292,6 @@
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
-        <div class="d-flex align-items-center ms-1" id="navbar-health-indicators">
-            <div class="position-relative me-2" id="navbar-outbox-wrapper" style="cursor:default;">
-                <button type="button" id="navbar-outbox-icon" class="btn p-0 border-0 bg-transparent lh-1" aria-label="Outbox Status" title="Outbox Status" data-testid="navbar-outbox-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" id="navbar-outbox-svg" fill="#888888" viewBox="0 0 16 16" style="vertical-align:middle;"><use href="#icon-outbox"/></svg>
-                </button>
-                <div id="navbar-outbox-popup" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9999;min-width:340px;background-color:#1e1e1e;border:1px solid #333;border-radius:.375rem;box-shadow:0 4px 16px rgba(0,0,0,.6);">
-                    <div id="navbar-outbox-popup-content" style="color:#e0e0e0;"></div>
-                </div>
-            </div>
-        </div>
         <span class="me-auto"></span>
         {/insert}
         {#insert navLinks}
@@ -330,86 +320,6 @@
     <script src="/sse-utils.js"></script>
     {#insert scripts}{/insert}
     {#insert navbarSse}
-    <script>
-        (function () {
-            var outboxWrapper = document.getElementById('navbar-outbox-wrapper');
-            var outboxSvg = document.getElementById('navbar-outbox-svg');
-            var outboxPopup = document.getElementById('navbar-outbox-popup');
-            var outboxPopupContent = document.getElementById('navbar-outbox-popup-content');
-            var outboxPopupCountdownInterval;
-
-            function updateNavbarOutboxPopupCountdown() {
-                if (!outboxPopupContent) return;
-                outboxPopupContent.querySelectorAll('[data-blocked-until]').forEach(function (row) {
-                    var blockedUntil = parseInt(row.dataset.blockedUntil, 10);
-                    var remaining = blockedUntil - Date.now();
-                    var cell = row.querySelector('.outbox-blocked-until');
-                    if (!cell) return;
-                    if (remaining <= 1000) {
-                        cell.textContent = 'now';
-                    } else if (remaining < TWENTY_FOUR_HOURS_MS) {
-                        cell.textContent = formatCountdown(remaining);
-                    } else {
-                        cell.textContent = formatBlockedUntil(blockedUntil);
-                    }
-                });
-            }
-
-            function startNavbarOutboxPopupCountdown() {
-                if (outboxPopupCountdownInterval) {
-                    clearInterval(outboxPopupCountdownInterval);
-                }
-                updateNavbarOutboxPopupCountdown();
-                outboxPopupCountdownInterval = setInterval(updateNavbarOutboxPopupCountdown, 500);
-            }
-
-            function updateNavbarOutboxStatus() {
-                fetch('/health/snippets/navbar-outbox-status')
-                    .then(function (r) { return r.text(); })
-                    .then(function (text) {
-                        if (outboxSvg) outboxSvg.setAttribute('fill', text.trim() === 'ok' ? '#1db954' : '#dc3545');
-                    })
-                    .catch(function () {});
-            }
-
-            function refreshOutboxPopupContent() {
-                fetch('/health/snippets/outbox-partitions')
-                    .then(function (r) { return r.text(); })
-                    .then(function (html) {
-                        if (outboxPopupContent) {
-                            outboxPopupContent.innerHTML = html;
-                            startNavbarOutboxPopupCountdown();
-                        }
-                    })
-                    .catch(function () {});
-            }
-
-            function resumeOutboxPartition(partitionKey) {
-                fetch('/health/outbox-partitions/' + encodeURIComponent(partitionKey) + '/activate', { method: 'POST' })
-                    .then(function () {
-                        updateNavbarOutboxStatus();
-                        refreshOutboxPopupContent();
-                    })
-                    .catch(function (err) { console.error('Failed to resume partition', err); });
-            }
-            window.resumeOutboxPartition = window.resumeOutboxPartition || resumeOutboxPartition;
-
-            if (outboxWrapper && outboxPopup) {
-                outboxWrapper.addEventListener('mouseenter', function () { outboxPopup.style.display = 'block'; });
-                outboxWrapper.addEventListener('mouseleave', function () { outboxPopup.style.display = 'none'; });
-                refreshOutboxPopupContent();
-            }
-
-            connectSse('/health/events', function (event) {
-                if (event.data === 'refresh-outbox-partitions') {
-                    updateNavbarOutboxStatus();
-                    refreshOutboxPopupContent();
-                }
-            }, function () {
-                updateNavbarOutboxStatus();
-            });
-        })();
-    </script>
     <script>
         (function() {
             const path = window.location.pathname;
