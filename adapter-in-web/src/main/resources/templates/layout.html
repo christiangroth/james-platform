@@ -31,11 +31,7 @@
         .app-navbar {
             background-color: #000000;
         }
-        .app-navbar .app-name {
-            color: #ffffff;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-        }
+
         .app-navbar .app-version {
             color: var(--color-text-muted);
             font-size: 0.8rem;
@@ -287,8 +283,7 @@
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
         <a href="/" class="d-flex align-items-center text-decoration-none me-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#ffffff" viewBox="0 0 16 16" class="me-2" aria-label="James Platform Logo"><use href="#icon-nav-app"/></svg>
-            <span class="app-name">James Platform</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#ffffff" viewBox="0 0 16 16" aria-label="James Platform Logo"><use href="#icon-nav-app"/></svg>
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
