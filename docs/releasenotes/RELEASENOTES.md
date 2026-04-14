@@ -1,3 +1,14 @@
+# 0.1.21 (2026.04.14)
+
+## Bugfixes / Chore
+* Improved user management: username in "Set Password" dialog is now shown in the title instead of a readonly form field.
+* User management action buttons replaced with icons: key icon for Set Password, trash icon for Delete.
+* Fixed user table refresh after status toggle and role changes to always fetch fresh data.
+
+
+
+---
+
 # 0.1.20 (2026.04.14)
 
 ## Bugfixes / Chore
