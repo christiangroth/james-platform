@@ -62,6 +62,7 @@ class AppVersionManagementService(
       latestPublished.copy(
         id = AppVersionId(UUID.randomUUID().toString()),
         versionNumber = VersionNumber(versionNumber),
+        releaseNotes = null,
         status = AppVersionStatus.DRAFT,
         createdAt = Instant.now(),
       )
@@ -70,6 +71,9 @@ class AppVersionManagementService(
         id = AppVersionId(UUID.randomUUID().toString()),
         appId = AppId(appId),
         versionNumber = VersionNumber(versionNumber),
+        releaseNotes = null,
+        entityDefinitions = emptyList(),
+        reports = emptyList(),
         status = AppVersionStatus.DRAFT,
         createdAt = Instant.now(),
       )

@@ -12,6 +12,9 @@ data class AppVersion(
   val id: AppVersionId,
   val appId: AppId,
   val versionNumber: VersionNumber,
+  val releaseNotes: String?,
+  val entityDefinitions: List<EntityDefinition>,
+  val reports: List<Report>,
   val status: AppVersionStatus,
   val createdAt: Instant,
 )

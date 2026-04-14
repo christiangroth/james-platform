@@ -267,6 +267,9 @@ class AppManagementServiceTests {
       id = AppVersionId(id),
       appId = AppId(appId),
       versionNumber = VersionNumber(versionNumber),
+      releaseNotes = null,
+      entityDefinitions = emptyList(),
+      reports = emptyList(),
       status = status,
       createdAt = Instant.now(),
     )

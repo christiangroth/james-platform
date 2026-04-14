@@ -6,6 +6,10 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Report
+import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -78,6 +82,23 @@ class AppVersionManagementServiceTests {
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.DRAFT)
     assertThat(result.getOrNull()?.appId).isEqualTo(AppId("app-1"))
+  }
+
+  @Test
+  fun `createVersion copies entity definitions and reports from latest published version`() {
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    val publishedWithContent = publishedVersion.copy(entityDefinitions = listOf(entityDef), reports = listOf(report))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedWithContent)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.createVersion("app-1", "2.0.0")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions).isEqualTo(listOf(entityDef))
+    assertThat(result.getOrNull()?.reports).isEqualTo(listOf(report))
+    assertThat(result.getOrNull()?.releaseNotes).isNull()
   }
 
   @Test
