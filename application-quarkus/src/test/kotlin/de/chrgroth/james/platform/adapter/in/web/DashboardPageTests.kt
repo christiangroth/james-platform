@@ -121,3 +121,33 @@ class DashboardPageUnauthenticatedTests {
       .statusCode(307)
   }
 }
+
+@QuarkusTest
+@TestSecurity(user = "test-developer", roles = ["DEVELOPER"])
+class DeveloperNavbarLinkTests {
+
+  @Test
+  fun `developer dashboard link is shown in navbar for developer role`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="developer-dashboard-link""""))
+  }
+}
+
+@QuarkusTest
+@TestSecurity(user = "test-user-b", roles = ["USER"])
+class NonDeveloperNavbarLinkTests {
+
+  @Test
+  fun `developer dashboard link is not shown in navbar for user role`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="developer-dashboard-link""")))
+  }
+}
