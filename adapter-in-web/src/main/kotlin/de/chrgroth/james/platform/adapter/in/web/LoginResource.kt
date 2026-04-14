@@ -75,7 +75,6 @@ class LoginResource {
           .build()
         val primaryRole = when {
           user.roles.contains(UserRole.ADMIN) -> "admin"
-          user.roles.contains(UserRole.DEVELOPER) -> "developer"
           else -> "user"
         }
         Response.seeOther(URI.create("/ui/$primaryRole/dashboard"))
@@ -104,7 +103,6 @@ class LoginResource {
     val roles = identity.roles
     return when {
       roles.contains(UserRole.ADMIN.name) -> "/ui/admin/dashboard"
-      roles.contains(UserRole.DEVELOPER.name) -> "/ui/developer/dashboard"
       else -> "/ui/user/dashboard"
     }
   }

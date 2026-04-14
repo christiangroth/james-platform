@@ -23,6 +23,8 @@ class AppTemplateGlobals {
       instance.data("appBuildVersion", version)
       val isAdmin = runCatching { securityIdentity.roles?.contains(UserRole.ADMIN.name) ?: false }.getOrDefault(false)
       instance.data("isAdmin", isAdmin)
+      val isDeveloper = runCatching { securityIdentity.roles?.contains(UserRole.DEVELOPER.name) ?: false }.getOrDefault(false)
+      instance.data("isDeveloper", isDeveloper)
     }
   }
 }
