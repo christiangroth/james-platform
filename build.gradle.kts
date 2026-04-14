@@ -58,54 +58,6 @@ tasks.afterReleaseBuild {
   dependsOn(":application-quarkus:imageBuild", ":application-quarkus:imagePush")
 }
 
-tasks.register("releasenotesEnsureVersion") {
-  group = "releasenotes"
-  description = "Bumps the project version to minor level when feature snippets are present, ensuring correct semver on release."
-
-  doLast {
-    val snippetsDir = file("$releasenotesBasePath/snippets")
-    val hasFeatures = snippetsDir.walkTopDown().filter { it.isFile }.any { it.name.endsWith("-feature.md") }
-
-    if (!hasFeatures) {
-      logger.lifecycle("No feature snippets found – patch-level version bump applies.")
-      return@doLast
-    }
-
-    val gradlePropertiesFile = rootProject.file("gradle.properties")
-    val gradlePropertiesContent = gradlePropertiesFile.readText()
-    val currentVersionMatch = Regex("version=([0-9]+)\\.([0-9]+)\\.([0-9]+)").find(gradlePropertiesContent)
-    if (currentVersionMatch == null) {
-      logger.warn("Could not parse project version from gradle.properties. Skipping version bump.")
-      return@doLast
-    }
-    val (currentMajor, currentMinor, _) = currentVersionMatch.destructured
-
-    val mainVersionOutput = providers.exec {
-      commandLine("git", "show", "main:gradle.properties")
-    }.standardOutput.asText.get()
-    val mainVersionMatch = Regex("version=([0-9]+)\\.([0-9]+)\\.([0-9]+)").find(mainVersionOutput)
-    if (mainVersionMatch == null) {
-      logger.warn("Could not parse project version from main branch gradle.properties. Skipping version bump.")
-      return@doLast
-    }
-    val (mainMajor, mainMinor, _) = mainVersionMatch.destructured
-
-    if (currentMajor.toInt() != mainMajor.toInt() || currentMinor.toInt() != mainMinor.toInt()) {
-      logger.lifecycle("Minor version already differs from main ($mainMajor.$mainMinor.x vs $currentMajor.$currentMinor.x) – skipping bump.")
-      return@doLast
-    }
-
-    val newVersion = "$currentMajor.${currentMinor.toInt() + 1}.0"
-    gradlePropertiesFile.writeText(gradlePropertiesContent.replace(Regex("version=.*"), "version=$newVersion"))
-    setVersion(newVersion)
-    logger.lifecycle("Bumped project version to: $newVersion")
-  }
-}
-
-tasks.beforeReleaseBuild {
-  dependsOn("releasenotesEnsureVersion")
-}
-
 release {
   failOnSnapshotDependencies = false
   git {
