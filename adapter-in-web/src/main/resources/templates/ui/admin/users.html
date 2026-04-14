@@ -210,10 +210,10 @@
                 }
             }
 
-            async function postForm(url, formData) {
+            async function fetchForm(method, url, formData) {
                 try {
                     var response = await fetch(url, {
-                        method: 'POST',
+                        method: method,
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: new URLSearchParams(formData).toString()
                     });
@@ -223,9 +223,9 @@
                 }
             }
 
-            async function postAction(url) {
+            async function fetchAction(method, url) {
                 try {
-                    var response = await fetch(url, { method: 'POST' });
+                    var response = await fetch(url, { method: method });
                     return await response.json();
                 } catch (e) {
                     return { ok: false, message: 'Network error. Please try again.' };
@@ -237,7 +237,10 @@
             if (createUserForm) {
                 createUserForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
-                    var result = await postForm('/ui/admin/users/create', new FormData(this));
+                    var formData = new FormData(this);
+                    var username = formData.get('username') || '';
+                    formData.delete('username');
+                    var result = await fetchForm('PUT', '/ui/admin/users/' + encodeURIComponent(username), formData);
                     bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
                     this.reset();
                     showMessage(result.ok, result.message);
@@ -263,7 +266,8 @@
                 setPasswordForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
                     var username = setPasswordModal.getAttribute('data-username') || '';
-                    var result = await postForm(
+                    var result = await fetchForm(
+                        'POST',
                         '/ui/admin/users/' + encodeURIComponent(username) + '/password',
                         new FormData(this)
                     );
@@ -298,7 +302,8 @@
                 manageRolesForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
                     var username = manageRolesModal.getAttribute('data-username') || '';
-                    var result = await postForm(
+                    var result = await fetchForm(
+                        'POST',
                         '/ui/admin/users/' + encodeURIComponent(username) + '/roles',
                         new FormData(this)
                     );
@@ -314,8 +319,9 @@
                 if (!btn) { return; }
                 var username = btn.getAttribute('data-username');
                 var active = btn.getAttribute('data-active') === 'true';
-                var url = '/ui/admin/users/' + encodeURIComponent(username) + (active ? '/deactivate' : '/activate');
-                var result = await postAction(url);
+                var method = active ? 'DELETE' : 'POST';
+                var url = '/ui/admin/users/' + encodeURIComponent(username) + '/activation';
+                var result = await fetchAction(method, url);
                 showMessage(result.ok, result.message);
                 if (result.ok) { await refreshTable(); }
             });
@@ -326,7 +332,7 @@
                 if (!btn) { return; }
                 var username = btn.getAttribute('data-username');
                 if (!confirm('Delete user "' + username + '"? This action cannot be undone.')) { return; }
-                var result = await postAction('/ui/admin/users/' + encodeURIComponent(username) + '/delete');
+                var result = await fetchAction('DELETE', '/ui/admin/users/' + encodeURIComponent(username));
                 showMessage(result.ok, result.message);
                 if (result.ok) { await refreshTable(); }
             });

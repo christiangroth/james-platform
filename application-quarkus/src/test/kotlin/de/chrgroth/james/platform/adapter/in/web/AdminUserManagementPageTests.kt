@@ -55,13 +55,12 @@ class AdminUserManagementPageTests {
   }
 
   @Test
-  fun `create user returns json error on blank input`() {
+  fun `create user returns json error on blank password`() {
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("username", "")
       .formParam("password", "")
       .`when`()
-      .post("/ui/admin/users/create")
+      .put("/ui/admin/users/newuser")
       .then()
       .statusCode(200)
       .contentType(containsString("application/json"))
@@ -86,7 +85,7 @@ class AdminUserManagementPageTests {
   fun `delete user returns json error for nonexistent user`() {
     given()
       .`when`()
-      .post("/ui/admin/users/nonexistent/delete")
+      .delete("/ui/admin/users/nonexistent")
       .then()
       .statusCode(200)
       .contentType(containsString("application/json"))

@@ -10,9 +10,11 @@ import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.FormParam
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
+import jakarta.ws.rs.PUT
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
@@ -46,15 +48,15 @@ class AdminUserManagementResource {
   @Produces(MediaType.TEXT_HTML)
   fun usersTable(): Any = renderUsersTable()
 
-  @POST
-  @Path("/create")
+  @PUT
+  @Path("/{username}")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun createUser(
-    @FormParam("username") username: String?,
+    @PathParam("username") username: String,
     @FormParam("password") password: String?,
   ): Response {
-    if (username.isNullOrBlank() || password.isNullOrBlank()) {
+    if (password.isNullOrBlank()) {
       return Response.ok(ApiResult(false, errorMessage(UserAdminError.BLANK_INPUT.code))).build()
     }
     val callingUsername = securityIdentity.principal.name
@@ -65,7 +67,7 @@ class AdminUserManagementResource {
   }
 
   @POST
-  @Path("/{username}/activate")
+  @Path("/{username}/activation")
   @Produces(MediaType.APPLICATION_JSON)
   fun activateUser(@PathParam("username") username: String): Response =
     adminUserManagement.activateUser(username).fold(
@@ -73,8 +75,8 @@ class AdminUserManagementResource {
       ifRight = { Response.ok(ApiResult(true, "User activated successfully.")).build() },
     )
 
-  @POST
-  @Path("/{username}/deactivate")
+  @DELETE
+  @Path("/{username}/activation")
   @Produces(MediaType.APPLICATION_JSON)
   fun deactivateUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
@@ -124,8 +126,8 @@ class AdminUserManagementResource {
     )
   }
 
-  @POST
-  @Path("/{username}/delete")
+  @DELETE
+  @Path("/{username}")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteUser(@PathParam("username") username: String): Response {
     val callingUsername = securityIdentity.principal.name
@@ -161,4 +163,3 @@ class AdminUserManagementResource {
     else -> "An unexpected error occurred. Please try again."
   }
 }
-
