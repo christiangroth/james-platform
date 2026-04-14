@@ -10,89 +10,86 @@
             </button>
         </div>
 
-        {#if successMessage}
-        <div class="alert alert-success alert-dismissible mb-4" role="alert" data-testid="success-message">
-            {successMessage}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {/if}
-        {#if errorMessage}
-        <div class="alert alert-danger alert-dismissible mb-4" role="alert" data-testid="error-message">
-            {errorMessage}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {/if}
+        <div id="users-message" class="d-none mb-4" role="alert"></div>
 
-        <div class="card app-card">
-            <div class="table-responsive">
-                <table class="table table-sm table-striped mb-0 app-table" data-testid="users-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Roles</th>
-                            <th>Status</th>
-                            <th>Since</th>
-                            <th>Last Login</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {#for user in users}
-                        <tr data-testid="user-row">
-                            <td data-testid="user-name">{user.username}</td>
-                            <td data-testid="user-roles">
-                                {#for role in user.roles}
-                                <span class="badge app-badge-muted me-1">{role}</span>
-                                {/for}
-                            </td>
-                            <td>
-                                {#if user.active}
-                                <span class="badge app-badge-processing" data-testid="user-status-active">Active</span>
-                                {#else}
-                                <span class="badge app-badge-muted" data-testid="user-status-inactive">Inactive</span>
-                                {/if}
-                            </td>
-                            <td data-testid="user-created-at">{user.createdAt.formatted}</td>
-                            <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
-                            <td class="text-end">
-                                <div class="dropdown">
-                                    <button type="button" class="btn btn-sm btn-app-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="User actions" data-testid="user-actions-dropdown">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52z"/></svg>
+        <div id="users-table-container">
+            {#fragment id="users_table"}
+            <div class="card app-card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0 app-table" data-testid="users-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Roles</th>
+                                <th>Status</th>
+                                <th>Since</th>
+                                <th>Last Login</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for user in users}
+                            <tr data-testid="user-row">
+                                <td data-testid="user-name">{user.username}</td>
+                                <td data-testid="user-roles">
+                                    {#for role in user.roles}
+                                    <button type="button" class="badge border-0 app-badge-muted me-1"
+                                            style="cursor:pointer;"
+                                            data-bs-toggle="modal" data-bs-target="#manageRolesModal"
+                                            data-username="{user.username}"
+                                            data-roles="{#for r in user.roles}{r}{#if r_hasNext},{/if}{/for}"
+                                            data-testid="manage-roles-button"
+                                            title="Manage roles">
+                                        {role}
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-                                        {#if user.active}
-                                        <li>
-                                            <form method="post" action="/ui/admin/users/{user.username}/deactivate" class="d-inline">
-                                                <button type="submit" class="dropdown-item" data-testid="deactivate-user-button">Deactivate</button>
-                                            </form>
-                                        </li>
-                                        {#else}
-                                        <li>
-                                            <form method="post" action="/ui/admin/users/{user.username}/activate" class="d-inline">
-                                                <button type="submit" class="dropdown-item" data-testid="activate-user-button">Activate</button>
-                                            </form>
-                                        </li>
-                                        {/if}
-                                        <li>
-                                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#setPasswordModal" data-username="{user.username}" data-testid="set-password-button">Set Password</a>
-                                        </li>
-                                        <li>
-                                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#manageRolesModal" data-username="{user.username}" data-roles="{#for role in user.roles}{role}{#if role_hasNext},{/if}{/for}" data-testid="manage-roles-button">Manage Roles</a>
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <form method="post" action="/ui/admin/users/{user.username}/delete" class="d-inline">
-                                                <button type="submit" class="dropdown-item text-danger" data-testid="delete-user-button">Delete</button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-                        {/for}
-                    </tbody>
-                </table>
+                                    {/for}
+                                    {#if user.roles.isEmpty}
+                                    <button type="button" class="badge border-0 app-badge-muted"
+                                            style="cursor:pointer; opacity:0.5;"
+                                            data-bs-toggle="modal" data-bs-target="#manageRolesModal"
+                                            data-username="{user.username}"
+                                            data-roles=""
+                                            data-testid="manage-roles-button"
+                                            title="Manage roles">
+                                        + Add roles
+                                    </button>
+                                    {/if}
+                                </td>
+                                <td>
+                                    <button type="button"
+                                            class="badge border-0 {#if user.active}app-badge-processing{#else}app-badge-muted{/if}"
+                                            style="cursor:pointer;"
+                                            data-action="toggle-status"
+                                            data-username="{user.username}"
+                                            data-active="{user.active}"
+                                            data-testid="{#if user.active}user-status-active{#else}user-status-inactive{/if}"
+                                            title="{#if user.active}Click to deactivate{#else}Click to activate{/if}">
+                                        {#if user.active}Active{#else}Inactive{/if}
+                                    </button>
+                                </td>
+                                <td data-testid="user-created-at">{user.createdAt.formatted}</td>
+                                <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-app-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#setPasswordModal"
+                                            data-username="{user.username}"
+                                            data-testid="set-password-button">
+                                        Set Password
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-app-danger ms-1"
+                                            data-action="delete-user"
+                                            data-username="{user.username}"
+                                            data-testid="delete-user-button">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+            {/fragment}
         </div>
     </div>
 
@@ -104,7 +101,7 @@
                     <h5 class="modal-title" id="createUserModalLabel">New User</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post" action="/ui/admin/users/create">
+                <form id="createUserForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="newUserUsername" class="form-label">Username</label>
@@ -132,7 +129,7 @@
                     <h5 class="modal-title" id="setPasswordModalLabel">Set Password</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post" id="setPasswordForm" action="/ui/admin/users/__username__/password">
+                <form id="setPasswordForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="setPasswordUsername" class="form-label">User</label>
@@ -164,7 +161,7 @@
                     <h5 class="modal-title" id="manageRolesModalLabel">Manage Roles – <span id="manageRolesUsernameTitle" data-testid="manage-roles-username-display"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post" id="manageRolesForm" action="/ui/admin/users/__username__/roles">
+                <form id="manageRolesForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Roles</label>
@@ -187,39 +184,154 @@
     {/content}
     {#scripts}
     <script>
-        // Populate set-password modal with the target username
         (function () {
-            var modal = document.getElementById('setPasswordModal');
-            if (!modal) return;
-            var usernameDisplay = document.getElementById('setPasswordUsername');
-            var form = document.getElementById('setPasswordForm');
-            modal.addEventListener('show.bs.modal', function (event) {
-                var trigger = event.relatedTarget;
-                var username = trigger ? trigger.getAttribute('data-username') : '';
-                usernameDisplay.value = username;
-                form.action = '/ui/admin/users/' + encodeURIComponent(username) + '/password';
-            });
-        }());
+            var messagePanel = document.getElementById('users-message');
+            var messageTimer = null;
 
-        // Populate manage-roles modal with the target username and current roles
-        (function () {
-            var modal = document.getElementById('manageRolesModal');
-            if (!modal) return;
-            var usernameTitle = document.getElementById('manageRolesUsernameTitle');
-            var form = document.getElementById('manageRolesForm');
-            modal.addEventListener('show.bs.modal', function (event) {
-                var trigger = event.relatedTarget;
-                var username = trigger ? trigger.getAttribute('data-username') : '';
-                var rolesAttr = trigger ? trigger.getAttribute('data-roles') : '';
-                var currentRoles = rolesAttr ? rolesAttr.split(',').map(function (r) { return r.trim(); }) : [];
-                usernameTitle.textContent = username;
-                form.action = '/ui/admin/users/' + encodeURIComponent(username) + '/roles';
-                var checkboxes = modal.querySelectorAll('input[type="checkbox"][name="roles"]');
-                checkboxes.forEach(function (cb) {
-                    cb.checked = currentRoles.indexOf(cb.value) !== -1;
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            async function refreshTable() {
+                try {
+                    var response = await fetch('/ui/admin/users/table');
+                    var html = await response.text();
+                    document.getElementById('users-table-container').innerHTML = html;
+                } catch (e) {
+                    showMessage(false, 'Failed to refresh user list. Please reload the page.');
+                }
+            }
+
+            async function postForm(url, formData) {
+                try {
+                    var response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(formData).toString()
+                    });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: 'Network error. Please try again.' };
+                }
+            }
+
+            async function postAction(url) {
+                try {
+                    var response = await fetch(url, { method: 'POST' });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: 'Network error. Please try again.' };
+                }
+            }
+
+            // Create user form
+            var createUserForm = document.getElementById('createUserForm');
+            if (createUserForm) {
+                createUserForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var result = await postForm('/ui/admin/users/create', new FormData(this));
+                    bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+                    this.reset();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
                 });
+            }
+
+            // Set password modal – populate username display and store on form
+            var setPasswordModal = document.getElementById('setPasswordModal');
+            if (setPasswordModal) {
+                var usernameDisplay = document.getElementById('setPasswordUsername');
+                setPasswordModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var username = trigger ? trigger.getAttribute('data-username') : '';
+                    usernameDisplay.value = username;
+                    setPasswordModal.setAttribute('data-username', username);
+                });
+            }
+
+            // Set password form submit
+            var setPasswordForm = document.getElementById('setPasswordForm');
+            if (setPasswordForm) {
+                setPasswordForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var username = setPasswordModal.getAttribute('data-username') || '';
+                    var result = await postForm(
+                        '/ui/admin/users/' + encodeURIComponent(username) + '/password',
+                        new FormData(this)
+                    );
+                    bootstrap.Modal.getInstance(setPasswordModal).hide();
+                    this.reset();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
+            }
+
+            // Manage roles modal – populate username title and checkboxes
+            var manageRolesModal = document.getElementById('manageRolesModal');
+            if (manageRolesModal) {
+                var usernameTitle = document.getElementById('manageRolesUsernameTitle');
+                manageRolesModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var username = trigger ? trigger.getAttribute('data-username') : '';
+                    var rolesAttr = trigger ? trigger.getAttribute('data-roles') : '';
+                    var currentRoles = rolesAttr ? rolesAttr.split(',').map(function (r) { return r.trim(); }) : [];
+                    usernameTitle.textContent = username;
+                    manageRolesModal.setAttribute('data-username', username);
+                    var checkboxes = manageRolesModal.querySelectorAll('input[type="checkbox"][name="roles"]');
+                    checkboxes.forEach(function (cb) {
+                        cb.checked = currentRoles.indexOf(cb.value) !== -1;
+                    });
+                });
+            }
+
+            // Manage roles form submit
+            var manageRolesForm = document.getElementById('manageRolesForm');
+            if (manageRolesForm) {
+                manageRolesForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var username = manageRolesModal.getAttribute('data-username') || '';
+                    var result = await postForm(
+                        '/ui/admin/users/' + encodeURIComponent(username) + '/roles',
+                        new FormData(this)
+                    );
+                    bootstrap.Modal.getInstance(manageRolesModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
+            }
+
+            // Toggle status (click on status badge)
+            document.addEventListener('click', async function (e) {
+                var btn = e.target.closest('[data-action="toggle-status"]');
+                if (!btn) { return; }
+                var username = btn.getAttribute('data-username');
+                var active = btn.getAttribute('data-active') === 'true';
+                var url = '/ui/admin/users/' + encodeURIComponent(username) + (active ? '/deactivate' : '/activate');
+                var result = await postAction(url);
+                showMessage(result.ok, result.message);
+                if (result.ok) { await refreshTable(); }
+            });
+
+            // Delete user
+            document.addEventListener('click', async function (e) {
+                var btn = e.target.closest('[data-action="delete-user"]');
+                if (!btn) { return; }
+                var username = btn.getAttribute('data-username');
+                if (!confirm('Delete user "' + username + '"? This action cannot be undone.')) { return; }
+                var result = await postAction('/ui/admin/users/' + encodeURIComponent(username) + '/delete');
+                showMessage(result.ok, result.message);
+                if (result.ok) { await refreshTable(); }
             });
         }());
     </script>
     {/scripts}
 {/include}
+

@@ -44,25 +44,53 @@ class AdminUserManagementPageTests {
   }
 
   @Test
-  fun `user management success endpoint shows success message`() {
+  fun `users table endpoint returns table fragment`() {
     given()
       .`when`()
-      .get("/ui/admin/users/success?msg=user-created")
+      .get("/ui/admin/users/table")
       .then()
       .statusCode(200)
-      .body(containsString("""data-testid="success-message""""))
-      .body(containsString("User created successfully."))
+      .contentType(containsString("text/html"))
+      .body(containsString("""data-testid="users-table""""))
   }
 
   @Test
-  fun `user management error endpoint shows error message`() {
+  fun `create user returns json error on blank input`() {
     given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("username", "")
+      .formParam("password", "")
       .`when`()
-      .get("/ui/admin/users/error?error=ADMIN-002")
+      .post("/ui/admin/users/create")
       .then()
       .statusCode(200)
-      .body(containsString("""data-testid="error-message""""))
-      .body(containsString("Username already exists."))
+      .contentType(containsString("application/json"))
+      .body(containsString(""""ok":false"""))
+  }
+
+  @Test
+  fun `set password returns json error when passwords do not match`() {
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("newPassword", "abc")
+      .formParam("confirmPassword", "xyz")
+      .`when`()
+      .post("/ui/admin/users/nonexistent/password")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString(""""ok":false"""))
+  }
+
+  @Test
+  fun `delete user returns json error for nonexistent user`() {
+    given()
+      .`when`()
+      .post("/ui/admin/users/nonexistent/delete")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString(""""ok":false"""))
   }
 }
 
@@ -80,3 +108,4 @@ class AdminUserManagementPageUnauthorizedTests {
       .statusCode(403)
   }
 }
+
