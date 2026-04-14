@@ -212,6 +212,9 @@ class ReleaseNotesProcessor(
       "$header\n$contents\n$footer"
     }
 
+  fun hasSnippetsOfType(snippetType: ReleasenoteSnippetType): Boolean =
+    findSnippetFiles(snippetType).isNotEmpty()
+
   private fun findSnippetFiles(snippetType: ReleasenoteSnippetType) =
     snippetsFolder.listFilesOrdered { it.detectReleasenoteSnippetType() == snippetType }
 

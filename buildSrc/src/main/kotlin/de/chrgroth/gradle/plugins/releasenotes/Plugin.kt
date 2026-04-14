@@ -14,12 +14,14 @@ private const val EXTENSION_NAME = "releasenotes"
 private const val TASK_GROUP_NAME = "releasenotes"
 
 private const val TASK_PATH_AFTER_RELEASE_BUILD = ":afterReleaseBuild"
+private const val TASK_PATH_BEFORE_RELEASE_BUILD = ":beforeReleaseBuild"
 private const val TASK_PATH_ASSEMBLE = ":assemble"
 private const val TASK_PATH_CLEAN = ":clean"
 
 private const val TASK_NAME_INIT = "releasenotesInit"
 private const val TASK_NAME_CLEANUP = "releasenotesCleanup"
 private const val TASK_NAME_CREATE_TEMPLATES = "releasenotesCreateTemplates"
+private const val TASK_NAME_ENSURE_VERSION = "releasenotesEnsureVersion"
 
 private const val TASK_NAME_CREATE_BUGFIX = "releasenotesCreateBugfix"
 private const val TASK_NAME_CREATE_FEATURE = "releasenotesCreateFeature"
@@ -210,6 +212,47 @@ class ReleasenotesPlugin : Plugin<Project> {
           }
         }
       }
+
+      tasks.register(TASK_NAME_ENSURE_VERSION) {
+        group = TASK_GROUP_NAME
+
+        doLast {
+          val hasUpdateNotices = extension.configurations.any { config ->
+            config.init(projectDir, layout.buildDirectory.asFile.get())
+              .hasSnippetsOfType(ReleasenoteSnippetType.UPDATENOTICE)
+          }
+          val hasFeatures = extension.configurations.any { config ->
+            config.init(projectDir, layout.buildDirectory.asFile.get())
+              .hasSnippetsOfType(ReleasenoteSnippetType.FEATURE)
+          }
+          when {
+            hasUpdateNotices -> project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
+              if (mainBranchProjectVersion.major != currentProjectVersion.major) {
+                logger.info("Skipping major version bump because version major part already differs from ${extension.mainBranch} branch: $mainBranchProjectVersion vs $currentProjectVersion")
+                null
+              } else {
+                currentProjectVersion.copy(major = currentProjectVersion.major + 1, minor = 0, patch = 0)
+              }
+            }
+            hasFeatures -> project.changeProjectVersion { mainBranchProjectVersion, currentProjectVersion ->
+              if (mainBranchProjectVersion != currentProjectVersion) {
+                logger.info("Skipping minor version bump because version already differs from ${extension.mainBranch} branch: $mainBranchProjectVersion vs $currentProjectVersion")
+                null
+              } else {
+                currentProjectVersion.copy(minor = currentProjectVersion.minor + 1, patch = 0)
+              }
+            }
+            else -> logger.info("No version bump needed: only bugfix/chore snippets present.")
+          }
+        }
+      }.let { ensureVersionTask ->
+        afterEvaluate {
+          tasks.findByPath(TASK_PATH_BEFORE_RELEASE_BUILD)?.let { beforeReleaseBuildTask ->
+            logger.info("Task '${beforeReleaseBuildTask.path}' found, will depend on ${ensureVersionTask.name}")
+            beforeReleaseBuildTask.dependsOn(ensureVersionTask)
+          }
+        }
+      }
     }
   }
 
@@ -249,6 +292,7 @@ class ReleasenotesPlugin : Plugin<Project> {
           replacement = "version=$newVersion"
         )
       )
+      setVersion(newVersion.toString())
       logger.info("Bumped project version to: $newVersion")
     }
   }
