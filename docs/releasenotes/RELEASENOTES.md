@@ -1,3 +1,12 @@
+# 0.1.12 (2026.04.14)
+
+## Bugfixes / Chore
+* Fixed striped table text color in dark theme so all rows display readable light text.
+
+
+
+---
+
 # 0.1.11 (2026.04.13)
 
 ## New Features
