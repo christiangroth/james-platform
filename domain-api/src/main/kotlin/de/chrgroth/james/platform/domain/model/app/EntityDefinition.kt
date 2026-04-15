@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.domain.model.app
 
+import kotlin.reflect.KClass
+
 @JvmInline
 value class EntityDefinitionId(val value: String)
 
@@ -41,17 +43,60 @@ sealed interface PropertyConstraint {
   // List constraints (LIST)
   data class MinSize(val min: Int) : PropertyConstraint
   data class MaxSize(val max: Int) : PropertyConstraint
+
+  companion object {
+    val GENERAL_CONSTRAINTS: List<KClass<out PropertyConstraint>> = listOf(
+      NotNull::class,
+      UniqueKey::class,
+    )
+  }
 }
 
 enum class PropertyType {
-  LONG,
-  DOUBLE,
-  BOOLEAN,
-  STRING,
-  DATE,
-  TIME,
-  DATETIME,
-  REF,
-  LIST,
-  OBJECT,
+  LONG {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+      PropertyConstraint.MinLong::class,
+      PropertyConstraint.MaxLong::class,
+    )
+  },
+  DOUBLE {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+      PropertyConstraint.MinDouble::class,
+      PropertyConstraint.MaxDouble::class,
+    )
+  },
+  BOOLEAN {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+  },
+  STRING {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+      PropertyConstraint.MinLength::class,
+      PropertyConstraint.MaxLength::class,
+      PropertyConstraint.Pattern::class,
+    )
+  },
+  DATE {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+  },
+  TIME {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+  },
+  DATETIME {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+  },
+  REF {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+  },
+  LIST {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+      PropertyConstraint.MinSize::class,
+      PropertyConstraint.MaxSize::class,
+    )
+  },
+  OBJECT {
+    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+  },
+  ;
+
+  abstract fun availableConstraints(): List<KClass<out PropertyConstraint>>
 }
