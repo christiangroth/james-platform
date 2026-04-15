@@ -14,6 +14,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.ReportPage
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -31,7 +32,7 @@ class AppVersionManagementServiceTests {
   private val service: AppVersionManagementService = AppVersionManagementService(appRepository, appVersionRepository)
 
   private val existingApp = app(id = "app-1", name = "My App")
-  private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.DRAFT)
+  private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
   private val publishedVersion = version(id = "ver-2", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
 
   // region listVersions
@@ -67,10 +68,10 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.createVersion("app-1", "1.0.0")
+    val result = service.createVersion("app-1")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.0.0"))
+    assertThat(result.getOrNull()?.versionNumber).isNull()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.DRAFT)
   }
 
@@ -80,10 +81,10 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.createVersion("app-1", "2.0.0")
+    val result = service.createVersion("app-1")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
+    assertThat(result.getOrNull()?.versionNumber).isNull()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.DRAFT)
     assertThat(result.getOrNull()?.appId).isEqualTo(AppId("app-1"))
   }
@@ -97,7 +98,7 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedWithContent)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.createVersion("app-1", "2.0.0")
+    val result = service.createVersion("app-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.entityDefinitions).isEqualTo(listOf(entityDef))
@@ -106,40 +107,10 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `createVersion fails when version number is blank`() {
-    val result = service.createVersion("app-1", "  ")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
-  }
-
-  @Test
-  fun `createVersion fails for invalid version number format`() {
-    listOf("1", "1.0", "v1.0.0", "1.0.0.0", "1.0.x", "abc").forEach { invalid ->
-      val result = service.createVersion("app-1", invalid)
-      assertThat(result.isLeft()).withFailMessage { "Expected failure for: $invalid" }.isTrue()
-      assertThat(result.leftOrNull()).withFailMessage { "Expected INVALID_VERSION_NUMBER_FORMAT for: $invalid" }
-        .isEqualTo(AppVersionError.INVALID_VERSION_NUMBER_FORMAT)
-    }
-  }
-
-  @Test
-  fun `createVersion accepts valid semantic version formats`() {
-    listOf("0.0.0", "1.0.0", "10.20.30", "0.0.1").forEach { valid ->
-      every { appRepository.findById(AppId("app-1")) } returns existingApp
-      every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
-      justRun { appVersionRepository.save(any()) }
-
-      val result = service.createVersion("app-1", valid)
-      assertThat(result.isRight()).withFailMessage { "Expected success for: $valid" }.isTrue()
-    }
-  }
-
-  @Test
   fun `createVersion fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.createVersion("unknown", "1.0.0")
+    val result = service.createVersion("unknown")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_NOT_FOUND)
@@ -150,21 +121,10 @@ class AppVersionManagementServiceTests {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
 
-    val result = service.createVersion("app-1", "2.0.0")
+    val result = service.createVersion("app-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DRAFT_VERSION_ALREADY_EXISTS)
-  }
-
-  @Test
-  fun `createVersion fails when version number already exists for app`() {
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
-
-    val result = service.createVersion("app-1", "1.1.0")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NUMBER_ALREADY_EXISTS)
   }
 
   // endregion
@@ -207,46 +167,54 @@ class AppVersionManagementServiceTests {
   // region publishVersion
 
   @Test
-  fun `publishVersion succeeds for draft version`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+  fun `publishVersion succeeds for draft version with valid version number`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", "ver-1")
+    val result = service.publishVersion("app-1", "1.0.0")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
-    verify { appVersionRepository.save(match { it.status == AppVersionStatus.PUBLISHED }) }
+    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.0.0"))
+    verify { appVersionRepository.save(match { it.status == AppVersionStatus.PUBLISHED && it.versionNumber == VersionNumber("1.0.0") }) }
   }
 
   @Test
-  fun `publishVersion fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+  fun `publishVersion fails when version number is blank`() {
+    val result = service.publishVersion("app-1", "  ")
 
-    val result = service.publishVersion("app-1", "unknown")
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
+  }
+
+  @Test
+  fun `publishVersion fails for invalid version number format`() {
+    listOf("1", "1.0", "v1.0.0", "1.0.0.0", "abc").forEach { invalid ->
+      val result = service.publishVersion("app-1", invalid)
+      assertThat(result.isLeft()).withFailMessage { "Expected failure for: $invalid" }.isTrue()
+      assertThat(result.leftOrNull()).withFailMessage { "Expected INVALID_VERSION_NUMBER_FORMAT for: $invalid" }
+        .isEqualTo(AppVersionError.INVALID_VERSION_NUMBER_FORMAT)
+    }
+  }
+
+  @Test
+  fun `publishVersion fails when version number already exists for app`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
+
+    val result = service.publishVersion("app-1", "1.1.0")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NUMBER_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `publishVersion fails when no draft version found for app`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
+
+    val result = service.publishVersion("app-1", "1.0.0")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `publishVersion fails when version belongs to different app`() {
-    val versionOfOtherApp = version(id = "ver-1", appId = "app-2")
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns versionOfOtherApp
-
-    val result = service.publishVersion("app-1", "ver-1")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `publishVersion fails when version is already published`() {
-    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
-
-    val result = service.publishVersion("app-1", "ver-2")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
   }
 
   // endregion
@@ -450,6 +418,232 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
+  }
+
+  // endregion
+
+  // region addEntity
+
+  @Test
+  fun `addEntity adds entity to draft version`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addEntity("app-1", "ver-1", "Order")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions).hasSize(1)
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.name).isEqualTo("Order")
+  }
+
+  @Test
+  fun `addEntity fails when name is blank`() {
+    val result = service.addEntity("app-1", "ver-1", "  ")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
+  }
+
+  @Test
+  fun `addEntity fails when entity name already exists`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addEntity("app-1", "ver-1", "Order")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NAME_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `addEntity fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.addEntity("app-1", "unknown", "Order")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region deleteEntity
+
+  @Test
+  fun `deleteEntity removes entity from draft version`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteEntity("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions).isEmpty()
+  }
+
+  @Test
+  fun `deleteEntity fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.deleteEntity("app-1", "ver-1", "unknown-entity")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region addProperty
+
+  @Test
+  fun `addProperty adds property to entity in draft version`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Amount", "LONG", true)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.properties).hasSize(1)
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.properties?.first()?.name).isEqualTo("Amount")
+  }
+
+  @Test
+  fun `addProperty fails when property type is invalid`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Amount", "INVALID_TYPE", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.INVALID_PROPERTY_TYPE)
+  }
+
+  @Test
+  fun `addProperty fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.addProperty("app-1", "ver-1", "unknown-entity", "Amount", "LONG", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region addReport
+
+  @Test
+  fun `addReport adds report to draft version`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addReport("app-1", "ver-1", "Sales Report")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.reports).hasSize(1)
+    assertThat(result.getOrNull()?.reports?.first()?.name).isEqualTo("Sales Report")
+  }
+
+  @Test
+  fun `addReport fails when report name already exists`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    val version = draftVersion.copy(reports = listOf(report))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addReport("app-1", "ver-1", "Sales Report")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REPORT_NAME_ALREADY_EXISTS)
+  }
+
+  // endregion
+
+  // region deleteReport
+
+  @Test
+  fun `deleteReport removes report from draft version`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    val version = draftVersion.copy(reports = listOf(report))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteReport("app-1", "ver-1", "r-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.reports).isEmpty()
+  }
+
+  @Test
+  fun `deleteReport fails when report not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.deleteReport("app-1", "ver-1", "unknown-report")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REPORT_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region addReportPage
+
+  @Test
+  fun `addReportPage adds page to report in draft version`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    val version = draftVersion.copy(reports = listOf(report))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addReportPage("app-1", "ver-1", "r-1", "<h1>Sales</h1>", "console.log('hello')")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.reports?.first()?.pages).hasSize(1)
+    assertThat(result.getOrNull()?.reports?.first()?.pages?.first()?.html).isEqualTo("<h1>Sales</h1>")
+  }
+
+  @Test
+  fun `addReportPage fails when report not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.addReportPage("app-1", "ver-1", "unknown-report", "<h1>x</h1>", "")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REPORT_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region deleteReportPage
+
+  @Test
+  fun `deleteReportPage removes page from report in draft version`() {
+    val page = ReportPage(html = "<h1>x</h1>", script = "")
+    val report = Report(id = ReportId("r-1"), name = "Sales Report", pages = listOf(page))
+    val version = draftVersion.copy(reports = listOf(report))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteReportPage("app-1", "ver-1", "r-1", 0)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.reports?.first()?.pages).isEmpty()
+  }
+
+  @Test
+  fun `deleteReportPage fails when page index is invalid`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    val version = draftVersion.copy(reports = listOf(report))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.deleteReportPage("app-1", "ver-1", "r-1", 5)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.INVALID_PAGE_INDEX)
   }
 
   // endregion

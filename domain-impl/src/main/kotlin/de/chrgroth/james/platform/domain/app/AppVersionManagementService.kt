@@ -9,7 +9,15 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.Report
+import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.ReportPage
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
@@ -35,15 +43,7 @@ class AppVersionManagementService(
     return appVersionRepository.findAllByAppId(AppId(appId)).right()
   }
 
-  override fun createVersion(appId: String, versionNumber: String): Either<DomainError, AppVersion> {
-    if (versionNumber.isBlank()) {
-      logger.warn { "Create version failed: blank version number" }
-      return AppVersionError.BLANK_INPUT.left()
-    }
-    if (!SEMANTIC_VERSION_REGEX.matches(versionNumber)) {
-      logger.warn { "Create version failed: invalid version number format: $versionNumber" }
-      return AppVersionError.INVALID_VERSION_NUMBER_FORMAT.left()
-    }
+  override fun createVersion(appId: String): Either<DomainError, AppVersion> {
     appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Create version failed: app not found: $appId" }
       return AppVersionError.APP_NOT_FOUND.left()
@@ -53,17 +53,13 @@ class AppVersionManagementService(
       logger.warn { "Create version failed: draft version already exists for app $appId" }
       return AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.left()
     }
-    if (existingVersions.any { it.versionNumber == VersionNumber(versionNumber) }) {
-      logger.warn { "Create version failed: version number already exists: $versionNumber in app $appId" }
-      return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
-    }
     val latestPublished = existingVersions
       .filter { it.status == AppVersionStatus.PUBLISHED }
       .maxByOrNull { it.createdAt }
     val newVersion = if (latestPublished != null) {
       latestPublished.copy(
         id = AppVersionId(UUID.randomUUID().toString()),
-        versionNumber = VersionNumber(versionNumber),
+        versionNumber = null,
         releaseNotes = null,
         status = AppVersionStatus.DRAFT,
         createdAt = Instant.now(),
@@ -72,7 +68,7 @@ class AppVersionManagementService(
       AppVersion(
         id = AppVersionId(UUID.randomUUID().toString()),
         appId = AppId(appId),
-        versionNumber = VersionNumber(versionNumber),
+        versionNumber = null,
         releaseNotes = null,
         entityDefinitions = emptyList(),
         reports = emptyList(),
@@ -81,7 +77,7 @@ class AppVersionManagementService(
       )
     }
     appVersionRepository.save(newVersion)
-    logger.info { "App version created: $versionNumber for app $appId (${newVersion.id.value})" }
+    logger.info { "App version created (draft) for app $appId (${newVersion.id.value})" }
     return newVersion.right()
   }
 
@@ -97,22 +93,27 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  override fun publishVersion(appId: String, versionId: String): Either<DomainError, AppVersion> {
-    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: run {
-      logger.warn { "Publish version failed: not found: $versionId" }
+  override fun publishVersion(appId: String, versionNumber: String): Either<DomainError, AppVersion> {
+    if (versionNumber.isBlank()) {
+      logger.warn { "Publish version failed: blank version number" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    if (!SEMANTIC_VERSION_REGEX.matches(versionNumber)) {
+      logger.warn { "Publish version failed: invalid version number format: $versionNumber" }
+      return AppVersionError.INVALID_VERSION_NUMBER_FORMAT.left()
+    }
+    val allVersions = appVersionRepository.findAllByAppId(AppId(appId))
+    val version = allVersions.find { it.status == AppVersionStatus.DRAFT } ?: run {
+      logger.warn { "Publish version failed: no draft version found for app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
     }
-    if (version.appId != AppId(appId)) {
-      logger.warn { "Publish version failed: version $versionId does not belong to app $appId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
+    if (allVersions.any { it.versionNumber == VersionNumber(versionNumber) && it.id != version.id }) {
+      logger.warn { "Publish version failed: version number already exists: $versionNumber in app $appId" }
+      return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }
-    if (version.status != AppVersionStatus.DRAFT) {
-      logger.warn { "Publish version failed: version $versionId is not in DRAFT status" }
-      return AppVersionError.VERSION_NOT_IN_DRAFT.left()
-    }
-    val publishedVersion = version.copy(status = AppVersionStatus.PUBLISHED)
+    val publishedVersion = version.copy(versionNumber = VersionNumber(versionNumber), status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
-    logger.info { "App version published: ${version.versionNumber.value} (${version.id.value})" }
+    logger.info { "App version published: $versionNumber (${version.id.value})" }
     return publishedVersion.right()
   }
 
@@ -147,7 +148,11 @@ class AppVersionManagementService(
       ).right()
     }
     val hasBreaking = hasBreakingChanges(latestPublished, draft)
-    val (onBreaking, onFeature, onBugfix) = nextVersions(latestPublished.versionNumber)
+    val latestVersionNumber = latestPublished.versionNumber ?: run {
+      logger.warn { "Compute version bump failed: latest published version has no version number for app $appId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)
     logger.info { "Compute version bump for app $appId: breaking=$hasBreaking, breaking→${onBreaking.value}, feature→${onFeature.value}, bugfix→${onBugfix.value}" }
     return VersionBumpResult(
       hasBreakingChanges = hasBreaking,
@@ -155,6 +160,181 @@ class AppVersionManagementService(
       suggestedVersionOnFeature = onFeature,
       suggestedVersionOnBugfix = onBugfix,
     ).right()
+  }
+
+  override fun addEntity(appId: String, versionId: String, name: String): Either<DomainError, AppVersion> {
+    if (name.isBlank()) {
+      logger.warn { "Add entity failed: blank name" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    if (version.entityDefinitions.any { it.name.equals(name.trim(), ignoreCase = true) }) {
+      logger.warn { "Add entity failed: entity name already exists: $name in version $versionId" }
+      return AppVersionError.ENTITY_NAME_ALREADY_EXISTS.left()
+    }
+    val newEntity = EntityDefinition(id = EntityDefinitionId(UUID.randomUUID().toString()), name = name.trim())
+    val updated = version.copy(entityDefinitions = version.entityDefinitions + newEntity)
+    appVersionRepository.save(updated)
+    logger.info { "Entity added: ${name.trim()} to version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    if (version.entityDefinitions.none { it.id.value == entityId }) {
+      logger.warn { "Delete entity failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.filter { it.id.value != entityId })
+    appVersionRepository.save(updated)
+    logger.info { "Entity deleted: $entityId from version $versionId" }
+    return updated.right()
+  }
+
+  override fun addProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    name: String,
+    type: String,
+    nullable: Boolean,
+  ): Either<DomainError, AppVersion> {
+    if (name.isBlank()) {
+      logger.warn { "Add property failed: blank name" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    val propertyType = runCatching { PropertyType.valueOf(type.uppercase()) }.getOrNull() ?: run {
+      logger.warn { "Add property failed: invalid type: $type" }
+      return AppVersionError.INVALID_PROPERTY_TYPE.left()
+    }
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Add property failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.properties.any { it.name.equals(name.trim(), ignoreCase = true) }) {
+      logger.warn { "Add property failed: property name already exists: $name in entity $entityId" }
+      return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
+    }
+    val newProperty = Property(id = PropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, nullable = nullable)
+    val updatedEntity = entity.copy(properties = entity.properties + newProperty)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property added: ${name.trim()} ($type) to entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Delete property failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.properties.none { it.id.value == propertyId }) {
+      logger.warn { "Delete property failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    val updatedEntity = entity.copy(properties = entity.properties.filter { it.id.value != propertyId })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property deleted: $propertyId from entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion> {
+    if (name.isBlank()) {
+      logger.warn { "Add report failed: blank name" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    if (version.reports.any { it.name.equals(name.trim(), ignoreCase = true) }) {
+      logger.warn { "Add report failed: report name already exists: $name in version $versionId" }
+      return AppVersionError.REPORT_NAME_ALREADY_EXISTS.left()
+    }
+    val newReport = Report(id = ReportId(UUID.randomUUID().toString()), name = name.trim())
+    val updated = version.copy(reports = version.reports + newReport)
+    appVersionRepository.save(updated)
+    logger.info { "Report added: ${name.trim()} to version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    if (version.reports.none { it.id.value == reportId }) {
+      logger.warn { "Delete report failed: report not found: $reportId in version $versionId" }
+      return AppVersionError.REPORT_NOT_FOUND.left()
+    }
+    val updated = version.copy(reports = version.reports.filter { it.id.value != reportId })
+    appVersionRepository.save(updated)
+    logger.info { "Report deleted: $reportId from version $versionId" }
+    return updated.right()
+  }
+
+  override fun addReportPage(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val report = version.reports.find { it.id.value == reportId } ?: run {
+      logger.warn { "Add report page failed: report not found: $reportId in version $versionId" }
+      return AppVersionError.REPORT_NOT_FOUND.left()
+    }
+    val newPage = ReportPage(html = html, script = script)
+    val updatedReport = report.copy(pages = report.pages + newPage)
+    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
+    appVersionRepository.save(updated)
+    logger.info { "Report page added to report $reportId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun updateReportPage(
+    appId: String,
+    versionId: String,
+    reportId: String,
+    pageIndex: Int,
+    html: String,
+    script: String,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val report = version.reports.find { it.id.value == reportId } ?: run {
+      logger.warn { "Update report page failed: report not found: $reportId in version $versionId" }
+      return AppVersionError.REPORT_NOT_FOUND.left()
+    }
+    if (pageIndex < 0 || pageIndex >= report.pages.size) {
+      logger.warn { "Update report page failed: invalid page index $pageIndex for report $reportId" }
+      return AppVersionError.INVALID_PAGE_INDEX.left()
+    }
+    val updatedPages = report.pages.toMutableList()
+    updatedPages[pageIndex] = ReportPage(html = html, script = script, entityFilters = report.pages[pageIndex].entityFilters)
+    val updatedReport = report.copy(pages = updatedPages)
+    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
+    appVersionRepository.save(updated)
+    logger.info { "Report page $pageIndex updated for report $reportId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteReportPage(appId: String, versionId: String, reportId: String, pageIndex: Int): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val report = version.reports.find { it.id.value == reportId } ?: run {
+      logger.warn { "Delete report page failed: report not found: $reportId in version $versionId" }
+      return AppVersionError.REPORT_NOT_FOUND.left()
+    }
+    if (pageIndex < 0 || pageIndex >= report.pages.size) {
+      logger.warn { "Delete report page failed: invalid page index $pageIndex for report $reportId" }
+      return AppVersionError.INVALID_PAGE_INDEX.left()
+    }
+    val updatedReport = report.copy(pages = report.pages.filterIndexed { index, _ -> index != pageIndex })
+    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
+    appVersionRepository.save(updated)
+    logger.info { "Report page $pageIndex deleted from report $reportId in version $versionId" }
+    return updated.right()
+  }
+
+  private fun getDraftVersion(appId: String, versionId: String): AppVersion? {
+    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: return null
+    if (version.appId != AppId(appId)) return null
+    if (version.status != AppVersionStatus.DRAFT) {
+      logger.warn { "Operation failed: version $versionId is not in DRAFT status" }
+      return null
+    }
+    return version
   }
 
   private fun hasBreakingChanges(published: AppVersion, draft: AppVersion): Boolean {

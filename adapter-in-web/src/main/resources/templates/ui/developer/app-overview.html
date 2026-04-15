@@ -43,9 +43,9 @@
             <!-- Existing version tiles -->
             {#for version in versions}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="Open version {version.versionNumber}">
+                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="Open version {#if version.versionNumber}{version.versionNumber}{#else}Draft{/if}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
-                        <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{version.versionNumber}</div>
+                        <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{#if version.versionNumber}{version.versionNumber}{#else}<span class="app-section-label">Draft</span>{/if}</div>
                         <div class="app-section-label mb-2" data-testid="version-created-at">{version.createdAt.formatted}</div>
                         <div class="mt-auto">
                             <span class="badge {#if version.status.name == 'DRAFT'}app-badge-processing{#else}app-badge-muted{/if}"
@@ -68,13 +68,7 @@
                 </div>
                 <form id="createVersionForm">
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="newVersionNumber" class="form-label">Version Number <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control app-form-control" id="newVersionNumber" name="versionNumber"
-                                   required autocomplete="off" placeholder="e.g. 1.0.0"
-                                   data-testid="create-version-number-input">
-                            <div class="form-text" style="color:var(--color-text-muted);">Must follow semantic versioning (e.g. 1.0.0)</div>
-                        </div>
+                        <p class="app-section-label mb-0">A new draft version will be created as a copy of the latest published version. The version number will be assigned when the version is published.</p>
                     </div>
                     <div class="modal-footer" style="border-color:#333;">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>

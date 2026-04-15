@@ -10,7 +10,7 @@ class AppVersionDocument {
   @BsonId
   lateinit var id: String
   lateinit var appId: String
-  lateinit var versionNumber: String
+  var versionNumber: String? = null
   var releaseNotes: String? = null
   var entityDefinitions: List<EntityDefinitionDocument> = emptyList()
   var reports: List<ReportDocument> = emptyList()

@@ -58,7 +58,7 @@ class AppVersionRepositoryAdapter(
   private fun AppVersionDocument.toDomain() = AppVersion(
     id = AppVersionId(id),
     appId = AppId(appId),
-    versionNumber = VersionNumber(versionNumber),
+    versionNumber = versionNumber?.let { VersionNumber(it) },
     releaseNotes = releaseNotes,
     entityDefinitions = entityDefinitions.map { it.toDomain() },
     reports = reports.map { it.toDomain() },
@@ -114,7 +114,7 @@ class AppVersionRepositoryAdapter(
   private fun AppVersion.toDocument() = AppVersionDocument().also { doc ->
     doc.id = id.value
     doc.appId = appId.value
-    doc.versionNumber = versionNumber.value
+    doc.versionNumber = versionNumber?.value
     doc.releaseNotes = releaseNotes
     doc.entityDefinitions = entityDefinitions.map { it.toDocument() }
     doc.reports = reports.map { it.toDocument() }
