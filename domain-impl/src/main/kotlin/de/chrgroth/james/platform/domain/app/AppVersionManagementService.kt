@@ -93,7 +93,7 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  override fun publishVersion(appId: String, versionId: String, versionNumber: String): Either<DomainError, AppVersion> {
+  override fun publishVersion(appId: String, versionNumber: String): Either<DomainError, AppVersion> {
     if (versionNumber.isBlank()) {
       logger.warn { "Publish version failed: blank version number" }
       return AppVersionError.BLANK_INPUT.left()
@@ -102,20 +102,12 @@ class AppVersionManagementService(
       logger.warn { "Publish version failed: invalid version number format: $versionNumber" }
       return AppVersionError.INVALID_VERSION_NUMBER_FORMAT.left()
     }
-    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: run {
-      logger.warn { "Publish version failed: not found: $versionId" }
+    val allVersions = appVersionRepository.findAllByAppId(AppId(appId))
+    val version = allVersions.find { it.status == AppVersionStatus.DRAFT } ?: run {
+      logger.warn { "Publish version failed: no draft version found for app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
     }
-    if (version.appId != AppId(appId)) {
-      logger.warn { "Publish version failed: version $versionId does not belong to app $appId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
-    }
-    if (version.status != AppVersionStatus.DRAFT) {
-      logger.warn { "Publish version failed: version $versionId is not in DRAFT status" }
-      return AppVersionError.VERSION_NOT_IN_DRAFT.left()
-    }
-    val existingVersions = appVersionRepository.findAllByAppId(AppId(appId))
-    if (existingVersions.any { it.versionNumber == VersionNumber(versionNumber) && it.id != version.id }) {
+    if (allVersions.any { it.versionNumber == VersionNumber(versionNumber) && it.id != version.id }) {
       logger.warn { "Publish version failed: version number already exists: $versionNumber in app $appId" }
       return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }

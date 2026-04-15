@@ -168,11 +168,10 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion succeeds for draft version with valid version number`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", "ver-1", "1.0.0")
+    val result = service.publishVersion("app-1", "1.0.0")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
@@ -182,7 +181,7 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion fails when version number is blank`() {
-    val result = service.publishVersion("app-1", "ver-1", "  ")
+    val result = service.publishVersion("app-1", "  ")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
@@ -191,7 +190,7 @@ class AppVersionManagementServiceTests {
   @Test
   fun `publishVersion fails for invalid version number format`() {
     listOf("1", "1.0", "v1.0.0", "1.0.0.0", "abc").forEach { invalid ->
-      val result = service.publishVersion("app-1", "ver-1", invalid)
+      val result = service.publishVersion("app-1", invalid)
       assertThat(result.isLeft()).withFailMessage { "Expected failure for: $invalid" }.isTrue()
       assertThat(result.leftOrNull()).withFailMessage { "Expected INVALID_VERSION_NUMBER_FORMAT for: $invalid" }
         .isEqualTo(AppVersionError.INVALID_VERSION_NUMBER_FORMAT)
@@ -200,44 +199,22 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion fails when version number already exists for app`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
 
-    val result = service.publishVersion("app-1", "ver-1", "1.1.0")
+    val result = service.publishVersion("app-1", "1.1.0")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NUMBER_ALREADY_EXISTS)
   }
 
   @Test
-  fun `publishVersion fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+  fun `publishVersion fails when no draft version found for app`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
 
-    val result = service.publishVersion("app-1", "unknown", "1.0.0")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `publishVersion fails when version belongs to different app`() {
-    val versionOfOtherApp = version(id = "ver-1", appId = "app-2")
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns versionOfOtherApp
-
-    val result = service.publishVersion("app-1", "ver-1", "1.0.0")
+    val result = service.publishVersion("app-1", "1.0.0")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `publishVersion fails when version is already published`() {
-    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
-
-    val result = service.publishVersion("app-1", "ver-2", "1.1.0")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_IN_DRAFT)
   }
 
   // endregion

@@ -541,7 +541,7 @@
                     var btn = document.getElementById('publishSubmitBtn');
                     btn.disabled = true;
                     var result = await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/publish',
+                        '/ui/developer/apps/' + appId + '/versions/publish',
                         new FormData(this), true
                     );
                     if (!result || !result.ok) {

@@ -208,18 +208,17 @@ class DeveloperAppResource {
   }
 
   @POST
-  @Path("/apps/{appId}/versions/{versionId}/publish")
+  @Path("/apps/{appId}/versions/publish")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun publishVersion(
     @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
     @FormParam("versionNumber") versionNumber: String,
   ): Response {
     if (versionNumber.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Version number is required.")).build()
     }
-    return appVersionManagement.publishVersion(appId, versionId, versionNumber.trim()).fold(
+    return appVersionManagement.publishVersion(appId, versionNumber.trim()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, "Version published.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
