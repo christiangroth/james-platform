@@ -1,3 +1,14 @@
+# 0.3.0 (2026.04.15)
+
+## New Features
+* Introduce apps domain with support for apps and app versions.
+* Apps can be created, updated, and deleted; names must be unique.
+* App versions follow semantic versioning and progress through draft, published, and deprecated states.
+
+
+
+---
+
 # 0.2.0 (2026.04.15)
 
 ## New Features
