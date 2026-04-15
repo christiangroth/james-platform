@@ -1,3 +1,16 @@
+# 0.2.0 (2026.04.15)
+
+## New Features
+* Ensure only one user can have the admin role at a time.
+* After login, admin users are redirected to the admin dashboard. All other users are redirected to the user dashboard.
+* Users with the developer role see a coding icon in the navigation bar linking to the developer dashboard.
+* Updated README with project description and features overview.
+* Password confirmation field removed from the "Set Password" dialog in user management.
+
+
+
+---
+
 # 0.1.22 (2026.04.14)
 
 ## Bugfixes / Chore
