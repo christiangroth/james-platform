@@ -19,12 +19,7 @@
             <span class="badge app-badge-muted ms-auto mt-1" data-testid="app-status">{app.status}</span>
         </div>
 
-        {#if errorMessage}
-        <div class="alert alert-danger alert-dismissible mb-4" role="alert" data-testid="error-message">
-            {errorMessage}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {/if}
+        <div id="overview-message" class="d-none mb-4" role="alert"></div>
 
         <h2 class="fs-5 fw-semibold mb-3">Versions</h2>
         <div class="row g-3" data-testid="versions-grid">
@@ -71,7 +66,7 @@
                     <h5 class="modal-title" id="createVersionModalLabel">New Version</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post" action="/ui/developer/apps/{app.id}/versions">
+                <form id="createVersionForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="newVersionNumber" class="form-label">Version Number <span class="text-danger">*</span></label>
@@ -90,4 +85,53 @@
         </div>
     </div>
     {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var appId = '{app.id}';
+            var messagePanel = document.getElementById('overview-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            var createVersionForm = document.getElementById('createVersionForm');
+            if (createVersionForm) {
+                createVersionForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var submitBtn = createVersionForm.querySelector('[type="submit"]');
+                    submitBtn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/versions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams(new FormData(this)).toString()
+                        });
+                        var result = await response.json();
+                        if (result.ok && result.redirectUrl) {
+                            window.location.href = result.redirectUrl;
+                        } else {
+                            bootstrap.Modal.getInstance(document.getElementById('createVersionModal')).hide();
+                            this.reset();
+                            showMessage(result.ok, result.message);
+                        }
+                    } catch (e) {
+                        showMessage(false, 'Network error. Please try again.');
+                    } finally {
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
 {/include}

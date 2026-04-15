@@ -18,10 +18,11 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
-import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.net.URI
+
+data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null)
 
 @Path("/ui/developer")
 @ApplicationScoped
@@ -53,34 +54,31 @@ class DeveloperAppResource {
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
-  fun developerDashboard(@QueryParam("error") error: String?) = developerDashboardTemplate
+  fun developerDashboard() = developerDashboardTemplate
     .data("username", securityIdentity.principal.name)
     .data("apps", appManagement.listApps())
-    .data("errorMessage", error?.let { developerDashboardErrorMessage(it) })
 
   @POST
   @Path("/apps")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
   fun createApp(
-    @FormParam("name") name: String?,
+    @FormParam("name") name: String,
     @FormParam("description") description: String?,
   ): Response {
-    if (name.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/ui/developer/dashboard?error=${AppError.BLANK_INPUT.code}")).build()
+    if (name.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "App name is required.")).build()
     }
     return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/developer/dashboard?error=${error.code}")).build() },
-      ifRight = { app -> Response.seeOther(URI.create("/ui/developer/apps/${app.id.value}")).build() },
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
+      ifRight = { app -> Response.ok(DeveloperApiResult(true, "App created.", "/ui/developer/apps/${app.id.value}")).build() },
     )
   }
 
   @GET
   @Path("/apps/{appId}")
   @Produces(MediaType.TEXT_HTML)
-  fun appOverview(
-    @PathParam("appId") appId: String,
-    @QueryParam("error") error: String?,
-  ): Response {
+  fun appOverview(@PathParam("appId") appId: String): Response {
     return appManagement.getApp(appId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/dashboard")).build() },
       ifRight = { app ->
@@ -90,8 +88,7 @@ class DeveloperAppResource {
           appOverviewTemplate
             .data("app", app)
             .data("versions", versions)
-            .data("hasDraft", hasDraft)
-            .data("errorMessage", error?.let { appOverviewErrorMessage(it) }),
+            .data("hasDraft", hasDraft),
         ).build()
       },
     )
@@ -100,16 +97,19 @@ class DeveloperAppResource {
   @POST
   @Path("/apps/{appId}/versions")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
   fun createVersion(
     @PathParam("appId") appId: String,
-    @FormParam("versionNumber") versionNumber: String?,
+    @FormParam("versionNumber") versionNumber: String,
   ): Response {
-    if (versionNumber.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/ui/developer/apps/$appId?error=${AppVersionError.BLANK_INPUT.code}")).build()
+    if (versionNumber.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "Version number is required.")).build()
     }
     return appVersionManagement.createVersion(appId, versionNumber.trim()).fold(
-      ifLeft = { error -> Response.seeOther(URI.create("/ui/developer/apps/$appId?error=${error.code}")).build() },
-      ifRight = { version -> Response.seeOther(URI.create("/ui/developer/apps/$appId/versions/${version.id.value}")).build() },
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
+      ifRight = { version ->
+        Response.ok(DeveloperApiResult(true, "Version created.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
+      },
     )
   }
 
@@ -119,8 +119,6 @@ class DeveloperAppResource {
   fun versionEditor(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
-    @QueryParam("entity") entityId: String?,
-    @QueryParam("report") reportId: String?,
   ): Response {
     val appResult = appManagement.getApp(appId)
     if (appResult.isLeft()) {
@@ -130,28 +128,86 @@ class DeveloperAppResource {
     return appVersionManagement.getVersion(appId, versionId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
-        val selectedEntity = if (entityId != null) version.entityDefinitions.find { it.id.value == entityId } else null
-        val selectedReport = if (reportId != null) version.reports.find { it.id.value == reportId } else null
         val isDraft = version.status == AppVersionStatus.DRAFT
         Response.ok(
           versionEditorTemplate
             .data("app", app)
             .data("version", version)
             .data("isDraft", isDraft)
+            .data("selectedEntity", null)
+            .data("selectedReport", null),
+        ).build()
+      },
+    )
+  }
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}")
+  @Produces(MediaType.TEXT_HTML)
+  fun versionEntityEditor(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+  ): Response {
+    val appResult = appManagement.getApp(appId)
+    if (appResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    val app = appResult.getOrNull()!!
+    return appVersionManagement.getVersion(appId, versionId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
+      ifRight = { version ->
+        val isDraft = version.status == AppVersionStatus.DRAFT
+        val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
+        Response.ok(
+          versionEditorTemplate
+            .data("app", app)
+            .data("version", version)
+            .data("isDraft", isDraft)
             .data("selectedEntity", selectedEntity)
+            .data("selectedReport", null),
+        ).build()
+      },
+    )
+  }
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}")
+  @Produces(MediaType.TEXT_HTML)
+  fun versionReportEditor(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("reportId") reportId: String,
+  ): Response {
+    val appResult = appManagement.getApp(appId)
+    if (appResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    val app = appResult.getOrNull()!!
+    return appVersionManagement.getVersion(appId, versionId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
+      ifRight = { version ->
+        val isDraft = version.status == AppVersionStatus.DRAFT
+        val selectedReport = version.reports.find { it.id.value == reportId }
+        Response.ok(
+          versionEditorTemplate
+            .data("app", app)
+            .data("version", version)
+            .data("isDraft", isDraft)
+            .data("selectedEntity", null)
             .data("selectedReport", selectedReport),
         ).build()
       },
     )
   }
 
-  private fun developerDashboardErrorMessage(code: String): String = when (code) {
+  private fun appErrorMessage(code: String): String = when (code) {
     AppError.BLANK_INPUT.code -> "App name is required."
     AppError.APP_NAME_ALREADY_EXISTS.code -> "An app with this name already exists."
     else -> "An unexpected error occurred. Please try again."
   }
 
-  private fun appOverviewErrorMessage(code: String): String = when (code) {
+  private fun versionErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> "Version number is required."
     AppVersionError.INVALID_VERSION_NUMBER_FORMAT.code -> "Invalid version number. Must follow semantic versioning (e.g. 1.0.0)."
     AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.code -> "A draft version already exists. Publish or delete it before creating a new one."

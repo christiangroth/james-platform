@@ -4,12 +4,7 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <h1 class="mb-4 fs-4 fw-semibold" data-testid="welcome-message">Hello, {username}!</h1>
 
-        {#if errorMessage}
-        <div class="alert alert-danger alert-dismissible mb-4" role="alert" data-testid="error-message">
-            {errorMessage}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {/if}
+        <div id="dashboard-message" class="d-none mb-4" role="alert"></div>
 
         <div class="row g-3" data-testid="apps-grid">
             <!-- New App tile (always first) -->
@@ -54,7 +49,7 @@
                     <h5 class="modal-title" id="createAppModalLabel">New App</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post" action="/ui/developer/apps">
+                <form id="createAppForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="newAppName" class="form-label">Name <span class="text-danger">*</span></label>
@@ -74,4 +69,52 @@
         </div>
     </div>
     {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var messagePanel = document.getElementById('dashboard-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            var createAppForm = document.getElementById('createAppForm');
+            if (createAppForm) {
+                createAppForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var submitBtn = createAppForm.querySelector('[type="submit"]');
+                    submitBtn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams(new FormData(this)).toString()
+                        });
+                        var result = await response.json();
+                        if (result.ok && result.redirectUrl) {
+                            window.location.href = result.redirectUrl;
+                        } else {
+                            bootstrap.Modal.getInstance(document.getElementById('createAppModal')).hide();
+                            this.reset();
+                            showMessage(result.ok, result.message);
+                        }
+                    } catch (e) {
+                        showMessage(false, 'Network error. Please try again.');
+                    } finally {
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
 {/include}

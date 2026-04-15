@@ -26,17 +26,7 @@ class DeveloperAppPageTests {
   }
 
   @Test
-  fun `developer dashboard shows error message when error param present`() {
-    given()
-      .`when`()
-      .get("/ui/developer/dashboard?error=APP-003")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="error-message""""))
-  }
-
-  @Test
-  fun `developer dashboard does not show error message without error param`() {
+  fun `developer dashboard does not show static error message`() {
     given()
       .`when`()
       .get("/ui/developer/dashboard")
@@ -46,30 +36,31 @@ class DeveloperAppPageTests {
   }
 
   @Test
-  fun `create app redirects to dashboard on blank name`() {
+  fun `create app returns error json on blank name`() {
     given()
-      .redirects().follow(false)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "")
       .`when`()
       .post("/ui/developer/apps")
       .then()
-      .statusCode(303)
-      .header("Location", containsString("/ui/developer/dashboard"))
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":false"))
   }
 
   @Test
-  fun `create app redirects to app overview on success`() {
+  fun `create app returns success json with redirect on valid name`() {
     given()
-      .redirects().follow(false)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "Test App ${System.nanoTime()}")
       .formParam("description", "A test app")
       .`when`()
       .post("/ui/developer/apps")
       .then()
-      .statusCode(303)
-      .header("Location", containsString("/ui/developer/apps/"))
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":true"))
+      .body(containsString("/ui/developer/apps/"))
   }
 
   @Test
@@ -89,6 +80,28 @@ class DeveloperAppPageTests {
       .redirects().follow(false)
       .`when`()
       .get("/ui/developer/apps/unknown-id/versions/unknown-version-id")
+      .then()
+      .statusCode(303)
+      .header("Location", containsString("/ui/developer/dashboard"))
+  }
+
+  @Test
+  fun `entity editor redirects to dashboard for unknown app`() {
+    given()
+      .redirects().follow(false)
+      .`when`()
+      .get("/ui/developer/apps/unknown-id/versions/unknown-version-id/entities/unknown-entity-id")
+      .then()
+      .statusCode(303)
+      .header("Location", containsString("/ui/developer/dashboard"))
+  }
+
+  @Test
+  fun `report editor redirects to dashboard for unknown app`() {
+    given()
+      .redirects().follow(false)
+      .`when`()
+      .get("/ui/developer/apps/unknown-id/versions/unknown-version-id/reports/unknown-report-id")
       .then()
       .statusCode(303)
       .header("Location", containsString("/ui/developer/dashboard"))
