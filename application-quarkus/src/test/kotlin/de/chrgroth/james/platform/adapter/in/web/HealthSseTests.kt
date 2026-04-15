@@ -2,7 +2,6 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.adapter.`in`.web.HealthSseAdapter
 import de.chrgroth.james.platform.domain.model.user.Username
-import de.chrgroth.james.platform.domain.port.out.infra.OutboxTaskCountObserver
 import io.quarkus.test.junit.QuarkusTest
 import io.smallrye.mutiny.subscription.Cancellable
 import jakarta.inject.Inject
@@ -18,47 +17,4 @@ class HealthSseTests {
 
   @Inject
   lateinit var healthSseService: HealthSseAdapter
-
-  @Inject
-  lateinit var outboxTaskCountObserver: OutboxTaskCountObserver
-
-  @Test
-  fun `sse endpoint delivers refresh-outbox-partitions event when partition is activated`() {
-    val userId = Username("test-user-health-sse-outbox")
-    val received = CopyOnWriteArrayList<String>()
-    val latch = CountDownLatch(1)
-
-    val cancellable: Cancellable = healthSseService.stream(userId)
-      .subscribe().with(
-        { event: String -> received.add(event); latch.countDown() },
-        { _: Throwable -> /* ignore errors */ },
-      )
-
-    healthSseService.onPartitionActivated("to-spotify")
-
-    assertTrue(latch.await(5, TimeUnit.SECONDS), "SSE refresh event should be received within 5 seconds")
-    assertEquals(listOf("refresh-outbox-partitions"), received.toList())
-
-    cancellable.cancel()
-  }
-
-  @Test
-  fun `sse endpoint delivers refresh-outbox-partitions event when outbox task count changes`() {
-    val userId = Username("test-user-health-sse-outbox-count")
-    val received = CopyOnWriteArrayList<String>()
-    val latch = CountDownLatch(1)
-
-    val cancellable: Cancellable = healthSseService.stream(userId)
-      .subscribe().with(
-        { event: String -> received.add(event); latch.countDown() },
-        { _: Throwable -> /* ignore errors */ },
-      )
-
-    outboxTaskCountObserver.onOutboxTaskCountChanged()
-
-    assertTrue(latch.await(5, TimeUnit.SECONDS), "SSE refresh event should be received within 5 seconds")
-    assertEquals(listOf("refresh-outbox-partitions"), received.toList())
-
-    cancellable.cancel()
-  }
 }

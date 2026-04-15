@@ -13,7 +13,6 @@ kover = "0.9.7"
 marked = "17.0.3"
 mockk = "1.14.9"
 quarkus = "3.32.1"
-quarkusOutbox = "0.8.0"
 quarkusStarters = "0.6.1"
 release = "3.1.0"
 versionCatalogUpdate = "1.1.0"
@@ -34,11 +33,6 @@ marked = { module = "org.webjars.npm:marked", version.ref = "marked" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
 quarkusBom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }
-quarkusOutboxAdapterInScheduler = { module = "de.chrgroth.quarkus.outbox:adapter-in-scheduler", version.ref = "quarkusOutbox" }
-quarkusOutboxAdapterOutExecutor = { module = "de.chrgroth.quarkus.outbox:adapter-out-executor", version.ref = "quarkusOutbox" }
-quarkusOutboxAdapterOutPersistenceMongodb = { module = "de.chrgroth.quarkus.outbox:adapter-out-persistence-mongodb", version.ref = "quarkusOutbox" }
-quarkusOutboxDomainApi = { module = "de.chrgroth.quarkus.outbox:domain-api", version.ref = "quarkusOutbox" }
-quarkusOutboxDomainImpl = { module = "de.chrgroth.quarkus.outbox:domain-impl", version.ref = "quarkusOutbox" }
 quarkusStartersDomainApi = { module = "de.chrgroth.quarkus.starters:domain-api", version.ref = "quarkusStarters" }
 quarkusStartersDomainImpl = { module = "de.chrgroth.quarkus.starters:domain-impl", version.ref = "quarkusStarters" }
 quarkusStartersAdapterOutPersistenceMongodb = { module = "de.chrgroth.quarkus.starters:adapter-out-persistence-mongodb", version.ref = "quarkusStarters" }

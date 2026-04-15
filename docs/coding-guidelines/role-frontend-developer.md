@@ -43,7 +43,6 @@ SSE streams deliver named string events (e.g. `refresh-playback-data`) from the 
 | Endpoint            | Events                                                                  | Triggers                                                   |
 |---------------------|-------------------------------------------------------------------------|------------------------------------------------------------|
 | `/dashboard/events` | `refresh-playback-data`, `refresh-playlist-metadata`, `refresh-catalog-data` | Domain processing completes for the logged-in user    |
-| `/health/events`    | `refresh-outbox-partitions`                                             | Outbox partition changes or task count changes             |
 
 **Rules for adding new live update fragments:**
 
@@ -52,7 +51,6 @@ SSE streams deliver named string events (e.g. `refresh-playback-data`) from the 
 3. Add a new snippet endpoint in the resource class that returns the HTML fragment
 4. Add a `case` in the page's `connectSse` handler to call `fadeUpdate(elementId, snippetUrl)` on the new event
 5. The fragment template must be independently renderable (no dependency on page-level context)
-
 ## Design Principles
 
 Dark, technical appearance – fitting a developer tool. No generic Bootstrap default styling.

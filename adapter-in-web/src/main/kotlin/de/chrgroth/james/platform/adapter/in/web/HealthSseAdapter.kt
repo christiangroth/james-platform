@@ -1,8 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.model.user.Username
-import de.chrgroth.james.platform.domain.port.out.infra.OutboxPartitionObserver
-import de.chrgroth.james.platform.domain.port.out.infra.OutboxTaskCountObserver
 import io.smallrye.mutiny.Multi
 import io.smallrye.mutiny.subscription.MultiEmitter
 import jakarta.enterprise.context.ApplicationScoped
@@ -10,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 @ApplicationScoped
-class HealthSseAdapter : OutboxPartitionObserver, OutboxTaskCountObserver {
+class HealthSseAdapter {
 
   private val emittersByUser = ConcurrentHashMap<String, CopyOnWriteArrayList<MultiEmitter<in String>>>()
 
@@ -23,14 +21,6 @@ class HealthSseAdapter : OutboxPartitionObserver, OutboxTaskCountObserver {
       }
     }
   }
-
-  @Suppress("UnusedParameter")
-  override fun onPartitionPaused(partitionKey: String, reason: String) = notifyAllUsers("refresh-outbox-partitions")
-
-  @Suppress("UnusedParameter")
-  override fun onPartitionActivated(partitionKey: String) = notifyAllUsers("refresh-outbox-partitions")
-
-  override fun onOutboxTaskCountChanged() = notifyAllUsers("refresh-outbox-partitions")
 
   private fun notifyAllUsers(event: String) = emittersByUser.keys.toList().forEach { emitToUser(it, event) }
 

@@ -23,30 +23,17 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page displays health section with communication, state, cronjobs and mongodb sub-headings`() {
+  fun `health page displays health section with cronjobs and mongodb sub-headings`() {
     given()
       .`when`()
       .get("/health")
       .then()
       .statusCode(200)
       .body(containsString("""id="health-section""""))
-      .body(containsString("Communication"))
       .body(containsString("Cronjobs &amp; State"))
       .body(containsString("MongoDB"))
-      .body(containsString("Outbox Partitions"))
       .body(containsString("Collections"))
       .body(containsString("Queries (Last 24h)"))
-  }
-
-  @Test
-  fun `health page outbox table contains blocked column`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="outbox-table""""))
-      .body(containsString("Blocked"))
   }
 
   @Test
@@ -68,7 +55,6 @@ class HealthPageTests {
       .get("/health")
       .then()
       .statusCode(200)
-      .body(containsString("refresh-outbox-partitions"))
       .body(containsString("fadeUpdate"))
   }
 
@@ -113,82 +99,6 @@ class HealthPageTests {
       .statusCode(200)
       .body(containsString("""data-testid="mongodb-atlas-link""""))
       .body(containsString("https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer"))
-  }
-
-  @Test
-  fun `health snippet endpoint for outbox partitions is available`() {
-    given()
-      .`when`()
-      .get("/health/snippets/outbox-partitions")
-      .then()
-      .statusCode(200)
-      .contentType(containsString("text/html"))
-      .body(containsString("Outbox Partitions"))
-  }
-
-  @Test
-  fun `health page contains outbox blocked-until countdown javascript`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("formatBlockedUntil"))
-      .body(containsString("updateOutboxBlockedUntilCountdowns"))
-      .body(containsString("startOutboxBlockedUntilInterval"))
-      .body(containsString("outboxBlockedUntilInterval"))
-      .body(containsString("data-blocked-until"))
-      .body(containsString("outbox-blocked-until"))
-  }
-
-  @Test
-  fun `health page outbox blocked-until uses dd-MM-yyyy HH-mm format for dates beyond 24h`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("TWENTY_FOUR_HOURS_MS"))
-    given()
-      .`when`()
-      .get("/sse-utils.js")
-      .then()
-      .statusCode(200)
-      .body(containsString("day + '.' + month + '.' + year + ' ' + hours + ':' + minutes"))
-  }
-
-  @Test
-  fun `health page outbox blocked-until shows only countdown when less than 24h away`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("formatCountdown(remaining)"))
-      .body(not(containsString("formatBlockedUntil(blockedUntil) + ' ('")))
-  }
-
-  @Test
-  fun `health page outbox blocked-until interval is started and managed with 500ms`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("setInterval(updateOutboxBlockedUntilCountdowns, 500)"))
-      .body(containsString("clearInterval(outboxBlockedUntilInterval)"))
-  }
-
-  @Test
-  fun `health page outbox interval is cleared before sse snippet replacement`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("refresh-outbox-partitions"))
-      .body(containsString("startOutboxBlockedUntilInterval"))
-      .body(containsString("clearInterval"))
   }
 
   @Test
@@ -290,18 +200,6 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page outbox table uses icon before partition name instead of status column`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="outbox-table""""))
-      .body(containsString("fill=\"#1db954\""))
-      .body(containsString("vertical-align:middle"))
-  }
-
-  @Test
   fun `health page cronjob table uses icon before job name instead of status column`() {
     given()
       .`when`()
@@ -335,17 +233,6 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page outbox document count is shown statically`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(not(containsString("toggleOutboxDetail")))
-      .body(containsString("outbox-doc-count"))
-  }
-
-  @Test
   fun `health page contains config link in navbar`() {
     given()
       .`when`()
@@ -353,17 +240,6 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="config-link""""))
-  }
-
-  @Test
-  fun `health page outbox detail row is expanded by default`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(not(containsString("toggleOutboxDetail")))
-      .body(not(containsString("display:none;border-color")))
   }
 
   @Test
