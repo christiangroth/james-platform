@@ -1,3 +1,13 @@
+# 0.5.0 (2026.04.15)
+
+## New Features
+* Each app is now associated with the developer who created it.
+* Developers can only see and manage their own apps on the developer dashboard.
+
+
+
+---
+
 # 0.4.0 (2026.04.15)
 
 ## New Features
