@@ -156,7 +156,11 @@ class AppVersionManagementService(
       ).right()
     }
     val hasBreaking = hasBreakingChanges(latestPublished, draft)
-    val (onBreaking, onFeature, onBugfix) = nextVersions(latestPublished.versionNumber!!)
+    val latestVersionNumber = latestPublished.versionNumber ?: run {
+      logger.warn { "Compute version bump failed: latest published version has no version number for app $appId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)
     logger.info { "Compute version bump for app $appId: breaking=$hasBreaking, breaking→${onBreaking.value}, feature→${onFeature.value}, bugfix→${onBugfix.value}" }
     return VersionBumpResult(
       hasBreakingChanges = hasBreaking,
