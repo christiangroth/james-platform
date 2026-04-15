@@ -35,6 +35,14 @@ class AppRepositoryAdapter(
       appDocumentRepository.find(DEVELOPER_ID_FIELD, developerId).list().map { it.toDomain() }
     }
 
+  override fun deleteAllWithoutDeveloperId() {
+    mongoQueryMetrics.timed("app.deleteAllWithoutDeveloperId") {
+      appDocumentRepository.mongoCollection().deleteMany(
+        Filters.not(Filters.exists(DEVELOPER_ID_FIELD)),
+      )
+    }
+  }
+
   override fun save(app: App) {
     mongoQueryMetrics.timed("app.save") {
       val doc = app.toDocument()
