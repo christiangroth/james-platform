@@ -261,12 +261,12 @@ class AppManagementServiceTests {
     fun version(
       id: String = "ver-1",
       appId: String = "app-1",
-      versionNumber: String = "1.0.0",
+      versionNumber: String? = null,
       status: AppVersionStatus = AppVersionStatus.DRAFT,
     ) = AppVersion(
       id = AppVersionId(id),
       appId = AppId(appId),
-      versionNumber = VersionNumber(versionNumber),
+      versionNumber = versionNumber?.let { VersionNumber(it) },
       releaseNotes = null,
       entityDefinitions = emptyList(),
       reports = emptyList(),

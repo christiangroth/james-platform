@@ -1,5 +1,5 @@
 {#include layout.html}
-    {#title}James Platform – {app.name} {version.versionNumber}{/title}
+    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}Draft{/if}{/title}
     {#content}
     <div class="d-flex" style="min-height:calc(100vh - 48px);">
         <!-- Left vertical navigation (DRAFT only) -->
@@ -35,17 +35,25 @@
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="text-decoration-none" style="color:var(--color-action);">Developer Dashboard</a></li>
                     <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-app-link">{app.name}</a></li>
-                    <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="breadcrumb-version">{version.versionNumber}</li>
+                    <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}Draft{/if}</li>
                 </ol>
             </nav>
 
-            <div class="d-flex align-items-center mb-4 gap-3">
+            <div id="version-message" class="d-none mb-4" role="alert"></div>
+
+            <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
                 <div>
-                    <h1 class="fs-4 fw-semibold mb-1" data-testid="version-number">{version.versionNumber}</h1>
+                    <h1 class="fs-4 fw-semibold mb-1" data-testid="version-number">{#if version.versionNumber}{version.versionNumber}{#else}<span class="app-section-label fst-italic">No version number yet</span>{/if}</h1>
                     <div class="app-section-label" data-testid="version-created-at">{version.createdAt.formatted}</div>
                 </div>
-                <span class="badge ms-auto {#if isDraft}app-badge-processing{#else}app-badge-muted{/if}"
-                      data-testid="version-status">{version.status}</span>
+                <span class="badge {#if isDraft}app-badge-processing{#else}app-badge-muted{/if}" data-testid="version-status">{version.status}</span>
+                {#if isDraft}
+                <button type="button" class="btn btn-app-primary btn-sm ms-auto"
+                        data-bs-toggle="modal" data-bs-target="#publishVersionModal"
+                        data-testid="publish-version-button">
+                    Publish Version
+                </button>
+                {/if}
             </div>
 
             {#if !isDraft}
@@ -61,18 +69,168 @@
             <!-- Editor area -->
             {#if isDraft}
                 {#if selectedEntity != null}
+                <!-- Entity Editor -->
                 <div class="card app-card p-4" data-testid="entity-editor">
-                    <h2 class="fs-5 fw-semibold mb-3">Entity: {selectedEntity.name}</h2>
-                    <p class="app-section-label mb-0">Entity editor – coming soon.</p>
+                    <div class="d-flex align-items-center mb-3 gap-2">
+                        <h2 class="fs-5 fw-semibold mb-0">Entity: {selectedEntity.name}</h2>
+                        <button type="button" class="btn btn-sm ms-auto" style="background-color:var(--color-action-danger,#b22222);color:#fff;border:none;"
+                                data-action="delete-entity" data-entity-id="{selectedEntity.id}" data-testid="delete-entity-button">
+                            Delete Entity
+                        </button>
+                    </div>
+
+                    <h3 class="fs-6 fw-semibold mb-2">Properties</h3>
+                    {#if selectedEntity.properties.isEmpty}
+                    <p class="app-section-label mb-3" data-testid="no-properties">No properties yet.</p>
+                    {#else}
+                    <table class="table table-sm mb-3" style="color:var(--color-text);border-color:var(--color-border);" data-testid="properties-table">
+                        <thead>
+                            <tr style="border-color:var(--color-border);">
+                                <th style="color:var(--color-text-muted);font-weight:500;">Name</th>
+                                <th style="color:var(--color-text-muted);font-weight:500;">Type</th>
+                                <th style="color:var(--color-text-muted);font-weight:500;">Nullable</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for prop in selectedEntity.properties}
+                            <tr style="border-color:var(--color-border);" data-testid="property-row">
+                                <td>{prop.name}</td>
+                                <td><span class="badge app-badge-muted">{prop.type}</span></td>
+                                <td>{#if prop.nullable}Yes{#else}No{/if}</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm"
+                                            style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
+                                            data-action="delete-property" data-entity-id="{selectedEntity.id}" data-property-id="{prop.id}"
+                                            data-testid="delete-property-button">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                    {/if}
+
+                    <!-- Add Property Form -->
+                    <div class="card p-3" style="background-color:#1a1a1a;border-color:var(--color-border);">
+                        <h4 class="fs-6 fw-semibold mb-2">Add Property</h4>
+                        <form id="addPropertyForm" class="row g-2 align-items-end">
+                            <input type="hidden" name="entityId" value="{selectedEntity.id}">
+                            <div class="col-12 col-sm-4">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name</label>
+                                <input type="text" class="form-control app-form-control form-control-sm" name="name" required autocomplete="off" placeholder="e.g. OrderDate" data-testid="property-name-input">
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type</label>
+                                <select class="form-select app-form-control form-select-sm" name="type" required data-testid="property-type-select">
+                                    <option value="">– Select –</option>
+                                    <option value="STRING">String</option>
+                                    <option value="LONG">Long (Integer)</option>
+                                    <option value="DOUBLE">Double (Decimal)</option>
+                                    <option value="BOOLEAN">Boolean</option>
+                                    <option value="DATE">Date</option>
+                                    <option value="TIME">Time</option>
+                                    <option value="DATETIME">DateTime</option>
+                                    <option value="REF">Reference</option>
+                                    <option value="LIST">List</option>
+                                    <option value="OBJECT">Object</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-sm-2">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" name="nullable" id="nullableCheck" checked value="true" data-testid="property-nullable-check">
+                                    <label class="form-check-label" for="nullableCheck" style="color:var(--color-text-muted);">Nullable</label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-2">
+                                <button type="submit" class="btn btn-app-primary btn-sm w-100" data-testid="add-property-submit">Add</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
+
                 {#else if selectedReport != null}
+                <!-- Report Editor -->
                 <div class="card app-card p-4" data-testid="report-editor">
-                    <h2 class="fs-5 fw-semibold mb-3">Report: {selectedReport.name}</h2>
-                    <p class="app-section-label mb-0">Report editor – coming soon.</p>
+                    <div class="d-flex align-items-center mb-3 gap-2">
+                        <h2 class="fs-5 fw-semibold mb-0">Report: {selectedReport.name}</h2>
+                        <button type="button" class="btn btn-sm ms-auto" style="background-color:var(--color-action-danger,#b22222);color:#fff;border:none;"
+                                data-action="delete-report" data-report-id="{selectedReport.id}" data-testid="delete-report-button">
+                            Delete Report
+                        </button>
+                    </div>
+
+                    <h3 class="fs-6 fw-semibold mb-2">Pages</h3>
+                    {#if selectedReport.pages.isEmpty}
+                    <p class="app-section-label mb-3" data-testid="no-pages">No pages yet.</p>
+                    {#else}
+                    {#for page in selectedReport.pages}
+                    <div class="card mb-3 p-3" style="background-color:#1a1a1a;border-color:var(--color-border);" data-testid="report-page">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <span class="fw-semibold" style="font-size:0.875rem;">Page {page_count}</span>
+                            <button type="button" class="btn btn-sm ms-auto" style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
+                                    data-action="delete-page" data-report-id="{selectedReport.id}" data-page-index="{page_index}"
+                                    data-testid="delete-page-button">
+                                Remove
+                            </button>
+                        </div>
+                        <form class="update-page-form" data-report-id="{selectedReport.id}" data-page-index="{page_index}">
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">HTML</label>
+                                <textarea class="form-control app-form-control form-control-sm" name="html" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="page-html-input">{page.html}</textarea>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Script</label>
+                                <textarea class="form-control app-form-control form-control-sm" name="script" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="page-script-input">{page.script}</textarea>
+                            </div>
+                            <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="update-page-button">Save Page</button>
+                        </form>
+                    </div>
+                    {/for}
+                    {/if}
+
+                    <!-- Add Page Form -->
+                    <div class="card p-3" style="background-color:#1a1a1a;border-color:var(--color-border);">
+                        <h4 class="fs-6 fw-semibold mb-2">Add Page</h4>
+                        <form id="addPageForm" data-report-id="{selectedReport.id}">
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">HTML</label>
+                                <textarea class="form-control app-form-control form-control-sm" name="html" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="add-page-html-input" placeholder="<h1>Report</h1>"></textarea>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Script</label>
+                                <textarea class="form-control app-form-control form-control-sm" name="script" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="add-page-script-input" placeholder="// JavaScript logic"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-app-primary btn-sm" data-testid="add-page-submit">Add Page</button>
+                        </form>
+                    </div>
                 </div>
+
                 {#else}
-                <div class="card app-card p-4" data-testid="version-editor-placeholder">
-                    <p class="app-section-label mb-0">Select an entity or report from the left menu to start editing.</p>
+                <!-- Version overview (no selection) -->
+                <div class="card app-card p-4 mb-3" data-testid="version-editor-placeholder">
+                    <p class="app-section-label mb-3">Select an entity or report from the left menu to start editing, or add a new one below.</p>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="card p-3" style="background-color:#1a1a1a;border-color:var(--color-border);">
+                                <h3 class="fs-6 fw-semibold mb-2">Add Entity</h3>
+                                <form id="addEntityForm" class="d-flex gap-2">
+                                    <input type="text" class="form-control app-form-control form-control-sm" name="name" required autocomplete="off" placeholder="Entity name" data-testid="add-entity-name-input">
+                                    <button type="submit" class="btn btn-app-primary btn-sm" data-testid="add-entity-submit">Add</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="card p-3" style="background-color:#1a1a1a;border-color:var(--color-border);">
+                                <h3 class="fs-6 fw-semibold mb-2">Add Report</h3>
+                                <form id="addReportForm" class="d-flex gap-2">
+                                    <input type="text" class="form-control app-form-control form-control-sm" name="name" required autocomplete="off" placeholder="Report name" data-testid="add-report-name-input">
+                                    <button type="submit" class="btn btn-app-primary btn-sm" data-testid="add-report-submit">Add</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 {/if}
             {#else}
@@ -110,5 +268,288 @@
             {/if}
         </div>
     </div>
+
+    <!-- Publish Version Modal -->
+    {#if isDraft}
+    <div class="modal fade" id="publishVersionModal" tabindex="-1" aria-labelledby="publishVersionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
+                <div class="modal-header" style="border-color:#333;">
+                    <h5 class="modal-title" id="publishVersionModalLabel">Publish Version</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="publishVersionForm">
+                    <div class="modal-body">
+                        <div id="version-bump-loading" class="text-center py-3 app-section-label">Loading version suggestions…</div>
+                        <div id="version-bump-content" class="d-none">
+                            <div id="breaking-warning" class="alert d-none" style="background-color:#2a1a1a;border-color:#6b2222;color:#f8d7da;" role="alert" data-testid="breaking-changes-warning">
+                                Breaking changes detected. A major version bump is required.
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Suggested Versions</label>
+                                <div id="version-suggestions" class="d-flex flex-wrap gap-2 mb-2"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="publishVersionNumber" class="form-label">Version Number <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control app-form-control" id="publishVersionNumber" name="versionNumber"
+                                       required autocomplete="off" placeholder="e.g. 1.0.0"
+                                       data-testid="publish-version-number-input">
+                                <div class="form-text" style="color:var(--color-text-muted);">Must follow semantic versioning (e.g. 1.0.0)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="border-color:#333;">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" id="publishSubmitBtn" disabled data-testid="publish-version-submit-button">Publish</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+
     {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var appId = '{app.id}';
+            var versionId = '{version.id}';
+            var messagePanel = document.getElementById('version-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            async function apiPost(url, formData, navigateOnSuccess) {
+                try {
+                    var body = formData ? new URLSearchParams(formData).toString() : '';
+                    var headers = { 'Accept': 'application/json' };
+                    if (body) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; }
+                    var response = await fetch(url, { method: 'POST', headers: headers, body: body || undefined });
+                    var result = await response.json();
+                    if (result.ok && result.redirectUrl && navigateOnSuccess) {
+                        window.location.href = result.redirectUrl;
+                    } else {
+                        showMessage(result.ok, result.message);
+                    }
+                    return result;
+                } catch (e) {
+                    showMessage(false, 'Network error. Please try again.');
+                    return null;
+                }
+            }
+
+            // Add Entity form
+            var addEntityForm = document.getElementById('addEntityForm');
+            if (addEntityForm) {
+                addEntityForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = addEntityForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities', new FormData(this), true);
+                    btn.disabled = false;
+                    addEntityForm.reset();
+                });
+            }
+
+            // Add Report form
+            var addReportForm = document.getElementById('addReportForm');
+            if (addReportForm) {
+                addReportForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = addReportForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports', new FormData(this), true);
+                    btn.disabled = false;
+                    addReportForm.reset();
+                });
+            }
+
+            // Delete Entity buttons
+            document.querySelectorAll('[data-action="delete-entity"]').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var entityId = btn.getAttribute('data-entity-id');
+                    if (!confirm('Delete this entity and all its properties?')) return;
+                    btn.disabled = true;
+                    await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/delete', null, true);
+                    btn.disabled = false;
+                });
+            });
+
+            // Add Property form
+            var addPropertyForm = document.getElementById('addPropertyForm');
+            if (addPropertyForm) {
+                addPropertyForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = addPropertyForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var formData = new FormData(this);
+                    var entityId = formData.get('entityId');
+                    if (!document.getElementById('nullableCheck').checked) {
+                        formData.set('nullable', 'false');
+                    } else {
+                        formData.set('nullable', 'true');
+                    }
+                    formData.delete('entityId');
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties',
+                        formData, true
+                    );
+                    btn.disabled = false;
+                    addPropertyForm.reset();
+                    document.getElementById('nullableCheck').checked = true;
+                });
+            }
+
+            // Delete Property buttons
+            document.querySelectorAll('[data-action="delete-property"]').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var entityId = btn.getAttribute('data-entity-id');
+                    var propertyId = btn.getAttribute('data-property-id');
+                    if (!confirm('Remove this property?')) return;
+                    btn.disabled = true;
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/delete',
+                        null, true
+                    );
+                    btn.disabled = false;
+                });
+            });
+
+            // Delete Report buttons
+            document.querySelectorAll('[data-action="delete-report"]').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var reportId = btn.getAttribute('data-report-id');
+                    if (!confirm('Delete this report and all its pages?')) return;
+                    btn.disabled = true;
+                    await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/delete', null, true);
+                    btn.disabled = false;
+                });
+            });
+
+            // Delete Page buttons
+            document.querySelectorAll('[data-action="delete-page"]').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var reportId = btn.getAttribute('data-report-id');
+                    var pageIndex = btn.getAttribute('data-page-index');
+                    if (!confirm('Remove this page?')) return;
+                    btn.disabled = true;
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/pages/' + pageIndex + '/delete',
+                        null, true
+                    );
+                    btn.disabled = false;
+                });
+            });
+
+            // Update Page forms
+            document.querySelectorAll('.update-page-form').forEach(function (form) {
+                form.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = form.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var reportId = form.getAttribute('data-report-id');
+                    var pageIndex = form.getAttribute('data-page-index');
+                    var result = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/pages/' + pageIndex,
+                        new FormData(form), false
+                    );
+                    btn.disabled = false;
+                });
+            });
+
+            // Add Page form
+            var addPageForm = document.getElementById('addPageForm');
+            if (addPageForm) {
+                addPageForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = addPageForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var reportId = addPageForm.getAttribute('data-report-id');
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/pages',
+                        new FormData(this), true
+                    );
+                    btn.disabled = false;
+                    addPageForm.reset();
+                });
+            }
+
+            // Publish Version Modal
+            var publishModal = document.getElementById('publishVersionModal');
+            if (publishModal) {
+                publishModal.addEventListener('show.bs.modal', async function () {
+                    var loading = document.getElementById('version-bump-loading');
+                    var content = document.getElementById('version-bump-content');
+                    var submitBtn = document.getElementById('publishSubmitBtn');
+                    var breakingWarning = document.getElementById('breaking-warning');
+                    var suggestions = document.getElementById('version-suggestions');
+                    var versionInput = document.getElementById('publishVersionNumber');
+                    loading.classList.remove('d-none');
+                    content.classList.add('d-none');
+                    submitBtn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/versions/' + versionId + '/version-bump');
+                        var bump = await response.json();
+                        loading.classList.add('d-none');
+                        content.classList.remove('d-none');
+                        submitBtn.disabled = false;
+                        if (bump.hasBreakingChanges) {
+                            breakingWarning.classList.remove('d-none');
+                        } else {
+                            breakingWarning.classList.add('d-none');
+                        }
+                        suggestions.innerHTML = '';
+                        var shown = [];
+                        if (bump.hasBreakingChanges) {
+                            shown.push({ label: 'Breaking: ' + bump.suggestedVersionOnBreaking.value, value: bump.suggestedVersionOnBreaking.value });
+                        } else {
+                            shown.push({ label: 'Feature: ' + bump.suggestedVersionOnFeature.value, value: bump.suggestedVersionOnFeature.value });
+                            shown.push({ label: 'Bugfix: ' + bump.suggestedVersionOnBugfix.value, value: bump.suggestedVersionOnBugfix.value });
+                        }
+                        shown.forEach(function (s) {
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'btn btn-app-secondary btn-sm';
+                            btn.setAttribute('data-testid', 'version-suggestion-btn');
+                            btn.textContent = s.label;
+                            btn.addEventListener('click', function () {
+                                versionInput.value = s.value;
+                            });
+                            suggestions.appendChild(btn);
+                        });
+                        if (shown.length > 0) {
+                            versionInput.value = shown[0].value;
+                        }
+                    } catch (err) {
+                        loading.innerHTML = 'Could not load version suggestions.';
+                    }
+                });
+
+                var publishVersionForm = document.getElementById('publishVersionForm');
+                publishVersionForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = document.getElementById('publishSubmitBtn');
+                    btn.disabled = true;
+                    var result = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/publish',
+                        new FormData(this), true
+                    );
+                    if (!result || !result.ok) {
+                        btn.disabled = false;
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
 {/include}

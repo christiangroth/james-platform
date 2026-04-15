@@ -48,9 +48,10 @@ object TemplateFormattingExtensions {
   /**
    * Returns the AppVersion versionNumber string value. Used because VersionNumber is a JvmInline value class
    * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   * Returns null when the draft version has no version number yet.
    */
   @JvmStatic
-  fun versionNumber(version: AppVersion): String = version.versionNumber.value
+  fun versionNumber(version: AppVersion): String? = version.versionNumber?.value
 
   /**
    * Returns the EntityDefinition id string value. Used because EntityDefinitionId is a JvmInline value class
