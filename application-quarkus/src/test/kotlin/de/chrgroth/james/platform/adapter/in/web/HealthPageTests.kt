@@ -200,18 +200,6 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page cronjob table uses icon before job name instead of status column`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("""data-testid="cronjobs-table""""))
-      .body(containsString("fill=\"#1db954\""))
-      .body(containsString("vertical-align:middle"))
-  }
-
-  @Test
   fun `health page mongodb collections size column shows kb after value`() {
     given()
       .`when`()

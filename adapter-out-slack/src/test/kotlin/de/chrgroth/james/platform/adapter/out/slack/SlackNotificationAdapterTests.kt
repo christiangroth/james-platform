@@ -13,8 +13,6 @@ class SlackNotificationAdapterTests {
     iconEmoji: String = ":robot_face:",
     startupEnabled: Boolean = false,
     stoppingEnabled: Boolean = false,
-    partitionPausedEnabled: Boolean = false,
-    partitionResumedEnabled: Boolean = false,
   ) = SlackNotificationAdapter(
     version = "1.0.0-TEST",
     webhookUrl = webhookUrl,
@@ -22,8 +20,6 @@ class SlackNotificationAdapterTests {
     iconEmoji = iconEmoji,
     startupEnabled = startupEnabled,
     stoppingEnabled = stoppingEnabled,
-    partitionPausedEnabled = partitionPausedEnabled,
-    partitionResumedEnabled = partitionResumedEnabled,
   )
 
   @Test
@@ -54,35 +50,5 @@ class SlackNotificationAdapterTests {
   @Test
   fun `stopping notification does not throw when no webhook url configured`() {
     adapter(stoppingEnabled = true).onShutdown(ShutdownEvent())
-  }
-
-  @Test
-  fun `partition paused notification does not throw when disabled`() {
-    adapter().onPartitionPaused("test-partition", "RATE_LIMITED")
-  }
-
-  @Test
-  fun `partition paused notification does not throw when no webhook url configured`() {
-    adapter(partitionPausedEnabled = true).onPartitionPaused("test-partition", "RATE_LIMITED")
-  }
-
-  @Test
-  fun `partition paused notification includes status reason`() {
-    adapter(partitionPausedEnabled = true).onPartitionPaused("test-partition", "RATE_LIMITED")
-  }
-
-  @Test
-  fun `partition paused notification handles blank reason`() {
-    adapter(partitionPausedEnabled = true).onPartitionPaused("test-partition", "unknown")
-  }
-
-  @Test
-  fun `partition resumed notification does not throw when disabled`() {
-    adapter().onPartitionActivated("test-partition")
-  }
-
-  @Test
-  fun `partition resumed notification does not throw when no webhook url configured`() {
-    adapter(partitionResumedEnabled = true).onPartitionActivated("test-partition")
   }
 }

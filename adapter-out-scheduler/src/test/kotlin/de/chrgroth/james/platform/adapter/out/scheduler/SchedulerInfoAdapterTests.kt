@@ -18,6 +18,7 @@ class SchedulerInfoAdapterTests {
     val trigger = mockk<Trigger>()
     every { trigger.id } returns "0_some-id"
     every { trigger.methodDescription } returns null
+    every { scheduler.isRunning } returns true
     every { scheduler.scheduledJobs } returns listOf(trigger)
 
     val result = adapter.getCronjobStats()
@@ -30,6 +31,7 @@ class SchedulerInfoAdapterTests {
     val trigger = mockk<Trigger>()
     every { trigger.id } returns "some-id"
     every { trigger.methodDescription } returns "invalid-method-description"
+    every { scheduler.isRunning } returns true
     every { scheduler.scheduledJobs } returns listOf(trigger)
 
     val result = adapter.getCronjobStats()
@@ -42,6 +44,7 @@ class SchedulerInfoAdapterTests {
     val trigger = mockk<Trigger>()
     every { trigger.id } returns "some-id"
     every { trigger.methodDescription } returns "com.example.NonExistentJob#run"
+    every { scheduler.isRunning } returns true
     every { scheduler.scheduledJobs } returns listOf(trigger)
 
     val result = adapter.getCronjobStats()
@@ -51,7 +54,17 @@ class SchedulerInfoAdapterTests {
 
   @Test
   fun `empty scheduler returns empty list`() {
+    every { scheduler.isRunning } returns true
     every { scheduler.scheduledJobs } returns emptyList()
+
+    val result = adapter.getCronjobStats()
+
+    assertThat(result).isEmpty()
+  }
+
+  @Test
+  fun `scheduler not running returns empty list`() {
+    every { scheduler.isRunning } returns false
 
     val result = adapter.getCronjobStats()
 
