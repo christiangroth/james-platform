@@ -14,7 +14,6 @@ class PropertyConstraintService : PropertyConstraintPort {
     val violations = mutableListOf<PropertyConstraintViolation>()
     for (constraint in property.constraints) {
       when (constraint) {
-        is PropertyConstraint.NotNull -> if (value == null) violations += PropertyConstraintViolation.NOT_NULL_VIOLATION
         is PropertyConstraint.UniqueKey -> if (existingValues.contains(value)) violations += PropertyConstraintViolation.UNIQUE_KEY_VIOLATION
         is PropertyConstraint.MinLong -> if (value is Long && value < constraint.min) violations += PropertyConstraintViolation.MIN_VALUE_VIOLATION
         is PropertyConstraint.MaxLong -> if (value is Long && value > constraint.max) violations += PropertyConstraintViolation.MAX_VALUE_VIOLATION

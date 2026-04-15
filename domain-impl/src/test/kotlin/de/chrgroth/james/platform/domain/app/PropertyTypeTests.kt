@@ -7,24 +7,37 @@ import org.junit.jupiter.api.Test
 
 class PropertyTypeTests {
 
-  // region general constraints available on every type
+  // region UniqueKey — available for scalar types, not for LIST or OBJECT
 
   @Test
-  fun `every PropertyType includes NotNull in availableConstraints`() {
-    PropertyType.entries.forEach { type ->
-      assertThat(type.availableConstraints())
-        .describedAs("$type should include NotNull")
-        .contains(PropertyConstraint.NotNull::class)
-    }
-  }
-
-  @Test
-  fun `every PropertyType includes UniqueKey in availableConstraints`() {
-    PropertyType.entries.forEach { type ->
+  fun `scalar types include UniqueKey in availableConstraints`() {
+    val scalarTypes = listOf(
+      PropertyType.LONG,
+      PropertyType.DOUBLE,
+      PropertyType.BOOLEAN,
+      PropertyType.STRING,
+      PropertyType.DATE,
+      PropertyType.TIME,
+      PropertyType.DATETIME,
+      PropertyType.REF,
+    )
+    scalarTypes.forEach { type ->
       assertThat(type.availableConstraints())
         .describedAs("$type should include UniqueKey")
         .contains(PropertyConstraint.UniqueKey::class)
     }
+  }
+
+  @Test
+  fun `LIST does not include UniqueKey`() {
+    assertThat(PropertyType.LIST.availableConstraints())
+      .doesNotContain(PropertyConstraint.UniqueKey::class)
+  }
+
+  @Test
+  fun `OBJECT does not include UniqueKey`() {
+    assertThat(PropertyType.OBJECT.availableConstraints())
+      .doesNotContain(PropertyConstraint.UniqueKey::class)
   }
 
   // endregion
@@ -126,42 +139,45 @@ class PropertyTypeTests {
 
   // endregion
 
-  // region types with only general constraints
+  // region types with only UniqueKey
 
   @Test
-  fun `BOOLEAN has only general constraints`() {
+  fun `BOOLEAN has only UniqueKey`() {
     assertThat(PropertyType.BOOLEAN.availableConstraints())
-      .containsExactlyInAnyOrderElementsOf(PropertyConstraint.GENERAL_CONSTRAINTS)
+      .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
   @Test
-  fun `DATE has only general constraints`() {
+  fun `DATE has only UniqueKey`() {
     assertThat(PropertyType.DATE.availableConstraints())
-      .containsExactlyInAnyOrderElementsOf(PropertyConstraint.GENERAL_CONSTRAINTS)
+      .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
   @Test
-  fun `TIME has only general constraints`() {
+  fun `TIME has only UniqueKey`() {
     assertThat(PropertyType.TIME.availableConstraints())
-      .containsExactlyInAnyOrderElementsOf(PropertyConstraint.GENERAL_CONSTRAINTS)
+      .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
   @Test
-  fun `DATETIME has only general constraints`() {
+  fun `DATETIME has only UniqueKey`() {
     assertThat(PropertyType.DATETIME.availableConstraints())
-      .containsExactlyInAnyOrderElementsOf(PropertyConstraint.GENERAL_CONSTRAINTS)
+      .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
   @Test
-  fun `REF has only general constraints`() {
+  fun `REF has only UniqueKey`() {
     assertThat(PropertyType.REF.availableConstraints())
-      .containsExactlyInAnyOrderElementsOf(PropertyConstraint.GENERAL_CONSTRAINTS)
+      .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
+  // endregion
+
+  // region OBJECT
+
   @Test
-  fun `OBJECT has only general constraints`() {
-    assertThat(PropertyType.OBJECT.availableConstraints())
-      .containsExactlyInAnyOrderElementsOf(PropertyConstraint.GENERAL_CONSTRAINTS)
+  fun `OBJECT has no available constraints`() {
+    assertThat(PropertyType.OBJECT.availableConstraints()).isEmpty()
   }
 
   // endregion

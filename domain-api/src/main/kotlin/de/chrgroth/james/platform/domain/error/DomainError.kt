@@ -57,7 +57,6 @@ enum class AppVersionError(override val code: String) : DomainError {
 }
 
 enum class PropertyConstraintViolation(override val code: String) : DomainError {
-  NOT_NULL_VIOLATION("PROP-001"),
   UNIQUE_KEY_VIOLATION("PROP-002"),
   MIN_VALUE_VIOLATION("PROP-003"),
   MAX_VALUE_VIOLATION("PROP-004"),

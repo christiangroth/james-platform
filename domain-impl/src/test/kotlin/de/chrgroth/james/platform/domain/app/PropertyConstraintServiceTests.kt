@@ -12,28 +12,6 @@ class PropertyConstraintServiceTests {
 
   private val service = PropertyConstraintService()
 
-  // region NotNull
-
-  @Test
-  fun `checkValue passes NotNull when value is present`() {
-    val property = property(constraints = setOf(PropertyConstraint.NotNull))
-
-    val violations = service.checkValue(property, "hello")
-
-    assertThat(violations).isEmpty()
-  }
-
-  @Test
-  fun `checkValue reports NOT_NULL_VIOLATION when value is null`() {
-    val property = property(constraints = setOf(PropertyConstraint.NotNull))
-
-    val violations = service.checkValue(property, null)
-
-    assertThat(violations).containsExactly(PropertyConstraintViolation.NOT_NULL_VIOLATION)
-  }
-
-  // endregion
-
   // region UniqueKey
 
   @Test
@@ -261,13 +239,13 @@ class PropertyConstraintServiceTests {
 
   @Test
   fun `checkValue reports all violations when multiple constraints fail`() {
-    val property = property(constraints = setOf(PropertyConstraint.NotNull, PropertyConstraint.UniqueKey))
+    val property = property(type = PropertyType.LONG, constraints = setOf(PropertyConstraint.MinLong(10L), PropertyConstraint.MaxLong(5L)))
 
-    val violations = service.checkValue(property, null, existingValues = listOf(null, "other"))
+    val violations = service.checkValue(property, 7L)
 
     assertThat(violations).containsExactlyInAnyOrder(
-      PropertyConstraintViolation.NOT_NULL_VIOLATION,
-      PropertyConstraintViolation.UNIQUE_KEY_VIOLATION,
+      PropertyConstraintViolation.MIN_VALUE_VIOLATION,
+      PropertyConstraintViolation.MAX_VALUE_VIOLATION,
     )
   }
 

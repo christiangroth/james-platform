@@ -171,7 +171,6 @@ class AppVersionManagementService(
         if (draftProp.type != publishedProp.type) return true
         if (publishedProp.nullable && !draftProp.nullable) return true
         val addedConstraints = draftProp.constraints - publishedProp.constraints
-        if (addedConstraints.any { it is PropertyConstraint.NotNull }) return true
         if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
       }
     }

@@ -390,25 +390,6 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `computeVersionBump detects breaking change when NOT_NULL constraint added to existing property`() {
-    val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING)
-    val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.NotNull))
-    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
-    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
-    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
-    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
-      .copy(entityDefinitions = listOf(entityDraft))
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
-
-    val result = service.computeVersionBump("app-1", "ver-draft")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
-  }
-
-  @Test
   fun `computeVersionBump detects breaking change when type-specific constraint added to existing property`() {
     val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING)
     val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MaxLength(50)))

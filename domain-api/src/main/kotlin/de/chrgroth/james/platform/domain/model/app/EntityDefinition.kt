@@ -23,8 +23,7 @@ data class Property(
 )
 
 sealed interface PropertyConstraint {
-  // Generic constraints (all types)
-  data object NotNull : PropertyConstraint
+  // Unique key constraint (scalar types only — not LIST or OBJECT)
   data object UniqueKey : PropertyConstraint
 
   // Numeric constraints (LONG)
@@ -43,58 +42,64 @@ sealed interface PropertyConstraint {
   // List constraints (LIST)
   data class MinSize(val min: Int) : PropertyConstraint
   data class MaxSize(val max: Int) : PropertyConstraint
-
-  companion object {
-    val GENERAL_CONSTRAINTS: List<KClass<out PropertyConstraint>> = listOf(
-      NotNull::class,
-      UniqueKey::class,
-    )
-  }
 }
 
 enum class PropertyType {
   LONG {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
       PropertyConstraint.MinLong::class,
       PropertyConstraint.MaxLong::class,
     )
   },
   DOUBLE {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
       PropertyConstraint.MinDouble::class,
       PropertyConstraint.MaxDouble::class,
     )
   },
   BOOLEAN {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
+    )
   },
   STRING {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
       PropertyConstraint.MinLength::class,
       PropertyConstraint.MaxLength::class,
       PropertyConstraint.Pattern::class,
     )
   },
   DATE {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
+    )
   },
   TIME {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
+    )
   },
   DATETIME {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
+    )
   },
   REF {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
+    )
   },
   LIST {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS + listOf(
+    override fun availableConstraints() = listOf(
       PropertyConstraint.MinSize::class,
       PropertyConstraint.MaxSize::class,
     )
   },
   OBJECT {
-    override fun availableConstraints() = PropertyConstraint.GENERAL_CONSTRAINTS
+    override fun availableConstraints(): List<KClass<out PropertyConstraint>> = emptyList()
   },
   ;
 
