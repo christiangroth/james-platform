@@ -30,6 +30,19 @@ class AppRepositoryAdapter(
       appDocumentRepository.listAll().map { it.toDomain() }
     }
 
+  override fun findAllByDeveloperId(developerId: String): List<App> =
+    mongoQueryMetrics.timed("app.findAllByDeveloperId") {
+      appDocumentRepository.find(DEVELOPER_ID_FIELD, developerId).list().map { it.toDomain() }
+    }
+
+  override fun deleteAllWithoutDeveloperId() {
+    mongoQueryMetrics.timed("app.deleteAllWithoutDeveloperId") {
+      appDocumentRepository.mongoCollection().deleteMany(
+        Filters.not(Filters.exists(DEVELOPER_ID_FIELD)),
+      )
+    }
+  }
+
   override fun save(app: App) {
     mongoQueryMetrics.timed("app.save") {
       val doc = app.toDocument()
@@ -45,6 +58,7 @@ class AppRepositoryAdapter(
     id = AppId(id),
     name = AppName(name),
     description = description,
+    developerId = developerId,
     status = AppStatus.valueOf(status),
     createdAt = createdAt,
     updatedAt = updatedAt,
@@ -54,6 +68,7 @@ class AppRepositoryAdapter(
     doc.id = id.value
     doc.name = name.value
     doc.description = description
+    doc.developerId = developerId
     doc.status = status.name
     doc.createdAt = createdAt
     doc.updatedAt = updatedAt
@@ -62,5 +77,6 @@ class AppRepositoryAdapter(
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val NAME_FIELD = "name"
+    internal const val DEVELOPER_ID_FIELD = "developerId"
   }
 }

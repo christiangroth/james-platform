@@ -8,5 +8,7 @@ interface AppRepositoryPort {
   fun findById(appId: AppId): App?
   fun findByName(name: AppName): App?
   fun findAll(): List<App>
+  fun findAllByDeveloperId(developerId: String): List<App>
+  fun deleteAllWithoutDeveloperId()
   fun save(app: App)
 }

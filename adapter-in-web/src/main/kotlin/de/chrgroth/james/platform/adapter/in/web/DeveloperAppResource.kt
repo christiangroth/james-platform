@@ -56,7 +56,7 @@ class DeveloperAppResource {
   @Produces(MediaType.TEXT_HTML)
   fun developerDashboard() = developerDashboardTemplate
     .data("username", securityIdentity.principal.name)
-    .data("apps", appManagement.listApps())
+    .data("apps", appManagement.listApps(securityIdentity.principal.name))
 
   @POST
   @Path("/apps")
@@ -69,7 +69,7 @@ class DeveloperAppResource {
     if (name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "App name is required.")).build()
     }
-    return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }).fold(
+    return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, securityIdentity.principal.name).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
       ifRight = { app -> Response.ok(DeveloperApiResult(true, "App created.", "/ui/developer/apps/${app.id.value}")).build() },
     )
@@ -79,7 +79,7 @@ class DeveloperAppResource {
   @Path("/apps/{appId}")
   @Produces(MediaType.TEXT_HTML)
   fun appOverview(@PathParam("appId") appId: String): Response {
-    return appManagement.getApp(appId).fold(
+    return appManagement.getApp(appId, securityIdentity.principal.name).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/dashboard")).build() },
       ifRight = { app ->
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
@@ -120,7 +120,7 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
   ): Response {
-    val appResult = appManagement.getApp(appId)
+    val appResult = appManagement.getApp(appId, securityIdentity.principal.name)
     if (appResult.isLeft()) {
       return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
@@ -149,7 +149,7 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
   ): Response {
-    val appResult = appManagement.getApp(appId)
+    val appResult = appManagement.getApp(appId, securityIdentity.principal.name)
     if (appResult.isLeft()) {
       return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
@@ -179,7 +179,7 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("reportId") reportId: String,
   ): Response {
-    val appResult = appManagement.getApp(appId)
+    val appResult = appManagement.getApp(appId, securityIdentity.principal.name)
     if (appResult.isLeft()) {
       return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
