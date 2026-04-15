@@ -1,0 +1,114 @@
+{#include layout.html}
+    {#title}James Platform – {app.name} {version.versionNumber}{/title}
+    {#content}
+    <div class="d-flex" style="min-height:calc(100vh - 48px);">
+        <!-- Left vertical navigation (DRAFT only) -->
+        {#if isDraft}
+        <nav class="d-flex flex-column py-3 px-2" style="min-width:180px;max-width:220px;width:200px;background-color:#181818;border-right:1px solid var(--color-border);flex-shrink:0;" data-testid="version-sidenav">
+            <div class="app-section-label px-2 mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Entities</div>
+            {#for entity in version.entityDefinitions}
+            <a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{entity.id}"
+               class="nav-link px-2 py-1 rounded mb-1 {#if selectedEntity != null && selectedEntity.id == entity.id}active bg-primary bg-opacity-25 fw-semibold{#else}text-white-50{/if}"
+               style="font-size:0.875rem;"
+               data-testid="entity-nav-item">{entity.name}</a>
+            {/for}
+            {#if version.entityDefinitions.isEmpty}
+            <span class="px-2 py-1 app-section-label" style="font-size:0.8rem;" data-testid="no-entities">No entities yet</span>
+            {/if}
+
+            <div class="app-section-label px-2 mb-1 mt-3" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Reports</div>
+            {#for report in version.reports}
+            <a href="/ui/developer/apps/{app.id}/versions/{version.id}/reports/{report.id}"
+               class="nav-link px-2 py-1 rounded mb-1 {#if selectedReport != null && selectedReport.id == report.id}active bg-primary bg-opacity-25 fw-semibold{#else}text-white-50{/if}"
+               style="font-size:0.875rem;"
+               data-testid="report-nav-item">{report.name}</a>
+            {/for}
+            {#if version.reports.isEmpty}
+            <span class="px-2 py-1 app-section-label" style="font-size:0.8rem;" data-testid="no-reports">No reports yet</span>
+            {/if}
+        </nav>
+        {/if}
+
+        <!-- Main content -->
+        <div class="flex-grow-1 py-4 px-3 px-md-4 overflow-auto">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="text-decoration-none" style="color:var(--color-action);">Developer Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-app-link">{app.name}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="breadcrumb-version">{version.versionNumber}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex align-items-center mb-4 gap-3">
+                <div>
+                    <h1 class="fs-4 fw-semibold mb-1" data-testid="version-number">{version.versionNumber}</h1>
+                    <div class="app-section-label" data-testid="version-created-at">{version.createdAt.formatted}</div>
+                </div>
+                <span class="badge ms-auto {#if isDraft}app-badge-processing{#else}app-badge-muted{/if}"
+                      data-testid="version-status">{version.status}</span>
+            </div>
+
+            {#if !isDraft}
+            <!-- Read-only banner for published versions -->
+            <div class="alert mb-4" style="background-color:#1e1e1e;border-color:var(--color-border);color:var(--color-text-muted);" role="alert" data-testid="published-readonly-banner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/>
+                </svg>
+                This version is published and read-only.
+            </div>
+            {/if}
+
+            <!-- Editor area -->
+            {#if isDraft}
+                {#if selectedEntity != null}
+                <div class="card app-card p-4" data-testid="entity-editor">
+                    <h2 class="fs-5 fw-semibold mb-3">Entity: {selectedEntity.name}</h2>
+                    <p class="app-section-label mb-0">Entity editor – coming soon.</p>
+                </div>
+                {#else if selectedReport != null}
+                <div class="card app-card p-4" data-testid="report-editor">
+                    <h2 class="fs-5 fw-semibold mb-3">Report: {selectedReport.name}</h2>
+                    <p class="app-section-label mb-0">Report editor – coming soon.</p>
+                </div>
+                {#else}
+                <div class="card app-card p-4" data-testid="version-editor-placeholder">
+                    <p class="app-section-label mb-0">Select an entity or report from the left menu to start editing.</p>
+                </div>
+                {/if}
+            {#else}
+                <!-- Published: show read-only summary -->
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <div class="card app-card p-3">
+                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Entities</div>
+                            {#if version.entityDefinitions.isEmpty}
+                            <p class="mb-0 app-section-label">No entities.</p>
+                            {#else}
+                            <ul class="list-unstyled mb-0">
+                                {#for entity in version.entityDefinitions}
+                                <li class="py-1" style="border-bottom:1px solid var(--color-border);" data-testid="entity-readonly-item">{entity.name}</li>
+                                {/for}
+                            </ul>
+                            {/if}
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="card app-card p-3">
+                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Reports</div>
+                            {#if version.reports.isEmpty}
+                            <p class="mb-0 app-section-label">No reports.</p>
+                            {#else}
+                            <ul class="list-unstyled mb-0">
+                                {#for report in version.reports}
+                                <li class="py-1" style="border-bottom:1px solid var(--color-border);" data-testid="report-readonly-item">{report.name}</li>
+                                {/for}
+                            </ul>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            {/if}
+        </div>
+    </div>
+    {/content}
+{/include}

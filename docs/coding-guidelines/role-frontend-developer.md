@@ -112,6 +112,74 @@ messages.
 - Display the message as a Bootstrap alert (`.alert-danger`) at the top of the login form.
 - Do **not** expose the raw error code to the user.
 
+> **Note:** This query-parameter pattern applies **only to the login page**, where a browser-level redirect is required after form POST. All other form submissions and actions must
+> use the AJAX + JSON pattern described below.
+
+## Form Submissions and Action Results
+
+All form submissions (except login) must use the AJAX + JSON pattern. **Do not** redirect with `?error=` query parameters for non-login forms.
+
+**Backend:**
+
+- The endpoint returns `Response.ok(ApiResult(ok, message, redirectUrl?))` as `application/json`.
+- `ok: Boolean` indicates success or failure.
+- `message: String` contains a human-readable message (always present).
+- `redirectUrl: String?` (optional) contains the URL to navigate to on success.
+- Error codes are mapped to human-readable messages in the resource class before returning to the frontend.
+
+**Frontend JS pattern:**
+
+```js
+form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var submitBtn = form.querySelector('[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+        var response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams(new FormData(this)).toString()
+        });
+        var result = await response.json();
+        if (result.ok && result.redirectUrl) {
+            window.location.href = result.redirectUrl;
+        } else {
+            // hide modal if applicable, reset form
+            showMessage(result.ok, result.message);
+        }
+    } catch (e) {
+        showMessage(false, 'Network error. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+    }
+});
+```
+
+**`showMessage` pattern** (define once per page, reuse for all actions):
+
+```js
+var messagePanel = document.getElementById('page-message');
+var messageTimer = null;
+
+function showMessage(ok, message) {
+    if (messageTimer) { clearTimeout(messageTimer); }
+    messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+    messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+    messagePanel.innerHTML = message
+        + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+    messageTimer = setTimeout(function () {
+        messagePanel.className = 'd-none mb-4';
+        messagePanel.removeAttribute('data-testid');
+    }, 5000);
+}
+```
+
+The message panel element must be present in the page HTML (hidden by default with `d-none`):
+
+```html
+<div id="page-message" class="d-none mb-4" role="alert"></div>
+```
+
 ## Quality Standards
 
 - Responsive – desktop and tablet; mobile is nice-to-have

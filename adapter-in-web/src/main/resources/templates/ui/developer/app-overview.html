@@ -1,0 +1,137 @@
+{#include layout.html}
+    {#title}James Platform – {app.name}{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="text-decoration-none" style="color:var(--color-action);">Developer Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);">{app.name}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-start mb-4 gap-3">
+            <div>
+                <h1 class="fs-4 fw-semibold mb-1" data-testid="app-name">{app.name}</h1>
+                {#if app.description}
+                <p class="app-section-label mb-0" data-testid="app-description">{app.description}</p>
+                {/if}
+            </div>
+            <span class="badge app-badge-muted ms-auto mt-1" data-testid="app-status">{app.status}</span>
+        </div>
+
+        <div id="overview-message" class="d-none mb-4" role="alert"></div>
+
+        <h2 class="fs-5 fw-semibold mb-3">Versions</h2>
+        <div class="row g-3" data-testid="versions-grid">
+            <!-- New Version tile (shown only when no draft exists) -->
+            {#if !hasDraft}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <div class="card app-card p-3 h-100 d-flex flex-column align-items-center justify-content-center text-center"
+                     style="cursor:pointer; border-style:dashed !important;"
+                     data-bs-toggle="modal" data-bs-target="#createVersionModal"
+                     data-testid="new-version-tile"
+                     role="button"
+                     aria-label="Create a new version">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="#888" viewBox="0 0 16 16" class="mb-2" aria-hidden="true">
+                        <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
+                    </svg>
+                    <div class="fw-semibold fs-6">New Version</div>
+                </div>
+            </div>
+            {/if}
+
+            <!-- Existing version tiles -->
+            {#for version in versions}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="Open version {version.versionNumber}">
+                    <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
+                        <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{version.versionNumber}</div>
+                        <div class="app-section-label mb-2" data-testid="version-created-at">{version.createdAt.formatted}</div>
+                        <div class="mt-auto">
+                            <span class="badge {#if version.status.name == 'DRAFT'}app-badge-processing{#else}app-badge-muted{/if}"
+                                  data-testid="version-status">{version.status}</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {/for}
+        </div>
+    </div>
+
+    <!-- Create Version Modal -->
+    <div class="modal fade" id="createVersionModal" tabindex="-1" aria-labelledby="createVersionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
+                <div class="modal-header" style="border-color:#333;">
+                    <h5 class="modal-title" id="createVersionModalLabel">New Version</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="createVersionForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="newVersionNumber" class="form-label">Version Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control app-form-control" id="newVersionNumber" name="versionNumber"
+                                   required autocomplete="off" placeholder="e.g. 1.0.0"
+                                   data-testid="create-version-number-input">
+                            <div class="form-text" style="color:var(--color-text-muted);">Must follow semantic versioning (e.g. 1.0.0)</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="border-color:#333;">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="create-version-submit-button">Create Version</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var appId = '{app.id}';
+            var messagePanel = document.getElementById('overview-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            var createVersionForm = document.getElementById('createVersionForm');
+            if (createVersionForm) {
+                createVersionForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var submitBtn = createVersionForm.querySelector('[type="submit"]');
+                    submitBtn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/versions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams(new FormData(this)).toString()
+                        });
+                        var result = await response.json();
+                        if (result.ok && result.redirectUrl) {
+                            window.location.href = result.redirectUrl;
+                        } else {
+                            bootstrap.Modal.getInstance(document.getElementById('createVersionModal')).hide();
+                            this.reset();
+                            showMessage(result.ok, result.message);
+                        }
+                    } catch (e) {
+                        showMessage(false, 'Network error. Please try again.');
+                    } finally {
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}

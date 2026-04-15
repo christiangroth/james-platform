@@ -22,10 +22,6 @@ class UserDashboardResource {
   private lateinit var userDashboardTemplate: Template
 
   @Inject
-  @Location("ui/developer/dashboard.html")
-  private lateinit var developerDashboardTemplate: Template
-
-  @Inject
   @Location("ui/admin/dashboard.html")
   private lateinit var adminDashboardTemplate: Template
 
@@ -40,12 +36,6 @@ class UserDashboardResource {
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
   fun userDashboard() = userDashboardTemplate.data("username", securityIdentity.principal.name)
-
-  @GET
-  @Path("/developer/dashboard")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun developerDashboard() = developerDashboardTemplate.data("username", securityIdentity.principal.name)
 
   @GET
   @Path("/admin/dashboard")
