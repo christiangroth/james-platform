@@ -93,13 +93,9 @@ class AdminUserManagementResource {
   fun setPassword(
     @PathParam("username") username: String,
     @FormParam("newPassword") newPassword: String?,
-    @FormParam("confirmPassword") confirmPassword: String?,
   ): Response {
-    if (newPassword.isNullOrBlank() || confirmPassword.isNullOrBlank()) {
+    if (newPassword.isNullOrBlank()) {
       return Response.ok(ApiResult(false, errorMessage("password-blank"))).build()
-    }
-    if (newPassword != confirmPassword) {
-      return Response.ok(ApiResult(false, errorMessage(UserAdminError.PASSWORDS_DO_NOT_MATCH.code))).build()
     }
     return adminUserManagement.setPassword(username, newPassword).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
@@ -157,7 +153,6 @@ class AdminUserManagementResource {
     UserAdminError.BLANK_INPUT.code -> "All fields are required."
     UserAdminError.CANNOT_DEACTIVATE_SELF.code -> "You cannot deactivate your own account."
     UserAdminError.CANNOT_DELETE_SELF.code -> "You cannot delete your own account."
-    UserAdminError.PASSWORDS_DO_NOT_MATCH.code -> "Passwords do not match."
     UserAdminError.CANNOT_REMOVE_OWN_ADMIN_ROLE.code -> "You cannot remove your own admin role."
     UserAdminError.SINGLE_ADMIN_VIOLATION.code -> "Another user already has the admin role. Only one admin is allowed at a time."
     "password-blank" -> "Password must not be empty."

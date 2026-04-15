@@ -68,11 +68,10 @@ class AdminUserManagementPageTests {
   }
 
   @Test
-  fun `set password returns json error when passwords do not match`() {
+  fun `set password returns json error on blank password`() {
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("newPassword", "abc")
-      .formParam("confirmPassword", "xyz")
+      .formParam("newPassword", "")
       .`when`()
       .post("/ui/admin/users/nonexistent/password")
       .then()
