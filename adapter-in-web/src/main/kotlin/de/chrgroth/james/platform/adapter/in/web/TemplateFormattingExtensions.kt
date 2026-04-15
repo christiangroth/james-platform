@@ -1,5 +1,9 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.model.app.App
+import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
 import java.time.ZoneId
@@ -14,11 +18,53 @@ import java.time.Instant as JavaInstant
 object TemplateFormattingExtensions {
 
   /**
-   * Returns the username string value. Used because [Username] is a [JvmInline] value class,
+   * Returns the username string value. Used because Username is a JvmInline value class,
    * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
    */
   @JvmStatic
   fun username(user: User): String = user.username.value
+
+  /**
+   * Returns the App id string value. Used because AppId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(app: App): String = app.id.value
+
+  /**
+   * Returns the App name string value. Used because AppName is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun name(app: App): String = app.name.value
+
+  /**
+   * Returns the AppVersion id string value. Used because AppVersionId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(version: AppVersion): String = version.id.value
+
+  /**
+   * Returns the AppVersion versionNumber string value. Used because VersionNumber is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun versionNumber(version: AppVersion): String = version.versionNumber.value
+
+  /**
+   * Returns the EntityDefinition id string value. Used because EntityDefinitionId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(entity: EntityDefinition): String = entity.id.value
+
+  /**
+   * Returns the Report id string value. Used because ReportId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(report: Report): String = report.id.value
 
   private val DATETIME_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault()) }
   private val DATETIME_SHORT_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault()) }
