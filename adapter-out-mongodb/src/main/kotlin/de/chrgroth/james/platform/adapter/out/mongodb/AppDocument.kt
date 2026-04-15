@@ -11,6 +11,7 @@ class AppDocument {
   lateinit var id: String
   lateinit var name: String
   var description: String? = null
+  lateinit var developerId: String
   lateinit var status: String
   lateinit var createdAt: Instant
   lateinit var updatedAt: Instant

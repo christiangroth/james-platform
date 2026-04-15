@@ -23,24 +23,35 @@ class AppManagementServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val service: AppManagementService = AppManagementService(appRepository)
 
-  private val existingApp = app(id = "app-1", name = "My App")
+  private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 
   // region listApps
 
   @Test
-  fun `listApps returns all apps from repository`() {
-    every { appRepository.findAll() } returns listOf(existingApp)
+  fun `listApps returns apps for developer from repository`() {
+    every { appRepository.findAllByDeveloperId("dev-1") } returns listOf(existingApp)
 
-    val result = service.listApps()
+    val result = service.listApps("dev-1")
 
     assertThat(result).containsExactly(existingApp)
   }
 
   @Test
-  fun `listApps returns empty list when no apps exist`() {
-    every { appRepository.findAll() } returns emptyList()
+  fun `listApps returns empty list when developer has no apps`() {
+    every { appRepository.findAllByDeveloperId("dev-1") } returns emptyList()
 
-    val result = service.listApps()
+    val result = service.listApps("dev-1")
+
+    assertThat(result).isEmpty()
+  }
+
+  @Test
+  fun `listApps does not return apps belonging to other developers`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
+    every { appRepository.findAllByDeveloperId("dev-1") } returns emptyList()
+    every { appRepository.findAllByDeveloperId("dev-2") } returns listOf(otherApp)
+
+    val result = service.listApps("dev-1")
 
     assertThat(result).isEmpty()
   }
@@ -54,10 +65,11 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("New App")) } returns null
     justRun { appRepository.save(any()) }
 
-    val result = service.createApp("New App", null)
+    val result = service.createApp("New App", null, "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.name).isEqualTo(AppName("New App"))
+    assertThat(result.getOrNull()?.developerId).isEqualTo("dev-1")
     assertThat(result.getOrNull()?.status).isEqualTo(AppStatus.ACTIVE)
     assertThat(result.getOrNull()?.description).isNull()
   }
@@ -67,7 +79,7 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("New App")) } returns null
     justRun { appRepository.save(any()) }
 
-    val result = service.createApp("New App", "A description")
+    val result = service.createApp("New App", "A description", "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.description).isEqualTo("A description")
@@ -78,7 +90,7 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("New App")) } returns null
     justRun { appRepository.save(any()) }
 
-    val result = service.createApp("New App", "   ")
+    val result = service.createApp("New App", "   ", "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.description).isNull()
@@ -86,7 +98,7 @@ class AppManagementServiceTests {
 
   @Test
   fun `createApp fails when name is blank`() {
-    val result = service.createApp("  ", null)
+    val result = service.createApp("  ", null, "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.BLANK_INPUT)
@@ -96,7 +108,7 @@ class AppManagementServiceTests {
   fun `createApp fails when name already exists`() {
     every { appRepository.findByName(AppName("My App")) } returns existingApp
 
-    val result = service.createApp("My App", null)
+    val result = service.createApp("My App", null, "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NAME_ALREADY_EXISTS)
@@ -108,8 +120,8 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("App B")) } returns null
     justRun { appRepository.save(any()) }
 
-    val resultA = service.createApp("App A", null)
-    val resultB = service.createApp("App B", null)
+    val resultA = service.createApp("App A", null, "dev-1")
+    val resultB = service.createApp("App B", null, "dev-1")
 
     assertThat(resultA.getOrNull()?.id).isNotEqualTo(resultB.getOrNull()?.id)
   }
@@ -119,10 +131,10 @@ class AppManagementServiceTests {
   // region getApp
 
   @Test
-  fun `getApp returns app when found`() {
+  fun `getApp returns app when found and owned by developer`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
 
-    val result = service.getApp("app-1")
+    val result = service.getApp("app-1", "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()).isEqualTo(existingApp)
@@ -132,7 +144,18 @@ class AppManagementServiceTests {
   fun `getApp fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.getApp("unknown")
+    val result = service.getApp("unknown", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getApp fails when app belongs to another developer`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
+    every { appRepository.findById(AppId("app-2")) } returns otherApp
+
+    val result = service.getApp("app-2", "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
@@ -148,7 +171,7 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("Updated App")) } returns null
     justRun { appRepository.save(any()) }
 
-    val result = service.updateApp("app-1", "Updated App", "New description")
+    val result = service.updateApp("app-1", "Updated App", "New description", "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.name).isEqualTo(AppName("Updated App"))
@@ -161,7 +184,7 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("My App")) } returns existingApp
     justRun { appRepository.save(any()) }
 
-    val result = service.updateApp("app-1", "My App", null)
+    val result = service.updateApp("app-1", "My App", null, "dev-1")
 
     assertThat(result.isRight()).isTrue()
   }
@@ -173,7 +196,7 @@ class AppManagementServiceTests {
     every { appRepository.findByName(AppName("My App")) } returns appWithDescription
     justRun { appRepository.save(any()) }
 
-    val result = service.updateApp("app-1", "My App", "  ")
+    val result = service.updateApp("app-1", "My App", "  ", "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.description).isNull()
@@ -181,7 +204,7 @@ class AppManagementServiceTests {
 
   @Test
   fun `updateApp fails when name is blank`() {
-    val result = service.updateApp("app-1", "  ", null)
+    val result = service.updateApp("app-1", "  ", null, "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.BLANK_INPUT)
@@ -191,7 +214,18 @@ class AppManagementServiceTests {
   fun `updateApp fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.updateApp("unknown", "New Name", null)
+    val result = service.updateApp("unknown", "New Name", null, "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `updateApp fails when app belongs to another developer`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
+    every { appRepository.findById(AppId("app-2")) } returns otherApp
+
+    val result = service.updateApp("app-2", "New Name", null, "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
@@ -199,11 +233,11 @@ class AppManagementServiceTests {
 
   @Test
   fun `updateApp fails when new name already taken by another app`() {
-    val otherApp = app(id = "app-2", name = "Other App")
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appRepository.findByName(AppName("Other App")) } returns otherApp
 
-    val result = service.updateApp("app-1", "Other App", null)
+    val result = service.updateApp("app-1", "Other App", null, "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NAME_ALREADY_EXISTS)
@@ -218,7 +252,7 @@ class AppManagementServiceTests {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     justRun { appRepository.save(any()) }
 
-    val result = service.deactivateApp("app-1")
+    val result = service.deactivateApp("app-1", "dev-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppStatus.INACTIVE)
@@ -229,7 +263,18 @@ class AppManagementServiceTests {
   fun `deactivateApp fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.deactivateApp("unknown")
+    val result = service.deactivateApp("unknown", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `deactivateApp fails when app belongs to another developer`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
+    every { appRepository.findById(AppId("app-2")) } returns otherApp
+
+    val result = service.deactivateApp("app-2", "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
@@ -240,7 +285,7 @@ class AppManagementServiceTests {
     val inactiveApp = existingApp.copy(status = AppStatus.INACTIVE)
     every { appRepository.findById(AppId("app-1")) } returns inactiveApp
 
-    val result = service.deactivateApp("app-1")
+    val result = service.deactivateApp("app-1", "dev-1")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.ALREADY_INACTIVE)
@@ -249,10 +294,11 @@ class AppManagementServiceTests {
   // endregion
 
   companion object {
-    fun app(id: String = "app-1", name: String = "Test App", status: AppStatus = AppStatus.ACTIVE) = App(
+    fun app(id: String = "app-1", name: String = "Test App", status: AppStatus = AppStatus.ACTIVE, developerId: String = "dev-1") = App(
       id = AppId(id),
       name = AppName(name),
       description = null,
+      developerId = developerId,
       status = status,
       createdAt = Instant.now(),
       updatedAt = Instant.now(),

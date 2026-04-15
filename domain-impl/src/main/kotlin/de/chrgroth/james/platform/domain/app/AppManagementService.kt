@@ -22,9 +22,9 @@ class AppManagementService(
   private val appRepository: AppRepositoryPort,
 ) : AppManagementPort {
 
-  override fun listApps(): List<App> = appRepository.findAll()
+  override fun listApps(developerId: String): List<App> = appRepository.findAllByDeveloperId(developerId)
 
-  override fun createApp(name: String, description: String?): Either<DomainError, App> {
+  override fun createApp(name: String, description: String?, developerId: String): Either<DomainError, App> {
     if (name.isBlank()) {
       logger.warn { "Create app failed: blank name" }
       return AppError.BLANK_INPUT.left()
@@ -38,6 +38,7 @@ class AppManagementService(
       id = AppId(UUID.randomUUID().toString()),
       name = AppName(name),
       description = description?.takeIf { it.isNotBlank() },
+      developerId = developerId,
       status = AppStatus.ACTIVE,
       createdAt = now,
       updatedAt = now,
@@ -47,21 +48,29 @@ class AppManagementService(
     return app.right()
   }
 
-  override fun getApp(appId: String): Either<DomainError, App> {
+  override fun getApp(appId: String, developerId: String): Either<DomainError, App> {
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Get app failed: not found: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.developerId != developerId) {
+      logger.warn { "Get app failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
     return app.right()
   }
 
-  override fun updateApp(appId: String, name: String, description: String?): Either<DomainError, App> {
+  override fun updateApp(appId: String, name: String, description: String?, developerId: String): Either<DomainError, App> {
     if (name.isBlank()) {
       logger.warn { "Update app failed: blank name" }
       return AppError.BLANK_INPUT.left()
     }
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Update app failed: not found: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.developerId != developerId) {
+      logger.warn { "Update app failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
     val existingWithName = appRepository.findByName(AppName(name))
@@ -79,9 +88,13 @@ class AppManagementService(
     return updatedApp.right()
   }
 
-  override fun deactivateApp(appId: String): Either<DomainError, App> {
+  override fun deactivateApp(appId: String, developerId: String): Either<DomainError, App> {
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Deactivate app failed: not found: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.developerId != developerId) {
+      logger.warn { "Deactivate app failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
     if (app.status == AppStatus.INACTIVE) {
