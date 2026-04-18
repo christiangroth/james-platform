@@ -413,7 +413,7 @@
                     var reportId = updateReportForm.getAttribute('data-report-id');
                     await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId,
-                        new FormData(this), false
+                        new FormData(this), true
                     );
                     btn.disabled = false;
                 });

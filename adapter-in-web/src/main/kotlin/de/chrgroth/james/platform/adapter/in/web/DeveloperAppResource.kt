@@ -334,7 +334,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.updateReport(appId, versionId, reportId, html ?: "", script ?: "").fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Report saved.")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Report saved.", "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
     )
   }
 
