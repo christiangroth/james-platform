@@ -367,7 +367,7 @@ All sensitive configuration is provided via environment variables:
 | Version           | A released snapshot of an App. Carries a semver number, release date, and release notes.                          |
 | Entity            | A named, typed data model within a Version. Has a globally unique ID and a list of Properties.                    |
 | Property          | A named, typed field within an Entity. Has an immutable intra-entity ID, a data type, and constraints.            |
-| Data type         | One of: `long`, `Double`, `boolean`, `String`, `date`, `time`, `datetime`, `ref`, `List`, `object`.               |
+| Data type         | One of: `long`, `Double`, `boolean`, `String`, `date`, `time`, `datetime`, `duration`, `ref`, `List`, `object`. |
 | Ref               | A property type representing a reference to an object of the same or another Entity in the same App Version.      |
 | Object            | An inline nested structure with its own property list. Analogous to an anonymous Entity without a global ID.      |
 | Constraint        | A validation rule attached to a Property (e.g. `NOT NULL`, `UNIQUE KEY`).                                         |

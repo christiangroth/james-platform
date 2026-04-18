@@ -19,6 +19,7 @@ class PropertyTypeTests {
       PropertyType.DATE,
       PropertyType.TIME,
       PropertyType.DATETIME,
+      PropertyType.DURATION,
       PropertyType.REF,
     )
     scalarTypes.forEach { type ->
@@ -168,6 +169,12 @@ class PropertyTypeTests {
   @Test
   fun `REF has only UniqueKey`() {
     assertThat(PropertyType.REF.availableConstraints())
+      .containsExactly(PropertyConstraint.UniqueKey::class)
+  }
+
+  @Test
+  fun `DURATION has only UniqueKey`() {
+    assertThat(PropertyType.DURATION.availableConstraints())
       .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
