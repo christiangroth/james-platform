@@ -92,6 +92,7 @@
                                 <th style="color:var(--color-text-muted);font-weight:500;">Name</th>
                                 <th style="color:var(--color-text-muted);font-weight:500;">Type</th>
                                 <th style="color:var(--color-text-muted);font-weight:500;">Nullable</th>
+                                <th style="color:var(--color-text-muted);font-weight:500;">Constraints</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -101,7 +102,45 @@
                                 <td>{prop.name}</td>
                                 <td><span class="badge app-badge-muted">{prop.type}</span></td>
                                 <td>{#if prop.nullable}Yes{#else}No{/if}</td>
-                                <td class="text-end">
+                                <td>
+                                    {#if prop.constraintCount == 0}
+                                    <span class="app-section-label" style="font-size:0.75rem;">None</span>
+                                    {#else}
+                                    <span class="badge app-badge-muted" data-testid="constraint-count">{prop.constraintCount}</span>
+                                    {/if}
+                                </td>
+                                <td class="text-end" style="white-space:nowrap;">
+                                    <button type="button" class="btn btn-sm me-1"
+                                            style="background:transparent;color:var(--color-action);border:none;font-size:0.8rem;"
+                                            data-action="edit-property"
+                                            data-entity-id="{selectedEntity.id}"
+                                            data-property-id="{prop.id}"
+                                            data-property-name="{prop.name}"
+                                            data-property-type="{prop.type}"
+                                            data-property-nullable="{prop.nullable}"
+                                            data-testid="edit-property-button">
+                                        Edit
+                                    </button>
+                                    <button type="button" class="btn btn-sm me-1"
+                                            style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
+                                            data-action="edit-constraints"
+                                            data-entity-id="{selectedEntity.id}"
+                                            data-property-id="{prop.id}"
+                                            data-property-name="{prop.name}"
+                                            data-property-type="{prop.type}"
+                                            data-constraint-unique-key="{prop.constraintUniqueKey}"
+                                            data-constraint-min-long="{prop.constraintMinLong}"
+                                            data-constraint-max-long="{prop.constraintMaxLong}"
+                                            data-constraint-min-double="{prop.constraintMinDouble}"
+                                            data-constraint-max-double="{prop.constraintMaxDouble}"
+                                            data-constraint-min-length="{prop.constraintMinLength}"
+                                            data-constraint-max-length="{prop.constraintMaxLength}"
+                                            data-constraint-pattern="{prop.constraintPattern}"
+                                            data-constraint-min-size="{prop.constraintMinSize}"
+                                            data-constraint-max-size="{prop.constraintMaxSize}"
+                                            data-testid="edit-constraints-button">
+                                        Constraints
+                                    </button>
                                     <button type="button" class="btn btn-sm"
                                             style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
                                             data-action="delete-property" data-entity-id="{selectedEntity.id}" data-property-id="{prop.id}"
@@ -281,6 +320,143 @@
     </div>
     {/if}
 
+    <!-- Edit Property Modal -->
+    {#if isDraft}
+    <div class="modal fade" id="editPropertyModal" tabindex="-1" aria-labelledby="editPropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
+                <div class="modal-header" style="border-color:#333;">
+                    <h5 class="modal-title" id="editPropertyModalLabel">Edit Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editPropertyForm">
+                    <input type="hidden" id="editPropertyEntityId" name="entityId" value="">
+                    <input type="hidden" id="editPropertyId" name="propertyId" value="">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name</label>
+                            <input type="text" class="form-control app-form-control form-control-sm" id="editPropertyName" name="name" required autocomplete="off" data-testid="edit-property-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type</label>
+                            <select class="form-select app-form-control form-select-sm" id="editPropertyType" name="type" required data-testid="edit-property-type-select">
+                                <option value="STRING">String</option>
+                                <option value="LONG">Long (Integer)</option>
+                                <option value="DOUBLE">Double (Decimal)</option>
+                                <option value="BOOLEAN">Boolean</option>
+                                <option value="DATE">Date</option>
+                                <option value="TIME">Time</option>
+                                <option value="DATETIME">DateTime</option>
+                                <option value="DURATION">Duration</option>
+                                <option value="REF">Reference</option>
+                                <option value="LIST">List</option>
+                                <option value="OBJECT">Object</option>
+                            </select>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editPropertyNullable" name="nullable" value="true" data-testid="edit-property-nullable-check">
+                            <label class="form-check-label" for="editPropertyNullable" style="color:var(--color-text-muted);">Nullable</label>
+                        </div>
+                        <p class="mt-2 mb-0" style="color:var(--color-text-muted);font-size:0.8rem;">Note: changing the type will clear any existing constraints on this property.</p>
+                    </div>
+                    <div class="modal-footer" style="border-color:#333;">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="edit-property-submit-button">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+
+    <!-- Edit Constraints Modal -->
+    {#if isDraft}
+    <div class="modal fade" id="editConstraintsModal" tabindex="-1" aria-labelledby="editConstraintsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background-color:#1e1e1e;border-color:#333;color:#e0e0e0;">
+                <div class="modal-header" style="border-color:#333;">
+                    <h5 class="modal-title" id="editConstraintsModalLabel">Constraints</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editConstraintsForm">
+                    <input type="hidden" id="editConstraintsEntityId" name="entityId" value="">
+                    <input type="hidden" id="editConstraintsPropertyId" name="propertyId" value="">
+                    <div class="modal-body">
+                        <!-- UniqueKey (all scalar types) -->
+                        <div class="constraint-group" id="constraintGroupUniqueKey">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="constraintUniqueKey" data-testid="constraint-unique-key-check">
+                                <label class="form-check-label" for="constraintUniqueKey" style="color:var(--color-text-muted);">Unique Key</label>
+                            </div>
+                        </div>
+                        <!-- Long constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupLong">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                                    <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMinLong" placeholder="No minimum" data-testid="constraint-min-long">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                                    <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMaxLong" placeholder="No maximum" data-testid="constraint-max-long">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Double constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupDouble">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                                    <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMinDouble" placeholder="No minimum" data-testid="constraint-min-double">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                                    <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMaxDouble" placeholder="No maximum" data-testid="constraint-max-double">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- String constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupString">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min length</label>
+                                    <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinLength" placeholder="No minimum" data-testid="constraint-min-length">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max length</label>
+                                    <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxLength" placeholder="No maximum" data-testid="constraint-max-length">
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Pattern (regex)</label>
+                                <input type="text" class="form-control app-form-control form-control-sm" id="constraintPattern" placeholder="e.g. ^[A-Z].*" data-testid="constraint-pattern">
+                            </div>
+                        </div>
+                        <!-- List constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupList">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min size</label>
+                                    <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinSize" placeholder="No minimum" data-testid="constraint-min-size">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max size</label>
+                                    <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxSize" placeholder="No maximum" data-testid="constraint-max-size">
+                                </div>
+                            </div>
+                        </div>
+                        <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
+                    </div>
+                    <div class="modal-footer" style="border-color:#333;">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="save-constraints-button">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+
     {/content}
     {#scripts}
     <script>
@@ -397,6 +573,143 @@
                     btn.disabled = false;
                 });
             });
+
+            // Edit Property buttons
+            var editPropertyModal = document.getElementById('editPropertyModal');
+            if (editPropertyModal) {
+                document.querySelectorAll('[data-action="edit-property"]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
+                        document.getElementById('editPropertyId').value = btn.getAttribute('data-property-id');
+                        document.getElementById('editPropertyName').value = btn.getAttribute('data-property-name');
+                        document.getElementById('editPropertyType').value = btn.getAttribute('data-property-type');
+                        document.getElementById('editPropertyNullable').checked = btn.getAttribute('data-property-nullable') === 'true';
+                        var modal = bootstrap.Modal.getOrCreate(editPropertyModal);
+                        modal.show();
+                    });
+                });
+
+                var editPropertyForm = document.getElementById('editPropertyForm');
+                editPropertyForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = editPropertyForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var entityId = document.getElementById('editPropertyEntityId').value;
+                    var propertyId = document.getElementById('editPropertyId').value;
+                    var formData = new FormData(editPropertyForm);
+                    formData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                    formData.delete('entityId');
+                    formData.delete('propertyId');
+                    var result = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId,
+                        formData, true
+                    );
+                    if (!result || !result.ok) { btn.disabled = false; }
+                });
+            }
+
+            // Edit Constraints buttons
+            var editConstraintsModal = document.getElementById('editConstraintsModal');
+            if (editConstraintsModal) {
+                var CONSTRAINT_TYPE_GROUPS = {
+                    'LONG':     ['UniqueKey', 'Long'],
+                    'DOUBLE':   ['UniqueKey', 'Double'],
+                    'BOOLEAN':  ['UniqueKey'],
+                    'STRING':   ['UniqueKey', 'String'],
+                    'DATE':     ['UniqueKey'],
+                    'TIME':     ['UniqueKey'],
+                    'DATETIME': ['UniqueKey'],
+                    'DURATION': ['UniqueKey'],
+                    'REF':      ['UniqueKey'],
+                    'LIST':     ['List'],
+                    'OBJECT':   [],
+                };
+
+                function applyConstraintVisibility(propertyType) {
+                    var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];
+                    document.getElementById('constraintGroupUniqueKey').classList.toggle('d-none', !groups.includes('UniqueKey'));
+                    document.getElementById('constraintGroupLong').classList.toggle('d-none', !groups.includes('Long'));
+                    document.getElementById('constraintGroupDouble').classList.toggle('d-none', !groups.includes('Double'));
+                    document.getElementById('constraintGroupString').classList.toggle('d-none', !groups.includes('String'));
+                    document.getElementById('constraintGroupList').classList.toggle('d-none', !groups.includes('List'));
+                    document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
+                }
+
+                document.querySelectorAll('[data-action="edit-constraints"]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var propertyType = btn.getAttribute('data-property-type');
+                        document.getElementById('editConstraintsEntityId').value = btn.getAttribute('data-entity-id');
+                        document.getElementById('editConstraintsPropertyId').value = btn.getAttribute('data-property-id');
+                        document.getElementById('editConstraintsModalLabel').textContent = 'Constraints – ' + btn.getAttribute('data-property-name');
+                        // Populate existing constraint values
+                        document.getElementById('constraintUniqueKey').checked = btn.getAttribute('data-constraint-unique-key') === 'true';
+                        var minLong = btn.getAttribute('data-constraint-min-long');
+                        document.getElementById('constraintMinLong').value = minLong || '';
+                        var maxLong = btn.getAttribute('data-constraint-max-long');
+                        document.getElementById('constraintMaxLong').value = maxLong || '';
+                        var minDouble = btn.getAttribute('data-constraint-min-double');
+                        document.getElementById('constraintMinDouble').value = minDouble || '';
+                        var maxDouble = btn.getAttribute('data-constraint-max-double');
+                        document.getElementById('constraintMaxDouble').value = maxDouble || '';
+                        var minLength = btn.getAttribute('data-constraint-min-length');
+                        document.getElementById('constraintMinLength').value = minLength || '';
+                        var maxLength = btn.getAttribute('data-constraint-max-length');
+                        document.getElementById('constraintMaxLength').value = maxLength || '';
+                        document.getElementById('constraintPattern').value = btn.getAttribute('data-constraint-pattern') || '';
+                        var minSize = btn.getAttribute('data-constraint-min-size');
+                        document.getElementById('constraintMinSize').value = minSize || '';
+                        var maxSize = btn.getAttribute('data-constraint-max-size');
+                        document.getElementById('constraintMaxSize').value = maxSize || '';
+                        applyConstraintVisibility(propertyType);
+                        var modal = bootstrap.Modal.getOrCreate(editConstraintsModal);
+                        modal.show();
+                    });
+                });
+
+                var editConstraintsForm = document.getElementById('editConstraintsForm');
+                editConstraintsForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = editConstraintsForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var entityId = document.getElementById('editConstraintsEntityId').value;
+                    var propertyId = document.getElementById('editConstraintsPropertyId').value;
+                    var formData = new FormData();
+                    if (!document.getElementById('constraintGroupUniqueKey').classList.contains('d-none') && document.getElementById('constraintUniqueKey').checked) {
+                        formData.set('uniqueKey', 'true');
+                    }
+                    if (!document.getElementById('constraintGroupLong').classList.contains('d-none')) {
+                        var minLong = document.getElementById('constraintMinLong').value;
+                        var maxLong = document.getElementById('constraintMaxLong').value;
+                        if (minLong !== '') formData.set('minLong', minLong);
+                        if (maxLong !== '') formData.set('maxLong', maxLong);
+                    }
+                    if (!document.getElementById('constraintGroupDouble').classList.contains('d-none')) {
+                        var minDouble = document.getElementById('constraintMinDouble').value;
+                        var maxDouble = document.getElementById('constraintMaxDouble').value;
+                        if (minDouble !== '') formData.set('minDouble', minDouble);
+                        if (maxDouble !== '') formData.set('maxDouble', maxDouble);
+                    }
+                    if (!document.getElementById('constraintGroupString').classList.contains('d-none')) {
+                        var minLength = document.getElementById('constraintMinLength').value;
+                        var maxLength = document.getElementById('constraintMaxLength').value;
+                        var pattern = document.getElementById('constraintPattern').value;
+                        if (minLength !== '') formData.set('minLength', minLength);
+                        if (maxLength !== '') formData.set('maxLength', maxLength);
+                        if (pattern !== '') formData.set('pattern', pattern);
+                    }
+                    if (!document.getElementById('constraintGroupList').classList.contains('d-none')) {
+                        var minSize = document.getElementById('constraintMinSize').value;
+                        var maxSize = document.getElementById('constraintMaxSize').value;
+                        if (minSize !== '') formData.set('minSize', minSize);
+                        if (maxSize !== '') formData.set('maxSize', maxSize);
+                    }
+                    var result = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/constraints',
+                        formData, true
+                    );
+                    if (!result || !result.ok) { btn.disabled = false; }
+                });
+            }
 
             // Delete Report buttons
             document.querySelectorAll('[data-action="delete-report"]').forEach(function (btn) {

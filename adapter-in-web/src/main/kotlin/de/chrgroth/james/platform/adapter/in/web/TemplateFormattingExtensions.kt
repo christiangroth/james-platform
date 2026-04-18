@@ -4,6 +4,7 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
@@ -103,4 +104,58 @@ object TemplateFormattingExtensions {
     val seconds = durationSeconds % SECONDS_PER_MINUTE
     return "%d:%02d".format(minutes, seconds)
   }
+
+  /** Returns the number of constraints on the property. */
+  @JvmStatic
+  fun constraintCount(property: Property): Int = property.constraints.size
+
+  /** Returns true if the property has a UniqueKey constraint. */
+  @JvmStatic
+  fun constraintUniqueKey(property: Property): Boolean =
+    property.constraints.any { it is PropertyConstraint.UniqueKey }
+
+  /** Returns the MinLong constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinLong(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MinLong>().firstOrNull()?.min?.toString() ?: ""
+
+  /** Returns the MaxLong constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxLong(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MaxLong>().firstOrNull()?.max?.toString() ?: ""
+
+  /** Returns the MinDouble constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinDouble(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MinDouble>().firstOrNull()?.min?.toString() ?: ""
+
+  /** Returns the MaxDouble constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxDouble(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MaxDouble>().firstOrNull()?.max?.toString() ?: ""
+
+  /** Returns the MinLength constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinLength(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MinLength>().firstOrNull()?.min?.toString() ?: ""
+
+  /** Returns the MaxLength constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxLength(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MaxLength>().firstOrNull()?.max?.toString() ?: ""
+
+  /** Returns the Pattern constraint regex value, or empty string if not set. */
+  @JvmStatic
+  fun constraintPattern(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.Pattern>().firstOrNull()?.regex ?: ""
+
+  /** Returns the MinSize constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinSize(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MinSize>().firstOrNull()?.min?.toString() ?: ""
+
+  /** Returns the MaxSize constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxSize(property: Property): String =
+    property.constraints.filterIsInstance<PropertyConstraint.MaxSize>().firstOrNull()?.max?.toString() ?: ""
 }

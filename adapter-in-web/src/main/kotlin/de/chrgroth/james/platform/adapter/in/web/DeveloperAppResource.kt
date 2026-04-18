@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import io.quarkus.qute.Location
@@ -27,7 +28,7 @@ data class DeveloperApiResult(val ok: Boolean, val message: String, val redirect
 @Path("/ui/developer")
 @ApplicationScoped
 @Authenticated
-@Suppress("Unused", "TooManyFunctions")
+@Suppress("Unused", "TooManyFunctions", "LargeClass")
 class DeveloperAppResource {
 
   @Inject
@@ -282,6 +283,69 @@ class DeveloperAppResource {
     return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateProperty(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("name") name: String,
+    @FormParam("type") type: String,
+    @FormParam("nullable") nullable: Boolean?,
+  ): Response {
+    if (name.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "Property name is required.")).build()
+    }
+    if (type.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "Property type is required.")).build()
+    }
+    return appVersionManagement.updateProperty(appId, versionId, entityId, propertyId, name.trim(), type.trim(), nullable ?: true).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Property updated.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/constraints")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Suppress("LongParameterList", "CyclomaticComplexMethod")
+  fun setPropertyConstraints(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("uniqueKey") uniqueKey: Boolean?,
+    @FormParam("minLong") minLong: Long?,
+    @FormParam("maxLong") maxLong: Long?,
+    @FormParam("minDouble") minDouble: Double?,
+    @FormParam("maxDouble") maxDouble: Double?,
+    @FormParam("minLength") minLength: Int?,
+    @FormParam("maxLength") maxLength: Int?,
+    @FormParam("pattern") pattern: String?,
+    @FormParam("minSize") minSize: Int?,
+    @FormParam("maxSize") maxSize: Int?,
+  ): Response {
+    val constraints = mutableSetOf<PropertyConstraint>()
+    if (uniqueKey == true) constraints += PropertyConstraint.UniqueKey
+    if (minLong != null) constraints += PropertyConstraint.MinLong(minLong)
+    if (maxLong != null) constraints += PropertyConstraint.MaxLong(maxLong)
+    if (minDouble != null) constraints += PropertyConstraint.MinDouble(minDouble)
+    if (maxDouble != null) constraints += PropertyConstraint.MaxDouble(maxDouble)
+    if (minLength != null) constraints += PropertyConstraint.MinLength(minLength)
+    if (maxLength != null) constraints += PropertyConstraint.MaxLength(maxLength)
+    if (!pattern.isNullOrBlank()) constraints += PropertyConstraint.Pattern(pattern.trim())
+    if (minSize != null) constraints += PropertyConstraint.MinSize(minSize)
+    if (maxSize != null) constraints += PropertyConstraint.MaxSize(maxSize)
+    return appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Constraints saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 

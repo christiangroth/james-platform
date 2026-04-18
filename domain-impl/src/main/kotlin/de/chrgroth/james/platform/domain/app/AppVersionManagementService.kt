@@ -238,6 +238,71 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun updateProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    name: String,
+    type: String,
+    nullable: Boolean,
+  ): Either<DomainError, AppVersion> {
+    if (name.isBlank()) {
+      logger.warn { "Update property failed: blank name" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    val propertyType = runCatching { PropertyType.valueOf(type.uppercase()) }.getOrNull() ?: run {
+      logger.warn { "Update property failed: invalid type: $type" }
+      return AppVersionError.INVALID_PROPERTY_TYPE.left()
+    }
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update property failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Update property failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (entity.properties.any { it.id.value != propertyId && it.name.equals(name.trim(), ignoreCase = true) }) {
+      logger.warn { "Update property failed: property name already exists: $name in entity $entityId" }
+      return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
+    }
+    val constraintsToKeep = if (propertyType == property.type) property.constraints else emptySet()
+    val updatedProperty = property.copy(name = name.trim(), type = propertyType, nullable = nullable, constraints = constraintsToKeep)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property updated: $propertyId (${name.trim()}, $type) in entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun setPropertyConstraints(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    constraints: Set<PropertyConstraint>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property constraints failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property constraints failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    val allowedConstraintClasses = property.type.availableConstraints().toSet()
+    val validConstraints = constraints.filter { c -> allowedConstraintClasses.any { it.isInstance(c) } }.toSet()
+    val updatedProperty = property.copy(constraints = validConstraints)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property constraints set: $propertyId in entity $entityId in version $versionId (${validConstraints.size} constraints)" }
+    return updated.right()
+  }
+
   override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {

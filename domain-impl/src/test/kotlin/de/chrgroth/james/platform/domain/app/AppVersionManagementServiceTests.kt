@@ -568,6 +568,223 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region updateProperty
+
+  @Test
+  fun `updateProperty updates name, type and nullable of property in entity in draft version`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = true)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Total", "DOUBLE", false)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.name).isEqualTo("Total")
+    assertThat(updatedProp?.type).isEqualTo(PropertyType.DOUBLE)
+    assertThat(updatedProp?.nullable).isFalse()
+  }
+
+  @Test
+  fun `updateProperty preserves constraints when type is unchanged`() {
+    val property = Property(
+      id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG,
+      constraints = setOf(PropertyConstraint.MinLong(0L)),
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Count", "LONG", true)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.constraints).containsExactly(PropertyConstraint.MinLong(0L))
+  }
+
+  @Test
+  fun `updateProperty clears constraints when type changes`() {
+    val property = Property(
+      id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG,
+      constraints = setOf(PropertyConstraint.MinLong(0L)),
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Amount", "STRING", true)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.constraints).isEmpty()
+  }
+
+  @Test
+  fun `updateProperty fails when name is blank`() {
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "  ", "LONG", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
+  }
+
+  @Test
+  fun `updateProperty fails when property type is invalid`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Amount", "INVALID_TYPE", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.INVALID_PROPERTY_TYPE)
+  }
+
+  @Test
+  fun `updateProperty fails when property name already exists on another property`() {
+    val p1 = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val p2 = Property(id = PropertyId("p-2"), name = "Label", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(p1, p2))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Label", "LONG", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NAME_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `updateProperty fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "unknown-prop", "Amount", "LONG", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `updateProperty fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.updateProperty("app-1", "ver-1", "unknown-entity", "p-1", "Amount", "LONG", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `updateProperty fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.updateProperty("app-1", "unknown", "e-1", "p-1", "Amount", "LONG", true)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region setPropertyConstraints
+
+  @Test
+  fun `setPropertyConstraints sets constraints on property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyConstraints(
+      "app-1", "ver-1", "e-1", "p-1",
+      setOf(PropertyConstraint.MinLong(0L), PropertyConstraint.MaxLong(100L)),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.constraints).containsExactlyInAnyOrder(
+      PropertyConstraint.MinLong(0L),
+      PropertyConstraint.MaxLong(100L),
+    )
+  }
+
+  @Test
+  fun `setPropertyConstraints ignores constraints not applicable to property type`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyConstraints(
+      "app-1", "ver-1", "e-1", "p-1",
+      setOf(PropertyConstraint.MinLong(0L), PropertyConstraint.MinLength(5)),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.constraints).containsExactly(PropertyConstraint.MinLong(0L))
+  }
+
+  @Test
+  fun `setPropertyConstraints clears constraints when empty set provided`() {
+    val property = Property(
+      id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG,
+      constraints = setOf(PropertyConstraint.MinLong(0L)),
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyConstraints("app-1", "ver-1", "e-1", "p-1", emptySet())
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.constraints).isEmpty()
+  }
+
+  @Test
+  fun `setPropertyConstraints fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyConstraints("app-1", "ver-1", "e-1", "unknown-prop", emptySet())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyConstraints fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.setPropertyConstraints("app-1", "ver-1", "unknown-entity", "p-1", emptySet())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyConstraints fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.setPropertyConstraints("app-1", "unknown", "e-1", "p-1", emptySet())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
   // region addReport
 
   @Test
