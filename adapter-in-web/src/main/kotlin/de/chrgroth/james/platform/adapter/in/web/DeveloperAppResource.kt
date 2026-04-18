@@ -322,6 +322,23 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateReport(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("reportId") reportId: String,
+    @FormParam("html") html: String?,
+    @FormParam("script") script: String?,
+  ): Response {
+    return appVersionManagement.updateReport(appId, versionId, reportId, html ?: "", script ?: "").fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Report saved.")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteReport(
@@ -332,56 +349,6 @@ class DeveloperAppResource {
     return appVersionManagement.deleteReport(appId, versionId, reportId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Report deleted.", "/ui/developer/apps/$appId/versions/$versionId")).build() },
-    )
-  }
-
-  @POST
-  @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}/pages")
-  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-  @Produces(MediaType.APPLICATION_JSON)
-  fun addReportPage(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("reportId") reportId: String,
-    @FormParam("html") html: String?,
-    @FormParam("script") script: String?,
-  ): Response {
-    return appVersionManagement.addReportPage(appId, versionId, reportId, html ?: "", script ?: "").fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Page added.", "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
-    )
-  }
-
-  @POST
-  @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}/pages/{pageIndex}")
-  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-  @Produces(MediaType.APPLICATION_JSON)
-  fun updateReportPage(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("reportId") reportId: String,
-    @PathParam("pageIndex") pageIndex: Int,
-    @FormParam("html") html: String?,
-    @FormParam("script") script: String?,
-  ): Response {
-    return appVersionManagement.updateReportPage(appId, versionId, reportId, pageIndex, html ?: "", script ?: "").fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Page updated.", "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
-    )
-  }
-
-  @POST
-  @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}/pages/{pageIndex}/delete")
-  @Produces(MediaType.APPLICATION_JSON)
-  fun deleteReportPage(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("reportId") reportId: String,
-    @PathParam("pageIndex") pageIndex: Int,
-  ): Response {
-    return appVersionManagement.deleteReportPage(appId, versionId, reportId, pageIndex).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Page deleted.", "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
     )
   }
 
@@ -414,7 +381,6 @@ class DeveloperAppResource {
     AppVersionError.BLANK_INPUT.code -> "Name is required."
     AppVersionError.REPORT_NAME_ALREADY_EXISTS.code -> "A report with this name already exists."
     AppVersionError.REPORT_NOT_FOUND.code -> "Report not found."
-    AppVersionError.INVALID_PAGE_INDEX.code -> "Invalid page index."
     AppVersionError.VERSION_NOT_IN_DRAFT.code -> "Version is not in draft status."
     else -> "An unexpected error occurred. Please try again."
   }

@@ -13,9 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
-import de.chrgroth.james.platform.domain.model.app.ReportEntityFilter
 import de.chrgroth.james.platform.domain.model.app.ReportId
-import de.chrgroth.james.platform.domain.model.app.ReportPage
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -97,18 +95,8 @@ class AppVersionRepositoryAdapter(
   private fun ReportDocument.toDomain() = Report(
     id = ReportId(id),
     name = name,
-    pages = pages.map { it.toDomain() },
-  )
-
-  private fun ReportPageDocument.toDomain() = ReportPage(
     html = html,
     script = script,
-    entityFilters = entityFilters.map { it.toDomain() },
-  )
-
-  private fun ReportEntityFilterDocument.toDomain() = ReportEntityFilter(
-    entityId = EntityDefinitionId(entityId),
-    filterExpression = filterExpression,
   )
 
   private fun AppVersion.toDocument() = AppVersionDocument().also { doc ->
@@ -155,18 +143,8 @@ class AppVersionRepositoryAdapter(
   private fun Report.toDocument() = ReportDocument().also { doc ->
     doc.id = id.value
     doc.name = name
-    doc.pages = pages.map { it.toDocument() }
-  }
-
-  private fun ReportPage.toDocument() = ReportPageDocument().also { doc ->
     doc.html = html
     doc.script = script
-    doc.entityFilters = entityFilters.map { it.toDocument() }
-  }
-
-  private fun ReportEntityFilter.toDocument() = ReportEntityFilterDocument().also { doc ->
-    doc.entityId = entityId.value
-    doc.filterExpression = filterExpression
   }
 
   companion object {

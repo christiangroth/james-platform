@@ -43,16 +43,6 @@ class ConstraintDocument {
 class ReportDocument {
   lateinit var id: String
   lateinit var name: String
-  var pages: List<ReportPageDocument> = emptyList()
-}
-
-class ReportPageDocument {
-  lateinit var html: String
-  lateinit var script: String
-  var entityFilters: List<ReportEntityFilterDocument> = emptyList()
-}
-
-class ReportEntityFilterDocument {
-  lateinit var entityId: String
-  var filterExpression: String? = null
+  var html: String = ""
+  var script: String = ""
 }

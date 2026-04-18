@@ -161,50 +161,17 @@
                         </button>
                     </div>
 
-                    <h3 class="fs-6 fw-semibold mb-2">Pages</h3>
-                    {#if selectedReport.pages.isEmpty}
-                    <p class="app-section-label mb-3" data-testid="no-pages">No pages yet.</p>
-                    {#else}
-                    {#for page in selectedReport.pages}
-                    <div class="card mb-3 p-3" style="background-color:#1a1a1a;border-color:var(--color-border);" data-testid="report-page">
-                        <div class="d-flex align-items-center mb-2 gap-2">
-                            <span class="fw-semibold" style="font-size:0.875rem;">Page {page_count}</span>
-                            <button type="button" class="btn btn-sm ms-auto" style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
-                                    data-action="delete-page" data-report-id="{selectedReport.id}" data-page-index="{page_index}"
-                                    data-testid="delete-page-button">
-                                Remove
-                            </button>
+                    <form id="updateReportForm" data-report-id="{selectedReport.id}">
+                        <div class="mb-2">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">HTML</label>
+                            <textarea class="form-control app-form-control form-control-sm" name="html" rows="8" style="font-family:monospace;font-size:0.8rem;" data-testid="report-html-input">{selectedReport.html}</textarea>
                         </div>
-                        <form class="update-page-form" data-report-id="{selectedReport.id}" data-page-index="{page_index}">
-                            <div class="mb-2">
-                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">HTML</label>
-                                <textarea class="form-control app-form-control form-control-sm" name="html" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="page-html-input">{page.html}</textarea>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Script</label>
-                                <textarea class="form-control app-form-control form-control-sm" name="script" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="page-script-input">{page.script}</textarea>
-                            </div>
-                            <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="update-page-button">Save Page</button>
-                        </form>
-                    </div>
-                    {/for}
-                    {/if}
-
-                    <!-- Add Page Form -->
-                    <div class="card p-3" style="background-color:#1a1a1a;border-color:var(--color-border);">
-                        <h4 class="fs-6 fw-semibold mb-2">Add Page</h4>
-                        <form id="addPageForm" data-report-id="{selectedReport.id}">
-                            <div class="mb-2">
-                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">HTML</label>
-                                <textarea class="form-control app-form-control form-control-sm" name="html" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="add-page-html-input" placeholder="<h1>Report</h1>"></textarea>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Script</label>
-                                <textarea class="form-control app-form-control form-control-sm" name="script" rows="5" style="font-family:monospace;font-size:0.8rem;" data-testid="add-page-script-input" placeholder="// JavaScript logic"></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-app-primary btn-sm" data-testid="add-page-submit">Add Page</button>
-                        </form>
-                    </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Script</label>
+                            <textarea class="form-control app-form-control form-control-sm" name="script" rows="8" style="font-family:monospace;font-size:0.8rem;" data-testid="report-script-input">{selectedReport.script}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="save-report-button">Save</button>
+                    </form>
                 </div>
 
                 {#else}
@@ -429,58 +396,26 @@
             document.querySelectorAll('[data-action="delete-report"]').forEach(function (btn) {
                 btn.addEventListener('click', async function () {
                     var reportId = btn.getAttribute('data-report-id');
-                    if (!confirm('Delete this report and all its pages?')) return;
+                    if (!confirm('Delete this report?')) return;
                     btn.disabled = true;
                     await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/delete', null, true);
                     btn.disabled = false;
                 });
             });
 
-            // Delete Page buttons
-            document.querySelectorAll('[data-action="delete-page"]').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    var reportId = btn.getAttribute('data-report-id');
-                    var pageIndex = btn.getAttribute('data-page-index');
-                    if (!confirm('Remove this page?')) return;
-                    btn.disabled = true;
-                    await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/pages/' + pageIndex + '/delete',
-                        null, true
-                    );
-                    btn.disabled = false;
-                });
-            });
-
-            // Update Page forms
-            document.querySelectorAll('.update-page-form').forEach(function (form) {
-                form.addEventListener('submit', async function (e) {
+            // Update Report form
+            var updateReportForm = document.getElementById('updateReportForm');
+            if (updateReportForm) {
+                updateReportForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
-                    var btn = form.querySelector('[type="submit"]');
+                    var btn = updateReportForm.querySelector('[type="submit"]');
                     btn.disabled = true;
-                    var reportId = form.getAttribute('data-report-id');
-                    var pageIndex = form.getAttribute('data-page-index');
-                    var result = await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/pages/' + pageIndex,
-                        new FormData(form), false
-                    );
-                    btn.disabled = false;
-                });
-            });
-
-            // Add Page form
-            var addPageForm = document.getElementById('addPageForm');
-            if (addPageForm) {
-                addPageForm.addEventListener('submit', async function (e) {
-                    e.preventDefault();
-                    var btn = addPageForm.querySelector('[type="submit"]');
-                    btn.disabled = true;
-                    var reportId = addPageForm.getAttribute('data-report-id');
+                    var reportId = updateReportForm.getAttribute('data-report-id');
                     await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId + '/pages',
-                        new FormData(this), true
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId,
+                        new FormData(this), false
                     );
                     btn.disabled = false;
-                    addPageForm.reset();
                 });
             }
 

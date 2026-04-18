@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
@@ -66,6 +67,13 @@ object TemplateFormattingExtensions {
    */
   @JvmStatic
   fun id(report: Report): String = report.id.value
+
+  /**
+   * Returns the Property id string value. Used because PropertyId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(property: Property): String = property.id.value
 
   private val DATETIME_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault()) }
   private val DATETIME_SHORT_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault()) }

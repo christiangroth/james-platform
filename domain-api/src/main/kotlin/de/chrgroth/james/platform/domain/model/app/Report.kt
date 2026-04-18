@@ -6,16 +6,6 @@ value class ReportId(val value: String)
 data class Report(
   val id: ReportId,
   val name: String,
-  val pages: List<ReportPage> = emptyList(),
-)
-
-data class ReportPage(
-  val html: String,
-  val script: String,
-  val entityFilters: List<ReportEntityFilter> = emptyList(),
-)
-
-data class ReportEntityFilter(
-  val entityId: EntityDefinitionId,
-  val filterExpression: String? = null,
+  val html: String = "",
+  val script: String = "",
 )
