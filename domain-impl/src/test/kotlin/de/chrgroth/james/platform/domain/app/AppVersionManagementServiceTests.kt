@@ -14,7 +14,6 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
-import de.chrgroth.james.platform.domain.model.app.ReportPage
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -590,60 +589,30 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
-  // region addReportPage
+  // region updateReport
 
   @Test
-  fun `addReportPage adds page to report in draft version`() {
+  fun `updateReport updates html and script of report in draft version`() {
     val report = Report(id = ReportId("r-1"), name = "Sales Report")
     val version = draftVersion.copy(reports = listOf(report))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.addReportPage("app-1", "ver-1", "r-1", "<h1>Sales</h1>", "console.log('hello')")
+    val result = service.updateReport("app-1", "ver-1", "r-1", "<h1>Sales</h1>", "console.log('hello')")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.reports?.first()?.pages).hasSize(1)
-    assertThat(result.getOrNull()?.reports?.first()?.pages?.first()?.html).isEqualTo("<h1>Sales</h1>")
+    assertThat(result.getOrNull()?.reports?.first()?.html).isEqualTo("<h1>Sales</h1>")
+    assertThat(result.getOrNull()?.reports?.first()?.script).isEqualTo("console.log('hello')")
   }
 
   @Test
-  fun `addReportPage fails when report not found`() {
+  fun `updateReport fails when report not found`() {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
 
-    val result = service.addReportPage("app-1", "ver-1", "unknown-report", "<h1>x</h1>", "")
+    val result = service.updateReport("app-1", "ver-1", "unknown-report", "<h1>x</h1>", "")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REPORT_NOT_FOUND)
-  }
-
-  // endregion
-
-  // region deleteReportPage
-
-  @Test
-  fun `deleteReportPage removes page from report in draft version`() {
-    val page = ReportPage(html = "<h1>x</h1>", script = "")
-    val report = Report(id = ReportId("r-1"), name = "Sales Report", pages = listOf(page))
-    val version = draftVersion.copy(reports = listOf(report))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.deleteReportPage("app-1", "ver-1", "r-1", 0)
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.reports?.first()?.pages).isEmpty()
-  }
-
-  @Test
-  fun `deleteReportPage fails when page index is invalid`() {
-    val report = Report(id = ReportId("r-1"), name = "Sales Report")
-    val version = draftVersion.copy(reports = listOf(report))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.deleteReportPage("app-1", "ver-1", "r-1", 5)
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.INVALID_PAGE_INDEX)
   }
 
   // endregion

@@ -17,7 +17,6 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
-import de.chrgroth.james.platform.domain.model.app.ReportPage
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
@@ -258,6 +257,25 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun updateReport(
+    appId: String,
+    versionId: String,
+    reportId: String,
+    html: String,
+    script: String,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val report = version.reports.find { it.id.value == reportId } ?: run {
+      logger.warn { "Update report failed: report not found: $reportId in version $versionId" }
+      return AppVersionError.REPORT_NOT_FOUND.left()
+    }
+    val updatedReport = report.copy(html = html, script = script)
+    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
+    appVersionRepository.save(updated)
+    logger.info { "Report $reportId updated in version $versionId" }
+    return updated.right()
+  }
+
   override fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     if (version.reports.none { it.id.value == reportId }) {
@@ -267,63 +285,6 @@ class AppVersionManagementService(
     val updated = version.copy(reports = version.reports.filter { it.id.value != reportId })
     appVersionRepository.save(updated)
     logger.info { "Report deleted: $reportId from version $versionId" }
-    return updated.right()
-  }
-
-  override fun addReportPage(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
-    val report = version.reports.find { it.id.value == reportId } ?: run {
-      logger.warn { "Add report page failed: report not found: $reportId in version $versionId" }
-      return AppVersionError.REPORT_NOT_FOUND.left()
-    }
-    val newPage = ReportPage(html = html, script = script)
-    val updatedReport = report.copy(pages = report.pages + newPage)
-    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
-    appVersionRepository.save(updated)
-    logger.info { "Report page added to report $reportId in version $versionId" }
-    return updated.right()
-  }
-
-  override fun updateReportPage(
-    appId: String,
-    versionId: String,
-    reportId: String,
-    pageIndex: Int,
-    html: String,
-    script: String,
-  ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
-    val report = version.reports.find { it.id.value == reportId } ?: run {
-      logger.warn { "Update report page failed: report not found: $reportId in version $versionId" }
-      return AppVersionError.REPORT_NOT_FOUND.left()
-    }
-    if (pageIndex < 0 || pageIndex >= report.pages.size) {
-      logger.warn { "Update report page failed: invalid page index $pageIndex for report $reportId" }
-      return AppVersionError.INVALID_PAGE_INDEX.left()
-    }
-    val updatedPages = report.pages.toMutableList()
-    updatedPages[pageIndex] = ReportPage(html = html, script = script, entityFilters = report.pages[pageIndex].entityFilters)
-    val updatedReport = report.copy(pages = updatedPages)
-    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
-    appVersionRepository.save(updated)
-    logger.info { "Report page $pageIndex updated for report $reportId in version $versionId" }
-    return updated.right()
-  }
-
-  override fun deleteReportPage(appId: String, versionId: String, reportId: String, pageIndex: Int): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
-    val report = version.reports.find { it.id.value == reportId } ?: run {
-      logger.warn { "Delete report page failed: report not found: $reportId in version $versionId" }
-      return AppVersionError.REPORT_NOT_FOUND.left()
-    }
-    if (pageIndex < 0 || pageIndex >= report.pages.size) {
-      logger.warn { "Delete report page failed: invalid page index $pageIndex for report $reportId" }
-      return AppVersionError.INVALID_PAGE_INDEX.left()
-    }
-    val updatedReport = report.copy(pages = report.pages.filterIndexed { index, _ -> index != pageIndex })
-    val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
-    appVersionRepository.save(updated)
-    logger.info { "Report page $pageIndex deleted from report $reportId in version $versionId" }
     return updated.right()
   }
 
