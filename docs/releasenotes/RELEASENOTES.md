@@ -1,3 +1,12 @@
+# 0.6.1 (2026.04.18)
+
+## Bugfixes / Chore
+* Removed the outbox feature and related UI (outbox viewer page, health page outbox section).
+
+
+
+---
+
 # 0.6.0 (2026.04.15)
 
 ## New Features
