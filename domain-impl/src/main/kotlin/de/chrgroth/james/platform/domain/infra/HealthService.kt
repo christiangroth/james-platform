@@ -5,7 +5,6 @@ import de.chrgroth.james.platform.domain.port.`in`.infra.HealthPort
 import de.chrgroth.james.platform.domain.port.out.infra.ConfigurationInfoPort
 import de.chrgroth.james.platform.domain.port.out.infra.CronjobInfoPort
 import de.chrgroth.james.platform.domain.port.out.infra.MongoStatsPort
-import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ThreadContextElement
@@ -16,7 +15,6 @@ import kotlin.coroutines.CoroutineContext
 @ApplicationScoped
 @Suppress("Unused")
 class HealthService(
-  private val outboxPort: OutboxPort,
   private val mongoStats: MongoStatsPort,
   private val cronjobInfo: CronjobInfoPort,
   private val configurationInfo: ConfigurationInfoPort,
@@ -24,13 +22,11 @@ class HealthService(
 
   override fun getStats(): HealthStats = runBlocking {
     val dispatcher = Dispatchers.IO + tcclContext()
-    val outboxPartitionsAsync = async(dispatcher) { outboxPort.getPartitionStats() }
     val mongoCollectionStatsAsync = async(dispatcher) { mongoStats.getCollectionStats() }
     val mongoQueryStatsAsync = async(dispatcher) { mongoStats.getQueryStats() }
     val cronjobStatsAsync = async(dispatcher) { cronjobInfo.getCronjobStats() }
     val configurationStatsAsync = async(dispatcher) { configurationInfo.getConfigurationStats() }
     HealthStats(
-      outboxPartitions = outboxPartitionsAsync.await(),
       mongoCollectionStats = mongoCollectionStatsAsync.await(),
       mongoQueryStats = mongoQueryStatsAsync.await(),
       cronjobStats = cronjobStatsAsync.await(),

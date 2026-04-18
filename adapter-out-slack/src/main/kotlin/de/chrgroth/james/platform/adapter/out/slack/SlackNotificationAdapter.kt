@@ -1,7 +1,6 @@
 package de.chrgroth.james.platform.adapter.out.slack
 
 import de.chrgroth.james.platform.domain.port.out.infra.NotificationPort
-import de.chrgroth.james.platform.domain.port.out.infra.OutboxPartitionObserver
 import io.quarkus.runtime.ShutdownEvent
 import io.quarkus.runtime.StartupEvent
 import jakarta.enterprise.context.ApplicationScoped
@@ -38,11 +37,7 @@ class SlackNotificationAdapter(
   private val startupEnabled: Boolean,
   @param:ConfigProperty(name = "app.slack.system-notifications.stopping")
   private val stoppingEnabled: Boolean,
-  @param:ConfigProperty(name = "app.slack.system-notifications.outbox-partition-paused")
-  private val partitionPausedEnabled: Boolean,
-  @param:ConfigProperty(name = "app.slack.system-notifications.outbox-partition-resumed")
-  private val partitionResumedEnabled: Boolean,
-) : OutboxPartitionObserver, NotificationPort {
+) : NotificationPort {
 
   private val enabled: Boolean = webhookUrl.orElse("").isNotBlank()
 
@@ -62,15 +57,6 @@ class SlackNotificationAdapter(
   @Suppress("UnusedParameter")
   fun onShutdown(@Observes event: ShutdownEvent) {
     if (stoppingEnabled) send("James Platform $version about to stop")
-  }
-
-  override fun onPartitionPaused(partitionKey: String, reason: String) {
-    if (!partitionPausedEnabled) return
-    send("Outbox partition $partitionKey paused (reason: $reason)")
-  }
-
-  override fun onPartitionActivated(partitionKey: String) {
-    if (partitionResumedEnabled) send("Outbox partition $partitionKey resumed")
   }
 
   override fun notify(message: String) {

@@ -72,7 +72,6 @@ class LoginPageTests {
       .get("/")
       .then()
       .statusCode(200)
-      .body(not(containsString("updateNavbarOutboxStatus")))
       .body(not(containsString("updateNavbarPlaybackStatus")))
   }
 }

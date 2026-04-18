@@ -99,7 +99,7 @@ The shared installation is treated as a separate installation. Supported sharing
 | 1        | Correctness      | Entity schema constraints and cyclic-reference detection must be enforced without exception.  |
 | 2        | Security         | Role-based access control, cookie security, and Report sandboxing protect user data.          |
 | 3        | Developer UX     | App and schema creation must feel lightweight; no boilerplate for common CRUD patterns.       |
-| 4        | Reliability      | External operations (e.g. notifications) are reliably delivered via the outbox pattern.       |
+| 4        | Reliability      | External operations (e.g. notifications) are delivered on a best-effort basis.                |
 | 5        | Maintainability  | Hexagonal architecture and clear module boundaries keep the codebase understandable.          |
 
 ## Stakeholders
@@ -153,7 +153,6 @@ James Platform is a personal Low Code system. Its primary purpose is to let a si
 | Templating         | Qute (Quarkus SSR)             | Server-side rendering; no separate frontend project           |
 | Database           | MongoDB Atlas                  | Document model for dynamic entity schemas                     |
 | Authentication     | Cookie-based (AES session)     | Bcrypt password hashing; role-enforced via `QuarkusIdentity`  |
-| Outbox             | `quarkus-outbox` library       | Reliable external API calls (e.g. Slack notifications)        |
 | Reverse proxy      | Traefik                        | TLS termination, HTTPS, on existing VPS                       |
 | CI/CD              | GitHub Actions                 | Build, test, native Docker image, deploy to Docker Swarm      |
 
@@ -164,7 +163,7 @@ James Platform is a personal Low Code system. Its primary purpose is to let a si
 | Correctness       | Constraint validation and cyclic-reference detection in the domain layer; enforced before any persistence write.   |
 | Security          | Role-based access via `QuarkusSecurityIdentity`; Report sandbox (concept TBD); `HttpOnly` AES session cookie.      |
 | Developer UX      | Generic CRUD UI generated from Entity metadata; semver auto-derived; no boilerplate for common patterns.           |
-| Reliability       | All external operations (notifications, …) routed through the persistent outbox.                                   |
+| Reliability       | External operations (notifications, …) are delivered on a best-effort basis.                                       |
 | Maintainability   | Hexagonal architecture with strict module-dependency rules; zero infrastructure in `domain-api` / `domain-impl`.   |
 | Flexible schemas  | MongoDB document model maps naturally to dynamic Entity/Property definitions.                                      |
 | Simple deployment | Quarkus native Docker image + Docker Swarm on existing VPS; MongoDB Atlas as managed database.                     |
@@ -184,26 +183,14 @@ Base package: `de.chrgroth.james.platform`
 | `domain-api`          | –          | Ports (interfaces) and domain model only – zero infrastructure                        |
 | `domain-impl`         | –          | Business logic implementing the inbound port interfaces                               |
 | `adapter-in-web`      | inbound    | HTTP endpoints, Qute SSR templates, SSE adapters, cookie auth mechanism               |
-| `adapter-in-outbox`   | inbound    | Listens to outbox CDI events and notifies domain observers                            |
 | `adapter-in-starter`  | inbound    | One-time startup beans (starters) for data migrations and one-time bugfixes           |
 | `adapter-out-config`  | outbound   | Reads Quarkus/MicroProfile config and environment variables for health/config display |
 | `adapter-out-mongodb` | outbound   | MongoDB persistence: user repository, MongoDB viewer, stats adapter                  |
-| `adapter-out-outbox`  | outbound   | Wraps the outbox library; enqueues and queries outbox tasks                           |
 | `adapter-out-scheduler` | outbound | Reads Quarkus scheduler metadata for health/cronjob display                          |
 | `adapter-out-slack`   | outbound   | Slack notification adapter                                                            |
 | `application-quarkus` | –          | Wiring only: CDI, configuration, integration tests                                   |
 
 ### External Dependencies
-
-#### `de.chrgroth.quarkus.outbox`
-
-Provided via [christiangroth/quarkus-outbox](https://github.com/christiangroth/quarkus-outbox) (GitHub Packages). Three artifacts:
-
-- `domain-api` – outbox contracts: `OutboxPartition`, `OutboxEvent`, `OutboxTaskDispatcher`, `OutboxTaskResult`, `RetryPolicy`, and associated types
-- `domain-impl` – Quarkus implementation: `OutboxImpl`, `OutboxProcessor`, `OutboxWakeupService`, `OutboxStartupRecovery`, `OutboxPartitionWorker`
-- `adapter-out-persistence-mongodb` – MongoDB persistence: at-least-once delivery, atomic claim, partition-level pause/resume, task deduplication, priority ordering
-
-#### `de.chrgroth.quarkus.starters`
 
 Provided via [christiangroth/quarkus-one-time-starters](https://github.com/christiangroth/quarkus-one-time-starters) (GitHub Packages). Three artifacts:
 
@@ -301,12 +288,6 @@ All domain failures are represented as typed `DomainError` values wrapped in Arr
 - Web adapters translate `Either.Left<DomainError>` to HTTP error responses (redirect with `?error=<code>`).
 - Error codes follow the convention `<AREA>-<NNN>` (e.g. `LOGIN-001`). Codes are stable once published.
 
-## Outbox Pattern
-
-All external API operations and domain-level async tasks are routed through a persistent outbox. This ensures reliability and decouples producers from consumers.
-
-Successfully processed events are moved to `outbox_archive` (audit log). Internal triggers between services use CDI events (not the outbox).
-
 ## Server-Sent Events (SSE) and Live Updates
 
 Backend services notify SSE streams via CDI events. The SSE endpoint delivers the initial state on connect, then pushes named update events to connected clients via per-user
@@ -357,7 +338,6 @@ All sensitive configuration is provided via environment variables:
 | [0004](../adr/0004-using-ai-coding-agents.md)               | Using AI Coding Agents                             |
 | [0005](../adr/0005-markdown-rendering-library.md)           | Markdown Rendering Library: marked                 |
 | [0006](../adr/0006-error-handling-concept.md)               | Error Handling: Arrow Either&lt;DomainError, T&gt; |
-| [0007](../adr/0007-persistent-outbox-pattern.md)            | Persistent Outbox for external API Operations      |
 
 # Quality Requirements
 
@@ -398,4 +378,3 @@ All sensitive configuration is provided via environment variables:
 | Semver            | Semantic versioning (Major.Minor.Patch). Version numbers in James Platform are derived automatically.              |
 | Breaking change   | A schema change that is incompatible with existing data (e.g. removing an Entity or renaming an immutable ID).    |
 | Starter           | A one-time startup bean that executes exactly once (data migrations, schema fixes).                               |
-| Outbox            | A persistent queue for reliable delivery of external API operations (at-least-once).                              |

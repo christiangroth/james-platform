@@ -84,12 +84,6 @@ All domain failures use Arrow's `Either<DomainError, T>`:
 - Web adapters use `.fold(ifLeft = { ... }, ifRight = { ... })` to translate domain failures to HTTP responses
 - Error codes follow the convention `<AREA>-<NNN>` (e.g. `LOGIN-001`). Codes are stable once published; deprecated codes are kept as `DEPRECATED_<NAME>`
 
-## Outbox Pattern
-
-All external operations and internal domain events are routed through the persistent outbox in MongoDB. Direct external API calls outside `adapter-out-*` are forbidden.
-
-CDI events (`jakarta.enterprise.event.Event`) serve as the internal bus between domain services and the `LiveUpdateService` (SSE).
-
 ## Adapter Design Rules
 
 Adapters translate between the domain model and infrastructure types:
@@ -168,5 +162,3 @@ Tests follow the *Test Your Boundaries* principle:
 - **Inbound adapters** (HTTP endpoints, scheduler jobs): `@QuarkusTest` + REST Assured in `application-quarkus`, with CDI mocks via `@InjectMock` where needed.
 - **App wiring** (health/metrics): `@QuarkusTest` in `application-quarkus`.
 - **Adapter-local unit tests**: Plain JUnit 5 + MockK for pure logic in adapter modules that does not require Quarkus context.
-
-Contract tests for all outbox event types are mandatory and must fail on payload structure breaks. Test data via Kotlin builder functions, no lengthy setup blocks.

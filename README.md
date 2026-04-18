@@ -8,7 +8,6 @@ single-developer tool on a personal VPS and provides a web UI for managing users
 - **User Management** – Admins can register, activate/deactivate, set passwords, and delete user accounts. Roles (USER, DEVELOPER, ADMIN) are assigned per account.
 - **Authentication** – Cookie-based login with bcrypt password hashing and persistent sessions (14-day lifetime with automatic renewal).
 - **Profile** – Authenticated users can view and update their username, password, and account metadata.
-- **Outbox** – Reliable delivery of external operations (e.g. Slack notifications) via a persistent outbox with at-least-once semantics.
 - **In-App Documentation** – Architecture docs and coding guidelines are served and rendered directly in the UI.
 - **Monitoring** – Prometheus metrics and structured logs shipped to Grafana Cloud.
 

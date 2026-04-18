@@ -57,18 +57,15 @@ These are the most important tests. They verify that business rules are correctl
 class PlaylistAdapterTests {
 
     private val playlistRepository = mockk<PlaylistRepositoryPort>()
-    private val outboxPort = mockk<OutboxPort>()
-    private val underTest: PlaylistPort = PlaylistAdapter(playlistRepository, outboxPort)
+    private val underTest: PlaylistPort = PlaylistAdapter(playlistRepository)
 
     @Test
-    fun `sync enqueues outbox event for each changed playlist`() {
+    fun `sync processes each changed playlist`() {
         every { playlistRepository.findMetadata(USER_ID) } returns Either.Right(listOf(outdatedMetadata()))
-        every { outboxPort.enqueue(any()) } returns Either.Right(Unit)
 
         val result = underTest.syncPlaylists(USER_ID)
 
         result.shouldBeRight()
-        verify(exactly = 1) { outboxPort.enqueue(ofType<SyncPlaylistData>()) }
     }
 }
 ```
@@ -154,9 +151,9 @@ class PlaylistResourceTests {
 ## Contract Tests
 
 **Where:** `application-quarkus/src/test`  
-**What:** Outbox event payload serialization/deserialization round-trips
+**What:** Domain event payload serialization/deserialization round-trips
 
-Every `DomainOutboxEvent` subtype must have a contract test. These tests must fail the build if the payload schema changes in a breaking way.
+Any domain event payload used for serialization must have a contract test that fails the build on schema breaks.
 
 ### Rules
 
@@ -168,10 +165,10 @@ Every `DomainOutboxEvent` subtype must have a contract test. These tests must fa
 
 ```kotlin
 @Test
-fun `SyncPlaylistData payload round-trip`() {
-    val event = SyncPlaylistData(userId = "user-1", playlistId = "pl-42")
+fun `SomeEvent payload round-trip`() {
+    val event = SomeEvent(userId = "user-1", entityId = "e-42")
     val json = objectMapper.writeValueAsString(event)
-    val restored = objectMapper.readValue<SyncPlaylistData>(json)
+    val restored = objectMapper.readValue<SomeEvent>(json)
     restored shouldBe event
 }
 ```

@@ -7,7 +7,7 @@ creates real value. You think in interfaces, contracts, and testability. Your me
 
 ## Project Overview
 
-James Platform is a single-user developer tool deployed on a personal VPS. It provides a web UI for managing users and infrastructure, with a cookie-based authentication system, an outbox for reliable external API calls, one-time startup starters, and in-app documentation serving.
+James Platform is a single-user developer tool deployed on a personal VPS. It provides a web UI for managing users and infrastructure, with a cookie-based authentication system, one-time startup starters, and in-app documentation serving.
 
 See [arc42.md](../arc42/arc42.md) for full architecture documentation.
 
@@ -18,8 +18,8 @@ Base package: `de.chrgroth.james.platform`
 Module naming pattern:
 
 ```
-adapter-in-...      ← drives the domain (HTTP, scheduler, outbox dispatcher, starters)
-adapter-out-...     ← driven by the domain (MongoDB, config, external API, Slack, outbox writer)
+adapter-in-...      ← drives the domain (HTTP, scheduler, starters)
+adapter-out-...     ← driven by the domain (MongoDB, config, external API, Slack)
 application-quarkus ← wiring only: CDI, configuration, integration tests
 domain-api          ← ports (interfaces) and domain model only – zero infrastructure
 domain-impl         ← business logic implementing the inbound port interfaces
@@ -30,7 +30,6 @@ domain-impl         ← business logic implementing the inbound port interfaces
 - `domain-api` and `domain-impl` have **zero** compile-time dependencies on any adapter module
 - External HTTP calls only in `adapter-out-*` – nowhere else
 - MongoDB queries only in `adapter-out-mongodb` – nowhere else
-- All external operations go through the outbox – no direct API calls from domain or REST handlers
 - Adapter modules may depend on `domain-api`; they must never depend on `domain-impl` or on each other
 - CDI and MicroProfile Config annotations (`@ApplicationScoped`, `@ConfigProperty`, etc.) are permitted in `domain-impl` service classes – all other framework annotations (Quarkus,
   JAX-RS) belong in adapter modules only, not in domain objects or port interfaces
@@ -68,19 +67,17 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
 
 - **Port interfaces** (`domain-api/port/in` and `domain-api/port/out`) are the only legal crossing points between domain and adapters. New features must define ports first,
   implement adapters second.
-- **Outbox events** – explicit, persistent contract between domain and `adapter-out-*`. Event types are versioned. New types may be added; existing types must not be renamed or
-  have their payload structure broken without a migration strategy.
 
 ## Complexity Boundaries
 
 **Allowed (domain-justified):**
 
-- Outbox pattern with partitions for rate limit resilience
+(none currently)
 
 **Not allowed:**
 
-- No CQRS, no event sourcing beyond the outbox pattern
-- No message brokers (Kafka, RabbitMQ) – CDI events + persistent outbox are sufficient
+- No CQRS, no event sourcing
+- No message brokers (Kafka, RabbitMQ) – CDI events are sufficient
 - No separate frontend deployment – Qute SSR in the same Quarkus process
 
 ## Testing Strategy
@@ -98,13 +95,10 @@ wired together, not maximum line coverage.
 | 4 – App wiring          | Health/metrics endpoints               | None                                                   | `application-quarkus`     | `@QuarkusTest`                |
 | 5 – Adapter-local logic | Class under test                       | MockK mocks                                            | individual adapter module | JUnit 5 + MockK               |
 
-**Priority:** Domain logic (L1) > Contract tests > Outbound adapters (L2) > Inbound adapters (L3) > App wiring (L4)
-
-**Contract tests:** Outbox event payload round-trips are mandatory. Any schema break must fail the build.
+**Priority:** Domain logic (L1) > Outbound adapters (L2) > Inbound adapters (L3) > App wiring (L4)
 
 ## Design Principles
 
-- Outbox entry point is a type-safe API – no free-form string event types (sealed class or enum)
 - Enums for named states – no boolean flag parameters that require callers to know what `true` means
 - IDs as value objects to prevent mix-ups between ID types
 - Repository interfaces in the domain – implemented in `adapter-out-mongodb`
@@ -118,7 +112,6 @@ See [arc42.md](../arc42/arc42.md) — section "Release Process" under Deployment
 
 1. Does this logic belong in the domain or in an adapter?
 2. Would this compile in `domain-api`/`domain-impl` without any adapter dependency? If not, it's in the wrong place.
-3. Does it need a new outbox event or can an existing one be reused?
-4. Does it break an existing contract? Update the contract test first.
-5. Is the complexity domain-justified or technical over-engineering?
-6. How will it be tested? Which boundary layer is the right entry point?
+3. Does it break an existing contract? Update the contract test first.
+4. Is the complexity domain-justified or technical over-engineering?
+5. How will it be tested? Which boundary layer is the right entry point?

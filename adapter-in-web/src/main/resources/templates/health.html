@@ -6,58 +6,6 @@
         <h1 class="mb-4 fs-4 fw-semibold">System Health</h1>
 
         <div id="health-section">
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Communication</h2>
-            <div class="row g-3 mb-4">
-                <div class="col-12 col-sm-6 col-lg-6">
-                    <div id="snippet-outbox-partitions" class="card h-100 app-card">
-                        {#fragment id="snippet_outbox_partitions"}
-                        <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">Outbox Partitions</p>
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0 app-table" data-testid="outbox-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Partition</th>
-                                            <th class="text-end">Blocked</th>
-                                            <th class="text-end">#</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {#for p in stats.outboxPartitions}
-                                        <tr {#if p.blockedUntil}data-blocked-until="{p.blockedUntil.toEpochMilliseconds()}"{/if}>
-                                            <td>
-                                                {#status-icon condition=(p.status == "ACTIVE") size=16/}
-                                                {p.name}
-                                            </td>
-                                            <td class="outbox-blocked-until text-end">-</td>
-                                            <td class="text-end" data-testid="outbox-doc-count">{p.documentCount.formatted}</td>
-                                        </tr>
-                                        {#if p.documentCount > 0}
-                                        <tr class="outbox-detail-row" data-partition="{p.name}">
-                                            <td colspan="3" style="padding:4px 8px 4px 24px;background-color:var(--color-bg-nested);">
-                                                <table class="table table-sm mb-0" style="--bs-table-color:#aaa;background-color:transparent;font-size:0.8rem;">
-                                                    <tbody>
-                                                        {#for etc in p.eventTypeCounts}
-                                                        <tr>
-                                                            <td>{etc.eventType}</td>
-                                                            <td class="text-end">{etc.count.formatted}</td>
-                                                        </tr>
-                                                        {/for}
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        {/if}
-                                        {/for}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        {/fragment}
-                    </div>
-                </div>
-            </div>
-
             <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Cronjobs &amp; State</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-lg-6">
@@ -183,8 +131,6 @@
     </style>
     <script>
         (function () {
-            var outboxBlockedUntilInterval;
-
             function sortCronjobTable() {
                 var tbody = document.querySelector('[data-testid="cronjobs-table"] tbody');
                 if (!tbody) return;
@@ -233,42 +179,10 @@
                 sortCronjobTable();
             }
 
-            function updateOutboxBlockedUntilCountdowns() {
-                document.querySelectorAll('[data-blocked-until]').forEach(function (row) {
-                    var blockedUntil = parseInt(row.dataset.blockedUntil, 10);
-                    var remaining = blockedUntil - Date.now();
-                    var cell = row.querySelector('.outbox-blocked-until');
-                    if (!cell) return;
-                    if (remaining <= 1000) {
-                        cell.textContent = 'now';
-                    } else if (remaining < TWENTY_FOUR_HOURS_MS) {
-                        cell.textContent = formatCountdown(remaining);
-                    } else {
-                        cell.textContent = formatBlockedUntil(blockedUntil);
-                    }
-                });
-            }
-
-            function startOutboxBlockedUntilInterval() {
-                if (outboxBlockedUntilInterval) {
-                    clearInterval(outboxBlockedUntilInterval);
-                }
-                updateOutboxBlockedUntilCountdowns();
-                outboxBlockedUntilInterval = setInterval(updateOutboxBlockedUntilCountdowns, 500);
-            }
-
             setInterval(updateCronjobCountdowns, 500);
             updateCronjobCountdowns();
-            startOutboxBlockedUntilInterval();
 
             connectSse('/health/events', function (event) {
-                if (event.data === 'refresh-outbox-partitions') {
-                    if (outboxBlockedUntilInterval) {
-                        clearInterval(outboxBlockedUntilInterval);
-                        outboxBlockedUntilInterval = null;
-                    }
-                    fadeUpdate('snippet-outbox-partitions', '/health/snippets/outbox-partitions', startOutboxBlockedUntilInterval);
-                }
             });
         })();
     </script>

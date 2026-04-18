@@ -17,15 +17,6 @@ pluginManagement {
 dependencyResolutionManagement {
   repositories {
     maven {
-      url = uri("https://maven.pkg.github.com/christiangroth/quarkus-outbox")
-      credentials {
-        username = providers.gradleProperty("gpr.user").orNull
-          ?: System.getenv("GITHUB_ACTOR")
-        password = providers.gradleProperty("gpr.token").orNull
-          ?: System.getenv("GHCR_PAT")
-      }
-    }
-    maven {
       url = uri("https://maven.pkg.github.com/christiangroth/quarkus-starters")
       credentials {
         username = providers.gradleProperty("gpr.user").orNull
@@ -40,13 +31,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "james-platform"
 
-include("adapter-in-outbox")
 include("adapter-in-scheduler")
 include("adapter-in-starter")
 include("adapter-in-web")
 include("adapter-out-config")
 include("adapter-out-mongodb")
-include("adapter-out-outbox")
 include("adapter-out-scheduler")
 include("adapter-out-slack")
 

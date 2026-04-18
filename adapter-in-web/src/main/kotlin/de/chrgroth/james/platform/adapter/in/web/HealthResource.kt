@@ -37,13 +37,6 @@ class HealthResource {
     healthTemplate.getFragment("snippet_cronjobs").data("stats", health.getStats())
 
   @GET
-  @Path("/snippets/outbox-partitions")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun snippetOutboxPartitions(): TemplateInstance =
-    healthTemplate.getFragment("snippet_outbox_partitions").data("stats", health.getStats())
-
-  @GET
   @Path("/snippets/mongodb-collections")
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
