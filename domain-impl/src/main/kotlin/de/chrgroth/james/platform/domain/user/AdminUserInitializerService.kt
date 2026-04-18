@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.domain.user
 
 import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserInitializerPort
@@ -10,6 +11,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.UUID
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -28,6 +30,7 @@ class AdminUserInitializerService(
     val password = generateRandomPassword()
     val passwordHash = LoginService.hashPassword(password)
     val admin = User(
+      id = UserId(UUID.randomUUID().toString()),
       username = Username(ADMIN_USERNAME),
       passwordHash = passwordHash,
       roles = setOf(UserRole.ADMIN),

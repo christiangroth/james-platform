@@ -53,6 +53,12 @@ class AppVersionRepositoryAdapter(
     }
   }
 
+  override fun deleteAll() {
+    mongoQueryMetrics.timed("app_version.deleteAll") {
+      appVersionDocumentRepository.mongoCollection().deleteMany(Filters.exists(ID_FIELD))
+    }
+  }
+
   private fun AppVersionDocument.toDomain() = AppVersion(
     id = AppVersionId(id),
     appId = AppId(appId),

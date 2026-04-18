@@ -9,5 +9,6 @@ interface AppVersionRepositoryPort {
   fun findById(versionId: AppVersionId): AppVersion?
   fun findByAppIdAndVersionNumber(appId: AppId, versionNumber: VersionNumber): AppVersion?
   fun findAllByAppId(appId: AppId): List<AppVersion>
+  fun deleteAll()
   fun save(version: AppVersion)
 }

@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
@@ -46,6 +47,9 @@ class DeveloperAppResource {
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
+  private lateinit var userProfile: UserProfileServicePort
+
+  @Inject
   private lateinit var appManagement: AppManagementPort
 
   @Inject
@@ -54,9 +58,13 @@ class DeveloperAppResource {
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
-  fun developerDashboard() = developerDashboardTemplate
-    .data("username", securityIdentity.principal.name)
-    .data("apps", appManagement.listApps(securityIdentity.principal.name))
+  fun developerDashboard(): Any {
+    val username = securityIdentity.principal.name
+    val developerId = resolveCurrentDeveloperUserId()
+    return developerDashboardTemplate
+      .data("username", username)
+      .data("apps", if (developerId != null) appManagement.listApps(developerId) else emptyList<Any>())
+  }
 
   @POST
   @Path("/apps")
@@ -69,7 +77,9 @@ class DeveloperAppResource {
     if (name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "App name is required.")).build()
     }
-    return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, securityIdentity.principal.name).fold(
+    val developerId = resolveCurrentDeveloperUserId()
+      ?: return Response.ok(DeveloperApiResult(false, "Developer user not found.")).build()
+    return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
       ifRight = { app -> Response.ok(DeveloperApiResult(true, "App created.", "/ui/developer/apps/${app.id.value}")).build() },
     )
@@ -79,7 +89,9 @@ class DeveloperAppResource {
   @Path("/apps/{appId}")
   @Produces(MediaType.TEXT_HTML)
   fun appOverview(@PathParam("appId") appId: String): Response {
-    return appManagement.getApp(appId, securityIdentity.principal.name).fold(
+    val developerId = resolveCurrentDeveloperUserId()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    return appManagement.getApp(appId, developerId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/dashboard")).build() },
       ifRight = { app ->
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
@@ -113,7 +125,9 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
   ): Response {
-    val appResult = appManagement.getApp(appId, securityIdentity.principal.name)
+    val developerId = resolveCurrentDeveloperUserId()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
       return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
@@ -142,7 +156,9 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
   ): Response {
-    val appResult = appManagement.getApp(appId, securityIdentity.principal.name)
+    val developerId = resolveCurrentDeveloperUserId()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
       return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
@@ -172,7 +188,9 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("reportId") reportId: String,
   ): Response {
-    val appResult = appManagement.getApp(appId, securityIdentity.principal.name)
+    val developerId = resolveCurrentDeveloperUserId()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
       return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
@@ -351,6 +369,9 @@ class DeveloperAppResource {
       ifRight = { Response.ok(DeveloperApiResult(true, "Report deleted.", "/ui/developer/apps/$appId/versions/$versionId")).build() },
     )
   }
+
+  private fun resolveCurrentDeveloperUserId(): String? =
+    userProfile.getProfile(securityIdentity.principal.name).getOrNull()?.id?.value
 
   private fun appErrorMessage(code: String): String = when (code) {
     AppError.BLANK_INPUT.code -> "App name is required."

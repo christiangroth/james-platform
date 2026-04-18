@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.user
 
 import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
@@ -11,6 +12,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.UUID
 
 class AdminUserManagementServiceTests {
 
@@ -18,6 +20,7 @@ class AdminUserManagementServiceTests {
   private val service = AdminUserManagementService(userRepository)
 
   private val adminUser = User(
+    id = UserId(UUID.randomUUID().toString()),
     username = Username("admin"),
     passwordHash = LoginService.hashPassword("password"),
     roles = setOf(UserRole.ADMIN),
@@ -25,6 +28,7 @@ class AdminUserManagementServiceTests {
   )
 
   private val regularUser = User(
+    id = UserId(UUID.randomUUID().toString()),
     username = Username("user"),
     passwordHash = LoginService.hashPassword("password"),
     roles = setOf(UserRole.USER),
@@ -45,6 +49,7 @@ class AdminUserManagementServiceTests {
   @Test
   fun `setRoles succeeds when assigning admin role to non-admin user and no other admin exists`() {
     val userWithNoAdmin = User(
+      id = UserId(UUID.randomUUID().toString()),
       username = Username("user2"),
       passwordHash = LoginService.hashPassword("password"),
       roles = setOf(UserRole.USER),

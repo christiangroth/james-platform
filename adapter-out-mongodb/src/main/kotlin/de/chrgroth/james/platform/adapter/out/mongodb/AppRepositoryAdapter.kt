@@ -43,6 +43,12 @@ class AppRepositoryAdapter(
     }
   }
 
+  override fun deleteAll() {
+    mongoQueryMetrics.timed("app.deleteAll") {
+      appDocumentRepository.mongoCollection().deleteMany(Filters.exists(ID_FIELD))
+    }
+  }
+
   override fun save(app: App) {
     mongoQueryMetrics.timed("app.save") {
       val doc = app.toDocument()

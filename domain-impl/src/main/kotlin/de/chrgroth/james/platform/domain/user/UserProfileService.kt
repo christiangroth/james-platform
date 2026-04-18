@@ -37,7 +37,6 @@ class UserProfileService(
     }
     val updatedUser = user.copy(username = Username(newUsername))
     userRepository.save(updatedUser)
-    userRepository.delete(Username(currentUsername))
     logger.info { "Username changed from $currentUsername to $newUsername" }
     return updatedUser.right()
   }
