@@ -1,0 +1,38 @@
+{#include layout.html}
+    {#title}James Platform – App Store{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <div class="d-flex align-items-center mb-4 gap-3">
+            <a href="/ui/user/dashboard" class="btn btn-app-secondary btn-sm" data-testid="back-link">← Dashboard</a>
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="page-title">App Store</h1>
+        </div>
+
+        <div id="store-message" class="d-none mb-4" role="alert"></div>
+
+        {#if apps.isEmpty}
+        <div class="card app-card p-4" data-testid="no-apps-message">
+            <p class="mb-0 app-section-label">No apps available yet.</p>
+        </div>
+        {#else}
+        <div class="row g-3" data-testid="store-apps-grid">
+            {#for app in apps}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <a href="/ui/user/app-store/apps/{app.appId}" class="text-decoration-none" data-testid="store-app-tile" aria-label="View details for {app.appName}">
+                    <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
+                        <div class="fw-semibold fs-6 mb-1" data-testid="store-app-name">{app.appName}</div>
+                        <div class="app-section-label mb-1" data-testid="store-app-version">v{app.latestVersion.versionNumber.value}</div>
+                        <div class="app-section-label text-truncate mb-2" data-testid="store-app-developer">{app.developerName}</div>
+                        <div class="mt-auto">
+                            {#if installedAppIds.contains(app.appId)}
+                            <span class="badge app-badge-muted" data-testid="installed-badge">Installed</span>
+                            {/if}
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {/for}
+        </div>
+        {/if}
+    </div>
+    {/content}
+{/include}

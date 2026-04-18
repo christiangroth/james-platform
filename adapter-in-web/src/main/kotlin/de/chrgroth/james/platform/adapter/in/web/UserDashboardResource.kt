@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
@@ -31,11 +32,20 @@ class UserDashboardResource {
   @Inject
   private lateinit var userRepository: UserRepositoryPort
 
+  @Inject
+  private lateinit var userAppStore: UserAppStorePort
+
   @GET
   @Path("/user/dashboard")
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
-  fun userDashboard() = userDashboardTemplate.data("username", securityIdentity.principal.name)
+  fun userDashboard(): Any {
+    val userId = securityIdentity.principal.name
+    val installedApps = userAppStore.getInstalledApps(userId)
+    return userDashboardTemplate
+      .data("username", userId)
+      .data("installedApps", installedApps)
+  }
 
   @GET
   @Path("/admin/dashboard")
@@ -43,3 +53,4 @@ class UserDashboardResource {
   @Produces(MediaType.TEXT_HTML)
   fun adminDashboard() = adminDashboardTemplate.data("userCount", userRepository.findAll().size)
 }
+
