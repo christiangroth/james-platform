@@ -429,6 +429,10 @@
             var publishModal = document.getElementById('publishVersionModal');
             var versionBumpData = null;
 
+            function versionValue(v) {
+                return typeof v === 'string' ? v : (v ? v.value : null);
+            }
+
             function applyVersionBumpToModal(bump) {
                 var loading = document.getElementById('version-bump-loading');
                 var content = document.getElementById('version-bump-content');
@@ -443,28 +447,29 @@
                 content.classList.remove('d-none');
                 submitBtn.disabled = true;
                 bumpTypeInput.value = '';
-                var isFirstVersion = bump.suggestedVersionOnFeature.value === bump.suggestedVersionOnBugfix.value
-                    && bump.suggestedVersionOnFeature.value === bump.suggestedVersionOnBreaking.value;
+                var featureV = versionValue(bump.suggestedVersionOnFeature);
+                var bugfixV = versionValue(bump.suggestedVersionOnBugfix);
+                var breakingV = versionValue(bump.suggestedVersionOnBreaking);
+                var isFirstVersion = featureV !== null && featureV === bugfixV && featureV === breakingV;
                 if (isFirstVersion) {
                     firstSection.classList.remove('d-none');
                     breakingSection.classList.add('d-none');
                     nonBreakingSection.classList.add('d-none');
-                    document.getElementById('first-version-label').textContent = bump.suggestedVersionOnFeature.value;
-                    bumpTypeInput.value = 'BUGFIX';
+                    document.getElementById('first-version-label').textContent = featureV;
                     submitBtn.disabled = false;
                 } else if (bump.hasBreakingChanges) {
                     firstSection.classList.add('d-none');
                     breakingSection.classList.remove('d-none');
                     nonBreakingSection.classList.add('d-none');
-                    document.getElementById('breaking-version-label').textContent = bump.suggestedVersionOnBreaking.value;
+                    document.getElementById('breaking-version-label').textContent = breakingV;
                     bumpTypeInput.value = 'BREAKING';
                     submitBtn.disabled = false;
                 } else {
                     firstSection.classList.add('d-none');
                     breakingSection.classList.add('d-none');
                     nonBreakingSection.classList.remove('d-none');
-                    featureBtn.textContent = 'Feature: ' + bump.suggestedVersionOnFeature.value;
-                    bugfixBtn.textContent = 'Bugfix: ' + bump.suggestedVersionOnBugfix.value;
+                    featureBtn.textContent = 'Feature: ' + featureV;
+                    bugfixBtn.textContent = 'Bugfix: ' + bugfixV;
                     featureBtn.className = 'btn btn-app-secondary';
                     bugfixBtn.className = 'btn btn-app-secondary';
                     featureBtn.onclick = function () {

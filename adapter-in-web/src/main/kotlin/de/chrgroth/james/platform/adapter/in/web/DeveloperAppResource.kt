@@ -213,12 +213,9 @@ class DeveloperAppResource {
   @Produces(MediaType.APPLICATION_JSON)
   fun publishVersion(
     @PathParam("appId") appId: String,
-    @FormParam("bumpType") bumpType: String,
+    @FormParam("bumpType") bumpType: String?,
   ): Response {
-    if (bumpType.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, "Bump type is required.")).build()
-    }
-    return appVersionManagement.publishVersion(appId, bumpType.trim()).fold(
+    return appVersionManagement.publishVersion(appId, bumpType).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, "Version published.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
