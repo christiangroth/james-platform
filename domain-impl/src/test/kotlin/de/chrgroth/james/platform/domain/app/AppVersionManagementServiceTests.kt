@@ -228,9 +228,11 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion fails when version number already exists for app`() {
-    val anotherPublished = version(id = "ver-3", appId = "app-1", versionNumber = "1.1.1", status = AppVersionStatus.PUBLISHED)
+    // collidingPublished is at 1.1.1 (the expected BUGFIX bump from publishedVersion 1.1.0),
+    // with an older createdAt so publishedVersion is the latest and used as the base for bump calculation
+    val collidingPublished = version(id = "ver-3", appId = "app-1", versionNumber = "1.1.1", status = AppVersionStatus.PUBLISHED)
       .copy(createdAt = publishedVersion.createdAt.minusSeconds(10))
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion, anotherPublished)
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion, collidingPublished)
 
     val result = service.publishVersion("app-1", "BUGFIX")
 

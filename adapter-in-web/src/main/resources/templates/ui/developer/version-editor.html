@@ -491,7 +491,9 @@
                             badge.classList.remove('d-none');
                         }
                     })
-                    .catch(function () {});
+                    .catch(function () {
+                        console.warn('Could not load version bump information for version ' + versionId);
+                    });
 
                 publishModal.addEventListener('show.bs.modal', function () {
                     var loading = document.getElementById('version-bump-loading');
