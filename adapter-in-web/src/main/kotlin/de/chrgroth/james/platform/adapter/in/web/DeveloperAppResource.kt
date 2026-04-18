@@ -213,12 +213,12 @@ class DeveloperAppResource {
   @Produces(MediaType.APPLICATION_JSON)
   fun publishVersion(
     @PathParam("appId") appId: String,
-    @FormParam("versionNumber") versionNumber: String,
+    @FormParam("bumpType") bumpType: String,
   ): Response {
-    if (versionNumber.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, "Version number is required.")).build()
+    if (bumpType.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "Bump type is required.")).build()
     }
-    return appVersionManagement.publishVersion(appId, versionNumber.trim()).fold(
+    return appVersionManagement.publishVersion(appId, bumpType.trim()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, "Version published.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
@@ -359,8 +359,7 @@ class DeveloperAppResource {
   }
 
   private fun versionErrorMessage(code: String): String = when (code) {
-    AppVersionError.BLANK_INPUT.code -> "Version number is required."
-    AppVersionError.INVALID_VERSION_NUMBER_FORMAT.code -> "Invalid version number. Must follow semantic versioning (e.g. 1.0.0)."
+    AppVersionError.INVALID_BUMP_TYPE.code -> "Invalid release type. Please try again."
     AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.code -> "A draft version already exists. Publish or delete it before creating a new one."
     AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.code -> "A version with this number already exists."
     else -> "An unexpected error occurred. Please try again."

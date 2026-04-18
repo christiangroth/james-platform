@@ -60,6 +60,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   REPORT_NOT_FOUND("APPVER-012"),
   REPORT_NAME_ALREADY_EXISTS("APPVER-013"),
   INVALID_PROPERTY_TYPE("APPVER-015"),
+  INVALID_BUMP_TYPE("APPVER-016"),
   ;
 }
 

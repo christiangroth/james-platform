@@ -48,6 +48,9 @@
                 </div>
                 <span class="badge {#if isDraft}app-badge-processing{#else}app-badge-muted{/if}" data-testid="version-status">{version.status}</span>
                 {#if isDraft}
+                <span class="badge app-badge-failed d-none" id="breaking-changes-badge" data-testid="breaking-changes-badge">Breaking Changes</span>
+                {/if}
+                {#if isDraft}
                 <button type="button" class="btn btn-app-primary btn-sm ms-auto"
                         data-bs-toggle="modal" data-bs-target="#publishVersionModal"
                         data-testid="publish-version-button">
@@ -247,22 +250,24 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="publishVersionForm">
+                    <input type="hidden" name="bumpType" id="bumpTypeInput" value="">
                     <div class="modal-body">
-                        <div id="version-bump-loading" class="text-center py-3 app-section-label">Loading version suggestions…</div>
+                        <div id="version-bump-loading" class="text-center py-3 app-section-label">Loading version information…</div>
                         <div id="version-bump-content" class="d-none">
-                            <div id="breaking-warning" class="alert d-none" style="background-color:#2a1a1a;border-color:#6b2222;color:#f8d7da;" role="alert" data-testid="breaking-changes-warning">
-                                Breaking changes detected. A major version bump is required.
+                            <div id="publish-first-version" class="d-none">
+                                <p>This will publish the first version as <strong id="first-version-label" data-testid="first-version-label"></strong>.</p>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Suggested Versions</label>
-                                <div id="version-suggestions" class="d-flex flex-wrap gap-2 mb-2"></div>
+                            <div id="publish-breaking" class="d-none">
+                                <div class="alert" style="background-color:#2a1a1a;border-color:#6b2222;color:#f8d7da;" role="alert" data-testid="breaking-changes-warning">
+                                    Breaking changes detected. Will be published as major version <strong id="breaking-version-label" data-testid="breaking-version-label"></strong>.
+                                </div>
                             </div>
-                            <div class="mb-3">
-                                <label for="publishVersionNumber" class="form-label">Version Number <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control app-form-control" id="publishVersionNumber" name="versionNumber"
-                                       required autocomplete="off" placeholder="e.g. 1.0.0"
-                                       data-testid="publish-version-number-input">
-                                <div class="form-text" style="color:var(--color-text-muted);">Must follow semantic versioning (e.g. 1.0.0)</div>
+                            <div id="publish-non-breaking" class="d-none">
+                                <p class="mb-3" style="color:var(--color-text-muted);">Choose the type of release:</p>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-app-secondary" id="publish-feature-btn" data-testid="publish-feature-button"></button>
+                                    <button type="button" class="btn btn-app-secondary" id="publish-bugfix-btn" data-testid="publish-bugfix-button"></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -422,52 +427,93 @@
 
             // Publish Version Modal
             var publishModal = document.getElementById('publishVersionModal');
+            var versionBumpData = null;
+
+            function applyVersionBumpToModal(bump) {
+                var loading = document.getElementById('version-bump-loading');
+                var content = document.getElementById('version-bump-content');
+                var submitBtn = document.getElementById('publishSubmitBtn');
+                var bumpTypeInput = document.getElementById('bumpTypeInput');
+                var firstSection = document.getElementById('publish-first-version');
+                var breakingSection = document.getElementById('publish-breaking');
+                var nonBreakingSection = document.getElementById('publish-non-breaking');
+                var featureBtn = document.getElementById('publish-feature-btn');
+                var bugfixBtn = document.getElementById('publish-bugfix-btn');
+                loading.classList.add('d-none');
+                content.classList.remove('d-none');
+                submitBtn.disabled = true;
+                bumpTypeInput.value = '';
+                var isFirstVersion = bump.suggestedVersionOnFeature.value === bump.suggestedVersionOnBugfix.value
+                    && bump.suggestedVersionOnFeature.value === bump.suggestedVersionOnBreaking.value;
+                if (isFirstVersion) {
+                    firstSection.classList.remove('d-none');
+                    breakingSection.classList.add('d-none');
+                    nonBreakingSection.classList.add('d-none');
+                    document.getElementById('first-version-label').textContent = bump.suggestedVersionOnFeature.value;
+                    bumpTypeInput.value = 'BUGFIX';
+                    submitBtn.disabled = false;
+                } else if (bump.hasBreakingChanges) {
+                    firstSection.classList.add('d-none');
+                    breakingSection.classList.remove('d-none');
+                    nonBreakingSection.classList.add('d-none');
+                    document.getElementById('breaking-version-label').textContent = bump.suggestedVersionOnBreaking.value;
+                    bumpTypeInput.value = 'BREAKING';
+                    submitBtn.disabled = false;
+                } else {
+                    firstSection.classList.add('d-none');
+                    breakingSection.classList.add('d-none');
+                    nonBreakingSection.classList.remove('d-none');
+                    featureBtn.textContent = 'Feature: ' + bump.suggestedVersionOnFeature.value;
+                    bugfixBtn.textContent = 'Bugfix: ' + bump.suggestedVersionOnBugfix.value;
+                    featureBtn.className = 'btn btn-app-secondary';
+                    bugfixBtn.className = 'btn btn-app-secondary';
+                    featureBtn.onclick = function () {
+                        bumpTypeInput.value = 'FEATURE';
+                        submitBtn.disabled = false;
+                        featureBtn.className = 'btn btn-app-primary';
+                        bugfixBtn.className = 'btn btn-app-secondary';
+                    };
+                    bugfixBtn.onclick = function () {
+                        bumpTypeInput.value = 'BUGFIX';
+                        submitBtn.disabled = false;
+                        bugfixBtn.className = 'btn btn-app-primary';
+                        featureBtn.className = 'btn btn-app-secondary';
+                    };
+                }
+            }
+
             if (publishModal) {
-                publishModal.addEventListener('show.bs.modal', async function () {
+                fetch('/ui/developer/apps/' + appId + '/versions/' + versionId + '/version-bump')
+                    .then(function (r) { return r.json(); })
+                    .then(function (bump) {
+                        versionBumpData = bump;
+                        var badge = document.getElementById('breaking-changes-badge');
+                        if (badge && bump.hasBreakingChanges) {
+                            badge.classList.remove('d-none');
+                        }
+                    })
+                    .catch(function () {
+                        console.warn('Could not load version bump information for version ' + versionId);
+                    });
+
+                publishModal.addEventListener('show.bs.modal', function () {
                     var loading = document.getElementById('version-bump-loading');
                     var content = document.getElementById('version-bump-content');
-                    var submitBtn = document.getElementById('publishSubmitBtn');
-                    var breakingWarning = document.getElementById('breaking-warning');
-                    var suggestions = document.getElementById('version-suggestions');
-                    var versionInput = document.getElementById('publishVersionNumber');
                     loading.classList.remove('d-none');
                     content.classList.add('d-none');
-                    submitBtn.disabled = true;
-                    try {
-                        var response = await fetch('/ui/developer/apps/' + appId + '/versions/' + versionId + '/version-bump');
-                        var bump = await response.json();
-                        loading.classList.add('d-none');
-                        content.classList.remove('d-none');
-                        submitBtn.disabled = false;
-                        if (bump.hasBreakingChanges) {
-                            breakingWarning.classList.remove('d-none');
-                        } else {
-                            breakingWarning.classList.add('d-none');
-                        }
-                        suggestions.innerHTML = '';
-                        var shown = [];
-                        if (bump.hasBreakingChanges) {
-                            shown.push({ label: 'Breaking: ' + bump.suggestedVersionOnBreaking.value, value: bump.suggestedVersionOnBreaking.value });
-                        } else {
-                            shown.push({ label: 'Feature: ' + bump.suggestedVersionOnFeature.value, value: bump.suggestedVersionOnFeature.value });
-                            shown.push({ label: 'Bugfix: ' + bump.suggestedVersionOnBugfix.value, value: bump.suggestedVersionOnBugfix.value });
-                        }
-                        shown.forEach(function (s) {
-                            var btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'btn btn-app-secondary btn-sm';
-                            btn.setAttribute('data-testid', 'version-suggestion-btn');
-                            btn.textContent = s.label;
-                            btn.addEventListener('click', function () {
-                                versionInput.value = s.value;
+                    document.getElementById('publishSubmitBtn').disabled = true;
+                    if (versionBumpData) {
+                        applyVersionBumpToModal(versionBumpData);
+                    } else {
+                        fetch('/ui/developer/apps/' + appId + '/versions/' + versionId + '/version-bump')
+                            .then(function (r) { return r.json(); })
+                            .then(function (bump) {
+                                versionBumpData = bump;
+                                applyVersionBumpToModal(bump);
+                            })
+                            .catch(function () {
+                                loading.textContent = 'Could not load version information.';
                             });
-                            suggestions.appendChild(btn);
-                        });
-                        if (shown.length > 0) {
-                            versionInput.value = shown[0].value;
-                        }
-                    } catch (err) {
-                        loading.innerHTML = 'Could not load version suggestions.';
                     }
                 });
 
