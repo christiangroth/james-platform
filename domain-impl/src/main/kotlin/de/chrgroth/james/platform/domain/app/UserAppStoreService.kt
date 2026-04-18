@@ -30,12 +30,15 @@ class UserAppStoreService(
   private val installedAppRepository: InstalledAppRepositoryPort,
 ) : UserAppStorePort {
 
+  private fun latestPublishedVersion(appId: AppId) =
+    appVersionRepository.findAllByAppId(appId)
+      .filter { it.status == AppVersionStatus.PUBLISHED }
+      .maxByOrNull { it.createdAt }
+
   override fun listAllPublishedApps(): List<PublishedAppInfo> {
     val apps = appRepository.findAll().filter { it.status == AppStatus.ACTIVE }
     return apps.mapNotNull { app ->
-      val latestVersion = appVersionRepository.findAllByAppId(app.id)
-        .filter { it.status == AppVersionStatus.PUBLISHED }
-        .maxByOrNull { it.createdAt }
+      val latestVersion = latestPublishedVersion(app.id)
       latestVersion?.let {
         PublishedAppInfo(
           appId = app.id.value,
@@ -52,13 +55,10 @@ class UserAppStoreService(
       logger.warn { "Get published app failed: app not found: $appId" }
       return UserAppStoreError.APP_NOT_FOUND.left()
     }
-    val latestVersion = appVersionRepository.findAllByAppId(app.id)
-      .filter { it.status == AppVersionStatus.PUBLISHED }
-      .maxByOrNull { it.createdAt }
-      ?: run {
-        logger.warn { "Get published app failed: no published version for app: $appId" }
-        return UserAppStoreError.NO_PUBLISHED_VERSION.left()
-      }
+    val latestVersion = latestPublishedVersion(app.id) ?: run {
+      logger.warn { "Get published app failed: no published version for app: $appId" }
+      return UserAppStoreError.NO_PUBLISHED_VERSION.left()
+    }
     return PublishedAppDetail(
       appId = app.id.value,
       appName = app.name.value,
@@ -73,10 +73,7 @@ class UserAppStoreService(
     return installed.mapNotNull { installedApp ->
       val app = appRepository.findById(installedApp.appId) ?: return@mapNotNull null
       val installedVersion = appVersionRepository.findById(installedApp.installedVersionId) ?: return@mapNotNull null
-      val latestVersion = appVersionRepository.findAllByAppId(installedApp.appId)
-        .filter { it.status == AppVersionStatus.PUBLISHED }
-        .maxByOrNull { it.createdAt }
-        ?: installedVersion
+      val latestVersion = latestPublishedVersion(installedApp.appId) ?: installedVersion
       InstalledAppInfo(
         installedApp = installedApp,
         appName = app.name.value,
@@ -91,13 +88,10 @@ class UserAppStoreService(
       logger.warn { "Install app failed: app not found: $appId" }
       return UserAppStoreError.APP_NOT_FOUND.left()
     }
-    val latestVersion = appVersionRepository.findAllByAppId(AppId(appId))
-      .filter { it.status == AppVersionStatus.PUBLISHED }
-      .maxByOrNull { it.createdAt }
-      ?: run {
-        logger.warn { "Install app failed: no published version for app: $appId" }
-        return UserAppStoreError.NO_PUBLISHED_VERSION.left()
-      }
+    val latestVersion = latestPublishedVersion(AppId(appId)) ?: run {
+      logger.warn { "Install app failed: no published version for app: $appId" }
+      return UserAppStoreError.NO_PUBLISHED_VERSION.left()
+    }
     if (installedAppRepository.findByUserIdAndAppId(userId, AppId(appId)) != null) {
       logger.warn { "Install app failed: app already installed for user: $userId, app: $appId" }
       return UserAppStoreError.ALREADY_INSTALLED.left()
@@ -123,13 +117,10 @@ class UserAppStoreService(
       logger.warn { "Upgrade app failed: installed app not found for user: $userId" }
       return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val latestVersion = appVersionRepository.findAllByAppId(existing.appId)
-      .filter { it.status == AppVersionStatus.PUBLISHED }
-      .maxByOrNull { it.createdAt }
-      ?: run {
-        logger.warn { "Upgrade app failed: no published version for app: ${existing.appId.value}" }
-        return UserAppStoreError.NO_PUBLISHED_VERSION.left()
-      }
+    val latestVersion = latestPublishedVersion(existing.appId) ?: run {
+      logger.warn { "Upgrade app failed: no published version for app: ${existing.appId.value}" }
+      return UserAppStoreError.NO_PUBLISHED_VERSION.left()
+    }
     if (existing.installedVersionId == latestVersion.id) {
       logger.warn { "Upgrade app failed: already up to date for installedAppId: $installedAppId" }
       return UserAppStoreError.ALREADY_UP_TO_DATE.left()
