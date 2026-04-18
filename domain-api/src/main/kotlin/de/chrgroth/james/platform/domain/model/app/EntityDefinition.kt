@@ -92,6 +92,11 @@ enum class PropertyType {
       PropertyConstraint.UniqueKey::class,
     )
   },
+  DURATION {
+    override fun availableConstraints() = listOf(
+      PropertyConstraint.UniqueKey::class,
+    )
+  },
   LIST {
     override fun availableConstraints() = listOf(
       PropertyConstraint.MinSize::class,
