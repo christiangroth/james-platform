@@ -18,6 +18,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
+import de.chrgroth.james.platform.domain.model.app.VersionBumpType
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
@@ -92,27 +93,41 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  override fun publishVersion(appId: String, versionNumber: String): Either<DomainError, AppVersion> {
-    if (versionNumber.isBlank()) {
-      logger.warn { "Publish version failed: blank version number" }
-      return AppVersionError.BLANK_INPUT.left()
-    }
-    if (!SEMANTIC_VERSION_REGEX.matches(versionNumber)) {
-      logger.warn { "Publish version failed: invalid version number format: $versionNumber" }
-      return AppVersionError.INVALID_VERSION_NUMBER_FORMAT.left()
+  override fun publishVersion(appId: String, bumpType: String): Either<DomainError, AppVersion> {
+    val type = runCatching { VersionBumpType.valueOf(bumpType.uppercase()) }.getOrNull() ?: run {
+      logger.warn { "Publish version failed: invalid bump type: $bumpType" }
+      return AppVersionError.INVALID_BUMP_TYPE.left()
     }
     val allVersions = appVersionRepository.findAllByAppId(AppId(appId))
     val version = allVersions.find { it.status == AppVersionStatus.DRAFT } ?: run {
       logger.warn { "Publish version failed: no draft version found for app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
     }
-    if (allVersions.any { it.versionNumber == VersionNumber(versionNumber) && it.id != version.id }) {
-      logger.warn { "Publish version failed: version number already exists: $versionNumber in app $appId" }
+    val latestPublished = allVersions
+      .filter { it.status == AppVersionStatus.PUBLISHED }
+      .maxByOrNull { it.createdAt }
+    val versionNumber = if (latestPublished == null) {
+      VersionNumber(FIRST_VERSION)
+    } else {
+      val latestVersionNumber = latestPublished.versionNumber ?: run {
+        logger.warn { "Publish version failed: latest published version has no version number for app $appId" }
+        return AppVersionError.VERSION_NOT_FOUND.left()
+      }
+      val hasBreaking = hasBreakingChanges(latestPublished, version)
+      val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)
+      when {
+        hasBreaking -> onBreaking
+        type == VersionBumpType.FEATURE -> onFeature
+        else -> onBugfix
+      }
+    }
+    if (allVersions.any { it.versionNumber == versionNumber && it.id != version.id }) {
+      logger.warn { "Publish version failed: version number already exists: ${versionNumber.value} in app $appId" }
       return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }
-    val publishedVersion = version.copy(versionNumber = VersionNumber(versionNumber), status = AppVersionStatus.PUBLISHED)
+    val publishedVersion = version.copy(versionNumber = versionNumber, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
-    logger.info { "App version published: $versionNumber (${version.id.value})" }
+    logger.info { "App version published: ${versionNumber.value} (${version.id.value})" }
     return publishedVersion.right()
   }
 
@@ -333,7 +348,6 @@ class AppVersionManagementService(
   }
 
   private fun nextVersions(current: VersionNumber): Triple<VersionNumber, VersionNumber, VersionNumber> {
-    // current is always a stored published version whose format was enforced by SEMANTIC_VERSION_REGEX on creation
     val parts = current.value.split(".").map { it.toInt() }
     val major = parts[0]
     val minor = parts[1]
@@ -346,7 +360,6 @@ class AppVersionManagementService(
   }
 
   companion object : KLogging() {
-    private val SEMANTIC_VERSION_REGEX = Regex("""^\d+\.\d+\.\d+$""")
     internal const val FIRST_VERSION = "0.1.0"
   }
 }
