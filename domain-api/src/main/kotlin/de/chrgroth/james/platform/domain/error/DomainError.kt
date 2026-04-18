@@ -63,6 +63,16 @@ enum class AppVersionError(override val code: String) : DomainError {
   ;
 }
 
+enum class UserAppStoreError(override val code: String) : DomainError {
+  APP_NOT_FOUND("STORE-001"),
+  NO_PUBLISHED_VERSION("STORE-002"),
+  ALREADY_INSTALLED("STORE-003"),
+  NOT_INSTALLED("STORE-004"),
+  INSTALLED_APP_NOT_FOUND("STORE-005"),
+  ALREADY_UP_TO_DATE("STORE-006"),
+  ;
+}
+
 enum class PropertyConstraintViolation(override val code: String) : DomainError {
   UNIQUE_KEY_VIOLATION("PROP-002"),
   MIN_VALUE_VIOLATION("PROP-003"),

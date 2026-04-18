@@ -1,0 +1,150 @@
+{#include layout.html}
+    {#title}James Platform – {detail.appName}{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <div class="d-flex align-items-center mb-4 gap-3">
+            <a href="/ui/user/app-store" class="btn btn-app-secondary btn-sm" data-testid="back-link">← App Store</a>
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="app-name">{detail.appName}</h1>
+        </div>
+
+        <div id="detail-message" class="d-none mb-4" role="alert"></div>
+
+        <div class="row g-3">
+            <div class="col-12 col-md-8">
+                <div class="card app-card p-3 mb-3">
+                    <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">App Info</div>
+                    <div class="fw-semibold fs-5 mb-1" data-testid="detail-app-name">{detail.appName}</div>
+                    {#if detail.appDescription}
+                    <div class="app-section-label mb-2" data-testid="detail-app-description">{detail.appDescription}</div>
+                    {/if}
+                    <div class="app-section-label" data-testid="detail-developer">Developer: {detail.developerName}</div>
+                </div>
+
+                <div class="card app-card p-3 mb-3">
+                    <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">
+                        Latest Version: <span data-testid="detail-version">v{detail.latestVersion.versionNumber.value}</span>
+                    </div>
+                    {#if detail.latestVersion.releaseNotes}
+                    <div class="mb-3">
+                        <div class="app-section-label mb-1" style="font-size:0.7rem;letter-spacing:.06em;">Release Notes</div>
+                        <div data-testid="detail-release-notes" style="white-space:pre-wrap;">{detail.latestVersion.releaseNotes}</div>
+                    </div>
+                    {/if}
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Entities</div>
+                            {#if detail.latestVersion.entityDefinitions.isEmpty}
+                            <p class="app-section-label mb-0" data-testid="no-entities">No entities.</p>
+                            {#else}
+                            <ul class="list-unstyled mb-0">
+                                {#for entity in detail.latestVersion.entityDefinitions}
+                                <li class="py-1" style="border-bottom:1px solid var(--color-border);" data-testid="entity-item">{entity.name}</li>
+                                {/for}
+                            </ul>
+                            {/if}
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Reports</div>
+                            {#if detail.latestVersion.reports.isEmpty}
+                            <p class="app-section-label mb-0" data-testid="no-reports">No reports.</p>
+                            {#else}
+                            <ul class="list-unstyled mb-0">
+                                {#for report in detail.latestVersion.reports}
+                                <li class="py-1" style="border-bottom:1px solid var(--color-border);" data-testid="report-item">{report.name}</li>
+                                {/for}
+                            </ul>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="card app-card p-3">
+                    {#if installedApp == null}
+                    <button type="button"
+                            class="btn btn-app-primary w-100"
+                            data-testid="install-button"
+                            onclick="installApp('{detail.appId}', this)">
+                        Install
+                    </button>
+                    {#else}
+                    <div class="app-section-label mb-2" data-testid="installed-version-info">
+                        Installed: v{installedApp.installedVersion.versionNumber.value}
+                    </div>
+                    {#if installedApp.installedVersion.versionNumber.value != installedApp.latestVersion.versionNumber.value}
+                    <button type="button"
+                            class="btn btn-app-primary w-100"
+                            data-testid="upgrade-button"
+                            onclick="upgradeApp('{installedApp.installedApp.id.value}', this)">
+                        Upgrade to v{installedApp.latestVersion.versionNumber.value}
+                    </button>
+                    {#else}
+                    <span class="badge app-badge-muted w-100 py-2" data-testid="up-to-date-badge">Up to date</span>
+                    {/if}
+                    {/if}
+                </div>
+            </div>
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var messagePanel = document.getElementById('detail-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            window.installApp = async function (appId, btn) {
+                btn.disabled = true;
+                try {
+                    var response = await fetch('/ui/user/app-store/apps/' + appId + '/install', {
+                        method: 'POST',
+                    });
+                    var result = await response.json();
+                    if (result.ok && result.redirectUrl) {
+                        window.location.href = result.redirectUrl;
+                    } else {
+                        showMessage(result.ok, result.message);
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    showMessage(false, 'Network error. Please try again.');
+                    btn.disabled = false;
+                }
+            };
+
+            window.upgradeApp = async function (installedAppId, btn) {
+                btn.disabled = true;
+                try {
+                    var response = await fetch('/ui/user/apps/' + installedAppId + '/upgrade', {
+                        method: 'POST',
+                    });
+                    var result = await response.json();
+                    if (result.ok && result.redirectUrl) {
+                        window.location.href = result.redirectUrl;
+                    } else {
+                        showMessage(result.ok, result.message);
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    showMessage(false, 'Network error. Please try again.');
+                    btn.disabled = false;
+                }
+            };
+        }());
+    </script>
+    {/scripts}
+{/include}
