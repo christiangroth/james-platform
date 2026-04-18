@@ -1,3 +1,13 @@
+# 0.6.2 (2026.04.18)
+
+## Bugfixes / Chore
+* Fixed entity editor UI crashing with a template error when displaying properties.
+* Report editor now shows a single page editor with a save button.
+
+
+
+---
+
 # 0.6.1 (2026.04.18)
 
 ## Bugfixes / Chore
