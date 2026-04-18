@@ -3,9 +3,9 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.AppId
-import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 
@@ -47,7 +47,7 @@ class InstalledAppRepositoryAdapter(
     id = InstalledAppId(id),
     userId = userId,
     appId = AppId(appId),
-    installedVersionId = AppVersionId(installedVersionId),
+    installedVersionNumber = VersionNumber(installedVersionNumber),
     installedAt = installedAt,
   )
 
@@ -55,7 +55,7 @@ class InstalledAppRepositoryAdapter(
     doc.id = id.value
     doc.userId = userId
     doc.appId = appId.value
-    doc.installedVersionId = installedVersionId.value
+    doc.installedVersionNumber = installedVersionNumber.value
     doc.installedAt = installedAt
   }
 

@@ -11,6 +11,6 @@ class InstalledAppDocument {
   lateinit var id: String
   lateinit var userId: String
   lateinit var appId: String
-  lateinit var installedVersionId: String
+  lateinit var installedVersionNumber: String
   lateinit var installedAt: Instant
 }

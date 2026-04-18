@@ -9,6 +9,6 @@ data class InstalledApp(
   val id: InstalledAppId,
   val userId: String,
   val appId: AppId,
-  val installedVersionId: AppVersionId,
+  val installedVersionNumber: VersionNumber,
   val installedAt: Instant,
 )

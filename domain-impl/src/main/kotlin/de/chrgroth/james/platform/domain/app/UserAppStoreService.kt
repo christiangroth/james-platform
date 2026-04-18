@@ -72,7 +72,7 @@ class UserAppStoreService(
     val installed = installedAppRepository.findAllByUserId(userId)
     return installed.mapNotNull { installedApp ->
       val app = appRepository.findById(installedApp.appId) ?: return@mapNotNull null
-      val installedVersion = appVersionRepository.findById(installedApp.installedVersionId) ?: return@mapNotNull null
+      val installedVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber) ?: return@mapNotNull null
       val latestVersion = latestPublishedVersion(installedApp.appId) ?: installedVersion
       InstalledAppInfo(
         installedApp = installedApp,
@@ -100,11 +100,11 @@ class UserAppStoreService(
       id = InstalledAppId(UUID.randomUUID().toString()),
       userId = userId,
       appId = AppId(appId),
-      installedVersionId = latestVersion.id,
+      installedVersionNumber = latestVersion.versionNumber!!,
       installedAt = Instant.now(),
     )
     installedAppRepository.save(installedApp)
-    logger.info { "App installed: appId=$appId for user=$userId (version ${latestVersion.id.value})" }
+    logger.info { "App installed: appId=$appId for user=$userId (version ${latestVersion.versionNumber!!.value})" }
     return installedApp.right()
   }
 
@@ -121,13 +121,13 @@ class UserAppStoreService(
       logger.warn { "Upgrade app failed: no published version for app: ${existing.appId.value}" }
       return UserAppStoreError.NO_PUBLISHED_VERSION.left()
     }
-    if (existing.installedVersionId == latestVersion.id) {
+    if (existing.installedVersionNumber == latestVersion.versionNumber) {
       logger.warn { "Upgrade app failed: already up to date for installedAppId: $installedAppId" }
       return UserAppStoreError.ALREADY_UP_TO_DATE.left()
     }
-    val upgraded = existing.copy(installedVersionId = latestVersion.id)
+    val upgraded = existing.copy(installedVersionNumber = latestVersion.versionNumber!!)
     installedAppRepository.save(upgraded)
-    logger.info { "App upgraded: installedAppId=$installedAppId to version ${latestVersion.id.value}" }
+    logger.info { "App upgraded: installedAppId=$installedAppId to version ${latestVersion.versionNumber!!.value}" }
     return upgraded.right()
   }
 

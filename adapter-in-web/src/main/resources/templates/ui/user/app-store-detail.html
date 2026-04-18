@@ -73,7 +73,7 @@
                     <div class="app-section-label mb-2" data-testid="installed-version-info">
                         Installed: v{installedApp.installedVersion.versionNumber.value}
                     </div>
-                    {#if installedApp.installedVersion.id.value != installedApp.latestVersion.id.value}
+                    {#if installedApp.installedVersion.versionNumber.value != installedApp.latestVersion.versionNumber.value}
                     <button type="button"
                             class="btn btn-app-primary w-100"
                             data-testid="upgrade-button"
