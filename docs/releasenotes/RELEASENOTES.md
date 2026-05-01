@@ -1,3 +1,16 @@
+# 0.9.0 (2026.05.01)
+
+## New Features
+* App version entity editor now supports editing existing properties to change their name, type and nullability.
+* App version entity editor now supports managing constraints per property (unique key, min/max values, length limits, patterns, size limits).
+
+## Bugfixes / Chore
+* Fixed publish dialog for the first app version: no bump type selection is required when publishing the first version of an app.
+
+
+
+---
+
 # 0.8.0 (2026.04.18)
 
 ## New Features
