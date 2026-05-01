@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.adapter.out.mongodb
 
+import com.mongodb.MongoNamespace
+import com.mongodb.client.MongoClient
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.App
@@ -8,11 +10,15 @@ import de.chrgroth.james.platform.domain.model.app.AppName
 import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
+import org.eclipse.microprofile.config.inject.ConfigProperty
 
 @ApplicationScoped
 class AppRepositoryAdapter(
   private val appDocumentRepository: AppDocumentRepository,
   private val mongoQueryMetrics: MongoQueryMetrics,
+  private val mongoClient: MongoClient,
+  @param:ConfigProperty(name = "quarkus.mongodb.database")
+  private val databaseName: String,
 ) : AppRepositoryPort {
 
   override fun findById(appId: AppId): App? =
@@ -46,6 +52,15 @@ class AppRepositoryAdapter(
   override fun deleteAll() {
     mongoQueryMetrics.timed("app.deleteAll") {
       appDocumentRepository.mongoCollection().deleteMany(Filters.exists(ID_FIELD))
+    }
+  }
+
+  override fun renameToNewCollection() {
+    mongoQueryMetrics.timed("app.renameToNewCollection") {
+      val db = mongoClient.getDatabase(databaseName)
+      if (db.listCollectionNames().contains(OLD_COLLECTION_NAME)) {
+        db.getCollection(OLD_COLLECTION_NAME).renameCollection(MongoNamespace(databaseName, NEW_COLLECTION_NAME))
+      }
     }
   }
 
@@ -84,5 +99,7 @@ class AppRepositoryAdapter(
     internal const val ID_FIELD = "_id"
     internal const val NAME_FIELD = "name"
     internal const val DEVELOPER_ID_FIELD = "developerId"
+    private const val OLD_COLLECTION_NAME = "app"
+    private const val NEW_COLLECTION_NAME = "app_app"
   }
 }

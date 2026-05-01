@@ -27,5 +27,12 @@ class AppDataMigrationService(
     logger.info { "Deletion of all apps and versions completed" }
   }
 
+  override fun renameCollections() {
+    logger.info { "Renaming app collections" }
+    appVersionRepository.renameToNewCollection()
+    appRepository.renameToNewCollection()
+    logger.info { "Renaming app collections completed" }
+  }
+
   companion object : KLogging()
 }

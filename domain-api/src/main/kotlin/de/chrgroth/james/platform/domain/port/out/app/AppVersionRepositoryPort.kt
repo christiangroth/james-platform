@@ -11,4 +11,5 @@ interface AppVersionRepositoryPort {
   fun findAllByAppId(appId: AppId): List<AppVersion>
   fun deleteAll()
   fun save(version: AppVersion)
+  fun renameToNewCollection()
 }
