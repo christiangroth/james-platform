@@ -217,8 +217,22 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion fails for invalid bump type`() {
-    listOf("invalid", " ", "1.0.0", "PATCH").forEach { invalid ->
+  fun `publishVersion succeeds as first version without bump type`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", null)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
+    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
+    verify { appVersionRepository.save(match { it.status == AppVersionStatus.PUBLISHED && it.versionNumber == VersionNumber(AppVersionManagementService.FIRST_VERSION) }) }
+  }
+
+  @Test
+  fun `publishVersion fails for invalid bump type when not first version`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
+    listOf("invalid", " ", "1.0.0", "PATCH", null, "").forEach { invalid ->
       val result = service.publishVersion("app-1", invalid)
       assertThat(result.isLeft()).withFailMessage { "Expected failure for: $invalid" }.isTrue()
       assertThat(result.leftOrNull()).withFailMessage { "Expected INVALID_BUMP_TYPE for: $invalid" }

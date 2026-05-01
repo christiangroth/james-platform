@@ -93,11 +93,7 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  override fun publishVersion(appId: String, bumpType: String): Either<DomainError, AppVersion> {
-    val type = runCatching { VersionBumpType.valueOf(bumpType.uppercase()) }.getOrNull() ?: run {
-      logger.warn { "Publish version failed: invalid bump type: $bumpType" }
-      return AppVersionError.INVALID_BUMP_TYPE.left()
-    }
+  override fun publishVersion(appId: String, bumpType: String?): Either<DomainError, AppVersion> {
     val allVersions = appVersionRepository.findAllByAppId(AppId(appId))
     val version = allVersions.find { it.status == AppVersionStatus.DRAFT } ?: run {
       logger.warn { "Publish version failed: no draft version found for app $appId" }
@@ -112,6 +108,12 @@ class AppVersionManagementService(
       val latestVersionNumber = latestPublished.versionNumber ?: run {
         logger.warn { "Publish version failed: latest published version has no version number for app $appId" }
         return AppVersionError.VERSION_NOT_FOUND.left()
+      }
+      val type = bumpType?.trim()?.takeIf { it.isNotBlank() }?.let {
+        runCatching { VersionBumpType.valueOf(it.uppercase()) }.getOrNull()
+      } ?: run {
+        logger.warn { "Publish version failed: invalid bump type: $bumpType" }
+        return AppVersionError.INVALID_BUMP_TYPE.left()
       }
       val hasBreaking = hasBreakingChanges(latestPublished, version)
       val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)

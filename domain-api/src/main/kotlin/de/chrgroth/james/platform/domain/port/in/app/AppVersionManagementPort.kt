@@ -10,7 +10,7 @@ interface AppVersionManagementPort {
   fun listVersions(appId: String): Either<DomainError, List<AppVersion>>
   fun createVersion(appId: String): Either<DomainError, AppVersion>
   fun getVersion(appId: String, versionId: String): Either<DomainError, AppVersion>
-  fun publishVersion(appId: String, bumpType: String): Either<DomainError, AppVersion>
+  fun publishVersion(appId: String, bumpType: String?): Either<DomainError, AppVersion>
   fun computeVersionBump(appId: String, draftVersionId: String): Either<DomainError, VersionBumpResult>
   fun addEntity(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion>
