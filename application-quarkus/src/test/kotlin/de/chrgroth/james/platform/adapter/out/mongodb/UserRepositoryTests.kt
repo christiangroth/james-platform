@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.out.mongodb
 
 import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
@@ -26,6 +27,7 @@ class UserRepositoryTests {
   fun `save creates user and findByUsername retrieves it`() {
     val username = "test-${UUID.randomUUID()}"
     val user = User(
+      id = UserId(UUID.randomUUID().toString()),
       username = Username(username),
       passwordHash = "hashed-password",
       roles = setOf(UserRole.USER),
@@ -37,6 +39,7 @@ class UserRepositoryTests {
     val found = userRepository.findByUsername(Username(username))
     assertThat(found).isNotNull()
     assertThat(found!!.username).isEqualTo(Username(username))
+    assertThat(found.id).isEqualTo(user.id)
     assertThat(found.passwordHash).isEqualTo("hashed-password")
     assertThat(found.roles).containsExactly(UserRole.USER)
   }
@@ -45,6 +48,7 @@ class UserRepositoryTests {
   fun `save updates existing user`() {
     val username = "test-${UUID.randomUUID()}"
     val original = User(
+      id = UserId(UUID.randomUUID().toString()),
       username = Username(username),
       passwordHash = "original-hash",
       roles = setOf(UserRole.USER),
@@ -64,8 +68,8 @@ class UserRepositoryTests {
   fun `findAll returns all users`() {
     val username1 = "test-${UUID.randomUUID()}"
     val username2 = "test-${UUID.randomUUID()}"
-    userRepository.save(User(Username(username1), "hash1", setOf(UserRole.USER), Instant.now()))
-    userRepository.save(User(Username(username2), "hash2", setOf(UserRole.DEVELOPER), Instant.now()))
+    userRepository.save(User(UserId(UUID.randomUUID().toString()), Username(username1), "hash1", setOf(UserRole.USER), Instant.now()))
+    userRepository.save(User(UserId(UUID.randomUUID().toString()), Username(username2), "hash2", setOf(UserRole.DEVELOPER), Instant.now()))
 
     val all = userRepository.findAll().map { it.username }
     assertThat(all).contains(Username(username1), Username(username2))

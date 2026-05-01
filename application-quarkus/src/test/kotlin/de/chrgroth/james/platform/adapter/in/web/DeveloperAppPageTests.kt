@@ -1,15 +1,42 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.model.user.UserRole
+import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
+import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.not
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.time.Instant
+import java.util.UUID
 
 @QuarkusTest
 @TestSecurity(user = "test-developer", roles = ["DEVELOPER"])
 class DeveloperAppPageTests {
+
+  @Inject
+  lateinit var userRepository: UserRepositoryPort
+
+  @BeforeEach
+  fun setup() {
+    if (userRepository.findByUsername(Username("test-developer")) == null) {
+      userRepository.save(
+        User(
+          id = UserId(UUID.randomUUID().toString()),
+          username = Username("test-developer"),
+          passwordHash = "test-hash",
+          roles = setOf(UserRole.DEVELOPER),
+          createdAt = Instant.now(),
+        ),
+      )
+    }
+  }
 
   @Test
   fun `developer dashboard displays apps grid and new-app tile`() {

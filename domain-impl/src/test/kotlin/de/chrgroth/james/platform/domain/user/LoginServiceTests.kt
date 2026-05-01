@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.user
 
 import de.chrgroth.james.platform.domain.error.LoginError
 import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
@@ -12,6 +13,7 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.UUID
 
 class LoginServiceTests {
 
@@ -21,6 +23,7 @@ class LoginServiceTests {
   private val testPassword = "test-password"
   private val testPasswordHash = LoginService.hashPassword(testPassword)
   private val testUser = User(
+    id = UserId(UUID.randomUUID().toString()),
     username = Username("test-user"),
     passwordHash = testPasswordHash,
     roles = setOf(UserRole.USER),

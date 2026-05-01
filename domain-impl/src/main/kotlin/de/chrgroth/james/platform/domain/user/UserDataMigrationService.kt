@@ -17,5 +17,11 @@ class UserDataMigrationService(
     logger.info { "Backfill of createdAt and active fields completed" }
   }
 
+  override fun backfillUserIds() {
+    logger.info { "Backfilling missing user ids for user documents" }
+    userRepository.backfillUserIds()
+    logger.info { "Backfill of user ids completed" }
+  }
+
   companion object : KLogging()
 }

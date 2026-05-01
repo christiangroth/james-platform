@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.adapter.out.mongodb
 
+import com.mongodb.MongoNamespace
+import com.mongodb.client.MongoClient
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.AppId
@@ -17,11 +19,15 @@ import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
+import org.eclipse.microprofile.config.inject.ConfigProperty
 
 @ApplicationScoped
 class AppVersionRepositoryAdapter(
   private val appVersionDocumentRepository: AppVersionDocumentRepository,
   private val mongoQueryMetrics: MongoQueryMetrics,
+  private val mongoClient: MongoClient,
+  @param:ConfigProperty(name = "quarkus.mongodb.database")
+  private val databaseName: String,
 ) : AppVersionRepositoryPort {
 
   override fun findById(versionId: AppVersionId): AppVersion? =
@@ -42,6 +48,15 @@ class AppVersionRepositoryAdapter(
       appVersionDocumentRepository.find(APP_ID_FIELD, appId.value).list().map { it.toDomain() }
     }
 
+  override fun renameToNewCollection() {
+    mongoQueryMetrics.timed("app_version.renameToNewCollection") {
+      val db = mongoClient.getDatabase(databaseName)
+      if (db.listCollectionNames().contains(OLD_COLLECTION_NAME)) {
+        db.getCollection(OLD_COLLECTION_NAME).renameCollection(MongoNamespace(databaseName, NEW_COLLECTION_NAME))
+      }
+    }
+  }
+
   override fun save(version: AppVersion) {
     mongoQueryMetrics.timed("app_version.save") {
       val doc = version.toDocument()
@@ -50,6 +65,12 @@ class AppVersionRepositoryAdapter(
         doc,
         ReplaceOptions().upsert(true),
       )
+    }
+  }
+
+  override fun deleteAll() {
+    mongoQueryMetrics.timed("app_version.deleteAll") {
+      appVersionDocumentRepository.mongoCollection().deleteMany(Filters.exists(ID_FIELD))
     }
   }
 
@@ -151,5 +172,7 @@ class AppVersionRepositoryAdapter(
     internal const val ID_FIELD = "_id"
     internal const val APP_ID_FIELD = "appId"
     internal const val VERSION_NUMBER_FIELD = "versionNumber"
+    private const val OLD_COLLECTION_NAME = "app_version"
+    private const val NEW_COLLECTION_NAME = "app_app_version"
   }
 }

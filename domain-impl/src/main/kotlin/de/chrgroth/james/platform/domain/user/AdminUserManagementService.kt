@@ -6,6 +6,7 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.model.user.User
+import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
@@ -13,6 +14,7 @@ import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
+import java.util.UUID
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -32,6 +34,7 @@ class AdminUserManagementService(
       return UserAdminError.USERNAME_ALREADY_EXISTS.left()
     }
     val user = User(
+      id = UserId(UUID.randomUUID().toString()),
       username = Username(username),
       passwordHash = LoginService.hashPassword(password),
       roles = setOf(UserRole.USER),
@@ -89,11 +92,11 @@ class AdminUserManagementService(
       logger.warn { "Delete user failed: cannot delete self: $username" }
       return UserAdminError.CANNOT_DELETE_SELF.left()
     }
-    userRepository.findByUsername(Username(username)) ?: run {
+    val user = userRepository.findByUsername(Username(username)) ?: run {
       logger.warn { "Delete user failed: user not found: $username" }
       return UserAdminError.USER_NOT_FOUND.left()
     }
-    userRepository.delete(Username(username))
+    userRepository.delete(user.id)
     logger.info { "User deleted: $username by $callingUsername" }
     return Unit.right()
   }
