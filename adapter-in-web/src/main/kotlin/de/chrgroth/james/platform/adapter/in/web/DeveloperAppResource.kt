@@ -146,7 +146,7 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
-        val hasDiff = isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
+        val hasDiff = hasDiffForDraft(appId, isDraft)
         Response.ok(
           versionEditorTemplate
             .data("app", app)
@@ -179,7 +179,7 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
-        val hasDiff = isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
+        val hasDiff = hasDiffForDraft(appId, isDraft)
         val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
         Response.ok(
           versionEditorTemplate
@@ -213,7 +213,7 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
-        val hasDiff = isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
+        val hasDiff = hasDiffForDraft(appId, isDraft)
         val selectedReport = version.reports.find { it.id.value == reportId }
         Response.ok(
           versionEditorTemplate
@@ -504,6 +504,9 @@ class DeveloperAppResource {
     AppError.APP_NAME_ALREADY_EXISTS.code -> "An app with this name already exists."
     else -> "An unexpected error occurred. Please try again."
   }
+
+  private fun hasDiffForDraft(appId: String, isDraft: Boolean): Boolean =
+    isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
 
   private fun versionErrorMessage(code: String): String = when (code) {
     AppVersionError.INVALID_BUMP_TYPE.code -> "Invalid release type. Please try again."
