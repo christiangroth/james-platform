@@ -466,13 +466,19 @@ class AppVersionManagementService(
       logger.warn { "Get version diff failed: version $versionId does not belong to app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
     }
-    if (version.status != AppVersionStatus.PUBLISHED) {
-      logger.warn { "Get version diff failed: version $versionId is not published" }
+    if (version.status != AppVersionStatus.PUBLISHED && version.status != AppVersionStatus.DRAFT) {
+      logger.warn { "Get version diff failed: version $versionId has unsupported status ${version.status}" }
       return AppVersionError.VERSION_NOT_PUBLISHED.left()
     }
-    val predecessor = appVersionRepository.findAllByAppId(AppId(appId))
-      .filter { it.status == AppVersionStatus.PUBLISHED && it.createdAt < version.createdAt }
-      .maxByOrNull { it.createdAt } ?: run {
+    val predecessor = if (version.status == AppVersionStatus.DRAFT) {
+      appVersionRepository.findAllByAppId(AppId(appId))
+        .filter { it.status == AppVersionStatus.PUBLISHED }
+        .maxByOrNull { it.createdAt }
+    } else {
+      appVersionRepository.findAllByAppId(AppId(appId))
+        .filter { it.status == AppVersionStatus.PUBLISHED && it.createdAt < version.createdAt }
+        .maxByOrNull { it.createdAt }
+    } ?: run {
       logger.warn { "Get version diff failed: no predecessor found for version $versionId" }
       return AppVersionError.NO_PREDECESSOR_VERSION.left()
     }

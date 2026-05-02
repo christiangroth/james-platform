@@ -53,7 +53,7 @@
                         <div class="mt-auto d-flex align-items-center gap-2">
                             <span class="badge {#if version.status.name == 'DRAFT'}app-badge-processing{#else}app-badge-muted{/if}"
                                   data-testid="version-status">{version.status}</span>
-                            {#if version.status.name != 'DRAFT' && versionsWithDiff.contains(version.id)}
+                            {#if versionsWithDiff.contains(version.id)}
                             <a href="/ui/developer/apps/{app.id}/versions/{version.id}/diff"
                                class="btn btn-sm ms-auto"
                                style="background:transparent;color:var(--color-action);border:1px solid var(--color-action);font-size:0.75rem;"
