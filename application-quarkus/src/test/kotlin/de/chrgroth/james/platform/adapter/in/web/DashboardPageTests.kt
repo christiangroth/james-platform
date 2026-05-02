@@ -106,6 +106,14 @@ class DashboardPageTests {
       .statusCode(200)
       .body(not(containsString("""data-testid="navbar-playback-icon""")))
   }
+  @Test
+  fun `user dashboard page does not display app store tile`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="app-store-tile""")))  }
 }
 
 @QuarkusTest
@@ -135,6 +143,16 @@ class DeveloperNavbarLinkTests {
       .statusCode(200)
       .body(containsString("""data-testid="developer-dashboard-link""""))
   }
+
+  @Test
+  fun `app store link is shown in navbar for developer role`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="app-store-link""""))
+  }
 }
 
 @QuarkusTest
@@ -149,5 +167,15 @@ class NonDeveloperNavbarLinkTests {
       .then()
       .statusCode(200)
       .body(not(containsString("""data-testid="developer-dashboard-link""")))
+  }
+
+  @Test
+  fun `app store link is shown in navbar for user role`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="app-store-link""""))
   }
 }
