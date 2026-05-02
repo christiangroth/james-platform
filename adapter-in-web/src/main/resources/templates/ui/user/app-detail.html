@@ -2,10 +2,16 @@
     {#title}James Platform – {info.appName}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
-        <div class="d-flex align-items-center mb-4 gap-3">
-            <a href="/ui/user/dashboard" class="btn btn-app-secondary btn-sm" data-testid="back-link">← Dashboard</a>
-            <h1 class="fs-4 fw-semibold mb-0" data-testid="app-name">{info.appName}</h1>
-        </div>
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item">
+                    <a href="/ui/user/dashboard" class="text-decoration-none" style="color:var(--color-action);" data-testid="back-link" aria-label="Dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8v5.5A1.5 1.5 0 0 0 3 15h3.5v-4h3v4H13a1.5 1.5 0 0 0 1.5-1.5V8a.5.5 0 0 0-.146-.354z"/></svg>
+                    </a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="app-name">{info.appName}</li>
+            </ol>
+        </nav>
         <div class="card app-card p-4" data-testid="app-detail-placeholder">
             <p class="mb-0 app-section-label">App content will appear here.</p>
         </div>

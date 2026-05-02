@@ -951,4 +951,39 @@ class AppVersionManagementServiceTests {
   }
 
   // endregion
+
+  // region deleteDraftVersion
+
+  @Test
+  fun `deleteDraftVersion deletes draft version`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+    justRun { appVersionRepository.delete(AppVersionId("ver-1")) }
+
+    val result = service.deleteDraftVersion("app-1", "ver-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify { appVersionRepository.delete(AppVersionId("ver-1")) }
+  }
+
+  @Test
+  fun `deleteDraftVersion fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.deleteDraftVersion("app-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteDraftVersion fails when version is not in draft status`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns publishedVersion
+
+    val result = service.deleteDraftVersion("app-1", "ver-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
 }

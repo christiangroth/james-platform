@@ -254,6 +254,19 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteDraftVersion(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+  ): Response {
+    return appVersionManagement.deleteDraftVersion(appId, versionId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Draft version deleted.", "/ui/developer/apps/$appId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)

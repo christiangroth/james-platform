@@ -146,6 +146,13 @@ class AppVersionManagementService(
     return publishedVersion.right()
   }
 
+  override fun deleteDraftVersion(appId: String, versionId: String): Either<DomainError, Unit> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    appVersionRepository.delete(version.id)
+    logger.info { "Draft version deleted: $versionId from app $appId" }
+    return Unit.right()
+  }
+
   override fun computeVersionBump(appId: String, draftVersionId: String): Either<DomainError, VersionBumpResult> {
     appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Compute version bump failed: app not found: $appId" }
