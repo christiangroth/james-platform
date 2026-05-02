@@ -1,3 +1,19 @@
+# 0.11.0 (2026.05.02)
+
+## New Features
+* App Store link added to the navigation menu, to the left of the developer dashboard link.
+* App Store tile removed from the user dashboard.
+* App versions are now sorted by release date, with the newest on top and the draft version always first.
+* Release notes are now required when publishing a new version.
+* Release notes are shown in the version list and the version detail view.
+* Publishing is no longer possible when there are no changes in entities or reports compared to the previous version.
+* Fixed the version type selection buttons incorrectly displaying `:null` instead of the version number.
+* The version detail view now shows all entity properties and reports in expandable accordions.
+
+
+
+---
+
 # 0.10.2 (2026.05.02)
 
 ## Bugfixes / Chore
