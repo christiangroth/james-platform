@@ -22,7 +22,7 @@ discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
 }
 
-discovery.relabel "james-platform_containers" {
+discovery.relabel "james_platform_containers" {
   targets = discovery.docker.containers.targets
 
   // Keep only containers that belong to the james-platform Docker Swarm stack
@@ -47,9 +47,9 @@ discovery.relabel "james-platform_containers" {
   }
 }
 
-loki.source.docker "james-platform_logs" {
+loki.source.docker "james_platform_logs" {
   host    = "unix:///var/run/docker.sock"
-  targets = discovery.relabel.james-platform_containers.output
+  targets = discovery.relabel.james_platform_containers.output
   forward_to = [loki.write.grafana_cloud.receiver]
 }
 
