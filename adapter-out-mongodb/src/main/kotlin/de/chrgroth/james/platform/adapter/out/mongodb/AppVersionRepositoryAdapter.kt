@@ -76,6 +76,12 @@ class AppVersionRepositoryAdapter(
     }
   }
 
+  override fun delete(versionId: AppVersionId) {
+    mongoQueryMetrics.timed("app_version.delete") {
+      appVersionDocumentRepository.mongoCollection().deleteOne(Filters.eq(ID_FIELD, versionId.value))
+    }
+  }
+
   override fun deleteAll() {
     mongoQueryMetrics.timed("app_version.deleteAll") {
       appVersionDocumentRepository.mongoCollection().deleteMany(Filters.exists(ID_FIELD))

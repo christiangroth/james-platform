@@ -11,6 +11,7 @@ interface AppVersionManagementPort {
   fun createVersion(appId: String): Either<DomainError, AppVersion>
   fun getVersion(appId: String, versionId: String): Either<DomainError, AppVersion>
   fun publishVersion(appId: String, bumpType: String?, releaseNotes: String): Either<DomainError, AppVersion>
+  fun deleteDraftVersion(appId: String, versionId: String): Either<DomainError, Unit>
   fun computeVersionBump(appId: String, draftVersionId: String): Either<DomainError, VersionBumpResult>
   fun addEntity(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion>

@@ -158,4 +158,14 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun constraintMaxSize(property: Property): String =
     property.constraints.filterIsInstance<PropertyConstraint.MaxSize>().firstOrNull()?.max?.toString() ?: ""
+
+  /** Returns entity definitions sorted alphabetically by name. */
+  @JvmStatic
+  fun sortedEntityDefinitions(version: AppVersion): List<EntityDefinition> =
+    version.entityDefinitions.sortedBy { it.name }
+
+  /** Returns reports sorted alphabetically by name. */
+  @JvmStatic
+  fun sortedReports(version: AppVersion): List<Report> =
+    version.reports.sortedBy { it.name }
 }
