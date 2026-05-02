@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -26,7 +27,8 @@ class UserAppStoreServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository)
+  private val userRepository: UserRepositoryPort = mockk()
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, userRepository)
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
@@ -42,6 +44,7 @@ class UserAppStoreServiceTests {
     every { appRepository.findAll() } returns listOf(app2, app1)
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2, draft)
     every { appVersionRepository.findAllByAppId(AppId("app-2")) } returns listOf(v3)
+    every { userRepository.findById(any()) } returns null
 
     val result = service.listAllPublishedApps()
 
@@ -79,6 +82,7 @@ class UserAppStoreServiceTests {
   fun `getPublishedApp returns detail for existing app with published version`() {
     every { appRepository.findById(AppId("app-1")) } returns app1
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
+    every { userRepository.findById(any()) } returns null
 
     val result = service.getPublishedApp("app-1")
 
@@ -129,6 +133,7 @@ class UserAppStoreServiceTests {
 
     assertThat(result).hasSize(2)
     assertThat(result[0].appName).isEqualTo("Alpha App")
+    assertThat(result[0].installedAppId).isEqualTo("inst-1")
     assertThat(result[0].installedVersion.id.value).isEqualTo("ver-1")
     assertThat(result[0].latestVersion.id.value).isEqualTo("ver-2")
     assertThat(result[1].appName).isEqualTo("Beta App")

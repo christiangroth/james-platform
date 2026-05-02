@@ -22,7 +22,7 @@
             <!-- Installed app tiles -->
             {#for info in installedApps}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/user/apps/{info.installedApp.id.value}" class="text-decoration-none" data-testid="installed-app-tile" aria-label="Open app {info.appName}">
+                <a href="/ui/user/apps/{info.installedAppId}" class="text-decoration-none" data-testid="installed-app-tile" aria-label="Open app {info.appName}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="installed-app-name">{info.appName}</div>
                         <div class="app-section-label mb-2" data-testid="installed-app-version">v{info.installedVersion.versionNumber}</div>
@@ -31,8 +31,8 @@
                             <button type="button"
                                     class="btn btn-app-primary btn-sm"
                                     data-testid="upgrade-button"
-                                    data-installed-app-id="{info.installedApp.id.value}"
-                                    onclick="event.preventDefault(); upgradeApp('{info.installedApp.id.value}', this)">
+                                    data-installed-app-id="{info.installedAppId}"
+                                    onclick="event.preventDefault(); upgradeApp('{info.installedAppId}', this)">
                                 Upgrade to v{info.latestVersion.versionNumber}
                             </button>
                             {/if}
