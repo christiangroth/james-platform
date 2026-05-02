@@ -61,6 +61,25 @@
                         </div>
                     </div>
                 </div>
+
+                {#if detail.allVersions.size > 1}
+                <div class="card app-card p-3 mb-3" data-testid="version-history">
+                    <div class="app-section-label mb-3" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Version History</div>
+                    {#for version in detail.allVersions}
+                    {#if version_index > 0}
+                    <div class="py-2" style="{#if version_index > 1}border-top:1px solid var(--color-border);{/if}" data-testid="version-history-item">
+                        <div class="d-flex justify-content-between align-items-baseline mb-1">
+                            <span class="fw-semibold" data-testid="version-history-number">v{version.versionNumber}</span>
+                            <span class="app-section-label" style="font-size:0.7rem;" data-testid="version-history-date">{version.createdAt.formatted}</span>
+                        </div>
+                        {#if version.releaseNotes}
+                        <div class="app-section-label" style="white-space:pre-wrap;" data-testid="version-history-release-notes">{version.releaseNotes}</div>
+                        {/if}
+                    </div>
+                    {/if}
+                    {/for}
+                </div>
+                {/if}
             </div>
 
             <div class="col-12 col-md-4">
