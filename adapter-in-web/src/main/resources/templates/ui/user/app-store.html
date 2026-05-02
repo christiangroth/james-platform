@@ -20,7 +20,7 @@
                 <a href="/ui/user/app-store/apps/{app.appId}" class="text-decoration-none" data-testid="store-app-tile" aria-label="View details for {app.appName}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="store-app-name">{app.appName}</div>
-                        <div class="app-section-label mb-1" data-testid="store-app-version">v{app.latestVersion.versionNumber.value}</div>
+                        <div class="app-section-label mb-1" data-testid="store-app-version">v{app.latestVersion.versionNumber}</div>
                         <div class="app-section-label text-truncate mb-2" data-testid="store-app-developer">{app.developerName}</div>
                         <div class="mt-auto">
                             {#if installedAppIds.contains(app.appId)}

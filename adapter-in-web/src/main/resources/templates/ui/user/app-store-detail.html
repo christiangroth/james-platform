@@ -22,7 +22,7 @@
 
                 <div class="card app-card p-3 mb-3">
                     <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">
-                        Latest Version: <span data-testid="detail-version">v{detail.latestVersion.versionNumber.value}</span>
+                        Latest Version: <span data-testid="detail-version">v{detail.latestVersion.versionNumber}</span>
                     </div>
                     {#if detail.latestVersion.releaseNotes}
                     <div class="mb-3">
@@ -71,14 +71,14 @@
                     </button>
                     {#else}
                     <div class="app-section-label mb-2" data-testid="installed-version-info">
-                        Installed: v{installedApp.installedVersion.versionNumber.value}
+                        Installed: v{installedApp.installedVersion.versionNumber}
                     </div>
-                    {#if installedApp.installedVersion.versionNumber.value != installedApp.latestVersion.versionNumber.value}
+                    {#if installedApp.installedVersion.versionNumber != installedApp.latestVersion.versionNumber}
                     <button type="button"
                             class="btn btn-app-primary w-100"
                             data-testid="upgrade-button"
                             onclick="upgradeApp('{installedApp.installedApp.id.value}', this)">
-                        Upgrade to v{installedApp.latestVersion.versionNumber.value}
+                        Upgrade to v{installedApp.latestVersion.versionNumber}
                     </button>
                     {#else}
                     <span class="badge app-badge-muted w-100 py-2" data-testid="up-to-date-badge">Up to date</span>
