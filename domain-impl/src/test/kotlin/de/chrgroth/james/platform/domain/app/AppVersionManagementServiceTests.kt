@@ -952,6 +952,79 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region getVersionDiff
+
+  @Test
+  fun `getVersionDiff returns diff for published version with predecessor`() {
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(createdAt = publishedVersion.createdAt.minusSeconds(100))
+    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, publishedVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-2")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.version).isEqualTo(publishedVersion)
+    assertThat(result.getOrNull()!!.previousVersion).isEqualTo(predecessor)
+  }
+
+  @Test
+  fun `getVersionDiff fails for published version when no predecessor exists`() {
+    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.NO_PREDECESSOR_VERSION)
+  }
+
+  @Test
+  fun `getVersionDiff returns diff for draft version against latest published version`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion, draftVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.version).isEqualTo(draftVersion)
+    assertThat(result.getOrNull()!!.previousVersion).isEqualTo(publishedVersion)
+  }
+
+  @Test
+  fun `getVersionDiff fails for draft version when no published version exists`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.NO_PREDECESSOR_VERSION)
+  }
+
+  @Test
+  fun `getVersionDiff fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.getVersionDiff("app-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `getVersionDiff fails when version does not belong to app`() {
+    val otherAppVersion = version(id = "ver-2", appId = "other-app", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns otherAppVersion
+
+    val result = service.getVersionDiff("app-1", "ver-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
   // region deleteDraftVersion
 
   @Test

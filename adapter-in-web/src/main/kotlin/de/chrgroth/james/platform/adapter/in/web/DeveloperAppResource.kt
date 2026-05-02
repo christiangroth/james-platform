@@ -102,7 +102,9 @@ class DeveloperAppResource {
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
         val hasDraft = versions.any { it.status == AppVersionStatus.DRAFT }
         val publishedByDate = versions.filter { it.status == AppVersionStatus.PUBLISHED }.sortedBy { it.createdAt }
-        val versionIdsWithPredecessor = if (publishedByDate.size > 1) publishedByDate.drop(1).map { it.id.value }.toSet() else emptySet<String>()
+        val publishedIdsWithPredecessor = if (publishedByDate.size > 1) publishedByDate.drop(1).map { it.id.value }.toSet() else emptySet<String>()
+        val draftIdWithDiff = if (hasDraft && publishedByDate.isNotEmpty()) setOf(versions.first { it.status == AppVersionStatus.DRAFT }.id.value) else emptySet<String>()
+        val versionIdsWithPredecessor = publishedIdsWithPredecessor + draftIdWithDiff
         Response.ok(
           appOverviewTemplate
             .data("app", app)
@@ -144,11 +146,13 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
+        val hasDiff = isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
         Response.ok(
           versionEditorTemplate
             .data("app", app)
             .data("version", version)
             .data("isDraft", isDraft)
+            .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", null),
         ).build()
@@ -175,12 +179,14 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
+        val hasDiff = isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
         val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
         Response.ok(
           versionEditorTemplate
             .data("app", app)
             .data("version", version)
             .data("isDraft", isDraft)
+            .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null),
         ).build()
@@ -207,12 +213,14 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
+        val hasDiff = isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
         val selectedReport = version.reports.find { it.id.value == reportId }
         Response.ok(
           versionEditorTemplate
             .data("app", app)
             .data("version", version)
             .data("isDraft", isDraft)
+            .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport),
         ).build()
