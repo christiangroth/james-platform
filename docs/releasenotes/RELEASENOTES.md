@@ -1,3 +1,12 @@
+# 0.15.0 (2026.05.02)
+
+## New Features
+* App store app detail page now shows the installation status or install button between the app info and the latest version info.
+
+
+
+---
+
 # 0.14.0 (2026.05.02)
 
 ## New Features
