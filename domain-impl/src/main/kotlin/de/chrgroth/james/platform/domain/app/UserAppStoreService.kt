@@ -10,6 +10,7 @@ import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppInfo
@@ -17,6 +18,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -28,6 +30,7 @@ class UserAppStoreService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
+  private val userRepository: UserRepositoryPort,
 ) : UserAppStorePort {
 
   private fun latestPublishedVersion(appId: AppId) =
@@ -43,7 +46,7 @@ class UserAppStoreService(
         PublishedAppInfo(
           appId = app.id.value,
           appName = app.name.value,
-          developerName = app.developerId,
+          developerName = userRepository.findById(UserId(app.developerId))?.username?.value ?: app.developerId,
           latestVersion = it,
         )
       }
@@ -63,7 +66,7 @@ class UserAppStoreService(
       appId = app.id.value,
       appName = app.name.value,
       appDescription = app.description,
-      developerName = app.developerId,
+      developerName = userRepository.findById(UserId(app.developerId))?.username?.value ?: app.developerId,
       latestVersion = latestVersion,
     ).right()
   }
@@ -76,6 +79,7 @@ class UserAppStoreService(
       val latestVersion = latestPublishedVersion(installedApp.appId) ?: installedVersion
       InstalledAppInfo(
         installedApp = installedApp,
+        installedAppId = installedApp.id.value,
         appName = app.name.value,
         installedVersion = installedVersion,
         latestVersion = latestVersion,
