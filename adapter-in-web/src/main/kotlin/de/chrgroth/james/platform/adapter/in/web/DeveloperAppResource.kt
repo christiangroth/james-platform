@@ -222,7 +222,17 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.computeVersionBump(appId, versionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
-      ifRight = { bump -> Response.ok(bump).build() },
+      ifRight = { bump ->
+        Response.ok(
+          VersionBumpResponse(
+            hasBreakingChanges = bump.hasBreakingChanges,
+            hasChanges = bump.hasChanges,
+            suggestedVersionOnBreaking = bump.suggestedVersionOnBreaking.value,
+            suggestedVersionOnFeature = bump.suggestedVersionOnFeature.value,
+            suggestedVersionOnBugfix = bump.suggestedVersionOnBugfix.value,
+          ),
+        ).build()
+      },
     )
   }
 
@@ -233,8 +243,9 @@ class DeveloperAppResource {
   fun publishVersion(
     @PathParam("appId") appId: String,
     @FormParam("bumpType") bumpType: String?,
+    @FormParam("releaseNotes") releaseNotes: String?,
   ): Response {
-    return appVersionManagement.publishVersion(appId, bumpType).fold(
+    return appVersionManagement.publishVersion(appId, bumpType, releaseNotes.orEmpty()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, "Version published.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
@@ -444,6 +455,8 @@ class DeveloperAppResource {
     AppVersionError.INVALID_BUMP_TYPE.code -> "Invalid release type. Please try again."
     AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.code -> "A draft version already exists. Publish or delete it before creating a new one."
     AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.code -> "A version with this number already exists."
+    AppVersionError.BLANK_RELEASE_NOTES.code -> "Release notes are required."
+    AppVersionError.NO_CHANGES.code -> "No changes detected in entities or reports. Please make changes before publishing."
     else -> "An unexpected error occurred. Please try again."
   }
 

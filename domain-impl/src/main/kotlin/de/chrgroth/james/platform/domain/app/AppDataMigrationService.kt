@@ -34,5 +34,16 @@ class AppDataMigrationService(
     logger.info { "Renaming app collections completed" }
   }
 
-  companion object : KLogging()
+  override fun addMissingReleaseNotes() {
+    logger.info { "Adding missing release notes to published versions" }
+    val versionsToUpdate = appVersionRepository.findAllPublishedWithoutReleaseNotes()
+    versionsToUpdate.forEach { version ->
+      appVersionRepository.save(version.copy(releaseNotes = MISSING_RELEASE_NOTES))
+    }
+    logger.info { "Added missing release notes to ${versionsToUpdate.size} published version(s)" }
+  }
+
+  companion object : KLogging() {
+    const val MISSING_RELEASE_NOTES = "missing"
+  }
 }
