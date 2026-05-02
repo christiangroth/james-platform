@@ -90,6 +90,21 @@ class UserAppStoreServiceTests {
     assertThat(result.getOrNull()?.appId).isEqualTo("app-1")
     assertThat(result.getOrNull()?.appName).isEqualTo("Alpha App")
     assertThat(result.getOrNull()?.latestVersion?.id?.value).isEqualTo("ver-2")
+    assertThat(result.getOrNull()?.allVersions).hasSize(2)
+    assertThat(result.getOrNull()?.allVersions?.map { it.id.value }).containsExactly("ver-2", "ver-1")
+  }
+
+  @Test
+  fun `getPublishedApp excludes draft versions from allVersions`() {
+    every { appRepository.findById(AppId("app-1")) } returns app1
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2, draft)
+    every { userRepository.findById(any()) } returns null
+
+    val result = service.getPublishedApp("app-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.allVersions).hasSize(2)
+    assertThat(result.getOrNull()?.allVersions?.none { it.status.name == "DRAFT" }).isTrue()
   }
 
   @Test

@@ -58,7 +58,10 @@ class UserAppStoreService(
       logger.warn { "Get published app failed: app not found: $appId" }
       return UserAppStoreError.APP_NOT_FOUND.left()
     }
-    val latestVersion = latestPublishedVersion(app.id) ?: run {
+    val allVersions = appVersionRepository.findAllByAppId(app.id)
+      .filter { it.status == AppVersionStatus.PUBLISHED }
+      .sortedByDescending { it.createdAt }
+    val latestVersion = allVersions.firstOrNull() ?: run {
       logger.warn { "Get published app failed: no published version for app: $appId" }
       return UserAppStoreError.NO_PUBLISHED_VERSION.left()
     }
@@ -68,6 +71,7 @@ class UserAppStoreService(
       appDescription = app.description,
       developerName = userRepository.findById(UserId(app.developerId))?.username?.value ?: app.developerId,
       latestVersion = latestVersion,
+      allVersions = allVersions,
     ).right()
   }
 

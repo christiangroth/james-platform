@@ -18,6 +18,7 @@ data class PublishedAppDetail(
   val appDescription: String?,
   val developerName: String,
   val latestVersion: AppVersion,
+  val allVersions: List<AppVersion>,
 )
 
 data class InstalledAppInfo(
