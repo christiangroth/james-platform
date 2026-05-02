@@ -610,7 +610,8 @@ class AppVersionManagementService(
       when {
         i > 0 && j > 0 && oldLines[i - 1] == newLines[j - 1] -> {
           result.add(DiffLine(oldLines[i - 1], DiffLineStatus.UNCHANGED))
-          i--; j--
+          i--
+          j--
         }
         j > 0 && (i == 0 || dp[i][j - 1] >= dp[i - 1][j]) -> {
           result.add(DiffLine(newLines[j - 1], DiffLineStatus.ADDED))
