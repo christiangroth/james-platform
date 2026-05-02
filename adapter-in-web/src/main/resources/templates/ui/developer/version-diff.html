@@ -1,0 +1,80 @@
+{#include layout.html}
+    {#title}James Platform – {app.name} {diff.version.versionNumber} – Diff{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/developer/dashboard" homeLabel="Developer Dashboard" /}
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-app-link">{app.name}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{diff.version.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-version">{diff.version.versionNumber}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="breadcrumb-diff">Diff</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
+            <div>
+                <h1 class="fs-4 fw-semibold mb-1" data-testid="diff-title">Diff: {diff.previousVersion.versionNumber} → {diff.version.versionNumber}</h1>
+                <div class="app-section-label" data-testid="diff-subtitle">Changes between version {diff.previousVersion.versionNumber} and {diff.version.versionNumber}</div>
+            </div>
+        </div>
+
+        {#if diff.entityDiffs.isEmpty && diff.reportDiffs.isEmpty}
+        <div class="card app-card p-4" data-testid="no-changes-message">
+            <p class="mb-0 app-section-label">No changes in entities or reports between these versions.</p>
+        </div>
+        {#else}
+
+        <!-- Entity Diffs -->
+        {#if !diff.entityDiffs.isEmpty}
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="entities-diff-heading">Entities</h2>
+        <div class="mb-4" data-testid="entity-diffs">
+            {#for section in diff.entityDiffs}
+            <div class="card app-card mb-3" data-testid="entity-diff-section">
+                <div class="card-header d-flex align-items-center gap-2" style="background-color:#1a1a1a;border-color:var(--color-border);">
+                    <span class="fw-semibold" data-testid="entity-diff-name">{section.name}</span>
+                    {#if section.status.name == 'ADDED'}
+                    <span class="badge ms-auto" style="background-color:#1a4a1a;color:#4ade80;border:1px solid #166534;" data-testid="entity-diff-status">Added</span>
+                    {#else if section.status.name == 'REMOVED'}
+                    <span class="badge ms-auto" style="background-color:#4a1a1a;color:#f87171;border:1px solid #991b1b;" data-testid="entity-diff-status">Removed</span>
+                    {#else}
+                    <span class="badge ms-auto" style="background-color:#1a2a4a;color:#60a5fa;border:1px solid #1d4ed8;" data-testid="entity-diff-status">Modified</span>
+                    {/if}
+                </div>
+                <div class="card-body p-0">
+                    <pre style="margin:0;padding:0.75rem;font-size:0.8rem;font-family:monospace;background-color:#111;overflow-x:auto;" data-testid="entity-diff-lines">{#for line in section.lines}
+{#if line.status.name == 'ADDED'}<span style="display:block;background-color:#0d2f0d;color:#4ade80;" data-testid="diff-line-added">+ {line.text}</span>{#else if line.status.name == 'REMOVED'}<span style="display:block;background-color:#2f0d0d;color:#f87171;" data-testid="diff-line-removed">- {line.text}</span>{#else}<span style="display:block;color:var(--color-text-muted);" data-testid="diff-line-unchanged">  {line.text}</span>{/if}{/for}</pre>
+                </div>
+            </div>
+            {/for}
+        </div>
+        {/if}
+
+        <!-- Report Diffs -->
+        {#if !diff.reportDiffs.isEmpty}
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="reports-diff-heading">Reports</h2>
+        <div class="mb-4" data-testid="report-diffs">
+            {#for section in diff.reportDiffs}
+            <div class="card app-card mb-3" data-testid="report-diff-section">
+                <div class="card-header d-flex align-items-center gap-2" style="background-color:#1a1a1a;border-color:var(--color-border);">
+                    <span class="fw-semibold" data-testid="report-diff-name">{section.name}</span>
+                    {#if section.status.name == 'ADDED'}
+                    <span class="badge ms-auto" style="background-color:#1a4a1a;color:#4ade80;border:1px solid #166534;" data-testid="report-diff-status">Added</span>
+                    {#else if section.status.name == 'REMOVED'}
+                    <span class="badge ms-auto" style="background-color:#4a1a1a;color:#f87171;border:1px solid #991b1b;" data-testid="report-diff-status">Removed</span>
+                    {#else}
+                    <span class="badge ms-auto" style="background-color:#1a2a4a;color:#60a5fa;border:1px solid #1d4ed8;" data-testid="report-diff-status">Modified</span>
+                    {/if}
+                </div>
+                <div class="card-body p-0">
+                    <pre style="margin:0;padding:0.75rem;font-size:0.8rem;font-family:monospace;background-color:#111;overflow-x:auto;" data-testid="report-diff-lines">{#for line in section.lines}
+{#if line.status.name == 'ADDED'}<span style="display:block;background-color:#0d2f0d;color:#4ade80;" data-testid="diff-line-added">+ {line.text}</span>{#else if line.status.name == 'REMOVED'}<span style="display:block;background-color:#2f0d0d;color:#f87171;" data-testid="diff-line-removed">- {line.text}</span>{#else}<span style="display:block;color:var(--color-text-muted);" data-testid="diff-line-unchanged">  {line.text}</span>{/if}{/for}</pre>
+                </div>
+            </div>
+            {/for}
+        </div>
+        {/if}
+
+        {/if}
+    </div>
+    {/content}
+{/include}

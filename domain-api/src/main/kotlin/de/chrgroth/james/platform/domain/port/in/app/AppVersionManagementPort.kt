@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
+import de.chrgroth.james.platform.domain.model.app.VersionDiff
 
 interface AppVersionManagementPort {
   fun listVersions(appId: String): Either<DomainError, List<AppVersion>>
@@ -22,4 +23,5 @@ interface AppVersionManagementPort {
   fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun updateReport(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion>
   fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion>
+  fun getVersionDiff(appId: String, versionId: String): Either<DomainError, VersionDiff>
 }

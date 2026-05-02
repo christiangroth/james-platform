@@ -19,7 +19,12 @@ import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.VersionBumpType
+import de.chrgroth.james.platform.domain.model.app.VersionDiff
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.app.DiffLine
+import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
+import de.chrgroth.james.platform.domain.model.app.DiffStatus
+import de.chrgroth.james.platform.domain.model.app.SectionDiff
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -29,7 +34,7 @@ import java.time.Instant
 import java.util.UUID
 
 @ApplicationScoped
-@Suppress("Unused")
+@Suppress("Unused", "TooManyFunctions", "LargeClass")
 class AppVersionManagementService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
@@ -450,6 +455,174 @@ class AppVersionManagementService(
       VersionNumber("$major.${minor + 1}.0"),
       VersionNumber("$major.$minor.${patch + 1}"),
     )
+  }
+
+  override fun getVersionDiff(appId: String, versionId: String): Either<DomainError, VersionDiff> {
+    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: run {
+      logger.warn { "Get version diff failed: version not found: $versionId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    if (version.appId != AppId(appId)) {
+      logger.warn { "Get version diff failed: version $versionId does not belong to app $appId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    if (version.status != AppVersionStatus.PUBLISHED) {
+      logger.warn { "Get version diff failed: version $versionId is not published" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    val predecessor = appVersionRepository.findAllByAppId(AppId(appId))
+      .filter { it.status == AppVersionStatus.PUBLISHED && it.createdAt < version.createdAt }
+      .maxByOrNull { it.createdAt } ?: run {
+      logger.warn { "Get version diff failed: no predecessor found for version $versionId" }
+      return AppVersionError.VERSION_NOT_FOUND.left()
+    }
+    val entityDiffs = computeEntityDiffs(predecessor, version)
+    val reportDiffs = computeReportDiffs(predecessor, version)
+    return VersionDiff(version, predecessor, entityDiffs, reportDiffs).right()
+  }
+
+  private fun computeEntityDiffs(predecessor: AppVersion, version: AppVersion): List<SectionDiff> {
+    val result = mutableListOf<SectionDiff>()
+    val predMap = predecessor.entityDefinitions.associateBy { it.id }
+    val versionMap = version.entityDefinitions.associateBy { it.id }
+
+    // Removed entities (in predecessor but not in version)
+    for (entity in predecessor.entityDefinitions.sortedBy { it.name }) {
+      if (entity.id !in versionMap) {
+        val lines = entityToDslLines(entity).map { DiffLine(it, DiffLineStatus.REMOVED) }
+        result.add(SectionDiff(entity.name, DiffStatus.REMOVED, lines))
+      }
+    }
+
+    // Added entities (in version but not in predecessor)
+    for (entity in version.entityDefinitions.sortedBy { it.name }) {
+      if (entity.id !in predMap) {
+        val lines = entityToDslLines(entity).map { DiffLine(it, DiffLineStatus.ADDED) }
+        result.add(SectionDiff(entity.name, DiffStatus.ADDED, lines))
+      }
+    }
+
+    // Modified or unchanged entities (in both)
+    for (entity in version.entityDefinitions.sortedBy { it.name }) {
+      val predEntity = predMap[entity.id] ?: continue
+      val oldLines = entityToDslLines(predEntity)
+      val newLines = entityToDslLines(entity)
+      val diffLines = diffLines(oldLines, newLines)
+      val status = if (diffLines.any { it.status != DiffLineStatus.UNCHANGED }) DiffStatus.MODIFIED else DiffStatus.UNCHANGED
+      if (status != DiffStatus.UNCHANGED) {
+        result.add(SectionDiff(entity.name, status, diffLines))
+      }
+    }
+
+    return result.sortedBy { it.name }
+  }
+
+  private fun computeReportDiffs(predecessor: AppVersion, version: AppVersion): List<SectionDiff> {
+    val result = mutableListOf<SectionDiff>()
+    val predMap = predecessor.reports.associateBy { it.id }
+    val versionMap = version.reports.associateBy { it.id }
+
+    // Removed reports (in predecessor but not in version)
+    for (report in predecessor.reports.sortedBy { it.name }) {
+      if (report.id !in versionMap) {
+        val lines = reportToDslLines(report).map { DiffLine(it, DiffLineStatus.REMOVED) }
+        result.add(SectionDiff(report.name, DiffStatus.REMOVED, lines))
+      }
+    }
+
+    // Added reports (in version but not in predecessor)
+    for (report in version.reports.sortedBy { it.name }) {
+      if (report.id !in predMap) {
+        val lines = reportToDslLines(report).map { DiffLine(it, DiffLineStatus.ADDED) }
+        result.add(SectionDiff(report.name, DiffStatus.ADDED, lines))
+      }
+    }
+
+    // Modified or unchanged reports (in both)
+    for (report in version.reports.sortedBy { it.name }) {
+      val predReport = predMap[report.id] ?: continue
+      val oldLines = reportToDslLines(predReport)
+      val newLines = reportToDslLines(report)
+      val diffLines = diffLines(oldLines, newLines)
+      val status = if (diffLines.any { it.status != DiffLineStatus.UNCHANGED }) DiffStatus.MODIFIED else DiffStatus.UNCHANGED
+      if (status != DiffStatus.UNCHANGED) {
+        result.add(SectionDiff(report.name, status, diffLines))
+      }
+    }
+
+    return result.sortedBy { it.name }
+  }
+
+  private fun entityToDslLines(entity: EntityDefinition): List<String> {
+    val lines = mutableListOf<String>()
+    lines.add("entity ${entity.name} {")
+    for (prop in entity.properties.sortedBy { it.name }) {
+      val nullable = if (prop.nullable) "?" else "!"
+      val constraintParts = prop.constraints
+        .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
+        .map { constraintToString(it) }
+      val constraintsStr = if (constraintParts.isNotEmpty()) " [${constraintParts.joinToString(", ")}]" else ""
+      lines.add("  ${prop.name}: ${prop.type}$nullable$constraintsStr")
+    }
+    lines.add("}")
+    return lines
+  }
+
+  private fun reportToDslLines(report: Report): List<String> {
+    val lines = mutableListOf<String>()
+    lines.add("report ${report.name} {")
+    lines.add("  html:")
+    lines.addAll(report.html.lines().map { "    $it" })
+    lines.add("  script:")
+    lines.addAll(report.script.lines().map { "    $it" })
+    lines.add("}")
+    return lines
+  }
+
+  private fun constraintToString(constraint: PropertyConstraint): String = when (constraint) {
+    is PropertyConstraint.UniqueKey -> "unique-key"
+    is PropertyConstraint.MinLong -> "min:${constraint.min}"
+    is PropertyConstraint.MaxLong -> "max:${constraint.max}"
+    is PropertyConstraint.MinDouble -> "min:${constraint.min}"
+    is PropertyConstraint.MaxDouble -> "max:${constraint.max}"
+    is PropertyConstraint.MinLength -> "min-length:${constraint.min}"
+    is PropertyConstraint.MaxLength -> "max-length:${constraint.max}"
+    is PropertyConstraint.Pattern -> "pattern:${constraint.regex}"
+    is PropertyConstraint.MinSize -> "min-size:${constraint.min}"
+    is PropertyConstraint.MaxSize -> "max-size:${constraint.max}"
+  }
+
+  @Suppress("NestedBlockDepth")
+  private fun diffLines(oldLines: List<String>, newLines: List<String>): List<DiffLine> {
+    val m = oldLines.size
+    val n = newLines.size
+    val dp = Array(m + 1) { IntArray(n + 1) }
+    for (i in 1..m) {
+      for (j in 1..n) {
+        dp[i][j] = if (oldLines[i - 1] == newLines[j - 1]) dp[i - 1][j - 1] + 1
+        else maxOf(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+    val result = mutableListOf<DiffLine>()
+    var i = m
+    var j = n
+    while (i > 0 || j > 0) {
+      when {
+        i > 0 && j > 0 && oldLines[i - 1] == newLines[j - 1] -> {
+          result.add(DiffLine(oldLines[i - 1], DiffLineStatus.UNCHANGED))
+          i--; j--
+        }
+        j > 0 && (i == 0 || dp[i][j - 1] >= dp[i - 1][j]) -> {
+          result.add(DiffLine(newLines[j - 1], DiffLineStatus.ADDED))
+          j--
+        }
+        else -> {
+          result.add(DiffLine(oldLines[i - 1], DiffLineStatus.REMOVED))
+          i--
+        }
+      }
+    }
+    return result.reversed()
   }
 
   companion object : KLogging() {
