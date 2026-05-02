@@ -1,3 +1,12 @@
+# 0.10.1 (2026.05.02)
+
+## Bugfixes / Chore
+* Fixed app store and dashboard version number display error.
+
+
+
+---
+
 # 0.10.0 (2026.05.01)
 
 ## New Features
