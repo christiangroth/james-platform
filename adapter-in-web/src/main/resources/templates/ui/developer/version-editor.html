@@ -239,6 +239,9 @@
                     </thead>
                     <tbody>
                         {#for entity in version.sortedEntityDefinitions}
+                        <tr style="border-color:var(--color-border);" data-testid="entity-row">
+                            <td style="color:var(--color-text);">
+                                <a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{entity.id}"
                                    class="text-decoration-none" style="color:var(--color-action);"
                                    data-testid="entity-name-link">{entity.name}</a>
                             </td>
