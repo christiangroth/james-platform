@@ -245,7 +245,7 @@ class DeveloperAppResource {
     @FormParam("bumpType") bumpType: String?,
     @FormParam("releaseNotes") releaseNotes: String?,
   ): Response {
-    return appVersionManagement.publishVersion(appId, bumpType, releaseNotes).fold(
+    return appVersionManagement.publishVersion(appId, bumpType, releaseNotes.orEmpty()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, "Version published.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()

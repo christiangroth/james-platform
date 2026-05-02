@@ -4,4 +4,5 @@ interface AppDataMigrationPort {
   fun deleteAppsWithoutDeveloperId()
   fun deleteAllApps()
   fun renameCollections()
+  fun addMissingReleaseNotes()
 }

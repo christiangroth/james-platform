@@ -48,6 +48,14 @@ class AppVersionRepositoryAdapter(
       appVersionDocumentRepository.find(APP_ID_FIELD, appId.value).list().map { it.toDomain() }
     }
 
+  override fun findAllPublishedWithoutReleaseNotes(): List<AppVersion> =
+    mongoQueryMetrics.timed("app_version.findAllPublishedWithoutReleaseNotes") {
+      appVersionDocumentRepository
+        .find("$STATUS_FIELD = ?1 and releaseNotes is null", AppVersionStatus.PUBLISHED.name)
+        .list()
+        .map { it.toDomain() }
+    }
+
   override fun renameToNewCollection() {
     mongoQueryMetrics.timed("app_version.renameToNewCollection") {
       val db = mongoClient.getDatabase(databaseName)
@@ -172,6 +180,7 @@ class AppVersionRepositoryAdapter(
     internal const val ID_FIELD = "_id"
     internal const val APP_ID_FIELD = "appId"
     internal const val VERSION_NUMBER_FIELD = "versionNumber"
+    internal const val STATUS_FIELD = "status"
     private const val OLD_COLLECTION_NAME = "app_version"
     private const val NEW_COLLECTION_NAME = "app_app_version"
   }

@@ -98,8 +98,8 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  override fun publishVersion(appId: String, bumpType: String?, releaseNotes: String?): Either<DomainError, AppVersion> {
-    val trimmedReleaseNotes = releaseNotes?.trim()?.takeIf { it.isNotBlank() } ?: run {
+  override fun publishVersion(appId: String, bumpType: String?, releaseNotes: String): Either<DomainError, AppVersion> {
+    val trimmedReleaseNotes = releaseNotes.trim().takeIf { it.isNotBlank() } ?: run {
       logger.warn { "Publish version failed: blank release notes for app $appId" }
       return AppVersionError.BLANK_RELEASE_NOTES.left()
     }

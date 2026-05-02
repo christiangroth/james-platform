@@ -208,10 +208,11 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion fails when release notes are blank`() {
-    listOf(null, "", "   ").forEach { blankNotes ->
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
+    listOf("", "   ").forEach { blankNotes ->
       val result = service.publishVersion("app-1", "BUGFIX", blankNotes)
-      assertThat(result.isLeft()).withFailMessage { "Expected failure for notes: $blankNotes" }.isTrue()
-      assertThat(result.leftOrNull()).withFailMessage { "Expected BLANK_RELEASE_NOTES for: $blankNotes" }
+      assertThat(result.isLeft()).withFailMessage { "Expected failure for notes: '$blankNotes'" }.isTrue()
+      assertThat(result.leftOrNull()).withFailMessage { "Expected BLANK_RELEASE_NOTES for: '$blankNotes'" }
         .isEqualTo(AppVersionError.BLANK_RELEASE_NOTES)
     }
   }
