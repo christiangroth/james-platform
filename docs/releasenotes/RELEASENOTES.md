@@ -1,3 +1,13 @@
+# 0.14.0 (2026.05.02)
+
+## New Features
+* App Store detail page now shows a version history section with release notes for each published version, sorted by most recently published.
+* Draft versions now show a Diff button, allowing comparison against the latest published version from the app overview and the version editor.
+
+
+
+---
+
 # 0.13.0 (2026.05.02)
 
 ## New Features
