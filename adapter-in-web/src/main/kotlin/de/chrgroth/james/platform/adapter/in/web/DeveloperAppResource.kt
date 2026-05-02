@@ -45,6 +45,10 @@ class DeveloperAppResource {
   private lateinit var versionEditorTemplate: Template
 
   @Inject
+  @Location("ui/developer/version-diff.html")
+  private lateinit var versionDiffTemplate: Template
+
+  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -97,11 +101,18 @@ class DeveloperAppResource {
       ifRight = { app ->
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
         val hasDraft = versions.any { it.status == AppVersionStatus.DRAFT }
+        val publishedVersionsSorted = versions
+          .filter { it.status == AppVersionStatus.PUBLISHED }
+          .sortedBy { it.createdAt }
+        val predecessorIdByVersionId = publishedVersionsSorted
+          .zipWithNext()
+          .associate { (predecessor, current) -> current.id.value to predecessor.id.value }
         Response.ok(
           appOverviewTemplate
             .data("app", app)
             .data("versions", versions)
-            .data("hasDraft", hasDraft),
+            .data("hasDraft", hasDraft)
+            .data("predecessorIdByVersionId", predecessorIdByVersionId),
         ).build()
       },
     )
@@ -211,6 +222,44 @@ class DeveloperAppResource {
         ).build()
       },
     )
+  }
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/diff")
+  @Produces(MediaType.TEXT_HTML)
+  fun versionDiff(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+  ): Response {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
+    if (appResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    val app = appResult.getOrNull()!!
+    val versionResult = appVersionManagement.getVersion(appId, versionId)
+    if (versionResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/apps/$appId")).build()
+    }
+    val version = versionResult.getOrNull()!!
+    val allPublished = appVersionManagement.listVersions(appId).getOrNull()
+      ?.filter { it.status == AppVersionStatus.PUBLISHED }
+      ?.sortedBy { it.createdAt }
+      ?: return Response.seeOther(URI.create("/ui/developer/apps/$appId")).build()
+    val versionIndex = allPublished.indexOfFirst { it.id.value == versionId }
+    if (versionIndex <= 0) {
+      return Response.seeOther(URI.create("/ui/developer/apps/$appId/versions/$versionId")).build()
+    }
+    val predecessor = allPublished[versionIndex - 1]
+    val diff = VersionDiffHelper.computeDiff(predecessor, version)
+    return Response.ok(
+      versionDiffTemplate
+        .data("app", app)
+        .data("version", version)
+        .data("predecessor", predecessor)
+        .data("diff", diff),
+    ).build()
   }
 
   @GET

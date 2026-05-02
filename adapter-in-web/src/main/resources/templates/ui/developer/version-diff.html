@@ -1,0 +1,108 @@
+{#include layout.html}
+    {#title}James Platform – {app.name} {version.versionNumber} – Diff{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item">
+                    <a href="/ui/developer/dashboard" class="text-decoration-none" style="color:var(--color-action);" aria-label="Developer Dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 8v5.5A1.5 1.5 0 0 0 3 15h3.5v-4h3v4H13a1.5 1.5 0 0 0 1.5-1.5V8a.5.5 0 0 0-.146-.354z"/></svg>
+                    </a>
+                </li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-app-link">{app.name}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-version-link">{version.versionNumber}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="breadcrumb-diff">Diff</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
+            <div>
+                <h1 class="fs-4 fw-semibold mb-1" data-testid="diff-title">Diff: {predecessor.versionNumber} → {version.versionNumber}</h1>
+                <div class="app-section-label" data-testid="diff-subtitle">Changes between {predecessor.versionNumber} and {version.versionNumber}</div>
+            </div>
+        </div>
+
+        {#if !diff.hasChanges}
+        <div class="card app-card p-4" data-testid="no-changes-message">
+            <p class="mb-0 app-section-label">No differences found between {predecessor.versionNumber} and {version.versionNumber}.</p>
+        </div>
+        {#else}
+
+        {#if diff.entityDiffs.isEmpty}
+        {#else}
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="entities-diff-heading">Entities</h2>
+        {#for entityDiff in diff.entityDiffs}
+        {#if entityDiff.changeType.name != 'UNCHANGED'}
+        <div class="card app-card mb-3" data-testid="entity-diff-card">
+            <div class="d-flex align-items-center gap-2 py-2 px-3" style="background-color:var(--color-bg-nested);border-bottom:1px solid var(--color-border);border-radius:calc(var(--bs-card-border-radius) - 1px) calc(var(--bs-card-border-radius) - 1px) 0 0;">
+                <span class="fw-semibold" style="font-family:monospace;" data-testid="entity-diff-name">{entityDiff.name}</span>
+                {#if entityDiff.changeType.name == 'ADDED'}
+                <span class="badge ms-auto" style="background-color:#1a5c2a;color:#90ee90;" data-testid="entity-diff-badge">Added</span>
+                {#else if entityDiff.changeType.name == 'REMOVED'}
+                <span class="badge ms-auto" style="background-color:#5c1a1a;color:#ff9999;" data-testid="entity-diff-badge">Removed</span>
+                {#else if entityDiff.changeType.name == 'MODIFIED'}
+                <span class="badge ms-auto" style="background-color:#3d3200;color:#ffd700;" data-testid="entity-diff-badge">Modified</span>
+                {/if}
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:0.82rem;" data-testid="entity-diff-lines">
+                {#for line in entityDiff.lines}<tr style="{#if line.type.name == 'ADDED'}background-color:rgba(0,80,0,0.35);{#else if line.type.name == 'REMOVED'}background-color:rgba(80,0,0,0.35);{/if}">
+                    <td style="padding:1px 8px;width:1.5em;user-select:none;color:{#if line.type.name == 'ADDED'}#90ee90{#else if line.type.name == 'REMOVED'}#ff9999{#else}var(--color-text-muted){/if};border-right:1px solid var(--color-border);">{#if line.type.name == 'ADDED'}+{#else if line.type.name == 'REMOVED'}-{#else} {/if}</td>
+                    <td style="padding:1px 8px;white-space:pre-wrap;color:{#if line.type.name == 'ADDED'}#90ee90{#else if line.type.name == 'REMOVED'}#ff9999{#else}var(--color-text-muted){/if};" data-testid="diff-line">{line.content}</td>
+                </tr>
+                {/for}
+            </table>
+        </div>
+        {/if}
+        {/for}
+        {/if}
+
+        {#if diff.reportDiffs.isEmpty}
+        {#else}
+        <h2 class="fs-5 fw-semibold mb-3 {#if !diff.entityDiffs.isEmpty}mt-4{/if}" data-testid="reports-diff-heading">Reports</h2>
+        {#for reportDiff in diff.reportDiffs}
+        {#if reportDiff.changeType.name != 'UNCHANGED'}
+        <div class="card app-card mb-3" data-testid="report-diff-card">
+            <div class="d-flex align-items-center gap-2 py-2 px-3" style="background-color:var(--color-bg-nested);border-bottom:1px solid var(--color-border);border-radius:calc(var(--bs-card-border-radius) - 1px) calc(var(--bs-card-border-radius) - 1px) 0 0;">
+                <span class="fw-semibold" data-testid="report-diff-name">{reportDiff.name}</span>
+                {#if reportDiff.changeType.name == 'ADDED'}
+                <span class="badge ms-auto" style="background-color:#1a5c2a;color:#90ee90;" data-testid="report-diff-badge">Added</span>
+                {#else if reportDiff.changeType.name == 'REMOVED'}
+                <span class="badge ms-auto" style="background-color:#5c1a1a;color:#ff9999;" data-testid="report-diff-badge">Removed</span>
+                {#else if reportDiff.changeType.name == 'MODIFIED'}
+                <span class="badge ms-auto" style="background-color:#3d3200;color:#ffd700;" data-testid="report-diff-badge">Modified</span>
+                {/if}
+            </div>
+            <div class="p-3">
+                <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">HTML</div>
+                <div style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;overflow:auto;margin-bottom:0.75rem;" data-testid="report-html-diff">
+                    <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:0.78rem;">
+                        {#for line in reportDiff.htmlLines}<tr style="{#if line.type.name == 'ADDED'}background-color:rgba(0,80,0,0.35);{#else if line.type.name == 'REMOVED'}background-color:rgba(80,0,0,0.35);{/if}">
+                            <td style="padding:1px 8px;width:1.5em;user-select:none;color:{#if line.type.name == 'ADDED'}#90ee90{#else if line.type.name == 'REMOVED'}#ff9999{#else}var(--color-text-muted){/if};border-right:1px solid var(--color-border);">{#if line.type.name == 'ADDED'}+{#else if line.type.name == 'REMOVED'}-{#else} {/if}</td>
+                            <td style="padding:1px 8px;white-space:pre;color:{#if line.type.name == 'ADDED'}#90ee90{#else if line.type.name == 'REMOVED'}#ff9999{#else}var(--color-text-muted){/if};" data-testid="diff-line">{line.content}</td>
+                        </tr>
+                        {/for}
+                    </table>
+                </div>
+                {#if !reportDiff.scriptLines.isEmpty}
+                <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Script</div>
+                <div style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;overflow:auto;" data-testid="report-script-diff">
+                    <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:0.78rem;">
+                        {#for line in reportDiff.scriptLines}<tr style="{#if line.type.name == 'ADDED'}background-color:rgba(0,80,0,0.35);{#else if line.type.name == 'REMOVED'}background-color:rgba(80,0,0,0.35);{/if}">
+                            <td style="padding:1px 8px;width:1.5em;user-select:none;color:{#if line.type.name == 'ADDED'}#90ee90{#else if line.type.name == 'REMOVED'}#ff9999{#else}var(--color-text-muted){/if};border-right:1px solid var(--color-border);">{#if line.type.name == 'ADDED'}+{#else if line.type.name == 'REMOVED'}-{#else} {/if}</td>
+                            <td style="padding:1px 8px;white-space:pre;color:{#if line.type.name == 'ADDED'}#90ee90{#else if line.type.name == 'REMOVED'}#ff9999{#else}var(--color-text-muted){/if};" data-testid="diff-line">{line.content}</td>
+                        </tr>
+                        {/for}
+                    </table>
+                </div>
+                {/if}
+            </div>
+        </div>
+        {/if}
+        {/for}
+        {/if}
+
+        {/if}
+    </div>
+    {/content}
+{/include}
+
