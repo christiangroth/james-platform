@@ -1,3 +1,13 @@
+# 0.10.2 (2026.05.02)
+
+## Bugfixes / Chore
+* Fixed app store not showing developer name correctly.
+* Fixed dashboard error when displaying installed apps.
+
+
+
+---
+
 # 0.10.1 (2026.05.02)
 
 ## Bugfixes / Chore
