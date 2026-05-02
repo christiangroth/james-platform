@@ -23,6 +23,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 class AppVersionManagementServiceTests {
 
@@ -33,6 +34,8 @@ class AppVersionManagementServiceTests {
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
   private val publishedVersion = version(id = "ver-2", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+  private val draftWithNewEntity = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-new"), name = "NewEntity")))
+  private val releaseNotes = "Initial release notes."
 
   // region listVersions
 
@@ -45,6 +48,19 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()).containsExactly(draftVersion, publishedVersion)
+  }
+
+  @Test
+  fun `listVersions returns draft first then published sorted by createdAt descending`() {
+    val olderPublished = version(id = "ver-3", appId = "app-1", versionNumber = "0.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(createdAt = publishedVersion.createdAt.minusSeconds(100))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(olderPublished, publishedVersion, draftVersion)
+
+    val result = service.listVersions("app-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly(draftVersion, publishedVersion, olderPublished)
   }
 
   @Test
@@ -170,7 +186,7 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", "BUGFIX")
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
@@ -179,11 +195,33 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion succeeds as feature bump`() {
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
+  fun `publishVersion saves release notes in published version`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", "FEATURE")
+    val result = service.publishVersion("app-1", "BUGFIX", "  My release notes  ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.releaseNotes).isEqualTo("My release notes")
+    verify { appVersionRepository.save(match { it.releaseNotes == "My release notes" }) }
+  }
+
+  @Test
+  fun `publishVersion fails when release notes are blank`() {
+    listOf(null, "", "   ").forEach { blankNotes ->
+      val result = service.publishVersion("app-1", "BUGFIX", blankNotes)
+      assertThat(result.isLeft()).withFailMessage { "Expected failure for notes: $blankNotes" }.isTrue()
+      assertThat(result.leftOrNull()).withFailMessage { "Expected BLANK_RELEASE_NOTES for: $blankNotes" }
+        .isEqualTo(AppVersionError.BLANK_RELEASE_NOTES)
+    }
+  }
+
+  @Test
+  fun `publishVersion succeeds as feature bump`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithNewEntity, publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
@@ -192,10 +230,10 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion succeeds as bugfix bump`() {
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", "BUGFIX")
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
@@ -206,11 +244,11 @@ class AppVersionManagementServiceTests {
   fun `publishVersion uses major bump when breaking changes are present regardless of bump type`() {
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
     val publishedWithEntity = publishedVersion.copy(entityDefinitions = listOf(entity))
-    val draftWithoutEntity = draftVersion.copy(entityDefinitions = emptyList())
+    val draftWithoutEntity = draftVersion.copy(entityDefinitions = emptyList(), reports = listOf(Report(ReportId("r-1"), "Report")))
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithoutEntity, publishedWithEntity)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", "BUGFIX")
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
@@ -221,7 +259,7 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion)
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.publishVersion("app-1", null)
+    val result = service.publishVersion("app-1", null, releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
@@ -231,13 +269,23 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion fails for invalid bump type when not first version`() {
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithNewEntity, publishedVersion)
     listOf("invalid", " ", "1.0.0", "PATCH", null, "").forEach { invalid ->
-      val result = service.publishVersion("app-1", invalid)
+      val result = service.publishVersion("app-1", invalid, releaseNotes)
       assertThat(result.isLeft()).withFailMessage { "Expected failure for: $invalid" }.isTrue()
       assertThat(result.leftOrNull()).withFailMessage { "Expected INVALID_BUMP_TYPE for: $invalid" }
         .isEqualTo(AppVersionError.INVALID_BUMP_TYPE)
     }
+  }
+
+  @Test
+  fun `publishVersion fails when no changes in entities or reports`() {
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion)
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.NO_CHANGES)
   }
 
   @Test
@@ -246,9 +294,9 @@ class AppVersionManagementServiceTests {
     // with an older createdAt so publishedVersion is the latest and used as the base for bump calculation
     val collidingPublished = version(id = "ver-3", appId = "app-1", versionNumber = "1.1.1", status = AppVersionStatus.PUBLISHED)
       .copy(createdAt = publishedVersion.createdAt.minusSeconds(10))
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion, publishedVersion, collidingPublished)
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithNewEntity, publishedVersion, collidingPublished)
 
-    val result = service.publishVersion("app-1", "BUGFIX")
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NUMBER_ALREADY_EXISTS)
@@ -258,7 +306,7 @@ class AppVersionManagementServiceTests {
   fun `publishVersion fails when no draft version found for app`() {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion)
 
-    val result = service.publishVersion("app-1", "FEATURE")
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
@@ -279,6 +327,7 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     val bump = result.getOrNull()!!
     assertThat(bump.hasBreakingChanges).isFalse()
+    assertThat(bump.hasChanges).isTrue()
     assertThat(bump.suggestedVersionOnFeature).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
     assertThat(bump.suggestedVersionOnBugfix).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
     assertThat(bump.suggestedVersionOnBreaking).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
@@ -287,6 +336,7 @@ class AppVersionManagementServiceTests {
   @Test
   fun `computeVersionBump suggests correct next versions based on latest published`() {
     val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-new"), name = "NewEntity")))
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion, draft)
@@ -295,9 +345,28 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     val bump = result.getOrNull()!!
+    assertThat(bump.hasChanges).isTrue()
     assertThat(bump.suggestedVersionOnBreaking).isEqualTo(VersionNumber("2.0.0"))
     assertThat(bump.suggestedVersionOnFeature).isEqualTo(VersionNumber("1.2.0"))
     assertThat(bump.suggestedVersionOnBugfix).isEqualTo(VersionNumber("1.1.1"))
+  }
+
+  @Test
+  fun `computeVersionBump returns hasChanges=false when draft is identical to published`() {
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDef))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    val bump = result.getOrNull()!!
+    assertThat(bump.hasChanges).isFalse()
+    assertThat(bump.hasBreakingChanges).isFalse()
   }
 
   @Test

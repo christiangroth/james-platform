@@ -47,6 +47,9 @@
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{#if version.versionNumber}{version.versionNumber}{#else}<span class="app-section-label">Draft</span>{/if}</div>
                         <div class="app-section-label mb-2" data-testid="version-created-at">{version.createdAt.formatted}</div>
+                        {#if version.releaseNotes}
+                        <p class="mb-2" style="font-size:0.8rem;color:var(--color-text-muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;" data-testid="version-release-notes">{version.releaseNotes}</p>
+                        {/if}
                         <div class="mt-auto">
                             <span class="badge {#if version.status.name == 'DRAFT'}app-badge-processing{#else}app-badge-muted{/if}"
                                   data-testid="version-status">{version.status}</span>

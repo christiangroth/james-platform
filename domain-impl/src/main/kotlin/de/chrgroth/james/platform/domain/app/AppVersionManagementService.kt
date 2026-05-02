@@ -40,7 +40,12 @@ class AppVersionManagementService(
       logger.warn { "List versions failed: app not found: $appId" }
       return AppVersionError.APP_NOT_FOUND.left()
     }
-    return appVersionRepository.findAllByAppId(AppId(appId)).right()
+    val versions = appVersionRepository.findAllByAppId(AppId(appId))
+    val sorted = versions.sortedWith(
+      compareBy<AppVersion> { if (it.status == AppVersionStatus.DRAFT) 0 else 1 }
+        .thenByDescending { it.createdAt },
+    )
+    return sorted.right()
   }
 
   override fun createVersion(appId: String): Either<DomainError, AppVersion> {
@@ -93,7 +98,11 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  override fun publishVersion(appId: String, bumpType: String?): Either<DomainError, AppVersion> {
+  override fun publishVersion(appId: String, bumpType: String?, releaseNotes: String?): Either<DomainError, AppVersion> {
+    val trimmedReleaseNotes = releaseNotes?.trim()?.takeIf { it.isNotBlank() } ?: run {
+      logger.warn { "Publish version failed: blank release notes for app $appId" }
+      return AppVersionError.BLANK_RELEASE_NOTES.left()
+    }
     val allVersions = appVersionRepository.findAllByAppId(AppId(appId))
     val version = allVersions.find { it.status == AppVersionStatus.DRAFT } ?: run {
       logger.warn { "Publish version failed: no draft version found for app $appId" }
@@ -105,6 +114,10 @@ class AppVersionManagementService(
     val versionNumber = if (latestPublished == null) {
       VersionNumber(FIRST_VERSION)
     } else {
+      if (!hasAnyChanges(latestPublished, version)) {
+        logger.warn { "Publish version failed: no changes in entities or reports for app $appId" }
+        return AppVersionError.NO_CHANGES.left()
+      }
       val latestVersionNumber = latestPublished.versionNumber ?: run {
         logger.warn { "Publish version failed: latest published version has no version number for app $appId" }
         return AppVersionError.VERSION_NOT_FOUND.left()
@@ -127,7 +140,7 @@ class AppVersionManagementService(
       logger.warn { "Publish version failed: version number already exists: ${versionNumber.value} in app $appId" }
       return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }
-    val publishedVersion = version.copy(versionNumber = versionNumber, status = AppVersionStatus.PUBLISHED)
+    val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
     logger.info { "App version published: ${versionNumber.value} (${version.id.value})" }
     return publishedVersion.right()
@@ -158,20 +171,23 @@ class AppVersionManagementService(
       logger.info { "Compute version bump: first release for app $appId → $FIRST_VERSION" }
       return VersionBumpResult(
         hasBreakingChanges = false,
+        hasChanges = true,
         suggestedVersionOnBreaking = firstVersion,
         suggestedVersionOnFeature = firstVersion,
         suggestedVersionOnBugfix = firstVersion,
       ).right()
     }
+    val hasChanges = hasAnyChanges(latestPublished, draft)
     val hasBreaking = hasBreakingChanges(latestPublished, draft)
     val latestVersionNumber = latestPublished.versionNumber ?: run {
       logger.warn { "Compute version bump failed: latest published version has no version number for app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
     }
     val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)
-    logger.info { "Compute version bump for app $appId: breaking=$hasBreaking, breaking→${onBreaking.value}, feature→${onFeature.value}, bugfix→${onBugfix.value}" }
+    logger.info { "Compute version bump for app $appId: hasChanges=$hasChanges, breaking=$hasBreaking, breaking→${onBreaking.value}, feature→${onFeature.value}, bugfix→${onBugfix.value}" }
     return VersionBumpResult(
       hasBreakingChanges = hasBreaking,
+      hasChanges = hasChanges,
       suggestedVersionOnBreaking = onBreaking,
       suggestedVersionOnFeature = onFeature,
       suggestedVersionOnBugfix = onBugfix,
@@ -379,6 +395,9 @@ class AppVersionManagementService(
     }
     return version
   }
+
+  private fun hasAnyChanges(published: AppVersion, draft: AppVersion): Boolean =
+    draft.entityDefinitions != published.entityDefinitions || draft.reports != published.reports
 
   private fun hasBreakingChanges(published: AppVersion, draft: AppVersion): Boolean {
     val publishedEntityIds = published.entityDefinitions.map { it.id }.toSet()

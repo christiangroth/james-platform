@@ -67,6 +67,12 @@
                 </svg>
                 This version is published and read-only.
             </div>
+            {#if version.releaseNotes}
+            <div class="card app-card p-3 mb-4" data-testid="version-release-notes-card">
+                <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Release Notes</div>
+                <p class="mb-0" style="white-space:pre-wrap;" data-testid="version-release-notes">{version.releaseNotes}</p>
+            </div>
+            {/if}
             {/if}
 
             <!-- Editor area -->
@@ -245,35 +251,101 @@
                 {/if}
             {#else}
                 <!-- Published: show read-only summary -->
-                <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <div class="card app-card p-3">
-                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Entities</div>
-                            {#if version.entityDefinitions.isEmpty}
-                            <p class="mb-0 app-section-label">No entities.</p>
-                            {#else}
-                            <ul class="list-unstyled mb-0">
-                                {#for entity in version.entityDefinitions}
-                                <li class="py-1" style="border-bottom:1px solid var(--color-border);" data-testid="entity-readonly-item">{entity.name}</li>
-                                {/for}
-                            </ul>
-                            {/if}
+                <div class="mb-4">
+                    <div class="app-section-label mb-3" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Entities</div>
+                    {#if version.entityDefinitions.isEmpty}
+                    <p class="app-section-label">No entities.</p>
+                    {#else}
+                    <div class="accordion" id="entitiesAccordion">
+                        {#for entity in version.entityDefinitions}
+                        <div class="accordion-item" style="background-color:#1e1e1e;border-color:var(--color-border);" data-testid="entity-readonly-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#entity-{entity.id}-collapse"
+                                        aria-expanded="false" aria-controls="entity-{entity.id}-collapse"
+                                        style="background-color:#1e1e1e;color:var(--color-text);font-size:0.9rem;">
+                                    {entity.name}
+                                    <span class="badge app-badge-muted ms-2" style="font-size:0.7rem;">{entity.properties.size} properties</span>
+                                </button>
+                            </h2>
+                            <div id="entity-{entity.id}-collapse" class="accordion-collapse collapse">
+                                <div class="accordion-body p-2">
+                                    {#if entity.properties.isEmpty}
+                                    <p class="app-section-label mb-0" style="font-size:0.8rem;">No properties.</p>
+                                    {#else}
+                                    <table class="table table-sm mb-0" style="color:var(--color-text);border-color:var(--color-border);font-size:0.8rem;">
+                                        <thead>
+                                            <tr style="border-color:var(--color-border);">
+                                                <th style="color:var(--color-text-muted);font-weight:500;">Name</th>
+                                                <th style="color:var(--color-text-muted);font-weight:500;">Type</th>
+                                                <th style="color:var(--color-text-muted);font-weight:500;">Nullable</th>
+                                                <th style="color:var(--color-text-muted);font-weight:500;">Constraints</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {#for prop in entity.properties}
+                                            <tr style="border-color:var(--color-border);" data-testid="property-readonly-row">
+                                                <td>{prop.name}</td>
+                                                <td><span class="badge app-badge-muted">{prop.type}</span></td>
+                                                <td>{#if prop.nullable}Yes{#else}No{/if}</td>
+                                                <td>
+                                                    {#if prop.constraintCount == 0}
+                                                    <span class="app-section-label" style="font-size:0.75rem;">None</span>
+                                                    {#else}
+                                                    <span class="badge app-badge-muted">{prop.constraintCount}</span>
+                                                    {/if}
+                                                </td>
+                                            </tr>
+                                            {/for}
+                                        </tbody>
+                                    </table>
+                                    {/if}
+                                </div>
+                            </div>
                         </div>
+                        {/for}
                     </div>
-                    <div class="col-12 col-md-6">
-                        <div class="card app-card p-3">
-                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Reports</div>
-                            {#if version.reports.isEmpty}
-                            <p class="mb-0 app-section-label">No reports.</p>
-                            {#else}
-                            <ul class="list-unstyled mb-0">
-                                {#for report in version.reports}
-                                <li class="py-1" style="border-bottom:1px solid var(--color-border);" data-testid="report-readonly-item">{report.name}</li>
-                                {/for}
-                            </ul>
-                            {/if}
+                    {/if}
+                </div>
+                <div>
+                    <div class="app-section-label mb-3" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Reports</div>
+                    {#if version.reports.isEmpty}
+                    <p class="app-section-label">No reports.</p>
+                    {#else}
+                    <div class="accordion" id="reportsAccordion">
+                        {#for report in version.reports}
+                        <div class="accordion-item" style="background-color:#1e1e1e;border-color:var(--color-border);" data-testid="report-readonly-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#report-{report.id}-collapse"
+                                        aria-expanded="false" aria-controls="report-{report.id}-collapse"
+                                        style="background-color:#1e1e1e;color:var(--color-text);font-size:0.9rem;">
+                                    {report.name}
+                                </button>
+                            </h2>
+                            <div id="report-{report.id}-collapse" class="accordion-collapse collapse">
+                                <div class="accordion-body p-0">
+                                    {#if report.html}
+                                    <div class="p-2">
+                                        <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">HTML</div>
+                                        <pre style="background-color:#111;padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:#ccc;max-height:200px;margin:0;">{report.html}</pre>
+                                    </div>
+                                    {/if}
+                                    {#if report.script}
+                                    <div class="p-2">
+                                        <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Script</div>
+                                        <pre style="background-color:#111;padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:#ccc;max-height:200px;margin:0;">{report.script}</pre>
+                                    </div>
+                                    {/if}
+                                    {#if !report.html && !report.script}
+                                    <p class="app-section-label p-2 mb-0" style="font-size:0.8rem;">No content yet.</p>
+                                    {/if}
+                                </div>
+                            </div>
                         </div>
+                        {/for}
                     </div>
+                    {/if}
                 </div>
             {/if}
         </div>
@@ -293,19 +365,30 @@
                     <div class="modal-body">
                         <div id="version-bump-loading" class="text-center py-3 app-section-label">Loading version information…</div>
                         <div id="version-bump-content" class="d-none">
-                            <div id="publish-first-version" class="d-none">
-                                <p>This will publish the first version as <strong id="first-version-label" data-testid="first-version-label"></strong>.</p>
-                            </div>
-                            <div id="publish-breaking" class="d-none">
-                                <div class="alert" style="background-color:#2a1a1a;border-color:#6b2222;color:#f8d7da;" role="alert" data-testid="breaking-changes-warning">
-                                    Breaking changes detected. Will be published as major version <strong id="breaking-version-label" data-testid="breaking-version-label"></strong>.
+                            <div id="publish-no-changes" class="d-none">
+                                <div class="alert" style="background-color:#1a2a1a;border-color:#226b22;color:#d4f0d4;" role="alert" data-testid="no-changes-warning">
+                                    No changes detected in entities or reports. Please make changes before publishing.
                                 </div>
                             </div>
-                            <div id="publish-non-breaking" class="d-none">
-                                <p class="mb-3" style="color:var(--color-text-muted);">Choose the type of release:</p>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-app-secondary" id="publish-feature-btn" data-testid="publish-feature-button"></button>
-                                    <button type="button" class="btn btn-app-secondary" id="publish-bugfix-btn" data-testid="publish-bugfix-button"></button>
+                            <div id="publish-has-changes" class="d-none">
+                                <div id="publish-first-version" class="d-none">
+                                    <p>This will publish the first version as <strong id="first-version-label" data-testid="first-version-label"></strong>.</p>
+                                </div>
+                                <div id="publish-breaking" class="d-none">
+                                    <div class="alert" style="background-color:#2a1a1a;border-color:#6b2222;color:#f8d7da;" role="alert" data-testid="breaking-changes-warning">
+                                        Breaking changes detected. Will be published as major version <strong id="breaking-version-label" data-testid="breaking-version-label"></strong>.
+                                    </div>
+                                </div>
+                                <div id="publish-non-breaking" class="d-none">
+                                    <p class="mb-3" style="color:var(--color-text-muted);">Choose the type of release:</p>
+                                    <div class="d-flex gap-2 mb-3">
+                                        <button type="button" class="btn btn-app-secondary" id="publish-feature-btn" data-testid="publish-feature-button"></button>
+                                        <button type="button" class="btn btn-app-secondary" id="publish-bugfix-btn" data-testid="publish-bugfix-button"></button>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label class="form-label form-label-sm" for="releaseNotesInput" style="color:var(--color-text-muted);">Release Notes <span style="color:#f87171;">*</span></label>
+                                    <textarea class="form-control app-form-control" id="releaseNotesInput" name="releaseNotes" rows="4" required placeholder="Describe what changed in this version…" data-testid="release-notes-input"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -742,8 +825,14 @@
             var publishModal = document.getElementById('publishVersionModal');
             var versionBumpData = null;
 
-            function versionValue(v) {
-                return typeof v === 'string' ? v : (v ? v.value : null);
+            function updatePublishButtonState() {
+                var submitBtn = document.getElementById('publishSubmitBtn');
+                var bumpTypeInput = document.getElementById('bumpTypeInput');
+                var releaseNotesInput = document.getElementById('releaseNotesInput');
+                if (!submitBtn || !bumpTypeInput || !releaseNotesInput) { return; }
+                var hasReleaseNotes = releaseNotesInput.value.trim().length > 0;
+                var hasBumpType = bumpTypeInput.value !== '';
+                submitBtn.disabled = !(hasReleaseNotes && hasBumpType);
             }
 
             function applyVersionBumpToModal(bump) {
@@ -751,6 +840,8 @@
                 var content = document.getElementById('version-bump-content');
                 var submitBtn = document.getElementById('publishSubmitBtn');
                 var bumpTypeInput = document.getElementById('bumpTypeInput');
+                var noChangesSection = document.getElementById('publish-no-changes');
+                var hasChangesSection = document.getElementById('publish-has-changes');
                 var firstSection = document.getElementById('publish-first-version');
                 var breakingSection = document.getElementById('publish-breaking');
                 var nonBreakingSection = document.getElementById('publish-non-breaking');
@@ -760,23 +851,30 @@
                 content.classList.remove('d-none');
                 submitBtn.disabled = true;
                 bumpTypeInput.value = '';
-                var featureV = versionValue(bump.suggestedVersionOnFeature);
-                var bugfixV = versionValue(bump.suggestedVersionOnBugfix);
-                var breakingV = versionValue(bump.suggestedVersionOnBreaking);
-                var isFirstVersion = featureV !== null && featureV === bugfixV && featureV === breakingV;
+                document.getElementById('releaseNotesInput').value = '';
+                if (!bump.hasChanges) {
+                    noChangesSection.classList.remove('d-none');
+                    hasChangesSection.classList.add('d-none');
+                    return;
+                }
+                noChangesSection.classList.add('d-none');
+                hasChangesSection.classList.remove('d-none');
+                var featureV = bump.suggestedVersionOnFeature;
+                var bugfixV = bump.suggestedVersionOnBugfix;
+                var breakingV = bump.suggestedVersionOnBreaking;
+                var isFirstVersion = featureV && featureV === bugfixV && featureV === breakingV;
                 if (isFirstVersion) {
                     firstSection.classList.remove('d-none');
                     breakingSection.classList.add('d-none');
                     nonBreakingSection.classList.add('d-none');
                     document.getElementById('first-version-label').textContent = featureV;
-                    submitBtn.disabled = false;
+                    bumpTypeInput.value = 'BUGFIX';
                 } else if (bump.hasBreakingChanges) {
                     firstSection.classList.add('d-none');
                     breakingSection.classList.remove('d-none');
                     nonBreakingSection.classList.add('d-none');
                     document.getElementById('breaking-version-label').textContent = breakingV;
                     bumpTypeInput.value = 'BREAKING';
-                    submitBtn.disabled = false;
                 } else {
                     firstSection.classList.add('d-none');
                     breakingSection.classList.add('d-none');
@@ -787,15 +885,15 @@
                     bugfixBtn.className = 'btn btn-app-secondary';
                     featureBtn.onclick = function () {
                         bumpTypeInput.value = 'FEATURE';
-                        submitBtn.disabled = false;
                         featureBtn.className = 'btn btn-app-primary';
                         bugfixBtn.className = 'btn btn-app-secondary';
+                        updatePublishButtonState();
                     };
                     bugfixBtn.onclick = function () {
                         bumpTypeInput.value = 'BUGFIX';
-                        submitBtn.disabled = false;
                         bugfixBtn.className = 'btn btn-app-primary';
                         featureBtn.className = 'btn btn-app-secondary';
+                        updatePublishButtonState();
                     };
                 }
             }
@@ -833,6 +931,10 @@
                                 loading.textContent = 'Could not load version information.';
                             });
                     }
+                });
+
+                document.getElementById('releaseNotesInput').addEventListener('input', function () {
+                    updatePublishButtonState();
                 });
 
                 var publishVersionForm = document.getElementById('publishVersionForm');
