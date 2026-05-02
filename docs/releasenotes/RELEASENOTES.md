@@ -1,3 +1,13 @@
+# 0.12.1 (2026.05.02)
+
+## Bugfixes / Chore
+* Fixed deployment stability: Grafana Alloy container no longer crashes on startup due to invalid River syntax (hyphens in component labels are now underscores).
+* Added health check for the Quarkus service in the Docker Swarm stack so deployments reliably wait for the application to be ready.
+
+
+
+---
+
 # 0.12.0 (2026.05.02)
 
 ## New Features
