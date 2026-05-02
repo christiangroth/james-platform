@@ -102,13 +102,13 @@ class DeveloperAppResource {
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
         val hasDraft = versions.any { it.status == AppVersionStatus.DRAFT }
         val publishedByDate = versions.filter { it.status == AppVersionStatus.PUBLISHED }.sortedBy { it.createdAt }
-        val versionsWithDiff = if (publishedByDate.size > 1) publishedByDate.drop(1).map { it.id.value }.toSet() else emptySet<String>()
+        val versionIdsWithPredecessor = if (publishedByDate.size > 1) publishedByDate.drop(1).map { it.id.value }.toSet() else emptySet<String>()
         Response.ok(
           appOverviewTemplate
             .data("app", app)
             .data("versions", versions)
             .data("hasDraft", hasDraft)
-            .data("versionsWithDiff", versionsWithDiff),
+            .data("versionsWithDiff", versionIdsWithPredecessor),
         ).build()
       },
     )

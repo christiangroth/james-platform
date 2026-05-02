@@ -468,13 +468,13 @@ class AppVersionManagementService(
     }
     if (version.status != AppVersionStatus.PUBLISHED) {
       logger.warn { "Get version diff failed: version $versionId is not published" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
+      return AppVersionError.VERSION_NOT_PUBLISHED.left()
     }
     val predecessor = appVersionRepository.findAllByAppId(AppId(appId))
       .filter { it.status == AppVersionStatus.PUBLISHED && it.createdAt < version.createdAt }
       .maxByOrNull { it.createdAt } ?: run {
       logger.warn { "Get version diff failed: no predecessor found for version $versionId" }
-      return AppVersionError.VERSION_NOT_FOUND.left()
+      return AppVersionError.NO_PREDECESSOR_VERSION.left()
     }
     val entityDiffs = computeEntityDiffs(predecessor, version)
     val reportDiffs = computeReportDiffs(predecessor, version)

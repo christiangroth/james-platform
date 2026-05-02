@@ -63,6 +63,8 @@ enum class AppVersionError(override val code: String) : DomainError {
   INVALID_BUMP_TYPE("APPVER-016"),
   BLANK_RELEASE_NOTES("APPVER-017"),
   NO_CHANGES("APPVER-018"),
+  VERSION_NOT_PUBLISHED("APPVER-019"),
+  NO_PREDECESSOR_VERSION("APPVER-020"),
   ;
 }
 
