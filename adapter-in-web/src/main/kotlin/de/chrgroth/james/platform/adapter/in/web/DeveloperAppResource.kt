@@ -45,6 +45,10 @@ class DeveloperAppResource {
   private lateinit var versionEditorTemplate: Template
 
   @Inject
+  @Location("ui/developer/version-diff.html")
+  private lateinit var versionDiffTemplate: Template
+
+  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -97,11 +101,14 @@ class DeveloperAppResource {
       ifRight = { app ->
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
         val hasDraft = versions.any { it.status == AppVersionStatus.DRAFT }
+        val publishedByDate = versions.filter { it.status == AppVersionStatus.PUBLISHED }.sortedBy { it.createdAt }
+        val versionIdsWithPredecessor = if (publishedByDate.size > 1) publishedByDate.drop(1).map { it.id.value }.toSet() else emptySet<String>()
         Response.ok(
           appOverviewTemplate
             .data("app", app)
             .data("versions", versions)
-            .data("hasDraft", hasDraft),
+            .data("hasDraft", hasDraft)
+            .data("versionsWithDiff", versionIdsWithPredecessor),
         ).build()
       },
     )
@@ -208,6 +215,32 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport),
+        ).build()
+      },
+    )
+  }
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/diff")
+  @Produces(MediaType.TEXT_HTML)
+  fun versionDiff(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+  ): Response {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
+    if (appResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    val app = appResult.getOrNull()!!
+    return appVersionManagement.getVersionDiff(appId, versionId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
+      ifRight = { diff ->
+        Response.ok(
+          versionDiffTemplate
+            .data("app", app)
+            .data("diff", diff),
         ).build()
       },
     )

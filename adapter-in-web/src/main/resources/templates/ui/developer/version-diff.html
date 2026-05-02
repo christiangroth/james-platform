@@ -1,0 +1,50 @@
+{#include layout.html}
+    {#title}James Platform – {app.name} {diff.version.versionNumber} – Diff{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/developer/dashboard" homeLabel="Developer Dashboard" /}
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-app-link">{app.name}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{diff.version.id}" class="text-decoration-none" style="color:var(--color-action);" data-testid="breadcrumb-version">{diff.version.versionNumber}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);" data-testid="breadcrumb-diff">Diff</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
+            <div>
+                <h1 class="fs-4 fw-semibold mb-1" data-testid="diff-title">Diff: {diff.previousVersion.versionNumber} → {diff.version.versionNumber}</h1>
+                <div class="app-section-label" data-testid="diff-subtitle">Changes between version {diff.previousVersion.versionNumber} and {diff.version.versionNumber}</div>
+            </div>
+        </div>
+
+        {#if diff.entityDiffs.isEmpty && diff.reportDiffs.isEmpty}
+        <div class="card app-card p-4" data-testid="no-changes-message">
+            <p class="mb-0 app-section-label">No changes in entities or reports between these versions.</p>
+        </div>
+        {#else}
+
+        <!-- Entity Diffs -->
+        {#if !diff.entityDiffs.isEmpty}
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="entities-diff-heading">Entities</h2>
+        <div class="mb-4" data-testid="entity-diffs">
+            {#for section in diff.entityDiffs}
+            {#diff-section section=section sectionTestId="entity" /}
+            {/for}
+        </div>
+        {/if}
+
+        <!-- Report Diffs -->
+        {#if !diff.reportDiffs.isEmpty}
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="reports-diff-heading">Reports</h2>
+        <div class="mb-4" data-testid="report-diffs">
+            {#for section in diff.reportDiffs}
+            {#diff-section section=section sectionTestId="report" /}
+            {/for}
+        </div>
+        {/if}
+
+        {/if}
+    </div>
+    {/content}
+{/include}
