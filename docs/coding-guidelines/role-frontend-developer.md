@@ -26,6 +26,7 @@ dedicated view model class inside `adapter-in-web`.
 ## Coding Principles
 
 - All WebJar includes belong exclusively in `layout.html` – no inline CSS in templates
+- **No inline `style=` on standard UI components** – use the CSS component classes defined in `layout.html` instead; inline styles are only acceptable for truly one-off layout tweaks that are not part of a pattern
 - Interactions and form submissions via `fetch()` API; use `postWithButton` helper from `settings-utils.js` for standard POST actions
 - Vanilla JS only; kept minimal and commented for non-trivial logic (e.g., SSE handling)
 - Fragments are independently renderable – they work as both SSE push targets and initial page loads
@@ -76,9 +77,14 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 | `.app-card` | Dark card with app border – use on `<div class="card">` |
 | `.app-table` | Transparent table for use inside dark cards |
 | `.app-section-label` | Muted small subtitle / section label inside cards |
+| `.app-section-header` | Muted uppercase header label (e.g. "ENTITIES", "REPORTS") |
 | `.app-navbar` | Navbar background |
 | `.app-form-control` | Dark-themed form input – add alongside Bootstrap `.form-control` |
 | `.app-select` | Dark-themed select dropdown – add alongside Bootstrap `.form-select` |
+| `.app-modal-content` | Dark-themed modal dialog – use on `<div class="modal-content">` |
+| `.app-accordion-item` | Dark-themed accordion item – use on `<div class="accordion-item">` |
+| `.breadcrumb-link` | Breadcrumb navigation link – use on `<a>` inside breadcrumb items |
+| `.app-readonly-banner` | Muted alert banner for published/read-only content – use on `<div class="alert">` |
 | `.btn-app-primary` | **Blue** primary action button (OK, Save, Submit) – add alongside Bootstrap `.btn` |
 | `.btn-app-danger` | **Red** destructive button (Delete, Remove) – add alongside Bootstrap `.btn` |
 | `.btn-app-secondary` | Muted secondary button (navigation, cancel, pagination) – add alongside Bootstrap `.btn` |
@@ -97,6 +103,46 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 - Form validation errors are shown inline, not as page-level alerts
 - Navigation state is reflected visually (active nav item highlighted)
 - Pagination controls are shown only when there is more than one page
+- All tables must be wrapped in `<div class="table-responsive">` so they scroll horizontally on narrow screens
+
+## Navigation Concept
+
+The platform uses a **breadcrumb trail** to show the user's location within the hierarchy and to enable backward navigation.
+
+### Breadcrumb structure
+
+Each page with a depth greater than 1 must include a Bootstrap breadcrumb immediately below the navbar at the top of the page content:
+
+```html
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb mb-0">
+        {#breadcrumb-home homeUrl="/ui/<role>/dashboard" homeLabel="<Role> Dashboard" /}
+        <!-- intermediate clickable items: -->
+        <li class="breadcrumb-item"><a href="..." class="breadcrumb-link" data-testid="breadcrumb-...">Label</a></li>
+        <!-- current page (non-clickable): -->
+        <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-...">Current Page</li>
+    </ol>
+</nav>
+```
+
+### Breadcrumb rules
+
+| Element | Class | Note |
+|---|---|---|
+| Home icon (first item) | `{#breadcrumb-home ...}` Qute tag | Always uses the role-specific dashboard as root |
+| Intermediate link | `class="breadcrumb-link"` | Active link styled via `.breadcrumb-link` CSS class |
+| Current page | `class="breadcrumb-item active"` | No `style=` attribute needed; color set by `.breadcrumb-item.active` CSS rule |
+
+**Never** use `style="color:var(--color-action);"` on breadcrumb links – use `.breadcrumb-link` instead.
+**Never** use `style="color:var(--color-text-muted);"` on active breadcrumb items – Bootstrap's `.breadcrumb-item.active` is styled globally.
+
+### Depth map
+
+| User role | Root | Level 1 | Level 2 | Level 3 |
+|---|---|---|---|---|
+| User | `/ui/user/dashboard` | App detail, App Store | App Store detail | – |
+| Developer | `/ui/developer/dashboard` | App overview | Version editor | Entity / Report editor |
+| Admin | `/ui/admin/dashboard` | Users | – | – |
 
 ## Error Code Mapping
 
@@ -180,7 +226,8 @@ The message panel element must be present in the page HTML (hidden by default wi
 
 ## Quality Standards
 
-- Responsive – desktop and tablet; mobile is nice-to-have
+- **Mobile-first / smartphone-ready** – the primary target device is a smartphone; all pages must be usable on narrow screens
 - No blocking resources; critical CSS inline where needed
 - Accessibility: semantic HTML, aria-labels where interactive controls lack visible text labels
 - Page load must not flash unstyled content – layout template is the single source of truth for global styles and scripts
+- **No dark text on unclear backgrounds** – always use defined CSS color variables (`--color-text-primary`, `--color-text-muted`) to ensure text is visible on dark backgrounds; never use undefined custom properties (e.g. `--color-text`) or hard-coded color values outside of `layout.html`
