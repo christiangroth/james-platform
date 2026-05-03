@@ -133,6 +133,78 @@ class DeveloperAppPageTests {
       .statusCode(303)
       .header("Location", containsString("/ui/developer/dashboard"))
   }
+
+  @Test
+  fun `draft version page does not show status badge, version number placeholder, or created-at date`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Test UI App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="version-status"""")))
+      .body(not(containsString("No version number yet")))
+      .body(not(containsString("""data-testid="version-created-at"""")))
+      .body(containsString("""data-testid="delete-draft-version-button""""))
+      .body(containsString("""data-testid="publish-version-button""""))
+  }
+
+  @Test
+  fun `published version page does not show status badge or readonly banner`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Test Published App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+
+    val publishedVersionId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("bumpType", "BUGFIX")
+      .formParam("releaseNotes", "Initial release")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/publish")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$publishedVersionId")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="version-status"""")))
+      .body(not(containsString("""data-testid="published-readonly-banner"""")))
+      .body(containsString("""data-testid="version-number""""))
+      .body(containsString("""data-testid="version-created-at""""))
+  }
 }
 
 @QuarkusTest
