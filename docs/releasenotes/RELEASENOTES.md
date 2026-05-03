@@ -1,3 +1,19 @@
+# 0.17.0 (2026.05.03)
+
+## New Features
+* Deleting an entity now shows a confirmation modal instead of a browser alert.
+* Removing a property now shows a confirmation modal instead of a browser alert.
+* Adding a new property now uses a modal dialog instead of an inline form below the properties table.
+
+## Bugfixes / Chore
+* App version view: entity and report accordion items are now expandable.
+* App version view: removed the published status badge and read-only banner.
+* App draft version view: removed the draft status badge, version number placeholder, and creation date.
+
+
+
+---
+
 # 0.16.0 (2026.05.03)
 
 ## New Features
