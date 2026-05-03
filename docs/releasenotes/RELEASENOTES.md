@@ -1,3 +1,12 @@
+# 0.19.1 (2026.05.03)
+
+## Bugfixes / Chore
+* Fixed entity property Edit and Constraints modals not opening in the draft version editor.
+
+
+
+---
+
 # 0.19.0 (2026.05.03)
 
 ## New Features
