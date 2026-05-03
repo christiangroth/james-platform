@@ -16,7 +16,12 @@
                 <p class="app-section-label mb-0" data-testid="app-description">{app.description}</p>
                 {/if}
             </div>
-            <span class="badge app-badge-muted ms-auto mt-1" data-testid="app-status">{app.status}</span>
+            <button type="button" class="btn btn-app-secondary btn-sm ms-auto mt-1"
+                    data-bs-toggle="modal" data-bs-target="#editAppModal"
+                    data-app-name="{app.name}" data-app-description="{app.description}"
+                    data-testid="edit-app-button">
+                Edit
+            </button>
         </div>
 
         <div id="overview-message" class="d-none mb-4" role="alert"></div>
@@ -70,6 +75,34 @@
         </div>
     </div>
 
+    <!-- Edit App Modal -->
+    <div class="modal fade" id="editAppModal" tabindex="-1" aria-labelledby="editAppModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editAppModalLabel">Edit App</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editAppForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="editAppName" class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control app-form-control" id="editAppName" name="name" required autocomplete="off" data-testid="edit-app-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editAppDescription" class="form-label">Description</label>
+                            <textarea class="form-control app-form-control" id="editAppDescription" name="description" rows="3" autocomplete="off" data-testid="edit-app-description-input"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="edit-app-submit-button">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     {/content}
     {#scripts}
     <script>
@@ -88,6 +121,46 @@
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
                 }, 5000);
+            }
+
+            // Edit App modal: pre-fill with current values
+            var editAppModalEl = document.getElementById('editAppModal');
+            if (editAppModalEl) {
+                editAppModalEl.addEventListener('show.bs.modal', function (event) {
+                    var btn = event.relatedTarget;
+                    document.getElementById('editAppName').value = btn ? btn.getAttribute('data-app-name') || '' : '';
+                    document.getElementById('editAppDescription').value = btn ? btn.getAttribute('data-app-description') || '' : '';
+                });
+                editAppModalEl.addEventListener('hidden.bs.modal', function () {
+                    document.getElementById('editAppForm').reset();
+                    document.getElementById('editAppForm').querySelector('[type="submit"]').disabled = false;
+                });
+
+                var editAppForm = document.getElementById('editAppForm');
+                editAppForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var submitBtn = editAppForm.querySelector('[type="submit"]');
+                    submitBtn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams(new FormData(this)).toString()
+                        });
+                        var result = await response.json();
+                        var modal = bootstrap.Modal.getInstance(editAppModalEl);
+                        if (modal) { modal.hide(); }
+                        if (result.ok) {
+                            window.location.reload();
+                        } else {
+                            showMessage(false, result.message);
+                            submitBtn.disabled = false;
+                        }
+                    } catch (ex) {
+                        showMessage(false, 'Network error. Please try again.');
+                        submitBtn.disabled = false;
+                    }
+                });
             }
 
             // New Version tile: directly create version without modal
