@@ -895,7 +895,7 @@
                         document.getElementById('editPropertyName').value = btn.getAttribute('data-property-name');
                         document.getElementById('editPropertyType').value = btn.getAttribute('data-property-type');
                         document.getElementById('editPropertyNullable').checked = btn.getAttribute('data-property-nullable') === 'true';
-                        var modal = bootstrap.Modal.getOrCreate(editPropertyModal);
+                        var modal = bootstrap.Modal.getOrCreateInstance(editPropertyModal);
                         modal.show();
                     });
                 });
@@ -980,7 +980,7 @@
                         var maxSize = btn.getAttribute('data-constraint-max-size');
                         document.getElementById('constraintMaxSize').value = maxSize || '';
                         applyConstraintVisibility(propertyType);
-                        var modal = bootstrap.Modal.getOrCreate(editConstraintsModal);
+                        var modal = bootstrap.Modal.getOrCreateInstance(editConstraintsModal);
                         modal.show();
                     });
                 });
