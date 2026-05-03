@@ -23,16 +23,22 @@
             </div>
 
             <!-- Existing app tiles -->
-            {#for app in apps}
+            {#for appInfo in apps}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/developer/apps/{app.id}" class="text-decoration-none" data-testid="app-tile" aria-label="Open app {app.name}">
+                <a href="/ui/developer/apps/{appInfo.app.id}" class="text-decoration-none" data-testid="app-tile" aria-label="Open app {appInfo.app.name}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
-                        <div class="fw-semibold fs-6 mb-1" data-testid="app-name">{app.name}</div>
-                        {#if app.description}
-                        <div class="app-section-label text-truncate mb-2" data-testid="app-description">{app.description}</div>
+                        <div class="fw-semibold fs-6 mb-1" data-testid="app-name">{appInfo.app.name}</div>
+                        {#if appInfo.app.description}
+                        <div class="app-section-label text-truncate mb-2" data-testid="app-description">{appInfo.app.description}</div>
                         {/if}
-                        <div class="mt-auto">
-                            <span class="badge app-badge-muted" data-testid="app-status">{app.status}</span>
+                        <div class="mt-auto d-flex align-items-center gap-2 flex-wrap">
+                            {#if appInfo.hasDraft}
+                            <span class="badge app-badge-processing" data-testid="app-draft-badge">Draft</span>
+                            {/if}
+                            {#if appInfo.latestVersionNumber}
+                            <span class="app-section-label" style="font-size:0.75rem;" data-testid="app-latest-version">v{appInfo.latestVersionNumber}</span>
+                            <span class="app-section-label" style="font-size:0.75rem;" data-testid="app-latest-published-at">{appInfo.latestVersionPublishedAt.formatted}</span>
+                            {/if}
                         </div>
                     </div>
                 </a>

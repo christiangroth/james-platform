@@ -113,8 +113,7 @@
                                 {/if}
                             </td>
                             <td class="text-end" style="white-space:nowrap;">
-                                <button type="button" class="btn btn-sm me-1"
-                                        style="background:transparent;color:var(--color-action);border:none;font-size:0.8rem;"
+                                <button type="button" class="btn btn-app-primary btn-sm me-1"
                                         data-action="edit-property"
                                         data-entity-id="{selectedEntity.id}"
                                         data-property-id="{prop.id}"
@@ -124,8 +123,7 @@
                                         data-testid="edit-property-button">
                                     Edit
                                 </button>
-                                <button type="button" class="btn btn-sm me-1"
-                                        style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
+                                <button type="button" class="btn btn-app-primary btn-sm me-1"
                                         data-action="edit-constraints"
                                         data-entity-id="{selectedEntity.id}"
                                         data-property-id="{prop.id}"
@@ -144,8 +142,7 @@
                                         data-testid="edit-constraints-button">
                                     Constraints
                                 </button>
-                                <button type="button" class="btn btn-sm"
-                                        style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
+                                <button type="button" class="btn btn-app-danger btn-sm"
                                         data-bs-toggle="modal" data-bs-target="#deletePropertyModal"
                                         data-entity-id="{selectedEntity.id}" data-property-id="{prop.id}"
                                         data-testid="delete-property-button">
@@ -285,56 +282,43 @@
                 {#if version.entityDefinitions.isEmpty}
                 <p class="app-section-label">No entities.</p>
                 {#else}
-                <div class="accordion" id="entitiesAccordion">
-                    {#for entity in version.sortedEntityDefinitions}
-                    <div class="accordion-item app-accordion-item" data-testid="entity-readonly-item">
-                        <h2 class="accordion-header" id="entity-{entity.id}-heading">
-                            <button class="accordion-button collapsed" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#entity-{entity.id}-collapse"
-                                    aria-expanded="false" aria-controls="entity-{entity.id}-collapse">
-                                {entity.name}
-                                <span class="badge app-badge-muted ms-2" style="font-size:0.7rem;">{entity.properties.size} properties</span>
-                            </button>
-                        </h2>
-                        <div id="entity-{entity.id}-collapse" class="accordion-collapse collapse" aria-labelledby="entity-{entity.id}-heading">
-                            <div class="accordion-body p-2">
-                                {#if entity.properties.isEmpty}
-                                <p class="app-section-label mb-0" style="font-size:0.8rem;">No properties.</p>
-                                {#else}
-                                <div class="table-responsive">
-                                <table class="table table-sm mb-0 app-table" style="font-size:0.8rem;">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Type</th>
-                                            <th>Nullable</th>
-                                            <th>Constraints</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {#for prop in entity.properties}
-                                        <tr data-testid="property-readonly-row">
-                                            <td>{prop.name}</td>
-                                            <td><span class="badge app-badge-muted">{prop.type}</span></td>
-                                            <td>{#if prop.nullable}Yes{#else}No{/if}</td>
-                                            <td>
-                                                {#if prop.constraintCount == 0}
-                                                <span class="app-section-label" style="font-size:0.75rem;">None</span>
-                                                {#else}
-                                                <span class="badge app-badge-muted">{prop.constraintCount}</span>
-                                                {/if}
-                                            </td>
-                                        </tr>
-                                        {/for}
-                                    </tbody>
-                                </table>
-                                </div>
-                                {/if}
-                            </div>
-                        </div>
+                {#for entity in version.sortedEntityDefinitions}
+                <div class="mb-3" data-testid="entity-readonly-item">
+                    <div class="fw-semibold mb-2" data-testid="entity-readonly-name">{entity.name}</div>
+                    {#if entity.properties.isEmpty}
+                    <p class="app-section-label mb-0" style="font-size:0.8rem;">No properties.</p>
+                    {#else}
+                    <div class="table-responsive">
+                    <table class="table table-sm mb-0 app-table" style="font-size:0.8rem;">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Nullable</th>
+                                <th>Constraints</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for prop in entity.properties}
+                            <tr data-testid="property-readonly-row">
+                                <td>{prop.name}</td>
+                                <td><span class="badge app-badge-muted">{prop.type}</span></td>
+                                <td>{#if prop.nullable}Yes{#else}No{/if}</td>
+                                <td>
+                                    {#if prop.constraintCount == 0}
+                                    <span class="app-section-label" style="font-size:0.75rem;">None</span>
+                                    {#else}
+                                    <span class="badge app-badge-muted">{prop.constraintCount}</span>
+                                    {/if}
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
                     </div>
-                    {/for}
+                    {/if}
                 </div>
+                {/for}
                 {/if}
             </div>
             <div>

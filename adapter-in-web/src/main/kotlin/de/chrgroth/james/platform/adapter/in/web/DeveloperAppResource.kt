@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
+import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
@@ -25,6 +26,13 @@ import jakarta.ws.rs.core.Response
 import java.net.URI
 
 data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null)
+
+data class DashboardAppInfo(
+  val app: App,
+  val hasDraft: Boolean,
+  val latestVersionNumber: String?,
+  val latestVersionPublishedAt: java.time.Instant?,
+)
 
 @Path("/ui/developer")
 @ApplicationScoped
@@ -66,9 +74,23 @@ class DeveloperAppResource {
   fun developerDashboard(): Any {
     val username = securityIdentity.principal.name
     val developerId = currentDeveloperUserIdValue()
+    val apps = if (developerId != null) appManagement.listApps(developerId) else emptyList()
+    val appInfos = apps.map { app ->
+      val versions = appVersionManagement.listVersions(app.id.value).getOrNull() ?: emptyList()
+      val hasDraft = versions.any { it.status == AppVersionStatus.DRAFT }
+      val latestPublished = versions
+        .filter { it.status == AppVersionStatus.PUBLISHED }
+        .maxByOrNull { it.createdAt }
+      DashboardAppInfo(
+        app = app,
+        hasDraft = hasDraft,
+        latestVersionNumber = latestPublished?.versionNumber?.value,
+        latestVersionPublishedAt = latestPublished?.createdAt,
+      )
+    }
     return developerDashboardTemplate
       .data("username", username)
-      .data("apps", if (developerId != null) appManagement.listApps(developerId) else emptyList())
+      .data("apps", appInfos)
   }
 
   @POST
@@ -87,6 +109,26 @@ class DeveloperAppResource {
     return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
       ifRight = { app -> Response.ok(DeveloperApiResult(true, "App created.", "/ui/developer/apps/${app.id.value}")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateApp(
+    @PathParam("appId") appId: String,
+    @FormParam("name") name: String,
+    @FormParam("description") description: String?,
+  ): Response {
+    if (name.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "App name is required.")).build()
+    }
+    val developerId = currentDeveloperUserIdValue()
+      ?: return Response.ok(DeveloperApiResult(false, "Developer user not found.")).build()
+    return appManagement.updateApp(appId, name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "App updated.")).build() },
     )
   }
 
