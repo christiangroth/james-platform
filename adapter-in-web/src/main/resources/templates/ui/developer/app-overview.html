@@ -5,7 +5,7 @@
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/developer/dashboard" homeLabel="Developer Dashboard" /}
-                <li class="breadcrumb-item active" aria-current="page" style="color:var(--color-text-muted);">{app.name}</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-app">{app.name}</li>
             </ol>
         </nav>
 
@@ -55,8 +55,8 @@
                                   data-testid="version-status">{version.status}</span>
                             {#if versionsWithDiff.contains(version.id)}
                             <a href="/ui/developer/apps/{app.id}/versions/{version.id}/diff"
-                               class="btn btn-sm ms-auto"
-                               style="background:transparent;color:var(--color-action);border:1px solid var(--color-action);font-size:0.75rem;"
+                               class="btn btn-app-secondary btn-sm ms-auto"
+                               style="font-size:0.75rem;"
                                data-testid="diff-button"
                                onclick="event.stopPropagation();">
                                 Diff

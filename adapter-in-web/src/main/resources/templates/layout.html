@@ -225,6 +225,51 @@
             color: var(--color-text-muted);
             opacity: 1;
         }
+        /* Breadcrumb navigation */
+        .breadcrumb-link {
+            color: var(--color-action);
+            text-decoration: none;
+        }
+        .breadcrumb-link:hover {
+            color: var(--color-action-hover);
+            text-decoration: underline;
+        }
+        .breadcrumb-item.active {
+            color: var(--color-text-muted);
+        }
+        /* Dark modal */
+        .app-modal-content {
+            background-color: var(--color-bg-card);
+            border-color: var(--color-border);
+            color: var(--color-text-primary);
+        }
+        .app-modal-content .modal-header,
+        .app-modal-content .modal-footer {
+            border-color: var(--color-border);
+        }
+        /* Dark accordion */
+        .app-accordion-item {
+            background-color: var(--color-bg-card);
+            border-color: var(--color-border);
+        }
+        .app-accordion-item .accordion-button {
+            background-color: var(--color-bg-card);
+            color: var(--color-text-primary);
+        }
+        .app-accordion-item .accordion-button:not(.collapsed) {
+            background-color: var(--color-bg-card);
+            color: var(--color-text-primary);
+            box-shadow: none;
+        }
+        .app-accordion-item .accordion-button::after {
+            filter: invert(1);
+        }
+        /* Read-only published version banner */
+        .app-readonly-banner {
+            background-color: var(--color-bg-card);
+            border-color: var(--color-border);
+            color: var(--color-text-muted);
+        }
     </style>
 </head>
 <body>
