@@ -255,12 +255,14 @@
         .app-accordion-item .accordion-button {
             background-color: var(--color-bg-card);
             color: var(--color-text-primary);
+            font-size: 0.9rem;
         }
         .app-accordion-item .accordion-button:not(.collapsed) {
             background-color: var(--color-bg-card);
             color: var(--color-text-primary);
             box-shadow: none;
         }
+        /* Bootstrap uses a dark chevron icon by default; invert to make it visible on dark backgrounds */
         .app-accordion-item .accordion-button::after {
             filter: invert(1);
         }
