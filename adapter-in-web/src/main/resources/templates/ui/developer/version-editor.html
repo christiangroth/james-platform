@@ -859,7 +859,15 @@
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties',
                         formData, true
                     );
-                    if (!result || !result.ok) { btn.disabled = false; }
+                    if (result && result.ok) {
+                        var addPropertyModalEl = document.getElementById('addPropertyModal');
+                        if (addPropertyModalEl) {
+                            var modal = bootstrap.Modal.getInstance(addPropertyModalEl);
+                            if (modal) { modal.hide(); }
+                        }
+                    } else {
+                        btn.disabled = false;
+                    }
                 });
                 var addPropertyModalEl = document.getElementById('addPropertyModal');
                 if (addPropertyModalEl) {
@@ -878,26 +886,26 @@
             // Delete Property modal
             var deletePropertyModal = document.getElementById('deletePropertyModal');
             if (deletePropertyModal) {
-                var pendingDeleteEntityId2 = null;
+                var pendingDeletePropertyEntityId = null;
                 var pendingDeletePropertyId = null;
                 deletePropertyModal.addEventListener('show.bs.modal', function (event) {
-                    pendingDeleteEntityId2 = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
+                    pendingDeletePropertyEntityId = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
                     pendingDeletePropertyId = event.relatedTarget ? event.relatedTarget.getAttribute('data-property-id') : null;
                 });
                 var confirmDeletePropertyBtn = document.getElementById('confirmDeletePropertyBtn');
                 confirmDeletePropertyBtn.addEventListener('click', async function () {
-                    if (!pendingDeleteEntityId2 || !pendingDeletePropertyId) return;
+                    if (!pendingDeletePropertyEntityId || !pendingDeletePropertyId) return;
                     var modal = bootstrap.Modal.getInstance(deletePropertyModal);
                     if (modal) { modal.hide(); }
                     confirmDeletePropertyBtn.disabled = true;
                     await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeleteEntityId2 + '/properties/' + pendingDeletePropertyId + '/delete',
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeletePropertyEntityId + '/properties/' + pendingDeletePropertyId + '/delete',
                         null, true
                     );
                     confirmDeletePropertyBtn.disabled = false;
                 });
                 deletePropertyModal.addEventListener('hidden.bs.modal', function () {
-                    pendingDeleteEntityId2 = null;
+                    pendingDeletePropertyEntityId = null;
                     pendingDeletePropertyId = null;
                     confirmDeletePropertyBtn.disabled = false;
                 });
