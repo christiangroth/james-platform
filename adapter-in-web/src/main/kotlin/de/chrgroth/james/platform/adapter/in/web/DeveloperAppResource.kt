@@ -24,6 +24,7 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.net.URI
+import java.time.Instant
 
 data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null)
 
@@ -31,7 +32,7 @@ data class DashboardAppInfo(
   val app: App,
   val hasDraft: Boolean,
   val latestVersionNumber: String?,
-  val latestVersionPublishedAt: java.time.Instant?,
+  val latestVersionPublishedAt: Instant?,
 )
 
 @Path("/ui/developer")
