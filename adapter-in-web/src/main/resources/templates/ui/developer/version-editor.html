@@ -94,7 +94,6 @@
                         <tr>
                             <th>Name</th>
                             <th>Type</th>
-                            <th>Nullable</th>
                             <th>Constraints</th>
                             <th></th>
                         </tr>
@@ -103,8 +102,7 @@
                         {#for prop in selectedEntity.properties}
                         <tr data-testid="property-row">
                             <td>{prop.name}</td>
-                            <td><span class="badge app-badge-muted">{prop.type}</span></td>
-                            <td>{#if prop.nullable}Yes{#else}No{/if}</td>
+                            <td>{prop.type}{#if prop.nullable}?{/if}</td>
                             <td>
                                 {#if prop.constraintCount == 0}
                                 <span class="app-section-label" style="font-size:0.75rem;">None</span>
@@ -294,7 +292,6 @@
                             <tr>
                                 <th>Name</th>
                                 <th>Type</th>
-                                <th>Nullable</th>
                                 <th>Constraints</th>
                             </tr>
                         </thead>
@@ -302,8 +299,7 @@
                             {#for prop in entity.properties}
                             <tr data-testid="property-readonly-row">
                                 <td>{prop.name}</td>
-                                <td><span class="badge app-badge-muted">{prop.type}</span></td>
-                                <td>{#if prop.nullable}Yes{#else}No{/if}</td>
+                                <td>{prop.type}{#if prop.nullable}?{/if}</td>
                                 <td>
                                     {#if prop.constraintCount == 0}
                                     <span class="app-section-label" style="font-size:0.75rem;">None</span>
@@ -919,7 +915,16 @@
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId,
                         formData, true
                     );
-                    if (!result || !result.ok) { btn.disabled = false; }
+                    if (result && result.ok) {
+                        var modal = bootstrap.Modal.getInstance(editPropertyModal);
+                        if (modal) { modal.hide(); }
+                    } else {
+                        btn.disabled = false;
+                    }
+                });
+                editPropertyModal.addEventListener('hidden.bs.modal', function () {
+                    editPropertyForm.reset();
+                    editPropertyForm.querySelector('[type="submit"]').disabled = false;
                 });
             }
 
@@ -1021,7 +1026,16 @@
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/constraints',
                         formData, true
                     );
-                    if (!result || !result.ok) { btn.disabled = false; }
+                    if (result && result.ok) {
+                        var modal = bootstrap.Modal.getInstance(editConstraintsModal);
+                        if (modal) { modal.hide(); }
+                    } else {
+                        btn.disabled = false;
+                    }
+                });
+                editConstraintsModal.addEventListener('hidden.bs.modal', function () {
+                    editConstraintsForm.reset();
+                    editConstraintsForm.querySelector('[type="submit"]').disabled = false;
                 });
             }
 
