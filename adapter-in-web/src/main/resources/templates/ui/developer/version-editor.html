@@ -76,12 +76,21 @@
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">Entity: {selectedEntity.name}</h2>
                     <button type="button" class="btn btn-app-danger btn-sm ms-auto"
-                            data-action="delete-entity" data-entity-id="{selectedEntity.id}" data-testid="delete-entity-button">
+                            data-bs-toggle="modal" data-bs-target="#deleteEntityModal"
+                            data-entity-id="{selectedEntity.id}" data-testid="delete-entity-button">
                         Delete Entity
                     </button>
                 </div>
 
-                <h3 class="fs-6 fw-semibold mb-2">Properties</h3>
+                <div class="d-flex align-items-center mb-2 gap-2">
+                    <h3 class="fs-6 fw-semibold mb-0">Properties</h3>
+                    <button type="button" class="btn btn-app-primary btn-sm ms-auto"
+                            data-bs-toggle="modal" data-bs-target="#addPropertyModal"
+                            data-entity-id="{selectedEntity.id}"
+                            data-testid="open-add-property-modal-button">
+                        Add Property
+                    </button>
+                </div>
                 {#if selectedEntity.properties.isEmpty}
                 <p class="app-section-label mb-3" data-testid="no-properties">No properties yet.</p>
                 {#else}
@@ -143,7 +152,8 @@
                                 </button>
                                 <button type="button" class="btn btn-sm"
                                         style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
-                                        data-action="delete-property" data-entity-id="{selectedEntity.id}" data-property-id="{prop.id}"
+                                        data-bs-toggle="modal" data-bs-target="#deletePropertyModal"
+                                        data-entity-id="{selectedEntity.id}" data-property-id="{prop.id}"
                                         data-testid="delete-property-button">
                                     Remove
                                 </button>
@@ -155,43 +165,6 @@
                 </div>
                 {/if}
 
-                <!-- Add Property Form -->
-                <div class="card app-card p-3">
-                    <h4 class="fs-6 fw-semibold mb-2">Add Property</h4>
-                    <form id="addPropertyForm" class="row g-2 align-items-end">
-                        <input type="hidden" name="entityId" value="{selectedEntity.id}">
-                        <div class="col-12 col-sm-4">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name</label>
-                            <input type="text" class="form-control app-form-control form-control-sm" name="name" required autocomplete="off" placeholder="e.g. OrderDate" data-testid="property-name-input">
-                        </div>
-                        <div class="col-12 col-sm-4">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type</label>
-                            <select class="form-select app-form-control form-select-sm" name="type" required data-testid="property-type-select">
-                                <option value="">– Select –</option>
-                                <option value="STRING">String</option>
-                                <option value="LONG">Long (Integer)</option>
-                                <option value="DOUBLE">Double (Decimal)</option>
-                                <option value="BOOLEAN">Boolean</option>
-                                <option value="DATE">Date</option>
-                                <option value="TIME">Time</option>
-                                <option value="DATETIME">DateTime</option>
-                                <option value="DURATION">Duration</option>
-                                <option value="REF">Reference</option>
-                                <option value="LIST">List</option>
-                                <option value="OBJECT">Object</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-sm-2">
-                            <div class="form-check mt-3">
-                                <input class="form-check-input" type="checkbox" name="nullable" id="nullableCheck" checked value="true" data-testid="property-nullable-check">
-                                <label class="form-check-label" for="nullableCheck" style="color:var(--color-text-muted);">Nullable</label>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-2">
-                            <button type="submit" class="btn btn-app-primary btn-sm w-100" data-testid="add-property-submit">Add</button>
-                        </div>
-                    </form>
-                </div>
             </div>
 
             {#else if selectedReport != null}
@@ -254,7 +227,8 @@
                             <td class="text-end">
                                 <button type="button" class="btn btn-sm"
                                         style="background:transparent;color:var(--color-text-muted);border:none;font-size:0.8rem;"
-                                        data-action="delete-entity" data-entity-id="{entity.id}"
+                                        data-bs-toggle="modal" data-bs-target="#deleteEntityModal"
+                                        data-entity-id="{entity.id}"
                                         data-testid="delete-entity-button">
                                     Delete
                                 </button>
@@ -674,6 +648,98 @@
     </div>
     {/if}
 
+    <!-- Delete Entity Modal -->
+    {#if isDraft}
+    <div class="modal fade" id="deleteEntityModal" tabindex="-1" aria-labelledby="deleteEntityModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteEntityModalLabel">Delete Entity</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to delete this entity and all its properties? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteEntityBtn"
+                            data-testid="confirm-delete-entity-button">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
+
+    <!-- Delete Property Modal -->
+    {#if isDraft}
+    <div class="modal fade" id="deletePropertyModal" tabindex="-1" aria-labelledby="deletePropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deletePropertyModalLabel">Remove Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to remove this property? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeletePropertyBtn"
+                            data-testid="confirm-delete-property-button">Remove</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
+
+    <!-- Add Property Modal -->
+    {#if isDraft}
+    <div class="modal fade" id="addPropertyModal" tabindex="-1" aria-labelledby="addPropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addPropertyModalLabel">Add Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="addPropertyForm">
+                    <input type="hidden" id="addPropertyEntityId" name="entityId" value="">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <input type="text" class="form-control app-form-control" id="addPropertyName" name="name" required autocomplete="off" placeholder="e.g. OrderDate" data-testid="property-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control" id="addPropertyType" name="type" required data-testid="property-type-select">
+                                <option value="">– Select –</option>
+                                <option value="STRING">String</option>
+                                <option value="LONG">Long (Integer)</option>
+                                <option value="DOUBLE">Double (Decimal)</option>
+                                <option value="BOOLEAN">Boolean</option>
+                                <option value="DATE">Date</option>
+                                <option value="TIME">Time</option>
+                                <option value="DATETIME">DateTime</option>
+                                <option value="DURATION">Duration</option>
+                                <option value="REF">Reference</option>
+                                <option value="LIST">List</option>
+                                <option value="OBJECT">Object</option>
+                            </select>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="nullable" id="nullableCheck" checked value="true" data-testid="property-nullable-check">
+                            <label class="form-check-label" for="nullableCheck" style="color:var(--color-text-muted);">Nullable</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="add-property-submit">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+
     {/content}
     {#scripts}
     <script>
@@ -756,18 +822,29 @@
                 }
             }
 
-            // Delete Entity buttons
-            document.querySelectorAll('[data-action="delete-entity"]').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    var entityId = btn.getAttribute('data-entity-id');
-                    if (!confirm('Delete this entity and all its properties?')) return;
-                    btn.disabled = true;
-                    await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/delete', null, true);
-                    btn.disabled = false;
+            // Delete Entity modal
+            var deleteEntityModal = document.getElementById('deleteEntityModal');
+            if (deleteEntityModal) {
+                var pendingDeleteEntityId = null;
+                deleteEntityModal.addEventListener('show.bs.modal', function (event) {
+                    pendingDeleteEntityId = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
                 });
-            });
+                var confirmDeleteEntityBtn = document.getElementById('confirmDeleteEntityBtn');
+                confirmDeleteEntityBtn.addEventListener('click', async function () {
+                    if (!pendingDeleteEntityId) return;
+                    var modal = bootstrap.Modal.getInstance(deleteEntityModal);
+                    if (modal) { modal.hide(); }
+                    confirmDeleteEntityBtn.disabled = true;
+                    await apiPost('/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeleteEntityId + '/delete', null, true);
+                    confirmDeleteEntityBtn.disabled = false;
+                });
+                deleteEntityModal.addEventListener('hidden.bs.modal', function () {
+                    pendingDeleteEntityId = null;
+                    confirmDeleteEntityBtn.disabled = false;
+                });
+            }
 
-            // Add Property form
+            // Add Property modal form
             var addPropertyForm = document.getElementById('addPropertyForm');
             if (addPropertyForm) {
                 addPropertyForm.addEventListener('submit', async function (e) {
@@ -776,36 +853,55 @@
                     btn.disabled = true;
                     var formData = new FormData(this);
                     var entityId = formData.get('entityId');
-                    if (!document.getElementById('nullableCheck').checked) {
-                        formData.set('nullable', 'false');
-                    } else {
-                        formData.set('nullable', 'true');
-                    }
+                    formData.set('nullable', document.getElementById('nullableCheck').checked ? 'true' : 'false');
                     formData.delete('entityId');
-                    await apiPost(
+                    var result = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties',
                         formData, true
                     );
-                    btn.disabled = false;
-                    addPropertyForm.reset();
-                    document.getElementById('nullableCheck').checked = true;
+                    if (!result || !result.ok) { btn.disabled = false; }
                 });
+                var addPropertyModalEl = document.getElementById('addPropertyModal');
+                if (addPropertyModalEl) {
+                    addPropertyModalEl.addEventListener('show.bs.modal', function (event) {
+                        var entityId = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
+                        if (entityId) { document.getElementById('addPropertyEntityId').value = entityId; }
+                    });
+                    addPropertyModalEl.addEventListener('hidden.bs.modal', function () {
+                        addPropertyForm.reset();
+                        document.getElementById('nullableCheck').checked = true;
+                        addPropertyForm.querySelector('[type="submit"]').disabled = false;
+                    });
+                }
             }
 
-            // Delete Property buttons
-            document.querySelectorAll('[data-action="delete-property"]').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    var entityId = btn.getAttribute('data-entity-id');
-                    var propertyId = btn.getAttribute('data-property-id');
-                    if (!confirm('Remove this property?')) return;
-                    btn.disabled = true;
+            // Delete Property modal
+            var deletePropertyModal = document.getElementById('deletePropertyModal');
+            if (deletePropertyModal) {
+                var pendingDeleteEntityId2 = null;
+                var pendingDeletePropertyId = null;
+                deletePropertyModal.addEventListener('show.bs.modal', function (event) {
+                    pendingDeleteEntityId2 = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
+                    pendingDeletePropertyId = event.relatedTarget ? event.relatedTarget.getAttribute('data-property-id') : null;
+                });
+                var confirmDeletePropertyBtn = document.getElementById('confirmDeletePropertyBtn');
+                confirmDeletePropertyBtn.addEventListener('click', async function () {
+                    if (!pendingDeleteEntityId2 || !pendingDeletePropertyId) return;
+                    var modal = bootstrap.Modal.getInstance(deletePropertyModal);
+                    if (modal) { modal.hide(); }
+                    confirmDeletePropertyBtn.disabled = true;
                     await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/delete',
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeleteEntityId2 + '/properties/' + pendingDeletePropertyId + '/delete',
                         null, true
                     );
-                    btn.disabled = false;
+                    confirmDeletePropertyBtn.disabled = false;
                 });
-            });
+                deletePropertyModal.addEventListener('hidden.bs.modal', function () {
+                    pendingDeleteEntityId2 = null;
+                    pendingDeletePropertyId = null;
+                    confirmDeletePropertyBtn.disabled = false;
+                });
+            }
 
             // Edit Property buttons
             var editPropertyModal = document.getElementById('editPropertyModal');
