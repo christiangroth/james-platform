@@ -1,3 +1,16 @@
+# 0.16.0 (2026.05.03)
+
+## New Features
+* Tables scroll horizontally on narrow screens (smartphone-friendly).
+* Fixed invisible text on dark background caused by undefined CSS variable.
+* Added standard CSS component classes for modals, accordions, and breadcrumb links.
+* Removed scattered inline styles; all dark-theme components now use shared CSS classes.
+* Updated coding guidelines with navigation/breadcrumb concept and mobile-first quality standard.
+
+
+
+---
+
 # 0.15.0 (2026.05.02)
 
 ## New Features
