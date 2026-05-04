@@ -78,6 +78,13 @@ enum class UserAppStoreError(override val code: String) : DomainError {
   ;
 }
 
+enum class AppDataError(override val code: String) : DomainError {
+  INSTALLED_APP_NOT_FOUND("APPDATA-001"),
+  ENTITY_NOT_FOUND("APPDATA-002"),
+  CONSTRAINT_VIOLATION("APPDATA-003"),
+  ;
+}
+
 enum class PropertyConstraintViolation(override val code: String) : DomainError {
   UNIQUE_KEY_VIOLATION("PROP-002"),
   MIN_VALUE_VIOLATION("PROP-003"),

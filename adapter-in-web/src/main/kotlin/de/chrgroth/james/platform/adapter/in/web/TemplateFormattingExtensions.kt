@@ -1,10 +1,12 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.model.app.App
+import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
@@ -158,6 +160,26 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun constraintMaxSize(property: Property): String =
     property.constraints.filterIsInstance<PropertyConstraint.MaxSize>().firstOrNull()?.max?.toString() ?: ""
+
+  /** Returns the AppData id string value. Used because AppDataId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(appData: AppData): String = appData.id.value
+
+  /**
+   * Returns the HTML input type suitable for generating a form field for the given property.
+   * Used in the app-data-new template to render the correct input element per property type.
+   */
+  @JvmStatic
+  fun htmlInputType(property: Property): String = when (property.type) {
+    PropertyType.BOOLEAN -> "checkbox"
+    PropertyType.LONG, PropertyType.DOUBLE -> "number"
+    PropertyType.DATE -> "date"
+    PropertyType.TIME -> "time"
+    PropertyType.DATETIME -> "datetime-local"
+    else -> "text"
+  }
 
   /** Returns entity definitions sorted alphabetically by name. */
   @JvmStatic
