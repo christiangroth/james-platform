@@ -11,6 +11,7 @@ value class PropertyId(val value: String)
 data class EntityDefinition(
   val id: EntityDefinitionId,
   val name: String,
+  val displayText: String? = null,
   val properties: List<Property> = emptyList(),
 )
 

@@ -50,6 +50,34 @@
                     <h2 class="fs-5 fw-semibold mb-0">Entity: {selectedEntity.name}</h2>
                 </div>
 
+                <!-- Display Text builder -->
+                <form id="displayTextForm" data-entity-id="{selectedEntity.id}">
+                    <div class="mb-4">
+                        <h3 class="fs-6 fw-semibold mb-2">Display Text</h3>
+                        <input type="text" class="form-control app-form-control form-control-sm mb-2"
+                               id="displayTextInput" name="displayText"
+                               value="{selectedEntity.displayText}"
+                               placeholder="Click tokens below to compose a display template…"
+                               autocomplete="off"
+                               data-testid="display-text-input">
+                        <div class="mb-2">
+                            <span class="badge app-badge-muted me-1" style="cursor:pointer;"
+                                  data-action="insert-display-text-token"
+                                  data-token-prop-id="id"
+                                  data-testid="display-text-token-id">ID</span>
+                            {#for prop in selectedEntity.properties}
+                            {#if !prop.nullable}
+                            <span class="badge app-badge-muted me-1" style="cursor:pointer;"
+                                  data-action="insert-display-text-token"
+                                  data-token-prop-id="{prop.id}"
+                                  data-testid="display-text-token-prop">{prop.name}</span>
+                            {/if}
+                            {/for}
+                        </div>
+                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="save-display-text-button">Save</button>
+                    </div>
+                </form>
+
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h3 class="fs-6 fw-semibold mb-0">Properties</h3>
                     {#btn-icon-add testId="open-add-property-modal-button" bsTarget="#addPropertyModal" entityId=selectedEntity.id extraClass="ms-auto" /}
@@ -710,6 +738,36 @@
                         addEntityForm.querySelector('[type="submit"]').disabled = false;
                     });
                 }
+            }
+
+            // Display Text form and token badges
+            var displayTextForm = document.getElementById('displayTextForm');
+            if (displayTextForm) {
+                displayTextForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = displayTextForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var entityId = displayTextForm.getAttribute('data-entity-id');
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/display-text',
+                        new FormData(displayTextForm), false
+                    );
+                    btn.disabled = false;
+                });
+
+                document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
+                    badge.addEventListener('click', function () {
+                        var propId = badge.getAttribute('data-token-prop-id');
+                        var token = '{' + propId + '}';
+                        var input = document.getElementById('displayTextInput');
+                        var pos = input.selectionStart != null ? input.selectionStart : input.value.length;
+                        var before = input.value.substring(0, pos);
+                        var after = input.value.substring(pos);
+                        input.value = before + token + after;
+                        input.focus();
+                        input.selectionStart = input.selectionEnd = pos + token.length;
+                    });
+                });
             }
 
             // Add Report modal form

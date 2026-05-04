@@ -102,6 +102,7 @@ class AppVersionRepositoryAdapter(
   private fun EntityDefinitionDocument.toDomain() = EntityDefinition(
     id = EntityDefinitionId(id),
     name = name,
+    displayText = displayText,
     properties = properties.map { it.toDomain() },
   )
 
@@ -148,6 +149,7 @@ class AppVersionRepositoryAdapter(
   private fun EntityDefinition.toDocument() = EntityDefinitionDocument().also { doc ->
     doc.id = id.value
     doc.name = name
+    doc.displayText = displayText
     doc.properties = properties.map { it.toDocument() }
   }
 

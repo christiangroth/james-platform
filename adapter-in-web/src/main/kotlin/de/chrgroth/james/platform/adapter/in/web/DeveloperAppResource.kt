@@ -386,6 +386,22 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/display-text")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateEntityDisplayText(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @FormParam("displayText") displayText: String?,
+  ): Response {
+    return appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Display text saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -568,6 +584,7 @@ class DeveloperAppResource {
     AppVersionError.PROPERTY_NOT_FOUND.code -> "Property not found."
     AppVersionError.INVALID_PROPERTY_TYPE.code -> "Invalid property type."
     AppVersionError.VERSION_NOT_IN_DRAFT.code -> "Version is not in draft status."
+    AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.code -> "Display text may only reference non-nullable properties."
     else -> "An unexpected error occurred. Please try again."
   }
 

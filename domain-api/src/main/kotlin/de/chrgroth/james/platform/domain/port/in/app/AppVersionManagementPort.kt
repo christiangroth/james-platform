@@ -16,6 +16,7 @@ interface AppVersionManagementPort {
   fun computeVersionBump(appId: String, draftVersionId: String): Either<DomainError, VersionBumpResult>
   fun addEntity(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion>
+  fun updateEntityDisplayText(appId: String, versionId: String, entityId: String, displayText: String?): Either<DomainError, AppVersion>
   fun addProperty(appId: String, versionId: String, entityId: String, name: String, type: String, nullable: Boolean): Either<DomainError, AppVersion>
   fun updateProperty(appId: String, versionId: String, entityId: String, propertyId: String, name: String, type: String, nullable: Boolean): Either<DomainError, AppVersion>
   fun setPropertyConstraints(appId: String, versionId: String, entityId: String, propertyId: String, constraints: Set<PropertyConstraint>): Either<DomainError, AppVersion>

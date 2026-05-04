@@ -51,7 +51,7 @@
                 <table class="table table-sm mb-0 app-table" data-testid="app-data-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>Display</th>
                             <th>Entity</th>
                             <th>Last Modified</th>
                         </tr>
@@ -59,7 +59,7 @@
                     <tbody>
                         {#for item in appDataList}
                         <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
-                            <td class="text-truncate" style="max-width:180px;" data-testid="app-data-id">{item.id}</td>
+                            <td class="text-truncate" style="max-width:280px;" data-testid="app-data-display-text">{item.displayText}</td>
                             <td data-testid="app-data-entity">{item.entityTypeName}</td>
                             <td data-testid="app-data-last-modified">{item.lastChangedAt.formatted}</td>
                         </tr>
