@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import io.quarkus.qute.Location
@@ -29,6 +30,26 @@ data class AppDataRow(
   val lastChangedAt: Instant,
 )
 
+data class AppDataPropertyView(
+  val id: String,
+  val name: String,
+  val type: String,
+  val nullable: Boolean,
+  val value: String?,
+  val htmlInputType: String,
+)
+
+data class AppDataDetail(
+  val id: String,
+  val installedAppId: String,
+  val entityTypeId: String,
+  val entityTypeName: String,
+  val objectVersion: Int,
+  val createdAt: Instant,
+  val lastChangedAt: Instant,
+  val properties: List<AppDataPropertyView>,
+)
+
 @Path("/ui")
 @ApplicationScoped
 @Authenticated
@@ -50,6 +71,10 @@ class UserAppStoreResource {
   @Inject
   @Location("ui/user/app-data-new.html")
   private lateinit var appDataNewTemplate: Template
+
+  @Inject
+  @Location("ui/user/app-data-detail.html")
+  private lateinit var appDataDetailTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -175,6 +200,90 @@ class UserAppStoreResource {
     )
   }
 
+  @GET
+  @Path("/user/apps/{installedAppId}/data/{dataId}")
+  @Produces(MediaType.TEXT_HTML)
+  fun appDataDetail(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("dataId") dataId: String,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val installedApps = userAppStore.getInstalledApps(userId)
+    val info = installedApps.find { it.installedApp.id.value == installedAppId }
+      ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
+    return appData.getAppData(userId, installedAppId, dataId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build() },
+      ifRight = { appDataItem ->
+        val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == appDataItem.entityType.value }
+          ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+        val detail = AppDataDetail(
+          id = appDataItem.id.value,
+          installedAppId = installedAppId,
+          entityTypeId = appDataItem.entityType.value,
+          entityTypeName = entityDef.name,
+          objectVersion = appDataItem.objectVersion,
+          createdAt = appDataItem.createdAt,
+          lastChangedAt = appDataItem.lastChangedAt,
+          properties = entityDef.properties.map { prop ->
+            AppDataPropertyView(
+              id = prop.id.value,
+              name = prop.name,
+              type = prop.type.name,
+              nullable = prop.nullable,
+              value = appDataItem.data[prop.id.value],
+              htmlInputType = when (prop.type) {
+                PropertyType.BOOLEAN -> "checkbox"
+                PropertyType.LONG, PropertyType.DOUBLE -> "number"
+                PropertyType.DATE -> "date"
+                PropertyType.TIME -> "time"
+                PropertyType.DATETIME -> "datetime-local"
+                else -> "text"
+              },
+            )
+          },
+        )
+        Response.ok(
+          appDataDetailTemplate
+            .data("info", info)
+            .data("detail", detail),
+        ).build()
+      },
+    )
+  }
+
+  @POST
+  @Path("/user/apps/{installedAppId}/data/{dataId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateAppData(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("dataId") dataId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val data = form.entries
+      .filter { it.key.startsWith("prop_") }
+      .associate { it.key to (it.value.firstOrNull() ?: "") }
+    return appData.updateAppData(userId, installedAppId, dataId, data).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Data updated.", "/ui/user/apps/$installedAppId/data/$dataId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/user/apps/{installedAppId}/data/{dataId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteAppData(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("dataId") dataId: String,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    return appData.deleteAppData(userId, installedAppId, dataId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Data deleted.", "/ui/user/apps/$installedAppId")).build() },
+    )
+  }
+
   private fun appStoreErrorMessage(code: String): String = when (code) {
     UserAppStoreError.APP_NOT_FOUND.code -> "App not found."
     UserAppStoreError.NO_PUBLISHED_VERSION.code -> "No published version available."
@@ -189,6 +298,7 @@ class UserAppStoreResource {
     AppDataError.INSTALLED_APP_NOT_FOUND.code -> "Installed app not found."
     AppDataError.ENTITY_NOT_FOUND.code -> "Entity type not found."
     AppDataError.CONSTRAINT_VIOLATION.code -> "One or more values violate constraints."
+    AppDataError.APP_DATA_NOT_FOUND.code -> "App data not found."
     else -> "An unexpected error occurred. Please try again."
   }
 }

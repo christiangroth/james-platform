@@ -10,4 +10,5 @@ interface AppDataRepositoryPort {
   fun findAllByInstalledAppIdAndEntityType(installedAppId: InstalledAppId, entityType: EntityDefinitionId): List<AppData>
   fun findById(id: AppDataId): AppData?
   fun save(appData: AppData)
+  fun delete(id: AppDataId)
 }

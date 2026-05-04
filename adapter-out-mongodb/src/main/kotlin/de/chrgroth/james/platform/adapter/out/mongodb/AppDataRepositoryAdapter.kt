@@ -47,6 +47,12 @@ class AppDataRepositoryAdapter(
     }
   }
 
+  override fun delete(id: AppDataId) {
+    mongoQueryMetrics.timed("app_data.delete") {
+      appDataDocumentRepository.deleteById(id.value)
+    }
+  }
+
   private fun AppDataDocument.toDomain() = AppData(
     id = AppDataId(id),
     userId = userId,
