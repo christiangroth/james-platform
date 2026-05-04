@@ -58,7 +58,7 @@
                     </thead>
                     <tbody>
                         {#for item in appDataList}
-                        <tr data-testid="app-data-row">
+                        <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                             <td class="text-truncate" style="max-width:180px;" data-testid="app-data-id">{item.id}</td>
                             <td data-testid="app-data-entity">{item.entityTypeName}</td>
                             <td data-testid="app-data-last-modified">{item.lastChangedAt.formatted}</td>
@@ -71,4 +71,14 @@
         </div>
     </div>
     {/content}
+    {#scripts}
+    <script>
+        document.querySelectorAll('.app-clickable-row').forEach(function (row) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', function () {
+                window.location.href = this.dataset.href;
+            });
+        });
+    </script>
+    {/scripts}
 {/include}

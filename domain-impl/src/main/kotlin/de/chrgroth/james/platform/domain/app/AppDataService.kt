@@ -102,6 +102,97 @@ class AppDataService(
     return appDataList.sortedByDescending { it.lastChangedAt }.right()
   }
 
+  override fun getAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, AppData> {
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
+    if (installedApp == null || installedApp.userId != userId) {
+      logger.warn { "Get app data failed: installed app not found: $installedAppId for user: $userId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val appDataItem = appDataRepository.findById(AppDataId(dataId))
+    if (appDataItem == null || appDataItem.installedAppId.value != installedAppId) {
+      logger.warn { "Get app data failed: app data not found: $dataId for installed app: $installedAppId" }
+      return AppDataError.APP_DATA_NOT_FOUND.left()
+    }
+    return appDataItem.right()
+  }
+
+  override fun updateAppData(
+    userId: String,
+    installedAppId: String,
+    dataId: String,
+    data: Map<String, String>,
+  ): Either<DomainError, AppData> {
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
+    if (installedApp == null || installedApp.userId != userId) {
+      logger.warn { "Update app data failed: installed app not found: $installedAppId for user: $userId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+
+    val existingAppData = appDataRepository.findById(AppDataId(dataId))
+    if (existingAppData == null || existingAppData.installedAppId.value != installedAppId) {
+      logger.warn { "Update app data failed: app data not found: $dataId for installed app: $installedAppId" }
+      return AppDataError.APP_DATA_NOT_FOUND.left()
+    }
+
+    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    if (appVersion == null) {
+      logger.warn { "Update app data failed: app version not found for installed app: $installedAppId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+
+    val entityDef = appVersion.entityDefinitions.find { it.id.value == existingAppData.entityType.value }
+    if (entityDef == null) {
+      logger.warn { "Update app data failed: entity not found: ${existingAppData.entityType.value} in version ${appVersion.id.value}" }
+      return AppDataError.ENTITY_NOT_FOUND.left()
+    }
+
+    val existingValues = appDataRepository.findAllByInstalledAppIdAndEntityType(
+      InstalledAppId(installedAppId),
+      existingAppData.entityType,
+    ).filter { it.id.value != dataId }
+
+    val parsedData = mutableMapOf<String, String?>()
+    for (property in entityDef.properties) {
+      val rawValue = data["prop_${property.id.value}"]
+      val parsedValue = parseValue(property, rawValue)
+      val violations = propertyConstraint.checkValue(
+        property,
+        parsedValue,
+        existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
+      )
+      if (violations.isNotEmpty()) {
+        logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
+        return AppDataError.CONSTRAINT_VIOLATION.left()
+      }
+      parsedData[property.id.value] = rawValue?.takeIf { it.isNotBlank() }
+    }
+
+    val updatedAppData = existingAppData.copy(
+      objectVersion = existingAppData.objectVersion + 1,
+      lastChangedAt = Instant.now(),
+      data = parsedData,
+    )
+    appDataRepository.save(updatedAppData)
+    logger.info { "App data updated: ${updatedAppData.id.value} for installed app: $installedAppId" }
+    return updatedAppData.right()
+  }
+
+  override fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Unit> {
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
+    if (installedApp == null || installedApp.userId != userId) {
+      logger.warn { "Delete app data failed: installed app not found: $installedAppId for user: $userId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val appDataItem = appDataRepository.findById(AppDataId(dataId))
+    if (appDataItem == null || appDataItem.installedAppId.value != installedAppId) {
+      logger.warn { "Delete app data failed: app data not found: $dataId for installed app: $installedAppId" }
+      return AppDataError.APP_DATA_NOT_FOUND.left()
+    }
+    appDataRepository.delete(AppDataId(dataId))
+    logger.info { "App data deleted: $dataId for installed app: $installedAppId" }
+    return Unit.right()
+  }
+
   private fun parseValue(property: Property, rawValue: String?): Any? {
     if (rawValue.isNullOrBlank()) return null
     return when (property.type) {

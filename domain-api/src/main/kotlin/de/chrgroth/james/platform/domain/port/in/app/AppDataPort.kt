@@ -13,4 +13,15 @@ interface AppDataPort {
   ): Either<DomainError, AppData>
 
   fun listAppData(userId: String, installedAppId: String): Either<DomainError, List<AppData>>
+
+  fun getAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, AppData>
+
+  fun updateAppData(
+    userId: String,
+    installedAppId: String,
+    dataId: String,
+    data: Map<String, String>,
+  ): Either<DomainError, AppData>
+
+  fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Unit>
 }
