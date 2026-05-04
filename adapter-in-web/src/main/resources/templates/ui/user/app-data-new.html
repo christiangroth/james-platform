@@ -71,11 +71,33 @@
                 }, 5000);
             }
 
+            function clearFieldErrors(form) {
+                form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+                form.querySelectorAll('.invalid-feedback').forEach(function (el) { el.remove(); });
+            }
+
+            function showFieldErrors(form, fieldErrors) {
+                Object.entries(fieldErrors).forEach(function (entry) {
+                    var propId = entry[0];
+                    var message = entry[1];
+                    var input = form.querySelector('[name="prop_' + propId + '"]');
+                    if (input) {
+                        input.classList.add('is-invalid');
+                        var feedback = document.createElement('div');
+                        feedback.className = 'invalid-feedback';
+                        feedback.setAttribute('data-testid', 'field-error-' + propId);
+                        feedback.textContent = message;
+                        input.parentNode.insertBefore(feedback, input.nextSibling);
+                    }
+                });
+            }
+
             document.getElementById('createDataForm').addEventListener('submit', async function (e) {
                 e.preventDefault();
                 var form = e.target;
                 var submitBtn = form.querySelector('[type="submit"]');
                 submitBtn.disabled = true;
+                clearFieldErrors(form);
 
                 var formData = new FormData(form);
                 // Ensure unchecked checkboxes send false
@@ -101,6 +123,9 @@
                         window.location.href = result.redirectUrl;
                     } else {
                         showMessage(result.ok, result.message);
+                        if (result.fieldErrors) {
+                            showFieldErrors(form, result.fieldErrors);
+                        }
                         submitBtn.disabled = false;
                     }
                 } catch (ex) {

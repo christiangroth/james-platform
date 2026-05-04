@@ -1,6 +1,8 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
+import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
@@ -195,7 +197,16 @@ class UserAppStoreResource {
       .filter { it.key.startsWith("prop_") }
       .associate { it.key to (it.value.firstOrNull() ?: "") }
     return appData.createAppData(userId, installedAppId, entityTypeId, data).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
+      ifLeft = { error ->
+        if (error is AppDataConstraintViolationError) {
+          val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
+            violations.joinToString(" ") { constraintViolationMessage(it) }
+          }
+          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors)).build()
+        } else {
+          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
+        }
+      },
       ifRight = { Response.ok(DeveloperApiResult(true, "Data created.", "/ui/user/apps/$installedAppId")).build() },
     )
   }
@@ -265,7 +276,16 @@ class UserAppStoreResource {
       .filter { it.key.startsWith("prop_") }
       .associate { it.key to (it.value.firstOrNull() ?: "") }
     return appData.updateAppData(userId, installedAppId, dataId, data).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
+      ifLeft = { error ->
+        if (error is AppDataConstraintViolationError) {
+          val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
+            violations.joinToString(" ") { constraintViolationMessage(it) }
+          }
+          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors)).build()
+        } else {
+          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
+        }
+      },
       ifRight = { Response.ok(DeveloperApiResult(true, "Data updated.", "/ui/user/apps/$installedAppId/data/$dataId")).build() },
     )
   }
@@ -300,5 +320,16 @@ class UserAppStoreResource {
     AppDataError.CONSTRAINT_VIOLATION.code -> "One or more values violate constraints."
     AppDataError.APP_DATA_NOT_FOUND.code -> "App data not found."
     else -> "An unexpected error occurred. Please try again."
+  }
+
+  private fun constraintViolationMessage(violation: PropertyConstraintViolation): String = when (violation) {
+    is PropertyConstraintViolation.UniqueKeyViolation -> "Value must be unique."
+    is PropertyConstraintViolation.MinValueViolation -> "Value is below the allowed minimum of ${violation.min}."
+    is PropertyConstraintViolation.MaxValueViolation -> "Value exceeds the allowed maximum of ${violation.max}."
+    is PropertyConstraintViolation.MinLengthViolation -> "Value must be at least ${violation.min} characters long."
+    is PropertyConstraintViolation.MaxLengthViolation -> "Value must not exceed ${violation.max} characters."
+    is PropertyConstraintViolation.PatternViolation -> "Value does not match the required pattern: ${violation.regex}."
+    is PropertyConstraintViolation.MinSizeViolation -> "List must have at least ${violation.min} elements."
+    is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
   }
 }

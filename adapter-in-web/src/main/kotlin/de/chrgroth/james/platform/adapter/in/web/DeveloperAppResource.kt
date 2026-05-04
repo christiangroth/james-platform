@@ -26,7 +26,7 @@ import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
 
-data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null)
+data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null, val fieldErrors: Map<String, String>? = null)
 
 data class DashboardAppInfo(
   val app: App,

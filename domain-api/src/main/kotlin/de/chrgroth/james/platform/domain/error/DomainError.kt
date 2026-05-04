@@ -86,14 +86,19 @@ enum class AppDataError(override val code: String) : DomainError {
   ;
 }
 
-enum class PropertyConstraintViolation(override val code: String) : DomainError {
-  UNIQUE_KEY_VIOLATION("PROP-002"),
-  MIN_VALUE_VIOLATION("PROP-003"),
-  MAX_VALUE_VIOLATION("PROP-004"),
-  MIN_LENGTH_VIOLATION("PROP-005"),
-  MAX_LENGTH_VIOLATION("PROP-006"),
-  PATTERN_VIOLATION("PROP-007"),
-  MIN_SIZE_VIOLATION("PROP-008"),
-  MAX_SIZE_VIOLATION("PROP-009"),
-  ;
+data class AppDataConstraintViolationError(
+  val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
+) : DomainError {
+  override val code: String = AppDataError.CONSTRAINT_VIOLATION.code
+}
+
+sealed class PropertyConstraintViolation(override val code: String) : DomainError {
+  data object UniqueKeyViolation : PropertyConstraintViolation("PROP-002")
+  data class MinValueViolation(val min: Number) : PropertyConstraintViolation("PROP-003")
+  data class MaxValueViolation(val max: Number) : PropertyConstraintViolation("PROP-004")
+  data class MinLengthViolation(val min: Int) : PropertyConstraintViolation("PROP-005")
+  data class MaxLengthViolation(val max: Int) : PropertyConstraintViolation("PROP-006")
+  data class PatternViolation(val regex: String) : PropertyConstraintViolation("PROP-007")
+  data class MinSizeViolation(val min: Int) : PropertyConstraintViolation("PROP-008")
+  data class MaxSizeViolation(val max: Int) : PropertyConstraintViolation("PROP-009")
 }

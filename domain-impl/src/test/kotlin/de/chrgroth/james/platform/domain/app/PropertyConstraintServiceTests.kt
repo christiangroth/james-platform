@@ -29,7 +29,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, "dup", existingValues = listOf("dup", "other"))
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.UNIQUE_KEY_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.UniqueKeyViolation)
   }
 
   @Test
@@ -59,7 +59,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, 9L)
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MIN_VALUE_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinValueViolation(10L))
   }
 
   @Test
@@ -76,7 +76,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, 101L)
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MAX_VALUE_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxValueViolation(100L))
   }
 
   // endregion
@@ -97,7 +97,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, 1.4)
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MIN_VALUE_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinValueViolation(1.5))
   }
 
   @Test
@@ -114,7 +114,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, 10.0)
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MAX_VALUE_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxValueViolation(9.9))
   }
 
   // endregion
@@ -135,7 +135,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, "ab")
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MIN_LENGTH_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinLengthViolation(3))
   }
 
   @Test
@@ -152,7 +152,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, "toolong")
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MAX_LENGTH_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxLengthViolation(5))
   }
 
   @Test
@@ -168,7 +168,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, "abcd")
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.PATTERN_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.PatternViolation("""^\d{4}$"""))
   }
 
   // endregion
@@ -189,7 +189,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, listOf("a"))
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MIN_SIZE_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinSizeViolation(2))
   }
 
   @Test
@@ -205,7 +205,7 @@ class PropertyConstraintServiceTests {
 
     val violations = service.checkValue(property, listOf("a", "b", "c", "d"))
 
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MAX_SIZE_VIOLATION)
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxSizeViolation(3))
   }
 
   // endregion
@@ -244,8 +244,8 @@ class PropertyConstraintServiceTests {
     val violations = service.checkValue(property, 7L)
 
     assertThat(violations).containsExactlyInAnyOrder(
-      PropertyConstraintViolation.MIN_VALUE_VIOLATION,
-      PropertyConstraintViolation.MAX_VALUE_VIOLATION,
+      PropertyConstraintViolation.MinValueViolation(10L),
+      PropertyConstraintViolation.MaxValueViolation(5L),
     )
   }
 

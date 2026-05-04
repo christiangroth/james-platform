@@ -3,8 +3,10 @@ package de.chrgroth.james.platform.domain.app
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
+import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.DomainError
+import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
@@ -60,6 +62,7 @@ class AppDataService(
     )
 
     val parsedData = mutableMapOf<String, String?>()
+    val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     for (property in entityDef.properties) {
       val rawValue = data["prop_${property.id.value}"]
       val parsedValue = parseValue(property, rawValue)
@@ -70,9 +73,12 @@ class AppDataService(
       )
       if (violations.isNotEmpty()) {
         logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
-        return AppDataError.CONSTRAINT_VIOLATION.left()
+        allViolations[property.id.value] = violations
       }
       parsedData[property.id.value] = rawValue?.takeIf { it.isNotBlank() }
+    }
+    if (allViolations.isNotEmpty()) {
+      return AppDataConstraintViolationError(allViolations).left()
     }
 
     val now = Instant.now()
@@ -152,6 +158,7 @@ class AppDataService(
     ).filter { it.id.value != dataId }
 
     val parsedData = mutableMapOf<String, String?>()
+    val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     for (property in entityDef.properties) {
       val rawValue = data["prop_${property.id.value}"]
       val parsedValue = parseValue(property, rawValue)
@@ -162,9 +169,12 @@ class AppDataService(
       )
       if (violations.isNotEmpty()) {
         logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
-        return AppDataError.CONSTRAINT_VIOLATION.left()
+        allViolations[property.id.value] = violations
       }
       parsedData[property.id.value] = rawValue?.takeIf { it.isNotBlank() }
+    }
+    if (allViolations.isNotEmpty()) {
+      return AppDataConstraintViolationError(allViolations).left()
     }
 
     val updatedAppData = existingAppData.copy(
