@@ -14,16 +14,16 @@ class PropertyConstraintService : PropertyConstraintPort {
     val violations = mutableListOf<PropertyConstraintViolation>()
     for (constraint in property.constraints) {
       when (constraint) {
-        is PropertyConstraint.UniqueKey -> if (existingValues.contains(value)) violations += PropertyConstraintViolation.UNIQUE_KEY_VIOLATION
-        is PropertyConstraint.MinLong -> if (value is Long && value < constraint.min) violations += PropertyConstraintViolation.MIN_VALUE_VIOLATION
-        is PropertyConstraint.MaxLong -> if (value is Long && value > constraint.max) violations += PropertyConstraintViolation.MAX_VALUE_VIOLATION
-        is PropertyConstraint.MinDouble -> if (value is Double && value < constraint.min) violations += PropertyConstraintViolation.MIN_VALUE_VIOLATION
-        is PropertyConstraint.MaxDouble -> if (value is Double && value > constraint.max) violations += PropertyConstraintViolation.MAX_VALUE_VIOLATION
-        is PropertyConstraint.MinLength -> if (value is String && value.length < constraint.min) violations += PropertyConstraintViolation.MIN_LENGTH_VIOLATION
-        is PropertyConstraint.MaxLength -> if (value is String && value.length > constraint.max) violations += PropertyConstraintViolation.MAX_LENGTH_VIOLATION
-        is PropertyConstraint.Pattern -> if (value is String && !Regex(constraint.regex).matches(value)) violations += PropertyConstraintViolation.PATTERN_VIOLATION
-        is PropertyConstraint.MinSize -> if (value is List<*> && value.size < constraint.min) violations += PropertyConstraintViolation.MIN_SIZE_VIOLATION
-        is PropertyConstraint.MaxSize -> if (value is List<*> && value.size > constraint.max) violations += PropertyConstraintViolation.MAX_SIZE_VIOLATION
+        is PropertyConstraint.UniqueKey -> if (existingValues.contains(value)) violations += PropertyConstraintViolation.UniqueKeyViolation
+        is PropertyConstraint.MinLong -> if (value is Long && value < constraint.min) violations += PropertyConstraintViolation.MinValueViolation(constraint.min)
+        is PropertyConstraint.MaxLong -> if (value is Long && value > constraint.max) violations += PropertyConstraintViolation.MaxValueViolation(constraint.max)
+        is PropertyConstraint.MinDouble -> if (value is Double && value < constraint.min) violations += PropertyConstraintViolation.MinValueViolation(constraint.min)
+        is PropertyConstraint.MaxDouble -> if (value is Double && value > constraint.max) violations += PropertyConstraintViolation.MaxValueViolation(constraint.max)
+        is PropertyConstraint.MinLength -> if (value is String && value.length < constraint.min) violations += PropertyConstraintViolation.MinLengthViolation(constraint.min)
+        is PropertyConstraint.MaxLength -> if (value is String && value.length > constraint.max) violations += PropertyConstraintViolation.MaxLengthViolation(constraint.max)
+        is PropertyConstraint.Pattern -> if (value is String && !Regex(constraint.regex).matches(value)) violations += PropertyConstraintViolation.PatternViolation(constraint.regex)
+        is PropertyConstraint.MinSize -> if (value is List<*> && value.size < constraint.min) violations += PropertyConstraintViolation.MinSizeViolation(constraint.min)
+        is PropertyConstraint.MaxSize -> if (value is List<*> && value.size > constraint.max) violations += PropertyConstraintViolation.MaxSizeViolation(constraint.max)
       }
     }
     return violations

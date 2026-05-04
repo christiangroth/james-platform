@@ -83,8 +83,8 @@ class AppDataServiceTests {
     every { installedAppRepository.findById(installedAppId) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
-    every { propertyConstraint.checkValue(prop1, "duplicate", emptyList()) } returns listOf(PropertyConstraintViolation.UNIQUE_KEY_VIOLATION)
-    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MIN_VALUE_VIOLATION)
+    every { propertyConstraint.checkValue(prop1, "duplicate", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
 
     val data = mapOf("prop_${prop1Id.value}" to "duplicate")
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
@@ -96,8 +96,8 @@ class AppDataServiceTests {
     assertThat(violationError.code).isEqualTo(AppDataError.CONSTRAINT_VIOLATION.code)
     assertThat(violationError.propertyViolations).containsKey(prop1Id.value)
     assertThat(violationError.propertyViolations).containsKey(prop2Id.value)
-    assertThat(violationError.propertyViolations[prop1Id.value]).containsExactly(PropertyConstraintViolation.UNIQUE_KEY_VIOLATION)
-    assertThat(violationError.propertyViolations[prop2Id.value]).containsExactly(PropertyConstraintViolation.MIN_VALUE_VIOLATION)
+    assertThat(violationError.propertyViolations[prop1Id.value]).containsExactly(PropertyConstraintViolation.UniqueKeyViolation)
+    assertThat(violationError.propertyViolations[prop2Id.value]).containsExactly(PropertyConstraintViolation.MinValueViolation(10L))
   }
 
   @Test
@@ -105,7 +105,7 @@ class AppDataServiceTests {
     every { installedAppRepository.findById(installedAppId) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
-    every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UNIQUE_KEY_VIOLATION)
+    every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
 
     val data = mapOf("prop_${prop1Id.value}" to "dup")
@@ -114,7 +114,7 @@ class AppDataServiceTests {
     assertThat(result.isLeft()).isTrue()
     val error = result.leftOrNull() as AppDataConstraintViolationError
     assertThat(error.propertyViolations).hasSize(1)
-    assertThat(error.propertyViolations[prop1Id.value]).containsExactly(PropertyConstraintViolation.UNIQUE_KEY_VIOLATION)
+    assertThat(error.propertyViolations[prop1Id.value]).containsExactly(PropertyConstraintViolation.UniqueKeyViolation)
   }
 
   @Test
@@ -142,8 +142,8 @@ class AppDataServiceTests {
     every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
     every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
-    every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UNIQUE_KEY_VIOLATION)
-    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MIN_VALUE_VIOLATION)
+    every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
 
     val data = mapOf("prop_${prop1Id.value}" to "dup")
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)

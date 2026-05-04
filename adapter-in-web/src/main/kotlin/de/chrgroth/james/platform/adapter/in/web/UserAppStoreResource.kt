@@ -323,13 +323,13 @@ class UserAppStoreResource {
   }
 
   private fun constraintViolationMessage(violation: PropertyConstraintViolation): String = when (violation) {
-    PropertyConstraintViolation.UNIQUE_KEY_VIOLATION -> "Value must be unique."
-    PropertyConstraintViolation.MIN_VALUE_VIOLATION -> "Value is below the allowed minimum."
-    PropertyConstraintViolation.MAX_VALUE_VIOLATION -> "Value exceeds the allowed maximum."
-    PropertyConstraintViolation.MIN_LENGTH_VIOLATION -> "Value is too short."
-    PropertyConstraintViolation.MAX_LENGTH_VIOLATION -> "Value is too long."
-    PropertyConstraintViolation.PATTERN_VIOLATION -> "Value does not match the required pattern."
-    PropertyConstraintViolation.MIN_SIZE_VIOLATION -> "List has too few elements."
-    PropertyConstraintViolation.MAX_SIZE_VIOLATION -> "List has too many elements."
+    is PropertyConstraintViolation.UniqueKeyViolation -> "Value must be unique."
+    is PropertyConstraintViolation.MinValueViolation -> "Value is below the allowed minimum of ${violation.min}."
+    is PropertyConstraintViolation.MaxValueViolation -> "Value exceeds the allowed maximum of ${violation.max}."
+    is PropertyConstraintViolation.MinLengthViolation -> "Value must be at least ${violation.min} characters long."
+    is PropertyConstraintViolation.MaxLengthViolation -> "Value must not exceed ${violation.max} characters."
+    is PropertyConstraintViolation.PatternViolation -> "Value does not match the required pattern: ${violation.regex}."
+    is PropertyConstraintViolation.MinSizeViolation -> "List must have at least ${violation.min} elements."
+    is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
   }
 }
