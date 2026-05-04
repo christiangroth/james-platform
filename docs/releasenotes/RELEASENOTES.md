@@ -1,3 +1,14 @@
+# 0.22.1 (2026.05.04)
+
+## Bugfixes / Chore
+* Delete report action now uses a confirmation modal instead of the browser's native confirmation dialog.
+* Constraint violations during app data creation and editing now show specific error messages per field instead of only a generic message.
+* Field-level constraint errors are displayed persistently next to the affected input, while the generic error banner continues to auto-dismiss.
+
+
+
+---
+
 # 0.22.0 (2026.05.04)
 
 ## New Features
