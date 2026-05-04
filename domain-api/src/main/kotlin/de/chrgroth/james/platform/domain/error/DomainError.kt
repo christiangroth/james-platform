@@ -86,6 +86,12 @@ enum class AppDataError(override val code: String) : DomainError {
   ;
 }
 
+data class AppDataConstraintViolationError(
+  val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
+) : DomainError {
+  override val code: String = AppDataError.CONSTRAINT_VIOLATION.code
+}
+
 enum class PropertyConstraintViolation(override val code: String) : DomainError {
   UNIQUE_KEY_VIOLATION("PROP-002"),
   MIN_VALUE_VIOLATION("PROP-003"),
