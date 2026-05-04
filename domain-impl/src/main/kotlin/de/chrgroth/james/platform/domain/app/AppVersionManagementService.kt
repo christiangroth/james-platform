@@ -455,7 +455,7 @@ class AppVersionManagementService(
 
   private fun removePropertyFromDisplayText(displayText: String?, propertyId: String): String? {
     if (displayText.isNullOrBlank()) return displayText
-    val cleaned = displayText.replace("{$propertyId}", "").trim()
+    val cleaned = displayText.replace(Regex("\\{${Regex.escape(propertyId)}\\}"), "").trim()
     return cleaned.takeIf { it.isNotBlank() }
   }
 

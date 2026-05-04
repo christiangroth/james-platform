@@ -59,7 +59,7 @@
                     <tbody>
                         {#for item in appDataList}
                         <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
-                            <td class="text-truncate" style="max-width:280px;" data-testid="app-data-display-text">{item.displayText}</td>
+                            <td class="text-truncate" style="max-width:280px;" title="{item.displayText}" data-testid="app-data-display-text">{item.displayText}</td>
                             <td data-testid="app-data-entity">{item.entityTypeName}</td>
                             <td data-testid="app-data-last-modified">{item.lastChangedAt.formatted}</td>
                         </tr>
