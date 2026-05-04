@@ -29,9 +29,7 @@ import java.time.Instant
 
 data class AppDataRow(
   val id: String,
-  val entityTypeName: String,
   val displayText: String,
-  val lastChangedAt: Instant,
 )
 
 data class AppDataPropertyView(
@@ -152,16 +150,13 @@ class UserAppStoreResource {
     val installedApps = userAppStore.getInstalledApps(userId)
     val info = installedApps.find { it.installedApp.id.value == installedAppId }
       ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
-    val entityNames = info.installedVersion.entityDefinitions.associate { it.id.value to it.name }
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val appDataRows = appData.listAppData(userId, installedAppId).getOrNull()
       ?.map { item ->
         val entityDef = entityById[item.entityType.value]
         AppDataRow(
           id = item.id.value,
-          entityTypeName = entityNames[item.entityType.value] ?: item.entityType.value,
           displayText = computeDisplayText(entityDef, item.id.value, item.data),
-          lastChangedAt = item.lastChangedAt,
         )
       }
       ?: emptyList()
