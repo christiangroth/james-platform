@@ -1,6 +1,8 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
@@ -8,14 +10,24 @@ import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
+import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
 import java.net.URI
+import java.time.Instant
+
+data class AppDataRow(
+  val id: String,
+  val entityTypeName: String,
+  val lastChangedAt: Instant,
+)
 
 @Path("/ui")
 @ApplicationScoped
@@ -36,10 +48,17 @@ class UserAppStoreResource {
   private lateinit var appDetailTemplate: Template
 
   @Inject
+  @Location("ui/user/app-data-new.html")
+  private lateinit var appDataNewTemplate: Template
+
+  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
   private lateinit var userAppStore: UserAppStorePort
+
+  @Inject
+  private lateinit var appData: AppDataPort
 
   @GET
   @Path("/user/app-store")
@@ -104,9 +123,56 @@ class UserAppStoreResource {
     val installedApps = userAppStore.getInstalledApps(userId)
     val info = installedApps.find { it.installedApp.id.value == installedAppId }
       ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
+    val entityNames = info.installedVersion.entityDefinitions.associate { it.id.value to it.name }
+    val appDataRows = appData.listAppData(userId, installedAppId).getOrNull()
+      ?.map { AppDataRow(id = it.id.value, entityTypeName = entityNames[it.entityType.value] ?: it.entityType.value, lastChangedAt = it.lastChangedAt) }
+      ?: emptyList()
+    val singleEntityId = info.installedVersion.entityDefinitions.takeIf { it.size == 1 }?.first()?.id?.value
     return Response.ok(
-      appDetailTemplate.data("info", info),
+      appDetailTemplate
+        .data("info", info)
+        .data("appDataList", appDataRows)
+        .data("singleEntityId", singleEntityId),
     ).build()
+  }
+
+  @GET
+  @Path("/user/apps/{installedAppId}/data/new")
+  @Produces(MediaType.TEXT_HTML)
+  fun newAppDataForm(
+    @PathParam("installedAppId") installedAppId: String,
+    @QueryParam("entityId") entityId: String?,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val installedApps = userAppStore.getInstalledApps(userId)
+    val info = installedApps.find { it.installedApp.id.value == installedAppId }
+      ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
+    val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
+      ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+    return Response.ok(
+      appDataNewTemplate
+        .data("info", info)
+        .data("entity", entityDef),
+    ).build()
+  }
+
+  @POST
+  @Path("/user/apps/{installedAppId}/data")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun createAppData(
+    @PathParam("installedAppId") installedAppId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val entityTypeId = form.getFirst("entityTypeId") ?: return Response.ok(DeveloperApiResult(false, "Entity type is required.")).build()
+    val data = form.entries
+      .filter { it.key.startsWith("prop_") }
+      .associate { it.key to (it.value.firstOrNull() ?: "") }
+    return appData.createAppData(userId, installedAppId, entityTypeId, data).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Data created.", "/ui/user/apps/$installedAppId")).build() },
+    )
   }
 
   private fun appStoreErrorMessage(code: String): String = when (code) {
@@ -116,6 +182,13 @@ class UserAppStoreResource {
     UserAppStoreError.NOT_INSTALLED.code -> "App is not installed."
     UserAppStoreError.INSTALLED_APP_NOT_FOUND.code -> "Installed app not found."
     UserAppStoreError.ALREADY_UP_TO_DATE.code -> "App is already up to date."
+    else -> "An unexpected error occurred. Please try again."
+  }
+
+  private fun appDataErrorMessage(code: String): String = when (code) {
+    AppDataError.INSTALLED_APP_NOT_FOUND.code -> "Installed app not found."
+    AppDataError.ENTITY_NOT_FOUND.code -> "Entity type not found."
+    AppDataError.CONSTRAINT_VIOLATION.code -> "One or more values violate constraints."
     else -> "An unexpected error occurred. Please try again."
   }
 }

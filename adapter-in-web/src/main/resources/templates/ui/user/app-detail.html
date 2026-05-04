@@ -8,9 +8,89 @@
                 <li class="breadcrumb-item active" aria-current="page" data-testid="app-name">{info.appName}</li>
             </ol>
         </nav>
-        <div class="card app-card p-4" data-testid="app-detail-placeholder">
-            <p class="mb-0 app-section-label">App content will appear here.</p>
+
+        <div id="app-data-message" class="d-none mb-4" role="alert"></div>
+
+        <div class="card app-card p-4">
+            <div class="d-flex align-items-center mb-3 gap-2">
+                <h2 class="fs-5 fw-semibold mb-0" data-testid="data-section-title">Data</h2>
+                {#if info.installedVersion.entityDefinitions.isEmpty}
+                {#else if singleEntityId != null}
+                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={singleEntityId}"
+                   class="btn btn-app-secondary btn-sm ms-auto"
+                   data-testid="add-data-button"
+                   title="Add" aria-label="Add">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+                </a>
+                {#else}
+                <div class="dropdown ms-auto">
+                    <button type="button"
+                            class="btn btn-app-secondary btn-sm"
+                            data-bs-toggle="dropdown"
+                            data-testid="add-data-dropdown-button"
+                            title="Add" aria-label="Add" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="background-color:var(--color-bg-card);border-color:var(--color-border);">
+                        {#for entity in info.installedVersion.entityDefinitions}
+                        <li>
+                            <a class="dropdown-item" style="color:var(--color-text-primary);"
+                               href="/ui/user/apps/{info.installedAppId}/data/new?entityId={entity.id}"
+                               data-testid="add-data-entity-item">
+                                {entity.name}
+                            </a>
+                        </li>
+                        {/for}
+                    </ul>
+                </div>
+                {/if}
+            </div>
+
+            {#if appDataList.isEmpty}
+            <p class="mb-0 app-section-label" data-testid="no-data-message">No data yet.</p>
+            {#else}
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 app-table" data-testid="app-data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Entity</th>
+                            <th>Last Modified</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#for item in appDataList}
+                        <tr data-testid="app-data-row">
+                            <td class="text-truncate" style="max-width:180px;" data-testid="app-data-id">{item.id}</td>
+                            <td data-testid="app-data-entity">{item.entityTypeName}</td>
+                            <td data-testid="app-data-last-modified">{item.lastChangedAt.formatted}</td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+            </div>
+            {/if}
         </div>
     </div>
     {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var messagePanel = document.getElementById('app-data-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+        }());
+    </script>
+    {/scripts}
 {/include}
