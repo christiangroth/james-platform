@@ -117,12 +117,18 @@
             </div>
         </div>
     </div>
+    <div id="app-data-meta"
+         data-installed-app-id="{detail.installedAppId}"
+         data-data-id="{detail.id}"
+         class="d-none"
+         aria-hidden="true"></div>
     {/content}
     {#scripts}
     <script>
         (function () {
-            var installedAppId = '{detail.installedAppId}';
-            var dataId = '{detail.id}';
+            var meta = document.getElementById('app-data-meta');
+            var installedAppId = meta.dataset.installedAppId;
+            var dataId = meta.dataset.dataId;
             var messagePanel = document.getElementById('page-message');
             var messageTimer = null;
             var viewSection = document.getElementById('view-section');
