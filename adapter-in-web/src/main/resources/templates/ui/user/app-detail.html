@@ -9,8 +9,6 @@
             </ol>
         </nav>
 
-        <div id="app-data-message" class="d-none mb-4" role="alert"></div>
-
         <div class="card app-card p-4">
             <div class="d-flex align-items-center mb-3 gap-2">
                 <h2 class="fs-5 fw-semibold mb-0" data-testid="data-section-title">Data</h2>
@@ -73,24 +71,4 @@
         </div>
     </div>
     {/content}
-    {#scripts}
-    <script>
-        (function () {
-            var messagePanel = document.getElementById('app-data-message');
-            var messageTimer = null;
-
-            function showMessage(ok, message) {
-                if (messageTimer) { clearTimeout(messageTimer); }
-                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
-                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
-                messagePanel.innerHTML = message
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
-                messageTimer = setTimeout(function () {
-                    messagePanel.className = 'd-none mb-4';
-                    messagePanel.removeAttribute('data-testid');
-                }, 5000);
-            }
-        }());
-    </script>
-    {/scripts}
 {/include}
