@@ -46,16 +46,17 @@ class AppDataMigrationService(
   override fun backfillEntityDisplayText() {
     logger.info { "Backfilling entity display text for existing versions" }
     var count = 0
+    // findAll is acceptable here: migration runs once at startup before serving requests
     appVersionRepository.findAll().forEach { version ->
-      val hasNullDisplayText = version.entityDefinitions.any { it.displayText == null }
-      if (hasNullDisplayText) {
+      val nullCount = version.entityDefinitions.count { it.displayText == null }
+      if (nullCount > 0) {
         val updated = version.copy(
           entityDefinitions = version.entityDefinitions.map { entity ->
             if (entity.displayText == null) entity.copy(displayText = FALLBACK_DISPLAY_TEXT) else entity
           },
         )
         appVersionRepository.save(updated)
-        count += version.entityDefinitions.count { it.displayText == null }
+        count += nullCount
       }
     }
     logger.info { "Backfilled display text for $count entity definition(s)" }
