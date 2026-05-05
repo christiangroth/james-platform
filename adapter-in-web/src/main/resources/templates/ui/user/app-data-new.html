@@ -31,7 +31,7 @@
                     {#if prop.htmlInputType == "checkbox"}
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="prop_{prop.id}" id="prop_{prop.id}" value="true"
-                               {#if prop.defaultValue == "true"}checked{/if}
+                               {#if prop.defaultValue == "true"}checked{#else if smartDefaults.get(prop.id) == "true"}checked{/if}
                                data-testid="property-input-{prop.id}">
                     </div>
                     {#else}
@@ -41,7 +41,7 @@
                            id="prop_{prop.id}"
                            {#if !prop.nullable}required{/if}
                            {#if prop.type.name == "DOUBLE"}step="any"{/if}
-                           {#if prop.defaultValue}value="{prop.defaultValue}"{/if}
+                           {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
                            data-testid="property-input-{prop.id}">
                     {/if}
                 </div>

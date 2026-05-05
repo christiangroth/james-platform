@@ -165,6 +165,10 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun defaultValue(property: Property): String = property.default ?: ""
 
+  /** Returns the smart default script of the property, or empty string if not set. */
+  @JvmStatic
+  fun smartDefault(property: Property): String = property.smartDefault ?: ""
+
   /** Returns a sorted list of human-readable constraint text representations for the property,
    * using the same format as the version diff view (e.g. "min:0", "max:100", "unique-key").
    * Returns an empty list if no constraints are defined.

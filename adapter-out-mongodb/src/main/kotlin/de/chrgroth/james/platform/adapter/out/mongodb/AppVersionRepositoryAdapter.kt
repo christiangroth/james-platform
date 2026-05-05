@@ -128,6 +128,8 @@ class AppVersionRepositoryAdapter(
     type = PropertyType.valueOf(type),
     nullable = nullable,
     constraints = constraints.mapNotNull { it.toDomain() }.toSet(),
+    default = default,
+    smartDefault = smartDefault,
   )
 
   private fun ConstraintDocument.toDomain(): PropertyConstraint? = when (constraintType) {
@@ -181,6 +183,8 @@ class AppVersionRepositoryAdapter(
     doc.type = type.name
     doc.nullable = nullable
     doc.constraints = constraints.map { it.toDocument() }
+    doc.default = default
+    doc.smartDefault = smartDefault
   }
 
   private fun PropertyConstraint.toDocument() = ConstraintDocument().also { doc ->
