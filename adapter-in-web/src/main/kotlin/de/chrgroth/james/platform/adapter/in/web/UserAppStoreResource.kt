@@ -87,8 +87,8 @@ class UserAppStoreResource {
   private lateinit var appDataNewTemplate: Template
 
   @Inject
-  @Location("ui/user/app-data-detail.html")
-  private lateinit var appDataDetailTemplate: Template
+  @Location("ui/user/app-data-edit.html")
+  private lateinit var appDataEditTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -257,7 +257,7 @@ class UserAppStoreResource {
   @GET
   @Path("/user/apps/{installedAppId}/data/{dataId}")
   @Produces(MediaType.TEXT_HTML)
-  fun appDataDetail(
+  fun appDataEdit(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("dataId") dataId: String,
   ): Response {
@@ -297,7 +297,7 @@ class UserAppStoreResource {
           },
         )
         Response.ok(
-          appDataDetailTemplate
+          appDataEditTemplate
             .data("info", info)
             .data("detail", detail),
         ).build()

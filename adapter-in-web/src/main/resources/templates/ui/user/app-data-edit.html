@@ -1,63 +1,24 @@
 {#include layout.html}
-    {#title}James Platform – {info.appName} – Data Detail{/title}
+    {#title}James Platform – {info.appName} – Edit Data{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}?tab={detail.entityTypeId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">Data Detail</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">Edit Data</li>
             </ol>
         </nav>
 
         <div id="page-message" class="d-none mb-4" role="alert"></div>
 
-        <!-- Read-only detail view -->
-        <div id="view-section" class="card app-card p-4 mb-3">
+        <div class="card app-card p-4">
             <div class="d-flex align-items-center mb-4 gap-2">
-                <h2 class="fs-5 fw-semibold mb-0" data-testid="detail-title">Data Detail</h2>
+                <h2 class="fs-5 fw-semibold mb-0" data-testid="edit-title">Edit Data</h2>
                 <div class="ms-auto d-flex gap-2">
-                    <button type="button" class="btn btn-app-secondary btn-sm" data-testid="edit-button" id="editButton">Edit</button>
                     <button type="button" class="btn btn-app-danger btn-sm" data-testid="delete-button"
                             data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
                 </div>
-            </div>
-
-            <div class="mb-4">
-                <div class="app-section-label mb-2">Metadata</div>
-                <dl class="row mb-0">
-                    <dt class="col-sm-3 app-section-label fw-normal">ID</dt>
-                    <dd class="col-sm-9" data-testid="detail-id" style="font-family:monospace;">{detail.id}</dd>
-                    <dt class="col-sm-3 app-section-label fw-normal">Entity Type</dt>
-                    <dd class="col-sm-9" data-testid="detail-entity-type">{detail.entityTypeName}</dd>
-                    <dt class="col-sm-3 app-section-label fw-normal">Version</dt>
-                    <dd class="col-sm-9" data-testid="detail-version">{detail.objectVersion}</dd>
-                    <dt class="col-sm-3 app-section-label fw-normal">Created</dt>
-                    <dd class="col-sm-9" data-testid="detail-created">{detail.createdAt.formatted}</dd>
-                    <dt class="col-sm-3 app-section-label fw-normal">Last Modified</dt>
-                    <dd class="col-sm-9" data-testid="detail-last-modified">{detail.lastChangedAt.formatted}</dd>
-                </dl>
-            </div>
-
-            {#if detail.properties.isEmpty}
-            <p class="mb-0 app-section-label" data-testid="no-properties-message">No properties defined for this entity.</p>
-            {#else}
-            <div class="app-section-label mb-2">Properties</div>
-            <dl class="row mb-0">
-                {#for prop in detail.properties}
-                <dt class="col-sm-3 app-section-label fw-normal">{prop.name}</dt>
-                <dd class="col-sm-9" data-testid="detail-prop-{prop.id}">
-                    {#if prop.value != null}{prop.value}{#else}<span class="app-section-label">—</span>{/if}
-                </dd>
-                {/for}
-            </dl>
-            {/if}
-        </div>
-
-        <!-- Edit form (hidden by default) -->
-        <div id="edit-section" class="card app-card p-4 d-none">
-            <div class="d-flex align-items-center mb-4 gap-2">
-                <h2 class="fs-5 fw-semibold mb-0" data-testid="edit-title">Edit Data</h2>
             </div>
 
             <form id="editDataForm">
@@ -93,7 +54,7 @@
 
                 <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-app-primary btn-sm" data-testid="edit-submit-button">Save</button>
-                    <button type="button" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button" id="cancelEditButton">Cancel</button>
+                    <a href="/ui/user/apps/{detail.installedAppId}?tab={detail.entityTypeId}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">Cancel</a>
                 </div>
             </form>
         </div>
@@ -133,8 +94,6 @@
             var entityTypeId = meta.dataset.entityTypeId;
             var messagePanel = document.getElementById('page-message');
             var messageTimer = null;
-            var viewSection = document.getElementById('view-section');
-            var editSection = document.getElementById('edit-section');
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
@@ -168,18 +127,6 @@
                     }
                 });
             }
-
-            // Toggle edit form visibility
-            document.getElementById('editButton').addEventListener('click', function () {
-                viewSection.classList.add('d-none');
-                editSection.classList.remove('d-none');
-            });
-
-            document.getElementById('cancelEditButton').addEventListener('click', function () {
-                clearFieldErrors(document.getElementById('editDataForm'));
-                editSection.classList.add('d-none');
-                viewSection.classList.remove('d-none');
-            });
 
             // Edit form submission
             document.getElementById('editDataForm').addEventListener('submit', async function (e) {
