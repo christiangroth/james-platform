@@ -489,11 +489,11 @@ class AppVersionManagementService(
       logger.warn { "Set property smart default failed: property not found: $propertyId in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
-    if (!property.type.supportsSmartDefault()) {
+    val trimmedSmartDefault = smartDefault?.takeIf { it.isNotBlank() }
+    if (trimmedSmartDefault != null && !property.type.supportsSmartDefault()) {
       logger.warn { "Set property smart default failed: type ${property.type} does not support smart defaults: $propertyId" }
       return AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.left()
     }
-    val trimmedSmartDefault = smartDefault?.takeIf { it.isNotBlank() }
     val updatedProperty = property.copy(smartDefault = trimmedSmartDefault)
     val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })

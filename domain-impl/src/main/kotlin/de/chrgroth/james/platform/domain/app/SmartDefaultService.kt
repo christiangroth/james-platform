@@ -4,7 +4,6 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import jakarta.enterprise.context.ApplicationScoped
 import kotlin.time.Instant
-import kotlin.time.toJavaInstant
 import mu.KLogging
 import javax.script.ScriptEngineManager
 
@@ -27,7 +26,7 @@ class SmartDefaultService : SmartDefaultPort {
       try {
         val bindings = engine.createBindings()
         bindings[BINDING_DATA] = result.toMap()
-        bindings[BINDING_NOW] = now.toJavaInstant()
+        bindings[BINDING_NOW] = now
         val value = engine.eval(buildWrappedScript(script), bindings)
         result[property.id.value] = value?.toString()
       } catch (e: Exception) {
@@ -39,10 +38,11 @@ class SmartDefaultService : SmartDefaultPort {
   }
 
   private fun buildWrappedScript(script: String): String = buildString {
+    appendLine("@file:OptIn(kotlin.time.ExperimentalTime::class)")
     appendLine("@file:Suppress(\"UNCHECKED_CAST\")")
     appendLine()
     appendLine("val it: Map<String, String?> = ($BINDING_DATA ?: emptyMap<String, String?>()) as Map<String, String?>")
-    appendLine("val now: java.time.Instant = $BINDING_NOW as java.time.Instant")
+    appendLine("val now: kotlin.time.Instant = $BINDING_NOW as kotlin.time.Instant")
     appendLine()
     append(script)
   }

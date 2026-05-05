@@ -6,7 +6,6 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import kotlin.time.Instant
-import kotlin.time.toJavaInstant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -59,7 +58,7 @@ class SmartDefaultServiceTests {
 
     val result = service.computeSmartDefaults(entity, fixedNow)
 
-    assertThat(result["p-1"]).isEqualTo(fixedNow.toJavaInstant().toString())
+    assertThat(result["p-1"]).isEqualTo(fixedNow.toString())
   }
 
   @Test
