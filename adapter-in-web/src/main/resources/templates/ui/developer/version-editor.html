@@ -497,6 +497,7 @@
                     <input type="hidden" id="editPropertyEntityId" name="entityId" value="">
                     <input type="hidden" id="editPropertyId" name="propertyId" value="">
                     <div class="modal-body">
+                        <div id="editPropertyError" class="alert alert-danger d-none mb-3" role="alert"></div>
                         <div class="mb-3">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name</label>
                             <input type="text" class="form-control app-form-control form-control-sm" id="editPropertyName" name="name" required autocomplete="off" data-testid="edit-property-name-input">
@@ -1196,9 +1197,18 @@
                     applyConstraintVisibility(this.value);
                 });
 
+                var editPropertyError = document.getElementById('editPropertyError');
+
+                function showEditPropertyError(message) {
+                    editPropertyError.textContent = message;
+                    editPropertyError.classList.remove('d-none');
+                }
+
                 var editPropertyForm = document.getElementById('editPropertyForm');
                 editPropertyForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
+                    editPropertyError.classList.add('d-none');
+                    editPropertyError.textContent = '';
                     var btn = editPropertyForm.querySelector('[type="submit"]');
                     btn.disabled = true;
                     var entityId = document.getElementById('editPropertyEntityId').value;
@@ -1212,6 +1222,7 @@
                         propFormData, false
                     );
                     if (!propResult || !propResult.ok) {
+                        showEditPropertyError(propResult ? propResult.message : 'Network error. Please try again.');
                         btn.disabled = false;
                         return;
                     }
@@ -1250,39 +1261,43 @@
                         constraintFormData, false
                     );
                     if (!constraintResult || !constraintResult.ok) {
+                        showEditPropertyError(constraintResult ? constraintResult.message : 'Network error. Please try again.');
                         btn.disabled = false;
                         return;
                     }
-                    var defaultFormData = new FormData();
                     var currentType = document.getElementById('editPropertyType').value;
-                    var defaultVal = '';
-                    if (currentType === 'LONG' && !document.getElementById('defaultGroupLong').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultLong').value;
-                    } else if (currentType === 'DOUBLE' && !document.getElementById('defaultGroupDouble').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultDouble').value;
-                    } else if (currentType === 'BOOLEAN' && !document.getElementById('defaultGroupBoolean').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultBoolean').checked ? 'true' : '';
-                    } else if (currentType === 'STRING' && !document.getElementById('defaultGroupString').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultString').value;
-                    } else if (currentType === 'DATE' && !document.getElementById('defaultGroupDate').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultDate').value;
-                    } else if (currentType === 'TIME' && !document.getElementById('defaultGroupTime').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultTime').value;
-                    } else if (currentType === 'DATETIME' && !document.getElementById('defaultGroupDatetime').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultDatetime').value;
-                    } else if (currentType === 'DURATION' && !document.getElementById('defaultGroupDuration').classList.contains('d-none')) {
-                        defaultVal = document.getElementById('defaultDuration').value;
-                    }
-                    if (defaultVal !== '') {
-                        defaultFormData.set('default', defaultVal);
-                    }
-                    var defaultResult = await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/default',
-                        defaultFormData, false
-                    );
-                    if (!defaultResult || !defaultResult.ok) {
-                        btn.disabled = false;
-                        return;
+                    if (DEFAULT_TYPE_GROUP[currentType] !== undefined) {
+                        var defaultFormData = new FormData();
+                        var defaultVal = '';
+                        if (currentType === 'LONG' && !document.getElementById('defaultGroupLong').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultLong').value;
+                        } else if (currentType === 'DOUBLE' && !document.getElementById('defaultGroupDouble').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultDouble').value;
+                        } else if (currentType === 'BOOLEAN' && !document.getElementById('defaultGroupBoolean').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultBoolean').checked ? 'true' : '';
+                        } else if (currentType === 'STRING' && !document.getElementById('defaultGroupString').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultString').value;
+                        } else if (currentType === 'DATE' && !document.getElementById('defaultGroupDate').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultDate').value;
+                        } else if (currentType === 'TIME' && !document.getElementById('defaultGroupTime').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultTime').value;
+                        } else if (currentType === 'DATETIME' && !document.getElementById('defaultGroupDatetime').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultDatetime').value;
+                        } else if (currentType === 'DURATION' && !document.getElementById('defaultGroupDuration').classList.contains('d-none')) {
+                            defaultVal = document.getElementById('defaultDuration').value;
+                        }
+                        if (defaultVal !== '') {
+                            defaultFormData.set('default', defaultVal);
+                        }
+                        var defaultResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/default',
+                            defaultFormData, false
+                        );
+                        if (!defaultResult || !defaultResult.ok) {
+                            showEditPropertyError(defaultResult ? defaultResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                            return;
+                        }
                     }
                     var smartDefaultFormData = new FormData();
                     var smartDefaultVal = document.getElementById('editPropertySmartDefault').value;
@@ -1297,10 +1312,13 @@
                         var modal = bootstrap.Modal.getInstance(editPropertyModal);
                         if (modal) { modal.hide(); }
                     } else {
+                        showEditPropertyError(smartDefaultResult ? smartDefaultResult.message : 'Network error. Please try again.');
                         btn.disabled = false;
                     }
                 });
                 editPropertyModal.addEventListener('hidden.bs.modal', function () {
+                    editPropertyError.classList.add('d-none');
+                    editPropertyError.textContent = '';
                     editPropertyForm.reset();
                     editPropertyForm.querySelector('[type="submit"]').disabled = false;
                 });
