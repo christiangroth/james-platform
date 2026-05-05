@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.app
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.app
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
 import de.chrgroth.james.platform.domain.error.AppVersionError
+import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
@@ -1195,7 +1196,8 @@ class AppVersionManagementServiceTests {
     val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DISPLAY_TEXT_INVALID)
+    assertThat(result.leftOrNull()).isInstanceOf(DisplayTextInvalidError::class.java)
+    assertThat((result.leftOrNull() as DisplayTextInvalidError).entityNames).containsExactly("Order")
   }
 
   @Test
@@ -1212,7 +1214,30 @@ class AppVersionManagementServiceTests {
     val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DISPLAY_TEXT_INVALID)
+    assertThat(result.leftOrNull()).isInstanceOf(DisplayTextInvalidError::class.java)
+    assertThat((result.leftOrNull() as DisplayTextInvalidError).entityNames).containsExactly("Order")
+  }
+
+  @Test
+  fun `publishVersion collects all entities with invalid display text`() {
+    val propA = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entityA = EntityDefinition(
+      id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propA),
+      displayText = "{OldName}",
+    )
+    val propB = Property(id = PropertyId("p-2"), name = "Label", type = PropertyType.STRING, nullable = false)
+    val entityB = EntityDefinition(
+      id = EntityDefinitionId("e-2"), name = "Product", properties = listOf(propB),
+      displayText = "{Gone}",
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(entityA, entityB))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(DisplayTextInvalidError::class.java)
+    assertThat((result.leftOrNull() as DisplayTextInvalidError).entityNames).containsExactlyInAnyOrder("Order", "Product")
   }
 
   @Test

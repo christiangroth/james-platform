@@ -94,6 +94,12 @@ data class AppDataConstraintViolationError(
   override val code: String = AppDataError.CONSTRAINT_VIOLATION.code
 }
 
+data class DisplayTextInvalidError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.DISPLAY_TEXT_INVALID.code
+}
+
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {
   data object UniqueKeyViolation : PropertyConstraintViolation("PROP-002")
   data class MinValueViolation(val min: Number) : PropertyConstraintViolation("PROP-003")

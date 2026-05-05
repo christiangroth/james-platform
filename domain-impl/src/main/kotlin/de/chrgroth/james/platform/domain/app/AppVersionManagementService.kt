@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppVersionError
+import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
@@ -145,15 +146,18 @@ class AppVersionManagementService(
       logger.warn { "Publish version failed: version number already exists: ${versionNumber.value} in app $appId" }
       return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }
-    for (entity in version.entityDefinitions) {
-      val dt = entity.displayText ?: continue
+    val invalidEntityNames = version.entityDefinitions.mapNotNull { entity ->
+      val dt = entity.displayText ?: return@mapNotNull null
       val nonNullablePropNames = entity.properties.filter { !it.nullable }.map { it.name }.toSet()
       val usedPropNames = extractPropertyNames(dt)
       val invalidNames = usedPropNames - nonNullablePropNames
       if (invalidNames.isNotEmpty()) {
         logger.warn { "Publish version failed: entity ${entity.id.value} has invalid display text references: $invalidNames" }
-        return AppVersionError.DISPLAY_TEXT_INVALID.left()
-      }
+        entity.name
+      } else null
+    }
+    if (invalidEntityNames.isNotEmpty()) {
+      return DisplayTextInvalidError(invalidEntityNames).left()
     }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
