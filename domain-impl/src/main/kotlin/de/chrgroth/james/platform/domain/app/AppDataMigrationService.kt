@@ -43,7 +43,27 @@ class AppDataMigrationService(
     logger.info { "Added missing release notes to ${versionsToUpdate.size} published version(s)" }
   }
 
+  override fun backfillEntityDisplayText() {
+    logger.info { "Backfilling entity display text for existing versions" }
+    var count = 0
+    // findAll is acceptable here: migration runs once at startup before serving requests
+    appVersionRepository.findAll().forEach { version ->
+      val nullCount = version.entityDefinitions.count { it.displayText == null }
+      if (nullCount > 0) {
+        val updated = version.copy(
+          entityDefinitions = version.entityDefinitions.map { entity ->
+            if (entity.displayText == null) entity.copy(displayText = FALLBACK_DISPLAY_TEXT) else entity
+          },
+        )
+        appVersionRepository.save(updated)
+        count += nullCount
+      }
+    }
+    logger.info { "Backfilled display text for $count entity definition(s)" }
+  }
+
   companion object : KLogging() {
     const val MISSING_RELEASE_NOTES = "missing"
+    const val FALLBACK_DISPLAY_TEXT = "Display Text"
   }
 }

@@ -235,6 +235,34 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun updateEntityDisplayText(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    displayText: String?,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update entity display text failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val trimmedDisplayText = displayText?.trim()?.takeIf { it.isNotBlank() }
+    if (trimmedDisplayText != null) {
+      val nonNullablePropIds = entity.properties.filter { !it.nullable }.map { it.id.value }.toSet()
+      val usedPropIds = extractPropertyIds(trimmedDisplayText)
+      val invalidPropIds = usedPropIds - nonNullablePropIds
+      if (invalidPropIds.isNotEmpty()) {
+        logger.warn { "Update entity display text failed: template references nullable/unknown properties: $invalidPropIds in entity $entityId" }
+        return AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.left()
+      }
+    }
+    val updatedEntity = entity.copy(displayText = trimmedDisplayText)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Entity display text updated: $entityId in version $versionId" }
+    return updated.right()
+  }
+
   override fun addProperty(
     appId: String,
     versionId: String,
@@ -300,7 +328,15 @@ class AppVersionManagementService(
     }
     val constraintsToKeep = if (propertyType == property.type) property.constraints else emptySet()
     val updatedProperty = property.copy(name = name.trim(), type = propertyType, nullable = nullable, constraints = constraintsToKeep)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val newDisplayText = if (nullable && !property.nullable) {
+      removePropertyFromDisplayText(entity.displayText, propertyId)
+    } else {
+      entity.displayText
+    }
+    val updatedEntity = entity.copy(
+      properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it },
+      displayText = newDisplayText,
+    )
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property updated: $propertyId (${name.trim()}, $type) in entity $entityId in version $versionId" }
@@ -343,7 +379,10 @@ class AppVersionManagementService(
       logger.warn { "Delete property failed: property not found: $propertyId in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
-    val updatedEntity = entity.copy(properties = entity.properties.filter { it.id.value != propertyId })
+    val updatedEntity = entity.copy(
+      properties = entity.properties.filter { it.id.value != propertyId },
+      displayText = removePropertyFromDisplayText(entity.displayText, propertyId),
+    )
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property deleted: $propertyId from entity $entityId in version $versionId" }
@@ -406,6 +445,18 @@ class AppVersionManagementService(
       return null
     }
     return version
+  }
+
+  private fun extractPropertyIds(template: String): Set<String> =
+    Regex("\\{([^}]+)\\}").findAll(template)
+      .map { it.groupValues[1] }
+      .filter { it != "id" }
+      .toSet()
+
+  private fun removePropertyFromDisplayText(displayText: String?, propertyId: String): String? {
+    if (displayText.isNullOrBlank()) return displayText
+    val cleaned = displayText.replace(Regex("\\{${Regex.escape(propertyId)}\\}"), "").trim()
+    return cleaned.takeIf { it.isNotBlank() }
   }
 
   private fun hasAnyChanges(published: AppVersion, draft: AppVersion): Boolean =

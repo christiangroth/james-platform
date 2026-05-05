@@ -4,6 +4,7 @@ import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
@@ -28,8 +29,7 @@ import java.time.Instant
 
 data class AppDataRow(
   val id: String,
-  val entityTypeName: String,
-  val lastChangedAt: Instant,
+  val displayText: String,
 )
 
 data class AppDataPropertyView(
@@ -150,9 +150,15 @@ class UserAppStoreResource {
     val installedApps = userAppStore.getInstalledApps(userId)
     val info = installedApps.find { it.installedApp.id.value == installedAppId }
       ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
-    val entityNames = info.installedVersion.entityDefinitions.associate { it.id.value to it.name }
+    val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val appDataRows = appData.listAppData(userId, installedAppId).getOrNull()
-      ?.map { AppDataRow(id = it.id.value, entityTypeName = entityNames[it.entityType.value] ?: it.entityType.value, lastChangedAt = it.lastChangedAt) }
+      ?.map { item ->
+        val entityDef = entityById[item.entityType.value]
+        AppDataRow(
+          id = item.id.value,
+          displayText = computeDisplayText(entityDef, item.id.value, item.data),
+        )
+      }
       ?: emptyList()
     val singleEntityId = info.installedVersion.entityDefinitions.takeIf { it.size == 1 }?.first()?.id?.value
     return Response.ok(
@@ -331,5 +337,18 @@ class UserAppStoreResource {
     is PropertyConstraintViolation.PatternViolation -> "Value does not match the required pattern: ${violation.regex}."
     is PropertyConstraintViolation.MinSizeViolation -> "List must have at least ${violation.min} elements."
     is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
+  }
+
+  private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>): String {
+    val template = entityDef?.displayText ?: return dataId
+    val result = DISPLAY_TEXT_TOKEN_REGEX.replace(template) { match ->
+      val key = match.groupValues[1]
+      if (key == "id") dataId else data[key] ?: ""
+    }.trim()
+    return result.ifBlank { dataId }
+  }
+
+  companion object {
+    private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
   }
 }

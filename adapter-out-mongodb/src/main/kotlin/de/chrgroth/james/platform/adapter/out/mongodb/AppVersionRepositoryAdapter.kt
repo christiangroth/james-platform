@@ -48,6 +48,11 @@ class AppVersionRepositoryAdapter(
       appVersionDocumentRepository.find(APP_ID_FIELD, appId.value).list().map { it.toDomain() }
     }
 
+  override fun findAll(): List<AppVersion> =
+    mongoQueryMetrics.timed("app_version.findAll") {
+      appVersionDocumentRepository.listAll().map { it.toDomain() }
+    }
+
   override fun findAllPublishedWithoutReleaseNotes(): List<AppVersion> =
     mongoQueryMetrics.timed("app_version.findAllPublishedWithoutReleaseNotes") {
       appVersionDocumentRepository
@@ -99,11 +104,15 @@ class AppVersionRepositoryAdapter(
     createdAt = createdAt,
   )
 
-  private fun EntityDefinitionDocument.toDomain() = EntityDefinition(
-    id = EntityDefinitionId(id),
-    name = name,
-    properties = properties.map { it.toDomain() },
-  )
+  private fun EntityDefinitionDocument.toDomain(): EntityDefinition {
+    val safeDisplayText: String? = displayText // handles potential JVM null from BSON codec on legacy docs
+    return EntityDefinition(
+      id = EntityDefinitionId(id),
+      name = name,
+      displayText = safeDisplayText?.takeIf { it.isNotBlank() },
+      properties = properties.map { it.toDomain() },
+    )
+  }
 
   private fun PropertyDocument.toDomain() = Property(
     id = PropertyId(id),
@@ -148,6 +157,7 @@ class AppVersionRepositoryAdapter(
   private fun EntityDefinition.toDocument() = EntityDefinitionDocument().also { doc ->
     doc.id = id.value
     doc.name = name
+    doc.displayText = displayText ?: "Display Text"
     doc.properties = properties.map { it.toDocument() }
   }
 

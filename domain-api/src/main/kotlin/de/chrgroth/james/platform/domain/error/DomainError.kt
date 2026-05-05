@@ -65,6 +65,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   NO_CHANGES("APPVER-018"),
   VERSION_NOT_PUBLISHED("APPVER-019"),
   NO_PREDECESSOR_VERSION("APPVER-020"),
+  DISPLAY_TEXT_USES_NULLABLE_PROPERTY("APPVER-021"),
   ;
 }
 
