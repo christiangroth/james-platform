@@ -205,6 +205,158 @@ class DeveloperAppPageTests {
       .body(containsString("""data-testid="version-number""""))
       .body(containsString("""data-testid="version-created-at""""))
   }
+
+  @Test
+  fun `entity editor shows sort order as text and edit button when entity has properties`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Sort Order UI App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Amount")
+      .formParam("type", "LONG")
+      .formParam("nullable", false)
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="sort-order-value""""))
+      .body(containsString("""data-testid="open-sort-order-modal-button""""))
+  }
+
+  @Test
+  fun `update entity sort criteria returns success`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Sort Criteria App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Order")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val propertyId = run {
+      given()
+        .contentType("application/x-www-form-urlencoded")
+        .formParam("name", "Amount")
+        .formParam("type", "LONG")
+        .formParam("nullable", false)
+        .`when`()
+        .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+        .then()
+        .statusCode(200)
+        .body(containsString("\"ok\":true"))
+      val entityHtml = given()
+        .`when`()
+        .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+        .then()
+        .statusCode(200)
+        .extract().body().asString()
+      Regex("""data-property-id="([^"]+)"""").find(entityHtml)?.groupValues?.get(1) ?: ""
+    }
+
+    given()
+      .contentType("application/json")
+      .body("""[{"propertyId": "$propertyId", "direction": "DESC"}]""")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/sort-criteria")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":true"))
+  }
+
+  @Test
+  fun `update entity sort criteria with empty list clears sort order`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Sort Clear App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "ClearOrder")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/json")
+      .body("[]")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/sort-criteria")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":true"))
+  }
 }
 
 @QuarkusTest

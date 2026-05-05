@@ -191,6 +191,16 @@ object TemplateFormattingExtensions {
   fun propertyNames(entity: EntityDefinition): String =
     entity.properties.joinToString(", ") { it.name }
 
+  /** Returns the entity's sort order as a comma-separated string of "PropertyName ASC/DESC",
+   * or an empty string if no sort criteria are defined.
+   */
+  @JvmStatic
+  fun sortOrderText(entity: EntityDefinition): String =
+    entity.sortBy.joinToString(", ") { criteria ->
+      val propName = entity.properties.find { it.id.value == criteria.propertyId }?.name ?: criteria.propertyId
+      "$propName ${criteria.direction.name}"
+    }
+
   /** Returns the AppData id string value. Used because AppDataId is a JvmInline value class
    * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
    */
