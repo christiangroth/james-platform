@@ -1,3 +1,13 @@
+# 0.30.0 (2026.05.05)
+
+## New Features
+* Developer breadcrumb home icon now links to the User Dashboard.
+* A 'Development' breadcrumb item linking to the Developer Dashboard has been added after the home icon on all developer sub-pages.
+
+
+
+---
+
 # 0.29.0 (2026.05.05)
 
 ## New Features
