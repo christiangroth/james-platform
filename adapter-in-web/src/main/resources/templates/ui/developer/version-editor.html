@@ -74,6 +74,12 @@
                     {#if selectedEntity.properties.isEmpty}
                     <p class="app-section-label mb-0" style="font-size:0.85rem;" data-testid="no-sort-criteria-possible">No properties available for sorting.</p>
                     {#else}
+                    <select id="sortPropOptionsTemplate" class="d-none" aria-hidden="true">
+                        <option value="">– Property –</option>
+                        {#for prop in selectedEntity.properties}
+                        <option value="{prop.id}">{prop.name}</option>
+                        {/for}
+                    </select>
                     <div id="sortCriteriaList" data-entity-id="{selectedEntity.id}">
                         {#for criteria in selectedEntity.sortBy}
                         <div class="d-flex align-items-center gap-2 mb-2" data-testid="sort-criteria-row">
@@ -865,27 +871,30 @@
                     });
                 }
 
-                document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
-                    badge.addEventListener('click', function () {
-                        var propName = badge.getAttribute('data-token-prop-id');
-                        var token = '{' + propName + '}';
-                        var input = document.getElementById('displayTextInput');
-                        var pos = input.selectionStart != null ? input.selectionStart : input.value.length;
-                        var before = input.value.substring(0, pos);
-                        var after = input.value.substring(pos);
-                        input.value = before + token + after;
-                        input.focus();
-                        input.selectionStart = input.selectionEnd = pos + token.length;
-                        updateDisplayTextBadgeVisibility();
-                    });
-                });
-
+                var lastDisplayTextCursorPos = null;
                 var displayTextInput = document.getElementById('displayTextInput');
                 if (displayTextInput) {
                     displayTextInput.addEventListener('input', updateDisplayTextBadgeVisibility);
                     updateDisplayTextBadgeVisibility();
                 }
 
+                document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
+                    badge.addEventListener('mousedown', function () {
+                        if (displayTextInput) { lastDisplayTextCursorPos = displayTextInput.selectionStart; }
+                    });
+                    badge.addEventListener('click', function () {
+                        var propName = badge.getAttribute('data-token-prop-id');
+                        var token = '{' + propName + '}';
+                        var pos = lastDisplayTextCursorPos != null ? lastDisplayTextCursorPos : displayTextInput.value.length;
+                        var before = displayTextInput.value.substring(0, pos);
+                        var after = displayTextInput.value.substring(pos);
+                        displayTextInput.value = before + token + after;
+                        lastDisplayTextCursorPos = pos + token.length;
+                        displayTextInput.focus();
+                        displayTextInput.selectionStart = displayTextInput.selectionEnd = pos + token.length;
+                        updateDisplayTextBadgeVisibility();
+                    });
+                });
                 var editDisplayTextModalEl = document.getElementById('editDisplayTextModal');
                 if (editDisplayTextModalEl) {
                     editDisplayTextModalEl.addEventListener('hidden.bs.modal', function () {
@@ -1374,6 +1383,8 @@
                         var result = await response.json();
                         if (!result.ok) {
                             showMessage(false, result.message);
+                        } else {
+                            versionBumpData = null;
                         }
                     } catch (e) {
                         showMessage(false, 'Network error saving entity order.');
@@ -1397,14 +1408,18 @@
             var saveSortCriteriaBtn = document.getElementById('saveSortCriteriaBtn');
 
             function buildPropertyOptions() {
+                var template = document.getElementById('sortPropOptionsTemplate');
+                if (template) {
+                    return Array.from(template.options).map(function (opt) {
+                        return { value: opt.value, text: opt.text };
+                    });
+                }
                 var selects = document.querySelectorAll('.sort-prop-select');
-                if (!selects.length) { return; }
-                // Collect all property option values from first select as template
+                if (!selects.length) { return []; }
                 var firstSelect = selects[0];
-                var templateOptions = Array.from(firstSelect.options).map(function (opt) {
+                return Array.from(firstSelect.options).map(function (opt) {
                     return { value: opt.value, text: opt.text };
                 });
-                return templateOptions;
             }
 
             if (addSortCriteriaBtn && sortCriteriaList) {
