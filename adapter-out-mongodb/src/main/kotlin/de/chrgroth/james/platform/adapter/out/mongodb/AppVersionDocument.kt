@@ -23,6 +23,12 @@ class EntityDefinitionDocument {
   lateinit var name: String
   var displayText: String = "Display Text"
   var properties: List<PropertyDocument> = emptyList()
+  var sortBy: List<SortCriteriaDocument> = emptyList()
+}
+
+class SortCriteriaDocument {
+  lateinit var propertyId: String
+  lateinit var direction: String
 }
 
 class PropertyDocument {

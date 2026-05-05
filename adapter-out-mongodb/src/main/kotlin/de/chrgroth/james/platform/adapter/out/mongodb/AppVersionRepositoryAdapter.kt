@@ -16,6 +16,8 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.SortCriteria
+import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -111,7 +113,13 @@ class AppVersionRepositoryAdapter(
       name = name,
       displayText = safeDisplayText?.takeIf { it.isNotBlank() },
       properties = properties.map { it.toDomain() },
+      sortBy = sortBy.mapNotNull { it.toDomain() },
     )
+  }
+
+  private fun SortCriteriaDocument.toDomain(): SortCriteria? {
+    val dir = runCatching { SortDirection.valueOf(direction) }.getOrNull() ?: return null
+    return SortCriteria(propertyId = propertyId, direction = dir)
   }
 
   private fun PropertyDocument.toDomain() = Property(
@@ -159,6 +167,12 @@ class AppVersionRepositoryAdapter(
     doc.name = name
     doc.displayText = displayText ?: "Display Text"
     doc.properties = properties.map { it.toDocument() }
+    doc.sortBy = sortBy.map { it.toDocument() }
+  }
+
+  private fun SortCriteria.toDocument() = SortCriteriaDocument().also { doc ->
+    doc.propertyId = propertyId
+    doc.direction = direction.name
   }
 
   private fun Property.toDocument() = PropertyDocument().also { doc ->

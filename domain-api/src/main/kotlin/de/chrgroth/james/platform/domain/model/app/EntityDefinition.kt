@@ -8,11 +8,19 @@ value class EntityDefinitionId(val value: String)
 @JvmInline
 value class PropertyId(val value: String)
 
+enum class SortDirection { ASC, DESC }
+
+data class SortCriteria(
+  val propertyId: String,
+  val direction: SortDirection,
+)
+
 data class EntityDefinition(
   val id: EntityDefinitionId,
   val name: String,
   val displayText: String? = null,
   val properties: List<Property> = emptyList(),
+  val sortBy: List<SortCriteria> = emptyList(),
 )
 
 data class Property(

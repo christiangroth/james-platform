@@ -66,6 +66,40 @@
                     </div>
                 </div>
 
+                <!-- Sort Criteria -->
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-2 gap-2">
+                        <h3 class="fs-6 fw-semibold mb-0">Sort Order</h3>
+                    </div>
+                    {#if selectedEntity.properties.isEmpty}
+                    <p class="app-section-label mb-0" style="font-size:0.85rem;" data-testid="no-sort-criteria-possible">No properties available for sorting.</p>
+                    {#else}
+                    <div id="sortCriteriaList" data-entity-id="{selectedEntity.id}">
+                        {#for criteria in selectedEntity.sortBy}
+                        <div class="d-flex align-items-center gap-2 mb-2" data-testid="sort-criteria-row">
+                            <select class="form-select app-form-control form-select-sm sort-prop-select" style="max-width:200px;" data-testid="sort-prop-select">
+                                <option value="">– Property –</option>
+                                {#for prop in selectedEntity.properties}
+                                <option value="{prop.id}" {#if prop.id == criteria.propertyId}selected{/if}>{prop.name}</option>
+                                {/for}
+                            </select>
+                            <select class="form-select app-form-control form-select-sm sort-dir-select" style="max-width:130px;" data-testid="sort-dir-select">
+                                <option value="ASC" {#if criteria.direction.name == "ASC"}selected{/if}>Ascending</option>
+                                <option value="DESC" {#if criteria.direction.name == "DESC"}selected{/if}>Descending</option>
+                            </select>
+                            <button type="button" class="btn btn-app-danger btn-sm remove-sort-criteria-btn" data-testid="remove-sort-criteria-btn" title="Remove">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
+                            </button>
+                        </div>
+                        {/for}
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" id="addSortCriteriaBtn" class="btn btn-app-secondary btn-sm" data-testid="add-sort-criteria-btn">+ Add Sort Field</button>
+                        <button type="button" id="saveSortCriteriaBtn" class="btn btn-app-primary btn-sm" data-testid="save-sort-criteria-btn">Save Sort Order</button>
+                    </div>
+                    {/if}
+                </div>
+
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h3 class="fs-6 fw-semibold mb-0">Properties</h3>
                     {#btn-icon-add testId="open-add-property-modal-button" bsTarget="#addPropertyModal" entityId=selectedEntity.id extraClass="ms-auto" /}
@@ -167,17 +201,22 @@
                 <table class="table table-sm mb-4 app-table" data-testid="entities-table">
                     <thead>
                         <tr>
+                            <th style="width:1.5rem;"></th>
                             <th>Name</th>
                             <th>Properties</th>
                             <th></th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="entitiesTbody">
                         {#for entity in version.sortedEntityDefinitions}
                         <tr class="clickable-row" data-testid="entity-row" tabindex="0" role="link"
                             aria-label="Open entity {entity.name}"
+                            data-entity-id="{entity.id}"
                             data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{entity.id}"
-                            onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a')) return; window.location.href=this.getAttribute('data-navigate-url')">
+                            onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a') || event.target.closest('.drag-handle')) return; window.location.href=this.getAttribute('data-navigate-url')">
+                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="Drag to reorder" data-testid="entity-drag-handle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
+                            </td>
                             <td data-testid="entity-name-link">{entity.name}</td>
                             <td>
                                 {#if entity.properties.isEmpty}
@@ -1268,6 +1307,183 @@
                     }
                 });
             }
+
+            // Drag-and-drop entity reordering
+            var entitiesTbody = document.getElementById('entitiesTbody');
+            if (entitiesTbody) {
+                var dragSrcRow = null;
+
+                function handleDragStart(e) {
+                    dragSrcRow = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.getAttribute('data-entity-id'));
+                    this.classList.add('opacity-50');
+                }
+
+                function handleDragOver(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    return false;
+                }
+
+                function handleDragEnter() {
+                    this.classList.add('table-active');
+                }
+
+                function handleDragLeave() {
+                    this.classList.remove('table-active');
+                }
+
+                function handleDrop(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (dragSrcRow !== this) {
+                        var rows = Array.from(entitiesTbody.querySelectorAll('tr'));
+                        var srcIdx = rows.indexOf(dragSrcRow);
+                        var dstIdx = rows.indexOf(this);
+                        if (srcIdx > dstIdx) {
+                            entitiesTbody.insertBefore(dragSrcRow, this);
+                        } else {
+                            entitiesTbody.insertBefore(dragSrcRow, this.nextSibling);
+                        }
+                        saveEntityOrder();
+                    }
+                    return false;
+                }
+
+                function handleDragEnd() {
+                    this.classList.remove('opacity-50');
+                    entitiesTbody.querySelectorAll('tr').forEach(function (row) {
+                        row.classList.remove('table-active');
+                    });
+                }
+
+                async function saveEntityOrder() {
+                    var entityIds = Array.from(entitiesTbody.querySelectorAll('tr')).map(function (row) {
+                        return row.getAttribute('data-entity-id');
+                    });
+                    try {
+                        var response = await fetch(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/reorder',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                                body: JSON.stringify(entityIds),
+                            }
+                        );
+                        var result = await response.json();
+                        if (!result.ok) {
+                            showMessage(false, result.message);
+                        }
+                    } catch (e) {
+                        showMessage(false, 'Network error saving entity order.');
+                    }
+                }
+
+                entitiesTbody.querySelectorAll('tr').forEach(function (row) {
+                    row.draggable = true;
+                    row.addEventListener('dragstart', handleDragStart);
+                    row.addEventListener('dragover', handleDragOver);
+                    row.addEventListener('dragenter', handleDragEnter);
+                    row.addEventListener('dragleave', handleDragLeave);
+                    row.addEventListener('drop', handleDrop);
+                    row.addEventListener('dragend', handleDragEnd);
+                });
+            }
+
+            // Sort criteria management
+            var sortCriteriaList = document.getElementById('sortCriteriaList');
+            var addSortCriteriaBtn = document.getElementById('addSortCriteriaBtn');
+            var saveSortCriteriaBtn = document.getElementById('saveSortCriteriaBtn');
+
+            function buildPropertyOptions() {
+                var selects = document.querySelectorAll('.sort-prop-select');
+                if (!selects.length) { return; }
+                // Collect all property option values from first select as template
+                var firstSelect = selects[0];
+                var templateOptions = Array.from(firstSelect.options).map(function (opt) {
+                    return { value: opt.value, text: opt.text };
+                });
+                return templateOptions;
+            }
+
+            if (addSortCriteriaBtn && sortCriteriaList) {
+                addSortCriteriaBtn.addEventListener('click', function () {
+                    var templateOptions = buildPropertyOptions() || [];
+                    var row = document.createElement('div');
+                    row.className = 'd-flex align-items-center gap-2 mb-2';
+                    row.setAttribute('data-testid', 'sort-criteria-row');
+                    var propSelect = document.createElement('select');
+                    propSelect.className = 'form-select app-form-control form-select-sm sort-prop-select';
+                    propSelect.style.maxWidth = '200px';
+                    propSelect.setAttribute('data-testid', 'sort-prop-select');
+                    templateOptions.forEach(function (opt) {
+                        var option = document.createElement('option');
+                        option.value = opt.value;
+                        option.textContent = opt.text;
+                        propSelect.appendChild(option);
+                    });
+                    var dirSelect = document.createElement('select');
+                    dirSelect.className = 'form-select app-form-control form-select-sm sort-dir-select';
+                    dirSelect.style.maxWidth = '130px';
+                    dirSelect.setAttribute('data-testid', 'sort-dir-select');
+                    [['ASC', 'Ascending'], ['DESC', 'Descending']].forEach(function (opt) {
+                        var option = document.createElement('option');
+                        option.value = opt[0];
+                        option.textContent = opt[1];
+                        dirSelect.appendChild(option);
+                    });
+                    var removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'btn btn-app-danger btn-sm remove-sort-criteria-btn';
+                    removeBtn.setAttribute('data-testid', 'remove-sort-criteria-btn');
+                    removeBtn.title = 'Remove';
+                    removeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>';
+                    removeBtn.addEventListener('click', function () { row.remove(); });
+                    row.appendChild(propSelect);
+                    row.appendChild(dirSelect);
+                    row.appendChild(removeBtn);
+                    sortCriteriaList.appendChild(row);
+                });
+            }
+
+            if (sortCriteriaList) {
+                sortCriteriaList.addEventListener('click', function (e) {
+                    var removeBtn = e.target.closest('.remove-sort-criteria-btn');
+                    if (removeBtn) {
+                        removeBtn.closest('[data-testid="sort-criteria-row"]').remove();
+                    }
+                });
+            }
+
+            if (saveSortCriteriaBtn && sortCriteriaList) {
+                saveSortCriteriaBtn.addEventListener('click', async function () {
+                    var entityId = sortCriteriaList.getAttribute('data-entity-id');
+                    var criteria = [];
+                    sortCriteriaList.querySelectorAll('[data-testid="sort-criteria-row"]').forEach(function (row) {
+                        var propId = row.querySelector('.sort-prop-select').value;
+                        var dir = row.querySelector('.sort-dir-select').value;
+                        if (propId) { criteria.push({ propertyId: propId, direction: dir }); }
+                    });
+                    saveSortCriteriaBtn.disabled = true;
+                    try {
+                        var response = await fetch(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/sort-criteria',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                                body: JSON.stringify(criteria),
+                            }
+                        );
+                        var result = await response.json();
+                        showMessage(result.ok, result.message);
+                    } catch (e) {
+                        showMessage(false, 'Network error. Please try again.');
+                    }
+                    saveSortCriteriaBtn.disabled = false;
+                });
+            }
+
         }());
     </script>
     {/scripts}

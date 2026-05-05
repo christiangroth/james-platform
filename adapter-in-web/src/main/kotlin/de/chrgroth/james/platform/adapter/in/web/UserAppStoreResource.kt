@@ -4,8 +4,10 @@ import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import io.quarkus.qute.Location
@@ -50,6 +52,14 @@ data class AppDataDetail(
   val createdAt: Instant,
   val lastChangedAt: Instant,
   val properties: List<AppDataPropertyView>,
+)
+
+data class EntityTab(
+  val entityId: String,
+  val entityName: String,
+  val rows: List<AppDataRow>,
+  val currentPage: Int,
+  val totalPages: Int,
 )
 
 @Path("/ui")
@@ -151,21 +161,34 @@ class UserAppStoreResource {
     val info = installedApps.find { it.installedApp.id.value == installedAppId }
       ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
-    val appDataRows = appData.listAppData(userId, installedAppId).getOrNull()
-      ?.map { item ->
-        val entityDef = entityById[item.entityType.value]
-        AppDataRow(
-          id = item.id.value,
-          displayText = computeDisplayText(entityDef, item.id.value, item.data),
-        )
-      }
-      ?: emptyList()
-    val singleEntityId = info.installedVersion.entityDefinitions.takeIf { it.size == 1 }?.first()?.id?.value
+    val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+
+    val entities = info.installedVersion.entityDefinitions
+    val entityTabs = entities.map { entityDef ->
+      val entityRows = allAppData
+        .filter { it.entityType.value == entityDef.id.value }
+        .let { rows -> applySortCriteria(rows, entityDef, entityById) }
+        .map { item ->
+          AppDataRow(
+            id = item.id.value,
+            displayText = computeDisplayText(entityDef, item.id.value, item.data),
+          )
+        }
+      val totalPages = maxOf(1, (entityRows.size + PAGE_SIZE - 1) / PAGE_SIZE)
+      EntityTab(
+        entityId = entityDef.id.value,
+        entityName = entityDef.name,
+        rows = entityRows,
+        currentPage = 1,
+        totalPages = totalPages,
+      )
+    }
+
     return Response.ok(
       appDetailTemplate
         .data("info", info)
-        .data("appDataList", appDataRows)
-        .data("singleEntityId", singleEntityId),
+        .data("entityTabs", entityTabs)
+        .data("pageSize", PAGE_SIZE),
     ).build()
   }
 
@@ -339,6 +362,35 @@ class UserAppStoreResource {
     is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
   }
 
+  private fun applySortCriteria(
+    rows: List<AppData>,
+    entityDef: EntityDefinition,
+    entityById: Map<String, EntityDefinition>,
+  ): List<AppData> {
+    if (entityDef.sortBy.isEmpty()) return rows
+    var comparator: Comparator<AppData>? = null
+    for (criteria in entityDef.sortBy) {
+      val propDef = entityDef.properties.find { it.id.value == criteria.propertyId } ?: continue
+      val propType = propDef.type
+      val singleComparator = Comparator<AppData> { a, b ->
+        val aVal = a.data[criteria.propertyId]
+        val bVal = b.data[criteria.propertyId]
+        when {
+          aVal == null && bVal == null -> 0
+          aVal == null -> 1
+          bVal == null -> -1
+          propType == PropertyType.LONG -> aVal.toLongOrNull()?.compareTo(bVal.toLongOrNull() ?: 0L) ?: aVal.compareTo(bVal)
+          propType == PropertyType.DOUBLE -> aVal.toDoubleOrNull()?.compareTo(bVal.toDoubleOrNull() ?: 0.0) ?: aVal.compareTo(bVal)
+          propType == PropertyType.BOOLEAN -> aVal.compareTo(bVal)
+          else -> aVal.compareTo(bVal, ignoreCase = true)
+        }
+      }
+      val directedComparator = if (criteria.direction == SortDirection.DESC) singleComparator.reversed() else singleComparator
+      comparator = comparator?.thenComparing(directedComparator) ?: directedComparator
+    }
+    return if (comparator != null) rows.sortedWith(comparator) else rows
+  }
+
   private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>): String {
     val template = entityDef?.displayText ?: return dataId
     val nameToId = entityDef.properties.associate { it.name to it.id.value }
@@ -355,5 +407,6 @@ class UserAppStoreResource {
 
   companion object {
     private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
+    private const val PAGE_SIZE = 50
   }
 }

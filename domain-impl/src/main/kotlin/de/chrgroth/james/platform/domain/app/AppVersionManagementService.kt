@@ -25,6 +25,7 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.app.DiffLine
 import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
 import de.chrgroth.james.platform.domain.model.app.DiffStatus
+import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
@@ -246,6 +247,41 @@ class AppVersionManagementService(
     val updated = version.copy(entityDefinitions = version.entityDefinitions.filter { it.id.value != entityId })
     appVersionRepository.save(updated)
     logger.info { "Entity deleted: $entityId from version $versionId" }
+    return updated.right()
+  }
+
+  override fun reorderEntities(appId: String, versionId: String, entityIds: List<String>): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val existingIds = version.entityDefinitions.map { it.id.value }.toSet()
+    if (existingIds != entityIds.toSet() || entityIds.size != version.entityDefinitions.size) {
+      logger.warn { "Reorder entities failed: entity IDs mismatch in version $versionId" }
+      return AppVersionError.ENTITY_IDS_MISMATCH.left()
+    }
+    val entityById = version.entityDefinitions.associateBy { it.id.value }
+    val reordered = entityIds.mapNotNull { entityById[it] }
+    val updated = version.copy(entityDefinitions = reordered)
+    appVersionRepository.save(updated)
+    logger.info { "Entities reordered in version $versionId" }
+    return updated.right()
+  }
+
+  override fun updateEntitySortCriteria(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    sortBy: List<SortCriteria>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update entity sort criteria failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val propIds = entity.properties.map { it.id.value }.toSet()
+    val validSortBy = sortBy.filter { it.propertyId in propIds }
+    val updatedEntity = entity.copy(sortBy = validSortBy)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Entity sort criteria updated: $entityId in version $versionId (${validSortBy.size} criteria)" }
     return updated.right()
   }
 
