@@ -473,6 +473,35 @@ class AppVersionManagementService(
     else -> value
   }
 
+  override fun setPropertySmartDefault(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    smartDefault: String?,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property smart default failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property smart default failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    val trimmedSmartDefault = smartDefault?.takeIf { it.isNotBlank() }
+    if (trimmedSmartDefault != null && !property.type.supportsSmartDefault()) {
+      logger.warn { "Set property smart default failed: type ${property.type} does not support smart defaults: $propertyId" }
+      return AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.left()
+    }
+    val updatedProperty = property.copy(smartDefault = trimmedSmartDefault)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property smart default set: $propertyId in entity $entityId in version $versionId (smartDefault=${trimmedSmartDefault?.let { "set" } ?: "cleared"})" }
+    return updated.right()
+  }
+
   override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {

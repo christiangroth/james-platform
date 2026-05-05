@@ -9,7 +9,9 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
+import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
+import kotlin.time.Clock
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
@@ -96,6 +98,9 @@ class UserAppStoreResource {
 
   @Inject
   private lateinit var appData: AppDataPort
+
+  @Inject
+  private lateinit var smartDefault: SmartDefaultPort
 
   @GET
   @Path("/user/app-store")
@@ -212,10 +217,12 @@ class UserAppStoreResource {
       ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+    val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
     return Response.ok(
       appDataNewTemplate
         .data("info", info)
-        .data("entity", entityDef),
+        .data("entity", entityDef)
+        .data("smartDefaults", computedSmartDefaults),
     ).build()
   }
 

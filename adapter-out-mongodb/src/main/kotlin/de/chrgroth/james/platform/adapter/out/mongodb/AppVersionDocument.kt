@@ -37,6 +37,8 @@ class PropertyDocument {
   lateinit var type: String
   var nullable: Boolean = true
   var constraints: List<ConstraintDocument> = emptyList()
+  var default: String? = null
+  var smartDefault: String? = null
 }
 
 class ConstraintDocument {

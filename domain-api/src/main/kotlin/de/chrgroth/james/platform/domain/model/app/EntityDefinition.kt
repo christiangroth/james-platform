@@ -30,6 +30,7 @@ data class Property(
   val nullable: Boolean = true,
   val constraints: Set<PropertyConstraint> = emptySet(),
   val default: String? = null,
+  val smartDefault: String? = null,
 )
 
 sealed interface PropertyConstraint {
@@ -127,4 +128,6 @@ enum class PropertyType {
   abstract fun availableConstraints(): List<KClass<out PropertyConstraint>>
 
   open fun supportsDefault(): Boolean = true
+
+  open fun supportsSmartDefault(): Boolean = supportsDefault()
 }

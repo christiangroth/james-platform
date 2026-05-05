@@ -555,6 +555,23 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/smart-default")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertySmartDefault(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("smartDefault") smartDefault: String?,
+  ): Response {
+    return appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Smart default saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteProperty(
@@ -654,6 +671,8 @@ class DeveloperAppResource {
     AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.code -> "Display text may only reference non-nullable properties."
     AppVersionError.DEFAULT_NOT_SUPPORTED.code -> "This property type does not support default values."
     AppVersionError.DEFAULT_VALUE_INVALID.code -> "The default value is invalid for this property type or violates a constraint."
+    AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> "This property type does not support smart defaults."
+    AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> "The smart default script is invalid."
     else -> "An unexpected error occurred. Please try again."
   }
 

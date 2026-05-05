@@ -9,4 +9,5 @@ dependencies {
   implementation("io.quarkus:quarkus-arc")
   implementation("io.quarkus:quarkus-micrometer")
   implementation("io.quarkus:quarkus-vertx")
+  implementation("org.jetbrains.kotlin:kotlin-scripting-jsr223")
 }

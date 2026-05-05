@@ -1125,6 +1125,141 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region setPropertySmartDefault
+
+  @Test
+  fun `setPropertySmartDefault sets smart default on property`() {
+    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.smartDefault).isEqualTo("now.toString()")
+  }
+
+  @Test
+  fun `setPropertySmartDefault clears smart default when null provided`() {
+    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, smartDefault = "now.toString()")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", null)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.smartDefault).isNull()
+  }
+
+  @Test
+  fun `setPropertySmartDefault clears smart default when blank provided`() {
+    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, smartDefault = "now.toString()")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "  ")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.smartDefault).isNull()
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails for LIST type when setting a script`() {
+    val property = Property(id = PropertyId("p-1"), name = "Items", type = PropertyType.LIST)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails for OBJECT type when setting a script`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails for REF type when setting a script`() {
+    val property = Property(id = PropertyId("p-1"), name = "RefProp", type = PropertyType.REF)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertySmartDefault allows clearing smart default for non-supported types`() {
+    val property = Property(id = PropertyId("p-1"), name = "RefProp", type = PropertyType.REF, smartDefault = "someScript")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", null)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.smartDefault).isNull()
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "unknown-prop", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "unknown-entity", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.setPropertySmartDefault("app-1", "unknown", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
   // region addReport
 
   @Test
