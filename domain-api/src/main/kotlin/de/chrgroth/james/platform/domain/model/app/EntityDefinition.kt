@@ -29,6 +29,7 @@ data class Property(
   val type: PropertyType,
   val nullable: Boolean = true,
   val constraints: Set<PropertyConstraint> = emptySet(),
+  val default: String? = null,
 )
 
 sealed interface PropertyConstraint {
@@ -100,6 +101,8 @@ enum class PropertyType {
     override fun availableConstraints() = listOf(
       PropertyConstraint.UniqueKey::class,
     )
+
+    override fun supportsDefault(): Boolean = false
   },
   DURATION {
     override fun availableConstraints() = listOf(
@@ -111,11 +114,17 @@ enum class PropertyType {
       PropertyConstraint.MinSize::class,
       PropertyConstraint.MaxSize::class,
     )
+
+    override fun supportsDefault(): Boolean = false
   },
   OBJECT {
     override fun availableConstraints(): List<KClass<out PropertyConstraint>> = emptyList()
+
+    override fun supportsDefault(): Boolean = false
   },
   ;
 
   abstract fun availableConstraints(): List<KClass<out PropertyConstraint>>
+
+  open fun supportsDefault(): Boolean = true
 }

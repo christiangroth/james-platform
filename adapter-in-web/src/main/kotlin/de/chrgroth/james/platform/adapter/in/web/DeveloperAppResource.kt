@@ -538,6 +538,23 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/default")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyDefault(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("default") default: String?,
+  ): Response {
+    return appVersionManagement.setPropertyDefault(appId, versionId, entityId, propertyId, default).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Default value saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteProperty(
@@ -635,6 +652,8 @@ class DeveloperAppResource {
     AppVersionError.INVALID_PROPERTY_TYPE.code -> "Invalid property type."
     AppVersionError.VERSION_NOT_IN_DRAFT.code -> "Version is not in draft status."
     AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.code -> "Display text may only reference non-nullable properties."
+    AppVersionError.DEFAULT_NOT_SUPPORTED.code -> "This property type does not support default values."
+    AppVersionError.DEFAULT_VALUE_INVALID.code -> "The default value is invalid for this property type or violates a constraint."
     else -> "An unexpected error occurred. Please try again."
   }
 

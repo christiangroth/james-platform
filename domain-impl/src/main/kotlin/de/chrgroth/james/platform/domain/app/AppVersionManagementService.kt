@@ -28,6 +28,7 @@ import de.chrgroth.james.platform.domain.model.app.DiffStatus
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -40,6 +41,7 @@ import java.util.UUID
 class AppVersionManagementService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
+  private val propertyConstraint: PropertyConstraintPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -417,6 +419,58 @@ class AppVersionManagementService(
     appVersionRepository.save(updated)
     logger.info { "Property constraints set: $propertyId in entity $entityId in version $versionId (${validConstraints.size} constraints)" }
     return updated.right()
+  }
+
+  override fun setPropertyDefault(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    default: String?,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property default failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property default failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (!property.type.supportsDefault()) {
+      logger.warn { "Set property default failed: type ${property.type} does not support defaults: $propertyId" }
+      return AppVersionError.DEFAULT_NOT_SUPPORTED.left()
+    }
+    val trimmedDefault = default?.takeIf { it.isNotBlank() }
+    if (trimmedDefault != null) {
+      val parsedValue = parseDefaultValue(property.type, trimmedDefault)
+      if (parsedValue == null) {
+        logger.warn { "Set property default failed: invalid default value '$trimmedDefault' for type ${property.type}: $propertyId" }
+        return AppVersionError.DEFAULT_VALUE_INVALID.left()
+      }
+      val violations = propertyConstraint.checkValue(property, parsedValue, emptyList())
+      if (violations.isNotEmpty()) {
+        logger.warn { "Set property default failed: constraint violations for default value '$trimmedDefault': $violations" }
+        return AppVersionError.DEFAULT_VALUE_INVALID.left()
+      }
+    }
+    val updatedProperty = property.copy(default = trimmedDefault)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property default set: $propertyId in entity $entityId in version $versionId (default=$trimmedDefault)" }
+    return updated.right()
+  }
+
+  private fun parseDefaultValue(type: PropertyType, value: String): Any? = when (type) {
+    PropertyType.LONG -> value.toLongOrNull()
+    PropertyType.DOUBLE -> value.toDoubleOrNull()
+    PropertyType.BOOLEAN -> if (value.equals("true", ignoreCase = true) || value.equals("false", ignoreCase = true)) {
+      value.equals("true", ignoreCase = true)
+    } else {
+      null
+    }
+    else -> value
   }
 
   override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion> {
