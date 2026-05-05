@@ -5,7 +5,7 @@
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}?tab={detail.entityTypeId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">Data Detail</li>
             </ol>
         </nav>
@@ -120,6 +120,7 @@
     <div id="app-data-meta"
          data-installed-app-id="{detail.installedAppId}"
          data-data-id="{detail.id}"
+         data-entity-type-id="{detail.entityTypeId}"
          class="d-none"
          aria-hidden="true"></div>
     {/content}
@@ -129,6 +130,7 @@
             var meta = document.getElementById('app-data-meta');
             var installedAppId = meta.dataset.installedAppId;
             var dataId = meta.dataset.dataId;
+            var entityTypeId = meta.dataset.entityTypeId;
             var messagePanel = document.getElementById('page-message');
             var messageTimer = null;
             var viewSection = document.getElementById('view-section');
@@ -236,7 +238,11 @@
                     var result = await response.json();
                     if (modal) { modal.hide(); }
                     if (result.ok && result.redirectUrl) {
-                        window.location.href = result.redirectUrl;
+                        var redirectUrl = new URL(result.redirectUrl, window.location.origin);
+                        if (entityTypeId) {
+                            redirectUrl.searchParams.set('tab', entityTypeId);
+                        }
+                        window.location.href = redirectUrl.toString();
                     } else {
                         showMessage(false, result.message);
                         btn.disabled = false;

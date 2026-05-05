@@ -122,6 +122,16 @@
                 }
             }
 
+            // Update URL when switching tabs so each tab has its own URL
+            document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (tabBtn) {
+                tabBtn.addEventListener('shown.bs.tab', function (e) {
+                    var entityTypeId = e.target.id.replace('tab-btn-', '');
+                    var url = new URL(window.location.href);
+                    url.searchParams.set('tab', entityTypeId);
+                    history.replaceState(null, '', url.toString());
+                });
+            });
+
             // Clickable rows
             document.querySelectorAll('.app-clickable-row').forEach(function (row) {
                 row.style.cursor = 'pointer';
