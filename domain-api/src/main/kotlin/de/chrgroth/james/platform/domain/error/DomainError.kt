@@ -66,6 +66,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   VERSION_NOT_PUBLISHED("APPVER-019"),
   NO_PREDECESSOR_VERSION("APPVER-020"),
   DISPLAY_TEXT_USES_NULLABLE_PROPERTY("APPVER-021"),
+  DISPLAY_TEXT_INVALID("APPVER-022"),
   ;
 }
 
@@ -91,6 +92,12 @@ data class AppDataConstraintViolationError(
   val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
 ) : DomainError {
   override val code: String = AppDataError.CONSTRAINT_VIOLATION.code
+}
+
+data class DisplayTextInvalidError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.DISPLAY_TEXT_INVALID.code
 }
 
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {

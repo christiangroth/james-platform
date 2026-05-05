@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
+import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
@@ -330,7 +331,14 @@ class DeveloperAppResource {
     @FormParam("releaseNotes") releaseNotes: String?,
   ): Response {
     return appVersionManagement.publishVersion(appId, bumpType, releaseNotes.orEmpty()).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
+      ifLeft = { error ->
+        if (error is DisplayTextInvalidError) {
+          val names = error.entityNames.joinToString(", ")
+          Response.ok(DeveloperApiResult(false, "Invalid display text in: $names. Please fix all display texts before publishing.")).build()
+        } else {
+          Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
+        }
+      },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, "Version published.", "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
       },
