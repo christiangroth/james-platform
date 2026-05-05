@@ -4,7 +4,8 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/developer/dashboard" homeLabel="Developer Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">Development</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-app">{app.name}</li>
             </ol>
         </nav>
