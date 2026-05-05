@@ -1,3 +1,17 @@
+# 0.29.0 (2026.05.05)
+
+## New Features
+* Entity property definitions may now include a default value.
+* Default values are validated against configured constraints when saved.
+* The new item form is pre-filled with default values when creating data entries.
+
+## Bugfixes / Chore
+* Fix CI build: Grafana dashboard provisioning no longer blocks the pipeline.
+
+
+
+---
+
 # 0.28.1 (2026.05.05)
 
 ## Bugfixes / Chore
