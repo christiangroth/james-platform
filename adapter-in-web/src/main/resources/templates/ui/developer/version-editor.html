@@ -759,16 +759,16 @@
                     var input = document.getElementById('displayTextInput');
                     var value = input ? input.value : '';
                     document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
-                        var propId = badge.getAttribute('data-token-prop-id');
-                        var token = '{' + propId + '}';
+                        var propName = badge.getAttribute('data-token-prop-id');
+                        var token = '{' + propName + '}';
                         badge.style.display = value.indexOf(token) !== -1 ? 'none' : '';
                     });
                 }
 
                 document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
                     badge.addEventListener('click', function () {
-                        var propId = badge.getAttribute('data-token-prop-id');
-                        var token = '{' + propId + '}';
+                        var propName = badge.getAttribute('data-token-prop-id');
+                        var token = '{' + propName + '}';
                         var input = document.getElementById('displayTextInput');
                         var pos = input.selectionStart != null ? input.selectionStart : input.value.length;
                         var before = input.value.substring(0, pos);
