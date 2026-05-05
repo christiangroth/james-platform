@@ -272,6 +272,30 @@
             border-color: var(--color-border);
             color: var(--color-text-muted);
         }
+        /* Section header – uppercase label above content blocks */
+        .app-section-header {
+            color: var(--color-text-primary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        /* Ensure accordion body inherits dark card background and primary text */
+        .app-accordion-item .accordion-body {
+            background-color: var(--color-bg-card);
+            color: var(--color-text-primary);
+        }
+        /* Clickable table row */
+        .app-table tr.clickable-row {
+            cursor: pointer;
+        }
+        .app-table tr.clickable-row:hover td {
+            background-color: rgba(255, 255, 255, 0.04) !important;
+        }
+        /* Constraint text line in property tables */
+        .app-constraint-text {
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>

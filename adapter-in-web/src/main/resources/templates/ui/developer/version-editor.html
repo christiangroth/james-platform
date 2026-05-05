@@ -51,32 +51,20 @@
                 </div>
 
                 <!-- Display Text builder -->
-                <form id="displayTextForm" data-entity-id="{selectedEntity.id}">
-                    <div class="mb-4">
-                        <h3 class="fs-6 fw-semibold mb-2">Display Text</h3>
-                        <input type="text" class="form-control app-form-control form-control-sm mb-2"
-                               id="displayTextInput" name="displayText"
-                               value="{selectedEntity.displayText}"
-                               placeholder="Click tokens below to compose a display template…"
-                               autocomplete="off"
-                               data-testid="display-text-input">
-                        <div class="mb-2">
-                            <span class="badge app-badge-muted me-1" style="cursor:pointer;"
-                                  data-action="insert-display-text-token"
-                                  data-token-prop-id="id"
-                                  data-testid="display-text-token-id">ID</span>
-                            {#for prop in selectedEntity.properties}
-                            {#if !prop.nullable}
-                            <span class="badge app-badge-muted me-1" style="cursor:pointer;"
-                                  data-action="insert-display-text-token"
-                                  data-token-prop-id="{prop.name}"
-                                  data-testid="display-text-token-prop">{prop.name}</span>
-                            {/if}
-                            {/for}
-                        </div>
-                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="save-display-text-button">Save</button>
+                <div class="mb-4">
+                    <h3 class="fs-6 fw-semibold mb-2">Display Text</h3>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="app-section-label" style="font-size:0.85rem;" data-testid="display-text-value">
+                            {#if selectedEntity.displayText}{selectedEntity.displayText}{#else}—{/if}
+                        </span>
+                        <button type="button" class="btn btn-app-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editDisplayTextModal"
+                                title="Edit display text" aria-label="Edit display text"
+                                data-testid="open-display-text-modal-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
+                        </button>
                     </div>
-                </form>
+                </div>
 
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h3 class="fs-6 fw-semibold mb-0">Properties</h3>
@@ -101,10 +89,10 @@
                             <td>{prop.name}</td>
                             <td>{prop.type}{#if prop.nullable}?{/if}</td>
                             <td>
-                                {#if prop.constraintCount == 0}
-                                <span class="app-section-label" style="font-size:0.75rem;">None</span>
+                                {#if prop.constraintTexts.isEmpty}
+                                <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
                                 {#else}
-                                <span class="badge app-badge-muted" data-testid="constraint-count">{prop.constraintCount}</span>
+                                {#for ct in prop.constraintTexts}<div class="app-constraint-text">{ct}</div>{/for}
                                 {/if}
                             </td>
                             <td class="text-end" style="white-space:nowrap;">
@@ -186,13 +174,18 @@
                     </thead>
                     <tbody>
                         {#for entity in version.sortedEntityDefinitions}
-                        <tr data-testid="entity-row">
+                        <tr class="clickable-row" data-testid="entity-row" tabindex="0" role="link"
+                            aria-label="Open entity {entity.name}"
+                            data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{entity.id}"
+                            onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a')) return; window.location.href=this.getAttribute('data-navigate-url')">
+                            <td data-testid="entity-name-link">{entity.name}</td>
                             <td>
-                                <a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{entity.id}"
-                                   class="breadcrumb-link"
-                                   data-testid="entity-name-link">{entity.name}</a>
+                                {#if entity.properties.isEmpty}
+                                <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
+                                {#else}
+                                <span style="font-size:0.85rem;">{entity.propertyNames}</span>
+                                {/if}
                             </td>
-                            <td><span class="badge app-badge-muted">{entity.properties.size}</span></td>
                             <td class="text-end">
                                 {#btn-icon-delete testId="delete-entity-button" title="Delete entity" extraClass="" bsTarget="#deleteEntityModal" action="" entityId=entity.id propertyId="" reportId="" username="" /}
                             </td>
@@ -221,12 +214,11 @@
                     </thead>
                     <tbody>
                         {#for report in version.sortedReports}
-                        <tr data-testid="report-row">
-                            <td>
-                                <a href="/ui/developer/apps/{app.id}/versions/{version.id}/reports/{report.id}"
-                                   class="breadcrumb-link"
-                                   data-testid="report-name-link">{report.name}</a>
-                            </td>
+                        <tr class="clickable-row" data-testid="report-row" tabindex="0" role="link"
+                            aria-label="Open report {report.name}"
+                            data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/reports/{report.id}"
+                            onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a')) return; window.location.href=this.getAttribute('data-navigate-url')">
+                            <td data-testid="report-name-link">{report.name}</td>
                             <td class="text-end">
                                 {#btn-icon-delete testId="delete-report-button" title="Delete report" extraClass="" bsTarget="#deleteReportModal" action="" entityId="" propertyId="" reportId=report.id username="" /}
                             </td>
@@ -266,10 +258,10 @@
                                 <td>{prop.name}</td>
                                 <td>{prop.type}{#if prop.nullable}?{/if}</td>
                                 <td>
-                                    {#if prop.constraintCount == 0}
-                                    <span class="app-section-label" style="font-size:0.75rem;">None</span>
+                                    {#if prop.constraintTexts.isEmpty}
+                                    <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
                                     {#else}
-                                    <span class="badge app-badge-muted">{prop.constraintCount}</span>
+                                    {#for ct in prop.constraintTexts}<div class="app-constraint-text">{ct}</div>{/for}
                                     {/if}
                                 </td>
                             </tr>
@@ -679,6 +671,53 @@
     </div>
     {/if}
 
+    <!-- Edit Display Text Modal -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="editDisplayTextModal" tabindex="-1" aria-labelledby="editDisplayTextModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editDisplayTextModalLabel">Edit Display Text</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="displayTextForm" data-entity-id="{selectedEntity.id}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Template</label>
+                            <input type="text" class="form-control app-form-control form-control-sm"
+                                   id="displayTextInput" name="displayText"
+                                   value="{selectedEntity.displayText}"
+                                   placeholder="Click tokens below to compose a display template…"
+                                   autocomplete="off"
+                                   data-testid="display-text-input">
+                        </div>
+                        <div>
+                            <span class="badge app-badge-muted me-1" style="cursor:pointer;"
+                                  data-action="insert-display-text-token"
+                                  data-token-prop-id="id"
+                                  data-testid="display-text-token-id">ID</span>
+                            {#for prop in selectedEntity.properties}
+                            {#if !prop.nullable}
+                            <span class="badge app-badge-muted me-1" style="cursor:pointer;"
+                                  data-action="insert-display-text-token"
+                                  data-token-prop-id="{prop.name}"
+                                  data-testid="display-text-token-prop">{prop.name}</span>
+                            {/if}
+                            {/for}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="save-display-text-button">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+
     {/content}
     {#scripts}
     <script>
@@ -719,6 +758,16 @@
                 }
             }
 
+            // Keyboard navigation for clickable rows
+            document.querySelectorAll('.clickable-row[data-navigate-url]').forEach(function (row) {
+                row.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        window.location.href = row.getAttribute('data-navigate-url');
+                    }
+                });
+            });
+
             // Add Entity modal form
             var addEntityForm = document.getElementById('addEntityForm');
             if (addEntityForm) {
@@ -748,11 +797,23 @@
                     var btn = displayTextForm.querySelector('[type="submit"]');
                     btn.disabled = true;
                     var entityId = displayTextForm.getAttribute('data-entity-id');
-                    await apiPost(
+                    var result = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/display-text',
                         new FormData(displayTextForm), false
                     );
                     btn.disabled = false;
+                    if (result && result.ok) {
+                        var editDisplayTextModalEl = document.getElementById('editDisplayTextModal');
+                        if (editDisplayTextModalEl) {
+                            var modal = bootstrap.Modal.getInstance(editDisplayTextModalEl);
+                            if (modal) { modal.hide(); }
+                        }
+                        var displayTextValue = document.querySelector('[data-testid="display-text-value"]');
+                        if (displayTextValue) {
+                            var val = document.getElementById('displayTextInput').value;
+                            displayTextValue.textContent = val || '—';
+                        }
+                    }
                 });
 
                 function updateDisplayTextBadgeVisibility() {
@@ -784,6 +845,13 @@
                 if (displayTextInput) {
                     displayTextInput.addEventListener('input', updateDisplayTextBadgeVisibility);
                     updateDisplayTextBadgeVisibility();
+                }
+
+                var editDisplayTextModalEl = document.getElementById('editDisplayTextModal');
+                if (editDisplayTextModalEl) {
+                    editDisplayTextModalEl.addEventListener('hidden.bs.modal', function () {
+                        displayTextForm.querySelector('[type="submit"]').disabled = false;
+                    });
                 }
             }
 
