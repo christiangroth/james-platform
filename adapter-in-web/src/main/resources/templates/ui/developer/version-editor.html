@@ -630,6 +630,10 @@
                         <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Smart Default (Kotlin Script)</div>
                         <p class="app-section-label mb-2" style="font-size:0.75rem;">Evaluated when creating new items. Variables: <code>it</code> (Map&lt;String, String?&gt;), <code>now</code> (Instant). Return a String or null.</p>
                         <div id="smartDefaultGroup">
+                            <div id="predefinedSmartDefaultGroup" class="d-none mb-2">
+                                <div class="app-section-label mb-1" style="font-size:0.75rem;">Predefined</div>
+                                <div id="predefinedSmartDefaultButtons" class="d-flex flex-wrap gap-1"></div>
+                            </div>
                             <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="e.g. now.toString()" data-testid="smart-default-script-input"></textarea>
                         </div>
                         <p id="smartDefaultGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No smart default available for this property type.</p>
@@ -1137,6 +1141,24 @@
 
                 var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
 
+                var PREDEFINED_SMART_DEFAULTS = {
+                    'DATE': [
+                        { label: 'Today', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDate().toString()' }
+                    ],
+                    'TIME': [
+                        { label: 'Now', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().toString()' },
+                        { label: 'Now (Current Second)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()' },
+                        { label: 'Now (Current Minute)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().truncatedTo(java.time.temporal.ChronoUnit.MINUTES).toString()' },
+                        { label: 'Now (Current Hour)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().truncatedTo(java.time.temporal.ChronoUnit.HOURS).toString()' }
+                    ],
+                    'DATETIME': [
+                        { label: 'Now', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().toString()' },
+                        { label: 'Now (Current Second)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()' },
+                        { label: 'Now (Current Minute)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().truncatedTo(java.time.temporal.ChronoUnit.MINUTES).toString()' },
+                        { label: 'Now (Current Hour)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().truncatedTo(java.time.temporal.ChronoUnit.HOURS).toString()' }
+                    ]
+                };
+
                 function applyConstraintVisibility(propertyType) {
                     var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];
                     document.getElementById('constraintGroupUniqueKey').classList.toggle('d-none', !groups.includes('UniqueKey'));
@@ -1155,6 +1177,28 @@
                     var supportsSmartDefault = SMART_DEFAULT_SUPPORTED_TYPES.includes(propertyType);
                     document.getElementById('smartDefaultGroup').classList.toggle('d-none', !supportsSmartDefault);
                     document.getElementById('smartDefaultGroupNone').classList.toggle('d-none', supportsSmartDefault);
+
+                    var predefinedDefaults = (supportsSmartDefault && PREDEFINED_SMART_DEFAULTS[propertyType]) || [];
+                    var predefinedContainer = document.getElementById('predefinedSmartDefaultButtons');
+                    var predefinedGroup = document.getElementById('predefinedSmartDefaultGroup');
+                    predefinedContainer.innerHTML = '';
+                    if (predefinedDefaults.length > 0) {
+                        predefinedDefaults.forEach(function (pd) {
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'btn btn-app-secondary btn-sm';
+                            btn.style.fontSize = '0.75rem';
+                            btn.setAttribute('data-testid', 'predefined-smart-default-' + pd.label.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+                            btn.textContent = pd.label;
+                            btn.addEventListener('click', function () {
+                                document.getElementById('editPropertySmartDefault').value = pd.script;
+                            });
+                            predefinedContainer.appendChild(btn);
+                        });
+                        predefinedGroup.classList.remove('d-none');
+                    } else {
+                        predefinedGroup.classList.add('d-none');
+                    }
                 }
 
                 document.querySelectorAll('[data-action="edit-property"]').forEach(function (btn) {
