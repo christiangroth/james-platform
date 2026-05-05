@@ -1,3 +1,14 @@
+# 0.23.0 (2026.05.05)
+
+## New Features
+* Developers can now define a display text template for each entity.
+* The template may include the entity ID and any non-nullable property as clickable badge placeholders.
+* The computed display text is shown in the user app data table.
+
+
+
+---
+
 # 0.22.1 (2026.05.04)
 
 ## Bugfixes / Chore
