@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
+import io.quarkus.qute.RawString
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
@@ -209,7 +210,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.byTypeName),
+            .data("predefinedSmartDefaultsJson", RawString(PredefinedSmartDefault.byTypeNameJson)),
         ).build()
       },
     )
@@ -244,7 +245,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.byTypeName),
+            .data("predefinedSmartDefaultsJson", RawString(PredefinedSmartDefault.byTypeNameJson)),
         ).build()
       },
     )
@@ -279,7 +280,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport)
-            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.byTypeName),
+            .data("predefinedSmartDefaultsJson", RawString(PredefinedSmartDefault.byTypeNameJson)),
         ).build()
       },
     )

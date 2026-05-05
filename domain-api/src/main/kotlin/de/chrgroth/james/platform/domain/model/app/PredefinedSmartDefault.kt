@@ -61,5 +61,12 @@ enum class PredefinedSmartDefault(
     val byTypeName: Map<String, List<PredefinedSmartDefault>> =
       entries.flatMap { pd -> pd.types.map { type -> type.name to pd } }
         .groupBy({ it.first }, { it.second })
+
+    /** JSON array representation of [byTypeName] for safe server-side embedding in HTML templates. */
+    val byTypeNameJson: String = byTypeName.entries.joinToString(",", "{", "}") { (typeName, defaults) ->
+      "\"${typeName}\":[${defaults.joinToString(",") { pd -> "{\"label\":${jsonEncode(pd.label)},\"script\":${jsonEncode(pd.script)}}" }}]"
+    }
+
+    private fun jsonEncode(value: String): String = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")}\""
   }
 }

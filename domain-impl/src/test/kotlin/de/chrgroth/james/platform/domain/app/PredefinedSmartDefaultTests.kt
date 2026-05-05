@@ -63,4 +63,18 @@ class PredefinedSmartDefaultTests {
       PredefinedSmartDefault.DATETIME_NOW_CURRENT_HOUR,
     )
   }
+
+  @Test
+  fun `byTypeNameJson produces valid JSON with all types and entries`() {
+    val json = PredefinedSmartDefault.byTypeNameJson
+
+    assertThat(json).startsWith("{")
+    assertThat(json).endsWith("}")
+    assertThat(json).contains("\"DATE\"")
+    assertThat(json).contains("\"TIME\"")
+    assertThat(json).contains("\"DATETIME\"")
+    assertThat(json).contains("\"Today\"")
+    assertThat(json).contains("\"Now\"")
+    assertThat(json).doesNotContain("'")
+  }
 }

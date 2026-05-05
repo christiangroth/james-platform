@@ -863,6 +863,7 @@
 
     {/content}
     {#scripts}
+    <script type="application/json" id="predefined-smart-defaults-data">{predefinedSmartDefaultsJson}</script>
     <script>
         (function () {
             var appId = '{app.id}';
@@ -1141,9 +1142,7 @@
 
                 var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
 
-                var PREDEFINED_SMART_DEFAULTS = {};
-{#for entry in predefinedSmartDefaultsByType.entrySet}                PREDEFINED_SMART_DEFAULTS["{entry.key}"] = [{#for pd in entry.value}{"label":"{pd.label}","script":"{pd.script}"}{#if pd_hasNext},{/if}{/for}];
-{/for}
+                var PREDEFINED_SMART_DEFAULTS = JSON.parse(document.getElementById('predefined-smart-defaults-data').textContent);
 
                 function applyConstraintVisibility(propertyType) {
                     var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];
