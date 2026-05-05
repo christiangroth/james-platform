@@ -69,7 +69,7 @@
                             {#if !prop.nullable}
                             <span class="badge app-badge-muted me-1" style="cursor:pointer;"
                                   data-action="insert-display-text-token"
-                                  data-token-prop-id="{prop.id}"
+                                  data-token-prop-id="{prop.name}"
                                   data-testid="display-text-token-prop">{prop.name}</span>
                             {/if}
                             {/for}
@@ -755,6 +755,16 @@
                     btn.disabled = false;
                 });
 
+                function updateDisplayTextBadgeVisibility() {
+                    var input = document.getElementById('displayTextInput');
+                    var value = input ? input.value : '';
+                    document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
+                        var propId = badge.getAttribute('data-token-prop-id');
+                        var token = '{' + propId + '}';
+                        badge.style.display = value.indexOf(token) !== -1 ? 'none' : '';
+                    });
+                }
+
                 document.querySelectorAll('[data-action="insert-display-text-token"]').forEach(function (badge) {
                     badge.addEventListener('click', function () {
                         var propId = badge.getAttribute('data-token-prop-id');
@@ -766,8 +776,15 @@
                         input.value = before + token + after;
                         input.focus();
                         input.selectionStart = input.selectionEnd = pos + token.length;
+                        updateDisplayTextBadgeVisibility();
                     });
                 });
+
+                var displayTextInput = document.getElementById('displayTextInput');
+                if (displayTextInput) {
+                    displayTextInput.addEventListener('input', updateDisplayTextBadgeVisibility);
+                    updateDisplayTextBadgeVisibility();
+                }
             }
 
             // Add Report modal form

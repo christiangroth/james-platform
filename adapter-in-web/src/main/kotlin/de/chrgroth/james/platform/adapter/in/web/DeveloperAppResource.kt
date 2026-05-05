@@ -573,6 +573,7 @@ class DeveloperAppResource {
     AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.code -> "A version with this number already exists."
     AppVersionError.BLANK_RELEASE_NOTES.code -> "Release notes are required."
     AppVersionError.NO_CHANGES.code -> "No changes detected in entities or reports. Please make changes before publishing."
+    AppVersionError.DISPLAY_TEXT_INVALID.code -> "One or more entities have an invalid display text. Please fix all display texts before publishing."
     else -> "An unexpected error occurred. Please try again."
   }
 

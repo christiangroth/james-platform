@@ -1059,4 +1059,189 @@ class AppVersionManagementServiceTests {
   }
 
   // endregion
+
+  // region updateEntityDisplayText
+
+  @Test
+  fun `updateEntityDisplayText sets display text using property names`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order {Amount}")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isEqualTo("Order {Amount}")
+  }
+
+  @Test
+  fun `updateEntityDisplayText clears display text when blank`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", displayText = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "  ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isNull()
+  }
+
+  @Test
+  fun `updateEntityDisplayText fails when display text references nullable property name`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order {Tag}")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY)
+  }
+
+  @Test
+  fun `updateEntityDisplayText fails when display text references unknown property name`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order {UnknownProp}")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY)
+  }
+
+  @Test
+  fun `updateEntityDisplayText allows id token`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order {id}")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isEqualTo("Order {id}")
+  }
+
+  // endregion
+
+  // region deleteProperty with display text
+
+  @Test
+  fun `deleteProperty removes property name token from display text`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop), displayText = "{Amount}")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteProperty("app-1", "ver-1", "e-1", "p-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isNull()
+  }
+
+  // endregion
+
+  // region updateProperty with display text
+
+  @Test
+  fun `updateProperty removes old property name from display text when making property nullable`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop), displayText = "{Amount}")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Amount", "LONG", true)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isNull()
+  }
+
+  @Test
+  fun `updateProperty does not modify display text when property stays non-nullable`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop), displayText = "Order {Amount}")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Amount", "LONG", false)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isEqualTo("Order {Amount}")
+  }
+
+  // endregion
+
+  // region publishVersion display text validation
+
+  @Test
+  fun `publishVersion fails when entity display text references unknown property name`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(
+      id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop),
+      displayText = "Order {OldName}",
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DISPLAY_TEXT_INVALID)
+  }
+
+  @Test
+  fun `publishVersion fails when entity display text references nullable property name`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val entity = EntityDefinition(
+      id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop),
+      displayText = "Order {Tag}",
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DISPLAY_TEXT_INVALID)
+  }
+
+  @Test
+  fun `publishVersion succeeds when all display text references are valid property names`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(
+      id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop),
+      displayText = "Order {Amount}",
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+  }
+
+  @Test
+  fun `publishVersion succeeds when entity has no display text`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val draft = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+  }
+
+  // endregion
 }

@@ -145,6 +145,16 @@ class AppVersionManagementService(
       logger.warn { "Publish version failed: version number already exists: ${versionNumber.value} in app $appId" }
       return AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.left()
     }
+    for (entity in version.entityDefinitions) {
+      val dt = entity.displayText ?: continue
+      val nonNullablePropNames = entity.properties.filter { !it.nullable }.map { it.name }.toSet()
+      val usedPropNames = extractPropertyNames(dt)
+      val invalidNames = usedPropNames - nonNullablePropNames
+      if (invalidNames.isNotEmpty()) {
+        logger.warn { "Publish version failed: entity ${entity.id.value} has invalid display text references: $invalidNames" }
+        return AppVersionError.DISPLAY_TEXT_INVALID.left()
+      }
+    }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
     logger.info { "App version published: ${versionNumber.value} (${version.id.value})" }
@@ -248,11 +258,11 @@ class AppVersionManagementService(
     }
     val trimmedDisplayText = displayText?.trim()?.takeIf { it.isNotBlank() }
     if (trimmedDisplayText != null) {
-      val nonNullablePropIds = entity.properties.filter { !it.nullable }.map { it.id.value }.toSet()
-      val usedPropIds = extractPropertyIds(trimmedDisplayText)
-      val invalidPropIds = usedPropIds - nonNullablePropIds
-      if (invalidPropIds.isNotEmpty()) {
-        logger.warn { "Update entity display text failed: template references nullable/unknown properties: $invalidPropIds in entity $entityId" }
+      val nonNullablePropNames = entity.properties.filter { !it.nullable }.map { it.name }.toSet()
+      val usedPropNames = extractPropertyNames(trimmedDisplayText)
+      val invalidPropNames = usedPropNames - nonNullablePropNames
+      if (invalidPropNames.isNotEmpty()) {
+        logger.warn { "Update entity display text failed: template references nullable/unknown properties: $invalidPropNames in entity $entityId" }
         return AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.left()
       }
     }
@@ -329,7 +339,7 @@ class AppVersionManagementService(
     val constraintsToKeep = if (propertyType == property.type) property.constraints else emptySet()
     val updatedProperty = property.copy(name = name.trim(), type = propertyType, nullable = nullable, constraints = constraintsToKeep)
     val newDisplayText = if (nullable && !property.nullable) {
-      removePropertyFromDisplayText(entity.displayText, propertyId)
+      removePropertyFromDisplayText(entity.displayText, property.name)
     } else {
       entity.displayText
     }
@@ -379,9 +389,10 @@ class AppVersionManagementService(
       logger.warn { "Delete property failed: property not found: $propertyId in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
+    val propertyName = entity.properties.first { it.id.value == propertyId }.name
     val updatedEntity = entity.copy(
       properties = entity.properties.filter { it.id.value != propertyId },
-      displayText = removePropertyFromDisplayText(entity.displayText, propertyId),
+      displayText = removePropertyFromDisplayText(entity.displayText, propertyName),
     )
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
@@ -447,15 +458,15 @@ class AppVersionManagementService(
     return version
   }
 
-  private fun extractPropertyIds(template: String): Set<String> =
+  private fun extractPropertyNames(template: String): Set<String> =
     Regex("\\{([^}]+)\\}").findAll(template)
       .map { it.groupValues[1] }
       .filter { it != "id" }
       .toSet()
 
-  private fun removePropertyFromDisplayText(displayText: String?, propertyId: String): String? {
+  private fun removePropertyFromDisplayText(displayText: String?, propertyName: String): String? {
     if (displayText.isNullOrBlank()) return displayText
-    val cleaned = displayText.replace(Regex("\\{${Regex.escape(propertyId)}\\}"), "").trim()
+    val cleaned = displayText.replace(Regex("\\{${Regex.escape(propertyName)}\\}"), "").trim()
     return cleaned.takeIf { it.isNotBlank() }
   }
 

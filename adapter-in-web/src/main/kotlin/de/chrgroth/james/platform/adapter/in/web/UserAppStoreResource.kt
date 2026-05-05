@@ -341,9 +341,14 @@ class UserAppStoreResource {
 
   private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>): String {
     val template = entityDef?.displayText ?: return dataId
+    val nameToId = entityDef.properties.associate { it.name to it.id.value }
     val result = DISPLAY_TEXT_TOKEN_REGEX.replace(template) { match ->
       val key = match.groupValues[1]
-      if (key == "id") dataId else data[key] ?: ""
+      if (key == "id") dataId
+      else {
+        val propId = nameToId[key]
+        if (propId == null) "<?>" else data[propId] ?: ""
+      }
     }.trim()
     return result.ifBlank { dataId }
   }
