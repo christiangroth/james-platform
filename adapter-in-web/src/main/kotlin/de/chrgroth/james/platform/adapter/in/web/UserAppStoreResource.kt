@@ -329,7 +329,10 @@ class UserAppStoreResource {
     val userId = securityIdentity.principal.name
     return appData.deleteAppData(userId, installedAppId, dataId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Data deleted.", "/ui/user/apps/$installedAppId")).build() },
+      ifRight = { count ->
+        val message = if (count > 0) "Data deleted. $count reference(s) cleared." else "Data deleted."
+        Response.ok(DeveloperApiResult(true, message, "/ui/user/apps/$installedAppId")).build()
+      },
     )
   }
 
@@ -348,6 +351,7 @@ class UserAppStoreResource {
     AppDataError.ENTITY_NOT_FOUND.code -> "Entity type not found."
     AppDataError.CONSTRAINT_VIOLATION.code -> "One or more values violate constraints."
     AppDataError.APP_DATA_NOT_FOUND.code -> "App data not found."
+    AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> "Cannot delete: this entry is referenced by a required property in another record."
     else -> "An unexpected error occurred. Please try again."
   }
 

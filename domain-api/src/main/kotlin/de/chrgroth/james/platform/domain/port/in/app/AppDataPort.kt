@@ -23,5 +23,5 @@ interface AppDataPort {
     data: Map<String, String>,
   ): Either<DomainError, AppData>
 
-  fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Unit>
+  fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Int>
 }

@@ -86,6 +86,7 @@ enum class AppDataError(override val code: String) : DomainError {
   ENTITY_NOT_FOUND("APPDATA-002"),
   CONSTRAINT_VIOLATION("APPDATA-003"),
   APP_DATA_NOT_FOUND("APPDATA-004"),
+  REFERENCED_BY_NON_NULLABLE_PROPERTY("APPDATA-005"),
   ;
 }
 

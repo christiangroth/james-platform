@@ -187,7 +187,7 @@ class AppDataService(
     return updatedAppData.right()
   }
 
-  override fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Unit> {
+  override fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Int> {
     val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
     if (installedApp == null || installedApp.userId != userId) {
       logger.warn { "Delete app data failed: installed app not found: $installedAppId for user: $userId" }
@@ -198,9 +198,47 @@ class AppDataService(
       logger.warn { "Delete app data failed: app data not found: $dataId for installed app: $installedAppId" }
       return AppDataError.APP_DATA_NOT_FOUND.left()
     }
+
+    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    if (appVersion == null) {
+      logger.warn { "Delete app data failed: app version not found for installed app: $installedAppId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+
+    // Collect all (referencingData, property) pairs where a REF property value equals dataId
+    data class RefHit(val referencingData: AppData, val property: Property)
+    val allData = appDataRepository.findAllByInstalledAppId(InstalledAppId(installedAppId))
+    val references = mutableListOf<RefHit>()
+    for (entityDef in appVersion.entityDefinitions) {
+      val refProperties = entityDef.properties.filter { it.type == PropertyType.REF }
+      if (refProperties.isEmpty()) continue
+      val entityData = allData.filter { it.entityType == entityDef.id && it.id.value != dataId }
+      for (item in entityData) {
+        for (refProp in refProperties) {
+          if (item.data[refProp.id.value] == dataId) {
+            references += RefHit(item, refProp)
+          }
+        }
+      }
+    }
+
+    // Reject deletion if any referencing property is non-nullable
+    if (references.any { !it.property.nullable }) {
+      logger.warn { "Delete app data failed: referenced by non-nullable property: $dataId for installed app: $installedAppId" }
+      return AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.left()
+    }
+
+    // Null out all nullable references before deleting
+    val now = Instant.now()
+    for ((referencingData, refProp) in references) {
+      val updatedData = referencingData.data.toMutableMap()
+      updatedData[refProp.id.value] = null
+      appDataRepository.save(referencingData.copy(objectVersion = referencingData.objectVersion + 1, lastChangedAt = now, data = updatedData))
+    }
+
     appDataRepository.delete(AppDataId(dataId))
-    logger.info { "App data deleted: $dataId for installed app: $installedAppId" }
-    return Unit.right()
+    logger.info { "App data deleted: $dataId for installed app: $installedAppId (${references.size} reference(s) cleared)" }
+    return references.size.right()
   }
 
   private fun parseValue(property: Property, rawValue: String?): Any? {
