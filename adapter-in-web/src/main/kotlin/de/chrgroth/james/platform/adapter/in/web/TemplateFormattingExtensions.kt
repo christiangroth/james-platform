@@ -211,10 +211,10 @@ object TemplateFormattingExtensions {
     else -> "text"
   }
 
-  /** Returns entity definitions sorted alphabetically by name. */
+  /** Returns entity definitions in their stored order (as defined by the developer). */
   @JvmStatic
   fun sortedEntityDefinitions(version: AppVersion): List<EntityDefinition> =
-    version.entityDefinitions.sortedBy { it.name }
+    version.entityDefinitions
 
   /** Returns reports sorted alphabetically by name. */
   @JvmStatic

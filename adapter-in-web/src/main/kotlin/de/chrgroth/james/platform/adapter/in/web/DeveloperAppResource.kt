@@ -6,6 +6,8 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.SortCriteria
+import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
@@ -34,6 +36,11 @@ data class DashboardAppInfo(
   val hasDraft: Boolean,
   val latestVersionNumber: String?,
   val latestVersionPublishedAt: Instant?,
+)
+
+data class SortCriteriaRequest(
+  val propertyId: String,
+  val direction: SortDirection,
 )
 
 @Path("/ui/developer")
@@ -394,6 +401,38 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/reorder")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun reorderEntities(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    entityIds: List<String>,
+  ): Response {
+    return appVersionManagement.reorderEntities(appId, versionId, entityIds).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Entities reordered.")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/sort-criteria")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateEntitySortCriteria(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    sortBy: List<SortCriteriaRequest>,
+  ): Response {
+    val domainSortBy = sortBy.map { req -> SortCriteria(propertyId = req.propertyId, direction = req.direction) }
+    return appVersionManagement.updateEntitySortCriteria(appId, versionId, entityId, domainSortBy).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Sort criteria saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/display-text")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -588,6 +627,7 @@ class DeveloperAppResource {
     AppVersionError.BLANK_INPUT.code -> "Name is required."
     AppVersionError.ENTITY_NAME_ALREADY_EXISTS.code -> "An entity with this name already exists."
     AppVersionError.ENTITY_NOT_FOUND.code -> "Entity not found."
+    AppVersionError.ENTITY_IDS_MISMATCH.code -> "Entity IDs do not match the existing entities."
     AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.code -> "A property with this name already exists."
     AppVersionError.PROPERTY_NOT_FOUND.code -> "Property not found."
     AppVersionError.INVALID_PROPERTY_TYPE.code -> "Invalid property type."

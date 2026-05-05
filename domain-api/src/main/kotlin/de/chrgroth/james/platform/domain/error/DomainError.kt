@@ -67,6 +67,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   NO_PREDECESSOR_VERSION("APPVER-020"),
   DISPLAY_TEXT_USES_NULLABLE_PROPERTY("APPVER-021"),
   DISPLAY_TEXT_INVALID("APPVER-022"),
+  ENTITY_IDS_MISMATCH("APPVER-023"),
   ;
 }
 

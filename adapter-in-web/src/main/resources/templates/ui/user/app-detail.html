@@ -10,45 +10,26 @@
         </nav>
 
         <div class="card app-card p-4">
+            <h2 class="fs-5 fw-semibold mb-3" data-testid="data-section-title">Data</h2>
+
+            {#if info.installedVersion.entityDefinitions.isEmpty}
+            <p class="mb-0 app-section-label" data-testid="no-data-message">No entities defined.</p>
+            {#else if entityTabs.size == 1}
+            {! Single entity: no tabs !}
+            {#let tab=entityTabs.get(0)}
             <div class="d-flex align-items-center mb-3 gap-2">
-                <h2 class="fs-5 fw-semibold mb-0" data-testid="data-section-title">Data</h2>
-                {#if info.installedVersion.entityDefinitions.isEmpty}
-                {#else if singleEntityId != null}
-                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={singleEntityId}"
+                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
                    class="btn btn-app-secondary btn-sm ms-auto"
                    data-testid="add-data-button"
                    title="Add" aria-label="Add">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
                 </a>
-                {#else}
-                <div class="dropdown ms-auto">
-                    <button type="button"
-                            class="btn btn-app-secondary btn-sm"
-                            data-bs-toggle="dropdown"
-                            data-testid="add-data-dropdown-button"
-                            title="Add" aria-label="Add" aria-expanded="false">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" style="background-color:var(--color-bg-card);border-color:var(--color-border);">
-                        {#for entity in info.installedVersion.entityDefinitions}
-                        <li>
-                            <a class="dropdown-item" style="color:var(--color-text-primary);"
-                               href="/ui/user/apps/{info.installedAppId}/data/new?entityId={entity.id}"
-                               data-testid="add-data-entity-item">
-                                {entity.name}
-                            </a>
-                        </li>
-                        {/for}
-                    </ul>
-                </div>
-                {/if}
             </div>
-
-            {#if appDataList.isEmpty}
+            {#if tab.rows.isEmpty}
             <p class="mb-0 app-section-label" data-testid="no-data-message">No data yet.</p>
             {#else}
             <div class="table-responsive">
-                <table class="table table-sm mb-0 app-table" data-testid="app-data-table">
+                <table class="table table-sm mb-0 app-table" data-testid="app-data-table" data-entity-id="{tab.entityId}">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -56,7 +37,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#for item in appDataList}
+                        {#for item in tab.rows}
                         <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                             <td data-testid="app-data-index">{item_count}</td>
                             <td class="text-truncate" style="max-width:400px;" title="{item.displayText}" data-testid="app-data-display-text">{item.displayText}</td>
@@ -66,17 +47,146 @@
                 </table>
             </div>
             {/if}
+            {/let}
+            {#else}
+            {! Multiple entities: tabs !}
+            <ul class="nav nav-tabs mb-3" id="entityTabs" role="tablist" data-testid="entity-tabs">
+                {#for tab in entityTabs}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {#if tab_index == 0}active{/if}"
+                            id="tab-btn-{tab.entityId}"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tab-{tab.entityId}"
+                            type="button" role="tab"
+                            aria-controls="tab-{tab.entityId}"
+                            aria-selected="{#if tab_index == 0}true{#else}false{/if}"
+                            data-testid="entity-tab-{tab.entityName}">
+                        {tab.entityName}
+                    </button>
+                </li>
+                {/for}
+            </ul>
+            <div class="tab-content" id="entityTabsContent">
+                {#for tab in entityTabs}
+                <div class="tab-pane fade {#if tab_index == 0}show active{/if}"
+                     id="tab-{tab.entityId}"
+                     role="tabpanel"
+                     aria-labelledby="tab-btn-{tab.entityId}"
+                     data-testid="entity-tab-pane-{tab.entityName}">
+                    <div class="d-flex align-items-center mb-3 gap-2">
+                        <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
+                           class="btn btn-app-secondary btn-sm ms-auto"
+                           data-testid="add-data-tab-button-{tab.entityName}"
+                           title="Add {tab.entityName}" aria-label="Add {tab.entityName}">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+                        </a>
+                    </div>
+                    {#if tab.rows.isEmpty}
+                    <p class="mb-0 app-section-label" data-testid="no-data-message-{tab.entityName}">No data yet.</p>
+                    {#else}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 app-table" data-testid="app-data-table-{tab.entityName}" data-entity-id="{tab.entityId}">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Display Text</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#for item in tab.rows}
+                                <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
+                                    <td data-testid="app-data-index">{item_count}</td>
+                                    <td class="text-truncate" style="max-width:400px;" title="{item.displayText}" data-testid="app-data-display-text">{item.displayText}</td>
+                                </tr>
+                                {/for}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/if}
+                </div>
+                {/for}
+            </div>
+            {/if}
         </div>
     </div>
     {/content}
     {#scripts}
     <script>
-        document.querySelectorAll('.app-clickable-row').forEach(function (row) {
-            row.style.cursor = 'pointer';
-            row.addEventListener('click', function () {
-                window.location.href = this.dataset.href;
+        (function () {
+            var PAGE_SIZE = {pageSize};
+
+            // Clickable rows
+            document.querySelectorAll('.app-clickable-row').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function () {
+                    window.location.href = this.dataset.href;
+                });
             });
-        });
+
+            // Pagination per table
+            function initPagination(table) {
+                var tbody = table.querySelector('tbody');
+                if (!tbody) { return; }
+                var rows = Array.from(tbody.querySelectorAll('tr'));
+                if (rows.length <= PAGE_SIZE) {
+                    return;
+                }
+
+                var totalPages = Math.ceil(rows.length / PAGE_SIZE);
+                var currentPage = 1;
+
+                function showPage(page) {
+                    currentPage = page;
+                    rows.forEach(function (row, idx) {
+                        var rowPage = Math.floor(idx / PAGE_SIZE) + 1;
+                        row.style.display = rowPage === page ? '' : 'none';
+                    });
+                    updatePager();
+                }
+
+                function updatePager() {
+                    var pager = table.parentElement.querySelector('.app-data-pager');
+                    if (!pager) { return; }
+                    pager.querySelector('.pager-info').textContent = 'Page ' + currentPage + ' / ' + totalPages;
+                    pager.querySelector('.pager-prev').disabled = currentPage <= 1;
+                    pager.querySelector('.pager-next').disabled = currentPage >= totalPages;
+                }
+
+                // Build pager
+                var pager = document.createElement('div');
+                pager.className = 'app-data-pager d-flex align-items-center gap-2 mt-2';
+                pager.setAttribute('data-testid', 'data-pager');
+                var prevBtn = document.createElement('button');
+                prevBtn.type = 'button';
+                prevBtn.className = 'btn btn-app-secondary btn-sm pager-prev';
+                prevBtn.setAttribute('data-testid', 'pager-prev');
+                prevBtn.textContent = '\u2039 Previous';
+                var info = document.createElement('span');
+                info.className = 'app-section-label pager-info';
+                var nextBtn = document.createElement('button');
+                nextBtn.type = 'button';
+                nextBtn.className = 'btn btn-app-secondary btn-sm pager-next';
+                nextBtn.setAttribute('data-testid', 'pager-next');
+                nextBtn.textContent = 'Next \u203a';
+                prevBtn.addEventListener('click', function () {
+                    if (currentPage > 1) { showPage(currentPage - 1); }
+                });
+                nextBtn.addEventListener('click', function () {
+                    if (currentPage < totalPages) { showPage(currentPage + 1); }
+                });
+                pager.appendChild(prevBtn);
+                pager.appendChild(info);
+                pager.appendChild(nextBtn);
+                table.parentElement.appendChild(pager);
+
+                showPage(1);
+            }
+
+            document.querySelectorAll('[data-entity-id]').forEach(function (table) {
+                initPagination(table);
+            });
+        })();
     </script>
     {/scripts}
 {/include}
+

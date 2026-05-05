@@ -16,6 +16,8 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.app.SortCriteria
+import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import io.mockk.every
@@ -606,6 +608,105 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
 
     val result = service.deleteEntity("app-1", "ver-1", "unknown-entity")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region reorderEntities
+
+  @Test
+  fun `reorderEntities reorders entities in draft version`() {
+    val entity1 = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val entity2 = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Product")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity1, entity2))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.reorderEntities("app-1", "ver-1", listOf("e-2", "e-1"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.map { it.id.value }).containsExactly("e-2", "e-1")
+  }
+
+  @Test
+  fun `reorderEntities fails when entity IDs mismatch`() {
+    val entity1 = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val entity2 = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Product")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity1, entity2))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.reorderEntities("app-1", "ver-1", listOf("e-1", "e-unknown"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_IDS_MISMATCH)
+  }
+
+  @Test
+  fun `reorderEntities fails when entity IDs are missing`() {
+    val entity1 = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val entity2 = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Product")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity1, entity2))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.reorderEntities("app-1", "ver-1", listOf("e-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_IDS_MISMATCH)
+  }
+
+  @Test
+  fun `reorderEntities fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.reorderEntities("app-1", "unknown", listOf("e-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region updateEntitySortCriteria
+
+  @Test
+  fun `updateEntitySortCriteria updates sort criteria for entity`() {
+    val prop1 = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = false)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop1))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val sortBy = listOf(SortCriteria(propertyId = "p-1", direction = SortDirection.DESC))
+    val result = service.updateEntitySortCriteria("app-1", "ver-1", "e-1", sortBy)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.sortBy).hasSize(1)
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.sortBy?.first()?.propertyId).isEqualTo("p-1")
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.sortBy?.first()?.direction).isEqualTo(SortDirection.DESC)
+  }
+
+  @Test
+  fun `updateEntitySortCriteria ignores unknown property IDs`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val sortBy = listOf(SortCriteria(propertyId = "unknown-prop", direction = SortDirection.ASC))
+    val result = service.updateEntitySortCriteria("app-1", "ver-1", "e-1", sortBy)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.sortBy).isEmpty()
+  }
+
+  @Test
+  fun `updateEntitySortCriteria fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.updateEntitySortCriteria("app-1", "ver-1", "unknown-entity", emptyList())
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
