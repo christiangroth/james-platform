@@ -1,3 +1,18 @@
+# 0.26.1 (2026.05.05)
+
+## Bugfixes / Chore
+* Inserting a placeholder token into the Display Text field now inserts at the cursor position (or end), not at the beginning.
+* Publishing a draft version is now possible even when only the entity order was changed.
+* The Sort Order field dropdown now shows all available properties even when no sort criteria have been defined yet.
+* Removed the "Data" heading from the app detail page.
+* Data table display text column header is now blank.
+* Entity tab titles are no longer blue and tabs are more compact.
+* The active entity tab is now remembered when navigating to and from the new data dialog.
+
+
+
+---
+
 # 0.26.0 (2026.05.05)
 
 ## New Features
