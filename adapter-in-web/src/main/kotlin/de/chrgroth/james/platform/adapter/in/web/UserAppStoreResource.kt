@@ -379,8 +379,26 @@ class UserAppStoreResource {
           aVal == null && bVal == null -> 0
           aVal == null -> 1
           bVal == null -> -1
-          propType == PropertyType.LONG -> aVal.toLongOrNull()?.compareTo(bVal.toLongOrNull() ?: 0L) ?: aVal.compareTo(bVal)
-          propType == PropertyType.DOUBLE -> aVal.toDoubleOrNull()?.compareTo(bVal.toDoubleOrNull() ?: 0.0) ?: aVal.compareTo(bVal)
+          propType == PropertyType.LONG -> {
+            val aLong = aVal.toLongOrNull()
+            val bLong = bVal.toLongOrNull()
+            when {
+              aLong != null && bLong != null -> aLong.compareTo(bLong)
+              aLong != null -> -1
+              bLong != null -> 1
+              else -> aVal.compareTo(bVal)
+            }
+          }
+          propType == PropertyType.DOUBLE -> {
+            val aDouble = aVal.toDoubleOrNull()
+            val bDouble = bVal.toDoubleOrNull()
+            when {
+              aDouble != null && bDouble != null -> aDouble.compareTo(bDouble)
+              aDouble != null -> -1
+              bDouble != null -> 1
+              else -> aVal.compareTo(bVal)
+            }
+          }
           propType == PropertyType.BOOLEAN -> aVal.compareTo(bVal)
           else -> aVal.compareTo(bVal, ignoreCase = true)
         }

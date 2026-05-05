@@ -128,7 +128,9 @@
                 var tbody = table.querySelector('tbody');
                 if (!tbody) { return; }
                 var rows = Array.from(tbody.querySelectorAll('tr'));
-                if (rows.length <= PAGE_SIZE) { return; }
+                if (rows.length <= PAGE_SIZE) {
+                    return;
+                }
 
                 var totalPages = Math.ceil(rows.length / PAGE_SIZE);
                 var currentPage = 1;
