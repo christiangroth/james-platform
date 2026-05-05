@@ -209,7 +209,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.entries.groupBy { pd -> pd.types.first().name }),
+            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.byTypeName),
         ).build()
       },
     )
@@ -244,7 +244,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.entries.groupBy { pd -> pd.types.first().name }),
+            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.byTypeName),
         ).build()
       },
     )
@@ -279,7 +279,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport)
-            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.entries.groupBy { pd -> pd.types.first().name }),
+            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.byTypeName),
         ).build()
       },
     )

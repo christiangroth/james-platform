@@ -56,5 +56,10 @@ enum class PredefinedSmartDefault(
   companion object {
     /** Returns all predefined smart defaults applicable to the given [type]. */
     fun forType(type: PropertyType): List<PredefinedSmartDefault> = entries.filter { type in it.types }
+
+    /** Predefined smart defaults grouped by their applicable [PropertyType] name, supporting multi-type entries. */
+    val byTypeName: Map<String, List<PredefinedSmartDefault>> =
+      entries.flatMap { pd -> pd.types.map { type -> type.name to pd } }
+        .groupBy({ it.first }, { it.second })
   }
 }
