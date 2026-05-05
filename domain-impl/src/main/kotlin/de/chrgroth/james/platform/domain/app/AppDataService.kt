@@ -206,9 +206,8 @@ class AppDataService(
     }
 
     // Collect all (referencingData, property) pairs where a REF property value equals dataId
-    data class RefHit(val referencingData: AppData, val property: Property)
     val allData = appDataRepository.findAllByInstalledAppId(InstalledAppId(installedAppId))
-    val references = mutableListOf<RefHit>()
+    val references = mutableListOf<PropertyReference>()
     for (entityDef in appVersion.entityDefinitions) {
       val refProperties = entityDef.properties.filter { it.type == PropertyType.REF }
       if (refProperties.isEmpty()) continue
@@ -216,7 +215,7 @@ class AppDataService(
       for (item in entityData) {
         for (refProp in refProperties) {
           if (item.data[refProp.id.value] == dataId) {
-            references += RefHit(item, refProp)
+            references += PropertyReference(item, refProp)
           }
         }
       }
@@ -253,3 +252,5 @@ class AppDataService(
 
   companion object : KLogging()
 }
+
+private data class PropertyReference(val referencingData: AppData, val property: Property)

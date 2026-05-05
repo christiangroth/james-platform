@@ -351,7 +351,7 @@ class UserAppStoreResource {
     AppDataError.ENTITY_NOT_FOUND.code -> "Entity type not found."
     AppDataError.CONSTRAINT_VIOLATION.code -> "One or more values violate constraints."
     AppDataError.APP_DATA_NOT_FOUND.code -> "App data not found."
-    AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> "Cannot delete: this entry is referenced by a required property in another record."
+    AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> "Cannot delete: this entry is referenced by a required property in another record. Please remove or update the referencing records first."
     else -> "An unexpected error occurred. Please try again."
   }
 
