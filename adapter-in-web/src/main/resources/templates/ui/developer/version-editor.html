@@ -1141,23 +1141,9 @@
 
                 var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
 
-                var PREDEFINED_SMART_DEFAULTS = {
-                    'DATE': [
-                        { label: 'Today', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDate().toString()' }
-                    ],
-                    'TIME': [
-                        { label: 'Now', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().toString()' },
-                        { label: 'Now (Current Second)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()' },
-                        { label: 'Now (Current Minute)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().truncatedTo(java.time.temporal.ChronoUnit.MINUTES).toString()' },
-                        { label: 'Now (Current Hour)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().truncatedTo(java.time.temporal.ChronoUnit.HOURS).toString()' }
-                    ],
-                    'DATETIME': [
-                        { label: 'Now', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().toString()' },
-                        { label: 'Now (Current Second)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString()' },
-                        { label: 'Now (Current Minute)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().truncatedTo(java.time.temporal.ChronoUnit.MINUTES).toString()' },
-                        { label: 'Now (Current Hour)', script: 'java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atOffset(java.time.ZoneOffset.UTC).toLocalDateTime().truncatedTo(java.time.temporal.ChronoUnit.HOURS).toString()' }
-                    ]
-                };
+                var PREDEFINED_SMART_DEFAULTS = {};
+{#for entry in predefinedSmartDefaultsByType.entrySet}                PREDEFINED_SMART_DEFAULTS["{entry.key}"] = [{#for pd in entry.value}{"label":"{pd.label}","script":"{pd.script}"}{#if pd_hasNext},{/if}{/for}];
+{/for}
 
                 function applyConstraintVisibility(propertyType) {
                     var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];

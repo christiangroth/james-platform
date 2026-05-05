@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
@@ -207,7 +208,8 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
-            .data("selectedReport", null),
+            .data("selectedReport", null)
+            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.entries.groupBy { pd -> pd.types.first().name }),
         ).build()
       },
     )
@@ -241,7 +243,8 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
-            .data("selectedReport", null),
+            .data("selectedReport", null)
+            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.entries.groupBy { pd -> pd.types.first().name }),
         ).build()
       },
     )
@@ -275,7 +278,8 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
-            .data("selectedReport", selectedReport),
+            .data("selectedReport", selectedReport)
+            .data("predefinedSmartDefaultsByType", PredefinedSmartDefault.entries.groupBy { pd -> pd.types.first().name }),
         ).build()
       },
     )
