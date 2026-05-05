@@ -40,7 +40,7 @@ data class DashboardAppInfo(
 
 data class SortCriteriaRequest(
   val propertyId: String,
-  val direction: String,
+  val direction: SortDirection,
 )
 
 @Path("/ui/developer")
@@ -425,10 +425,7 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     sortBy: List<SortCriteriaRequest>,
   ): Response {
-    val domainSortBy = sortBy.mapNotNull { req ->
-      val direction = runCatching { SortDirection.valueOf(req.direction.uppercase()) }.getOrNull() ?: return@mapNotNull null
-      SortCriteria(propertyId = req.propertyId, direction = direction)
-    }
+    val domainSortBy = sortBy.map { req -> SortCriteria(propertyId = req.propertyId, direction = req.direction) }
     return appVersionManagement.updateEntitySortCriteria(appId, versionId, entityId, domainSortBy).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Sort criteria saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
