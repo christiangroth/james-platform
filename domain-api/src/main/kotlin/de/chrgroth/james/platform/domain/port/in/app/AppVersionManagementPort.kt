@@ -23,6 +23,7 @@ interface AppVersionManagementPort {
   fun addProperty(appId: String, versionId: String, entityId: String, name: String, type: String, nullable: Boolean): Either<DomainError, AppVersion>
   fun updateProperty(appId: String, versionId: String, entityId: String, propertyId: String, name: String, type: String, nullable: Boolean): Either<DomainError, AppVersion>
   fun setPropertyConstraints(appId: String, versionId: String, entityId: String, propertyId: String, constraints: Set<PropertyConstraint>): Either<DomainError, AppVersion>
+  fun setPropertyDefault(appId: String, versionId: String, entityId: String, propertyId: String, default: String?): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion>
   fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun updateReport(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion>

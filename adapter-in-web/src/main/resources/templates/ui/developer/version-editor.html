@@ -98,6 +98,7 @@
                             <th>Name</th>
                             <th>Type</th>
                             <th>Constraints</th>
+                            <th>Default</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -111,6 +112,13 @@
                                 <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
                                 {#else}
                                 {#for ct in prop.constraintTexts}<div class="app-constraint-text">{ct}</div>{/for}
+                                {/if}
+                            </td>
+                            <td>
+                                {#if prop.defaultValue}
+                                <span class="app-section-label" style="font-size:0.85rem;" data-testid="property-default-{prop.id}">{prop.defaultValue}</span>
+                                {#else}
+                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
                             </td>
                             <td class="text-end" style="white-space:nowrap;">
@@ -131,6 +139,7 @@
                                         data-constraint-pattern="{prop.constraintPattern}"
                                         data-constraint-min-size="{prop.constraintMinSize}"
                                         data-constraint-max-size="{prop.constraintMaxSize}"
+                                        data-default-value="{prop.defaultValue}"
                                         title="Edit property" aria-label="Edit property {prop.name}"
                                         data-testid="edit-property-button">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
@@ -569,6 +578,44 @@
                             </div>
                         </div>
                         <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
+                        <hr style="border-color:var(--color-border);">
+                        <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
+                        <!-- Default: Long -->
+                        <div class="default-group d-none" id="defaultGroupLong">
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="defaultLong" placeholder="No default" data-testid="default-long">
+                        </div>
+                        <!-- Default: Double -->
+                        <div class="default-group d-none" id="defaultGroupDouble">
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="defaultDouble" placeholder="No default" data-testid="default-double">
+                        </div>
+                        <!-- Default: Boolean -->
+                        <div class="default-group d-none" id="defaultGroupBoolean">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="defaultBoolean" data-testid="default-boolean">
+                                <label class="form-check-label" for="defaultBoolean" style="color:var(--color-text-muted);">Checked = true</label>
+                            </div>
+                        </div>
+                        <!-- Default: String -->
+                        <div class="default-group d-none" id="defaultGroupString">
+                            <input type="text" class="form-control app-form-control form-control-sm" id="defaultString" placeholder="No default" autocomplete="off" data-testid="default-string">
+                        </div>
+                        <!-- Default: Date -->
+                        <div class="default-group d-none" id="defaultGroupDate">
+                            <input type="date" class="form-control app-form-control form-control-sm" id="defaultDate" data-testid="default-date">
+                        </div>
+                        <!-- Default: Time -->
+                        <div class="default-group d-none" id="defaultGroupTime">
+                            <input type="time" class="form-control app-form-control form-control-sm" id="defaultTime" data-testid="default-time">
+                        </div>
+                        <!-- Default: DateTime -->
+                        <div class="default-group d-none" id="defaultGroupDatetime">
+                            <input type="datetime-local" class="form-control app-form-control form-control-sm" id="defaultDatetime" data-testid="default-datetime">
+                        </div>
+                        <!-- Default: Duration -->
+                        <div class="default-group d-none" id="defaultGroupDuration">
+                            <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="No default" autocomplete="off" data-testid="default-duration">
+                        </div>
+                        <p id="defaultGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No default available for this property type.</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1060,6 +1107,17 @@
                     'OBJECT':   [],
                 };
 
+                var DEFAULT_TYPE_GROUP = {
+                    'LONG':     'Long',
+                    'DOUBLE':   'Double',
+                    'BOOLEAN':  'Boolean',
+                    'STRING':   'String',
+                    'DATE':     'Date',
+                    'TIME':     'Time',
+                    'DATETIME': 'Datetime',
+                    'DURATION': 'Duration',
+                };
+
                 function applyConstraintVisibility(propertyType) {
                     var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];
                     document.getElementById('constraintGroupUniqueKey').classList.toggle('d-none', !groups.includes('UniqueKey'));
@@ -1068,6 +1126,12 @@
                     document.getElementById('constraintGroupString').classList.toggle('d-none', !groups.includes('String'));
                     document.getElementById('constraintGroupList').classList.toggle('d-none', !groups.includes('List'));
                     document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
+
+                    var defaultGroup = DEFAULT_TYPE_GROUP[propertyType] || null;
+                    ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
+                        document.getElementById('defaultGroup' + g).classList.toggle('d-none', defaultGroup !== g);
+                    });
+                    document.getElementById('defaultGroupNone').classList.toggle('d-none', defaultGroup != null);
                 }
 
                 document.querySelectorAll('[data-action="edit-property"]').forEach(function (btn) {
@@ -1089,6 +1153,15 @@
                         document.getElementById('constraintPattern').value = btn.getAttribute('data-constraint-pattern') || '';
                         document.getElementById('constraintMinSize').value = btn.getAttribute('data-constraint-min-size') || '';
                         document.getElementById('constraintMaxSize').value = btn.getAttribute('data-constraint-max-size') || '';
+                        var defaultVal = btn.getAttribute('data-default-value') || '';
+                        document.getElementById('defaultLong').value = defaultVal;
+                        document.getElementById('defaultDouble').value = defaultVal;
+                        document.getElementById('defaultBoolean').checked = defaultVal === 'true';
+                        document.getElementById('defaultString').value = defaultVal;
+                        document.getElementById('defaultDate').value = defaultVal;
+                        document.getElementById('defaultTime').value = defaultVal;
+                        document.getElementById('defaultDatetime').value = defaultVal;
+                        document.getElementById('defaultDuration').value = defaultVal;
                         applyConstraintVisibility(propertyType);
                         var modal = bootstrap.Modal.getOrCreateInstance(editPropertyModal);
                         modal.show();
@@ -1150,9 +1223,40 @@
                     }
                     var constraintResult = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/constraints',
-                        constraintFormData, true
+                        constraintFormData, false
                     );
-                    if (constraintResult && constraintResult.ok) {
+                    if (!constraintResult || !constraintResult.ok) {
+                        btn.disabled = false;
+                        return;
+                    }
+                    var defaultFormData = new FormData();
+                    var currentType = document.getElementById('editPropertyType').value;
+                    var defaultVal = '';
+                    if (currentType === 'LONG' && !document.getElementById('defaultGroupLong').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultLong').value;
+                    } else if (currentType === 'DOUBLE' && !document.getElementById('defaultGroupDouble').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultDouble').value;
+                    } else if (currentType === 'BOOLEAN' && !document.getElementById('defaultGroupBoolean').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultBoolean').checked ? 'true' : '';
+                    } else if (currentType === 'STRING' && !document.getElementById('defaultGroupString').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultString').value;
+                    } else if (currentType === 'DATE' && !document.getElementById('defaultGroupDate').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultDate').value;
+                    } else if (currentType === 'TIME' && !document.getElementById('defaultGroupTime').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultTime').value;
+                    } else if (currentType === 'DATETIME' && !document.getElementById('defaultGroupDatetime').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultDatetime').value;
+                    } else if (currentType === 'DURATION' && !document.getElementById('defaultGroupDuration').classList.contains('d-none')) {
+                        defaultVal = document.getElementById('defaultDuration').value;
+                    }
+                    if (defaultVal !== '') {
+                        defaultFormData.set('default', defaultVal);
+                    }
+                    var defaultResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/default',
+                        defaultFormData, true
+                    );
+                    if (defaultResult && defaultResult.ok) {
                         var modal = bootstrap.Modal.getInstance(editPropertyModal);
                         if (modal) { modal.hide(); }
                     } else {

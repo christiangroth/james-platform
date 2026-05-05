@@ -18,6 +18,8 @@ import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
+import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import io.mockk.every
@@ -32,7 +34,8 @@ class AppVersionManagementServiceTests {
 
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
-  private val service: AppVersionManagementService = AppVersionManagementService(appRepository, appVersionRepository)
+  private val propertyConstraintPort: PropertyConstraintPort = mockk()
+  private val service: AppVersionManagementService = AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort)
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -964,6 +967,157 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
 
     val result = service.setPropertyConstraints("app-1", "unknown", "e-1", "p-1", emptySet())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region setPropertyDefault
+
+  @Test
+  fun `setPropertyDefault sets default on property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns emptyList()
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "42")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.default).isEqualTo("42")
+  }
+
+  @Test
+  fun `setPropertyDefault clears default when null provided`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, default = "10")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", null)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.default).isNull()
+  }
+
+  @Test
+  fun `setPropertyDefault clears default when blank provided`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, default = "10")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "  ")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.default).isNull()
+  }
+
+  @Test
+  fun `setPropertyDefault fails when default violates constraint`() {
+    val property = Property(
+      id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG,
+      constraints = setOf(PropertyConstraint.MinLong(10L)),
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "5")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_VALUE_INVALID)
+  }
+
+  @Test
+  fun `setPropertyDefault fails when default is not a valid number for LONG type`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "notanumber")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_VALUE_INVALID)
+  }
+
+  @Test
+  fun `setPropertyDefault fails for LIST type`() {
+    val property = Property(id = PropertyId("p-1"), name = "Items", type = PropertyType.LIST)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "somevalue")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyDefault fails for OBJECT type`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "somevalue")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyDefault fails for REF type`() {
+    val property = Property(id = PropertyId("p-1"), name = "RefProp", type = PropertyType.REF)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "somevalue")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyDefault fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "unknown-prop", "42")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyDefault fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "unknown-entity", "p-1", "42")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyDefault fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.setPropertyDefault("app-1", "unknown", "e-1", "p-1", "42")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
