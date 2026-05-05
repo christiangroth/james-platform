@@ -1,3 +1,12 @@
+# 0.28.1 (2026.05.05)
+
+## Bugfixes / Chore
+* Navigating back to an app's data view with a `?tab=` URL parameter now correctly pre-selects the matching entity tab on the server side.
+
+
+
+---
+
 # 0.28.0 (2026.05.05)
 
 ## New Features
