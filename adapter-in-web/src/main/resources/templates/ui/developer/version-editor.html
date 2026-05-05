@@ -66,44 +66,22 @@
                     </div>
                 </div>
 
-                <!-- Sort Criteria -->
+                <!-- Sort Order -->
                 <div class="mb-4">
-                    <div class="d-flex align-items-center mb-2 gap-2">
-                        <h3 class="fs-6 fw-semibold mb-0">Sort Order</h3>
+                    <h3 class="fs-6 fw-semibold mb-2">Sort Order</h3>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="app-section-label" style="font-size:0.85rem;" data-testid="sort-order-value">
+                            {#if selectedEntity.sortOrderText}{selectedEntity.sortOrderText}{#else}—{/if}
+                        </span>
+                        {#if !selectedEntity.properties.isEmpty}
+                        <button type="button" class="btn btn-app-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editSortOrderModal"
+                                title="Edit sort order" aria-label="Edit sort order"
+                                data-testid="open-sort-order-modal-button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
+                        </button>
+                        {/if}
                     </div>
-                    {#if selectedEntity.properties.isEmpty}
-                    <p class="app-section-label mb-0" style="font-size:0.85rem;" data-testid="no-sort-criteria-possible">No properties available for sorting.</p>
-                    {#else}
-                    <select id="sortPropOptionsTemplate" class="d-none" aria-hidden="true">
-                        <option value="">– Property –</option>
-                        {#for prop in selectedEntity.properties}
-                        <option value="{prop.id}">{prop.name}</option>
-                        {/for}
-                    </select>
-                    <div id="sortCriteriaList" data-entity-id="{selectedEntity.id}">
-                        {#for criteria in selectedEntity.sortBy}
-                        <div class="d-flex align-items-center gap-2 mb-2" data-testid="sort-criteria-row">
-                            <select class="form-select app-form-control form-select-sm sort-prop-select" style="max-width:200px;" data-testid="sort-prop-select">
-                                <option value="">– Property –</option>
-                                {#for prop in selectedEntity.properties}
-                                <option value="{prop.id}" {#if prop.id == criteria.propertyId}selected{/if}>{prop.name}</option>
-                                {/for}
-                            </select>
-                            <select class="form-select app-form-control form-select-sm sort-dir-select" style="max-width:130px;" data-testid="sort-dir-select">
-                                <option value="ASC" {#if criteria.direction.name == "ASC"}selected{/if}>Ascending</option>
-                                <option value="DESC" {#if criteria.direction.name == "DESC"}selected{/if}>Descending</option>
-                            </select>
-                            <button type="button" class="btn btn-app-danger btn-sm remove-sort-criteria-btn" data-testid="remove-sort-criteria-btn" title="Remove">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
-                            </button>
-                        </div>
-                        {/for}
-                    </div>
-                    <div class="d-flex gap-2 mt-2">
-                        <button type="button" id="addSortCriteriaBtn" class="btn btn-app-secondary btn-sm" data-testid="add-sort-criteria-btn">+ Add Sort Field</button>
-                        <button type="button" id="saveSortCriteriaBtn" class="btn btn-app-primary btn-sm" data-testid="save-sort-criteria-btn">Save Sort Order</button>
-                    </div>
-                    {/if}
                 </div>
 
                 <div class="d-flex align-items-center mb-2 gap-2">
@@ -763,6 +741,58 @@
     {/if}
     {/if}
 
+    <!-- Edit Sort Order Modal -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    {#if !selectedEntity.properties.isEmpty}
+    <div class="modal fade" id="editSortOrderModal" tabindex="-1" aria-labelledby="editSortOrderModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editSortOrderModalLabel">Edit Sort Order</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <select id="sortPropOptionsTemplate" class="d-none" aria-hidden="true">
+                        <option value="">– Property –</option>
+                        {#for prop in selectedEntity.properties}
+                        <option value="{prop.id}">{prop.name}</option>
+                        {/for}
+                    </select>
+                    <div id="sortCriteriaList" data-entity-id="{selectedEntity.id}">
+                        {#for criteria in selectedEntity.sortBy}
+                        <div class="d-flex align-items-center gap-2 mb-2" data-testid="sort-criteria-row">
+                            <select class="form-select app-form-control form-select-sm sort-prop-select" style="max-width:200px;" data-testid="sort-prop-select">
+                                <option value="">– Property –</option>
+                                {#for prop in selectedEntity.properties}
+                                <option value="{prop.id}" {#if prop.id == criteria.propertyId}selected{/if}>{prop.name}</option>
+                                {/for}
+                            </select>
+                            <select class="form-select app-form-control form-select-sm sort-dir-select" style="max-width:130px;" data-testid="sort-dir-select">
+                                <option value="ASC" {#if criteria.direction.name == "ASC"}selected{/if}>Ascending</option>
+                                <option value="DESC" {#if criteria.direction.name == "DESC"}selected{/if}>Descending</option>
+                            </select>
+                            <button type="button" class="btn btn-app-danger btn-sm remove-sort-criteria-btn" data-testid="remove-sort-criteria-btn" title="Remove">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
+                            </button>
+                        </div>
+                        {/for}
+                    </div>
+                    <div class="mt-2">
+                        <button type="button" id="addSortCriteriaBtn" class="btn btn-app-secondary btn-sm" data-testid="add-sort-criteria-btn">+ Add Sort Field</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-app-primary" id="saveSortCriteriaBtn" data-testid="save-sort-criteria-btn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+    {/if}
+
     {/content}
     {#scripts}
     <script>
@@ -1402,7 +1432,7 @@
                 });
             }
 
-            // Sort criteria management
+            // Sort criteria management in modal
             var sortCriteriaList = document.getElementById('sortCriteriaList');
             var addSortCriteriaBtn = document.getElementById('addSortCriteriaBtn');
             var saveSortCriteriaBtn = document.getElementById('saveSortCriteriaBtn');
@@ -1414,12 +1444,7 @@
                         return { value: opt.value, text: opt.text };
                     });
                 }
-                var selects = document.querySelectorAll('.sort-prop-select');
-                if (!selects.length) { return []; }
-                var firstSelect = selects[0];
-                return Array.from(firstSelect.options).map(function (opt) {
-                    return { value: opt.value, text: opt.text };
-                });
+                return [];
             }
 
             if (addSortCriteriaBtn && sortCriteriaList) {
@@ -1492,6 +1517,23 @@
                         );
                         var result = await response.json();
                         showMessage(result.ok, result.message);
+                        if (result.ok) {
+                            var editSortOrderModalEl = document.getElementById('editSortOrderModal');
+                            if (editSortOrderModalEl) {
+                                var modal = bootstrap.Modal.getInstance(editSortOrderModalEl);
+                                if (modal) { modal.hide(); }
+                            }
+                            var sortOrderValue = document.querySelector('[data-testid="sort-order-value"]');
+                            if (sortOrderValue) {
+                                var propOptions = buildPropertyOptions();
+                                var text = criteria.map(function (c) {
+                                    var propOpt = propOptions.find(function (o) { return o.value === c.propertyId; });
+                                    var propName = propOpt ? propOpt.text : c.propertyId;
+                                    return propName + ' ' + c.direction;
+                                }).join(', ');
+                                sortOrderValue.textContent = text || '—';
+                            }
+                        }
                     } catch (e) {
                         showMessage(false, 'Network error. Please try again.');
                     }

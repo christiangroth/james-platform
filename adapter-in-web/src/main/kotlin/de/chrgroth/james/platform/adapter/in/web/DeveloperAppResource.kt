@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonProperty
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
@@ -38,9 +40,9 @@ data class DashboardAppInfo(
   val latestVersionPublishedAt: Instant?,
 )
 
-data class SortCriteriaRequest(
-  val propertyId: String,
-  val direction: SortDirection,
+data class SortCriteriaRequest @JsonCreator constructor(
+  @param:JsonProperty("propertyId") val propertyId: String,
+  @param:JsonProperty("direction") val direction: SortDirection,
 )
 
 @Path("/ui/developer")
