@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
     needs: release
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Provision Grafana dashboards
