@@ -25,6 +25,7 @@ import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -168,6 +169,95 @@ class AppDataServiceTests {
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
 
     assertThat(result.isRight()).isTrue()
+  }
+
+  // endregion
+
+  // region deleteAppData reference checks
+
+  private val refPropId = PropertyId("ref-prop")
+  private val refEntityId = EntityDefinitionId("entity-2")
+  private val refPropNullable = Property(id = refPropId, name = "RefField", type = PropertyType.REF, nullable = true)
+  private val refPropNonNullable = Property(id = refPropId, name = "RefField", type = PropertyType.REF, nullable = false)
+  private val refEntityDef = EntityDefinition(id = refEntityId, name = "RefEntity", properties = listOf(refPropNullable))
+  private val appVersionWithRef = appVersion.copy(entityDefinitions = listOf(entityDef, refEntityDef))
+
+  private val referencingData = AppData(
+    id = AppDataId("data-2"),
+    userId = userId,
+    installedAppId = installedAppId,
+    appVersion = VersionNumber("1.0.0"),
+    entityType = refEntityId,
+    objectVersion = 1,
+    createdAt = Instant.now(),
+    lastChangedAt = Instant.now(),
+    data = mapOf(refPropId.value to "data-1"),
+  )
+
+  @Test
+  fun `deleteAppData succeeds with no references`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppId(installedAppId) } returns listOf(existingAppData)
+    justRun { appDataRepository.delete(AppDataId("data-1")) }
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(0)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `deleteAppData nulls out nullable references and returns count`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithRef
+    every { appDataRepository.findAllByInstalledAppId(installedAppId) } returns listOf(existingAppData, referencingData)
+    justRun { appDataRepository.save(any()) }
+    justRun { appDataRepository.delete(AppDataId("data-1")) }
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(1)
+    verify(exactly = 1) { appDataRepository.save(match { it.id.value == "data-2" && it.data[refPropId.value] == null }) }
+    verify(exactly = 1) { appDataRepository.delete(AppDataId("data-1")) }
+  }
+
+  @Test
+  fun `deleteAppData rejects deletion when referenced by non-nullable property`() {
+    val nonNullableRefEntityDef = EntityDefinition(id = refEntityId, name = "RefEntity", properties = listOf(refPropNonNullable))
+    val appVersionWithNonNullableRef = appVersion.copy(entityDefinitions = listOf(entityDef, nonNullableRefEntityDef))
+
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithNonNullableRef
+    every { appDataRepository.findAllByInstalledAppId(installedAppId) } returns listOf(existingAppData, referencingData)
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+    verify(exactly = 0) { appDataRepository.delete(any()) }
+  }
+
+  @Test
+  fun `deleteAppData ignores REF properties that do not reference the deleted item`() {
+    val otherData = referencingData.copy(data = mapOf(refPropId.value to "other-id"))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithRef
+    every { appDataRepository.findAllByInstalledAppId(installedAppId) } returns listOf(existingAppData, otherData)
+    justRun { appDataRepository.delete(AppDataId("data-1")) }
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(0)
+    verify(exactly = 0) { appDataRepository.save(any()) }
   }
 
   // endregion
