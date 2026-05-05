@@ -51,13 +51,13 @@
             <ul class="nav nav-tabs mb-3" id="entityTabs" role="tablist" data-testid="entity-tabs">
                 {#for tab in entityTabs}
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link {#if tab_index == 0}active{/if}"
+                    <button class="nav-link {#if tab.entityId == activeEntityId}active{/if}"
                             id="tab-btn-{tab.entityId}"
                             data-bs-toggle="tab"
                             data-bs-target="#tab-{tab.entityId}"
                             type="button" role="tab"
                             aria-controls="tab-{tab.entityId}"
-                            aria-selected="{#if tab_index == 0}true{#else}false{/if}"
+                            aria-selected="{#if tab.entityId == activeEntityId}true{#else}false{/if}"
                             data-testid="entity-tab-{tab.entityName}">
                         {tab.entityName}
                     </button>
@@ -66,7 +66,7 @@
             </ul>
             <div class="tab-content" id="entityTabsContent">
                 {#for tab in entityTabs}
-                <div class="tab-pane fade {#if tab_index == 0}show active{/if}"
+                <div class="tab-pane fade {#if tab.entityId == activeEntityId}show active{/if}"
                      id="tab-{tab.entityId}"
                      role="tabpanel"
                      aria-labelledby="tab-btn-{tab.entityId}"

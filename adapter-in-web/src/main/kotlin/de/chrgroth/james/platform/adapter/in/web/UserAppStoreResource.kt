@@ -155,7 +155,10 @@ class UserAppStoreResource {
   @GET
   @Path("/user/apps/{installedAppId}")
   @Produces(MediaType.TEXT_HTML)
-  fun installedAppDetail(@PathParam("installedAppId") installedAppId: String): Response {
+  fun installedAppDetail(
+    @PathParam("installedAppId") installedAppId: String,
+    @QueryParam("tab") tab: String?,
+  ): Response {
     val userId = securityIdentity.principal.name
     val installedApps = userAppStore.getInstalledApps(userId)
     val info = installedApps.find { it.installedApp.id.value == installedAppId }
@@ -184,10 +187,14 @@ class UserAppStoreResource {
       )
     }
 
+    val activeEntityId = tab?.let { t -> entities.find { it.id.value == t }?.id?.value }
+      ?: entities.firstOrNull()?.id?.value
+
     return Response.ok(
       appDetailTemplate
         .data("info", info)
         .data("entityTabs", entityTabs)
+        .data("activeEntityId", activeEntityId)
         .data("pageSize", PAGE_SIZE),
     ).build()
   }
