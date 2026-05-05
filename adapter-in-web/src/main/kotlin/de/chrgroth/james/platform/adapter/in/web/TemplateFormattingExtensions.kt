@@ -161,6 +161,36 @@ object TemplateFormattingExtensions {
   fun constraintMaxSize(property: Property): String =
     property.constraints.filterIsInstance<PropertyConstraint.MaxSize>().firstOrNull()?.max?.toString() ?: ""
 
+  /** Returns a sorted list of human-readable constraint text representations for the property,
+   * using the same format as the version diff view (e.g. "min:0", "max:100", "unique-key").
+   * Returns an empty list if no constraints are defined.
+   */
+  @JvmStatic
+  fun constraintTexts(property: Property): List<String> =
+    property.constraints
+      .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
+      .map { constraint ->
+        when (constraint) {
+          is PropertyConstraint.UniqueKey -> "unique-key"
+          is PropertyConstraint.MinLong -> "min:${constraint.min}"
+          is PropertyConstraint.MaxLong -> "max:${constraint.max}"
+          is PropertyConstraint.MinDouble -> "min:${constraint.min}"
+          is PropertyConstraint.MaxDouble -> "max:${constraint.max}"
+          is PropertyConstraint.MinLength -> "min-length:${constraint.min}"
+          is PropertyConstraint.MaxLength -> "max-length:${constraint.max}"
+          is PropertyConstraint.Pattern -> "pattern:${constraint.regex}"
+          is PropertyConstraint.MinSize -> "min-size:${constraint.min}"
+          is PropertyConstraint.MaxSize -> "max-size:${constraint.max}"
+        }
+      }
+
+  /** Returns the entity's property names joined as a comma-separated string,
+   * or an empty string if the entity has no properties.
+   */
+  @JvmStatic
+  fun propertyNames(entity: EntityDefinition): String =
+    entity.properties.joinToString(", ") { it.name }
+
   /** Returns the AppData id string value. Used because AppDataId is a JvmInline value class
    * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
    */
