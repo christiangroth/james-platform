@@ -448,7 +448,7 @@ class AppVersionManagementService(
         logger.warn { "Set property default failed: invalid default value '$trimmedDefault' for type ${property.type}: $propertyId" }
         return AppVersionError.DEFAULT_VALUE_INVALID.left()
       }
-      val violations = propertyConstraint.checkValue(property, parsedValue)
+      val violations = propertyConstraint.checkValue(property, parsedValue, emptyList())
       if (violations.isNotEmpty()) {
         logger.warn { "Set property default failed: constraint violations for default value '$trimmedDefault': $violations" }
         return AppVersionError.DEFAULT_VALUE_INVALID.left()
