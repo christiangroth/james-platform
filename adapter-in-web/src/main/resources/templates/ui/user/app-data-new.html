@@ -47,7 +47,7 @@
 
                 <div class="d-flex gap-2 mt-4">
                     <button type="submit" class="btn btn-app-primary btn-sm" data-testid="submit-button">Save</button>
-                    <a href="/ui/user/apps/{info.installedAppId}" class="btn btn-app-secondary btn-sm" data-testid="cancel-button">Cancel</a>
+                    <a href="/ui/user/apps/{info.installedAppId}?tab={entity.id}" class="btn btn-app-secondary btn-sm" data-testid="cancel-button">Cancel</a>
                 </div>
             </form>
         </div>
@@ -120,7 +120,14 @@
                     });
                     var result = await response.json();
                     if (result.ok && result.redirectUrl) {
-                        window.location.href = result.redirectUrl;
+                        var entityTypeId = form.querySelector('[name="entityTypeId"]').value;
+                        if (entityTypeId) {
+                            var redirectUrl = new URL(result.redirectUrl, window.location.origin);
+                            redirectUrl.searchParams.set('tab', entityTypeId);
+                            window.location.href = redirectUrl.toString();
+                        } else {
+                            window.location.href = result.redirectUrl;
+                        }
                     } else {
                         showMessage(result.ok, result.message);
                         if (result.fieldErrors) {

@@ -296,6 +296,25 @@
         .app-constraint-text {
             font-size: 0.8rem;
         }
+        /* Entity data tabs – dark theme override */
+        .nav-tabs {
+            border-color: var(--color-border);
+        }
+        .nav-tabs .nav-link {
+            color: var(--color-text-muted);
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        .nav-tabs .nav-link:hover,
+        .nav-tabs .nav-link:focus {
+            color: var(--color-text-primary);
+            border-color: transparent;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--color-text-primary);
+            background-color: var(--color-bg-card);
+            border-color: var(--color-border) var(--color-border) var(--color-bg-card);
+        }
     </style>
 </head>
 <body>
