@@ -50,12 +50,9 @@ class SmartDefaultService(
 
     val result = mutableMapOf<String, String?>()
     // Seed the `it` binding with all static defaults so smart default scripts can reference them
-    val itSeed = mutableMapOf<String, String?>()
-    for (property in entity.properties) {
-      if (property.default != null) {
-        itSeed[property.id.value] = property.default
-      }
-    }
+    val itSeed: MutableMap<String, String?> = entity.properties
+      .filter { it.default != null }
+      .associateTo(mutableMapOf()) { it.id.value to it.default }
     for (property in entity.properties) {
       val script = property.smartDefault ?: continue
       val startNs = System.nanoTime()
