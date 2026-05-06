@@ -1,3 +1,26 @@
+# 0.32.0 (2026.05.06)
+
+## New Features
+* Predefined smart defaults are now available for DATE, TIME, and DATETIME property types in the version editor.
+* DATE properties offer a "Today" predefined option that automatically fills in the current UTC date.
+* TIME properties offer "Now", "Now (Current Second)", "Now (Current Minute)", and "Now (Current Hour)" options.
+* DATETIME properties offer the same four predefined options as TIME.
+* Predefined options appear as quick-fill buttons in the Edit Property modal and set the smart default script automatically.
+* Clicking a data entry now opens the edit form directly instead of a separate read-only detail view.
+* The delete button is now available directly in the edit form.
+
+## Bugfixes / Chore
+* Fixed application not starting in Docker container.
+* Fixed Kotlin scripting engine not found at runtime due to classloader isolation in Quarkus.
+* Disabled Quarkus dev services in production (were incorrectly enabled globally).
+* Removed unused HTTP_AUTH_ENCRYPTION_KEY from deployment configuration.
+* Property edit modal now shows validation errors (e.g. default value violating constraints) inline instead of hiding them behind the modal.
+* Editing a property with a type that does not support default values (e.g. Reference, List, Object) no longer fails silently.
+
+
+
+---
+
 # 0.31.0 (2026.05.05)
 
 ## New Features
