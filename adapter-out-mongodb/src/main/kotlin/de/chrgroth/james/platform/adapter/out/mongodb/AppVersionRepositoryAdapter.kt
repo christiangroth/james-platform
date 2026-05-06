@@ -8,6 +8,8 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.ComputedProperty
+import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -114,6 +116,7 @@ class AppVersionRepositoryAdapter(
       displayText = safeDisplayText?.takeIf { it.isNotBlank() },
       properties = properties.map { it.toDomain() },
       sortBy = sortBy.mapNotNull { it.toDomain() },
+      computedProperties = computedProperties.mapNotNull { it.toDomain() },
     )
   }
 
@@ -132,6 +135,16 @@ class AppVersionRepositoryAdapter(
     smartDefault = smartDefault,
     valueProposals = valueProposals,
   )
+
+  private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {
+    val propertyType = runCatching { PropertyType.valueOf(type) }.getOrNull() ?: return null
+    return ComputedProperty(
+      id = ComputedPropertyId(id),
+      name = name,
+      type = propertyType,
+      script = script,
+    )
+  }
 
   private fun ConstraintDocument.toDomain(): PropertyConstraint? = when (constraintType) {
     "UniqueKey" -> PropertyConstraint.UniqueKey
@@ -171,6 +184,7 @@ class AppVersionRepositoryAdapter(
     doc.displayText = displayText ?: "Display Text"
     doc.properties = properties.map { it.toDocument() }
     doc.sortBy = sortBy.map { it.toDocument() }
+    doc.computedProperties = computedProperties.map { it.toDocument() }
   }
 
   private fun SortCriteria.toDocument() = SortCriteriaDocument().also { doc ->
@@ -187,6 +201,13 @@ class AppVersionRepositoryAdapter(
     doc.default = default
     doc.smartDefault = smartDefault
     doc.valueProposals = valueProposals
+  }
+
+  private fun ComputedProperty.toDocument() = ComputedPropertyDocument().also { doc ->
+    doc.id = id.value
+    doc.name = name
+    doc.type = type.name
+    doc.script = script
   }
 
   private fun PropertyConstraint.toDocument() = ConstraintDocument().also { doc ->

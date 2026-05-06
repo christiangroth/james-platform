@@ -10,6 +10,8 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.ComputedProperty
+import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -550,6 +552,154 @@ class AppVersionManagementService(
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property deleted: $propertyId from entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun addComputedProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    name: String,
+    type: String,
+  ): Either<DomainError, AppVersion> {
+    if (name.isBlank()) {
+      logger.warn { "Add computed property failed: blank name" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    val propertyType = runCatching { PropertyType.valueOf(type) }.getOrNull() ?: run {
+      logger.warn { "Add computed property failed: invalid type: $type" }
+      return AppVersionError.INVALID_PROPERTY_TYPE.left()
+    }
+    if (!propertyType.supportsComputedProperty()) {
+      logger.warn { "Add computed property failed: type does not support computed properties: $type" }
+      return AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.left()
+    }
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Add computed property failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.computedProperties.any { it.name.equals(name.trim(), ignoreCase = true) }) {
+      logger.warn { "Add computed property failed: name already exists: $name in entity $entityId" }
+      return AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.left()
+    }
+    val newComputedProperty = ComputedProperty(id = ComputedPropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType)
+    val updatedEntity = entity.copy(computedProperties = entity.computedProperties + newComputedProperty)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Computed property added: ${name.trim()} to entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun updateComputedProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    computedPropertyId: String,
+    name: String,
+    type: String,
+  ): Either<DomainError, AppVersion> {
+    if (name.isBlank()) {
+      logger.warn { "Update computed property failed: blank name" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    val propertyType = runCatching { PropertyType.valueOf(type) }.getOrNull() ?: run {
+      logger.warn { "Update computed property failed: invalid type: $type" }
+      return AppVersionError.INVALID_PROPERTY_TYPE.left()
+    }
+    if (!propertyType.supportsComputedProperty()) {
+      logger.warn { "Update computed property failed: type does not support computed properties: $type" }
+      return AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.left()
+    }
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update computed property failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val computedProperty = entity.computedProperties.find { it.id.value == computedPropertyId } ?: run {
+      logger.warn { "Update computed property failed: computed property not found: $computedPropertyId in entity $entityId" }
+      return AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.left()
+    }
+    if (entity.computedProperties.any { it.id.value != computedPropertyId && it.name.equals(name.trim(), ignoreCase = true) }) {
+      logger.warn { "Update computed property failed: name already exists: $name in entity $entityId" }
+      return AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.left()
+    }
+    val updatedComputedProperty = computedProperty.copy(name = name.trim(), type = propertyType)
+    val updatedEntity = entity.copy(computedProperties = entity.computedProperties.map { if (it.id.value == computedPropertyId) updatedComputedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Computed property updated: $computedPropertyId in entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun setComputedPropertyScript(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    computedPropertyId: String,
+    script: String?,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set computed property script failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val computedProperty = entity.computedProperties.find { it.id.value == computedPropertyId } ?: run {
+      logger.warn { "Set computed property script failed: computed property not found: $computedPropertyId in entity $entityId" }
+      return AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.left()
+    }
+    val trimmedScript = script?.takeIf { it.isNotBlank() }
+    val updatedComputedProperty = computedProperty.copy(script = trimmedScript)
+    val updatedEntity = entity.copy(computedProperties = entity.computedProperties.map { if (it.id.value == computedPropertyId) updatedComputedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Computed property script set: $computedPropertyId in entity $entityId in version $versionId (script=${trimmedScript?.let { "set" } ?: "cleared"})" }
+    return updated.right()
+  }
+
+  override fun reorderComputedProperties(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    computedPropertyIds: List<String>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Reorder computed properties failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val existingIds = entity.computedProperties.map { it.id.value }.toSet()
+    if (computedPropertyIds.toSet() != existingIds) {
+      logger.warn { "Reorder computed properties failed: IDs mismatch for entity $entityId" }
+      return AppVersionError.ENTITY_IDS_MISMATCH.left()
+    }
+    val reordered = computedPropertyIds.mapNotNull { id -> entity.computedProperties.find { it.id.value == id } }
+    val updatedEntity = entity.copy(computedProperties = reordered)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Computed properties reordered in entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteComputedProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    computedPropertyId: String,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Delete computed property failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.computedProperties.none { it.id.value == computedPropertyId }) {
+      logger.warn { "Delete computed property failed: computed property not found: $computedPropertyId in entity $entityId" }
+      return AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.left()
+    }
+    val updatedEntity = entity.copy(computedProperties = entity.computedProperties.filter { it.id.value != computedPropertyId })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Computed property deleted: $computedPropertyId from entity $entityId in version $versionId" }
     return updated.right()
   }
 

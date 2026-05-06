@@ -620,6 +620,96 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/computed-properties")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun addComputedProperty(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @FormParam("name") name: String,
+    @FormParam("type") type: String,
+  ): Response {
+    if (name.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "Computed property name is required.")).build()
+    }
+    return appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Computed property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/computed-properties/{computedPropertyId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateComputedProperty(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("computedPropertyId") computedPropertyId: String,
+    @FormParam("name") name: String,
+    @FormParam("type") type: String,
+  ): Response {
+    if (name.isBlank()) {
+      return Response.ok(DeveloperApiResult(false, "Computed property name is required.")).build()
+    }
+    return appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Computed property updated.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/computed-properties/{computedPropertyId}/script")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setComputedPropertyScript(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("computedPropertyId") computedPropertyId: String,
+    @FormParam("script") script: String?,
+  ): Response {
+    return appVersionManagement.setComputedPropertyScript(appId, versionId, entityId, computedPropertyId, script).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Computed property script saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/computed-properties/reorder")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun reorderComputedProperties(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response {
+    val computedPropertyIds = form["computedPropertyId"] ?: emptyList()
+    return appVersionManagement.reorderComputedProperties(appId, versionId, entityId, computedPropertyIds).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Computed properties reordered.")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/computed-properties/{computedPropertyId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteComputedProperty(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("computedPropertyId") computedPropertyId: String,
+  ): Response {
+    return appVersionManagement.deleteComputedProperty(appId, versionId, entityId, computedPropertyId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Computed property deleted.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/reports")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -707,6 +797,9 @@ class DeveloperAppResource {
     AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> "This property type does not support smart defaults."
     AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> "The smart default script is invalid."
     AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> "Value proposals are only supported for String properties."
+    AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> "Computed property not found."
+    AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> "A computed property with this name already exists."
+    AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> "This type does not support computed properties."
     else -> "An unexpected error occurred. Please try again."
   }
 

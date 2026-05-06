@@ -156,6 +156,53 @@
                 </div>
                 {/if}
 
+                <!-- Computed Properties -->
+                <div class="d-flex align-items-center mb-2 gap-2 mt-4">
+                    <h3 class="fs-6 fw-semibold mb-0">Computed Properties</h3>
+                    {#btn-icon-add testId="open-add-computed-property-modal-button" bsTarget="#addComputedPropertyModal" entityId=selectedEntity.id extraClass="ms-auto" /}
+                </div>
+                {#if selectedEntity.computedProperties.isEmpty}
+                <p class="app-section-label mb-3" data-testid="no-computed-properties">No computed properties yet.</p>
+                {#else}
+                <div class="table-responsive">
+                <table class="table table-sm mb-3 app-table" data-testid="computed-properties-table">
+                    <thead>
+                        <tr>
+                            <th style="width:1.5rem;"></th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Script</th>
+                        </tr>
+                    </thead>
+                    <tbody id="computedPropertiesTbody" data-entity-id="{selectedEntity.id}">
+                        {#for cp in selectedEntity.computedProperties}
+                        <tr class="clickable-row" data-testid="computed-property-row" tabindex="0" role="button"
+                            aria-label="Edit computed property {cp.name}"
+                            data-action="edit-computed-property"
+                            data-entity-id="{selectedEntity.id}"
+                            data-computed-property-id="{cp.id}"
+                            data-computed-property-name="{cp.name}"
+                            data-computed-property-type="{cp.type}"
+                            data-computed-property-script="{cp.script}">
+                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="Drag to reorder" data-testid="computed-property-drag-handle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
+                            </td>
+                            <td data-testid="computed-property-name">{cp.name}</td>
+                            <td>{cp.type}</td>
+                            <td>
+                                {#if cp.script}
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="computed-property-script-{cp.id}" title="{cp.script}">script</span>
+                                {#else}
+                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
+                                {/if}
+                            </td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+                </div>
+                {/if}
+
                 <div class="d-flex justify-content-start mt-4">
                     <button type="button" class="btn btn-app-danger btn-sm"
                             data-bs-toggle="modal" data-bs-target="#deleteEntityModal"
@@ -783,6 +830,126 @@
             </div>
         </div>
     </div>
+    {/if}
+
+    <!-- Add Computed Property Modal -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="addComputedPropertyModal" tabindex="-1" aria-labelledby="addComputedPropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addComputedPropertyModalLabel">Add Computed Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="addComputedPropertyForm">
+                    <input type="hidden" id="addComputedPropertyEntityId" name="entityId" value="">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <input type="text" class="form-control app-form-control" id="addComputedPropertyName" name="name" required autocomplete="off" placeholder="e.g. TotalAmount" data-testid="computed-property-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control" id="addComputedPropertyType" name="type" required data-testid="computed-property-type-select">
+                                <option value="">– Select –</option>
+                                <option value="STRING">String</option>
+                                <option value="LONG">Long (Integer)</option>
+                                <option value="DOUBLE">Double (Decimal)</option>
+                                <option value="BOOLEAN">Boolean</option>
+                                <option value="DATE">Date</option>
+                                <option value="TIME">Time</option>
+                                <option value="DATETIME">DateTime</option>
+                                <option value="DURATION">Duration</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="add-computed-property-submit">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+
+    <!-- Edit Computed Property Modal -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="editComputedPropertyModal" tabindex="-1" aria-labelledby="editComputedPropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editComputedPropertyModalLabel">Edit Computed Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editComputedPropertyForm">
+                    <input type="hidden" id="editComputedPropertyEntityId" value="">
+                    <input type="hidden" id="editComputedPropertyId" value="">
+                    <div class="modal-body">
+                        <div id="editComputedPropertyError" class="alert alert-danger d-none mb-3"></div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <input type="text" class="form-control app-form-control form-control-sm" id="editComputedPropertyName" required autocomplete="off" data-testid="edit-computed-property-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control form-select-sm" id="editComputedPropertyType" required data-testid="edit-computed-property-type-select">
+                                <option value="STRING">String</option>
+                                <option value="LONG">Long (Integer)</option>
+                                <option value="DOUBLE">Double (Decimal)</option>
+                                <option value="BOOLEAN">Boolean</option>
+                                <option value="DATE">Date</option>
+                                <option value="TIME">Time</option>
+                                <option value="DATETIME">DateTime</option>
+                                <option value="DURATION">Duration</option>
+                            </select>
+                        </div>
+                        <hr style="border-color:var(--color-border);">
+                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Script (Kotlin)</div>
+                        <p class="app-section-label mb-2" style="font-size:0.75rem;">Evaluated on-demand. Variables: <code>it</code> (Map&lt;String, String?&gt;), <code>computed</code> (Map&lt;String, String?&gt;), <code>now</code> (Instant). Return a value matching the type above.</p>
+                        <textarea class="form-control app-form-control form-control-sm" id="editComputedPropertyScript" rows="5" style="font-family:monospace;font-size:0.8rem;" placeholder="e.g. it[&quot;price&quot;]?.toLongOrNull()?.let { it * 2 }" data-testid="computed-property-script-input"></textarea>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-app-danger"
+                                id="editComputedPropertyDeleteBtn"
+                                data-testid="edit-computed-property-delete-button">Delete</button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-app-primary" data-testid="edit-computed-property-submit-button">Save</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+
+    <!-- Delete Computed Property Modal -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="deleteComputedPropertyModal" tabindex="-1" aria-labelledby="deleteComputedPropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteComputedPropertyModalLabel">Remove Computed Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to remove this computed property? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteComputedPropertyBtn"
+                            data-testid="confirm-delete-computed-property-button">Remove</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
     {/if}
 
     <!-- Edit Display Text Modal -->
@@ -1836,6 +2003,226 @@
                         showMessage(false, 'Network error. Please try again.');
                     }
                     saveSortCriteriaBtn.disabled = false;
+                });
+            }
+
+            // Add Computed Property modal form
+            var addComputedPropertyForm = document.getElementById('addComputedPropertyForm');
+            if (addComputedPropertyForm) {
+                addComputedPropertyForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var btn = addComputedPropertyForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var formData = new FormData(this);
+                    var entityId = formData.get('entityId');
+                    formData.delete('entityId');
+                    var result = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties',
+                        formData, true
+                    );
+                    if (!result || !result.ok) {
+                        btn.disabled = false;
+                    }
+                });
+                var addComputedPropertyModalEl = document.getElementById('addComputedPropertyModal');
+                if (addComputedPropertyModalEl) {
+                    addComputedPropertyModalEl.addEventListener('show.bs.modal', function (event) {
+                        var entityId = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
+                        if (entityId) { document.getElementById('addComputedPropertyEntityId').value = entityId; }
+                    });
+                    addComputedPropertyModalEl.addEventListener('hidden.bs.modal', function () {
+                        addComputedPropertyForm.reset();
+                        addComputedPropertyForm.querySelector('[type="submit"]').disabled = false;
+                    });
+                }
+            }
+
+            // Edit Computed Property modal
+            var editComputedPropertyModal = document.getElementById('editComputedPropertyModal');
+            if (editComputedPropertyModal) {
+                document.querySelectorAll('[data-action="edit-computed-property"]').forEach(function (row) {
+                    row.addEventListener('click', function () {
+                        document.getElementById('editComputedPropertyEntityId').value = row.getAttribute('data-entity-id');
+                        document.getElementById('editComputedPropertyId').value = row.getAttribute('data-computed-property-id');
+                        document.getElementById('editComputedPropertyModalLabel').textContent = 'Edit Computed Property \u2013 ' + row.getAttribute('data-computed-property-name');
+                        document.getElementById('editComputedPropertyName').value = row.getAttribute('data-computed-property-name');
+                        document.getElementById('editComputedPropertyType').value = row.getAttribute('data-computed-property-type');
+                        document.getElementById('editComputedPropertyScript').value = row.getAttribute('data-computed-property-script') || '';
+                        var modal = bootstrap.Modal.getOrCreateInstance(editComputedPropertyModal);
+                        modal.show();
+                    });
+                    row.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            row.click();
+                        }
+                    });
+                });
+
+                var editComputedPropertyError = document.getElementById('editComputedPropertyError');
+
+                function showEditComputedPropertyError(message) {
+                    editComputedPropertyError.textContent = message;
+                    editComputedPropertyError.classList.remove('d-none');
+                }
+
+                var editComputedPropertyForm = document.getElementById('editComputedPropertyForm');
+                editComputedPropertyForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    editComputedPropertyError.classList.add('d-none');
+                    editComputedPropertyError.textContent = '';
+                    var btn = editComputedPropertyForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var entityId = document.getElementById('editComputedPropertyEntityId').value;
+                    var computedPropertyId = document.getElementById('editComputedPropertyId').value;
+                    var metaFormData = new FormData();
+                    metaFormData.set('name', document.getElementById('editComputedPropertyName').value);
+                    metaFormData.set('type', document.getElementById('editComputedPropertyType').value);
+                    var metaResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties/' + computedPropertyId,
+                        metaFormData, false
+                    );
+                    if (!metaResult || !metaResult.ok) {
+                        showEditComputedPropertyError(metaResult ? metaResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                    var scriptFormData = new FormData();
+                    var scriptVal = document.getElementById('editComputedPropertyScript').value;
+                    if (scriptVal !== '') {
+                        scriptFormData.set('script', scriptVal);
+                    }
+                    var scriptResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties/' + computedPropertyId + '/script',
+                        scriptFormData, true
+                    );
+                    if (!scriptResult || !scriptResult.ok) {
+                        showEditComputedPropertyError(scriptResult ? scriptResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                    }
+                });
+                editComputedPropertyModal.addEventListener('hidden.bs.modal', function () {
+                    editComputedPropertyError.classList.add('d-none');
+                    editComputedPropertyError.textContent = '';
+                    editComputedPropertyForm.reset();
+                    editComputedPropertyForm.querySelector('[type="submit"]').disabled = false;
+                });
+
+                // Delete button inside the edit computed property modal
+                var pendingDeleteComputedPropertyEntityId = null;
+                var pendingDeleteComputedPropertyId = null;
+                var deleteComputedPropertyModal = document.getElementById('deleteComputedPropertyModal');
+                var editComputedPropertyDeleteBtn = document.getElementById('editComputedPropertyDeleteBtn');
+                if (editComputedPropertyDeleteBtn) {
+                    editComputedPropertyDeleteBtn.addEventListener('click', function () {
+                        pendingDeleteComputedPropertyEntityId = document.getElementById('editComputedPropertyEntityId').value;
+                        pendingDeleteComputedPropertyId = document.getElementById('editComputedPropertyId').value;
+                        var editModal = bootstrap.Modal.getInstance(editComputedPropertyModal);
+                        if (editModal) { editModal.hide(); }
+                        editComputedPropertyModal.addEventListener('hidden.bs.modal', function onHide() {
+                            editComputedPropertyModal.removeEventListener('hidden.bs.modal', onHide);
+                            if (deleteComputedPropertyModal) {
+                                var delModal = bootstrap.Modal.getOrCreateInstance(deleteComputedPropertyModal);
+                                delModal.show();
+                            }
+                        });
+                    });
+                }
+                if (deleteComputedPropertyModal) {
+                    var confirmDeleteComputedPropertyBtn = document.getElementById('confirmDeleteComputedPropertyBtn');
+                    confirmDeleteComputedPropertyBtn.addEventListener('click', async function () {
+                        if (!pendingDeleteComputedPropertyEntityId || !pendingDeleteComputedPropertyId) return;
+                        var modal = bootstrap.Modal.getInstance(deleteComputedPropertyModal);
+                        if (modal) { modal.hide(); }
+                        confirmDeleteComputedPropertyBtn.disabled = true;
+                        await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeleteComputedPropertyEntityId + '/computed-properties/' + pendingDeleteComputedPropertyId + '/delete',
+                            null, true
+                        );
+                        confirmDeleteComputedPropertyBtn.disabled = false;
+                    });
+                    deleteComputedPropertyModal.addEventListener('hidden.bs.modal', function () {
+                        pendingDeleteComputedPropertyEntityId = null;
+                        pendingDeleteComputedPropertyId = null;
+                        confirmDeleteComputedPropertyBtn.disabled = false;
+                    });
+                }
+            }
+
+            // Drag-and-drop computed property reordering
+            var computedPropertiesTbody = document.getElementById('computedPropertiesTbody');
+            if (computedPropertiesTbody) {
+                var cpDragSrcRow = null;
+
+                function cpHandleDragStart(e) {
+                    cpDragSrcRow = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.getAttribute('data-computed-property-id'));
+                    this.classList.add('opacity-50');
+                }
+
+                function cpHandleDragOver(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    return false;
+                }
+
+                function cpHandleDragEnter() { this.classList.add('table-active'); }
+                function cpHandleDragLeave() { this.classList.remove('table-active'); }
+
+                function cpHandleDrop(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (cpDragSrcRow !== this) {
+                        var rows = Array.from(computedPropertiesTbody.querySelectorAll('tr'));
+                        var srcIdx = rows.indexOf(cpDragSrcRow);
+                        var dstIdx = rows.indexOf(this);
+                        if (srcIdx > dstIdx) {
+                            computedPropertiesTbody.insertBefore(cpDragSrcRow, this);
+                        } else {
+                            computedPropertiesTbody.insertBefore(cpDragSrcRow, this.nextSibling);
+                        }
+                        saveComputedPropertyOrder();
+                    }
+                    return false;
+                }
+
+                function cpHandleDragEnd() {
+                    this.classList.remove('opacity-50');
+                    computedPropertiesTbody.querySelectorAll('tr').forEach(function (r) { r.classList.remove('table-active'); });
+                }
+
+                async function saveComputedPropertyOrder() {
+                    var entityId = computedPropertiesTbody.getAttribute('data-entity-id');
+                    var computedPropertyIds = Array.from(computedPropertiesTbody.querySelectorAll('tr')).map(function (r) {
+                        return r.getAttribute('data-computed-property-id');
+                    });
+                    var formData = new FormData();
+                    computedPropertyIds.forEach(function (id) { formData.append('computedPropertyId', id); });
+                    try {
+                        var response = await fetch(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties/reorder',
+                            {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: new URLSearchParams(formData).toString(),
+                            }
+                        );
+                        var result = await response.json();
+                        if (!result.ok) { showMessage(false, result.message); }
+                    } catch (e) {
+                        showMessage(false, 'Network error saving computed property order.');
+                    }
+                }
+
+                computedPropertiesTbody.querySelectorAll('tr').forEach(function (row) {
+                    row.draggable = true;
+                    row.addEventListener('dragstart', cpHandleDragStart);
+                    row.addEventListener('dragover', cpHandleDragOver);
+                    row.addEventListener('dragenter', cpHandleDragEnter);
+                    row.addEventListener('dragleave', cpHandleDragLeave);
+                    row.addEventListener('drop', cpHandleDrop);
+                    row.addEventListener('dragend', cpHandleDragEnd);
                 });
             }
 

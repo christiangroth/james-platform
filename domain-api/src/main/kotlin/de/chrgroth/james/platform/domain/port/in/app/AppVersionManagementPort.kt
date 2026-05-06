@@ -27,6 +27,11 @@ interface AppVersionManagementPort {
   fun setPropertySmartDefault(appId: String, versionId: String, entityId: String, propertyId: String, smartDefault: String?): Either<DomainError, AppVersion>
   fun setPropertyValueProposals(appId: String, versionId: String, entityId: String, propertyId: String, valueProposals: List<String>): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion>
+  fun addComputedProperty(appId: String, versionId: String, entityId: String, name: String, type: String): Either<DomainError, AppVersion>
+  fun updateComputedProperty(appId: String, versionId: String, entityId: String, computedPropertyId: String, name: String, type: String): Either<DomainError, AppVersion>
+  fun setComputedPropertyScript(appId: String, versionId: String, entityId: String, computedPropertyId: String, script: String?): Either<DomainError, AppVersion>
+  fun reorderComputedProperties(appId: String, versionId: String, entityId: String, computedPropertyIds: List<String>): Either<DomainError, AppVersion>
+  fun deleteComputedProperty(appId: String, versionId: String, entityId: String, computedPropertyId: String): Either<DomainError, AppVersion>
   fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun updateReport(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion>
   fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion>
