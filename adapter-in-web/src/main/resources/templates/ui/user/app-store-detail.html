@@ -181,6 +181,10 @@
 
             window.upgradeApp = async function (installedAppId, btn) {
                 btn.disabled = true;
+                function closeModal() {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('upgradeModal'));
+                    if (modal) { modal.hide(); }
+                }
                 try {
                     var response = await fetch('/ui/user/apps/' + installedAppId + '/upgrade', {
                         method: 'POST',
@@ -189,14 +193,12 @@
                     if (result.ok && result.redirectUrl) {
                         window.location.href = result.redirectUrl;
                     } else {
-                        var modal = bootstrap.Modal.getInstance(document.getElementById('upgradeModal'));
-                        if (modal) { modal.hide(); }
+                        closeModal();
                         showMessage(result.ok, result.message);
                         btn.disabled = false;
                     }
                 } catch (e) {
-                    var modal = bootstrap.Modal.getInstance(document.getElementById('upgradeModal'));
-                    if (modal) { modal.hide(); }
+                    closeModal();
                     showMessage(false, 'Network error. Please try again.');
                     btn.disabled = false;
                 }

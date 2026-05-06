@@ -179,12 +179,10 @@ class AppVersionManagementService(
     val installations = installedAppRepository.findAllByAppId(appId)
     val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber }
     toUpgrade.forEach { installedApp ->
-      val upgraded = installedApp.copy(installedVersionNumber = newVersionNumber)
-      installedAppRepository.save(upgraded)
-      logger.info { "Auto-upgraded installation ${installedApp.id.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
+      installedAppRepository.save(installedApp.copy(installedVersionNumber = newVersionNumber))
     }
     if (toUpgrade.isNotEmpty()) {
-      logger.info { "Auto-upgraded ${toUpgrade.size} installation(s) of app ${appId.value} to ${newVersionNumber.value}" }
+      logger.info { "Auto-upgraded ${toUpgrade.size} installation(s) of app ${appId.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
     }
   }
 
