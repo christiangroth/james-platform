@@ -91,6 +91,30 @@ class UserAppStoreService(
     }.sortedBy { it.appName }
   }
 
+  override fun getInstalledApp(userId: String, installedAppId: String): Either<DomainError, InstalledAppInfo> {
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
+    if (installedApp == null || installedApp.userId != userId) {
+      logger.warn { "Get installed app failed: installed app not found: $installedAppId for user: $userId" }
+      return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val app = appRepository.findById(installedApp.appId) ?: run {
+      logger.warn { "Get installed app failed: app not found for installed app: $installedAppId" }
+      return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val installedVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber) ?: run {
+      logger.warn { "Get installed app failed: version not found for installed app: $installedAppId" }
+      return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val latestVersion = latestPublishedVersion(installedApp.appId) ?: installedVersion
+    return InstalledAppInfo(
+      installedApp = installedApp,
+      installedAppId = installedApp.id.value,
+      appName = app.name.value,
+      installedVersion = installedVersion,
+      latestVersion = latestVersion,
+    ).right()
+  }
+
   override fun installApp(userId: String, appId: String): Either<DomainError, InstalledApp> {
     appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Install app failed: app not found: $appId" }

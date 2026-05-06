@@ -168,9 +168,10 @@ class UserAppStoreResource {
     @QueryParam("tab") tab: String?,
   ): Response {
     val userId = securityIdentity.principal.name
-    val installedApps = userAppStore.getInstalledApps(userId)
-    val info = installedApps.find { it.installedApp.id.value == installedAppId }
-      ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
 
@@ -215,9 +216,10 @@ class UserAppStoreResource {
     @QueryParam("entityId") entityId: String?,
   ): Response {
     val userId = securityIdentity.principal.name
-    val installedApps = userAppStore.getInstalledApps(userId)
-    val info = installedApps.find { it.installedApp.id.value == installedAppId }
-      ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
@@ -265,9 +267,10 @@ class UserAppStoreResource {
     @PathParam("dataId") dataId: String,
   ): Response {
     val userId = securityIdentity.principal.name
-    val installedApps = userAppStore.getInstalledApps(userId)
-    val info = installedApps.find { it.installedApp.id.value == installedAppId }
-      ?: return Response.seeOther(URI.create("/ui/user/dashboard")).build()
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
     return appData.getAppData(userId, installedAppId, dataId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build() },
       ifRight = { appDataItem ->

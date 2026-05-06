@@ -18,11 +18,19 @@ class SmartDefaultService : SmartDefaultPort {
     ScriptEngineManager(Thread.currentThread().contextClassLoader)
   }
 
+  // Lazily initialised engine instance so the expensive engine creation only happens once per
+  // application lifecycle rather than on every computeSmartDefaults call.
+  private val scriptEngine: javax.script.ScriptEngine? by lazy {
+    scriptEngineManager.getEngineByExtension("kts").also {
+      if (it == null) logger.warn { "Kotlin scripting engine not available – smart defaults will be skipped" }
+    }
+  }
+
   override fun computeSmartDefaults(entity: EntityDefinition, now: Instant): Map<String, String?> {
     val propertiesWithSmartDefaults = entity.properties.filter { it.smartDefault != null }
     if (propertiesWithSmartDefaults.isEmpty()) return emptyMap()
 
-    val engine = scriptEngineManager.getEngineByExtension("kts") ?: run {
+    val engine = scriptEngine ?: run {
       logger.warn { "Kotlin scripting engine not available – smart defaults skipped" }
       return emptyMap()
     }
