@@ -31,6 +31,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -42,6 +43,7 @@ class AppVersionManagementService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
+  private val installedAppRepository: InstalledAppRepositoryPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -120,6 +122,7 @@ class AppVersionManagementService(
     val latestPublished = allVersions
       .filter { it.status == AppVersionStatus.PUBLISHED }
       .maxByOrNull { it.createdAt }
+    var hasBreaking = false
     val versionNumber = if (latestPublished == null) {
       VersionNumber(FIRST_VERSION)
     } else {
@@ -137,7 +140,7 @@ class AppVersionManagementService(
         logger.warn { "Publish version failed: invalid bump type: $bumpType" }
         return AppVersionError.INVALID_BUMP_TYPE.left()
       }
-      val hasBreaking = hasBreakingChanges(latestPublished, version)
+      hasBreaking = hasBreakingChanges(latestPublished, version)
       val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)
       when {
         hasBreaking -> onBreaking
@@ -165,8 +168,24 @@ class AppVersionManagementService(
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
     logger.info { "App version published: ${versionNumber.value} (${version.id.value})" }
+    if (latestPublished != null && !hasBreaking) {
+      autoUpgradeInstallations(AppId(appId), latestPublished.versionNumber, versionNumber)
+    }
     return publishedVersion.right()
   }
+
+  private fun autoUpgradeInstallations(appId: AppId, previousVersionNumber: VersionNumber?, newVersionNumber: VersionNumber) {
+    if (previousVersionNumber == null) return
+    val installations = installedAppRepository.findAllByAppId(appId)
+    val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber }
+    toUpgrade.forEach { installedApp ->
+      installedAppRepository.save(installedApp.copy(installedVersionNumber = newVersionNumber))
+    }
+    if (toUpgrade.isNotEmpty()) {
+      logger.info { "Auto-upgraded ${toUpgrade.size} installation(s) of app ${appId.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
+    }
+  }
+
 
   override fun deleteDraftVersion(appId: String, versionId: String): Either<DomainError, Unit> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()

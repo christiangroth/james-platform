@@ -32,6 +32,11 @@ class InstalledAppRepositoryAdapter(
       installedAppDocumentRepository.find(USER_ID_FIELD, userId).list().map { it.toDomain() }
     }
 
+  override fun findAllByAppId(appId: AppId): List<InstalledApp> =
+    mongoQueryMetrics.timed("installed_app.findAllByAppId") {
+      installedAppDocumentRepository.find(APP_ID_FIELD, appId.value).list().map { it.toDomain() }
+    }
+
   override fun save(installedApp: InstalledApp) {
     mongoQueryMetrics.timed("installed_app.save") {
       val doc = installedApp.toDocument()
