@@ -1,3 +1,12 @@
+# 0.35.1 (2026.05.06)
+
+## Bugfixes / Chore
+* Added missing MongoDB indexes on `app.developerId` and `app_user.username` to reduce slow queries.
+
+
+
+---
+
 # 0.35.0 (2026.05.06)
 
 ## New Features
