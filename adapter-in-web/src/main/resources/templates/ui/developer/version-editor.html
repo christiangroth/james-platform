@@ -1384,9 +1384,10 @@
                     if (!document.getElementById('smartDefaultGroup').classList.contains('d-none') && smartDefaultVal !== '') {
                         smartDefaultFormData.set('smartDefault', smartDefaultVal);
                     }
+                    var navigateAfterSmartDefault = currentType !== 'STRING';
                     var smartDefaultResult = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/smart-default',
-                        smartDefaultFormData, false
+                        smartDefaultFormData, navigateAfterSmartDefault
                     );
                     if (!smartDefaultResult || !smartDefaultResult.ok) {
                         showEditPropertyError(smartDefaultResult ? smartDefaultResult.message : 'Network error. Please try again.');
@@ -1409,11 +1410,6 @@
                             showEditPropertyError(vpResult ? vpResult.message : 'Network error. Please try again.');
                             btn.disabled = false;
                         }
-                    } else {
-                        showMessage(true, smartDefaultResult.message);
-                        var modal = bootstrap.Modal.getInstance(editPropertyModal);
-                        if (modal) { modal.hide(); }
-                        if (smartDefaultResult.redirectUrl) { window.location.href = smartDefaultResult.redirectUrl; }
                     }
                 });
                 editPropertyModal.addEventListener('hidden.bs.modal', function () {
