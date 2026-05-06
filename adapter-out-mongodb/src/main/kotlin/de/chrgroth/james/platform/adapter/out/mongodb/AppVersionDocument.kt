@@ -24,6 +24,7 @@ class EntityDefinitionDocument {
   var displayText: String = "Display Text"
   var properties: List<PropertyDocument> = emptyList()
   var sortBy: List<SortCriteriaDocument> = emptyList()
+  var computedProperties: List<ComputedPropertyDocument> = emptyList()
 }
 
 class SortCriteriaDocument {
@@ -55,4 +56,11 @@ class ReportDocument {
   lateinit var name: String
   var html: String = ""
   var script: String = ""
+}
+
+class ComputedPropertyDocument {
+  lateinit var id: String
+  lateinit var name: String
+  lateinit var type: String
+  var script: String? = null
 }

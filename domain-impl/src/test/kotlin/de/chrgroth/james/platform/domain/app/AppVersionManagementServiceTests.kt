@@ -8,6 +8,8 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.ComputedProperty
+import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
@@ -1572,6 +1574,69 @@ class AppVersionManagementServiceTests {
     assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("value-proposals:") }
   }
 
+  @Test
+  fun `getVersionDiff shows added computed property in diff lines`() {
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = listOf(cp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("computed Total: LONG") }
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 42L") }
+  }
+
+  @Test
+  fun `getVersionDiff shows removed computed property in diff lines`() {
+    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = emptyList())))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("computed Total: LONG") }
+  }
+
+  @Test
+  fun `getVersionDiff detects changes to computed property script`() {
+    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "0L")
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val updatedCp = cp.copy(script = "42L")
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = listOf(updatedCp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 42L") }
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 0L") }
+  }
+
   // endregion
 
   // region deleteDraftVersion
@@ -1912,6 +1977,238 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region addComputedProperty
+
+  @Test
+  fun `addComputedProperty adds computed property to entity in draft version`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "Total", "LONG")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedEntity = result.getOrNull()?.entityDefinitions?.first()
+    assertThat(updatedEntity?.computedProperties).hasSize(1)
+    assertThat(updatedEntity?.computedProperties?.first()?.name).isEqualTo("Total")
+    assertThat(updatedEntity?.computedProperties?.first()?.type).isEqualTo(PropertyType.LONG)
+  }
+
+  @Test
+  fun `addComputedProperty fails when type is invalid`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "Total", "INVALID_TYPE")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.INVALID_PROPERTY_TYPE)
+  }
+
+  @Test
+  fun `addComputedProperty fails when type does not support computed properties`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "Total", "REF")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `addComputedProperty fails when name already exists`() {
+    val existing = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(existing))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "Total", "LONG")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `addComputedProperty fails when name is blank`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "  ", "LONG")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
+  }
+
+  @Test
+  fun `addComputedProperty fails when entity not found`() {
+    val version = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addComputedProperty("app-1", "ver-1", "unknown-entity", "Total", "LONG")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region updateComputedProperty
+
+  @Test
+  fun `updateComputedProperty updates name and type`() {
+    val existing = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(existing))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateComputedProperty("app-1", "ver-1", "e-1", "cp-1", "GrandTotal", "DOUBLE")
+
+    assertThat(result.isRight()).isTrue()
+    val updated = result.getOrNull()?.entityDefinitions?.first()?.computedProperties?.first()
+    assertThat(updated?.name).isEqualTo("GrandTotal")
+    assertThat(updated?.type).isEqualTo(PropertyType.DOUBLE)
+  }
+
+  @Test
+  fun `updateComputedProperty fails when computed property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateComputedProperty("app-1", "ver-1", "e-1", "unknown-cp", "Total", "LONG")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region setComputedPropertyScript
+
+  @Test
+  fun `setComputedPropertyScript sets script on computed property`() {
+    val existing = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(existing))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setComputedPropertyScript("app-1", "ver-1", "e-1", "cp-1", "it[\"qty\"]?.toLongOrNull() ?: 0L")
+
+    assertThat(result.isRight()).isTrue()
+    val updated = result.getOrNull()?.entityDefinitions?.first()?.computedProperties?.first()
+    assertThat(updated?.script).isEqualTo("it[\"qty\"]?.toLongOrNull() ?: 0L")
+  }
+
+  @Test
+  fun `setComputedPropertyScript clears script when null provided`() {
+    val existing = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(existing))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setComputedPropertyScript("app-1", "ver-1", "e-1", "cp-1", null)
+
+    assertThat(result.isRight()).isTrue()
+    val updated = result.getOrNull()?.entityDefinitions?.first()?.computedProperties?.first()
+    assertThat(updated?.script).isNull()
+  }
+
+  @Test
+  fun `setComputedPropertyScript fails when computed property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setComputedPropertyScript("app-1", "ver-1", "e-1", "unknown-cp", "42L")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region reorderComputedProperties
+
+  @Test
+  fun `reorderComputedProperties reorders computed properties`() {
+    val cp1 = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "First", type = PropertyType.STRING)
+    val cp2 = ComputedProperty(id = ComputedPropertyId("cp-2"), name = "Second", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp1, cp2))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.reorderComputedProperties("app-1", "ver-1", "e-1", listOf("cp-2", "cp-1"))
+
+    assertThat(result.isRight()).isTrue()
+    val reordered = result.getOrNull()?.entityDefinitions?.first()?.computedProperties
+    assertThat(reordered?.map { it.id.value }).containsExactly("cp-2", "cp-1")
+  }
+
+  @Test
+  fun `reorderComputedProperties fails when IDs do not match`() {
+    val cp1 = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "First", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp1))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.reorderComputedProperties("app-1", "ver-1", "e-1", listOf("cp-1", "cp-unknown"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_IDS_MISMATCH)
+  }
+
+  // endregion
+
+  // region deleteComputedProperty
+
+  @Test
+  fun `deleteComputedProperty removes computed property from entity`() {
+    val cp1 = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp1))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteComputedProperty("app-1", "ver-1", "e-1", "cp-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.computedProperties).isEmpty()
+  }
+
+  @Test
+  fun `deleteComputedProperty fails when computed property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.deleteComputedProperty("app-1", "ver-1", "e-1", "unknown-cp")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteComputedProperty fails when entity not found`() {
+    val version = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.deleteComputedProperty("app-1", "ver-1", "unknown-entity", "cp-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
   }
 
   // endregion

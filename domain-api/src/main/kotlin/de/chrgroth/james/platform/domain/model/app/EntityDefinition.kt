@@ -8,6 +8,9 @@ value class EntityDefinitionId(val value: String)
 @JvmInline
 value class PropertyId(val value: String)
 
+@JvmInline
+value class ComputedPropertyId(val value: String)
+
 enum class SortDirection { ASC, DESC }
 
 data class SortCriteria(
@@ -21,6 +24,14 @@ data class EntityDefinition(
   val displayText: String? = null,
   val properties: List<Property> = emptyList(),
   val sortBy: List<SortCriteria> = emptyList(),
+  val computedProperties: List<ComputedProperty> = emptyList(),
+)
+
+data class ComputedProperty(
+  val id: ComputedPropertyId,
+  val name: String,
+  val type: PropertyType,
+  val script: String? = null,
 )
 
 data class Property(
@@ -131,4 +142,6 @@ enum class PropertyType {
   open fun supportsDefault(): Boolean = true
 
   open fun supportsSmartDefault(): Boolean = supportsDefault()
+
+  open fun supportsComputedProperty(): Boolean = supportsDefault() && this != REF
 }

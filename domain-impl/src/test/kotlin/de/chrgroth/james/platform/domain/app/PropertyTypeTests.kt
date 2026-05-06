@@ -188,4 +188,42 @@ class PropertyTypeTests {
   }
 
   // endregion
+
+  // region supportsComputedProperty
+
+  @Test
+  fun `scalar non-REF types support computed properties`() {
+    val supportedTypes = listOf(
+      PropertyType.LONG,
+      PropertyType.DOUBLE,
+      PropertyType.BOOLEAN,
+      PropertyType.STRING,
+      PropertyType.DATE,
+      PropertyType.TIME,
+      PropertyType.DATETIME,
+      PropertyType.DURATION,
+    )
+    supportedTypes.forEach { type ->
+      assertThat(type.supportsComputedProperty())
+        .describedAs("$type should support computed properties")
+        .isTrue()
+    }
+  }
+
+  @Test
+  fun `REF does not support computed properties`() {
+    assertThat(PropertyType.REF.supportsComputedProperty()).isFalse()
+  }
+
+  @Test
+  fun `LIST does not support computed properties`() {
+    assertThat(PropertyType.LIST.supportsComputedProperty()).isFalse()
+  }
+
+  @Test
+  fun `OBJECT does not support computed properties`() {
+    assertThat(PropertyType.OBJECT.supportsComputedProperty()).isFalse()
+  }
+
+  // endregion
 }

@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
@@ -247,4 +248,15 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun sortedReports(version: AppVersion): List<Report> =
     version.reports.sortedBy { it.name }
+
+  /**
+   * Returns the ComputedProperty id string value. Used because ComputedPropertyId is a JvmInline value class
+   * whose JVM getter is name-mangled, preventing Qute from resolving it via reflection.
+   */
+  @JvmStatic
+  fun id(computedProperty: ComputedProperty): String = computedProperty.id.value
+
+  /** Returns the script of the computed property, or empty string if not set. */
+  @JvmStatic
+  fun script(computedProperty: ComputedProperty): String = computedProperty.script ?: ""
 }
