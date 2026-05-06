@@ -1,3 +1,20 @@
+# 0.37.0 (2026.05.06)
+
+## New Features
+* Added a new `monitoring` role that grants access to the Tools menu in the navigation bar.
+* The Tools menu is now visible to users with the `monitoring` role in addition to the `admin` role.
+* The user `chris` is automatically assigned the `monitoring` role on startup.
+* A property can no longer have both a static default value and a smart default set at the same time.
+* Properties can now be reordered via drag-and-drop in the version editor, giving developers control over the order in which smart defaults are evaluated.
+* Smart default scripts now receive a pre-populated map that includes all static default values from other properties, allowing smart defaults to reference them.
+
+## Bugfixes / Chore
+* Updated frontend coding guide with complete table pattern, modal pattern, standard Qute tags reference, and shared JS utilities documentation.
+
+
+
+---
+
 # 0.36.0 (2026.05.06)
 
 ## New Features
