@@ -1473,8 +1473,8 @@ class AppVersionManagementServiceTests {
   fun `getVersionDiff shows default value in diff lines when changed`() {
     val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, default = null)
     val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
-    val predecessor = publishedVersion.copy(entityDefinitions = listOf(entityDef))
-      .let { version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED).copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100)) }
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
     val updatedProp = prop.copy(default = "Alpha")
     val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
       .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
