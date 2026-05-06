@@ -605,6 +605,23 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/reorder")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun reorderProperties(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response {
+    val propertyIds = form["propertyId"] ?: emptyList()
+    return appVersionManagement.reorderProperties(appId, versionId, entityId, propertyIds).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Properties reordered.")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteProperty(
@@ -797,6 +814,8 @@ class DeveloperAppResource {
     AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> "This property type does not support smart defaults."
     AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> "The smart default script is invalid."
     AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> "Value proposals are only supported for String properties."
+    AppVersionError.BOTH_DEFAULTS_SET.code -> "A property cannot have both a default value and a smart default. Please clear one before setting the other."
+    AppVersionError.PROPERTY_IDS_MISMATCH.code -> "Property IDs do not match the existing properties."
     AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> "Computed property not found."
     AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> "A computed property with this name already exists."
     AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> "This type does not support computed properties."

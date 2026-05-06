@@ -114,6 +114,23 @@ class SmartDefaultServiceTests {
   }
 
   @Test
+  fun `computeSmartDefaults makes static defaults available in it binding`() {
+    val entity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Order",
+      properties = listOf(
+        Property(id = PropertyId("p-1"), name = "Base", type = PropertyType.STRING, default = "hello"),
+        Property(id = PropertyId("p-2"), name = "Derived", type = PropertyType.STRING, smartDefault = "it[\"p-1\"] + \" world\""),
+      ),
+    )
+
+    val result = service.computeSmartDefaults(entity, fixedNow)
+
+    assertThat(result).doesNotContainKey("p-1")
+    assertThat(result["p-2"]).isEqualTo("hello world")
+  }
+
+  @Test
   fun `computeSmartDefaults only includes properties with smart defaults in result`() {
     val entity = EntityDefinition(
       id = EntityDefinitionId("e-1"),

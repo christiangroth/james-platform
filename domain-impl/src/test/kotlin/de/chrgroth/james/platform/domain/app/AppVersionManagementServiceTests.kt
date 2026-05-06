@@ -1240,6 +1240,19 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
   }
 
+  @Test
+  fun `setPropertyDefault fails when smart default is already set`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, smartDefault = "42L")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "10")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BOTH_DEFAULTS_SET)
+  }
+
   // endregion
 
   // region setPropertySmartDefault
@@ -1370,6 +1383,73 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
 
     val result = service.setPropertySmartDefault("app-1", "unknown", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertySmartDefault fails when static default is already set`() {
+    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, default = "2025-01-01")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BOTH_DEFAULTS_SET)
+  }
+
+  // endregion
+
+  // region reorderProperties
+
+  @Test
+  fun `reorderProperties reorders properties in entity`() {
+    val p1 = Property(id = PropertyId("p-1"), name = "First", type = PropertyType.STRING)
+    val p2 = Property(id = PropertyId("p-2"), name = "Second", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(p1, p2))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.reorderProperties("app-1", "ver-1", "e-1", listOf("p-2", "p-1"))
+
+    assertThat(result.isRight()).isTrue()
+    val reordered = result.getOrNull()?.entityDefinitions?.first()?.properties
+    assertThat(reordered?.map { it.id.value }).containsExactly("p-2", "p-1")
+  }
+
+  @Test
+  fun `reorderProperties fails when IDs do not match`() {
+    val p1 = Property(id = PropertyId("p-1"), name = "First", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(p1))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.reorderProperties("app-1", "ver-1", "e-1", listOf("p-1", "p-unknown"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_IDS_MISMATCH)
+  }
+
+  @Test
+  fun `reorderProperties fails when entity not found`() {
+    val version = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.reorderProperties("app-1", "ver-1", "unknown-entity", listOf("p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `reorderProperties fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.reorderProperties("app-1", "unknown", "e-1", listOf("p-1"))
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)

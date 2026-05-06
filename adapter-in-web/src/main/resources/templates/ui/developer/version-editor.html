@@ -96,6 +96,7 @@
                 <table class="table table-sm mb-3 app-table" data-testid="properties-table">
                     <thead>
                         <tr>
+                            <th style="width:1.5rem;"></th>
                             <th>Name</th>
                             <th>Type</th>
                             <th>Constraints</th>
@@ -103,7 +104,7 @@
                             <th>Smart Default</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="propertiesTbody" data-entity-id="{selectedEntity.id}">
                         {#for prop in selectedEntity.properties}
                         <tr class="clickable-row" data-testid="property-row" tabindex="0" role="button"
                             aria-label="Edit property {prop.name}"
@@ -126,6 +127,9 @@
                             data-default-value="{prop.defaultValue}"
                             data-smart-default="{prop.smartDefault}"
                             data-value-proposals="{prop.valueProposals}">
+                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="Drag to reorder" data-testid="property-drag-handle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
+                            </td>
                             <td>{prop.name}</td>
                             <td>{prop.type}{#if prop.nullable}?{/if}</td>
                             <td>
@@ -2224,6 +2228,83 @@
                     row.addEventListener('dragleave', cpHandleDragLeave);
                     row.addEventListener('drop', cpHandleDrop);
                     row.addEventListener('dragend', cpHandleDragEnd);
+                });
+            }
+
+            // Drag-and-drop property reordering
+            var propertiesTbody = document.getElementById('propertiesTbody');
+            if (propertiesTbody) {
+                var propDragSrcRow = null;
+
+                function propHandleDragStart(e) {
+                    propDragSrcRow = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.getAttribute('data-property-id'));
+                    this.classList.add('opacity-50');
+                }
+
+                function propHandleDragOver(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    return false;
+                }
+
+                function propHandleDragEnter() { this.classList.add('table-active'); }
+                function propHandleDragLeave() { this.classList.remove('table-active'); }
+
+                function propHandleDrop(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (propDragSrcRow !== this) {
+                        var rows = Array.from(propertiesTbody.querySelectorAll('tr'));
+                        var srcIdx = rows.indexOf(propDragSrcRow);
+                        var dstIdx = rows.indexOf(this);
+                        if (srcIdx > dstIdx) {
+                            propertiesTbody.insertBefore(propDragSrcRow, this);
+                        } else {
+                            propertiesTbody.insertBefore(propDragSrcRow, this.nextSibling);
+                        }
+                        savePropertyOrder();
+                    }
+                    return false;
+                }
+
+                function propHandleDragEnd() {
+                    this.classList.remove('opacity-50');
+                    propertiesTbody.querySelectorAll('tr').forEach(function (r) { r.classList.remove('table-active'); });
+                }
+
+                async function savePropertyOrder() {
+                    var entityId = propertiesTbody.getAttribute('data-entity-id');
+                    var propertyIds = Array.from(propertiesTbody.querySelectorAll('tr')).map(function (r) {
+                        return r.getAttribute('data-property-id');
+                    });
+                    var formData = new FormData();
+                    propertyIds.forEach(function (id) { formData.append('propertyId', id); });
+                    try {
+                        var response = await fetch(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/reorder',
+                            {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: new URLSearchParams(formData).toString(),
+                            }
+                        );
+                        var result = await response.json();
+                        if (!result.ok) { showMessage(false, result.message); }
+                    } catch (e) {
+                        showMessage(false, 'Network error saving property order.');
+                    }
+                }
+
+                propertiesTbody.querySelectorAll('tr').forEach(function (row) {
+                    row.draggable = true;
+                    row.addEventListener('dragstart', propHandleDragStart);
+                    row.addEventListener('dragover', propHandleDragOver);
+                    row.addEventListener('dragenter', propHandleDragEnter);
+                    row.addEventListener('dragleave', propHandleDragLeave);
+                    row.addEventListener('drop', propHandleDrop);
+                    row.addEventListener('dragend', propHandleDragEnd);
                 });
             }
 

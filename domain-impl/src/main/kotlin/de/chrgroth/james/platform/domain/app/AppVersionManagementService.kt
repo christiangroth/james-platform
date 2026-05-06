@@ -463,6 +463,10 @@ class AppVersionManagementService(
       return AppVersionError.DEFAULT_NOT_SUPPORTED.left()
     }
     val trimmedDefault = default?.takeIf { it.isNotBlank() }
+    if (trimmedDefault != null && property.smartDefault != null) {
+      logger.warn { "Set property default failed: property $propertyId already has a smart default set" }
+      return AppVersionError.BOTH_DEFAULTS_SET.left()
+    }
     if (trimmedDefault != null) {
       val parsedValue = parseDefaultValue(property.type, trimmedDefault)
       if (parsedValue == null) {
@@ -511,6 +515,10 @@ class AppVersionManagementService(
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
     val trimmedSmartDefault = smartDefault?.takeIf { it.isNotBlank() }
+    if (trimmedSmartDefault != null && property.default != null) {
+      logger.warn { "Set property smart default failed: property $propertyId already has a static default set" }
+      return AppVersionError.BOTH_DEFAULTS_SET.left()
+    }
     if (trimmedSmartDefault != null && !property.type.supportsSmartDefault()) {
       logger.warn { "Set property smart default failed: type ${property.type} does not support smart defaults: $propertyId" }
       return AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.left()
@@ -550,6 +558,31 @@ class AppVersionManagementService(
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property value proposals set: $propertyId in entity $entityId in version $versionId (${filteredProposals.size} proposals)" }
+    return updated.right()
+  }
+
+  override fun reorderProperties(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyIds: List<String>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Reorder properties failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val existingIds = entity.properties.map { it.id.value }.toSet()
+    if (propertyIds.toSet() != existingIds || propertyIds.size != entity.properties.size) {
+      logger.warn { "Reorder properties failed: property IDs mismatch for entity $entityId" }
+      return AppVersionError.PROPERTY_IDS_MISMATCH.left()
+    }
+    val propertyById = entity.properties.associateBy { it.id.value }
+    val reordered = propertyIds.mapNotNull { propertyById[it] }
+    val updatedEntity = entity.copy(properties = reordered)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Properties reordered in entity $entityId in version $versionId" }
     return updated.right()
   }
 
