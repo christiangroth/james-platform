@@ -25,6 +25,8 @@ class AppTemplateGlobals {
       instance.data("isAdmin", isAdmin)
       val isDeveloper = runCatching { securityIdentity.roles?.contains(UserRole.DEVELOPER.name) ?: false }.getOrDefault(false)
       instance.data("isDeveloper", isDeveloper)
+      val isMonitoring = runCatching { securityIdentity.roles?.contains(UserRole.MONITORING.name) ?: false }.getOrDefault(false)
+      instance.data("isMonitoring", isMonitoring)
     }
   }
 }
