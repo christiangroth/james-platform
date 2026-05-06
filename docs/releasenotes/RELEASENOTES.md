@@ -1,3 +1,13 @@
+# 0.32.1 (2026.05.06)
+
+## Bugfixes / Chore
+* Smart defaults (predefined date/time/datetime Kotlin scripts) are now reliably calculated when opening the "New" data form.
+* Fixed a performance issue where the Kotlin scripting engine was re-initialised on every request, causing the form to load slowly.
+
+
+
+---
+
 # 0.32.0 (2026.05.06)
 
 ## New Features
