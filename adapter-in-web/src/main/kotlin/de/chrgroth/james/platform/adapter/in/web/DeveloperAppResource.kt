@@ -691,11 +691,12 @@ class DeveloperAppResource {
   }
 
   companion object {
-    private val predefinedSmartDefaultsJson: RawString = run {
-      val data = PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->
-        pds.map { mapOf("label" to it.label, "script" to it.script) }
-      }
-      RawString(ObjectMapper().writeValueAsString(data))
-    }
+    private val predefinedSmartDefaultsJson: RawString = RawString(
+      ObjectMapper().writeValueAsString(
+        PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->
+          pds.map { mapOf("label" to it.label, "script" to it.script) }
+        }
+      )
+    )
   }
 }
