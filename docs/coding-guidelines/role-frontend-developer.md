@@ -136,8 +136,6 @@ For modals:
 ### Additional Rules
 - Action buttons **must not** appear in table row action columns when a dedicated edit view / modal is available
 - Opening an edit modal by clicking on a table row (rather than a separate icon button) is preferred when edit is the primary action for that row
-
-
 - Every action must have visible feedback: button disabled state during requests, success/error banners on completion
 - Destructive actions (delete, wipe) require a confirmation modal – never a bare button that acts immediately
 - Confirmation modals must clearly state what will be deleted and that the action cannot be undone
@@ -184,6 +182,212 @@ Each page with a depth greater than 1 must include a Bootstrap breadcrumb immedi
 | User | `/ui/user/dashboard` | App detail, App Store | App Store detail | – |
 | Developer | `/ui/developer/dashboard` | App overview | Version editor | Entity / Report editor |
 | Admin | `/ui/admin/dashboard` | Users | – | – |
+
+## Table Pattern
+
+All data tables must follow this structure. See also the CSS classes table above for `.app-table`.
+
+```html
+<div class="table-responsive">
+    <table class="table table-sm mb-0 app-table" data-testid="...">
+        <thead>
+            <tr>
+                <th>Column A</th>
+                <th>Column B</th>
+                <th class="text-end">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#for item in items}
+            <tr data-testid="...">
+                <td data-testid="...">{item.fieldA}</td>
+                <td data-testid="...">{item.fieldB}</td>
+                <td class="text-end">
+                    {#btn-icon-edit testId="edit-button" title="Edit" extraClass="" bsTarget="#editModal" /}
+                    {#btn-icon-delete testId="delete-button" title="Delete" extraClass="ms-1" bsTarget="#confirmDeleteModal" entityId=item.id propertyId="" reportId="" username="" action="" /}
+                </td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
+</div>
+```
+
+### Table rules
+
+- Always use `<div class="table-responsive">` as the outer wrapper.
+- Always add `app-table` alongside Bootstrap's `table` and `table-sm` classes.
+- Add `mb-0` when the table is the last element inside a card; use `mb-3` when followed by additional content.
+- Use `table-striped` for long read-only tables (e.g. health, config); omit it for interactive tables.
+- The **Actions** column header must be `class="text-end"` and each actions cell must be `class="text-end"`.
+- Use the standard icon-button tags (`{#btn-icon-edit}`, `{#btn-icon-delete}`) for row actions – do not inline raw `<button>` elements with SVGs.
+- Add `ms-1` via `extraClass` on every icon button after the first to maintain consistent spacing.
+- Clickable rows (where clicking the row navigates or opens a modal) use class `app-clickable-row` and a `data-href` attribute; the JS handler is applied in the page `<script>` block.
+
+## Modal Pattern
+
+All modals must follow this structure.
+
+### Basic edit / create modal
+
+```html
+<div class="modal fade" id="editFooModal" tabindex="-1" aria-labelledby="editFooModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content app-modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editFooModalLabel">Edit Foo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editFooForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fooName" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control app-form-control" id="fooName" name="name" required autocomplete="off" data-testid="foo-name-input">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-app-primary" data-testid="foo-submit-button">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+```
+
+### Confirmation (destructive action) modal
+
+When a destructive action button exists alongside Cancel/OK:
+
+```html
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content app-modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Delete Foo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteFooName" data-testid="delete-foo-name"></strong>? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-app-danger" id="confirmDeleteBtn" data-testid="confirm-delete-button">Delete</button>
+                <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+### Modal rules
+
+- Always use `app-modal-content` on `<div class="modal-content">`.
+- Always use `btn-close-white` on the close button so it is visible on dark backgrounds.
+- Forms inside modals must be reset and submit buttons re-enabled in the `hidden.bs.modal` event handler.
+- Pre-fill modal fields from the trigger button's `data-*` attributes in the `show.bs.modal` event handler.
+- When the modal footer contains both a destructive and a positive button, use `justify-content-between` on the footer so the destructive button sits on the left and the positive button on the right (see Button Placement Rules).
+- When the modal footer has only positive/neutral buttons (no destructive action), right-align them using the default `modal-footer` layout.
+
+### Pre-filling a modal from trigger data attributes
+
+```js
+var fooModalEl = document.getElementById('editFooModal');
+fooModalEl.addEventListener('show.bs.modal', function (event) {
+    var btn = event.relatedTarget;
+    document.getElementById('fooName').value = btn ? btn.getAttribute('data-foo-name') || '' : '';
+});
+fooModalEl.addEventListener('hidden.bs.modal', function () {
+    document.getElementById('editFooForm').reset();
+    document.getElementById('editFooForm').querySelector('[type="submit"]').disabled = false;
+});
+```
+
+## Standard Qute Tags
+
+All reusable HTML fragments are stored in `templates/tags/` and invoked with the `{#tag-name param=value /}` Qute syntax. **Always prefer these tags over inlining raw HTML** to avoid duplicate code.
+
+| Tag | Purpose |
+|---|---|
+| `{#breadcrumb-home homeUrl="..." homeLabel="..." /}` | Home icon as the first breadcrumb item |
+| `{#btn-icon-add testId="..." bsTarget="..." entityId=... extraClass="..." /}` | Secondary icon button that opens an "add" modal |
+| `{#btn-icon-edit testId="..." title="..." bsTarget="..." username=... extraClass="..." /}` | Secondary icon button that opens an "edit" modal |
+| `{#btn-icon-delete testId="..." title="..." bsTarget="..." action="..." entityId=... propertyId=... reportId=... username=... extraClass="..." /}` | Danger icon button for delete/remove actions |
+| `{#btn-icon-publish testId="..." bsTarget="..." extraClass="..." /}` | Primary icon button that opens a "publish" modal |
+| `{#status-icon condition=... size="16" /}` | Green check or red cross SVG icon |
+| `{#diff-section section=... sectionTestId="..." /}` | Diff card with added/removed/modified badge and line-level diff |
+
+### Usage examples
+
+```html
+{! Add button that opens #addPropertyModal, tagged with the current entity ID !}
+{#btn-icon-add testId="open-add-property-modal-button" bsTarget="#addPropertyModal" entityId=selectedEntity.id extraClass="ms-auto" /}
+
+{! Edit button in a table actions column !}
+{#btn-icon-edit testId="edit-item-button" title="Edit" bsTarget="#editItemModal" username="" extraClass="" /}
+
+{! Delete button with spacing from the preceding edit button !}
+{#btn-icon-delete testId="delete-item-button" title="Delete" bsTarget="" action="delete-item" entityId=item.id propertyId="" reportId="" username="" extraClass="ms-1" /}
+
+{! Boolean status icon (16 × 16) !}
+{#status-icon condition=item.active size="16" /}
+```
+
+### When to add a new tag
+
+Create a new tag in `templates/tags/` when:
+- The same HTML fragment (including its inner structure) is used in **two or more** templates.
+- The fragment is self-contained and does not depend on page-level context (only its explicit parameters).
+
+## Shared JavaScript Utilities
+
+Two utility files are always available because they are included unconditionally from `layout.html`:
+
+| File | Included via |
+|---|---|
+| `/META-INF/resources/settings-utils.js` | `layout.html` |
+| `/META-INF/resources/sse-utils.js` | `layout.html` |
+
+### `settings-utils.js`
+
+| Function | Signature | Description |
+|---|---|---|
+| `postWithButton` | `(btn, url, successMsg, errorPrefix, onSuccess)` | Disables `btn`, POSTs to `url`, shows a banner on success/error, then re-enables the button. Use for simple one-shot POST actions (no form body needed). |
+| `showBanner` | `(message, type, elementId?)` | Shows a timed Bootstrap alert inside the element with id `elementId` (defaults to `'status-banner'`). `type` is a Bootstrap alert type (`'success'`, `'danger'`, etc.). |
+
+```js
+// Simple one-shot action button
+var btn = document.getElementById('sync-btn');
+btn.addEventListener('click', function () {
+    postWithButton(btn, '/ui/admin/sync', 'Synced successfully.', 'Sync failed', function () {
+        window.location.reload();
+    });
+});
+```
+
+### `sse-utils.js`
+
+| Function | Signature | Description |
+|---|---|---|
+| `fadeUpdate` | `(elementId, url, callback?)` | Fades the element with `elementId` to opacity 0, fetches `url`, replaces the element's `innerHTML`, then fades it back to opacity 1. |
+| `connectSse` | `(url, onMessage, onOpen?)` | Opens an `EventSource` to `url` and calls `onMessage` for each server-sent event. Reconnects automatically every 60 seconds if the connection drops. |
+| `formatCountdown` | `(ms)` | Formats a duration in milliseconds as `HH:MM:SS`. Returns `'now'` for zero or negative values. |
+| `formatBlockedUntil` | `(epochMs)` | Formats an epoch timestamp as `HH:MM` (or `DD.MM.YYYY HH:MM` when more than 24 hours in the future). |
+
+```js
+// Live-update a fragment via SSE
+connectSse('/dashboard/events', function (event) {
+    if (event.data === 'refresh-playback-data') {
+        fadeUpdate('playback-container', '/ui/user/dashboard/playback');
+    }
+});
+```
+
+### When to use which utility
+
+- Use `postWithButton` for simple action buttons where no form data is sent and no modal is involved.
+- Use the `fetch()` + `showMessage` pattern directly (documented in "Form Submissions and Action Results") for form submissions and modal-based actions.
+- Use `showBanner` for pages that already use `settings-utils.js` and have a dedicated `#status-banner` element.
+- Use `connectSse` + `fadeUpdate` for any page that needs live push updates from the backend.
 
 ## Error Code Mapping
 
