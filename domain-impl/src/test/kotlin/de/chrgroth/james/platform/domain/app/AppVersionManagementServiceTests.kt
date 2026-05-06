@@ -1514,6 +1514,69 @@ class AppVersionManagementServiceTests {
     assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("value-proposals:") }
   }
 
+  @Test
+  fun `getVersionDiff shows added computed property in diff lines`() {
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = listOf(cp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("computed Total: LONG") }
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 42L") }
+  }
+
+  @Test
+  fun `getVersionDiff shows removed computed property in diff lines`() {
+    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = emptyList())))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("computed Total: LONG") }
+  }
+
+  @Test
+  fun `getVersionDiff detects changes to computed property script`() {
+    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "0L")
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val updatedCp = cp.copy(script = "42L")
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = listOf(updatedCp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 42L") }
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 0L") }
+  }
+
   // endregion
 
   // region deleteDraftVersion

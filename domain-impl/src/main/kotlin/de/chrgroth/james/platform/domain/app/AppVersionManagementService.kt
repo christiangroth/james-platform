@@ -944,6 +944,12 @@ class AppVersionManagementService(
         lines.add("    value-proposals: ${prop.valueProposals.joinToString(", ")}")
       }
     }
+    for (cp in entity.computedProperties) {
+      lines.add("  computed ${cp.name}: ${cp.type}")
+      if (cp.script != null) {
+        lines.add("    script: ${cp.script}")
+      }
+    }
     lines.add("}")
     return lines
   }
