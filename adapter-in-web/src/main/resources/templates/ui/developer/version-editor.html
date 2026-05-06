@@ -1115,9 +1115,12 @@
                 var pendingDeletePropertyId = null;
                 deletePropertyModal.addEventListener('show.bs.modal', function (event) {
                     if (event.relatedTarget) {
+                        // Opened from a table row button – read IDs from the trigger element
                         pendingDeletePropertyEntityId = event.relatedTarget.getAttribute('data-entity-id');
                         pendingDeletePropertyId = event.relatedTarget.getAttribute('data-property-id');
                     }
+                    // When opened programmatically (no relatedTarget), the pending IDs must have
+                    // been set by the caller (e.g. the delete button inside the edit property modal)
                 });
                 var confirmDeletePropertyBtn = document.getElementById('confirmDeletePropertyBtn');
                 confirmDeletePropertyBtn.addEventListener('click', async function () {
@@ -1251,7 +1254,7 @@
                 }
 
                 document.querySelectorAll('[data-action="edit-property"]').forEach(function (btn) {
-                    function openEditPropertyModal() {
+                    btn.addEventListener('click', function () {
                         var propertyType = btn.getAttribute('data-property-type');
                         var currentPropertyId = btn.getAttribute('data-property-id');
                         document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
@@ -1286,12 +1289,11 @@
                         applyConstraintVisibility(propertyType);
                         var modal = bootstrap.Modal.getOrCreateInstance(editPropertyModal);
                         modal.show();
-                    }
-                    btn.addEventListener('click', openEditPropertyModal);
+                    });
                     btn.addEventListener('keydown', function (e) {
                         if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            openEditPropertyModal();
+                            btn.click();
                         }
                     });
                 });
