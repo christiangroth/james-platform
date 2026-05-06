@@ -24,4 +24,12 @@ interface AppDataPort {
   ): Either<DomainError, AppData>
 
   fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Int>
+
+  fun getValueProposals(
+    userId: String,
+    installedAppId: String,
+    entityTypeId: String,
+    propertyId: String,
+    currentData: Map<String, String>,
+  ): Either<DomainError, List<String>>
 }

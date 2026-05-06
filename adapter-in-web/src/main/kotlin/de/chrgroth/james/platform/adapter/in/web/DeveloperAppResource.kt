@@ -30,6 +30,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
@@ -211,7 +212,8 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
+            .data("entityPropertiesJson", EMPTY_JSON_ARRAY),
         ).build()
       },
     )
@@ -238,6 +240,11 @@ class DeveloperAppResource {
         val isDraft = version.status == AppVersionStatus.DRAFT
         val hasDiff = hasDiffForDraft(appId, isDraft)
         val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
+        val entityPropertiesJson = RawString(
+          ObjectMapper().writeValueAsString(
+            selectedEntity?.properties?.map { mapOf("id" to it.id.value, "name" to it.name) } ?: emptyList<Any>()
+          )
+        )
         Response.ok(
           versionEditorTemplate
             .data("app", app)
@@ -246,7 +253,8 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
+            .data("entityPropertiesJson", entityPropertiesJson),
         ).build()
       },
     )
@@ -281,7 +289,8 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
+            .data("entityPropertiesJson", EMPTY_JSON_ARRAY),
         ).build()
       },
     )
@@ -578,6 +587,24 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/value-proposals")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyValueProposals(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response {
+    val valueProposals = form["valueProposal"] ?: emptyList()
+    return appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Value proposals saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteProperty(
@@ -679,6 +706,7 @@ class DeveloperAppResource {
     AppVersionError.DEFAULT_VALUE_INVALID.code -> "The default value is invalid for this property type or violates a constraint."
     AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> "This property type does not support smart defaults."
     AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> "The smart default script is invalid."
+    AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> "Value proposals are only supported for String properties."
     else -> "An unexpected error occurred. Please try again."
   }
 
@@ -691,6 +719,7 @@ class DeveloperAppResource {
   }
 
   companion object {
+    private val EMPTY_JSON_ARRAY: RawString = RawString("[]")
     private val predefinedSmartDefaultsJson: RawString = RawString(
       ObjectMapper().writeValueAsString(
         PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->

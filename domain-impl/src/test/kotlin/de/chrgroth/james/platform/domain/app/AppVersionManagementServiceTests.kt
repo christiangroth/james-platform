@@ -1659,4 +1659,102 @@ class AppVersionManagementServiceTests {
   }
 
   // endregion
+
+  // region setPropertyValueProposals
+
+  @Test
+  fun `setPropertyValueProposals sets value proposals on STRING property`() {
+    val prop1 = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING)
+    val prop2 = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item", properties = listOf(prop1, prop2))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "p-1", listOf("p-2"))
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first { it.id.value == "p-1" }
+    assertThat(updatedProp?.valueProposals).containsExactly("p-2")
+  }
+
+  @Test
+  fun `setPropertyValueProposals clears value proposals when empty list provided`() {
+    val prop1 = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, valueProposals = listOf("p-2"))
+    val prop2 = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item", properties = listOf(prop1, prop2))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "p-1", emptyList())
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first { it.id.value == "p-1" }
+    assertThat(updatedProp?.valueProposals).isEmpty()
+  }
+
+  @Test
+  fun `setPropertyValueProposals filters out invalid property IDs and self-reference`() {
+    val prop1 = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING)
+    val prop2 = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item", properties = listOf(prop1, prop2))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "p-1", listOf("p-1", "p-2", "unknown-prop"))
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first { it.id.value == "p-1" }
+    assertThat(updatedProp?.valueProposals).containsExactly("p-2")
+  }
+
+  @Test
+  fun `setPropertyValueProposals fails for non-STRING property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Count", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "p-1", listOf("p-2"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyValueProposals fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns null
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "p-1", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyValueProposals fails when entity not found`() {
+    val version = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "unknown-entity", "p-1", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyValueProposals fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "unknown-prop", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
 }

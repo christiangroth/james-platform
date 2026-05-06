@@ -130,6 +130,7 @@ class AppVersionRepositoryAdapter(
     constraints = constraints.mapNotNull { it.toDomain() }.toSet(),
     default = default,
     smartDefault = smartDefault,
+    valueProposals = valueProposals,
   )
 
   private fun ConstraintDocument.toDomain(): PropertyConstraint? = when (constraintType) {
@@ -185,6 +186,7 @@ class AppVersionRepositoryAdapter(
     doc.constraints = constraints.map { it.toDocument() }
     doc.default = default
     doc.smartDefault = smartDefault
+    doc.valueProposals = valueProposals
   }
 
   private fun PropertyConstraint.toDocument() = ConstraintDocument().also { doc ->

@@ -31,6 +31,7 @@ data class Property(
   val constraints: Set<PropertyConstraint> = emptySet(),
   val default: String? = null,
   val smartDefault: String? = null,
+  val valueProposals: List<String> = emptyList(),
 )
 
 sealed interface PropertyConstraint {

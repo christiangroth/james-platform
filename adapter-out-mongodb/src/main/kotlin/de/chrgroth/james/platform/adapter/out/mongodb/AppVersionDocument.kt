@@ -39,6 +39,7 @@ class PropertyDocument {
   var constraints: List<ConstraintDocument> = emptyList()
   var default: String? = null
   var smartDefault: String? = null
+  var valueProposals: List<String> = emptyList()
 }
 
 class ConstraintDocument {

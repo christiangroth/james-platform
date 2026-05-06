@@ -502,6 +502,36 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun setPropertyValueProposals(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    valueProposals: List<String>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property value proposals failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property value proposals failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (property.type != PropertyType.STRING) {
+      logger.warn { "Set property value proposals failed: type ${property.type} does not support value proposals: $propertyId" }
+      return AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.left()
+    }
+    val validProposalIds = entity.properties.map { it.id.value }.toSet()
+    val filteredProposals = valueProposals.filter { it in validProposalIds && it != propertyId }
+    val updatedProperty = property.copy(valueProposals = filteredProposals)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property value proposals set: $propertyId in entity $entityId in version $versionId (${filteredProposals.size} proposals)" }
+    return updated.right()
+  }
+
   override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {

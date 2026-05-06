@@ -150,6 +150,7 @@
                                         data-constraint-max-size="{prop.constraintMaxSize}"
                                         data-default-value="{prop.defaultValue}"
                                         data-smart-default="{prop.smartDefault}"
+                                        data-value-proposals="{prop.valueProposals}"
                                         title="Edit property" aria-label="Edit property {prop.name}"
                                         data-testid="edit-property-button">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
@@ -638,6 +639,13 @@
                             <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="e.g. now.toString()" data-testid="smart-default-script-input"></textarea>
                         </div>
                         <p id="smartDefaultGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No smart default available for this property type.</p>
+                        <hr style="border-color:var(--color-border);">
+                        <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Value Proposals</div>
+                        <div id="valueProposalGroup">
+                            <p class="app-section-label mb-2" style="font-size:0.75rem;">Select properties whose current values are used to filter value proposals for this field.</p>
+                            <div id="valueProposalCheckboxes"></div>
+                        </div>
+                        <p id="valueProposalGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">Value proposals are only available for String properties.</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -865,6 +873,7 @@
     {/content}
     {#scripts}
     <script type="application/json" id="predefined-smart-defaults-data">{predefinedSmartDefaultsJson}</script>
+    <script type="application/json" id="entity-properties-data">{entityPropertiesJson}</script>
     <script>
         (function () {
             var appId = '{app.id}';
@@ -1144,6 +1153,7 @@
                 var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
 
                 var PREDEFINED_SMART_DEFAULTS = JSON.parse(document.getElementById('predefined-smart-defaults-data').textContent);
+                var ENTITY_PROPERTIES = JSON.parse(document.getElementById('entity-properties-data').textContent);
 
                 function applyConstraintVisibility(propertyType) {
                     var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];
@@ -1163,6 +1173,10 @@
                     var supportsSmartDefault = SMART_DEFAULT_SUPPORTED_TYPES.includes(propertyType);
                     document.getElementById('smartDefaultGroup').classList.toggle('d-none', !supportsSmartDefault);
                     document.getElementById('smartDefaultGroupNone').classList.toggle('d-none', supportsSmartDefault);
+
+                    var supportsValueProposals = propertyType === 'STRING';
+                    document.getElementById('valueProposalGroup').classList.toggle('d-none', !supportsValueProposals);
+                    document.getElementById('valueProposalGroupNone').classList.toggle('d-none', supportsValueProposals);
 
                     var predefinedDefaults = (supportsSmartDefault && PREDEFINED_SMART_DEFAULTS[propertyType]) || [];
                     var predefinedContainer = document.getElementById('predefinedSmartDefaultButtons');
@@ -1187,11 +1201,45 @@
                     }
                 }
 
+                function buildValueProposalCheckboxes(currentPropertyId, selectedIds) {
+                    var container = document.getElementById('valueProposalCheckboxes');
+                    container.innerHTML = '';
+                    var otherProps = ENTITY_PROPERTIES.filter(function (p) { return p.id !== currentPropertyId; });
+                    if (otherProps.length === 0) {
+                        var msg = document.createElement('p');
+                        msg.className = 'app-section-label mb-0';
+                        msg.style.fontSize = '0.85rem';
+                        msg.textContent = 'No other properties available.';
+                        container.appendChild(msg);
+                        return;
+                    }
+                    otherProps.forEach(function (prop) {
+                        var wrapper = document.createElement('div');
+                        wrapper.className = 'form-check mb-1';
+                        var cb = document.createElement('input');
+                        cb.className = 'form-check-input';
+                        cb.type = 'checkbox';
+                        cb.id = 'vpCheck_' + prop.id;
+                        cb.setAttribute('data-vp-prop-id', prop.id);
+                        cb.checked = selectedIds.includes(prop.id);
+                        cb.setAttribute('data-testid', 'value-proposal-check-' + prop.id);
+                        var label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.htmlFor = 'vpCheck_' + prop.id;
+                        label.style.color = 'var(--color-text-muted)';
+                        label.textContent = prop.name;
+                        wrapper.appendChild(cb);
+                        wrapper.appendChild(label);
+                        container.appendChild(wrapper);
+                    });
+                }
+
                 document.querySelectorAll('[data-action="edit-property"]').forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         var propertyType = btn.getAttribute('data-property-type');
+                        var currentPropertyId = btn.getAttribute('data-property-id');
                         document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
-                        document.getElementById('editPropertyId').value = btn.getAttribute('data-property-id');
+                        document.getElementById('editPropertyId').value = currentPropertyId;
                         document.getElementById('editPropertyModalLabel').textContent = 'Edit Property \u2013 ' + btn.getAttribute('data-property-name');
                         document.getElementById('editPropertyName').value = btn.getAttribute('data-property-name');
                         document.getElementById('editPropertyType').value = propertyType;
@@ -1216,6 +1264,9 @@
                         document.getElementById('defaultDatetime').value = defaultVal;
                         document.getElementById('defaultDuration').value = defaultVal;
                         document.getElementById('editPropertySmartDefault').value = btn.getAttribute('data-smart-default') || '';
+                        var rawVp = btn.getAttribute('data-value-proposals') || '';
+                        var selectedVpIds = rawVp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                        buildValueProposalCheckboxes(currentPropertyId, selectedVpIds);
                         applyConstraintVisibility(propertyType);
                         var modal = bootstrap.Modal.getOrCreateInstance(editPropertyModal);
                         modal.show();
@@ -1335,14 +1386,34 @@
                     }
                     var smartDefaultResult = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/smart-default',
-                        smartDefaultFormData, true
+                        smartDefaultFormData, false
                     );
-                    if (smartDefaultResult && smartDefaultResult.ok) {
-                        var modal = bootstrap.Modal.getInstance(editPropertyModal);
-                        if (modal) { modal.hide(); }
-                    } else {
+                    if (!smartDefaultResult || !smartDefaultResult.ok) {
                         showEditPropertyError(smartDefaultResult ? smartDefaultResult.message : 'Network error. Please try again.');
                         btn.disabled = false;
+                        return;
+                    }
+                    if (currentType === 'STRING') {
+                        var vpFormData = new FormData();
+                        document.querySelectorAll('#valueProposalCheckboxes input[type="checkbox"]:checked').forEach(function (cb) {
+                            vpFormData.append('valueProposal', cb.getAttribute('data-vp-prop-id'));
+                        });
+                        var vpResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/value-proposals',
+                            vpFormData, true
+                        );
+                        if (vpResult && vpResult.ok) {
+                            var modal = bootstrap.Modal.getInstance(editPropertyModal);
+                            if (modal) { modal.hide(); }
+                        } else {
+                            showEditPropertyError(vpResult ? vpResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                        }
+                    } else {
+                        showMessage(true, smartDefaultResult.message);
+                        var modal = bootstrap.Modal.getInstance(editPropertyModal);
+                        if (modal) { modal.hide(); }
+                        if (smartDefaultResult.redirectUrl) { window.location.href = smartDefaultResult.redirectUrl; }
                     }
                 });
                 editPropertyModal.addEventListener('hidden.bs.modal', function () {
