@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.qute.Location
@@ -12,6 +14,19 @@ import jakarta.ws.rs.GET
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
+
+data class EntityDataCount(
+  val entityName: String,
+  val count: Int,
+)
+
+data class DashboardInstalledApp(
+  val installedAppId: String,
+  val appName: String,
+  val installedVersion: AppVersion,
+  val latestVersion: AppVersion,
+  val entityCounts: List<EntityDataCount>,
+)
 
 @Path("/ui")
 @ApplicationScoped
@@ -35,6 +50,9 @@ class UserDashboardResource {
   @Inject
   private lateinit var userAppStore: UserAppStorePort
 
+  @Inject
+  private lateinit var appData: AppDataPort
+
   @GET
   @Path("/user/dashboard")
   @Authenticated
@@ -42,9 +60,26 @@ class UserDashboardResource {
   fun userDashboard(): Any {
     val userId = securityIdentity.principal.name
     val installedApps = userAppStore.getInstalledApps(userId)
+    val dashboardApps = installedApps.map { info ->
+      val allAppData = appData.listAppData(userId, info.installedAppId).getOrNull() ?: emptyList()
+      val countsByEntity = allAppData.groupingBy { it.entityType.value }.eachCount()
+      val entityCounts = info.installedVersion.entityDefinitions.map { entity ->
+        EntityDataCount(
+          entityName = entity.name,
+          count = countsByEntity.getOrDefault(entity.id.value, 0),
+        )
+      }
+      DashboardInstalledApp(
+        installedAppId = info.installedAppId,
+        appName = info.appName,
+        installedVersion = info.installedVersion,
+        latestVersion = info.latestVersion,
+        entityCounts = entityCounts,
+      )
+    }
     return userDashboardTemplate
       .data("username", userId)
-      .data("installedApps", installedApps)
+      .data("installedApps", dashboardApps)
   }
 
   @GET

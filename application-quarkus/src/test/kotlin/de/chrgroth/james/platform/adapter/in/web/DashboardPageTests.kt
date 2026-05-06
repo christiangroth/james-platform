@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 class DashboardPageTests {
 
   @Test
-  fun `user dashboard page is available and displays welcome message`() {
+  fun `user dashboard page is available and displays apps grid`() {
     given()
       .`when`()
       .get("/ui/user/dashboard")
@@ -20,19 +20,18 @@ class DashboardPageTests {
       .statusCode(200)
       .contentType(containsString("text/html"))
       .body(containsString("""data-testid="welcome-message""""))
-      .body(containsString("test-user-a"))
+      .body(containsString("""data-testid="apps-grid""""))
   }
 
   @Test
-  fun `developer dashboard page is available and displays welcome message`() {
+  fun `developer dashboard page is available and displays breadcrumb`() {
     given()
       .`when`()
       .get("/ui/developer/dashboard")
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("""data-testid="welcome-message""""))
-      .body(containsString("test-user-a"))
+      .body(containsString("""data-testid="breadcrumb-developer""""))
   }
 
   @Test
