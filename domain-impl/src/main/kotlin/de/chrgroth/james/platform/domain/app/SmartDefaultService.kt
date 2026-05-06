@@ -49,17 +49,23 @@ class SmartDefaultService(
     }
 
     val result = mutableMapOf<String, String?>()
+    // Seed the `it` binding with all static defaults so smart default scripts can reference them
+    val itSeed: MutableMap<String, String?> = entity.properties
+      .filter { it.default != null }
+      .associateTo(mutableMapOf()) { it.id.value to it.default }
     for (property in entity.properties) {
       val script = property.smartDefault ?: continue
       val startNs = System.nanoTime()
       var success = true
       try {
         val bindings = engine.createBindings()
-        bindings[BINDING_DATA] = result.toMap()
+        bindings[BINDING_DATA] = itSeed.toMap()
         bindings[BINDING_NOW] = now
         val future = scriptExecutor.submit(Callable { engine.eval(buildWrappedScript(script), bindings) })
         val value = future.get(scriptTimeoutMs, TimeUnit.MILLISECONDS)
-        result[property.id.value] = value?.toString()
+        val computed = value?.toString()
+        result[property.id.value] = computed
+        itSeed[property.id.value] = computed
       } catch (e: TimeoutException) {
         success = false
         logger.warn { "Smart default evaluation timed out after ${scriptTimeoutMs}ms for property ${property.id.value} (${property.name})" }
