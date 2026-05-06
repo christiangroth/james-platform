@@ -15,7 +15,7 @@ class SmartDefaultService : SmartDefaultPort {
     val propertiesWithSmartDefaults = entity.properties.filter { it.smartDefault != null }
     if (propertiesWithSmartDefaults.isEmpty()) return emptyMap()
 
-    val engine = ScriptEngineManager().getEngineByExtension("kts") ?: run {
+    val engine = ScriptEngineManager(Thread.currentThread().contextClassLoader).getEngineByExtension("kts") ?: run {
       logger.warn { "Kotlin scripting engine not available – smart defaults skipped" }
       return emptyMap()
     }
