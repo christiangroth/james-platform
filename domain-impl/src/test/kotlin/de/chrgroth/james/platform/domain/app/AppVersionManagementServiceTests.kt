@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.app
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
+import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.AppId
@@ -9,6 +10,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -22,9 +24,11 @@ import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -35,7 +39,8 @@ class AppVersionManagementServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val propertyConstraintPort: PropertyConstraintPort = mockk()
-  private val service: AppVersionManagementService = AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort)
+  private val installedAppRepository: InstalledAppRepositoryPort = mockk()
+  private val service: AppVersionManagementService = AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository)
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -227,6 +232,7 @@ class AppVersionManagementServiceTests {
   fun `publishVersion succeeds as feature bump`() {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
 
     val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
@@ -239,6 +245,7 @@ class AppVersionManagementServiceTests {
   fun `publishVersion succeeds as bugfix bump`() {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
 
     val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
@@ -259,6 +266,7 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
+    verify(exactly = 0) { installedAppRepository.findAllByAppId(any()) }
   }
 
   @Test
@@ -272,6 +280,58 @@ class AppVersionManagementServiceTests {
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber(AppVersionManagementService.FIRST_VERSION))
     verify { appVersionRepository.save(match { it.status == AppVersionStatus.PUBLISHED && it.versionNumber == VersionNumber(AppVersionManagementService.FIRST_VERSION) }) }
+    verify(exactly = 0) { installedAppRepository.findAllByAppId(any()) }
+  }
+
+  @Test
+  fun `publishVersion auto-upgrades installations without breaking changes`() {
+    val inst1 = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    val inst2 = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst1, inst2)
+    val savedSlot = mutableListOf<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedSlot)) }
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 2) { installedAppRepository.save(any()) }
+    assertThat(savedSlot).allSatisfy { it.installedVersionNumber == VersionNumber("1.2.0") }
+  }
+
+  @Test
+  fun `publishVersion does not auto-upgrade installations that are not on the previous version`() {
+    val instOnOldVersion = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    val instOnCurrentVersion = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(instOnOldVersion, instOnCurrentVersion)
+    val savedSlot = mutableListOf<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedSlot)) }
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { installedAppRepository.save(any()) }
+    assertThat(savedSlot.first().installedVersionNumber).isEqualTo(VersionNumber("1.2.0"))
+    assertThat(savedSlot.first().id.value).isEqualTo("inst-2")
+  }
+
+  @Test
+  fun `publishVersion skips auto-upgrade when breaking changes are detected`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val publishedWithEntity = publishedVersion.copy(entityDefinitions = listOf(entity))
+    val draftWithoutEntity = draftVersion.copy(entityDefinitions = emptyList(), reports = listOf(Report(ReportId("r-1"), "Report")))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithoutEntity, publishedWithEntity)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
+    verify(exactly = 0) { installedAppRepository.findAllByAppId(any()) }
+    verify(exactly = 0) { installedAppRepository.save(any()) }
   }
 
   @Test
