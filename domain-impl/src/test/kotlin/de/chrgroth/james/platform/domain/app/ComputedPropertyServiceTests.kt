@@ -9,10 +9,12 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlin.time.Instant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ComputedPropertyServiceTests {
 
-  private val service = ComputedPropertyService(ScriptMetrics(SimpleMeterRegistry()))
+  private val service = ComputedPropertyService(ScriptMetrics(SimpleMeterRegistry()), 30_000L)
 
   private val fixedNow = Instant.parse("2024-06-15T10:30:00Z")
   private val entityId = EntityDefinitionId("e-1")

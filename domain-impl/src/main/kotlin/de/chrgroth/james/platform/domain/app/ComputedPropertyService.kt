@@ -6,11 +6,23 @@ import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import jakarta.enterprise.context.ApplicationScoped
 import kotlin.time.Instant
 import mu.KLogging
+import org.eclipse.microprofile.config.inject.ConfigProperty
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import javax.script.ScriptEngineManager
 
 @ApplicationScoped
 @Suppress("Unused")
-class ComputedPropertyService(private val scriptMetrics: ScriptMetrics) : ComputedPropertyPort {
+class ComputedPropertyService(
+  private val scriptMetrics: ScriptMetrics,
+  @param:ConfigProperty(name = "app.script.timeout-ms", defaultValue = "500")
+  private val scriptTimeoutMs: Long,
+) : ComputedPropertyPort {
+
+  private val scriptExecutor = Executors.newVirtualThreadPerTaskExecutor()
 
   // Lazily initialised on first use so the ServiceLoader classpath scan runs once per JVM instance
   // rather than on every request. Thread.currentThread().contextClassLoader is required in Quarkus
@@ -46,8 +58,17 @@ class ComputedPropertyService(private val scriptMetrics: ScriptMetrics) : Comput
         bindings[BINDING_DATA] = data
         bindings[BINDING_COMPUTED] = result.toMap()
         bindings[BINDING_NOW] = now
-        val value = engine.eval(buildWrappedScript(script), bindings)
+        val future = scriptExecutor.submit(Callable { engine.eval(buildWrappedScript(script), bindings) })
+        val value = future.get(scriptTimeoutMs, TimeUnit.MILLISECONDS)
         result[computedProperty.id.value] = value?.toString()
+      } catch (e: TimeoutException) {
+        success = false
+        logger.warn { "Computed property evaluation timed out after ${scriptTimeoutMs}ms for ${computedProperty.id.value} (${computedProperty.name})" }
+        result[computedProperty.id.value] = null
+      } catch (e: ExecutionException) {
+        success = false
+        logger.warn { "Computed property evaluation failed for ${computedProperty.id.value} (${computedProperty.name}): ${e.cause?.message}" }
+        result[computedProperty.id.value] = null
       } catch (e: Exception) {
         success = false
         logger.warn { "Computed property evaluation failed for ${computedProperty.id.value} (${computedProperty.name}): ${e.message}" }
