@@ -43,7 +43,10 @@ data class AppDataPropertyView(
   val nullable: Boolean,
   val value: String?,
   val htmlInputType: String,
-)
+  val valueProposals: List<String> = emptyList(),
+) {
+  fun valueProposalsString(): String = valueProposals.joinToString(",")
+}
 
 data class AppDataDetail(
   val id: String,
@@ -293,6 +296,7 @@ class UserAppStoreResource {
                 PropertyType.DATETIME -> "datetime-local"
                 else -> "text"
               },
+              valueProposals = prop.valueProposals,
             )
           },
         )
@@ -330,6 +334,27 @@ class UserAppStoreResource {
         }
       },
       ifRight = { Response.ok(DeveloperApiResult(true, "Data updated.", "/ui/user/apps/$installedAppId/data/$dataId")).build() },
+    )
+  }
+
+  @GET
+  @Path("/user/apps/{installedAppId}/data/value-proposals")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun getValueProposals(
+    @PathParam("installedAppId") installedAppId: String,
+    @QueryParam("entityTypeId") entityTypeId: String,
+    @QueryParam("propertyId") propertyId: String,
+    @QueryParam("filter") filters: List<String>,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val currentData = filters.associate { entry ->
+      val idx = entry.indexOf('=')
+      if (idx > 0) entry.substring(0, idx) to entry.substring(idx + 1)
+      else entry to ""
+    }
+    return appData.getValueProposals(userId, installedAppId, entityTypeId, propertyId, currentData).fold(
+      ifLeft = { Response.ok(emptyList<String>()).build() },
+      ifRight = { proposals -> Response.ok(proposals).build() },
     )
   }
 

@@ -42,7 +42,9 @@
                            {#if !prop.nullable}required{/if}
                            {#if prop.type.name == "DOUBLE"}step="any"{/if}
                            {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
+                           {#if prop.hasValueProposals}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposals}" data-installed-app-id="{info.installedAppId}" data-entity-type-id="{entity.id}" data-property-id="{prop.id}"{/if}
                            data-testid="property-input-{prop.id}">
+                    {#if prop.hasValueProposals}<datalist id="datalist_{prop.id}"></datalist>{/if}
                     {/if}
                 </div>
                 {/for}
@@ -142,6 +144,46 @@
                     showMessage(false, 'Network error. Please try again.');
                     submitBtn.disabled = false;
                 }
+            });
+
+            // Value proposals autocomplete
+            document.querySelectorAll('input[data-value-proposals]').forEach(function (input) {
+                var datalistId = input.getAttribute('list');
+                var installedAppId = input.getAttribute('data-installed-app-id');
+                var entityTypeId = input.getAttribute('data-entity-type-id');
+                var propertyId = input.getAttribute('data-property-id');
+                var filterPropIds = (input.getAttribute('data-value-proposals') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+                function fetchAndPopulate() {
+                    var params = new URLSearchParams();
+                    params.set('entityTypeId', entityTypeId);
+                    params.set('propertyId', propertyId);
+                    filterPropIds.forEach(function (fpId) {
+                        var filterInput = document.querySelector('[name="prop_' + fpId + '"]');
+                        var filterVal = filterInput ? filterInput.value : '';
+                        if (filterVal) {
+                            params.append('filter', fpId + '=' + filterVal);
+                        }
+                    });
+                    var currentVal = input.value;
+                    fetch('/ui/user/apps/' + installedAppId + '/data/value-proposals?' + params.toString(), {
+                        headers: { 'Accept': 'application/json' }
+                    }).then(function (r) { return r.json(); }).then(function (proposals) {
+                        var dl = document.getElementById(datalistId);
+                        if (!dl) return;
+                        dl.innerHTML = '';
+                        proposals.forEach(function (val) {
+                            if (!currentVal || val.toLowerCase().indexOf(currentVal.toLowerCase()) !== -1) {
+                                var opt = document.createElement('option');
+                                opt.value = val;
+                                dl.appendChild(opt);
+                            }
+                        });
+                    }).catch(function () {});
+                }
+
+                input.addEventListener('focus', fetchAndPopulate);
+                input.addEventListener('input', fetchAndPopulate);
             });
         }());
     </script>

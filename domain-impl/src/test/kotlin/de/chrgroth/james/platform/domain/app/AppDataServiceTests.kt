@@ -261,4 +261,90 @@ class AppDataServiceTests {
   }
 
   // endregion
+
+  // region getValueProposals
+
+  @Test
+  fun `getValueProposals returns empty list when no value proposals defined`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(existingAppData)
+
+    val result = service.getValueProposals(userId, installedAppId.value, entityId.value, prop1Id.value, emptyMap())
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEmpty()
+  }
+
+  @Test
+  fun `getValueProposals returns proposals sorted by frequency`() {
+    val vpProp = prop1.copy(valueProposals = emptyList())
+    val filterProp = prop2.copy(type = PropertyType.STRING)
+    val propWithVp = vpProp.copy(valueProposals = listOf(filterProp.id.value))
+    val entity = entityDef.copy(properties = listOf(propWithVp, filterProp))
+    val version = appVersion.copy(entityDefinitions = listOf(entity))
+    val data1 = existingAppData.copy(id = AppDataId("d1"), data = mapOf(prop1Id.value to "Alpha", prop2Id.value to "X"))
+    val data2 = existingAppData.copy(id = AppDataId("d2"), data = mapOf(prop1Id.value to "Beta", prop2Id.value to "X"))
+    val data3 = existingAppData.copy(id = AppDataId("d3"), data = mapOf(prop1Id.value to "Alpha", prop2Id.value to "X"))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns version
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(data1, data2, data3)
+
+    val result = service.getValueProposals(userId, installedAppId.value, entityId.value, prop1Id.value, mapOf(prop2Id.value to "X"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly("Alpha", "Beta")
+  }
+
+  @Test
+  fun `getValueProposals filters by current data values`() {
+    val filterProp = prop2.copy(type = PropertyType.STRING)
+    val propWithVp = prop1.copy(valueProposals = listOf(filterProp.id.value))
+    val entity = entityDef.copy(properties = listOf(propWithVp, filterProp))
+    val version = appVersion.copy(entityDefinitions = listOf(entity))
+    val data1 = existingAppData.copy(id = AppDataId("d1"), data = mapOf(prop1Id.value to "Alpha", prop2Id.value to "X"))
+    val data2 = existingAppData.copy(id = AppDataId("d2"), data = mapOf(prop1Id.value to "Beta", prop2Id.value to "Y"))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns version
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(data1, data2)
+
+    val result = service.getValueProposals(userId, installedAppId.value, entityId.value, prop1Id.value, mapOf(prop2Id.value to "X"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly("Alpha")
+  }
+
+  @Test
+  fun `getValueProposals fails when installed app not found`() {
+    every { installedAppRepository.findById(installedAppId) } returns null
+
+    val result = service.getValueProposals(userId, installedAppId.value, entityId.value, prop1Id.value, emptyMap())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppDataError.INSTALLED_APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getValueProposals fails when entity not found`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+
+    val result = service.getValueProposals(userId, installedAppId.value, "unknown-entity", prop1Id.value, emptyMap())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppDataError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `getValueProposals fails when property not found`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+
+    val result = service.getValueProposals(userId, installedAppId.value, entityId.value, "unknown-prop", emptyMap())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppDataError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
 }

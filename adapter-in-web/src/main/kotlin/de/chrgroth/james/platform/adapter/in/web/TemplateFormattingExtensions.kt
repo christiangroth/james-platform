@@ -169,6 +169,15 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun smartDefault(property: Property): String = property.smartDefault ?: ""
 
+  /** Returns the value proposals property IDs as a JSON array string for use in data attributes. */
+  @JvmStatic
+  fun valueProposals(property: Property): String =
+    property.valueProposals.joinToString(",")
+
+  /** Returns true if the property has any value proposals defined. */
+  @JvmStatic
+  fun hasValueProposals(property: Property): Boolean = property.valueProposals.isNotEmpty()
+
   /** Returns a sorted list of human-readable constraint text representations for the property,
    * using the same format as the version diff view (e.g. "min:0", "max:100", "unique-key").
    * Returns an empty list if no constraints are defined.

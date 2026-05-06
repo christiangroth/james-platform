@@ -250,6 +250,72 @@ class AppDataService(
     }
   }
 
+  override fun getValueProposals(
+    userId: String,
+    installedAppId: String,
+    entityTypeId: String,
+    propertyId: String,
+    currentData: Map<String, String>,
+  ): Either<DomainError, List<String>> {
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
+    if (installedApp == null || installedApp.userId != userId) {
+      logger.warn { "Get value proposals failed: installed app not found: $installedAppId for user: $userId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+
+    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    if (appVersion == null) {
+      logger.warn { "Get value proposals failed: app version not found for installed app: $installedAppId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+
+    val entityDef = appVersion.entityDefinitions.find { it.id.value == entityTypeId }
+    if (entityDef == null) {
+      logger.warn { "Get value proposals failed: entity not found: $entityTypeId in version ${appVersion.id.value}" }
+      return AppDataError.ENTITY_NOT_FOUND.left()
+    }
+
+    val property = entityDef.properties.find { it.id.value == propertyId }
+    if (property == null) {
+      logger.warn { "Get value proposals failed: property not found: $propertyId in entity $entityTypeId" }
+      return AppDataError.PROPERTY_NOT_FOUND.left()
+    }
+
+    if (property.valueProposals.isEmpty()) {
+      return emptyList<String>().right()
+    }
+
+    val allEntityData = appDataRepository.findAllByInstalledAppIdAndEntityType(
+      InstalledAppId(installedAppId),
+      EntityDefinitionId(entityTypeId),
+    )
+
+    // Filter candidates: only those that match current values for all value-proposal filter properties
+    val candidates = allEntityData.filter { item ->
+      property.valueProposals.all { filterPropId ->
+        val filterValue = currentData[filterPropId]
+        if (filterValue.isNullOrBlank()) {
+          true
+        } else {
+          item.data[filterPropId] == filterValue
+        }
+      }
+    }
+
+    // Collect non-null values for the target property, count occurrences, sort by most used
+    val valueCounts = candidates
+      .mapNotNull { it.data[propertyId] }
+      .filter { it.isNotBlank() }
+      .groupingBy { it }
+      .eachCount()
+
+    val proposals = valueCounts.entries
+      .sortedByDescending { it.value }
+      .map { it.key }
+
+    return proposals.right()
+  }
+
   companion object : KLogging()
 }
 
