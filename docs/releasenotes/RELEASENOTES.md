@@ -1,3 +1,21 @@
+# 0.34.0 (2026.05.06)
+
+## New Features
+* Developer dashboard now shows a breadcrumb trail (User Dashboard → Development) instead of a page heading.
+* Developer dashboard link moved from the navigation bar to the user dashboard, displayed right-aligned next to the "My Apps" heading (visible only for users with the developer role).
+* User dashboard heading changed to "My Apps"; installed app tiles now show data object counts per entity.
+* App data view: "add more data ..." link added as the first row in the data table instead of a separate button above the table.
+* Action buttons are now consistently placed at the bottom of pages and modals.
+* Destructive actions (Delete) are left-aligned; positive actions (Save, Publish) and neutral actions (Cancel) are right-aligned.
+* Delete button removed from entity and report table rows in the draft editor; use the dedicated edit view to delete.
+* Property rows in the entity editor are now clickable to open the edit modal.
+* Delete button added to the entity edit view, entity property edit modal, and report edit view.
+* Delete and Publish buttons moved to the bottom of the draft version overview.
+
+
+
+---
+
 # 0.33.0 (2026.05.06)
 
 ## New Features
