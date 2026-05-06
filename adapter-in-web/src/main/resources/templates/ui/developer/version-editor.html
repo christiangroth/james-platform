@@ -599,62 +599,65 @@
                             </div>
                         </div>
                         <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
-                        <hr style="border-color:var(--color-border);">
-                        <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
-                        <!-- Default: Long -->
-                        <div class="default-group d-none" id="defaultGroupLong">
-                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="defaultLong" placeholder="No default" data-testid="default-long">
-                        </div>
-                        <!-- Default: Double -->
-                        <div class="default-group d-none" id="defaultGroupDouble">
-                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="defaultDouble" placeholder="No default" data-testid="default-double">
-                        </div>
-                        <!-- Default: Boolean -->
-                        <div class="default-group d-none" id="defaultGroupBoolean">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="defaultBoolean" data-testid="default-boolean">
-                                <label class="form-check-label" for="defaultBoolean" style="color:var(--color-text-muted);">Checked = true</label>
+                        <div id="defaultSection" class="d-none">
+                            <hr style="border-color:var(--color-border);">
+                            <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
+                            <!-- Default: Long -->
+                            <div class="default-group d-none" id="defaultGroupLong">
+                                <input type="number" step="1" class="form-control app-form-control form-control-sm" id="defaultLong" placeholder="No default" data-testid="default-long">
+                            </div>
+                            <!-- Default: Double -->
+                            <div class="default-group d-none" id="defaultGroupDouble">
+                                <input type="number" step="any" class="form-control app-form-control form-control-sm" id="defaultDouble" placeholder="No default" data-testid="default-double">
+                            </div>
+                            <!-- Default: Boolean -->
+                            <div class="default-group d-none" id="defaultGroupBoolean">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="defaultBoolean" data-testid="default-boolean">
+                                    <label class="form-check-label" for="defaultBoolean" style="color:var(--color-text-muted);">Checked = true</label>
+                                </div>
+                            </div>
+                            <!-- Default: String -->
+                            <div class="default-group d-none" id="defaultGroupString">
+                                <input type="text" class="form-control app-form-control form-control-sm" id="defaultString" placeholder="No default" autocomplete="off" data-testid="default-string">
+                            </div>
+                            <!-- Default: Date -->
+                            <div class="default-group d-none" id="defaultGroupDate">
+                                <input type="date" class="form-control app-form-control form-control-sm" id="defaultDate" data-testid="default-date">
+                            </div>
+                            <!-- Default: Time -->
+                            <div class="default-group d-none" id="defaultGroupTime">
+                                <input type="time" class="form-control app-form-control form-control-sm" id="defaultTime" data-testid="default-time">
+                            </div>
+                            <!-- Default: DateTime -->
+                            <div class="default-group d-none" id="defaultGroupDatetime">
+                                <input type="datetime-local" class="form-control app-form-control form-control-sm" id="defaultDatetime" data-testid="default-datetime">
+                            </div>
+                            <!-- Default: Duration -->
+                            <div class="default-group d-none" id="defaultGroupDuration">
+                                <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="No default" autocomplete="off" data-testid="default-duration">
                             </div>
                         </div>
-                        <!-- Default: String -->
-                        <div class="default-group d-none" id="defaultGroupString">
-                            <input type="text" class="form-control app-form-control form-control-sm" id="defaultString" placeholder="No default" autocomplete="off" data-testid="default-string">
-                        </div>
-                        <!-- Default: Date -->
-                        <div class="default-group d-none" id="defaultGroupDate">
-                            <input type="date" class="form-control app-form-control form-control-sm" id="defaultDate" data-testid="default-date">
-                        </div>
-                        <!-- Default: Time -->
-                        <div class="default-group d-none" id="defaultGroupTime">
-                            <input type="time" class="form-control app-form-control form-control-sm" id="defaultTime" data-testid="default-time">
-                        </div>
-                        <!-- Default: DateTime -->
-                        <div class="default-group d-none" id="defaultGroupDatetime">
-                            <input type="datetime-local" class="form-control app-form-control form-control-sm" id="defaultDatetime" data-testid="default-datetime">
-                        </div>
-                        <!-- Default: Duration -->
-                        <div class="default-group d-none" id="defaultGroupDuration">
-                            <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="No default" autocomplete="off" data-testid="default-duration">
-                        </div>
-                        <p id="defaultGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No default available for this property type.</p>
-                        <hr style="border-color:var(--color-border);">
-                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Smart Default (Kotlin Script)</div>
-                        <p class="app-section-label mb-2" style="font-size:0.75rem;">Evaluated when creating new items. Variables: <code>it</code> (Map&lt;String, String?&gt;), <code>now</code> (Instant). Return a String or null.</p>
-                        <div id="smartDefaultGroup">
-                            <div id="predefinedSmartDefaultGroup" class="d-none mb-2">
-                                <div class="app-section-label mb-1" style="font-size:0.75rem;">Predefined</div>
-                                <div id="predefinedSmartDefaultButtons" class="d-flex flex-wrap gap-1"></div>
+                        <div id="smartDefaultSection" class="d-none">
+                            <hr style="border-color:var(--color-border);">
+                            <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Smart Default (Kotlin Script)</div>
+                            <p class="app-section-label mb-2" style="font-size:0.75rem;">Evaluated when creating new items. Variables: <code>it</code> (Map&lt;String, String?&gt;), <code>now</code> (Instant). Return a String or null.</p>
+                            <div id="smartDefaultGroup">
+                                <div id="predefinedSmartDefaultGroup" class="d-none mb-2">
+                                    <div class="app-section-label mb-1" style="font-size:0.75rem;">Predefined</div>
+                                    <div id="predefinedSmartDefaultButtons" class="d-flex flex-wrap gap-1"></div>
+                                </div>
+                                <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="e.g. now.toString()" data-testid="smart-default-script-input"></textarea>
                             </div>
-                            <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="e.g. now.toString()" data-testid="smart-default-script-input"></textarea>
                         </div>
-                        <p id="smartDefaultGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No smart default available for this property type.</p>
-                        <hr style="border-color:var(--color-border);">
-                        <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Value Proposals</div>
-                        <div id="valueProposalGroup">
-                            <p class="app-section-label mb-2" style="font-size:0.75rem;">Select properties whose current values are used to filter value proposals for this field.</p>
-                            <div id="valueProposalCheckboxes"></div>
+                        <div id="valueProposalSection" class="d-none">
+                            <hr style="border-color:var(--color-border);">
+                            <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Value Proposals</div>
+                            <div id="valueProposalGroup">
+                                <p class="app-section-label mb-2" style="font-size:0.75rem;">Select properties whose current values are used to filter value proposals for this field.</p>
+                                <div id="valueProposalCheckboxes"></div>
+                            </div>
                         </div>
-                        <p id="valueProposalGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">Value proposals are only available for String properties.</p>
                     </div>
                     <div class="modal-footer justify-content-between">
                         <button type="button" class="btn btn-app-danger"
@@ -1187,15 +1190,13 @@
                     ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
                         document.getElementById('defaultGroup' + g).classList.toggle('d-none', defaultGroup !== g);
                     });
-                    document.getElementById('defaultGroupNone').classList.toggle('d-none', defaultGroup != null);
+                    document.getElementById('defaultSection').classList.toggle('d-none', defaultGroup == null);
 
                     var supportsSmartDefault = SMART_DEFAULT_SUPPORTED_TYPES.includes(propertyType);
-                    document.getElementById('smartDefaultGroup').classList.toggle('d-none', !supportsSmartDefault);
-                    document.getElementById('smartDefaultGroupNone').classList.toggle('d-none', supportsSmartDefault);
+                    document.getElementById('smartDefaultSection').classList.toggle('d-none', !supportsSmartDefault);
 
                     var supportsValueProposals = propertyType === 'STRING';
-                    document.getElementById('valueProposalGroup').classList.toggle('d-none', !supportsValueProposals);
-                    document.getElementById('valueProposalGroupNone').classList.toggle('d-none', supportsValueProposals);
+                    document.getElementById('valueProposalSection').classList.toggle('d-none', !supportsValueProposals);
 
                     var predefinedDefaults = (supportsSmartDefault && PREDEFINED_SMART_DEFAULTS[propertyType]) || [];
                     var predefinedContainer = document.getElementById('predefinedSmartDefaultButtons');
@@ -1406,7 +1407,7 @@
                     }
                     var smartDefaultFormData = new FormData();
                     var smartDefaultVal = document.getElementById('editPropertySmartDefault').value;
-                    if (!document.getElementById('smartDefaultGroup').classList.contains('d-none') && smartDefaultVal !== '') {
+                    if (!document.getElementById('smartDefaultSection').classList.contains('d-none') && smartDefaultVal !== '') {
                         smartDefaultFormData.set('smartDefault', smartDefaultVal);
                     }
                     var navigateAfterSmartDefault = currentType !== 'STRING';
