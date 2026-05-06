@@ -1,3 +1,19 @@
+# 0.35.0 (2026.05.06)
+
+## New Features
+* Developers can now define computed properties on entities.
+* Computed properties have a name, a type (String, Boolean, Long, Double, Date, Time, DateTime, Duration), and an optional Kotlin script.
+* The script is evaluated in the order of the computed properties and may access entity data via `it`, previously computed values via `computed`, and the current instant via `now`.
+* Computed properties can be reordered via drag-and-drop in the version editor.
+* App installations are now automatically upgraded when a new non-breaking version is published.
+* Breaking version upgrades require manual confirmation by the user.
+* Clicking the upgrade button now opens a confirmation dialog showing the old and new version numbers and the release notes before upgrading.
+* Entity property editor now only shows the Default Value, Smart Default, and Value Proposals sections when they are applicable for the selected property type.
+
+
+
+---
+
 # 0.34.1 (2026.05.06)
 
 ## Bugfixes / Chore
