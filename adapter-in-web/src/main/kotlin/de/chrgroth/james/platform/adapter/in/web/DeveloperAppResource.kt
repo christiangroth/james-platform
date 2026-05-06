@@ -2,11 +2,13 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
@@ -14,6 +16,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
+import io.quarkus.qute.RawString
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
@@ -207,7 +210,8 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
-            .data("selectedReport", null),
+            .data("selectedReport", null)
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
         ).build()
       },
     )
@@ -241,7 +245,8 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
-            .data("selectedReport", null),
+            .data("selectedReport", null)
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
         ).build()
       },
     )
@@ -275,7 +280,8 @@ class DeveloperAppResource {
             .data("isDraft", isDraft)
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
-            .data("selectedReport", selectedReport),
+            .data("selectedReport", selectedReport)
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
         ).build()
       },
     )
@@ -682,5 +688,15 @@ class DeveloperAppResource {
     AppVersionError.REPORT_NOT_FOUND.code -> "Report not found."
     AppVersionError.VERSION_NOT_IN_DRAFT.code -> "Version is not in draft status."
     else -> "An unexpected error occurred. Please try again."
+  }
+
+  companion object {
+    private val predefinedSmartDefaultsJson: RawString = RawString(
+      ObjectMapper().writeValueAsString(
+        PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->
+          pds.map { mapOf("label" to it.label, "script" to it.script) }
+        }
+      )
+    )
   }
 }
