@@ -1,3 +1,14 @@
+# 0.34.1 (2026.05.06)
+
+## Bugfixes / Chore
+* Application startup now creates MongoDB indexes for frequently queried fields, reducing query times.
+* Smart default evaluation no longer recreates the Kotlin script engine on every form load.
+* Loading a single installed app page no longer queries every installed app of the user.
+
+
+
+---
+
 # 0.34.0 (2026.05.06)
 
 ## New Features
