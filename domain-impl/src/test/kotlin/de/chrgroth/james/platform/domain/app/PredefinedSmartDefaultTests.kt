@@ -25,7 +25,7 @@ class PredefinedSmartDefaultTests {
       PropertyType.DURATION,
       PropertyType.LIST,
       PropertyType.OBJECT,
-      PropertyType.REF
+      PropertyType.REF,
     )
   }
 
