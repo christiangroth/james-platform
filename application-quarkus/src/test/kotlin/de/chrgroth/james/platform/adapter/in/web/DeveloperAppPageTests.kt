@@ -39,15 +39,14 @@ class DeveloperAppPageTests {
   }
 
   @Test
-  fun `developer dashboard displays apps grid and new-app tile`() {
+  fun `developer dashboard displays breadcrumb apps grid and new-app tile`() {
     given()
       .`when`()
       .get("/ui/developer/dashboard")
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("""data-testid="welcome-message""""))
-      .body(containsString("test-developer"))
+      .body(containsString("""data-testid="breadcrumb-developer""""))
       .body(containsString("""data-testid="apps-grid""""))
       .body(containsString("""data-testid="new-app-tile""""))
   }

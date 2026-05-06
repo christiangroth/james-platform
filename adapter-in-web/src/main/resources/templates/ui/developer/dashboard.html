@@ -2,7 +2,12 @@
     {#title}James Platform – Developer Dashboard{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
-        <h1 class="mb-4 fs-4 fw-semibold" data-testid="welcome-message">Hello, {username}!</h1>
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-developer">Development</li>
+            </ol>
+        </nav>
 
         <div id="dashboard-message" class="d-none mb-4" role="alert"></div>
 

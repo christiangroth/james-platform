@@ -15,14 +15,6 @@
             {#else if entityTabs.size == 1}
             {! Single entity: no tabs !}
             {#let tab=entityTabs.get(0)}
-            <div class="d-flex align-items-center mb-3 gap-2">
-                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
-                   class="btn btn-app-secondary btn-sm ms-auto"
-                   data-testid="add-data-button"
-                   title="Add" aria-label="Add">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
-                </a>
-            </div>
             {#if tab.rows.isEmpty}
             <p class="mb-0 app-section-label" data-testid="no-data-message">No data yet.</p>
             {#else}
@@ -35,6 +27,13 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <tr data-testid="add-data-row">
+                            <td colspan="2">
+                                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
+                                   data-testid="add-data-button"
+                                   class="app-section-label">add more data ...</a>
+                            </td>
+                        </tr>
                         {#for item in tab.rows}
                         <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                             <td data-testid="app-data-index">{item_count}</td>
@@ -71,14 +70,6 @@
                      role="tabpanel"
                      aria-labelledby="tab-btn-{tab.entityId}"
                      data-testid="entity-tab-pane-{tab.entityName}">
-                    <div class="d-flex align-items-center mb-3 gap-2">
-                        <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
-                           class="btn btn-app-secondary btn-sm ms-auto"
-                           data-testid="add-data-tab-button-{tab.entityName}"
-                           title="Add {tab.entityName}" aria-label="Add {tab.entityName}">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
-                        </a>
-                    </div>
                     {#if tab.rows.isEmpty}
                     <p class="mb-0 app-section-label" data-testid="no-data-message-{tab.entityName}">No data yet.</p>
                     {#else}
@@ -91,6 +82,13 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                <tr data-testid="add-data-tab-row-{tab.entityName}">
+                                    <td colspan="2">
+                                        <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
+                                           data-testid="add-data-tab-button-{tab.entityName}"
+                                           class="app-section-label">add more data ...</a>
+                                    </td>
+                                </tr>
                                 {#for item in tab.rows}
                                 <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                                     <td data-testid="app-data-index">{item_count}</td>
