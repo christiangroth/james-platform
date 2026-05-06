@@ -287,6 +287,7 @@ When a destructive action button exists alongside Cancel/OK:
 - Pre-fill modal fields from the trigger button's `data-*` attributes in the `show.bs.modal` event handler.
 - When the modal footer contains both a destructive and a positive button, use `justify-content-between` on the footer so the destructive button sits on the left and the positive button on the right (see Button Placement Rules).
 - When the modal footer has only positive/neutral buttons (no destructive action), right-align them using the default `modal-footer` layout.
+- Use `autocomplete="off"` on text inputs inside modals (and on search/filter fields) to prevent the browser from suggesting values that belong to other users or contexts. Use `autocomplete="new-password"` for password inputs in create/change-password flows.
 
 ### Pre-filling a modal from trigger data attributes
 
@@ -352,7 +353,7 @@ Two utility files are always available because they are included unconditionally
 | Function | Signature | Description |
 |---|---|---|
 | `postWithButton` | `(btn, url, successMsg, errorPrefix, onSuccess)` | Disables `btn`, POSTs to `url`, shows a banner on success/error, then re-enables the button. Use for simple one-shot POST actions (no form body needed). |
-| `showBanner` | `(message, type, elementId?)` | Shows a timed Bootstrap alert inside the element with id `elementId` (defaults to `'status-banner'`). `type` is a Bootstrap alert type (`'success'`, `'danger'`, etc.). |
+| `showBanner` | `(message, type, elementId?)` | Shows a Bootstrap alert inside the element with id `elementId` (defaults to `'status-banner'`) and auto-hides it after 5 seconds. `type` is a Bootstrap alert type (`'success'`, `'danger'`, etc.). |
 
 ```js
 // Simple one-shot action button
@@ -388,6 +389,8 @@ connectSse('/dashboard/events', function (event) {
 - Use the `fetch()` + `showMessage` pattern directly (documented in "Form Submissions and Action Results") for form submissions and modal-based actions.
 - Use `showBanner` for pages that already use `settings-utils.js` and have a dedicated `#status-banner` element.
 - Use `connectSse` + `fadeUpdate` for any page that needs live push updates from the backend.
+
+> **`showBanner` vs `showMessage`:** `showBanner` (from `settings-utils.js`) writes to a page-level `#status-banner` element and is suited to simple action feedback outside of modals. `showMessage` is a per-page JS function (defined inline in the page `<script>` block; see "Form Submissions and Action Results") that writes to `#page-message` and is used for form submissions and modal-based actions. Use whichever matches the page's existing feedback element.
 
 ## Error Code Mapping
 
