@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.domain.infra
 
+import de.chrgroth.james.platform.domain.app.ScriptMetrics
 import de.chrgroth.james.platform.domain.model.infra.HealthStats
 import de.chrgroth.james.platform.domain.port.`in`.infra.HealthPort
 import de.chrgroth.james.platform.domain.port.out.infra.ConfigurationInfoPort
@@ -18,6 +19,7 @@ class HealthService(
   private val mongoStats: MongoStatsPort,
   private val cronjobInfo: CronjobInfoPort,
   private val configurationInfo: ConfigurationInfoPort,
+  private val scriptMetrics: ScriptMetrics,
 ) : HealthPort {
 
   override fun getStats(): HealthStats = runBlocking {
@@ -31,6 +33,7 @@ class HealthService(
       mongoQueryStats = mongoQueryStatsAsync.await(),
       cronjobStats = cronjobStatsAsync.await(),
       configurationStats = configurationStatsAsync.await(),
+      scriptStats = scriptMetrics.getStats(),
     )
   }
 }
