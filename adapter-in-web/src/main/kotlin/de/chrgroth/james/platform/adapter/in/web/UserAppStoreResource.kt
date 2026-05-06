@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import kotlin.time.Clock
@@ -48,6 +49,13 @@ data class AppDataPropertyView(
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 }
 
+data class AppDataComputedPropertyView(
+  val id: String,
+  val name: String,
+  val type: String,
+  val value: String?,
+)
+
 data class AppDataDetail(
   val id: String,
   val installedAppId: String,
@@ -57,6 +65,7 @@ data class AppDataDetail(
   val createdAt: Instant,
   val lastChangedAt: Instant,
   val properties: List<AppDataPropertyView>,
+  val computedProperties: List<AppDataComputedPropertyView>,
 )
 
 data class EntityTab(
@@ -104,6 +113,9 @@ class UserAppStoreResource {
 
   @Inject
   private lateinit var smartDefault: SmartDefaultPort
+
+  @Inject
+  private lateinit var computedProperty: ComputedPropertyPort
 
   @GET
   @Path("/user/app-store")
@@ -301,6 +313,19 @@ class UserAppStoreResource {
               },
               valueProposals = prop.valueProposals,
             )
+          },
+          computedProperties = if (entityDef.computedProperties.isEmpty()) {
+            emptyList()
+          } else {
+            val computedValues = computedProperty.computeValues(entityDef, appDataItem.data, Clock.System.now())
+            entityDef.computedProperties.map { cp ->
+              AppDataComputedPropertyView(
+                id = cp.id.value,
+                name = cp.name,
+                type = cp.type.name,
+                value = computedValues[cp.id.value],
+              )
+            }
           },
         )
         Response.ok(

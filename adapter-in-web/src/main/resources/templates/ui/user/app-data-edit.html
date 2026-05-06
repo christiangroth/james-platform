@@ -42,6 +42,32 @@
             </div>
         </div>
 
+        {#if !detail.computedProperties.isEmpty}
+        <!-- Computed Properties (collapsed by default) -->
+        <div class="accordion mb-3" id="computedPropertiesAccordion">
+            <div class="accordion-item app-accordion-item">
+                <h2 class="accordion-header" id="computedPropertiesHeading">
+                    <button class="accordion-button collapsed" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#computedPropertiesCollapse"
+                            aria-expanded="false" aria-controls="computedPropertiesCollapse"
+                            data-testid="computed-properties-toggle">
+                        Computed Properties
+                    </button>
+                </h2>
+                <div id="computedPropertiesCollapse" class="accordion-collapse collapse" aria-labelledby="computedPropertiesHeading">
+                    <div class="accordion-body">
+                        <dl class="row mb-0">
+                            {#for cp in detail.computedProperties}
+                            <dt class="col-sm-3 app-section-label fw-normal">{cp.name} <span class="ms-1" style="font-size:0.7rem;">({cp.type})</span></dt>
+                            <dd class="col-sm-9" data-testid="computed-property-value-{cp.id}">{#if cp.value != null}{cp.value}{#else}<span class="app-section-label">–</span>{/if}</dd>
+                            {/for}
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {/if}
+
         <div class="card app-card p-4">
             <div class="d-flex align-items-center mb-4 gap-2">
                 <h2 class="fs-5 fw-semibold mb-0" data-testid="edit-title">Edit Data</h2>
