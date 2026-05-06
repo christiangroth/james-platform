@@ -49,4 +49,11 @@ class HealthResource {
   @Produces(MediaType.TEXT_HTML)
   fun snippetMongoDbQueries(): TemplateInstance =
     healthTemplate.getFragment("snippet_mongodb_queries").data("stats", health.getStats())
+
+  @GET
+  @Path("/snippets/scripting")
+  @Authenticated
+  @Produces(MediaType.TEXT_HTML)
+  fun snippetScripting(): TemplateInstance =
+    healthTemplate.getFragment("snippet_scripting").data("stats", health.getStats())
 }

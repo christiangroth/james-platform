@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.infra.ScriptType
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import jakarta.enterprise.context.ApplicationScoped
 import kotlin.time.Instant
@@ -9,7 +10,7 @@ import javax.script.ScriptEngineManager
 
 @ApplicationScoped
 @Suppress("Unused")
-class SmartDefaultService : SmartDefaultPort {
+class SmartDefaultService(private val scriptMetrics: ScriptMetrics) : SmartDefaultPort {
 
   // Lazily initialised on first use so the ServiceLoader classpath scan runs once per JVM instance
   // rather than on every request. Thread.currentThread().contextClassLoader is required in Quarkus
@@ -38,6 +39,8 @@ class SmartDefaultService : SmartDefaultPort {
     val result = mutableMapOf<String, String?>()
     for (property in entity.properties) {
       val script = property.smartDefault ?: continue
+      val startNs = System.nanoTime()
+      var success = true
       try {
         val bindings = engine.createBindings()
         bindings[BINDING_DATA] = result.toMap()
@@ -45,8 +48,11 @@ class SmartDefaultService : SmartDefaultPort {
         val value = engine.eval(buildWrappedScript(script), bindings)
         result[property.id.value] = value?.toString()
       } catch (e: Exception) {
+        success = false
         logger.warn { "Smart default evaluation failed for property ${property.id.value} (${property.name}): ${e.message}" }
         result[property.id.value] = null
+      } finally {
+        scriptMetrics.record(ScriptType.SMART_DEFAULT, entity.name, property.name, (System.nanoTime() - startNs) / 1_000_000L, success)
       }
     }
     return result

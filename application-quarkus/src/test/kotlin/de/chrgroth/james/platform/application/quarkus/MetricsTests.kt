@@ -24,6 +24,6 @@ class MetricsTests {
       .map { it.split("_")[0] }
       .distinct()
       .sorted()
-    assertThat(topLevelGroups).isEqualTo(listOf("http", "jvm", "mongodb", "netty", "process", "system", "worker"))
+    assertThat(topLevelGroups).isEqualTo(listOf("http", "jvm", "mongodb", "netty", "process", "script", "system", "worker"))
   }
 }

@@ -116,6 +116,55 @@
                 </div>
             </div>
         </div>
+
+        <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Scripting</h2>
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div id="snippet-scripting" class="card h-100 app-card">
+                    {#fragment id="snippet_scripting"}
+                    <div class="card-body">
+                        <p class="card-subtitle mb-3 app-section-label">Script Executions</p>
+                        {#if stats.scriptStats.isEmpty}
+                        <p class="app-section-label" data-testid="no-script-stats">No script executions recorded yet.</p>
+                        {#else}
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0 app-table" data-testid="scripting-table">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Entity</th>
+                                        <th>Property</th>
+                                        <th class="text-end">Executions</th>
+                                        <th class="text-end">Errors</th>
+                                        <th class="text-end">Total ms</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {#for s in stats.scriptStats}
+                                    <tr>
+                                        <td><span class="app-badge-muted badge">{s.type}</span></td>
+                                        <td>{s.entityName}</td>
+                                        <td>{s.propertyName}</td>
+                                        <td class="text-end">{s.executionCount.formatted}</td>
+                                        <td class="text-end">
+                                            {#if s.errorCount > 0}
+                                            <span style="color:#f90;">{s.errorCount.formatted}</span>
+                                            {#else}
+                                            <span style="color:#e0e0e0;">{s.errorCount.formatted}</span>
+                                            {/if}
+                                        </td>
+                                        <td class="text-end">{s.totalDurationMs.formatted}</td>
+                                    </tr>
+                                    {/for}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/if}
+                    </div>
+                    {/fragment}
+                </div>
+            </div>
+        </div>
     </div>
 
     <style>
