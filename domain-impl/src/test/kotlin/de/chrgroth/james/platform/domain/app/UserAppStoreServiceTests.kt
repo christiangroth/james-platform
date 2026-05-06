@@ -165,6 +165,88 @@ class UserAppStoreServiceTests {
 
   // endregion
 
+  // region getInstalledApp
+
+  @Test
+  fun `getInstalledApp returns installed app info for valid user and installed app id`() {
+    val installed = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installed
+    every { appRepository.findById(AppId("app-1")) } returns app1
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns v1
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
+
+    val result = service.getInstalledApp("user-1", "inst-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.installedAppId).isEqualTo("inst-1")
+    assertThat(result.getOrNull()?.appName).isEqualTo("Alpha App")
+    assertThat(result.getOrNull()?.installedVersion?.id?.value).isEqualTo("ver-1")
+    assertThat(result.getOrNull()?.latestVersion?.id?.value).isEqualTo("ver-2")
+  }
+
+  @Test
+  fun `getInstalledApp fails when installed app not found`() {
+    every { installedAppRepository.findById(InstalledAppId("unknown")) } returns null
+
+    val result = service.getInstalledApp("user-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getInstalledApp fails when installed app belongs to another user`() {
+    val installed = installedApp(id = "inst-1", userId = "user-2", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installed
+
+    val result = service.getInstalledApp("user-1", "inst-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getInstalledApp fails when underlying app not found`() {
+    val installed = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installed
+    every { appRepository.findById(AppId("app-1")) } returns null
+
+    val result = service.getInstalledApp("user-1", "inst-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getInstalledApp fails when installed version not found`() {
+    val installed = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installed
+    every { appRepository.findById(AppId("app-1")) } returns app1
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns null
+
+    val result = service.getInstalledApp("user-1", "inst-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getInstalledApp falls back to installed version as latest when no newer version exists`() {
+    val installed = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "2.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installed
+    every { appRepository.findById(AppId("app-1")) } returns app1
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("2.0.0")) } returns v2
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v2)
+
+    val result = service.getInstalledApp("user-1", "inst-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.installedVersion?.id?.value).isEqualTo("ver-2")
+    assertThat(result.getOrNull()?.latestVersion?.id?.value).isEqualTo("ver-2")
+  }
+
+  // endregion
+
   // region installApp
 
   @Test

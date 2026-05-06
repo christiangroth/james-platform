@@ -33,6 +33,7 @@ interface UserAppStorePort {
   fun listAllPublishedApps(): List<PublishedAppInfo>
   fun getPublishedApp(appId: String): Either<DomainError, PublishedAppDetail>
   fun getInstalledApps(userId: String): List<InstalledAppInfo>
+  fun getInstalledApp(userId: String, installedAppId: String): Either<DomainError, InstalledAppInfo>
   fun installApp(userId: String, appId: String): Either<DomainError, InstalledApp>
   fun upgradeApp(userId: String, installedAppId: String): Either<DomainError, InstalledApp>
 }
