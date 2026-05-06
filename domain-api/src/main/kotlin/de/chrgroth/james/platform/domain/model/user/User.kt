@@ -22,4 +22,5 @@ enum class UserRole {
   USER,
   DEVELOPER,
   ADMIN,
+  MONITORING,
 }

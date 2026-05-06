@@ -382,7 +382,7 @@
         {#insert navLinks}
         <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="Profile" aria-label="Go to profile page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
         <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="App Store" aria-label="Go to App Store"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
-        {#if isAdmin}
+        {#if isAdmin || isMonitoring}
         <div class="dropdown me-3">
             <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="Technical"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
             <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">

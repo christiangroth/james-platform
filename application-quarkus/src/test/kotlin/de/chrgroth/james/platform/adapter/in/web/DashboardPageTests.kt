@@ -178,3 +178,33 @@ class NonDeveloperNavbarLinkTests {
       .body(containsString("""data-testid="app-store-link""""))
   }
 }
+
+@QuarkusTest
+@TestSecurity(user = "test-monitoring", roles = ["MONITORING"])
+class MonitoringNavbarLinkTests {
+
+  @Test
+  fun `tools menu is shown in navbar for monitoring role`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="technical-menu""""))
+  }
+}
+
+@QuarkusTest
+@TestSecurity(user = "test-user-c", roles = ["USER"])
+class UserNavbarToolsMenuTests {
+
+  @Test
+  fun `tools menu is not shown in navbar for user role`() {
+    given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="technical-menu""")))
+  }
+}

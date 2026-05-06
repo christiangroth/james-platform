@@ -8,11 +8,12 @@ James Platform is a personal Low Code system for building and running data-centr
 
 ### Roles
 
-| Role      | Description                                                                                         |
-|-----------|-----------------------------------------------------------------------------------------------------|
-| Admin     | Platform administrator. Manages users. Cannot be a User or Developer at the same time.             |
-| Developer | Creates and maintains Apps. Defines entities, properties, and reports.                              |
-| User      | Installs and uses App Versions. Enters, edits, deletes, and views data through the generic UI.     |
+| Role       | Description                                                                                         |
+|------------|-----------------------------------------------------------------------------------------------------|
+| Admin      | Platform administrator. Manages users. Cannot be a User or Developer at the same time.             |
+| Developer  | Creates and maintains Apps. Defines entities, properties, and reports.                              |
+| User       | Installs and uses App Versions. Enters, edits, deletes, and views data through the generic UI.     |
+| Monitoring | Access to the Tools menu (health, config, logs, metrics, MongoDB viewer). Can be combined with other roles. |
 
 ### User Management
 
@@ -275,7 +276,7 @@ Authentication is cookie-based:
 - An encrypted session token (AES via `TokenEncryptionPort`) is written into an `HttpOnly` cookie named `james-session`.
 - Every subsequent request is authenticated by `CookieAuthMechanism`, which decrypts the cookie, loads the user from `UserRepositoryPort`, and builds a `QuarkusSecurityIdentity` with the user's roles.
 - On logout (`GET /logout`), the cookie is invalidated by setting it to an empty value with `maxAge=0`.
-- Users have one of three roles (`USER`, `DEVELOPER`, `ADMIN`), which control which dashboard is shown after login.
+- Users have one of four roles (`USER`, `DEVELOPER`, `ADMIN`, `MONITORING`), which control which dashboard is shown after login and which navigation items are visible.
 
 ## Error Handling
 
