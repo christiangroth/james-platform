@@ -393,6 +393,61 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `computeVersionBump returns hasChanges=true when property default changes`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, default = null)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draftProp = prop.copy(default = "new-default")
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(draftProp))))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump returns hasChanges=true when property smartDefault changes`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, smartDefault = null)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draftProp = prop.copy(smartDefault = "now.toString()")
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(draftProp))))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump returns hasChanges=true when property valueProposals changes`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, valueProposals = emptyList())
+    val filterProp = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop, filterProp))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draftProp = prop.copy(valueProposals = listOf("p-2"))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(draftProp, filterProp))))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasChanges).isTrue()
+  }
+
+  @Test
   fun `computeVersionBump detects no breaking changes when entity definition added`() {
     val pub = publishedVersion.copy(entityDefinitions = emptyList())
     val newEntity = EntityDefinition(id = EntityDefinitionId("e-new"), name = "Customer")
@@ -1412,6 +1467,49 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `getVersionDiff shows default value in diff lines when changed`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, default = null)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val predecessor = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+      .let { version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED).copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100)) }
+    val updatedProp = prop.copy(default = "Alpha")
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("default:") }
+  }
+
+  @Test
+  fun `getVersionDiff shows value-proposals in diff lines when changed`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, valueProposals = emptyList())
+    val filterProp = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop, filterProp))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val updatedProp = prop.copy(valueProposals = listOf("p-2"))
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp, filterProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    assertThat(diff.entityDiffs).isNotEmpty()
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("value-proposals:") }
   }
 
   // endregion

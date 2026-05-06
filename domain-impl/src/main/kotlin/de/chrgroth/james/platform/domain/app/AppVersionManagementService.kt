@@ -784,6 +784,15 @@ class AppVersionManagementService(
         .map { constraintToString(it) }
       val constraintsStr = if (constraintParts.isNotEmpty()) " [${constraintParts.joinToString(", ")}]" else ""
       lines.add("  ${prop.name}: ${prop.type}$nullable$constraintsStr")
+      if (prop.default != null) {
+        lines.add("    default: ${prop.default}")
+      }
+      if (prop.smartDefault != null) {
+        lines.add("    smart-default: ${prop.smartDefault}")
+      }
+      if (prop.valueProposals.isNotEmpty()) {
+        lines.add("    value-proposals: ${prop.valueProposals.joinToString(", ")}")
+      }
     }
     lines.add("}")
     return lines
