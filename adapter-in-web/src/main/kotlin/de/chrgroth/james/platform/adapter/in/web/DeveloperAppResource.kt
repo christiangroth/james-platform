@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
@@ -210,7 +211,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsJson", RawString(PredefinedSmartDefault.byTypeNameJson)),
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
         ).build()
       },
     )
@@ -245,7 +246,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null)
-            .data("predefinedSmartDefaultsJson", RawString(PredefinedSmartDefault.byTypeNameJson)),
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
         ).build()
       },
     )
@@ -280,7 +281,7 @@ class DeveloperAppResource {
             .data("hasDiff", hasDiff)
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport)
-            .data("predefinedSmartDefaultsJson", RawString(PredefinedSmartDefault.byTypeNameJson)),
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson),
         ).build()
       },
     )
@@ -687,5 +688,14 @@ class DeveloperAppResource {
     AppVersionError.REPORT_NOT_FOUND.code -> "Report not found."
     AppVersionError.VERSION_NOT_IN_DRAFT.code -> "Version is not in draft status."
     else -> "An unexpected error occurred. Please try again."
+  }
+
+  companion object {
+    private val predefinedSmartDefaultsJson: RawString = run {
+      val data = PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->
+        pds.map { mapOf("label" to it.label, "script" to it.script) }
+      }
+      RawString(ObjectMapper().writeValueAsString(data))
+    }
   }
 }

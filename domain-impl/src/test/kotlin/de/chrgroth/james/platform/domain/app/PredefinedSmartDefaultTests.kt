@@ -9,11 +9,24 @@ class PredefinedSmartDefaultTests {
 
   @Test
   fun `forType returns empty list for types without predefined defaults`() {
-    listOf(PropertyType.STRING, PropertyType.LONG, PropertyType.DOUBLE, PropertyType.BOOLEAN, PropertyType.DURATION, PropertyType.LIST, PropertyType.OBJECT, PropertyType.REF).forEach { type ->
+    TYPES_WITHOUT_PREDEFINED_DEFAULTS.forEach { type ->
       assertThat(PredefinedSmartDefault.forType(type))
         .describedAs("$type should have no predefined smart defaults")
         .isEmpty()
     }
+  }
+
+  private companion object {
+    val TYPES_WITHOUT_PREDEFINED_DEFAULTS = listOf(
+      PropertyType.STRING,
+      PropertyType.LONG,
+      PropertyType.DOUBLE,
+      PropertyType.BOOLEAN,
+      PropertyType.DURATION,
+      PropertyType.LIST,
+      PropertyType.OBJECT,
+      PropertyType.REF,
+    )
   }
 
   @Test
@@ -62,19 +75,5 @@ class PredefinedSmartDefaultTests {
       PredefinedSmartDefault.DATETIME_NOW_CURRENT_MINUTE,
       PredefinedSmartDefault.DATETIME_NOW_CURRENT_HOUR,
     )
-  }
-
-  @Test
-  fun `byTypeNameJson produces valid JSON with all types and entries`() {
-    val json = PredefinedSmartDefault.byTypeNameJson
-
-    assertThat(json).startsWith("{")
-    assertThat(json).endsWith("}")
-    assertThat(json).contains("\"DATE\"")
-    assertThat(json).contains("\"TIME\"")
-    assertThat(json).contains("\"DATETIME\"")
-    assertThat(json).contains("\"Today\"")
-    assertThat(json).contains("\"Now\"")
-    assertThat(json).doesNotContain("'")
   }
 }
