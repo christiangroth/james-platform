@@ -11,11 +11,18 @@ import javax.script.ScriptEngineManager
 @Suppress("Unused")
 class SmartDefaultService : SmartDefaultPort {
 
+  // Lazily initialised on first use so the ServiceLoader classpath scan runs once per JVM instance
+  // rather than on every request. Thread.currentThread().contextClassLoader is required in Quarkus
+  // to pick up the JSR 223 Kotlin scripting engine via ServiceLoader.
+  private val scriptEngineManager: ScriptEngineManager by lazy {
+    ScriptEngineManager(Thread.currentThread().contextClassLoader)
+  }
+
   override fun computeSmartDefaults(entity: EntityDefinition, now: Instant): Map<String, String?> {
     val propertiesWithSmartDefaults = entity.properties.filter { it.smartDefault != null }
     if (propertiesWithSmartDefaults.isEmpty()) return emptyMap()
 
-    val engine = ScriptEngineManager(Thread.currentThread().contextClassLoader).getEngineByExtension("kts") ?: run {
+    val engine = scriptEngineManager.getEngineByExtension("kts") ?: run {
       logger.warn { "Kotlin scripting engine not available – smart defaults skipped" }
       return emptyMap()
     }
