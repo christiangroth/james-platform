@@ -18,7 +18,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 @QuarkusTest
@@ -150,7 +149,7 @@ class SmartDefaultPageTests {
   fun `new data form pre-fills TIME property with TIME_NOW_CURRENT_MINUTE smart default`() {
     val appName = "Smart Default Time App ${System.nanoTime()}"
     val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.TIME_NOW_CURRENT_MINUTE)
-    val expectedHourPrefix = LocalTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.HOURS).toString().substringBefore(":")
+    val expectedHourPrefix = String.format("%02d:", LocalTime.now(ZoneOffset.UTC).hour)
 
     given()
       .queryParam("entityId", entityId)
@@ -159,7 +158,7 @@ class SmartDefaultPageTests {
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("""value="$expectedHourPrefix:"""))
+      .body(containsString("""value="$expectedHourPrefix"""))
   }
 
   @Test
