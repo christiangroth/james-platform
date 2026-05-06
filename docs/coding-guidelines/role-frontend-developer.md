@@ -95,7 +95,48 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 | `.app-badge-muted` | Grey status/label badge – add alongside Bootstrap `.badge` |
 | `.docs-content` | Markdown-rendered documentation pages |
 
-## UX Standards
+## Button Placement Rules
+
+These rules apply to all pages and modals:
+
+### Button Colors
+- **Save / Publish / positive actions** → blue (`.btn-app-primary`)
+- **Delete / Remove / destructive actions** → red (`.btn-app-danger`)
+- **Cancel / neutral actions** → gray (`.btn-app-secondary`)
+
+### Button Alignment
+- **Destructive buttons** (Delete, Remove) → always **left-aligned** in the bottom row
+- **Positive and neutral buttons** (Save, Cancel) → always **right-aligned** in the bottom row
+- When neutral and positive buttons appear together in the right-aligned group: neutral (Cancel) on the **left**, positive (Save) on the **right**
+
+### Implementation Pattern
+
+For pages with a form bottom row:
+```html
+<div class="d-flex justify-content-between mt-4">
+    <button type="button" class="btn btn-app-danger btn-sm" ...>Delete</button>
+    <div class="d-flex gap-2">
+        <a href="..." class="btn btn-app-secondary btn-sm">Cancel</a>
+        <button type="submit" class="btn btn-app-primary btn-sm">Save</button>
+    </div>
+</div>
+```
+
+For modals:
+```html
+<div class="modal-footer justify-content-between">
+    <button type="button" class="btn btn-app-danger" ...>Delete</button>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-app-primary">Save</button>
+    </div>
+</div>
+```
+
+### Additional Rules
+- Action buttons **must not** appear in table row action columns when a dedicated edit view / modal is available
+- Opening an edit modal by clicking on a table row (rather than a separate icon button) is preferred when edit is the primary action for that row
+
 
 - Every action must have visible feedback: button disabled state during requests, success/error banners on completion
 - Destructive actions (delete, wipe) require a confirmation modal – never a bare button that acts immediately
