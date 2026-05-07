@@ -94,7 +94,6 @@ class UiLogBuffer {
 }
 
 @ApplicationScoped
-@Suppress("UnusedParameter")
 class UiLogBufferLifecycle(
   private val logBuffer: UiLogBuffer,
 ) {
