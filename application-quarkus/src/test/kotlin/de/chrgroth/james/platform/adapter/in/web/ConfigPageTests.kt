@@ -118,4 +118,14 @@ class ConfigPageTests {
       .statusCode(200)
       .body(containsString("""data-testid="config-link""""))
   }
+
+  @Test
+  fun `config page contains logs ui link in navbar`() {
+    given()
+      .`when`()
+      .get("/config")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="logs-ui-link""""))
+  }
 }

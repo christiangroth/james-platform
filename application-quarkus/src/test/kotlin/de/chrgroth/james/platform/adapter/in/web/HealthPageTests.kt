@@ -254,6 +254,16 @@ class HealthPageTests {
   }
 
   @Test
+  fun `health page contains logs ui link in navbar`() {
+    given()
+      .`when`()
+      .get("/health")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="logs-ui-link""""))
+  }
+
+  @Test
   fun `health page navbar sse connection refreshes widgets on open`() {
     given()
       .`when`()

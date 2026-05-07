@@ -1,0 +1,75 @@
+{#include layout.html}
+    {#title}James Platform – Logs{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+
+        <h1 class="mb-1 fs-4 fw-semibold">Logs</h1>
+        <p class="app-section-label mb-4">WARN/ERROR entries from the last hour (max 200).</p>
+
+        <div class="card h-100 app-card">
+            <div class="card-body">
+                {#if entries.isEmpty}
+                <p class="app-section-label mb-0" data-testid="logs-empty-state">No WARN/ERROR logs in the last hour.</p>
+                {#else}
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 app-table" data-testid="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Level</th>
+                                <th>Class</th>
+                                <th>Message</th>
+                                <th>Stacktrace</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for entry in entries}
+                            <tr>
+                                <td class="log-timestamp" data-epoch-ms="{entry.timestampEpochMillis}">{entry.timestamp}</td>
+                                <td>
+                                    {#if entry.level == 'ERROR'}
+                                    <span class="badge app-badge-failed" data-testid="log-level">{entry.level}</span>
+                                    {#else if entry.level == 'WARN'}
+                                    <span class="badge app-badge-warn" data-testid="log-level">{entry.level}</span>
+                                    {#else}
+                                    <span class="badge app-badge-muted" data-testid="log-level">{entry.level}</span>
+                                    {/if}
+                                </td>
+                                <td data-testid="log-class">{entry.clazz}</td>
+                                <td data-testid="log-message">{entry.message}</td>
+                                <td>
+                                    {#if entry.stacktrace}
+                                    <details data-testid="log-stacktrace">
+                                        <summary>Show</summary>
+                                        <pre class="mb-0 small mt-2">{entry.stacktrace}</pre>
+                                    </details>
+                                    {#else}
+                                    <span class="app-section-label">-</span>
+                                    {/if}
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+                {/if}
+            </div>
+        </div>
+    </div>
+    <style>
+        .app-badge-warn {
+            background-color: #ff9800;
+            color: #111111;
+        }
+    </style>
+    <script>
+        (function () {
+            document.querySelectorAll('.log-timestamp[data-epoch-ms]').forEach(function (cell) {
+                var epochMs = Number(cell.getAttribute('data-epoch-ms'));
+                if (!Number.isFinite(epochMs)) return;
+                cell.textContent = new Date(epochMs).toLocaleString();
+            });
+        })();
+    </script>
+    {/content}
+{/include}
