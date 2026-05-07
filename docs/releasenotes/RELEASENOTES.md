@@ -1,3 +1,12 @@
+# 0.38.0 (2026.05.07)
+
+## New Features
+* Added a new Logs UI in the tools menu to view recent WARN and ERROR application logs.
+
+
+
+---
+
 # 0.37.0 (2026.05.06)
 
 ## New Features
