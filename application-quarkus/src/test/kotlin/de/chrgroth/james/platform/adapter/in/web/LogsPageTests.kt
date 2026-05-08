@@ -71,6 +71,8 @@ class LogsPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="logs-table""""))
+      .body(containsString("""data-testid="logs-view-chronological""""))
+      .body(containsString("nav-link active"))
       .body(containsString("older warning"))
       .body(containsString("newer error"))
       .body(containsString("app-badge-warn"))
@@ -80,5 +82,56 @@ class LogsPageTests {
       .asString()
 
     assertTrue(body.indexOf("newer error") < body.indexOf("older warning"))
+  }
+
+  @Test
+  fun `logs page grouped view groups by class and level with sorting`() {
+    val now = Instant.now()
+    logBuffer.add(
+      UiLogEntry(
+        timestamp = now.minusSeconds(10),
+        level = "WARN",
+        clazz = "de.chrgroth.WarnClass",
+        message = "newer warn",
+        stacktrace = null,
+      ),
+    )
+    logBuffer.add(
+      UiLogEntry(
+        timestamp = now.minusSeconds(20),
+        level = "WARN",
+        clazz = "de.chrgroth.WarnClass",
+        message = "older warn",
+        stacktrace = null,
+      ),
+    )
+    logBuffer.add(
+      UiLogEntry(
+        timestamp = now.minusSeconds(30),
+        level = "ERROR",
+        clazz = "de.chrgroth.ErrorClass",
+        message = "single error",
+        stacktrace = "java.lang.RuntimeException: boom",
+      ),
+    )
+
+    val body = given()
+      .`when`()
+      .get("/logs?view=grouped")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="logs-grouped-view""""))
+      .body(containsString("""data-testid="logs-view-grouped""""))
+      .body(containsString("nav-link active"))
+      .body(containsString("de.chrgroth.ErrorClass"))
+      .body(containsString("de.chrgroth.WarnClass"))
+      .body(containsString("single error"))
+      .body(containsString("newer warn"))
+      .body(containsString("older warn"))
+      .extract()
+      .asString()
+
+    assertTrue(body.indexOf("de.chrgroth.ErrorClass") < body.indexOf("de.chrgroth.WarnClass"))
+    assertTrue(body.indexOf("newer warn") < body.indexOf("older warn"))
   }
 }

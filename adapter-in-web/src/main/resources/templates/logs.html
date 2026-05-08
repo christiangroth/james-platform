@@ -8,8 +8,63 @@
 
         <div class="card h-100 app-card">
             <div class="card-body">
+                <ul class="nav nav-tabs mb-3" data-testid="logs-view-switch">
+                    <li class="nav-item">
+                        <a class="nav-link {#if !isGroupedView}active{/if}" href="/logs" data-testid="logs-view-chronological">Chronological</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {#if isGroupedView}active{/if}" href="/logs?view=grouped" data-testid="logs-view-grouped">Grouped</a>
+                    </li>
+                </ul>
                 {#if entries.isEmpty}
                 <p class="app-section-label mb-0" data-testid="logs-empty-state">No WARN/ERROR logs in the last hour.</p>
+                {#else if isGroupedView}
+                <div data-testid="logs-grouped-view">
+                    {#for group in groups}
+                    <div class="app-accordion-item mb-3" data-testid="log-group">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+                            <div>
+                                <strong data-testid="log-group-class">{group.clazz}</strong>
+                                <span class="app-section-label ms-2" data-testid="log-group-count">{group.count} entries</span>
+                            </div>
+                            {#if group.level == 'ERROR'}
+                            <span class="badge app-badge-failed" data-testid="log-group-level">{group.level}</span>
+                            {#else}
+                            <span class="badge app-badge-warn" data-testid="log-group-level">{group.level}</span>
+                            {/if}
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0 app-table" data-testid="logs-group-table">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Message</th>
+                                        <th>Stacktrace</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {#for entry in group.entries}
+                                    <tr>
+                                        <td class="log-timestamp" data-epoch-ms="{entry.timestampEpochMillis}">{entry.timestamp}</td>
+                                        <td data-testid="log-message">{entry.message}</td>
+                                        <td>
+                                            {#if entry.stacktrace}
+                                            <details data-testid="log-stacktrace">
+                                                <summary>Show</summary>
+                                                <pre class="mb-0 small mt-2">{entry.stacktrace}</pre>
+                                            </details>
+                                            {#else}
+                                            <span class="app-section-label">-</span>
+                                            {/if}
+                                        </td>
+                                    </tr>
+                                    {/for}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {/for}
+                </div>
                 {#else}
                 <div class="table-responsive">
                     <table class="table table-sm mb-0 app-table" data-testid="logs-table">
