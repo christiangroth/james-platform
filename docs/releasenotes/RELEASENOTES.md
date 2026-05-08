@@ -1,3 +1,13 @@
+# 0.39.0 (2026.05.08)
+
+## New Features
+* Added a second Logs view that groups entries by class and log level.
+* Logs now support switching between chronological and grouped views directly in the UI.
+
+
+
+---
+
 # 0.38.0 (2026.05.07)
 
 ## New Features
