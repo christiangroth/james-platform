@@ -36,9 +36,11 @@ Always format new and edited files according to `.editorconfig` before committin
 ## Documentation
 
 - **Architecture:** [docs/arc42/arc42.md](docs/arc42/arc42.md)
+- **Architecture decision records:** [docs/adr](docs/adr)
 - **Architect role guidelines:** [docs/coding-guidelines/role-architect.md](docs/coding-guidelines/role-architect.md)
 - **Backend developer role guidelines:** [docs/coding-guidelines/role-backend-developer.md](docs/coding-guidelines/role-backend-developer.md)
 - **Frontend developer role guidelines:** [docs/coding-guidelines/role-frontend-developer.md](docs/coding-guidelines/role-frontend-developer.md)
+- **Test engineer role guidelines:** [docs/coding-guidelines/role-test-engineer.md](docs/coding-guidelines/role-test-engineer.md)
 
 ## Release Note Snippets
 
