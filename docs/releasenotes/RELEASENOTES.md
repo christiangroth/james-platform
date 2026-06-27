@@ -1,3 +1,13 @@
+# 0.41.0 (2026.06.27)
+
+## New Features
+* Reference properties can now be configured with a target entity in the Developer area.
+* Data entry forms now show a dropdown to select a reference to an existing entity instance, displayed using its configured Display Text or, if none is defined, its generic reference text.
+
+
+
+---
+
 # 0.40.0 (2026.06.27)
 
 ## New Features
