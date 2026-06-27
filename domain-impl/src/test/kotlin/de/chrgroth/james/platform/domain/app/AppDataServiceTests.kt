@@ -479,4 +479,50 @@ class AppDataServiceTests {
   }
 
   // endregion
+
+  // region createAppData OBJECT property round-trip at depth 5
+
+  private val deepLevel5PropId = PropertyId("deep-5")
+  private val deepLevel5Prop = Property(id = deepLevel5PropId, name = "Level5", type = PropertyType.STRING, nullable = true)
+  private val deepLevel4PropId = PropertyId("deep-4")
+  private val deepLevel4Prop = Property(id = deepLevel4PropId, name = "Level4", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel5Prop))
+  private val deepLevel3PropId = PropertyId("deep-3")
+  private val deepLevel3Prop = Property(id = deepLevel3PropId, name = "Level3", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel4Prop))
+  private val deepLevel2PropId = PropertyId("deep-2")
+  private val deepLevel2Prop = Property(id = deepLevel2PropId, name = "Level2", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel3Prop))
+  private val deepLevel1PropId = PropertyId("deep-1")
+  private val deepLevel1Prop = Property(id = deepLevel1PropId, name = "Level1", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel2Prop))
+  private val deepEntityId = EntityDefinitionId("entity-deep")
+  private val deepEntityDef = EntityDefinition(id = deepEntityId, name = "DeepEntity", properties = listOf(deepLevel1Prop))
+  private val appVersionWithDeepObject = appVersion.copy(entityDefinitions = listOf(deepEntityDef))
+
+  @Test
+  fun `createAppData round-trips an OBJECT property value nested five levels deep`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDeepObject
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, deepEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(deepLevel1Prop, any(), emptyList()) } returns emptyList()
+    val savedSlot = mutableListOf<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val deepKey = "prop_${deepLevel1PropId.value}.${deepLevel2PropId.value}.${deepLevel3PropId.value}.${deepLevel4PropId.value}.${deepLevel5PropId.value}"
+    val data = mapOf(deepKey to listOf("deep-value"))
+
+    val result = service.createAppData(userId, installedAppId.value, deepEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    val storedValue = savedSlot.first().data[deepLevel1PropId.value]
+
+    @Suppress("UNCHECKED_CAST")
+    val level2 = decodeObjectValue(storedValue)[deepLevel2PropId.value] as Map<String, Any?>
+
+    @Suppress("UNCHECKED_CAST")
+    val level3 = level2[deepLevel3PropId.value] as Map<String, Any?>
+
+    @Suppress("UNCHECKED_CAST")
+    val level4 = level3[deepLevel4PropId.value] as Map<String, Any?>
+    assertThat(level4[deepLevel5PropId.value]).isEqualTo("deep-value")
+  }
+
+  // endregion
 }

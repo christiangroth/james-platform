@@ -24,29 +24,15 @@ class AppVersionRepositoryTests {
   lateinit var appVersionRepository: AppVersionRepositoryPort
 
   @Test
-  fun `save and findById preserves recursively nested OBJECT properties`() {
-    val innermost = Property(
-      id = PropertyId(UUID.randomUUID().toString()),
-      name = "street",
-      type = PropertyType.STRING,
-    )
-    val nested = Property(
-      id = PropertyId(UUID.randomUUID().toString()),
-      name = "address",
-      type = PropertyType.OBJECT,
-      nestedProperties = listOf(innermost),
-    )
-    val top = Property(
-      id = PropertyId(UUID.randomUUID().toString()),
-      name = "contact",
-      type = PropertyType.OBJECT,
-      nestedProperties = listOf(nested),
-    )
-    val entityDefinition = EntityDefinition(
-      id = EntityDefinitionId(UUID.randomUUID().toString()),
-      name = "Person",
-      properties = listOf(top),
-    )
+  fun `save and findById round-trip an OBJECT property nested five levels deep`() {
+    // level 5 (innermost) is a plain scalar, levels 1-4 are nested OBJECT properties wrapping the level below
+    val level5 = Property(id = PropertyId("level-5"), name = "Level5", type = PropertyType.STRING, nullable = true)
+    val level4 = Property(id = PropertyId("level-4"), name = "Level4", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(level5))
+    val level3 = Property(id = PropertyId("level-3"), name = "Level3", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(level4))
+    val level2 = Property(id = PropertyId("level-2"), name = "Level2", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(level3))
+    val level1 = Property(id = PropertyId("level-1"), name = "Level1", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(level2))
+
+    val entityDefinition = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "DeepEntity", properties = listOf(level1))
     val version = AppVersion(
       id = AppVersionId(UUID.randomUUID().toString()),
       appId = AppId(UUID.randomUUID().toString()),
@@ -60,14 +46,21 @@ class AppVersionRepositoryTests {
 
     appVersionRepository.save(version)
 
-    val found = appVersionRepository.findById(version.id)
-    assertThat(found).isNotNull()
-    val foundTop = found!!.entityDefinitions.single().properties.single()
-    assertThat(foundTop.name).isEqualTo("contact")
-    val foundNested = foundTop.nestedProperties.single()
-    assertThat(foundNested.name).isEqualTo("address")
-    val foundInnermost = foundNested.nestedProperties.single()
-    assertThat(foundInnermost.name).isEqualTo("street")
-    assertThat(foundInnermost.type).isEqualTo(PropertyType.STRING)
+    val loaded = appVersionRepository.findById(version.id)
+    assertThat(loaded).isNotNull()
+    val loadedLevel1 = loaded!!.entityDefinitions.single().properties.single()
+    assertThat(loadedLevel1.id).isEqualTo(level1.id)
+
+    val loadedLevel2 = loadedLevel1.nestedProperties.single()
+    assertThat(loadedLevel2.id).isEqualTo(level2.id)
+
+    val loadedLevel3 = loadedLevel2.nestedProperties.single()
+    assertThat(loadedLevel3.id).isEqualTo(level3.id)
+
+    val loadedLevel4 = loadedLevel3.nestedProperties.single()
+    assertThat(loadedLevel4.id).isEqualTo(level4.id)
+
+    val loadedLevel5 = loadedLevel4.nestedProperties.single()
+    assertThat(loadedLevel5).isEqualTo(level5)
   }
 }
