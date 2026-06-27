@@ -1,3 +1,12 @@
+# 0.42.2 (2026.06.27)
+
+## Bugfixes / Chore
+* Fixed list properties losing their configured list item type after being saved and reloaded.
+
+
+
+---
+
 # 0.42.1 (2026.06.27)
 
 ## Bugfixes / Chore
