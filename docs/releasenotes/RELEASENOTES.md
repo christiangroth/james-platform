@@ -1,3 +1,13 @@
+# 0.41.1 (2026.06.27)
+
+## Bugfixes / Chore
+* The target entity for a Reference property is now selected directly when adding or editing the property, right below its type.
+* The target entity is now mandatory for Reference properties; saving without one shows a validation error.
+
+
+
+---
+
 # 0.41.0 (2026.06.27)
 
 ## New Features
