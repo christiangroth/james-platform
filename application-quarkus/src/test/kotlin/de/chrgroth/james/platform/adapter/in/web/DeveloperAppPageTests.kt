@@ -356,6 +356,56 @@ class DeveloperAppPageTests {
       .contentType(containsString("application/json"))
       .body(containsString("\"ok\":true"))
   }
+
+  @Test
+  fun `list property list item type is persisted across reload`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "List Item Type App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Tags")
+      .formParam("type", "LIST")
+      .formParam("nullable", true)
+      .formParam("listItemType", "STRING")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+      .then()
+      .statusCode(200)
+      .body(containsString("&lt;STRING&gt;"))
+  }
 }
 
 @QuarkusTest
