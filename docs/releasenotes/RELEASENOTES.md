@@ -1,3 +1,12 @@
+# 0.43.1 (2026.06.27)
+
+## Bugfixes / Chore
+* Replaced the pencil icon with a key icon on the "Set Password" action in the admin User Management table, to avoid suggesting that the whole user can be edited.
+
+
+
+---
+
 # 0.43.0 (2026.06.27)
 
 ## New Features
