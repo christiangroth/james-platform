@@ -43,6 +43,7 @@ data class Property(
   val default: String? = null,
   val smartDefault: String? = null,
   val valueProposals: List<String> = emptyList(),
+  val targetEntityId: EntityDefinitionId? = null,
 )
 
 sealed interface PropertyConstraint {

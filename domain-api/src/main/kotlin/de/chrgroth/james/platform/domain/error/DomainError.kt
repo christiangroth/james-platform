@@ -78,6 +78,8 @@ enum class AppVersionError(override val code: String) : DomainError {
   COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED("APPVER-031"),
   BOTH_DEFAULTS_SET("APPVER-032"),
   PROPERTY_IDS_MISMATCH("APPVER-033"),
+  TARGET_ENTITY_NOT_SUPPORTED("APPVER-034"),
+  TARGET_ENTITY_NOT_FOUND("APPVER-035"),
   ;
 }
 
@@ -122,4 +124,5 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data class PatternViolation(val regex: String) : PropertyConstraintViolation("PROP-007")
   data class MinSizeViolation(val min: Int) : PropertyConstraintViolation("PROP-008")
   data class MaxSizeViolation(val max: Int) : PropertyConstraintViolation("PROP-009")
+  data object InvalidReferenceViolation : PropertyConstraintViolation("PROP-010")
 }

@@ -179,6 +179,17 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun hasValueProposals(property: Property): Boolean = property.valueProposals.isNotEmpty()
 
+  /** Returns the target entity id of a Reference property, or empty string if not set. */
+  @JvmStatic
+  fun targetEntityId(property: Property): String = property.targetEntityId?.value ?: ""
+
+  /** Returns the name of the target entity of a Reference property within the given version,
+   * or empty string if not set or no longer found.
+   */
+  @JvmStatic
+  fun targetEntityName(property: Property, version: AppVersion): String =
+    property.targetEntityId?.let { id -> version.entityDefinitions.find { it.id == id }?.name } ?: ""
+
   /** Returns a sorted list of human-readable constraint text representations for the property,
    * using the same format as the version diff view (e.g. "min:0", "max:100", "unique-key").
    * Returns an empty list if no constraints are defined.
@@ -236,6 +247,7 @@ object TemplateFormattingExtensions {
     PropertyType.DATE -> "date"
     PropertyType.TIME -> "time"
     PropertyType.DATETIME -> "datetime-local"
+    PropertyType.REF -> "select"
     else -> "text"
   }
 

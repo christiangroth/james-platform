@@ -267,7 +267,10 @@ class AppVersionManagementService(
       logger.warn { "Delete entity failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.filter { it.id.value != entityId })
+    val remainingEntities = version.entityDefinitions.filter { it.id.value != entityId }.map { entity ->
+      entity.copy(properties = entity.properties.map { prop -> if (prop.targetEntityId?.value == entityId) prop.copy(targetEntityId = null) else prop })
+    }
+    val updated = version.copy(entityDefinitions = remainingEntities)
     appVersionRepository.save(updated)
     logger.info { "Entity deleted: $entityId from version $versionId" }
     return updated.right()
@@ -400,7 +403,8 @@ class AppVersionManagementService(
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
     val constraintsToKeep = if (propertyType == property.type) property.constraints else emptySet()
-    val updatedProperty = property.copy(name = name.trim(), type = propertyType, nullable = nullable, constraints = constraintsToKeep)
+    val targetEntityIdToKeep = if (propertyType == PropertyType.REF) property.targetEntityId else null
+    val updatedProperty = property.copy(name = name.trim(), type = propertyType, nullable = nullable, constraints = constraintsToKeep, targetEntityId = targetEntityIdToKeep)
     val newDisplayText = if (nullable && !property.nullable) {
       removePropertyFromDisplayText(entity.displayText, property.name)
     } else {
@@ -558,6 +562,41 @@ class AppVersionManagementService(
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property value proposals set: $propertyId in entity $entityId in version $versionId (${filteredProposals.size} proposals)" }
+    return updated.right()
+  }
+
+  override fun setPropertyTargetEntity(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    targetEntityId: String?,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property target entity failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property target entity failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (property.type != PropertyType.REF) {
+      logger.warn { "Set property target entity failed: type ${property.type} does not support target entity: $propertyId" }
+      return AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.left()
+    }
+    val trimmedTargetEntityId = targetEntityId?.trim()?.takeIf { it.isNotBlank() }
+    val targetEntity = trimmedTargetEntityId?.let { id ->
+      version.entityDefinitions.find { it.id.value == id } ?: run {
+        logger.warn { "Set property target entity failed: target entity not found: $id in version $versionId" }
+        return AppVersionError.TARGET_ENTITY_NOT_FOUND.left()
+      }
+    }
+    val updatedProperty = property.copy(targetEntityId = targetEntity?.id)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property target entity set: $propertyId in entity $entityId in version $versionId (targetEntityId=${targetEntity?.id?.value ?: "cleared"})" }
     return updated.right()
   }
 

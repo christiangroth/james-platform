@@ -733,6 +733,22 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
   }
 
+  @Test
+  fun `deleteEntity clears dangling target entity references on other entities`() {
+    val targetEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Customer")
+    val refProp = Property(id = PropertyId("p-1"), name = "Customer", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-1"))
+    val sourceEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Order", properties = listOf(refProp))
+    val version = draftVersion.copy(entityDefinitions = listOf(targetEntity, sourceEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteEntity("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    val remainingProp = result.getOrNull()?.entityDefinitions?.first { it.id.value == "e-2" }?.properties?.first { it.id.value == "p-1" }
+    assertThat(remainingProp?.targetEntityId).isNull()
+  }
+
   // endregion
 
   // region reorderEntities
@@ -927,6 +943,36 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
     assertThat(updatedProp?.constraints).isEmpty()
+  }
+
+  @Test
+  fun `updateProperty preserves target entity when type stays REF`() {
+    val property = Property(id = PropertyId("p-1"), name = "Customer", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-2"))
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Buyer", "REF", true)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.targetEntityId).isEqualTo(EntityDefinitionId("e-2"))
+  }
+
+  @Test
+  fun `updateProperty clears target entity when type changes away from REF`() {
+    val property = Property(id = PropertyId("p-1"), name = "Customer", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-2"))
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateProperty("app-1", "ver-1", "e-1", "p-1", "Customer", "STRING", true)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.targetEntityId).isNull()
   }
 
   @Test
@@ -2054,6 +2100,116 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
 
     val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "unknown-prop", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region setPropertyTargetEntity
+
+  @Test
+  fun `setPropertyTargetEntity sets target entity on REF property`() {
+    val refProp = Property(id = PropertyId("p-1"), name = "Customer", type = PropertyType.REF)
+    val sourceEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(refProp))
+    val targetEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer")
+    val version = draftVersion.copy(entityDefinitions = listOf(sourceEntity, targetEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "e-2")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first { it.id.value == "e-1" }?.properties?.first { it.id.value == "p-1" }
+    assertThat(updatedProp?.targetEntityId).isEqualTo(EntityDefinitionId("e-2"))
+  }
+
+  @Test
+  fun `setPropertyTargetEntity clears target entity when blank value provided`() {
+    val refProp = Property(id = PropertyId("p-1"), name = "Customer", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-2"))
+    val sourceEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(refProp))
+    val targetEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer")
+    val version = draftVersion.copy(entityDefinitions = listOf(sourceEntity, targetEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first { it.id.value == "e-1" }?.properties?.first { it.id.value == "p-1" }
+    assertThat(updatedProp?.targetEntityId).isNull()
+  }
+
+  @Test
+  fun `setPropertyTargetEntity allows self-referencing entity`() {
+    val refProp = Property(id = PropertyId("p-1"), name = "Parent", type = PropertyType.REF)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Category", properties = listOf(refProp))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first { it.id.value == "p-1" }
+    assertThat(updatedProp?.targetEntityId).isEqualTo(EntityDefinitionId("e-1"))
+  }
+
+  @Test
+  fun `setPropertyTargetEntity fails for non-REF property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Count", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "e-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.TARGET_ENTITY_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyTargetEntity fails when target entity not found`() {
+    val refProp = Property(id = PropertyId("p-1"), name = "Customer", type = PropertyType.REF)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(refProp))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "unknown-entity")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.TARGET_ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyTargetEntity fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns null
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "e-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyTargetEntity fails when entity not found`() {
+    val version = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "unknown-entity", "p-1", "e-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setPropertyTargetEntity fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "unknown-prop", "e-2")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)

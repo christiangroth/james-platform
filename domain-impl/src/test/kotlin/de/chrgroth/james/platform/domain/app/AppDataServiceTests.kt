@@ -262,6 +262,63 @@ class AppDataServiceTests {
 
   // endregion
 
+  // region createAppData reference validation
+
+  private val refTargetPropId = PropertyId("ref-target-prop")
+  private val refTargetProp = Property(id = refTargetPropId, name = "RefField", type = PropertyType.REF, nullable = true, targetEntityId = entityId)
+  private val refTargetEntityDef = EntityDefinition(id = refEntityId, name = "RefEntity", properties = listOf(refTargetProp))
+  private val appVersionWithRefTarget = appVersion.copy(entityDefinitions = listOf(entityDef, refTargetEntityDef))
+
+  @Test
+  fun `createAppData rejects REF value that does not point to an existing target instance`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithRefTarget
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, refEntityId) } returns emptyList()
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(refTargetProp, "unknown-id", emptyList()) } returns emptyList()
+
+    val data = mapOf("prop_${refTargetPropId.value}" to "unknown-id")
+    val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[refTargetPropId.value]).containsExactly(PropertyConstraintViolation.InvalidReferenceViolation)
+  }
+
+  @Test
+  fun `createAppData accepts REF value pointing to an existing target instance`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithRefTarget
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, refEntityId) } returns emptyList()
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(existingAppData)
+    every { propertyConstraint.checkValue(refTargetProp, "data-1", emptyList()) } returns emptyList()
+    justRun { appDataRepository.save(any()) }
+
+    val data = mapOf("prop_${refTargetPropId.value}" to "data-1")
+    val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+  }
+
+  @Test
+  fun `createAppData rejects REF value when property has no target entity configured`() {
+    val unconfiguredRefEntityDef = EntityDefinition(id = refEntityId, name = "RefEntity", properties = listOf(refPropNullable))
+    val versionWithUnconfiguredRef = appVersion.copy(entityDefinitions = listOf(entityDef, unconfiguredRefEntityDef))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns versionWithUnconfiguredRef
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, refEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(refPropNullable, "data-1", emptyList()) } returns emptyList()
+
+    val data = mapOf("prop_${refPropId.value}" to "data-1")
+    val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[refPropId.value]).containsExactly(PropertyConstraintViolation.InvalidReferenceViolation)
+  }
+
+  // endregion
+
   // region getValueProposals
 
   @Test

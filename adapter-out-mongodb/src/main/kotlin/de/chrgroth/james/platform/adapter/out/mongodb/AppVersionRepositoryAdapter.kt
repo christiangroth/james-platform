@@ -134,6 +134,7 @@ class AppVersionRepositoryAdapter(
     default = default,
     smartDefault = smartDefault,
     valueProposals = valueProposals,
+    targetEntityId = targetEntityId?.let { EntityDefinitionId(it) },
   )
 
   private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {
@@ -201,6 +202,7 @@ class AppVersionRepositoryAdapter(
     doc.default = default
     doc.smartDefault = smartDefault
     doc.valueProposals = valueProposals
+    doc.targetEntityId = targetEntityId?.value
   }
 
   private fun ComputedProperty.toDocument() = ComputedPropertyDocument().also { doc ->

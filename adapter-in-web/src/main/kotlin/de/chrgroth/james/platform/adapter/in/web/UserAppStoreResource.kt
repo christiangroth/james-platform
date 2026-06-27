@@ -46,6 +46,7 @@ data class AppDataPropertyView(
   val value: String?,
   val htmlInputType: String,
   val valueProposals: List<String> = emptyList(),
+  val referenceOptions: List<AppDataRow> = emptyList(),
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 }
@@ -238,11 +239,13 @@ class UserAppStoreResource {
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
+    val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
     return Response.ok(
       appDataNewTemplate
         .data("info", info)
         .data("entity", entityDef)
-        .data("smartDefaults", computedSmartDefaults),
+        .data("smartDefaults", computedSmartDefaults)
+        .data("referenceOptions", referenceOptions),
     ).build()
   }
 
@@ -291,6 +294,7 @@ class UserAppStoreResource {
       ifRight = { appDataItem ->
         val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == appDataItem.entityType.value }
           ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+        val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
         val detail = AppDataDetail(
           id = appDataItem.id.value,
           installedAppId = installedAppId,
@@ -314,9 +318,11 @@ class UserAppStoreResource {
                 PropertyType.DATE -> "date"
                 PropertyType.TIME -> "time"
                 PropertyType.DATETIME -> "datetime-local"
+                PropertyType.REF -> "select"
                 else -> "text"
               },
               valueProposals = prop.valueProposals,
+              referenceOptions = referenceOptions[prop.id.value] ?: emptyList(),
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -436,6 +442,7 @@ class UserAppStoreResource {
     is PropertyConstraintViolation.PatternViolation -> "Value does not match the required pattern: ${violation.regex}."
     is PropertyConstraintViolation.MinSizeViolation -> "List must have at least ${violation.min} elements."
     is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
+    is PropertyConstraintViolation.InvalidReferenceViolation -> "Selected reference is invalid or no longer exists."
   }
 
   private fun applySortCriteria(
@@ -504,6 +511,25 @@ class UserAppStoreResource {
       .filter { it.constraints.contains(PropertyConstraint.UniqueKey) }
       .map { data[it.id.value] ?: "" }
     return "${entityDef.name} $dataId [${uniqueValues.joinToString(", ")}]"
+  }
+
+  /** Returns the entity's Display Text if configured, otherwise the generic reference text. Used to label Reference property options. */
+  private fun resolveReferenceLabel(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String =
+    if (entityDef.displayText != null) computeDisplayText(entityDef, dataId, data) else computeReferenceText(entityDef, dataId, data)
+
+  /** Builds the selectable Reference options (id + label) for each Reference property of the given entity. */
+  private fun computeReferenceOptions(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): Map<String, List<AppDataRow>> {
+    val refProperties = entityDef.properties.filter { it.type == PropertyType.REF && it.targetEntityId != null }
+    if (refProperties.isEmpty()) return emptyMap()
+    val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+    return refProperties.associate { prop ->
+      val targetEntity = entityDefinitions.find { it.id == prop.targetEntityId }
+      val options = targetEntity?.let { target ->
+        allData.filter { it.entityType == target.id }
+          .map { AppDataRow(id = it.id.value, displayText = resolveReferenceLabel(target, it.id.value, it.data)) }
+      } ?: emptyList()
+      prop.id.value to options
+    }
   }
 
   companion object {

@@ -605,6 +605,23 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/target-entity")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyTargetEntity(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("targetEntityId") targetEntityId: String?,
+  ): Response {
+    return appVersionManagement.setPropertyTargetEntity(appId, versionId, entityId, propertyId, targetEntityId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Target entity saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/reorder")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -816,6 +833,8 @@ class DeveloperAppResource {
     AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> "Value proposals are only supported for String properties."
     AppVersionError.BOTH_DEFAULTS_SET.code -> "A property cannot have both a default value and a smart default. Please clear one before setting the other."
     AppVersionError.PROPERTY_IDS_MISMATCH.code -> "Property IDs do not match the existing properties."
+    AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.code -> "Only Reference properties support a target entity."
+    AppVersionError.TARGET_ENTITY_NOT_FOUND.code -> "Target entity not found."
     AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> "Computed property not found."
     AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> "A computed property with this name already exists."
     AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> "This type does not support computed properties."

@@ -100,6 +100,7 @@
                             <th>Name</th>
                             <th>Type</th>
                             <th>Constraints</th>
+                            <th>Target Entity</th>
                             <th>Default</th>
                             <th>Smart Default</th>
                         </tr>
@@ -126,7 +127,8 @@
                             data-constraint-max-size="{prop.constraintMaxSize}"
                             data-default-value="{prop.defaultValue}"
                             data-smart-default="{prop.smartDefault}"
-                            data-value-proposals="{prop.valueProposals}">
+                            data-value-proposals="{prop.valueProposals}"
+                            data-target-entity-id="{prop.targetEntityId}">
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="Drag to reorder" data-testid="property-drag-handle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
                             </td>
@@ -137,6 +139,13 @@
                                 <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
                                 {#else}
                                 {#for ct in prop.constraintTexts}<div class="app-constraint-text">{ct}</div>{/for}
+                                {/if}
+                            </td>
+                            <td>
+                                {#if prop.targetEntityName(version)}
+                                <span class="app-section-label" style="font-size:0.85rem;" data-testid="property-target-entity-{prop.id}">{prop.targetEntityName(version)}</span>
+                                {#else}
+                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
                             </td>
                             <td>
@@ -650,6 +659,16 @@
                             </div>
                         </div>
                         <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
+                        <div id="targetEntitySection" class="d-none">
+                            <hr style="border-color:var(--color-border);">
+                            <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Target Entity</div>
+                            <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" data-testid="edit-property-target-entity-select">
+                                <option value="">– Select –</option>
+                                {#for e in version.entityDefinitions}
+                                <option value="{e.id}">{e.name}</option>
+                                {/for}
+                            </select>
+                        </div>
                         <div id="defaultSection" class="d-none">
                             <hr style="border-color:var(--color-border);">
                             <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
@@ -1357,6 +1376,8 @@
                     document.getElementById('constraintGroupList').classList.toggle('d-none', !groups.includes('List'));
                     document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
 
+                    document.getElementById('targetEntitySection').classList.toggle('d-none', propertyType !== 'REF');
+
                     var defaultGroup = DEFAULT_TYPE_GROUP[propertyType] || null;
                     ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
                         document.getElementById('defaultGroup' + g).classList.toggle('d-none', defaultGroup !== g);
@@ -1445,6 +1466,7 @@
                         document.getElementById('constraintPattern').value = btn.getAttribute('data-constraint-pattern') || '';
                         document.getElementById('constraintMinSize').value = btn.getAttribute('data-constraint-min-size') || '';
                         document.getElementById('constraintMaxSize').value = btn.getAttribute('data-constraint-max-size') || '';
+                        document.getElementById('editPropertyTargetEntity').value = btn.getAttribute('data-target-entity-id') || '';
                         var defaultVal = btn.getAttribute('data-default-value') || '';
                         document.getElementById('defaultLong').value = defaultVal;
                         document.getElementById('defaultDouble').value = defaultVal;
@@ -1543,6 +1565,20 @@
                         return;
                     }
                     var currentType = document.getElementById('editPropertyType').value;
+                    if (currentType === 'REF') {
+                        var targetEntityFormData = new FormData();
+                        var targetEntityId = document.getElementById('editPropertyTargetEntity').value;
+                        if (targetEntityId !== '') targetEntityFormData.set('targetEntityId', targetEntityId);
+                        var targetEntityResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/target-entity',
+                            targetEntityFormData, false
+                        );
+                        if (!targetEntityResult || !targetEntityResult.ok) {
+                            showEditPropertyError(targetEntityResult ? targetEntityResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                            return;
+                        }
+                    }
                     if (DEFAULT_TYPE_GROUP[currentType] !== undefined) {
                         var defaultFormData = new FormData();
                         var defaultVal = '';
