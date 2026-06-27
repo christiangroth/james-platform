@@ -365,7 +365,7 @@ class AppVersionManagementService(
       logger.warn { "Add property failed: property name already exists: $name in entity $entityId" }
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val resolvedTargetEntityId = resolveTargetEntity(version, propertyType, targetEntityId).fold({ return it.left() }, { it })
+    val resolvedTargetEntityId = resolveTargetEntity(version, propertyType == PropertyType.REF, targetEntityId).fold({ return it.left() }, { it })
     val newProperty = Property(id = PropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, nullable = nullable, targetEntityId = resolvedTargetEntityId)
     val updatedEntity = entity.copy(properties = entity.properties + newProperty)
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
@@ -405,8 +405,18 @@ class AppVersionManagementService(
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
     val constraintsToKeep = if (propertyType == property.type) property.constraints else emptySet()
-    val targetEntityIdToKeep = if (propertyType == PropertyType.REF) property.targetEntityId else null
-    val updatedProperty = property.copy(name = name.trim(), type = propertyType, nullable = nullable, constraints = constraintsToKeep, targetEntityId = targetEntityIdToKeep)
+    val listItemTypeToKeep = if (propertyType == PropertyType.LIST) property.listItemType else null
+    val itemConstraintsToKeep = if (propertyType == PropertyType.LIST) property.itemConstraints else emptySet()
+    val targetEntityIdToKeep = if (propertyType == PropertyType.REF || listItemTypeToKeep == PropertyType.REF) property.targetEntityId else null
+    val updatedProperty = property.copy(
+      name = name.trim(),
+      type = propertyType,
+      nullable = nullable,
+      constraints = constraintsToKeep,
+      targetEntityId = targetEntityIdToKeep,
+      listItemType = listItemTypeToKeep,
+      itemConstraints = itemConstraintsToKeep,
+    )
     val newDisplayText = if (nullable && !property.nullable) {
       removePropertyFromDisplayText(entity.displayText, property.name)
     } else {
@@ -583,11 +593,12 @@ class AppVersionManagementService(
       logger.warn { "Set property target entity failed: property not found: $propertyId in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
-    if (property.type != PropertyType.REF) {
+    val targetEntityRequired = property.type == PropertyType.REF || (property.type == PropertyType.LIST && property.listItemType == PropertyType.REF)
+    if (!targetEntityRequired) {
       logger.warn { "Set property target entity failed: type ${property.type} does not support target entity: $propertyId" }
       return AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.left()
     }
-    val resolvedTargetEntityId = resolveTargetEntity(version, property.type, targetEntityId).fold({ return it.left() }, { it })
+    val resolvedTargetEntityId = resolveTargetEntity(version, targetEntityRequired, targetEntityId).fold({ return it.left() }, { it })
     val updatedProperty = property.copy(targetEntityId = resolvedTargetEntityId)
     val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
@@ -596,8 +607,77 @@ class AppVersionManagementService(
     return updated.right()
   }
 
-  private fun resolveTargetEntity(version: AppVersion, propertyType: PropertyType, targetEntityId: String?): Either<DomainError, EntityDefinitionId?> {
-    if (propertyType != PropertyType.REF) return null.right()
+  override fun setPropertyListItemType(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    listItemType: String?,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property list item type failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property list item type failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (property.type != PropertyType.LIST) {
+      logger.warn { "Set property list item type failed: type ${property.type} does not support list item type: $propertyId" }
+      return AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
+    }
+    val trimmedListItemType = listItemType?.trim()?.takeIf { it.isNotBlank() } ?: run {
+      logger.warn { "Set property list item type failed: list item type is required: $propertyId" }
+      return AppVersionError.LIST_ITEM_TYPE_REQUIRED.left()
+    }
+    val parsedItemType = runCatching { PropertyType.valueOf(trimmedListItemType.uppercase()) }.getOrNull()?.takeIf { it in PropertyType.LIST_ITEM_TYPES } ?: run {
+      logger.warn { "Set property list item type failed: invalid item type: $trimmedListItemType: $propertyId" }
+      return AppVersionError.LIST_ITEM_TYPE_INVALID.left()
+    }
+    val itemConstraintsToKeep = if (parsedItemType == property.listItemType) property.itemConstraints else emptySet()
+    val targetEntityIdToKeep = if (parsedItemType == PropertyType.REF) property.targetEntityId else null
+    val updatedProperty = property.copy(listItemType = parsedItemType, itemConstraints = itemConstraintsToKeep, targetEntityId = targetEntityIdToKeep)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property list item type set: $propertyId in entity $entityId in version $versionId (listItemType=$parsedItemType)" }
+    return updated.right()
+  }
+
+  override fun setPropertyItemConstraints(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    itemConstraints: Set<PropertyConstraint>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property item constraints failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property item constraints failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    val itemType = property.listItemType
+    if (property.type != PropertyType.LIST || itemType == null) {
+      logger.warn { "Set property item constraints failed: type ${property.type} does not support item constraints: $propertyId" }
+      return AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
+    }
+    val allowedConstraintClasses = itemType.availableItemConstraints().toSet()
+    val validConstraints = itemConstraints.filter { c -> allowedConstraintClasses.any { it.isInstance(c) } }.toSet()
+    val updatedProperty = property.copy(itemConstraints = validConstraints)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property item constraints set: $propertyId in entity $entityId in version $versionId (${validConstraints.size} constraints)" }
+    return updated.right()
+  }
+
+  private fun resolveTargetEntity(version: AppVersion, requiresTargetEntity: Boolean, targetEntityId: String?): Either<DomainError, EntityDefinitionId?> {
+    if (!requiresTargetEntity) return null.right()
     val trimmedTargetEntityId = targetEntityId?.trim()?.takeIf { it.isNotBlank() } ?: run {
       logger.warn { "Resolve target entity failed: target entity is required for Reference properties" }
       return AppVersionError.TARGET_ENTITY_REQUIRED.left()

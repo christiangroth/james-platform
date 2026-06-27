@@ -623,6 +623,54 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/list-item-type")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyListItemType(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("listItemType") listItemType: String?,
+  ): Response {
+    return appVersionManagement.setPropertyListItemType(appId, versionId, entityId, propertyId, listItemType).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "List item type saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/item-constraints")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyItemConstraints(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("itemMinLong") itemMinLong: Long?,
+    @FormParam("itemMaxLong") itemMaxLong: Long?,
+    @FormParam("itemMinDouble") itemMinDouble: Double?,
+    @FormParam("itemMaxDouble") itemMaxDouble: Double?,
+    @FormParam("itemMinLength") itemMinLength: Int?,
+    @FormParam("itemMaxLength") itemMaxLength: Int?,
+    @FormParam("itemPattern") itemPattern: String?,
+  ): Response {
+    val itemConstraints = mutableSetOf<PropertyConstraint>()
+    if (itemMinLong != null) itemConstraints += PropertyConstraint.MinLong(itemMinLong)
+    if (itemMaxLong != null) itemConstraints += PropertyConstraint.MaxLong(itemMaxLong)
+    if (itemMinDouble != null) itemConstraints += PropertyConstraint.MinDouble(itemMinDouble)
+    if (itemMaxDouble != null) itemConstraints += PropertyConstraint.MaxDouble(itemMaxDouble)
+    if (itemMinLength != null) itemConstraints += PropertyConstraint.MinLength(itemMinLength)
+    if (itemMaxLength != null) itemConstraints += PropertyConstraint.MaxLength(itemMaxLength)
+    if (!itemPattern.isNullOrBlank()) itemConstraints += PropertyConstraint.Pattern(itemPattern.trim())
+    return appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Item constraints saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/reorder")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -840,6 +888,9 @@ class DeveloperAppResource {
     AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> "Computed property not found."
     AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> "A computed property with this name already exists."
     AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> "This type does not support computed properties."
+    AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> "Only List properties support a list item type."
+    AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> "An item type is required for List properties."
+    AppVersionError.LIST_ITEM_TYPE_INVALID.code -> "Invalid list item type."
     else -> "An unexpected error occurred. Please try again."
   }
 

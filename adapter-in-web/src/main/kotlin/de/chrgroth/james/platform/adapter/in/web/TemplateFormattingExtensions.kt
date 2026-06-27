@@ -117,50 +117,72 @@ object TemplateFormattingExtensions {
   fun constraintUniqueKey(property: Property): Boolean =
     property.constraints.any { it is PropertyConstraint.UniqueKey }
 
+  private inline fun <reified T : PropertyConstraint> constraintValue(constraints: Set<PropertyConstraint>, selector: (T) -> Any): String =
+    constraints.filterIsInstance<T>().firstOrNull()?.let { selector(it).toString() } ?: ""
+
   /** Returns the MinLong constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMinLong(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MinLong>().firstOrNull()?.min?.toString() ?: ""
+  fun constraintMinLong(property: Property): String = constraintValue<PropertyConstraint.MinLong>(property.constraints) { it.min }
 
   /** Returns the MaxLong constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMaxLong(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MaxLong>().firstOrNull()?.max?.toString() ?: ""
+  fun constraintMaxLong(property: Property): String = constraintValue<PropertyConstraint.MaxLong>(property.constraints) { it.max }
 
   /** Returns the MinDouble constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMinDouble(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MinDouble>().firstOrNull()?.min?.toString() ?: ""
+  fun constraintMinDouble(property: Property): String = constraintValue<PropertyConstraint.MinDouble>(property.constraints) { it.min }
 
   /** Returns the MaxDouble constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMaxDouble(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MaxDouble>().firstOrNull()?.max?.toString() ?: ""
+  fun constraintMaxDouble(property: Property): String = constraintValue<PropertyConstraint.MaxDouble>(property.constraints) { it.max }
 
   /** Returns the MinLength constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMinLength(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MinLength>().firstOrNull()?.min?.toString() ?: ""
+  fun constraintMinLength(property: Property): String = constraintValue<PropertyConstraint.MinLength>(property.constraints) { it.min }
 
   /** Returns the MaxLength constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMaxLength(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MaxLength>().firstOrNull()?.max?.toString() ?: ""
+  fun constraintMaxLength(property: Property): String = constraintValue<PropertyConstraint.MaxLength>(property.constraints) { it.max }
 
   /** Returns the Pattern constraint regex value, or empty string if not set. */
   @JvmStatic
-  fun constraintPattern(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.Pattern>().firstOrNull()?.regex ?: ""
+  fun constraintPattern(property: Property): String = constraintValue<PropertyConstraint.Pattern>(property.constraints) { it.regex }
 
   /** Returns the MinSize constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMinSize(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MinSize>().firstOrNull()?.min?.toString() ?: ""
+  fun constraintMinSize(property: Property): String = constraintValue<PropertyConstraint.MinSize>(property.constraints) { it.min }
 
   /** Returns the MaxSize constraint value, or empty string if not set. */
   @JvmStatic
-  fun constraintMaxSize(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MaxSize>().firstOrNull()?.max?.toString() ?: ""
+  fun constraintMaxSize(property: Property): String = constraintValue<PropertyConstraint.MaxSize>(property.constraints) { it.max }
+
+  /** Returns the LIST item's MinLong constraint value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintMinLong(property: Property): String = constraintValue<PropertyConstraint.MinLong>(property.itemConstraints) { it.min }
+
+  /** Returns the LIST item's MaxLong constraint value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintMaxLong(property: Property): String = constraintValue<PropertyConstraint.MaxLong>(property.itemConstraints) { it.max }
+
+  /** Returns the LIST item's MinDouble constraint value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintMinDouble(property: Property): String = constraintValue<PropertyConstraint.MinDouble>(property.itemConstraints) { it.min }
+
+  /** Returns the LIST item's MaxDouble constraint value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintMaxDouble(property: Property): String = constraintValue<PropertyConstraint.MaxDouble>(property.itemConstraints) { it.max }
+
+  /** Returns the LIST item's MinLength constraint value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintMinLength(property: Property): String = constraintValue<PropertyConstraint.MinLength>(property.itemConstraints) { it.min }
+
+  /** Returns the LIST item's MaxLength constraint value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintMaxLength(property: Property): String = constraintValue<PropertyConstraint.MaxLength>(property.itemConstraints) { it.max }
+
+  /** Returns the LIST item's Pattern constraint regex value, or empty string if not set. */
+  @JvmStatic
+  fun itemConstraintPattern(property: Property): String = constraintValue<PropertyConstraint.Pattern>(property.itemConstraints) { it.regex }
 
   /** Returns the default value of the property, or empty string if not set. */
   @JvmStatic
@@ -195,8 +217,16 @@ object TemplateFormattingExtensions {
    * Returns an empty list if no constraints are defined.
    */
   @JvmStatic
-  fun constraintTexts(property: Property): List<String> =
-    property.constraints
+  fun constraintTexts(property: Property): List<String> {
+    val texts = constraintTextsFor(property.constraints).toMutableList()
+    if (property.type == PropertyType.LIST) {
+      texts += constraintTextsFor(property.itemConstraints).map { "item-$it" }
+    }
+    return texts
+  }
+
+  private fun constraintTextsFor(constraints: Set<PropertyConstraint>): List<String> =
+    constraints
       .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
       .map { constraint ->
         when (constraint) {
@@ -241,7 +271,16 @@ object TemplateFormattingExtensions {
    * Used in the app-data-new template to render the correct input element per property type.
    */
   @JvmStatic
-  fun htmlInputType(property: Property): String = when (property.type) {
+  fun htmlInputType(property: Property): String = inputTypeFor(property.type)
+
+  /**
+   * Returns the HTML input type suitable for generating a form field for the items of a LIST property.
+   * Used in the app-data templates to render the correct input element per list item type.
+   */
+  @JvmStatic
+  fun itemHtmlInputType(property: Property): String = inputTypeFor(property.listItemType)
+
+  private fun inputTypeFor(type: PropertyType?): String = when (type) {
     PropertyType.BOOLEAN -> "checkbox"
     PropertyType.LONG, PropertyType.DOUBLE -> "number"
     PropertyType.DATE -> "date"
@@ -250,6 +289,10 @@ object TemplateFormattingExtensions {
     PropertyType.REF -> "select"
     else -> "text"
   }
+
+  /** Returns the LIST item type name of the property, or empty string if not a LIST or not set. */
+  @JvmStatic
+  fun listItemType(property: Property): String = property.listItemType?.name ?: ""
 
   /** Returns entity definitions in their stored order (as defined by the developer). */
   @JvmStatic

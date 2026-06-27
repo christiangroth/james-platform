@@ -9,7 +9,7 @@ interface AppDataPort {
     userId: String,
     installedAppId: String,
     entityTypeId: String,
-    data: Map<String, String>,
+    data: Map<String, List<String>>,
   ): Either<DomainError, AppData>
 
   fun listAppData(userId: String, installedAppId: String): Either<DomainError, List<AppData>>
@@ -20,7 +20,7 @@ interface AppDataPort {
     userId: String,
     installedAppId: String,
     dataId: String,
-    data: Map<String, String>,
+    data: Map<String, List<String>>,
   ): Either<DomainError, AppData>
 
   fun deleteAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, Int>

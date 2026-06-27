@@ -128,12 +128,25 @@
                             data-default-value="{prop.defaultValue}"
                             data-smart-default="{prop.smartDefault}"
                             data-value-proposals="{prop.valueProposals}"
-                            data-target-entity-id="{prop.targetEntityId}">
+                            data-target-entity-id="{prop.targetEntityId}"
+                            data-list-item-type="{prop.listItemType}"
+                            data-item-constraint-min-long="{prop.itemConstraintMinLong}"
+                            data-item-constraint-max-long="{prop.itemConstraintMaxLong}"
+                            data-item-constraint-min-double="{prop.itemConstraintMinDouble}"
+                            data-item-constraint-max-double="{prop.itemConstraintMaxDouble}"
+                            data-item-constraint-min-length="{prop.itemConstraintMinLength}"
+                            data-item-constraint-max-length="{prop.itemConstraintMaxLength}"
+                            data-item-constraint-pattern="{prop.itemConstraintPattern}">
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="Drag to reorder" data-testid="property-drag-handle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
                             </td>
                             <td>{prop.name}</td>
-                            <td>{prop.type}{#if prop.nullable}?{/if}</td>
+                            <td>
+                                {prop.type}{#if prop.nullable}?{/if}
+                                {#if prop.type.name == "LIST" && prop.listItemType}
+                                <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="property-list-item-type-{prop.id}">&lt;{prop.listItemType}&gt;</span>
+                                {/if}
+                            </td>
                             <td>
                                 {#if prop.constraintTexts.isEmpty}
                                 <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
@@ -368,7 +381,12 @@
                             {#for prop in entity.properties}
                             <tr data-testid="property-readonly-row">
                                 <td>{prop.name}</td>
-                                <td>{prop.type}{#if prop.nullable}?{/if}</td>
+                                <td>
+                                    {prop.type}{#if prop.nullable}?{/if}
+                                    {#if prop.type.name == "LIST" && prop.listItemType}
+                                    <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{prop.listItemType}&gt;</span>
+                                    {/if}
+                                </td>
                                 <td>
                                     {#if prop.constraintTexts.isEmpty}
                                     <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
@@ -588,6 +606,22 @@
                                 <option value="OBJECT">Object</option>
                             </select>
                         </div>
+                        <div id="listItemTypeSection" class="mb-3 d-none">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">List Item Type <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control form-select-sm" id="editPropertyListItemType" data-testid="edit-property-list-item-type-select">
+                                <option value="">– Select –</option>
+                                <option value="STRING">String</option>
+                                <option value="LONG">Long (Integer)</option>
+                                <option value="DOUBLE">Double (Decimal)</option>
+                                <option value="BOOLEAN">Boolean</option>
+                                <option value="DATE">Date</option>
+                                <option value="TIME">Time</option>
+                                <option value="DATETIME">DateTime</option>
+                                <option value="DURATION">Duration</option>
+                                <option value="REF">Reference</option>
+                                <option value="OBJECT">Object</option>
+                            </select>
+                        </div>
                         <div id="targetEntitySection" class="mb-3 d-none">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
                             <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" required data-testid="edit-property-target-entity-select">
@@ -668,6 +702,50 @@
                             </div>
                         </div>
                         <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
+                        <div class="app-section-label mb-2 d-none" id="itemConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Item Constraints</div>
+                        <!-- List item Long constraints -->
+                        <div class="constraint-group d-none" id="itemConstraintGroupLong">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                                    <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMinLong" placeholder="No minimum" data-testid="item-constraint-min-long">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                                    <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLong" placeholder="No maximum" data-testid="item-constraint-max-long">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- List item Double constraints -->
+                        <div class="constraint-group d-none" id="itemConstraintGroupDouble">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                                    <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMinDouble" placeholder="No minimum" data-testid="item-constraint-min-double">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                                    <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMaxDouble" placeholder="No maximum" data-testid="item-constraint-max-double">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- List item String constraints -->
+                        <div class="constraint-group d-none" id="itemConstraintGroupString">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min length</label>
+                                    <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMinLength" placeholder="No minimum" data-testid="item-constraint-min-length">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max length</label>
+                                    <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLength" placeholder="No maximum" data-testid="item-constraint-max-length">
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Pattern (regex)</label>
+                                <input type="text" class="form-control app-form-control form-control-sm" id="itemConstraintPattern" placeholder="e.g. ^[A-Z].*" data-testid="item-constraint-pattern">
+                            </div>
+                        </div>
                         <div id="defaultSection" class="d-none">
                             <hr style="border-color:var(--color-border);">
                             <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
@@ -1388,6 +1466,28 @@
 
                 var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
 
+                var ITEM_CONSTRAINT_TYPE_GROUPS = {
+                    'LONG':   ['Long'],
+                    'DOUBLE': ['Double'],
+                    'STRING': ['String'],
+                };
+
+                function applyListItemTypeVisibility(propertyType, listItemType) {
+                    var isList = propertyType === 'LIST';
+                    document.getElementById('listItemTypeSection').classList.toggle('d-none', !isList);
+                    document.getElementById('editPropertyListItemType').required = isList;
+
+                    var itemGroups = isList ? (ITEM_CONSTRAINT_TYPE_GROUPS[listItemType] || []) : [];
+                    document.getElementById('itemConstraintGroupLong').classList.toggle('d-none', !itemGroups.includes('Long'));
+                    document.getElementById('itemConstraintGroupDouble').classList.toggle('d-none', !itemGroups.includes('Double'));
+                    document.getElementById('itemConstraintGroupString').classList.toggle('d-none', !itemGroups.includes('String'));
+                    document.getElementById('itemConstraintsLabel').classList.toggle('d-none', itemGroups.length === 0);
+
+                    var targetEntityRequired = propertyType === 'REF' || (isList && listItemType === 'REF');
+                    document.getElementById('targetEntitySection').classList.toggle('d-none', !targetEntityRequired);
+                    document.getElementById('editPropertyTargetEntity').required = targetEntityRequired;
+                }
+
                 var PREDEFINED_SMART_DEFAULTS = JSON.parse(document.getElementById('predefined-smart-defaults-data').textContent);
                 var ENTITY_PROPERTIES = JSON.parse(document.getElementById('entity-properties-data').textContent);
 
@@ -1400,7 +1500,7 @@
                     document.getElementById('constraintGroupList').classList.toggle('d-none', !groups.includes('List'));
                     document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
 
-                    document.getElementById('targetEntitySection').classList.toggle('d-none', propertyType !== 'REF');
+                    applyListItemTypeVisibility(propertyType, document.getElementById('editPropertyListItemType').value);
 
                     var defaultGroup = DEFAULT_TYPE_GROUP[propertyType] || null;
                     ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
@@ -1491,6 +1591,14 @@
                         document.getElementById('constraintMinSize').value = btn.getAttribute('data-constraint-min-size') || '';
                         document.getElementById('constraintMaxSize').value = btn.getAttribute('data-constraint-max-size') || '';
                         document.getElementById('editPropertyTargetEntity').value = btn.getAttribute('data-target-entity-id') || '';
+                        document.getElementById('editPropertyListItemType').value = btn.getAttribute('data-list-item-type') || '';
+                        document.getElementById('itemConstraintMinLong').value = btn.getAttribute('data-item-constraint-min-long') || '';
+                        document.getElementById('itemConstraintMaxLong').value = btn.getAttribute('data-item-constraint-max-long') || '';
+                        document.getElementById('itemConstraintMinDouble').value = btn.getAttribute('data-item-constraint-min-double') || '';
+                        document.getElementById('itemConstraintMaxDouble').value = btn.getAttribute('data-item-constraint-max-double') || '';
+                        document.getElementById('itemConstraintMinLength').value = btn.getAttribute('data-item-constraint-min-length') || '';
+                        document.getElementById('itemConstraintMaxLength').value = btn.getAttribute('data-item-constraint-max-length') || '';
+                        document.getElementById('itemConstraintPattern').value = btn.getAttribute('data-item-constraint-pattern') || '';
                         var defaultVal = btn.getAttribute('data-default-value') || '';
                         document.getElementById('defaultLong').value = defaultVal;
                         document.getElementById('defaultDouble').value = defaultVal;
@@ -1518,6 +1626,10 @@
 
                 document.getElementById('editPropertyType').addEventListener('change', function () {
                     applyConstraintVisibility(this.value);
+                });
+
+                document.getElementById('editPropertyListItemType').addEventListener('change', function () {
+                    applyListItemTypeVisibility(document.getElementById('editPropertyType').value, this.value);
                 });
 
                 var editPropertyError = document.getElementById('editPropertyError');
@@ -1589,7 +1701,51 @@
                         return;
                     }
                     var currentType = document.getElementById('editPropertyType').value;
-                    if (currentType === 'REF') {
+                    var currentListItemType = document.getElementById('editPropertyListItemType').value;
+                    if (currentType === 'LIST') {
+                        var listItemTypeFormData = new FormData();
+                        if (currentListItemType !== '') listItemTypeFormData.set('listItemType', currentListItemType);
+                        var listItemTypeResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/list-item-type',
+                            listItemTypeFormData, false
+                        );
+                        if (!listItemTypeResult || !listItemTypeResult.ok) {
+                            showEditPropertyError(listItemTypeResult ? listItemTypeResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                            return;
+                        }
+                        var itemConstraintFormData = new FormData();
+                        if (!document.getElementById('itemConstraintGroupLong').classList.contains('d-none')) {
+                            var itemMinLong = document.getElementById('itemConstraintMinLong').value;
+                            var itemMaxLong = document.getElementById('itemConstraintMaxLong').value;
+                            if (itemMinLong !== '') itemConstraintFormData.set('itemMinLong', itemMinLong);
+                            if (itemMaxLong !== '') itemConstraintFormData.set('itemMaxLong', itemMaxLong);
+                        }
+                        if (!document.getElementById('itemConstraintGroupDouble').classList.contains('d-none')) {
+                            var itemMinDouble = document.getElementById('itemConstraintMinDouble').value;
+                            var itemMaxDouble = document.getElementById('itemConstraintMaxDouble').value;
+                            if (itemMinDouble !== '') itemConstraintFormData.set('itemMinDouble', itemMinDouble);
+                            if (itemMaxDouble !== '') itemConstraintFormData.set('itemMaxDouble', itemMaxDouble);
+                        }
+                        if (!document.getElementById('itemConstraintGroupString').classList.contains('d-none')) {
+                            var itemMinLength = document.getElementById('itemConstraintMinLength').value;
+                            var itemMaxLength = document.getElementById('itemConstraintMaxLength').value;
+                            var itemPattern = document.getElementById('itemConstraintPattern').value;
+                            if (itemMinLength !== '') itemConstraintFormData.set('itemMinLength', itemMinLength);
+                            if (itemMaxLength !== '') itemConstraintFormData.set('itemMaxLength', itemMaxLength);
+                            if (itemPattern !== '') itemConstraintFormData.set('itemPattern', itemPattern);
+                        }
+                        var itemConstraintResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/item-constraints',
+                            itemConstraintFormData, false
+                        );
+                        if (!itemConstraintResult || !itemConstraintResult.ok) {
+                            showEditPropertyError(itemConstraintResult ? itemConstraintResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                            return;
+                        }
+                    }
+                    if (currentType === 'REF' || (currentType === 'LIST' && currentListItemType === 'REF')) {
                         var targetEntityFormData = new FormData();
                         var targetEntityId = document.getElementById('editPropertyTargetEntity').value;
                         if (targetEntityId !== '') targetEntityFormData.set('targetEntityId', targetEntityId);

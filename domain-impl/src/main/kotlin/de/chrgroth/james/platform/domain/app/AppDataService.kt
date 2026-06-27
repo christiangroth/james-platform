@@ -14,6 +14,8 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.decodeListValue
+import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -37,7 +39,7 @@ class AppDataService(
     userId: String,
     installedAppId: String,
     entityTypeId: String,
-    data: Map<String, String>,
+    data: Map<String, List<String>>,
   ): Either<DomainError, AppData> {
     val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
     if (installedApp == null || installedApp.userId != userId) {
@@ -65,18 +67,18 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     for (property in entityDef.properties) {
-      val rawValue = data["prop_${property.id.value}"]
-      val parsedValue = parseValue(property, rawValue)
+      val storedValue = storedValueFor(property, data["prop_${property.id.value}"] ?: emptyList())
+      val parsedValue = parseValue(property, storedValue)
       val violations = propertyConstraint.checkValue(
         property,
         parsedValue,
         existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      ) + referenceViolations(property, rawValue, InstalledAppId(installedAppId), appVersion)
+      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId))
       if (violations.isNotEmpty()) {
         logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
       }
-      parsedData[property.id.value] = rawValue?.takeIf { it.isNotBlank() }
+      parsedData[property.id.value] = storedValue
     }
     if (allViolations.isNotEmpty()) {
       return AppDataConstraintViolationError(allViolations).left()
@@ -127,7 +129,7 @@ class AppDataService(
     userId: String,
     installedAppId: String,
     dataId: String,
-    data: Map<String, String>,
+    data: Map<String, List<String>>,
   ): Either<DomainError, AppData> {
     val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
     if (installedApp == null || installedApp.userId != userId) {
@@ -161,18 +163,18 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     for (property in entityDef.properties) {
-      val rawValue = data["prop_${property.id.value}"]
-      val parsedValue = parseValue(property, rawValue)
+      val storedValue = storedValueFor(property, data["prop_${property.id.value}"] ?: emptyList())
+      val parsedValue = parseValue(property, storedValue)
       val violations = propertyConstraint.checkValue(
         property,
         parsedValue,
         existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      ) + referenceViolations(property, rawValue, InstalledAppId(installedAppId), appVersion)
+      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId))
       if (violations.isNotEmpty()) {
         logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
       }
-      parsedData[property.id.value] = rawValue?.takeIf { it.isNotBlank() }
+      parsedData[property.id.value] = storedValue
     }
     if (allViolations.isNotEmpty()) {
       return AppDataConstraintViolationError(allViolations).left()
@@ -241,28 +243,43 @@ class AppDataService(
     return references.size.right()
   }
 
-  /** Returns a violation if a Reference property value does not point to an existing instance of its target entity. */
-  private fun referenceViolations(
-    property: Property,
-    rawValue: String?,
-    installedAppId: InstalledAppId,
-    appVersion: AppVersion,
-  ): List<PropertyConstraintViolation> {
-    if (property.type != PropertyType.REF || rawValue.isNullOrBlank()) return emptyList()
-    val targetEntityId = property.targetEntityId ?: return listOf(PropertyConstraintViolation.InvalidReferenceViolation)
-    val targetExists = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, targetEntityId)
-      .any { it.id.value == rawValue }
-    return if (targetExists) emptyList() else listOf(PropertyConstraintViolation.InvalidReferenceViolation)
+  /** Encodes the raw form values submitted for a property into the single string stored in [AppData.data]. */
+  private fun storedValueFor(property: Property, rawValues: List<String>): String? {
+    val nonBlankValues = rawValues.filter { it.isNotBlank() }
+    return if (property.type == PropertyType.LIST) {
+      if (nonBlankValues.isEmpty()) null else encodeListValue(nonBlankValues)
+    } else {
+      nonBlankValues.firstOrNull()
+    }
   }
 
-  private fun parseValue(property: Property, rawValue: String?): Any? {
-    if (rawValue.isNullOrBlank()) return null
-    return when (property.type) {
-      PropertyType.LONG -> rawValue.toLongOrNull()
-      PropertyType.DOUBLE -> rawValue.toDoubleOrNull()
-      PropertyType.BOOLEAN -> rawValue.equals("true", ignoreCase = true)
-      else -> rawValue
+  /** Returns violations for Reference property values that do not point to an existing instance of their target entity. */
+  private fun referenceViolations(property: Property, storedValue: String?, installedAppId: InstalledAppId): List<PropertyConstraintViolation> {
+    if (storedValue.isNullOrBlank()) return emptyList()
+    val referencedIds = when {
+      property.type == PropertyType.REF -> listOf(storedValue)
+      property.type == PropertyType.LIST && property.listItemType == PropertyType.REF -> decodeListValue(storedValue)
+      else -> return emptyList()
     }
+    val targetEntityId = property.targetEntityId ?: return referencedIds.map { PropertyConstraintViolation.InvalidReferenceViolation }
+    val existingTargetIds = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, targetEntityId).map { it.id.value }
+    return referencedIds.filter { it !in existingTargetIds }.map { PropertyConstraintViolation.InvalidReferenceViolation }
+  }
+
+  private fun parseValue(property: Property, storedValue: String?): Any? {
+    if (storedValue.isNullOrBlank()) return null
+    if (property.type == PropertyType.LIST) {
+      val itemType = property.listItemType ?: PropertyType.STRING
+      return decodeListValue(storedValue).map { parseScalarValue(itemType, it) }
+    }
+    return parseScalarValue(property.type, storedValue)
+  }
+
+  private fun parseScalarValue(type: PropertyType, rawValue: String): Any? = when (type) {
+    PropertyType.LONG -> rawValue.toLongOrNull()
+    PropertyType.DOUBLE -> rawValue.toDoubleOrNull()
+    PropertyType.BOOLEAN -> rawValue.equals("true", ignoreCase = true)
+    else -> rawValue
   }
 
   override fun getValueProposals(

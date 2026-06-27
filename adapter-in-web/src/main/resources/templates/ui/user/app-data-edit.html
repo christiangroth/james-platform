@@ -86,9 +86,53 @@
                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="edit_prop_{prop.id}">
                         {prop.name}
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="required">*</span>{/if}
-                        <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.nullable}?{/if})</span>
+                        <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type == "LIST" && prop.listItemType != null}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
-                    {#if prop.htmlInputType == "checkbox"}
+                    {#if prop.type == "LIST"}
+                    <div class="list-property-rows" data-property-id="{prop.id}">
+                        {#for val in prop.values}
+                        <div class="d-flex align-items-center gap-2 mb-2 list-property-row" data-testid="edit-property-input-{prop.id}">
+                            {#if prop.itemHtmlInputType == "select"}
+                            <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
+                                <option value="">– Select –</option>
+                                {#for opt in prop.referenceOptions}
+                                <option value="{opt.id}" {#if opt.id == val}selected{/if}>{opt.displayText}</option>
+                                {/for}
+                            </select>
+                            {#else if prop.itemHtmlInputType == "checkbox"}
+                            <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
+                                <option value="true" {#if val == "true"}selected{/if}>true</option>
+                                <option value="false" {#if val == "false"}selected{/if}>false</option>
+                            </select>
+                            {#else}
+                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
+                            {/if}
+                            <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
+                        </div>
+                        {/for}
+                        <button type="button" class="btn btn-app-secondary btn-sm add-list-row" data-testid="add-list-row-{prop.id}">+ Add value</button>
+                        <template class="list-row-template">
+                            <div class="d-flex align-items-center gap-2 mb-2 list-property-row">
+                                {#if prop.itemHtmlInputType == "select"}
+                                <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
+                                    <option value="">– Select –</option>
+                                    {#for opt in prop.referenceOptions}
+                                    <option value="{opt.id}">{opt.displayText}</option>
+                                    {/for}
+                                </select>
+                                {#else if prop.itemHtmlInputType == "checkbox"}
+                                <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
+                                    <option value="true">true</option>
+                                    <option value="false">false</option>
+                                </select>
+                                {#else}
+                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
+                                {/if}
+                                <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
+                            </div>
+                        </template>
+                    </div>
+                    {#else if prop.htmlInputType == "checkbox"}
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="prop_{prop.id}" id="edit_prop_{prop.id}" value="true"
                                {#if prop.value == "true"}checked{/if}
@@ -312,6 +356,26 @@
 
                 input.addEventListener('focus', fetchAndPopulate);
                 input.addEventListener('input', fetchAndPopulate);
+            });
+
+            // List property repeatable rows
+            function attachRemoveHandler(btn) {
+                if (!btn) return;
+                btn.addEventListener('click', function () {
+                    btn.closest('.list-property-row').remove();
+                });
+            }
+            document.querySelectorAll('.list-property-rows').forEach(function (container) {
+                container.querySelectorAll('.list-remove-row').forEach(attachRemoveHandler);
+                var addBtn = container.querySelector('.add-list-row');
+                if (addBtn) {
+                    addBtn.addEventListener('click', function () {
+                        var tpl = container.querySelector('.list-row-template');
+                        var row = tpl.content.firstElementChild.cloneNode(true);
+                        container.insertBefore(row, addBtn);
+                        attachRemoveHandler(row.querySelector('.list-remove-row'));
+                    });
+                }
             });
         }());
     </script>
