@@ -20,7 +20,7 @@ interface AppVersionManagementPort {
   fun reorderEntities(appId: String, versionId: String, entityIds: List<String>): Either<DomainError, AppVersion>
   fun updateEntityDisplayText(appId: String, versionId: String, entityId: String, displayText: String?): Either<DomainError, AppVersion>
   fun updateEntitySortCriteria(appId: String, versionId: String, entityId: String, sortBy: List<SortCriteria>): Either<DomainError, AppVersion>
-  fun addProperty(appId: String, versionId: String, entityId: String, name: String, type: String, nullable: Boolean): Either<DomainError, AppVersion>
+  fun addProperty(appId: String, versionId: String, entityId: String, name: String, type: String, nullable: Boolean, targetEntityId: String? = null): Either<DomainError, AppVersion>
   fun updateProperty(appId: String, versionId: String, entityId: String, propertyId: String, name: String, type: String, nullable: Boolean): Either<DomainError, AppVersion>
   fun setPropertyConstraints(appId: String, versionId: String, entityId: String, propertyId: String, constraints: Set<PropertyConstraint>): Either<DomainError, AppVersion>
   fun setPropertyDefault(appId: String, versionId: String, entityId: String, propertyId: String, default: String?): Either<DomainError, AppVersion>

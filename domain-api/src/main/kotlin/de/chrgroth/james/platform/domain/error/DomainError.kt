@@ -80,6 +80,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   PROPERTY_IDS_MISMATCH("APPVER-033"),
   TARGET_ENTITY_NOT_SUPPORTED("APPVER-034"),
   TARGET_ENTITY_NOT_FOUND("APPVER-035"),
+  TARGET_ENTITY_REQUIRED("APPVER-036"),
   ;
 }
 

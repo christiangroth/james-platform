@@ -588,6 +588,15 @@
                                 <option value="OBJECT">Object</option>
                             </select>
                         </div>
+                        <div id="targetEntitySection" class="mb-3 d-none">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" required data-testid="edit-property-target-entity-select">
+                                <option value="">– Select –</option>
+                                {#for e in version.entityDefinitions}
+                                <option value="{e.id}">{e.name}</option>
+                                {/for}
+                            </select>
+                        </div>
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" id="editPropertyNullable" name="nullable" value="true" data-testid="edit-property-nullable-check">
                             <label class="form-check-label" for="editPropertyNullable" style="color:var(--color-text-muted);">Nullable</label>
@@ -659,16 +668,6 @@
                             </div>
                         </div>
                         <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
-                        <div id="targetEntitySection" class="d-none">
-                            <hr style="border-color:var(--color-border);">
-                            <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Target Entity</div>
-                            <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" data-testid="edit-property-target-entity-select">
-                                <option value="">– Select –</option>
-                                {#for e in version.entityDefinitions}
-                                <option value="{e.id}">{e.name}</option>
-                                {/for}
-                            </select>
-                        </div>
                         <div id="defaultSection" class="d-none">
                             <hr style="border-color:var(--color-border);">
                             <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
@@ -822,6 +821,7 @@
                 <form id="addPropertyForm">
                     <input type="hidden" id="addPropertyEntityId" name="entityId" value="">
                     <div class="modal-body">
+                        <div id="addPropertyError" class="alert alert-danger d-none mb-3" role="alert"></div>
                         <div class="mb-3">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
                             <input type="text" class="form-control app-form-control" id="addPropertyName" name="name" required autocomplete="off" placeholder="e.g. OrderDate" data-testid="property-name-input">
@@ -841,6 +841,15 @@
                                 <option value="REF">Reference</option>
                                 <option value="LIST">List</option>
                                 <option value="OBJECT">Object</option>
+                            </select>
+                        </div>
+                        <div id="addPropertyTargetEntitySection" class="mb-3 d-none">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control" id="addPropertyTargetEntity" name="targetEntityId" data-testid="property-target-entity-select">
+                                <option value="">– Select –</option>
+                                {#for e in version.entityDefinitions}
+                                <option value="{e.id}">{e.name}</option>
+                                {/for}
                             </select>
                         </div>
                         <div class="form-check">
@@ -1265,8 +1274,17 @@
             // Add Property modal form
             var addPropertyForm = document.getElementById('addPropertyForm');
             if (addPropertyForm) {
+                var addPropertyError = document.getElementById('addPropertyError');
+                var addPropertyTargetEntity = document.getElementById('addPropertyTargetEntity');
+                document.getElementById('addPropertyType').addEventListener('change', function () {
+                    var isRef = this.value === 'REF';
+                    document.getElementById('addPropertyTargetEntitySection').classList.toggle('d-none', !isRef);
+                    addPropertyTargetEntity.required = isRef;
+                });
                 addPropertyForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
+                    addPropertyError.classList.add('d-none');
+                    addPropertyError.textContent = '';
                     var btn = addPropertyForm.querySelector('[type="submit"]');
                     btn.disabled = true;
                     var formData = new FormData(this);
@@ -1284,6 +1302,8 @@
                             if (modal) { modal.hide(); }
                         }
                     } else {
+                        addPropertyError.textContent = result ? result.message : 'Network error. Please try again.';
+                        addPropertyError.classList.remove('d-none');
                         btn.disabled = false;
                     }
                 });
@@ -1296,6 +1316,10 @@
                     addPropertyModalEl.addEventListener('hidden.bs.modal', function () {
                         addPropertyForm.reset();
                         document.getElementById('nullableCheck').checked = true;
+                        document.getElementById('addPropertyTargetEntitySection').classList.add('d-none');
+                        addPropertyTargetEntity.required = false;
+                        addPropertyError.classList.add('d-none');
+                        addPropertyError.textContent = '';
                         addPropertyForm.querySelector('[type="submit"]').disabled = false;
                     });
                 }
