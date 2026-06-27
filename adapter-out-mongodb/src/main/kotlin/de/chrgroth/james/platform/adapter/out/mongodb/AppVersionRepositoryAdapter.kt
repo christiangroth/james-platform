@@ -135,6 +135,8 @@ class AppVersionRepositoryAdapter(
     smartDefault = smartDefault,
     valueProposals = valueProposals,
     targetEntityId = targetEntityId?.let { EntityDefinitionId(it) },
+    listItemType = listItemType?.let { PropertyType.valueOf(it) },
+    itemConstraints = itemConstraints.mapNotNull { it.toDomain() }.toSet(),
   )
 
   private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {
@@ -203,6 +205,8 @@ class AppVersionRepositoryAdapter(
     doc.smartDefault = smartDefault
     doc.valueProposals = valueProposals
     doc.targetEntityId = targetEntityId?.value
+    doc.listItemType = listItemType?.name
+    doc.itemConstraints = itemConstraints.map { it.toDocument() }
   }
 
   private fun ComputedProperty.toDocument() = ComputedPropertyDocument().also { doc ->
