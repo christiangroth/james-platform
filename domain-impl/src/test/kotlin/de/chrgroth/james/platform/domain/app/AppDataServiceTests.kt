@@ -87,7 +87,7 @@ class AppDataServiceTests {
     every { propertyConstraint.checkValue(prop1, "duplicate", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
 
-    val data = mapOf("prop_${prop1Id.value}" to "duplicate")
+    val data = mapOf("prop_${prop1Id.value}" to listOf("duplicate"))
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
 
     assertThat(result.isLeft()).isTrue()
@@ -109,7 +109,7 @@ class AppDataServiceTests {
     every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
 
-    val data = mapOf("prop_${prop1Id.value}" to "dup")
+    val data = mapOf("prop_${prop1Id.value}" to listOf("dup"))
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
 
     assertThat(result.isLeft()).isTrue()
@@ -127,7 +127,7 @@ class AppDataServiceTests {
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
     justRun { appDataRepository.save(any()) }
 
-    val data = mapOf("prop_${prop1Id.value}" to "value")
+    val data = mapOf("prop_${prop1Id.value}" to listOf("value"))
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
 
     assertThat(result.isRight()).isTrue()
@@ -146,7 +146,7 @@ class AppDataServiceTests {
     every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
 
-    val data = mapOf("prop_${prop1Id.value}" to "dup")
+    val data = mapOf("prop_${prop1Id.value}" to listOf("dup"))
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
 
     assertThat(result.isLeft()).isTrue()
@@ -165,7 +165,7 @@ class AppDataServiceTests {
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
     justRun { appDataRepository.save(any()) }
 
-    val data = mapOf("prop_${prop1Id.value}" to "value")
+    val data = mapOf("prop_${prop1Id.value}" to listOf("value"))
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
 
     assertThat(result.isRight()).isTrue()
@@ -277,7 +277,7 @@ class AppDataServiceTests {
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
     every { propertyConstraint.checkValue(refTargetProp, "unknown-id", emptyList()) } returns emptyList()
 
-    val data = mapOf("prop_${refTargetPropId.value}" to "unknown-id")
+    val data = mapOf("prop_${refTargetPropId.value}" to listOf("unknown-id"))
     val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
 
     assertThat(result.isLeft()).isTrue()
@@ -294,7 +294,7 @@ class AppDataServiceTests {
     every { propertyConstraint.checkValue(refTargetProp, "data-1", emptyList()) } returns emptyList()
     justRun { appDataRepository.save(any()) }
 
-    val data = mapOf("prop_${refTargetPropId.value}" to "data-1")
+    val data = mapOf("prop_${refTargetPropId.value}" to listOf("data-1"))
     val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
 
     assertThat(result.isRight()).isTrue()
@@ -309,7 +309,7 @@ class AppDataServiceTests {
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, refEntityId) } returns emptyList()
     every { propertyConstraint.checkValue(refPropNullable, "data-1", emptyList()) } returns emptyList()
 
-    val data = mapOf("prop_${refPropId.value}" to "data-1")
+    val data = mapOf("prop_${refPropId.value}" to listOf("data-1"))
     val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
 
     assertThat(result.isLeft()).isTrue()

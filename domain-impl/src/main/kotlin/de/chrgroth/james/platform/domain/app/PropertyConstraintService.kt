@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.app
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import jakarta.enterprise.context.ApplicationScoped
 
@@ -24,6 +25,13 @@ class PropertyConstraintService : PropertyConstraintPort {
         is PropertyConstraint.Pattern -> if (value is String && !Regex(constraint.regex).matches(value)) violations += PropertyConstraintViolation.PatternViolation(constraint.regex)
         is PropertyConstraint.MinSize -> if (value is List<*> && value.size < constraint.min) violations += PropertyConstraintViolation.MinSizeViolation(constraint.min)
         is PropertyConstraint.MaxSize -> if (value is List<*> && value.size > constraint.max) violations += PropertyConstraintViolation.MaxSizeViolation(constraint.max)
+      }
+    }
+    val listItemType = property.listItemType
+    if (property.type == PropertyType.LIST && listItemType != null && value is List<*>) {
+      val itemProperty = property.copy(type = listItemType, constraints = property.itemConstraints)
+      for (item in value) {
+        violations += checkValue(itemProperty, item, emptyList())
       }
     }
     return violations

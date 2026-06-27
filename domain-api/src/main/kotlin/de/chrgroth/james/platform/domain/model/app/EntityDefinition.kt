@@ -44,6 +44,10 @@ data class Property(
   val smartDefault: String? = null,
   val valueProposals: List<String> = emptyList(),
   val targetEntityId: EntityDefinitionId? = null,
+  // Type of the items contained in a LIST property, e.g. LIST<STRING>. Unused for non-LIST properties.
+  val listItemType: PropertyType? = null,
+  // Constraints applied to each item of a LIST property, using the item type's own constraints (UniqueKey excluded).
+  val itemConstraints: Set<PropertyConstraint> = emptySet(),
 )
 
 sealed interface PropertyConstraint {
@@ -145,4 +149,12 @@ enum class PropertyType {
   open fun supportsSmartDefault(): Boolean = supportsDefault()
 
   open fun supportsComputedProperty(): Boolean = supportsDefault() && this != REF
+
+  /** Constraints applicable to LIST items of this type, i.e. its own constraints minus UniqueKey (not meaningful per list element). */
+  fun availableItemConstraints(): List<KClass<out PropertyConstraint>> = availableConstraints().filter { it != PropertyConstraint.UniqueKey::class }
+
+  companion object {
+    /** Types that may be used as the item type of a LIST property. Lists of lists are not supported. */
+    val LIST_ITEM_TYPES: List<PropertyType> = entries.filter { it != LIST }
+  }
 }

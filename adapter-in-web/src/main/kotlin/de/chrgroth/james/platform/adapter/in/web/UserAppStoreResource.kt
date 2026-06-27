@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
@@ -47,6 +48,9 @@ data class AppDataPropertyView(
   val htmlInputType: String,
   val valueProposals: List<String> = emptyList(),
   val referenceOptions: List<AppDataRow> = emptyList(),
+  val listItemType: String? = null,
+  val values: List<String> = emptyList(),
+  val itemHtmlInputType: String = "text",
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 }
@@ -261,7 +265,7 @@ class UserAppStoreResource {
     val entityTypeId = form.getFirst("entityTypeId") ?: return Response.ok(DeveloperApiResult(false, "Entity type is required.")).build()
     val data = form.entries
       .filter { it.key.startsWith("prop_") }
-      .associate { it.key to (it.value.firstOrNull() ?: "") }
+      .associate { it.key to it.value }
     return appData.createAppData(userId, installedAppId, entityTypeId, data).fold(
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
@@ -312,17 +316,12 @@ class UserAppStoreResource {
               type = prop.type.name,
               nullable = prop.nullable,
               value = appDataItem.data[prop.id.value],
-              htmlInputType = when (prop.type) {
-                PropertyType.BOOLEAN -> "checkbox"
-                PropertyType.LONG, PropertyType.DOUBLE -> "number"
-                PropertyType.DATE -> "date"
-                PropertyType.TIME -> "time"
-                PropertyType.DATETIME -> "datetime-local"
-                PropertyType.REF -> "select"
-                else -> "text"
-              },
+              htmlInputType = TemplateFormattingExtensions.htmlInputType(prop),
               valueProposals = prop.valueProposals,
               referenceOptions = referenceOptions[prop.id.value] ?: emptyList(),
+              listItemType = prop.listItemType?.name,
+              values = if (prop.type == PropertyType.LIST) decodeListValue(appDataItem.data[prop.id.value]) else emptyList(),
+              itemHtmlInputType = TemplateFormattingExtensions.itemHtmlInputType(prop),
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -360,7 +359,7 @@ class UserAppStoreResource {
     val userId = securityIdentity.principal.name
     val data = form.entries
       .filter { it.key.startsWith("prop_") }
-      .associate { it.key to (it.value.firstOrNull() ?: "") }
+      .associate { it.key to it.value }
     return appData.updateAppData(userId, installedAppId, dataId, data).fold(
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
@@ -519,7 +518,9 @@ class UserAppStoreResource {
 
   /** Builds the selectable Reference options (id + label) for each Reference property of the given entity. */
   private fun computeReferenceOptions(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): Map<String, List<AppDataRow>> {
-    val refProperties = entityDef.properties.filter { it.type == PropertyType.REF && it.targetEntityId != null }
+    val refProperties = entityDef.properties.filter {
+      it.targetEntityId != null && (it.type == PropertyType.REF || (it.type == PropertyType.LIST && it.listItemType == PropertyType.REF))
+    }
     if (refProperties.isEmpty()) return emptyMap()
     val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
     return refProperties.associate { prop ->
