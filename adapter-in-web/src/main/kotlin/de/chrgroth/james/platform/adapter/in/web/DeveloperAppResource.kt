@@ -477,6 +477,7 @@ class DeveloperAppResource {
     @FormParam("type") type: String,
     @FormParam("nullable") nullable: Boolean?,
     @FormParam("targetEntityId") targetEntityId: String?,
+    @FormParam("listItemType") listItemType: String?,
   ): Response {
     if (name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property name is required.")).build()
@@ -484,7 +485,7 @@ class DeveloperAppResource {
     if (type.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property type is required.")).build()
     }
-    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId).fold(
+    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )

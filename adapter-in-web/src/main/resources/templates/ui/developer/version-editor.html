@@ -921,6 +921,22 @@
                                 <option value="OBJECT">Object</option>
                             </select>
                         </div>
+                        <div id="addPropertyListItemTypeSection" class="mb-3 d-none">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">List Item Type <span style="color:#f87171;">*</span></label>
+                            <select class="form-select app-form-control" id="addPropertyListItemType" name="listItemType" data-testid="property-list-item-type-select">
+                                <option value="">– Select –</option>
+                                <option value="STRING">String</option>
+                                <option value="LONG">Long (Integer)</option>
+                                <option value="DOUBLE">Double (Decimal)</option>
+                                <option value="BOOLEAN">Boolean</option>
+                                <option value="DATE">Date</option>
+                                <option value="TIME">Time</option>
+                                <option value="DATETIME">DateTime</option>
+                                <option value="DURATION">Duration</option>
+                                <option value="REF">Reference</option>
+                                <option value="OBJECT">Object</option>
+                            </select>
+                        </div>
                         <div id="addPropertyTargetEntitySection" class="mb-3 d-none">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
                             <select class="form-select app-form-control" id="addPropertyTargetEntity" name="targetEntityId" data-testid="property-target-entity-select">
@@ -1354,10 +1370,22 @@
             if (addPropertyForm) {
                 var addPropertyError = document.getElementById('addPropertyError');
                 var addPropertyTargetEntity = document.getElementById('addPropertyTargetEntity');
+                var addPropertyListItemType = document.getElementById('addPropertyListItemType');
+                function applyAddListItemTypeVisibility(propertyType, listItemType) {
+                    var isList = propertyType === 'LIST';
+                    document.getElementById('addPropertyListItemTypeSection').classList.toggle('d-none', !isList);
+                    addPropertyListItemType.required = isList;
+                    if (!isList) { addPropertyListItemType.value = ''; }
+                    var targetEntityRequired = propertyType === 'REF' || (isList && listItemType === 'REF');
+                    document.getElementById('addPropertyTargetEntitySection').classList.toggle('d-none', !targetEntityRequired);
+                    addPropertyTargetEntity.required = targetEntityRequired;
+                    if (!targetEntityRequired) { addPropertyTargetEntity.value = ''; }
+                }
                 document.getElementById('addPropertyType').addEventListener('change', function () {
-                    var isRef = this.value === 'REF';
-                    document.getElementById('addPropertyTargetEntitySection').classList.toggle('d-none', !isRef);
-                    addPropertyTargetEntity.required = isRef;
+                    applyAddListItemTypeVisibility(this.value, addPropertyListItemType.value);
+                });
+                addPropertyListItemType.addEventListener('change', function () {
+                    applyAddListItemTypeVisibility(document.getElementById('addPropertyType').value, this.value);
                 });
                 addPropertyForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
@@ -1396,6 +1424,8 @@
                         document.getElementById('nullableCheck').checked = true;
                         document.getElementById('addPropertyTargetEntitySection').classList.add('d-none');
                         addPropertyTargetEntity.required = false;
+                        document.getElementById('addPropertyListItemTypeSection').classList.add('d-none');
+                        addPropertyListItemType.required = false;
                         addPropertyError.classList.add('d-none');
                         addPropertyError.textContent = '';
                         addPropertyForm.querySelector('[type="submit"]').disabled = false;
@@ -1592,6 +1622,7 @@
                         document.getElementById('constraintMaxSize').value = btn.getAttribute('data-constraint-max-size') || '';
                         document.getElementById('editPropertyTargetEntity').value = btn.getAttribute('data-target-entity-id') || '';
                         document.getElementById('editPropertyListItemType').value = btn.getAttribute('data-list-item-type') || '';
+                        applyListItemTypeVisibility(propertyType, document.getElementById('editPropertyListItemType').value);
                         document.getElementById('itemConstraintMinLong').value = btn.getAttribute('data-item-constraint-min-long') || '';
                         document.getElementById('itemConstraintMaxLong').value = btn.getAttribute('data-item-constraint-max-long') || '';
                         document.getElementById('itemConstraintMinDouble').value = btn.getAttribute('data-item-constraint-min-double') || '';
@@ -1626,6 +1657,7 @@
 
                 document.getElementById('editPropertyType').addEventListener('change', function () {
                     applyConstraintVisibility(this.value);
+                    applyListItemTypeVisibility(this.value, document.getElementById('editPropertyListItemType').value);
                 });
 
                 document.getElementById('editPropertyListItemType').addEventListener('change', function () {

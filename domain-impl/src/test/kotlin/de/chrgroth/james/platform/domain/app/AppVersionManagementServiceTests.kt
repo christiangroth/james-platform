@@ -927,6 +927,84 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.TARGET_ENTITY_NOT_FOUND)
   }
 
+  @Test
+  fun `addProperty sets list item type on LIST property`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Tags", "LIST", true, null, "STRING")
+
+    assertThat(result.isRight()).isTrue()
+    val property = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(property?.listItemType).isEqualTo(PropertyType.STRING)
+  }
+
+  @Test
+  fun `addProperty fails when LIST property has no list item type`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Tags", "LIST", true, null, null)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.LIST_ITEM_TYPE_REQUIRED)
+  }
+
+  @Test
+  fun `addProperty fails when LIST property has invalid list item type`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Tags", "LIST", true, null, "INVALID_TYPE")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.LIST_ITEM_TYPE_INVALID)
+  }
+
+  @Test
+  fun `addProperty fails when non-LIST property has a list item type`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Amount", "LONG", true, null, "STRING")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `addProperty sets target entity for LIST of REF property`() {
+    val sourceEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val targetEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer")
+    val version = draftVersion.copy(entityDefinitions = listOf(sourceEntity, targetEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Customers", "LIST", true, "e-2", "REF")
+
+    assertThat(result.isRight()).isTrue()
+    val property = result.getOrNull()?.entityDefinitions?.first { it.id.value == "e-1" }?.properties?.first()
+    assertThat(property?.listItemType).isEqualTo(PropertyType.REF)
+    assertThat(property?.targetEntityId).isEqualTo(EntityDefinitionId("e-2"))
+  }
+
+  @Test
+  fun `addProperty fails when LIST of REF property has no target entity`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "Customers", "LIST", true, null, "REF")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.TARGET_ENTITY_REQUIRED)
+  }
+
   // endregion
 
   // region updateProperty
@@ -2247,6 +2325,76 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
 
     val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "unknown-prop", "e-2")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region setPropertyListItemType
+
+  @Test
+  fun `setPropertyListItemType sets list item type on LIST property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyListItemType("app-1", "ver-1", "e-1", "p-1", "STRING")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.listItemType).isEqualTo(PropertyType.STRING)
+  }
+
+  @Test
+  fun `setPropertyListItemType fails for non-LIST property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Count", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyListItemType("app-1", "ver-1", "e-1", "p-1", "STRING")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyListItemType fails when blank value provided`() {
+    val property = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyListItemType("app-1", "ver-1", "e-1", "p-1", "")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.LIST_ITEM_TYPE_REQUIRED)
+  }
+
+  @Test
+  fun `setPropertyListItemType fails for invalid item type`() {
+    val property = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyListItemType("app-1", "ver-1", "e-1", "p-1", "INVALID_TYPE")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.LIST_ITEM_TYPE_INVALID)
+  }
+
+  @Test
+  fun `setPropertyListItemType fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyListItemType("app-1", "ver-1", "e-1", "unknown-prop", "STRING")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)

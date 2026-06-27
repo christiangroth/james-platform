@@ -347,6 +347,7 @@ class AppVersionManagementService(
     type: String,
     nullable: Boolean,
     targetEntityId: String?,
+    listItemType: String?,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add property failed: blank name" }
@@ -365,8 +366,24 @@ class AppVersionManagementService(
       logger.warn { "Add property failed: property name already exists: $name in entity $entityId" }
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val resolvedTargetEntityId = resolveTargetEntity(version, propertyType == PropertyType.REF, targetEntityId).fold({ return it.left() }, { it })
-    val newProperty = Property(id = PropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, nullable = nullable, targetEntityId = resolvedTargetEntityId)
+    val resolvedItemType = if (propertyType == PropertyType.LIST) {
+      parseListItemType(listItemType).fold({ return it.left() }, { it })
+    } else if (!listItemType.isNullOrBlank()) {
+      logger.warn { "Add property failed: type $propertyType does not support list item type" }
+      return AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
+    } else {
+      null
+    }
+    val targetEntityRequired = propertyType == PropertyType.REF || resolvedItemType == PropertyType.REF
+    val resolvedTargetEntityId = resolveTargetEntity(version, targetEntityRequired, targetEntityId).fold({ return it.left() }, { it })
+    val newProperty = Property(
+      id = PropertyId(UUID.randomUUID().toString()),
+      name = name.trim(),
+      type = propertyType,
+      nullable = nullable,
+      targetEntityId = resolvedTargetEntityId,
+      listItemType = resolvedItemType,
+    )
     val updatedEntity = entity.copy(properties = entity.properties + newProperty)
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
@@ -627,14 +644,7 @@ class AppVersionManagementService(
       logger.warn { "Set property list item type failed: type ${property.type} does not support list item type: $propertyId" }
       return AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
     }
-    val trimmedListItemType = listItemType?.trim()?.takeIf { it.isNotBlank() } ?: run {
-      logger.warn { "Set property list item type failed: list item type is required: $propertyId" }
-      return AppVersionError.LIST_ITEM_TYPE_REQUIRED.left()
-    }
-    val parsedItemType = runCatching { PropertyType.valueOf(trimmedListItemType.uppercase()) }.getOrNull()?.takeIf { it in PropertyType.LIST_ITEM_TYPES } ?: run {
-      logger.warn { "Set property list item type failed: invalid item type: $trimmedListItemType: $propertyId" }
-      return AppVersionError.LIST_ITEM_TYPE_INVALID.left()
-    }
+    val parsedItemType = parseListItemType(listItemType).fold({ return it.left() }, { it })
     val itemConstraintsToKeep = if (parsedItemType == property.listItemType) property.itemConstraints else emptySet()
     val targetEntityIdToKeep = if (parsedItemType == PropertyType.REF) property.targetEntityId else null
     val updatedProperty = property.copy(listItemType = parsedItemType, itemConstraints = itemConstraintsToKeep, targetEntityId = targetEntityIdToKeep)
@@ -674,6 +684,18 @@ class AppVersionManagementService(
     appVersionRepository.save(updated)
     logger.info { "Property item constraints set: $propertyId in entity $entityId in version $versionId (${validConstraints.size} constraints)" }
     return updated.right()
+  }
+
+  private fun parseListItemType(listItemType: String?): Either<DomainError, PropertyType> {
+    val trimmedListItemType = listItemType?.trim()?.takeIf { it.isNotBlank() } ?: run {
+      logger.warn { "Parse list item type failed: list item type is required" }
+      return AppVersionError.LIST_ITEM_TYPE_REQUIRED.left()
+    }
+    val parsedItemType = runCatching { PropertyType.valueOf(trimmedListItemType.uppercase()) }.getOrNull()?.takeIf { it in PropertyType.LIST_ITEM_TYPES } ?: run {
+      logger.warn { "Parse list item type failed: invalid item type: $trimmedListItemType" }
+      return AppVersionError.LIST_ITEM_TYPE_INVALID.left()
+    }
+    return parsedItemType.right()
   }
 
   private fun resolveTargetEntity(version: AppVersion, requiresTargetEntity: Boolean, targetEntityId: String?): Either<DomainError, EntityDefinitionId?> {
