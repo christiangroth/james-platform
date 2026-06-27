@@ -96,7 +96,7 @@
                                 <td data-testid="user-created-at">{user.createdAt.formatted}</td>
                                 <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
                                 <td class="text-end">
-                                    {#btn-icon-edit testId="set-password-button" title="Set Password" extraClass="" bsTarget="#setPasswordModal" username=user.username /}
+                                    {#btn-icon-key testId="set-password-button" title="Set Password" extraClass="" bsTarget="#setPasswordModal" username=user.username /}
                                     {#btn-icon-delete testId="delete-user-button" title="Delete user" extraClass="ms-1" bsTarget="" action="delete-user" entityId="" propertyId="" reportId="" username=user.username /}
                                 </td>
                             </tr>

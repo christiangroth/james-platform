@@ -220,7 +220,8 @@ All data tables must follow this structure. See also the CSS classes table above
 - Add `mb-0` when the table is the last element inside a card; use `mb-3` when followed by additional content.
 - Use `table-striped` for long read-only tables (e.g. health, config); omit it for interactive tables.
 - The **Actions** column header must be `class="text-end"` and each actions cell must be `class="text-end"`.
-- Use the standard icon-button tags (`{#btn-icon-edit}`, `{#btn-icon-delete}`) for row actions – do not inline raw `<button>` elements with SVGs.
+- Use the standard icon-button tags (`{#btn-icon-edit}`, `{#btn-icon-key}`, `{#btn-icon-delete}`) for row actions – do not inline raw `<button>` elements with SVGs.
+- Use `{#btn-icon-key}` instead of `{#btn-icon-edit}` for actions that only change a password/secret, so it isn't mistaken for editing the whole entity.
 - Add `ms-1` via `extraClass` on every icon button after the first to maintain consistent spacing.
 - Clickable rows (where clicking the row navigates or opens a modal) use class `app-clickable-row` and a `data-href` attribute; the JS handler is applied in the page `<script>` block.
 
@@ -312,6 +313,7 @@ All reusable HTML fragments are stored in `templates/tags/` and invoked with the
 | `{#breadcrumb-home homeUrl="..." homeLabel="..." /}` | Home icon as the first breadcrumb item |
 | `{#btn-icon-add testId="..." bsTarget="..." entityId=... extraClass="..." /}` | Secondary icon button that opens an "add" modal |
 | `{#btn-icon-edit testId="..." title="..." bsTarget="..." username=... extraClass="..." /}` | Secondary icon button that opens an "edit" modal |
+| `{#btn-icon-key testId="..." title="..." bsTarget="..." username=... extraClass="..." /}` | Secondary icon button (key icon) that opens a "set password" modal |
 | `{#btn-icon-delete testId="..." title="..." bsTarget="..." action="..." entityId=... propertyId=... reportId=... username=... extraClass="..." /}` | Danger icon button for delete/remove actions |
 | `{#btn-icon-publish testId="..." bsTarget="..." extraClass="..." /}` | Primary icon button that opens a "publish" modal |
 | `{#status-icon condition=... size="16" /}` | Green check or red cross SVG icon |
