@@ -6,6 +6,7 @@ import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
@@ -64,6 +65,8 @@ data class AppDataDetail(
   val objectVersion: Int,
   val createdAt: Instant,
   val lastChangedAt: Instant,
+  val referenceText: String,
+  val displayText: String,
   val properties: List<AppDataPropertyView>,
   val computedProperties: List<AppDataComputedPropertyView>,
 )
@@ -296,6 +299,8 @@ class UserAppStoreResource {
           objectVersion = appDataItem.objectVersion,
           createdAt = appDataItem.createdAt,
           lastChangedAt = appDataItem.lastChangedAt,
+          referenceText = computeReferenceText(entityDef, appDataItem.id.value, appDataItem.data),
+          displayText = computeDisplayText(entityDef, appDataItem.id.value, appDataItem.data),
           properties = entityDef.properties.map { prop ->
             AppDataPropertyView(
               id = prop.id.value,
@@ -492,6 +497,13 @@ class UserAppStoreResource {
       }
     }.trim()
     return result.ifBlank { dataId }
+  }
+
+  private fun computeReferenceText(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String {
+    val uniqueValues = entityDef.properties
+      .filter { it.constraints.contains(PropertyConstraint.UniqueKey) }
+      .map { data[it.id.value] ?: "" }
+    return "${entityDef.name} $dataId [${uniqueValues.joinToString(", ")}]"
   }
 
   companion object {
