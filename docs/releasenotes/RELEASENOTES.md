@@ -1,3 +1,13 @@
+# 0.42.1 (2026.06.27)
+
+## Bugfixes / Chore
+* Fixed an issue where the list item type could not be properly set when editing a List property.
+* The list item type is now required and must be set directly when creating a List property, just like the target entity for Reference properties.
+
+
+
+---
+
 # 0.42.0 (2026.06.27)
 
 ## New Features
