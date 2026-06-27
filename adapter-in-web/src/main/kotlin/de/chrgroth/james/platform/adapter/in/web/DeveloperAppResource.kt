@@ -6,10 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
+import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
@@ -34,6 +40,7 @@ import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
+import java.util.UUID
 
 data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null, val fieldErrors: Map<String, String>? = null)
 
@@ -48,6 +55,30 @@ data class SortCriteriaRequest @JsonCreator constructor(
   @param:JsonProperty("propertyId") val propertyId: String,
   @param:JsonProperty("direction") val direction: SortDirection,
 )
+
+/** Recursive request shape for defining the structure of an OBJECT property, mirroring the fields of a top-level property. */
+data class NestedPropertyRequest @JsonCreator constructor(
+  @param:JsonProperty("id") val id: String? = null,
+  @param:JsonProperty("name") val name: String,
+  @param:JsonProperty("type") val type: String,
+  @param:JsonProperty("nullable") val nullable: Boolean = true,
+  @param:JsonProperty("targetEntityId") val targetEntityId: String? = null,
+  @param:JsonProperty("listItemType") val listItemType: String? = null,
+  @param:JsonProperty("nestedProperties") val nestedProperties: List<NestedPropertyRequest> = emptyList(),
+) {
+  fun toProperty(): Property {
+    val propertyType = runCatching { PropertyType.valueOf(type.trim().uppercase()) }.getOrDefault(PropertyType.STRING)
+    return Property(
+      id = PropertyId(id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()),
+      name = name.trim(),
+      type = propertyType,
+      nullable = nullable,
+      targetEntityId = targetEntityId?.takeIf { it.isNotBlank() }?.let { EntityDefinitionId(it) },
+      listItemType = listItemType?.takeIf { it.isNotBlank() }?.let { runCatching { PropertyType.valueOf(it.trim().uppercase()) }.getOrNull() },
+      nestedProperties = if (propertyType == PropertyType.OBJECT) nestedProperties.map { it.toProperty() } else emptyList(),
+    )
+  }
+}
 
 @Path("/ui/developer")
 @ApplicationScoped
@@ -213,7 +244,8 @@ class DeveloperAppResource {
             .data("selectedEntity", null)
             .data("selectedReport", null)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("entityPropertiesJson", EMPTY_JSON_ARRAY),
+            .data("entityPropertiesJson", EMPTY_JSON_ARRAY)
+            .data("nestedPropertiesJson", EMPTY_JSON_OBJECT),
         ).build()
       },
     )
@@ -254,7 +286,8 @@ class DeveloperAppResource {
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("entityPropertiesJson", entityPropertiesJson),
+            .data("entityPropertiesJson", entityPropertiesJson)
+            .data("nestedPropertiesJson", nestedPropertiesJsonFor(selectedEntity)),
         ).build()
       },
     )
@@ -290,7 +323,8 @@ class DeveloperAppResource {
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("entityPropertiesJson", EMPTY_JSON_ARRAY),
+            .data("entityPropertiesJson", EMPTY_JSON_ARRAY)
+            .data("nestedPropertiesJson", EMPTY_JSON_OBJECT),
         ).build()
       },
     )
@@ -356,11 +390,16 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.publishVersion(appId, bumpType, releaseNotes.orEmpty()).fold(
       ifLeft = { error ->
-        if (error is DisplayTextInvalidError) {
-          val names = error.entityNames.joinToString(", ")
-          Response.ok(DeveloperApiResult(false, "Invalid display text in: $names. Please fix all display texts before publishing.")).build()
-        } else {
-          Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
+        when (error) {
+          is DisplayTextInvalidError -> {
+            val names = error.entityNames.joinToString(", ")
+            Response.ok(DeveloperApiResult(false, "Invalid display text in: $names. Please fix all display texts before publishing.")).build()
+          }
+          is InvalidObjectStructureError -> {
+            val names = error.entityNames.joinToString(", ")
+            Response.ok(DeveloperApiResult(false, "Invalid Object properties in: $names. Every Object property needs at least one nested property.")).build()
+          }
+          else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
       },
       ifRight = { version ->
@@ -672,6 +711,21 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/nested-properties")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setNestedProperties(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    nestedProperties: List<NestedPropertyRequest>,
+  ): Response = appVersionManagement.setNestedProperties(appId, versionId, entityId, propertyId, nestedProperties.map { it.toProperty() }).fold(
+    ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+    ifRight = { Response.ok(DeveloperApiResult(true, "Nested properties saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+  )
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/reorder")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -863,6 +917,7 @@ class DeveloperAppResource {
     AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.code -> "A version with this number already exists."
     AppVersionError.BLANK_RELEASE_NOTES.code -> "Release notes are required."
     AppVersionError.NO_CHANGES.code -> "No changes detected in entities or reports. Please make changes before publishing."
+    AppVersionError.INVALID_OBJECT_STRUCTURE.code -> "Some Object properties have no nested properties defined. Please fix all Object properties before publishing."
     else -> "An unexpected error occurred. Please try again."
   }
 
@@ -892,6 +947,7 @@ class DeveloperAppResource {
     AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> "Only List properties support a list item type."
     AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> "An item type is required for List properties."
     AppVersionError.LIST_ITEM_TYPE_INVALID.code -> "Invalid list item type."
+    AppVersionError.NESTED_PROPERTIES_NOT_SUPPORTED.code -> "Only Object properties support nested properties."
     else -> "An unexpected error occurred. Please try again."
   }
 
@@ -903,8 +959,26 @@ class DeveloperAppResource {
     else -> "An unexpected error occurred. Please try again."
   }
 
+  /** Recursive view of an OBJECT property's nested structure, for embedding into the version editor page as JSON. */
+  private fun Property.toNestedPropertyView(): Map<String, Any?> = mapOf(
+    "id" to id.value,
+    "name" to name,
+    "type" to type.name,
+    "nullable" to nullable,
+    "targetEntityId" to targetEntityId?.value,
+    "listItemType" to listItemType?.name,
+    "nestedProperties" to nestedProperties.map { it.toNestedPropertyView() },
+  )
+
+  private fun nestedPropertiesJsonFor(entity: EntityDefinition?): RawString = RawString(
+    ObjectMapper().writeValueAsString(
+      entity?.properties?.filter { it.type == PropertyType.OBJECT }?.associate { it.id.value to it.toNestedPropertyView() } ?: emptyMap<String, Any>(),
+    ),
+  )
+
   companion object {
     private val EMPTY_JSON_ARRAY: RawString = RawString("[]")
+    private val EMPTY_JSON_OBJECT: RawString = RawString("{}")
     private val predefinedSmartDefaultsJson: RawString = RawString(
       ObjectMapper().writeValueAsString(
         PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->

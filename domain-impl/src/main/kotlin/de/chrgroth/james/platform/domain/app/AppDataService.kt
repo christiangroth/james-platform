@@ -15,7 +15,9 @@ import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
+import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
+import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -67,7 +69,7 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     for (property in entityDef.properties) {
-      val storedValue = storedValueFor(property, data["prop_${property.id.value}"] ?: emptyList())
+      val storedValue = storedValueFor(property, data)
       val parsedValue = parseValue(property, storedValue)
       val violations = propertyConstraint.checkValue(
         property,
@@ -163,7 +165,7 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     for (property in entityDef.properties) {
-      val storedValue = storedValueFor(property, data["prop_${property.id.value}"] ?: emptyList())
+      val storedValue = storedValueFor(property, data)
       val parsedValue = parseValue(property, storedValue)
       val violations = propertyConstraint.checkValue(
         property,
@@ -243,13 +245,29 @@ class AppDataService(
     return references.size.right()
   }
 
-  /** Encodes the raw form values submitted for a property into the single string stored in [AppData.data]. */
-  private fun storedValueFor(property: Property, rawValues: List<String>): String? {
-    val nonBlankValues = rawValues.filter { it.isNotBlank() }
-    return if (property.type == PropertyType.LIST) {
-      if (nonBlankValues.isEmpty()) null else encodeListValue(nonBlankValues)
-    } else {
-      nonBlankValues.firstOrNull()
+  /** Encodes the raw form values submitted for a top-level property into the single string stored in [AppData.data]. */
+  private fun storedValueFor(property: Property, data: Map<String, List<String>>): String? {
+    val raw = rawPropertyValue(property, data, "prop_")
+    @Suppress("UNCHECKED_CAST")
+    return if (raw is Map<*, *>) encodeObjectValue(raw as Map<String, Any?>) else raw as String?
+  }
+
+  /**
+   * Resolves the raw value submitted for [property] under [keyPrefix], recursing into nested properties for an OBJECT property.
+   * Returns a String for scalar/LIST properties, a (possibly nested) Map for OBJECT properties, or null if nothing was submitted.
+   */
+  private fun rawPropertyValue(property: Property, data: Map<String, List<String>>, keyPrefix: String): Any? {
+    val key = "$keyPrefix${property.id.value}"
+    return when (property.type) {
+      PropertyType.LIST -> {
+        val nonBlankValues = (data[key] ?: emptyList()).filter { it.isNotBlank() }
+        if (nonBlankValues.isEmpty()) null else encodeListValue(nonBlankValues)
+      }
+      PropertyType.OBJECT -> {
+        val nestedValues = property.nestedProperties.associate { it.id.value to rawPropertyValue(it, data, "$key.") }
+        if (nestedValues.values.all { it == null }) null else nestedValues
+      }
+      else -> (data[key] ?: emptyList()).filter { it.isNotBlank() }.firstOrNull()
     }
   }
 
@@ -268,11 +286,26 @@ class AppDataService(
 
   private fun parseValue(property: Property, storedValue: String?): Any? {
     if (storedValue.isNullOrBlank()) return null
-    if (property.type == PropertyType.LIST) {
-      val itemType = property.listItemType ?: PropertyType.STRING
-      return decodeListValue(storedValue).map { parseScalarValue(itemType, it) }
+    return when (property.type) {
+      PropertyType.LIST -> {
+        val itemType = property.listItemType ?: PropertyType.STRING
+        decodeListValue(storedValue).map { parseScalarValue(itemType, it) }
+      }
+      PropertyType.OBJECT -> parseObjectValue(property, decodeObjectValue(storedValue))
+      else -> parseScalarValue(property.type, storedValue)
     }
-    return parseScalarValue(property.type, storedValue)
+  }
+
+  /** Parses the raw (already JSON-decoded) values of an OBJECT property's nested properties, recursing into nested OBJECT properties. */
+  private fun parseObjectValue(property: Property, raw: Map<String, Any?>): Map<String, Any?> = property.nestedProperties.associate { nested ->
+    val rawNestedValue = raw[nested.id.value]
+    val parsedValue = if (nested.type == PropertyType.OBJECT && rawNestedValue is Map<*, *>) {
+      @Suppress("UNCHECKED_CAST")
+      parseObjectValue(nested, rawNestedValue as Map<String, Any?>)
+    } else {
+      parseValue(nested, rawNestedValue as? String)
+    }
+    nested.id.value to parsedValue
   }
 
   private fun parseScalarValue(type: PropertyType, rawValue: String): Any? = when (type) {

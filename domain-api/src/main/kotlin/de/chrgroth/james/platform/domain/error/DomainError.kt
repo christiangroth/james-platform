@@ -84,6 +84,8 @@ enum class AppVersionError(override val code: String) : DomainError {
   LIST_ITEM_TYPE_NOT_SUPPORTED("APPVER-037"),
   LIST_ITEM_TYPE_REQUIRED("APPVER-038"),
   LIST_ITEM_TYPE_INVALID("APPVER-039"),
+  NESTED_PROPERTIES_NOT_SUPPORTED("APPVER-040"),
+  INVALID_OBJECT_STRUCTURE("APPVER-041"),
   ;
 }
 
@@ -117,6 +119,12 @@ data class DisplayTextInvalidError(
   val entityNames: List<String>,
 ) : DomainError {
   override val code: String = AppVersionError.DISPLAY_TEXT_INVALID.code
+}
+
+data class InvalidObjectStructureError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_OBJECT_STRUCTURE.code
 }
 
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {

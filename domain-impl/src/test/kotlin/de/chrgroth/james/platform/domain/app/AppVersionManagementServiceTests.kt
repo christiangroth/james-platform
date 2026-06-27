@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion
 import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
+import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
@@ -379,6 +380,51 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidObjectStructureError when an OBJECT property has zero nested properties`() {
+    val objectProp = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(objectProp))
+    val draftWithInvalidObject = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithInvalidObject)
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull()
+    assertThat(error).isInstanceOf(InvalidObjectStructureError::class.java)
+    assertThat((error as InvalidObjectStructureError).entityNames).containsExactly("Order")
+    assertThat(error.code).isEqualTo(AppVersionError.INVALID_OBJECT_STRUCTURE.code)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidObjectStructureError when a nested OBJECT property has zero nested properties`() {
+    val innerObjectProp = Property(id = PropertyId("p-2"), name = "Inner", type = PropertyType.OBJECT)
+    val outerObjectProp = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT, nestedProperties = listOf(innerObjectProp))
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(outerObjectProp))
+    val draftWithInvalidObject = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithInvalidObject)
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidObjectStructureError::class.java)
+  }
+
+  @Test
+  fun `publishVersion succeeds when an OBJECT property has at least one nested property`() {
+    val nestedProp = Property(id = PropertyId("p-2"), name = "Nested", type = PropertyType.STRING)
+    val objectProp = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT, nestedProperties = listOf(nestedProp))
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(objectProp))
+    val draftWithValidObject = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithValidObject)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
   }
 
   // endregion
@@ -1562,6 +1608,149 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BOTH_DEFAULTS_SET)
+  }
+
+  // endregion
+
+  // region setNestedProperties
+
+  @Test
+  fun `setNestedProperties sets nested properties on OBJECT property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val nested = listOf(Property(id = PropertyId("n-1"), name = "Nested", type = PropertyType.STRING))
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "p-1", nested)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.nestedProperties).isEqualTo(nested)
+  }
+
+  @Test
+  fun `setNestedProperties supports recursively nested OBJECT properties`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val innerNested = Property(id = PropertyId("n-2"), name = "Inner", type = PropertyType.STRING)
+    val outerNested = Property(id = PropertyId("n-1"), name = "Outer", type = PropertyType.OBJECT, nestedProperties = listOf(innerNested))
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "p-1", listOf(outerNested))
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.nestedProperties).containsExactly(outerNested)
+  }
+
+  @Test
+  fun `setNestedProperties fails when property is not of type OBJECT`() {
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val nested = listOf(Property(id = PropertyId("n-1"), name = "Nested", type = PropertyType.STRING))
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "p-1", nested)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.NESTED_PROPERTIES_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setNestedProperties fails when a nested property name is blank`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val nested = listOf(Property(id = PropertyId("n-1"), name = "  ", type = PropertyType.STRING))
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "p-1", nested)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
+  }
+
+  @Test
+  fun `setNestedProperties fails when two nested properties have duplicate names`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val nested = listOf(
+      Property(id = PropertyId("n-1"), name = "Dup", type = PropertyType.STRING),
+      Property(id = PropertyId("n-2"), name = "dup", type = PropertyType.LONG),
+    )
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "p-1", nested)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NAME_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `setNestedProperties fails when a deeply nested property name is blank`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val invalidInnerNested = Property(id = PropertyId("n-2"), name = " ", type = PropertyType.STRING)
+    val outerNested = Property(id = PropertyId("n-1"), name = "Outer", type = PropertyType.OBJECT, nestedProperties = listOf(invalidInnerNested))
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "p-1", listOf(outerNested))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BLANK_INPUT)
+  }
+
+  @Test
+  fun `setNestedProperties fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setNestedProperties("app-1", "ver-1", "e-1", "unknown-prop", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setNestedProperties fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.setNestedProperties("app-1", "ver-1", "unknown-entity", "p-1", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `setNestedProperties fails when version is not in draft status`() {
+    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val publishedWithObject = publishedVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedWithObject
+
+    val nested = listOf(Property(id = PropertyId("n-1"), name = "Nested", type = PropertyType.STRING))
+    val result = service.setNestedProperties("app-1", "ver-2", "e-1", "p-1", nested)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `setNestedProperties fails when version not found`() {
+    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+
+    val result = service.setNestedProperties("app-1", "unknown", "e-1", "p-1", emptyList())
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
   }
 
   // endregion

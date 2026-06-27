@@ -88,7 +88,9 @@
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="required">*</span>{/if}
                         <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type == "LIST" && prop.listItemType != null}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
-                    {#if prop.type == "LIST"}
+                    {#if prop.type == "OBJECT"}
+                    <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="edit-property-input-{prop.id}"></div>
+                    {#else if prop.type == "LIST"}
                     <div class="list-property-rows" data-property-id="{prop.id}">
                         {#for val in prop.values}
                         <div class="d-flex align-items-center gap-2 mb-2 list-property-row" data-testid="edit-property-input-{prop.id}">
@@ -203,8 +205,18 @@
          aria-hidden="true"></div>
     {/content}
     {#scripts}
+    <script type="application/json" id="object-fields-data">{objectFieldsJson}</script>
+    <script type="application/json" id="object-values-data">{objectValuesJson}</script>
+    <script type="application/json" id="reference-options-data">{referenceOptionsJson}</script>
+    <script src="/object-property-fields.js"></script>
     <script>
         (function () {
+            renderObjectPropertyFields(
+                JSON.parse(document.getElementById('object-fields-data').textContent),
+                JSON.parse(document.getElementById('object-values-data').textContent),
+                JSON.parse(document.getElementById('reference-options-data').textContent)
+            );
+
             var meta = document.getElementById('app-data-meta');
             var installedAppId = meta.dataset.installedAppId;
             var dataId = meta.dataset.dataId;

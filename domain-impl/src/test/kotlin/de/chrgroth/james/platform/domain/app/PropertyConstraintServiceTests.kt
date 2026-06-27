@@ -260,6 +260,71 @@ class PropertyConstraintServiceTests {
 
   // endregion
 
+  // region OBJECT / nestedProperties
+
+  @Test
+  fun `checkValue returns no violations for OBJECT property with no nested properties`() {
+    val property = property(type = PropertyType.OBJECT)
+
+    val violations = service.checkValue(property, mapOf("anything" to "value"))
+
+    assertThat(violations).isEmpty()
+  }
+
+  @Test
+  fun `checkValue returns no violations for OBJECT property when nested property value is valid`() {
+    val nested = property(id = "nested-1", name = "Nested", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MinLength(2)))
+    val property = property(type = PropertyType.OBJECT).copy(nestedProperties = listOf(nested))
+
+    val violations = service.checkValue(property, mapOf("nested-1" to "ab"))
+
+    assertThat(violations).isEmpty()
+  }
+
+  @Test
+  fun `checkValue recurses into nested OBJECT property at depth 2`() {
+    val innerNested = property(id = "inner-1", name = "Inner", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MinLength(3)))
+    val outerNested = property(id = "outer-1", name = "Outer", type = PropertyType.OBJECT).copy(nestedProperties = listOf(innerNested))
+    val property = property(type = PropertyType.OBJECT).copy(nestedProperties = listOf(outerNested))
+
+    val violations = service.checkValue(property, mapOf("outer-1" to mapOf("inner-1" to "abcd")))
+
+    assertThat(violations).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports violation when nested property value fails constraint`() {
+    val nested = property(id = "nested-1", name = "Nested", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MinLength(5)))
+    val property = property(type = PropertyType.OBJECT).copy(nestedProperties = listOf(nested))
+
+    val violations = service.checkValue(property, mapOf("nested-1" to "ab"))
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinLengthViolation(5))
+  }
+
+  @Test
+  fun `checkValue propagates violation from nested OBJECT property at depth 2`() {
+    val innerNested = property(id = "inner-1", name = "Inner", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MinLength(5)))
+    val outerNested = property(id = "outer-1", name = "Outer", type = PropertyType.OBJECT).copy(nestedProperties = listOf(innerNested))
+    val property = property(type = PropertyType.OBJECT).copy(nestedProperties = listOf(outerNested))
+
+    val violations = service.checkValue(property, mapOf("outer-1" to mapOf("inner-1" to "ab")))
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinLengthViolation(5))
+  }
+
+  @Test
+  fun `checkValue returns no violations for OBJECT property when value is not a Map`() {
+    val nested = property(id = "nested-1", name = "Nested", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MinLength(5)))
+    val property = property(type = PropertyType.OBJECT).copy(nestedProperties = listOf(nested))
+
+    val violations = service.checkValue(property, null)
+
+    assertThat(violations).isEmpty()
+  }
+
+  // endregion
+
   companion object {
     fun property(
       id: String = "p-1",

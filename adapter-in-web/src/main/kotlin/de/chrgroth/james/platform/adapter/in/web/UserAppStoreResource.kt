@@ -6,16 +6,20 @@ import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
+import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
+import com.fasterxml.jackson.databind.ObjectMapper
 import kotlin.time.Clock
 import io.quarkus.qute.Location
+import io.quarkus.qute.RawString
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
@@ -249,7 +253,9 @@ class UserAppStoreResource {
         .data("info", info)
         .data("entity", entityDef)
         .data("smartDefaults", computedSmartDefaults)
-        .data("referenceOptions", referenceOptions),
+        .data("referenceOptions", referenceOptions)
+        .data("objectFieldsJson", objectFieldsJsonFor(entityDef.properties))
+        .data("referenceOptionsJson", referenceOptionsJsonFor(referenceOptions)),
     ).build()
   }
 
@@ -341,7 +347,10 @@ class UserAppStoreResource {
         Response.ok(
           appDataEditTemplate
             .data("info", info)
-            .data("detail", detail),
+            .data("detail", detail)
+            .data("objectFieldsJson", objectFieldsJsonFor(entityDef.properties))
+            .data("objectValuesJson", objectValuesJsonFor(entityDef.properties, appDataItem.data))
+            .data("referenceOptionsJson", referenceOptionsJsonFor(referenceOptions)),
         ).build()
       },
     )
@@ -516,11 +525,20 @@ class UserAppStoreResource {
   private fun resolveReferenceLabel(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String =
     if (entityDef.displayText != null) computeDisplayText(entityDef, dataId, data) else computeReferenceText(entityDef, dataId, data)
 
-  /** Builds the selectable Reference options (id + label) for each Reference property of the given entity. */
-  private fun computeReferenceOptions(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): Map<String, List<AppDataRow>> {
-    val refProperties = entityDef.properties.filter {
-      it.targetEntityId != null && (it.type == PropertyType.REF || (it.type == PropertyType.LIST && it.listItemType == PropertyType.REF))
+  /** Collects Reference properties recursively, including those nested inside OBJECT properties at any depth. */
+  private fun collectReferenceProperties(properties: List<Property>): List<Property> =
+    properties.flatMap { prop ->
+      val ownMatch = if (prop.targetEntityId != null && (prop.type == PropertyType.REF || (prop.type == PropertyType.LIST && prop.listItemType == PropertyType.REF))) {
+        listOf(prop)
+      } else {
+        emptyList()
+      }
+      ownMatch + collectReferenceProperties(prop.nestedProperties)
     }
+
+  /** Builds the selectable Reference options (id + label) for each Reference property of the given entity, including nested ones. */
+  private fun computeReferenceOptions(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): Map<String, List<AppDataRow>> {
+    val refProperties = collectReferenceProperties(entityDef.properties)
     if (refProperties.isEmpty()) return emptyMap()
     val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
     return refProperties.associate { prop ->
@@ -532,6 +550,33 @@ class UserAppStoreResource {
       prop.id.value to options
     }
   }
+
+  /** Recursive view of an OBJECT property's nested structure, for client-side rendering of its form fields. */
+  private fun Property.toObjectFieldView(): Map<String, Any?> = mapOf(
+    "id" to id.value,
+    "name" to name,
+    "type" to type.name,
+    "nullable" to nullable,
+    "htmlInputType" to TemplateFormattingExtensions.htmlInputType(this),
+    "itemHtmlInputType" to TemplateFormattingExtensions.itemHtmlInputType(this),
+    "listItemType" to listItemType?.name,
+    "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
+  )
+
+  /** Builds the JSON (propertyId -> field tree) used by object-property-fields.js to render OBJECT property fields. */
+  private fun objectFieldsJsonFor(properties: List<Property>): RawString = RawString(
+    ObjectMapper().writeValueAsString(properties.filter { it.type == PropertyType.OBJECT }.associate { it.id.value to it.toObjectFieldView() }),
+  )
+
+  /** Builds the JSON (propertyId -> decoded existing value) used to prefill OBJECT property fields on the edit form. */
+  private fun objectValuesJsonFor(properties: List<Property>, data: Map<String, String?>): RawString = RawString(
+    ObjectMapper().writeValueAsString(
+      properties.filter { it.type == PropertyType.OBJECT }.associate { it.id.value to decodeObjectValue(data[it.id.value]) },
+    ),
+  )
+
+  /** Builds the JSON (propertyId -> reference options) used by object-property-fields.js to render nested Reference selects. */
+  private fun referenceOptionsJsonFor(referenceOptions: Map<String, List<AppDataRow>>): RawString = RawString(ObjectMapper().writeValueAsString(referenceOptions))
 
   companion object {
     private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")

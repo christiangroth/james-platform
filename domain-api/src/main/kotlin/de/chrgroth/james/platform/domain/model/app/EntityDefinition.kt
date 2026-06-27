@@ -48,6 +48,8 @@ data class Property(
   val listItemType: PropertyType? = null,
   // Constraints applied to each item of a LIST property, using the item type's own constraints (UniqueKey excluded).
   val itemConstraints: Set<PropertyConstraint> = emptySet(),
+  // Properties defining the structure of an OBJECT property. Unused for other types. May recursively contain further OBJECT properties.
+  val nestedProperties: List<Property> = emptyList(),
 )
 
 sealed interface PropertyConstraint {

@@ -6,6 +6,7 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
+import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
@@ -166,6 +167,11 @@ class AppVersionManagementService(
     }
     if (invalidEntityNames.isNotEmpty()) {
       return DisplayTextInvalidError(invalidEntityNames).left()
+    }
+    val invalidObjectStructureEntityNames = version.entityDefinitions.filter { hasInvalidObjectStructure(it.properties) }.map { it.name }
+    if (invalidObjectStructureEntityNames.isNotEmpty()) {
+      logger.warn { "Publish version failed: invalid object structure in entities: $invalidObjectStructureEntityNames" }
+      return InvalidObjectStructureError(invalidObjectStructureEntityNames).left()
     }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
@@ -686,6 +692,47 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun setNestedProperties(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    nestedProperties: List<Property>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set nested properties failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set nested properties failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (property.type != PropertyType.OBJECT) {
+      logger.warn { "Set nested properties failed: property $propertyId is not of type OBJECT" }
+      return AppVersionError.NESTED_PROPERTIES_NOT_SUPPORTED.left()
+    }
+    validateNestedProperties(nestedProperties)?.let { return it.left() }
+    val updatedProperty = property.copy(nestedProperties = nestedProperties)
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Nested properties set: $propertyId in entity $entityId in version $versionId (${nestedProperties.size} properties)" }
+    return updated.right()
+  }
+
+  /** Validates names of nested properties (blank, duplicate) recursively, since they are not validated incrementally like top-level properties. */
+  private fun validateNestedProperties(properties: List<Property>): AppVersionError? {
+    if (properties.any { it.name.isBlank() }) return AppVersionError.BLANK_INPUT
+    if (properties.groupBy { it.name.trim().lowercase() }.any { it.value.size > 1 }) return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS
+    for (nested in properties) {
+      if (nested.type == PropertyType.OBJECT) {
+        validateNestedProperties(nested.nestedProperties)?.let { return it }
+      }
+    }
+    return null
+  }
+
   private fun parseListItemType(listItemType: String?): Either<DomainError, PropertyType> {
     val trimmedListItemType = listItemType?.trim()?.takeIf { it.isNotBlank() } ?: run {
       logger.warn { "Parse list item type failed: list item type is required" }
@@ -961,6 +1008,11 @@ class AppVersionManagementService(
       return null
     }
     return version
+  }
+
+  /** An OBJECT property is only valid once it has at least one nested property, and all of its nested properties are themselves valid (recursively). */
+  private fun hasInvalidObjectStructure(properties: List<Property>): Boolean = properties.any {
+    it.type == PropertyType.OBJECT && (it.nestedProperties.isEmpty() || hasInvalidObjectStructure(it.nestedProperties))
   }
 
   private fun extractPropertyNames(template: String): Set<String> =

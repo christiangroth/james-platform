@@ -28,7 +28,9 @@
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="required">*</span>{/if}
                         <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type.name == "LIST" && prop.listItemType != ""}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
-                    {#if prop.type.name == "LIST"}
+                    {#if prop.type.name == "OBJECT"}
+                    <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="property-input-{prop.id}"></div>
+                    {#else if prop.type.name == "LIST"}
                     <div class="list-property-rows" data-property-id="{prop.id}">
                         <button type="button" class="btn btn-app-secondary btn-sm add-list-row" data-testid="add-list-row-{prop.id}">+ Add value</button>
                         <template class="list-row-template">
@@ -94,8 +96,17 @@
     </div>
     {/content}
     {#scripts}
+    <script type="application/json" id="object-fields-data">{objectFieldsJson}</script>
+    <script type="application/json" id="reference-options-data">{referenceOptionsJson}</script>
+    <script src="/object-property-fields.js"></script>
     <script>
         (function () {
+            renderObjectPropertyFields(
+                JSON.parse(document.getElementById('object-fields-data').textContent),
+                {},
+                JSON.parse(document.getElementById('reference-options-data').textContent)
+            );
+
             var messagePanel = document.getElementById('form-message');
             var messageTimer = null;
 
