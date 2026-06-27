@@ -1,3 +1,13 @@
+# 0.43.0 (2026.06.27)
+
+## New Features
+* Admin area now shows breadcrumb navigation for easier orientation.
+* Removed the App Store and Profile links from the top menu in the admin area, since they are not relevant for administrators.
+
+
+
+---
+
 # 0.42.2 (2026.06.27)
 
 ## Bugfixes / Chore
