@@ -26,6 +26,7 @@ interface AppVersionManagementPort {
   fun setPropertyDefault(appId: String, versionId: String, entityId: String, propertyId: String, default: String?): Either<DomainError, AppVersion>
   fun setPropertySmartDefault(appId: String, versionId: String, entityId: String, propertyId: String, smartDefault: String?): Either<DomainError, AppVersion>
   fun setPropertyValueProposals(appId: String, versionId: String, entityId: String, propertyId: String, valueProposals: List<String>): Either<DomainError, AppVersion>
+  fun setPropertyTargetEntity(appId: String, versionId: String, entityId: String, propertyId: String, targetEntityId: String?): Either<DomainError, AppVersion>
   fun reorderProperties(appId: String, versionId: String, entityId: String, propertyIds: List<String>): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion>
   fun addComputedProperty(appId: String, versionId: String, entityId: String, name: String, type: String): Either<DomainError, AppVersion>

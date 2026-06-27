@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
+import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -70,7 +71,7 @@ class AppDataService(
         property,
         parsedValue,
         existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      )
+      ) + referenceViolations(property, rawValue, InstalledAppId(installedAppId), appVersion)
       if (violations.isNotEmpty()) {
         logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
@@ -166,7 +167,7 @@ class AppDataService(
         property,
         parsedValue,
         existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      )
+      ) + referenceViolations(property, rawValue, InstalledAppId(installedAppId), appVersion)
       if (violations.isNotEmpty()) {
         logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
@@ -238,6 +239,20 @@ class AppDataService(
     appDataRepository.delete(AppDataId(dataId))
     logger.info { "App data deleted: $dataId for installed app: $installedAppId (${references.size} reference(s) cleared)" }
     return references.size.right()
+  }
+
+  /** Returns a violation if a Reference property value does not point to an existing instance of its target entity. */
+  private fun referenceViolations(
+    property: Property,
+    rawValue: String?,
+    installedAppId: InstalledAppId,
+    appVersion: AppVersion,
+  ): List<PropertyConstraintViolation> {
+    if (property.type != PropertyType.REF || rawValue.isNullOrBlank()) return emptyList()
+    val targetEntityId = property.targetEntityId ?: return listOf(PropertyConstraintViolation.InvalidReferenceViolation)
+    val targetExists = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, targetEntityId)
+      .any { it.id.value == rawValue }
+    return if (targetExists) emptyList() else listOf(PropertyConstraintViolation.InvalidReferenceViolation)
   }
 
   private fun parseValue(property: Property, rawValue: String?): Any? {

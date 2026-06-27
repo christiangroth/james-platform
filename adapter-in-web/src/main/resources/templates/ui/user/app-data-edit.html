@@ -94,6 +94,17 @@
                                {#if prop.value == "true"}checked{/if}
                                data-testid="edit-property-input-{prop.id}">
                     </div>
+                    {#else if prop.htmlInputType == "select"}
+                    <select class="form-select app-form-control form-select-sm"
+                            name="prop_{prop.id}"
+                            id="edit_prop_{prop.id}"
+                            {#if !prop.nullable}required{/if}
+                            data-testid="edit-property-input-{prop.id}">
+                        <option value="">– Select –</option>
+                        {#for opt in prop.referenceOptions}
+                        <option value="{opt.id}" {#if opt.id == prop.value}selected{/if}>{opt.displayText}</option>
+                        {/for}
+                    </select>
                     {#else}
                     <input type="{prop.htmlInputType}"
                            class="form-control app-form-control form-control-sm"
