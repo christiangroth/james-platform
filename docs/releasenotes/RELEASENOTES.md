@@ -1,3 +1,13 @@
+# 0.44.0 (2026.06.27)
+
+## New Features
+* Object properties can now define their own nested structure, including nested objects, and are validated recursively when entering or saving data.
+* Reference properties nested inside object properties are now supported in data entry forms.
+
+
+
+---
+
 # 0.43.1 (2026.06.27)
 
 ## Bugfixes / Chore
