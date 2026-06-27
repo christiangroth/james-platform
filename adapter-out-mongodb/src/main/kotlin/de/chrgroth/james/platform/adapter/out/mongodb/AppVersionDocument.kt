@@ -44,6 +44,7 @@ class PropertyDocument {
   var targetEntityId: String? = null
   var listItemType: String? = null
   var itemConstraints: List<ConstraintDocument> = emptyList()
+  var nestedProperties: List<PropertyDocument> = emptyList()
 }
 
 class ConstraintDocument {
