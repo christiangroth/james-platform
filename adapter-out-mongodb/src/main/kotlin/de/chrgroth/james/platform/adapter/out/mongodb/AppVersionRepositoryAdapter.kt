@@ -125,7 +125,7 @@ class AppVersionRepositoryAdapter(
     return SortCriteria(propertyId = propertyId, direction = dir)
   }
 
-  private fun PropertyDocument.toDomain() = Property(
+  private fun PropertyDocument.toDomain(): Property = Property(
     id = PropertyId(id),
     name = name,
     type = PropertyType.valueOf(type),
@@ -137,6 +137,7 @@ class AppVersionRepositoryAdapter(
     targetEntityId = targetEntityId?.let { EntityDefinitionId(it) },
     listItemType = listItemType?.let { PropertyType.valueOf(it) },
     itemConstraints = itemConstraints.mapNotNull { it.toDomain() }.toSet(),
+    nestedProperties = nestedProperties.map { it.toDomain() },
   )
 
   private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {
@@ -195,7 +196,7 @@ class AppVersionRepositoryAdapter(
     doc.direction = direction.name
   }
 
-  private fun Property.toDocument() = PropertyDocument().also { doc ->
+  private fun Property.toDocument(): PropertyDocument = PropertyDocument().also { doc ->
     doc.id = id.value
     doc.name = name
     doc.type = type.name
@@ -207,6 +208,7 @@ class AppVersionRepositoryAdapter(
     doc.targetEntityId = targetEntityId?.value
     doc.listItemType = listItemType?.name
     doc.itemConstraints = itemConstraints.map { it.toDocument() }
+    doc.nestedProperties = nestedProperties.map { it.toDocument() }
   }
 
   private fun ComputedProperty.toDocument() = ComputedPropertyDocument().also { doc ->

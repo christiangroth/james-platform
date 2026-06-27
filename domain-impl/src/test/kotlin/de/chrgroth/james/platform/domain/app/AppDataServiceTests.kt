@@ -18,6 +18,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -401,6 +402,126 @@ class AppDataServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppDataError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region createAppData / updateAppData OBJECT property round-trip
+
+  private val innerPropId = PropertyId("inner-1")
+  private val innerProp = Property(id = innerPropId, name = "InnerField", type = PropertyType.STRING, nullable = true)
+  private val nestedObjectPropId = PropertyId("nested-obj-1")
+  private val nestedObjectProp = Property(id = nestedObjectPropId, name = "NestedObj", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(innerProp))
+  private val nestedScalarPropId = PropertyId("nested-scalar-1")
+  private val nestedScalarProp = Property(id = nestedScalarPropId, name = "NestedScalar", type = PropertyType.LONG, nullable = true)
+  private val objectPropId = PropertyId("obj-1")
+  private val objectProp = Property(
+    id = objectPropId,
+    name = "ObjField",
+    type = PropertyType.OBJECT,
+    nullable = true,
+    nestedProperties = listOf(nestedScalarProp, nestedObjectProp),
+  )
+  private val objectEntityId = EntityDefinitionId("entity-object")
+  private val objectEntityDef = EntityDefinition(id = objectEntityId, name = "ObjectEntity", properties = listOf(objectProp))
+  private val appVersionWithObject = appVersion.copy(entityDefinitions = listOf(objectEntityDef))
+
+  @Test
+  fun `createAppData round-trips an OBJECT property value with a nested OBJECT at depth 2`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithObject
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, objectEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(objectProp, any(), emptyList()) } returns emptyList()
+    val savedSlot = mutableListOf<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val data = mapOf(
+      "prop_${objectPropId.value}.${nestedScalarPropId.value}" to listOf("42"),
+      "prop_${objectPropId.value}.${nestedObjectPropId.value}.${innerPropId.value}" to listOf("hello"),
+    )
+    val result = service.createAppData(userId, installedAppId.value, objectEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    val storedValue = savedSlot.first().data[objectPropId.value]
+    val decoded = decodeObjectValue(storedValue)
+    assertThat(decoded[nestedScalarPropId.value]).isEqualTo("42")
+
+    @Suppress("UNCHECKED_CAST")
+    val decodedNestedObject = decoded[nestedObjectPropId.value] as Map<String, Any?>
+    assertThat(decodedNestedObject[innerPropId.value]).isEqualTo("hello")
+  }
+
+  @Test
+  fun `updateAppData round-trips an updated OBJECT property value`() {
+    val existingObjectAppData = existingAppData.copy(entityType = objectEntityId, data = emptyMap())
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingObjectAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithObject
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, objectEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(objectProp, any(), emptyList()) } returns emptyList()
+    val savedSlot = mutableListOf<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val data = mapOf(
+      "prop_${objectPropId.value}.${nestedScalarPropId.value}" to listOf("100"),
+      "prop_${objectPropId.value}.${nestedObjectPropId.value}.${innerPropId.value}" to listOf("updated"),
+    )
+    val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
+
+    assertThat(result.isRight()).isTrue()
+    val storedValue = savedSlot.first().data[objectPropId.value]
+    val decoded = decodeObjectValue(storedValue)
+    assertThat(decoded[nestedScalarPropId.value]).isEqualTo("100")
+
+    @Suppress("UNCHECKED_CAST")
+    val decodedNestedObject = decoded[nestedObjectPropId.value] as Map<String, Any?>
+    assertThat(decodedNestedObject[innerPropId.value]).isEqualTo("updated")
+  }
+
+  // endregion
+
+  // region createAppData OBJECT property round-trip at depth 5
+
+  private val deepLevel5PropId = PropertyId("deep-5")
+  private val deepLevel5Prop = Property(id = deepLevel5PropId, name = "Level5", type = PropertyType.STRING, nullable = true)
+  private val deepLevel4PropId = PropertyId("deep-4")
+  private val deepLevel4Prop = Property(id = deepLevel4PropId, name = "Level4", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel5Prop))
+  private val deepLevel3PropId = PropertyId("deep-3")
+  private val deepLevel3Prop = Property(id = deepLevel3PropId, name = "Level3", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel4Prop))
+  private val deepLevel2PropId = PropertyId("deep-2")
+  private val deepLevel2Prop = Property(id = deepLevel2PropId, name = "Level2", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel3Prop))
+  private val deepLevel1PropId = PropertyId("deep-1")
+  private val deepLevel1Prop = Property(id = deepLevel1PropId, name = "Level1", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(deepLevel2Prop))
+  private val deepEntityId = EntityDefinitionId("entity-deep")
+  private val deepEntityDef = EntityDefinition(id = deepEntityId, name = "DeepEntity", properties = listOf(deepLevel1Prop))
+  private val appVersionWithDeepObject = appVersion.copy(entityDefinitions = listOf(deepEntityDef))
+
+  @Test
+  fun `createAppData round-trips an OBJECT property value nested five levels deep`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDeepObject
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, deepEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(deepLevel1Prop, any(), emptyList()) } returns emptyList()
+    val savedSlot = mutableListOf<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val deepKey = "prop_${deepLevel1PropId.value}.${deepLevel2PropId.value}.${deepLevel3PropId.value}.${deepLevel4PropId.value}.${deepLevel5PropId.value}"
+    val data = mapOf(deepKey to listOf("deep-value"))
+
+    val result = service.createAppData(userId, installedAppId.value, deepEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    val storedValue = savedSlot.first().data[deepLevel1PropId.value]
+
+    @Suppress("UNCHECKED_CAST")
+    val level2 = decodeObjectValue(storedValue)[deepLevel2PropId.value] as Map<String, Any?>
+
+    @Suppress("UNCHECKED_CAST")
+    val level3 = level2[deepLevel3PropId.value] as Map<String, Any?>
+
+    @Suppress("UNCHECKED_CAST")
+    val level4 = level3[deepLevel4PropId.value] as Map<String, Any?>
+    assertThat(level4[deepLevel5PropId.value]).isEqualTo("deep-value")
   }
 
   // endregion

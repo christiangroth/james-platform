@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.port.`in`.app
 import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
@@ -38,6 +39,7 @@ interface AppVersionManagementPort {
   fun setPropertyTargetEntity(appId: String, versionId: String, entityId: String, propertyId: String, targetEntityId: String?): Either<DomainError, AppVersion>
   fun setPropertyListItemType(appId: String, versionId: String, entityId: String, propertyId: String, listItemType: String?): Either<DomainError, AppVersion>
   fun setPropertyItemConstraints(appId: String, versionId: String, entityId: String, propertyId: String, itemConstraints: Set<PropertyConstraint>): Either<DomainError, AppVersion>
+  fun setNestedProperties(appId: String, versionId: String, entityId: String, propertyId: String, nestedProperties: List<Property>): Either<DomainError, AppVersion>
   fun reorderProperties(appId: String, versionId: String, entityId: String, propertyIds: List<String>): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion>
   fun addComputedProperty(appId: String, versionId: String, entityId: String, name: String, type: String): Either<DomainError, AppVersion>

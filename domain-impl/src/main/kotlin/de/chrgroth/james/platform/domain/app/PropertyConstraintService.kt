@@ -34,6 +34,11 @@ class PropertyConstraintService : PropertyConstraintPort {
         violations += checkValue(itemProperty, item, emptyList())
       }
     }
+    if (property.type == PropertyType.OBJECT && value is Map<*, *>) {
+      for (nestedProperty in property.nestedProperties) {
+        violations += checkValue(nestedProperty, value[nestedProperty.id.value], emptyList())
+      }
+    }
     return violations
   }
 }
