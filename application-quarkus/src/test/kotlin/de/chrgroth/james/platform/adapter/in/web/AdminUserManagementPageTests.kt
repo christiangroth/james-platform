@@ -44,6 +44,27 @@ class AdminUserManagementPageTests {
   }
 
   @Test
+  fun `user management page displays breadcrumb`() {
+    given()
+      .`when`()
+      .get("/ui/admin/users")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="breadcrumb-users""""))
+  }
+
+  @Test
+  fun `user management page does not display profile or app store links`() {
+    given()
+      .`when`()
+      .get("/ui/admin/users")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="profile-link"""")))
+      .body(not(containsString("""data-testid="app-store-link"""")))
+  }
+
+  @Test
   fun `users table endpoint returns table fragment`() {
     given()
       .`when`()

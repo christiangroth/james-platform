@@ -46,6 +46,27 @@ class DashboardPageTests {
   }
 
   @Test
+  fun `admin dashboard page displays breadcrumb`() {
+    given()
+      .`when`()
+      .get("/ui/admin/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="breadcrumb-admin""""))
+  }
+
+  @Test
+  fun `admin dashboard page does not display profile or app store links`() {
+    given()
+      .`when`()
+      .get("/ui/admin/dashboard")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="profile-link"""")))
+      .body(not(containsString("""data-testid="app-store-link"""")))
+  }
+
+  @Test
   fun `dashboard pages display logout link`() {
     given()
       .`when`()
