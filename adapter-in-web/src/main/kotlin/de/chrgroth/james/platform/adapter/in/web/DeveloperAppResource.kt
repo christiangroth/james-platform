@@ -476,6 +476,7 @@ class DeveloperAppResource {
     @FormParam("name") name: String,
     @FormParam("type") type: String,
     @FormParam("nullable") nullable: Boolean?,
+    @FormParam("targetEntityId") targetEntityId: String?,
   ): Response {
     if (name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property name is required.")).build()
@@ -483,7 +484,7 @@ class DeveloperAppResource {
     if (type.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property type is required.")).build()
     }
-    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true).fold(
+    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -835,6 +836,7 @@ class DeveloperAppResource {
     AppVersionError.PROPERTY_IDS_MISMATCH.code -> "Property IDs do not match the existing properties."
     AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.code -> "Only Reference properties support a target entity."
     AppVersionError.TARGET_ENTITY_NOT_FOUND.code -> "Target entity not found."
+    AppVersionError.TARGET_ENTITY_REQUIRED.code -> "Target entity is required for Reference properties."
     AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> "Computed property not found."
     AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> "A computed property with this name already exists."
     AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> "This type does not support computed properties."

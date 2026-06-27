@@ -346,6 +346,7 @@ class AppVersionManagementService(
     name: String,
     type: String,
     nullable: Boolean,
+    targetEntityId: String?,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add property failed: blank name" }
@@ -364,7 +365,8 @@ class AppVersionManagementService(
       logger.warn { "Add property failed: property name already exists: $name in entity $entityId" }
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val newProperty = Property(id = PropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, nullable = nullable)
+    val resolvedTargetEntityId = resolveTargetEntity(version, propertyType, targetEntityId).fold({ return it.left() }, { it })
+    val newProperty = Property(id = PropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, nullable = nullable, targetEntityId = resolvedTargetEntityId)
     val updatedEntity = entity.copy(properties = entity.properties + newProperty)
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
@@ -585,19 +587,26 @@ class AppVersionManagementService(
       logger.warn { "Set property target entity failed: type ${property.type} does not support target entity: $propertyId" }
       return AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.left()
     }
-    val trimmedTargetEntityId = targetEntityId?.trim()?.takeIf { it.isNotBlank() }
-    val targetEntity = trimmedTargetEntityId?.let { id ->
-      version.entityDefinitions.find { it.id.value == id } ?: run {
-        logger.warn { "Set property target entity failed: target entity not found: $id in version $versionId" }
-        return AppVersionError.TARGET_ENTITY_NOT_FOUND.left()
-      }
-    }
-    val updatedProperty = property.copy(targetEntityId = targetEntity?.id)
+    val resolvedTargetEntityId = resolveTargetEntity(version, property.type, targetEntityId).fold({ return it.left() }, { it })
+    val updatedProperty = property.copy(targetEntityId = resolvedTargetEntityId)
     val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
-    logger.info { "Property target entity set: $propertyId in entity $entityId in version $versionId (targetEntityId=${targetEntity?.id?.value ?: "cleared"})" }
+    logger.info { "Property target entity set: $propertyId in entity $entityId in version $versionId (targetEntityId=${resolvedTargetEntityId?.value})" }
     return updated.right()
+  }
+
+  private fun resolveTargetEntity(version: AppVersion, propertyType: PropertyType, targetEntityId: String?): Either<DomainError, EntityDefinitionId?> {
+    if (propertyType != PropertyType.REF) return null.right()
+    val trimmedTargetEntityId = targetEntityId?.trim()?.takeIf { it.isNotBlank() } ?: run {
+      logger.warn { "Resolve target entity failed: target entity is required for Reference properties" }
+      return AppVersionError.TARGET_ENTITY_REQUIRED.left()
+    }
+    val targetEntity = version.entityDefinitions.find { it.id.value == trimmedTargetEntityId } ?: run {
+      logger.warn { "Resolve target entity failed: target entity not found: $trimmedTargetEntityId in version ${version.id.value}" }
+      return AppVersionError.TARGET_ENTITY_NOT_FOUND.left()
+    }
+    return targetEntity.id.right()
   }
 
   override fun reorderProperties(
