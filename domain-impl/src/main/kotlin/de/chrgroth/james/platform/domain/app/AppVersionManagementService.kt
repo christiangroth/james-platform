@@ -355,6 +355,7 @@ class AppVersionManagementService(
     nullable: Boolean,
     targetEntityId: String?,
     listItemType: String?,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add property failed: blank name" }
@@ -369,7 +370,11 @@ class AppVersionManagementService(
       logger.warn { "Add property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    if (entity.properties.any { it.name.equals(name.trim(), ignoreCase = true) }) {
+    val siblings = propertiesAtPath(entity, path) ?: run {
+      logger.warn { "Add property failed: invalid path $path in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (siblings.any { it.name.equals(name.trim(), ignoreCase = true) }) {
       logger.warn { "Add property failed: property name already exists: $name in entity $entityId" }
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
@@ -391,7 +396,7 @@ class AppVersionManagementService(
       targetEntityId = resolvedTargetEntityId,
       listItemType = resolvedItemType,
     )
-    val updatedEntity = entity.copy(properties = entity.properties + newProperty)
+    val updatedEntity = withPropertiesAtPath(entity, path) { (it + newProperty).right() }.fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property added: ${name.trim()} ($type) to entity $entityId in version $versionId" }
@@ -406,6 +411,7 @@ class AppVersionManagementService(
     name: String,
     type: String,
     nullable: Boolean,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Update property failed: blank name" }
@@ -420,11 +426,15 @@ class AppVersionManagementService(
       logger.warn { "Update property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+    val siblings = propertiesAtPath(entity, path) ?: run {
+      logger.warn { "Update property failed: invalid path $path in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    val property = siblings.find { it.id.value == propertyId } ?: run {
       logger.warn { "Update property failed: property not found: $propertyId in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
-    if (entity.properties.any { it.id.value != propertyId && it.name.equals(name.trim(), ignoreCase = true) }) {
+    if (siblings.any { it.id.value != propertyId && it.name.equals(name.trim(), ignoreCase = true) }) {
       logger.warn { "Update property failed: property name already exists: $name in entity $entityId" }
       return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.left()
     }
@@ -432,6 +442,7 @@ class AppVersionManagementService(
     val listItemTypeToKeep = if (propertyType == PropertyType.LIST) property.listItemType else null
     val itemConstraintsToKeep = if (propertyType == PropertyType.LIST) property.itemConstraints else emptySet()
     val targetEntityIdToKeep = if (propertyType == PropertyType.REF || listItemTypeToKeep == PropertyType.REF) property.targetEntityId else null
+    val nestedPropertiesToKeep = if (propertyType == PropertyType.OBJECT) property.nestedProperties else emptyList()
     val updatedProperty = property.copy(
       name = name.trim(),
       type = propertyType,
@@ -440,17 +451,15 @@ class AppVersionManagementService(
       targetEntityId = targetEntityIdToKeep,
       listItemType = listItemTypeToKeep,
       itemConstraints = itemConstraintsToKeep,
+      nestedProperties = nestedPropertiesToKeep,
     )
-    val newDisplayText = if (nullable && !property.nullable) {
-      removePropertyFromDisplayText(entity.displayText, property.name)
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { updatedProperty.right() }.fold({ return it.left() }, { it })
+    val newDisplayText = if (path.isEmpty() && nullable && !property.nullable) {
+      removePropertyFromDisplayText(updatedEntity.displayText, property.name)
     } else {
-      entity.displayText
+      updatedEntity.displayText
     }
-    val updatedEntity = entity.copy(
-      properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it },
-      displayText = newDisplayText,
-    )
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity.copy(displayText = newDisplayText) else it })
     appVersionRepository.save(updated)
     logger.info { "Property updated: $propertyId (${name.trim()}, $type) in entity $entityId in version $versionId" }
     return updated.right()
@@ -462,20 +471,19 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     constraints: Set<PropertyConstraint>,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property constraints failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property constraints failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
-    val allowedConstraintClasses = property.type.availableConstraints().toSet()
-    val validConstraints = constraints.filter { c -> allowedConstraintClasses.any { it.isInstance(c) } }.toSet()
-    val updatedProperty = property.copy(constraints = validConstraints)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    var validConstraints: Set<PropertyConstraint> = emptySet()
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      val allowedConstraintClasses = property.type.availableConstraints().toSet()
+      validConstraints = constraints.filter { c -> allowedConstraintClasses.any { it.isInstance(c) } }.toSet()
+      property.copy(constraints = validConstraints).right()
+    }.fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property constraints set: $propertyId in entity $entityId in version $versionId (${validConstraints.size} constraints)" }
@@ -488,28 +496,34 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     default: String?,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property default failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property default failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
+    val trimmedDefault = default?.takeIf { it.isNotBlank() }
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      withPropertyDefault(property, propertyId, trimmedDefault)
+    }.fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property default set: $propertyId in entity $entityId in version $versionId (default=$trimmedDefault)" }
+    return updated.right()
+  }
+
+  private fun withPropertyDefault(property: Property, propertyId: String, trimmedDefault: String?): Either<DomainError, Property> {
     if (!property.type.supportsDefault()) {
       logger.warn { "Set property default failed: type ${property.type} does not support defaults: $propertyId" }
       return AppVersionError.DEFAULT_NOT_SUPPORTED.left()
     }
-    val trimmedDefault = default?.takeIf { it.isNotBlank() }
     if (trimmedDefault != null && property.smartDefault != null) {
       logger.warn { "Set property default failed: property $propertyId already has a smart default set" }
       return AppVersionError.BOTH_DEFAULTS_SET.left()
     }
     if (trimmedDefault != null) {
-      val parsedValue = parseDefaultValue(property.type, trimmedDefault)
-      if (parsedValue == null) {
+      val parsedValue = parseDefaultValue(property.type, trimmedDefault) ?: run {
         logger.warn { "Set property default failed: invalid default value '$trimmedDefault' for type ${property.type}: $propertyId" }
         return AppVersionError.DEFAULT_VALUE_INVALID.left()
       }
@@ -519,12 +533,7 @@ class AppVersionManagementService(
         return AppVersionError.DEFAULT_VALUE_INVALID.left()
       }
     }
-    val updatedProperty = property.copy(default = trimmedDefault)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Property default set: $propertyId in entity $entityId in version $versionId (default=$trimmedDefault)" }
-    return updated.right()
+    return property.copy(default = trimmedDefault).right()
   }
 
   private fun parseDefaultValue(type: PropertyType, value: String): Any? = when (type) {
@@ -545,17 +554,24 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     smartDefault: String?,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property smart default failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property smart default failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
     val trimmedSmartDefault = smartDefault?.takeIf { it.isNotBlank() }
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      withPropertySmartDefault(property, propertyId, trimmedSmartDefault)
+    }.fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property smart default set: $propertyId in entity $entityId in version $versionId (smartDefault=${trimmedSmartDefault?.let { "set" } ?: "cleared"})" }
+    return updated.right()
+  }
+
+  private fun withPropertySmartDefault(property: Property, propertyId: String, trimmedSmartDefault: String?): Either<DomainError, Property> {
     if (trimmedSmartDefault != null && property.default != null) {
       logger.warn { "Set property smart default failed: property $propertyId already has a static default set" }
       return AppVersionError.BOTH_DEFAULTS_SET.left()
@@ -564,12 +580,7 @@ class AppVersionManagementService(
       logger.warn { "Set property smart default failed: type ${property.type} does not support smart defaults: $propertyId" }
       return AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.left()
     }
-    val updatedProperty = property.copy(smartDefault = trimmedSmartDefault)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Property smart default set: $propertyId in entity $entityId in version $versionId (smartDefault=${trimmedSmartDefault?.let { "set" } ?: "cleared"})" }
-    return updated.right()
+    return property.copy(smartDefault = trimmedSmartDefault).right()
   }
 
   override fun setPropertyValueProposals(
@@ -578,27 +589,30 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     valueProposals: List<String>,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property value proposals failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property value proposals failed: property not found: $propertyId in entity $entityId" }
+    val siblings = propertiesAtPath(entity, path) ?: run {
+      logger.warn { "Set property value proposals failed: invalid path $path in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
-    if (property.type != PropertyType.STRING) {
-      logger.warn { "Set property value proposals failed: type ${property.type} does not support value proposals: $propertyId" }
-      return AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.left()
-    }
-    val validProposalIds = entity.properties.map { it.id.value }.toSet()
-    val filteredProposals = valueProposals.filter { it in validProposalIds && it != propertyId }
-    val updatedProperty = property.copy(valueProposals = filteredProposals)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    val validProposalIds = siblings.map { it.id.value }.toSet()
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      if (property.type != PropertyType.STRING) {
+        logger.warn { "Set property value proposals failed: type ${property.type} does not support value proposals: $propertyId" }
+        AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.left()
+      } else {
+        val filteredProposals = valueProposals.filter { it in validProposalIds && it != propertyId }
+        property.copy(valueProposals = filteredProposals).right()
+      }
+    }.fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
-    logger.info { "Property value proposals set: $propertyId in entity $entityId in version $versionId (${filteredProposals.size} proposals)" }
+    logger.info { "Property value proposals set: $propertyId in entity $entityId in version $versionId" }
     return updated.right()
   }
 
@@ -608,28 +622,34 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     targetEntityId: String?,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property target entity failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property target entity failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
+    var resolvedTargetEntityId: EntityDefinitionId? = null
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      withPropertyTargetEntity(version, property, propertyId, targetEntityId).map {
+        resolvedTargetEntityId = it.targetEntityId
+        it
+      }
+    }.fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property target entity set: $propertyId in entity $entityId in version $versionId (targetEntityId=${resolvedTargetEntityId?.value})" }
+    return updated.right()
+  }
+
+  private fun withPropertyTargetEntity(version: AppVersion, property: Property, propertyId: String, targetEntityId: String?): Either<DomainError, Property> {
     val targetEntityRequired = property.type == PropertyType.REF || (property.type == PropertyType.LIST && property.listItemType == PropertyType.REF)
     if (!targetEntityRequired) {
       logger.warn { "Set property target entity failed: type ${property.type} does not support target entity: $propertyId" }
       return AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.left()
     }
     val resolvedTargetEntityId = resolveTargetEntity(version, targetEntityRequired, targetEntityId).fold({ return it.left() }, { it })
-    val updatedProperty = property.copy(targetEntityId = resolvedTargetEntityId)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Property target entity set: $propertyId in entity $entityId in version $versionId (targetEntityId=${resolvedTargetEntityId?.value})" }
-    return updated.right()
+    return property.copy(targetEntityId = resolvedTargetEntityId).right()
   }
 
   override fun setPropertyListItemType(
@@ -638,16 +658,27 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     listItemType: String?,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property list item type failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property list item type failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
+    var parsedItemType: PropertyType? = null
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      withPropertyListItemType(property, propertyId, listItemType).map {
+        parsedItemType = it.listItemType
+        it
+      }
+    }.fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property list item type set: $propertyId in entity $entityId in version $versionId (listItemType=$parsedItemType)" }
+    return updated.right()
+  }
+
+  private fun withPropertyListItemType(property: Property, propertyId: String, listItemType: String?): Either<DomainError, Property> {
     if (property.type != PropertyType.LIST) {
       logger.warn { "Set property list item type failed: type ${property.type} does not support list item type: $propertyId" }
       return AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
@@ -655,12 +686,7 @@ class AppVersionManagementService(
     val parsedItemType = parseListItemType(listItemType).fold({ return it.left() }, { it })
     val itemConstraintsToKeep = if (parsedItemType == property.listItemType) property.itemConstraints else emptySet()
     val targetEntityIdToKeep = if (parsedItemType == PropertyType.REF) property.targetEntityId else null
-    val updatedProperty = property.copy(listItemType = parsedItemType, itemConstraints = itemConstraintsToKeep, targetEntityId = targetEntityIdToKeep)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Property list item type set: $propertyId in entity $entityId in version $versionId (listItemType=$parsedItemType)" }
-    return updated.right()
+    return property.copy(listItemType = parsedItemType, itemConstraints = itemConstraintsToKeep, targetEntityId = targetEntityIdToKeep).right()
   }
 
   override fun setPropertyItemConstraints(
@@ -669,70 +695,29 @@ class AppVersionManagementService(
     entityId: String,
     propertyId: String,
     itemConstraints: Set<PropertyConstraint>,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property item constraints failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set property item constraints failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
-    val itemType = property.listItemType
-    if (property.type != PropertyType.LIST || itemType == null) {
-      logger.warn { "Set property item constraints failed: type ${property.type} does not support item constraints: $propertyId" }
-      return AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
-    }
-    val allowedConstraintClasses = itemType.availableItemConstraints().toSet()
-    val validConstraints = itemConstraints.filter { c -> allowedConstraintClasses.any { it.isInstance(c) } }.toSet()
-    val updatedProperty = property.copy(itemConstraints = validConstraints)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
+    var validConstraints: Set<PropertyConstraint> = emptySet()
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      val itemType = property.listItemType
+      if (property.type != PropertyType.LIST || itemType == null) {
+        logger.warn { "Set property item constraints failed: type ${property.type} does not support item constraints: $propertyId" }
+        AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.left()
+      } else {
+        val allowedConstraintClasses = itemType.availableItemConstraints().toSet()
+        validConstraints = itemConstraints.filter { c -> allowedConstraintClasses.any { it.isInstance(c) } }.toSet()
+        property.copy(itemConstraints = validConstraints).right()
+      }
+    }.fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property item constraints set: $propertyId in entity $entityId in version $versionId (${validConstraints.size} constraints)" }
     return updated.right()
-  }
-
-  override fun setNestedProperties(
-    appId: String,
-    versionId: String,
-    entityId: String,
-    propertyId: String,
-    nestedProperties: List<Property>,
-  ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
-    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
-      logger.warn { "Set nested properties failed: entity not found: $entityId in version $versionId" }
-      return AppVersionError.ENTITY_NOT_FOUND.left()
-    }
-    val property = entity.properties.find { it.id.value == propertyId } ?: run {
-      logger.warn { "Set nested properties failed: property not found: $propertyId in entity $entityId" }
-      return AppVersionError.PROPERTY_NOT_FOUND.left()
-    }
-    if (property.type != PropertyType.OBJECT) {
-      logger.warn { "Set nested properties failed: property $propertyId is not of type OBJECT" }
-      return AppVersionError.NESTED_PROPERTIES_NOT_SUPPORTED.left()
-    }
-    validateNestedProperties(nestedProperties)?.let { return it.left() }
-    val updatedProperty = property.copy(nestedProperties = nestedProperties)
-    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id.value == propertyId) updatedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Nested properties set: $propertyId in entity $entityId in version $versionId (${nestedProperties.size} properties)" }
-    return updated.right()
-  }
-
-  /** Validates names of nested properties (blank, duplicate) recursively, since they are not validated incrementally like top-level properties. */
-  private fun validateNestedProperties(properties: List<Property>): AppVersionError? {
-    if (properties.any { it.name.isBlank() }) return AppVersionError.BLANK_INPUT
-    if (properties.groupBy { it.name.trim().lowercase() }.any { it.value.size > 1 }) return AppVersionError.PROPERTY_NAME_ALREADY_EXISTS
-    for (nested in properties) {
-      if (nested.type == PropertyType.OBJECT) {
-        validateNestedProperties(nested.nestedProperties)?.let { return it }
-      }
-    }
-    return null
   }
 
   private fun parseListItemType(listItemType: String?): Either<DomainError, PropertyType> {
@@ -760,46 +745,114 @@ class AppVersionManagementService(
     return targetEntity.id.right()
   }
 
+  /**
+   * Resolves the list of properties addressed by [path] (a chain of ancestor OBJECT property ids, root to immediate
+   * parent) within [entity] and replaces it with the result of [transform], rebuilding every ancestor along the way.
+   * An empty path addresses the entity's own top-level properties.
+   */
+  private fun withPropertiesAtPath(
+    entity: EntityDefinition,
+    path: List<String>,
+    transform: (List<Property>) -> Either<DomainError, List<Property>>,
+  ): Either<DomainError, EntityDefinition> =
+    if (path.isEmpty()) {
+      transform(entity.properties).map { entity.copy(properties = it) }
+    } else {
+      val parent = entity.properties.find { it.id.value == path.first() && it.type == PropertyType.OBJECT }
+        ?: return AppVersionError.PROPERTY_NOT_FOUND.left()
+      withNestedPropertiesAtPath(parent, path.drop(1), transform).map { updatedParent ->
+        entity.copy(properties = entity.properties.map { if (it.id.value == parent.id.value) updatedParent else it })
+      }
+    }
+
+  private fun withNestedPropertiesAtPath(
+    property: Property,
+    path: List<String>,
+    transform: (List<Property>) -> Either<DomainError, List<Property>>,
+  ): Either<DomainError, Property> =
+    if (path.isEmpty()) {
+      transform(property.nestedProperties).map { property.copy(nestedProperties = it) }
+    } else {
+      val parent = property.nestedProperties.find { it.id.value == path.first() && it.type == PropertyType.OBJECT }
+        ?: return AppVersionError.PROPERTY_NOT_FOUND.left()
+      withNestedPropertiesAtPath(parent, path.drop(1), transform).map { updatedParent ->
+        property.copy(nestedProperties = property.nestedProperties.map { if (it.id.value == parent.id.value) updatedParent else it })
+      }
+    }
+
+  /** Resolves the list of properties addressed by [path] within [entity], or null if the path does not resolve to nested OBJECT properties. */
+  private fun propertiesAtPath(entity: EntityDefinition, path: List<String>): List<Property>? {
+    var current = entity.properties
+    for (id in path) {
+      current = current.find { it.id.value == id && it.type == PropertyType.OBJECT }?.nestedProperties ?: return null
+    }
+    return current
+  }
+
+  /** Mutates the single property identified by [propertyId] within the properties addressed by [path], rebuilding all ancestors. */
+  private fun mutatePropertyAtPath(
+    entity: EntityDefinition,
+    path: List<String>,
+    propertyId: String,
+    mutate: (Property) -> Either<DomainError, Property>,
+  ): Either<DomainError, EntityDefinition> = withPropertiesAtPath(entity, path) { properties ->
+    val property = properties.find { it.id.value == propertyId }
+    if (property == null) {
+      AppVersionError.PROPERTY_NOT_FOUND.left()
+    } else {
+      mutate(property).map { updated -> properties.map { if (it.id.value == propertyId) updated else it } }
+    }
+  }
+
   override fun reorderProperties(
     appId: String,
     versionId: String,
     entityId: String,
     propertyIds: List<String>,
+    path: List<String>,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Reorder properties failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val existingIds = entity.properties.map { it.id.value }.toSet()
-    if (propertyIds.toSet() != existingIds || propertyIds.size != entity.properties.size) {
-      logger.warn { "Reorder properties failed: property IDs mismatch for entity $entityId" }
-      return AppVersionError.PROPERTY_IDS_MISMATCH.left()
-    }
-    val propertyById = entity.properties.associateBy { it.id.value }
-    val reordered = propertyIds.mapNotNull { propertyById[it] }
-    val updatedEntity = entity.copy(properties = reordered)
+    val updatedEntity = withPropertiesAtPath(entity, path) { properties ->
+      val existingIds = properties.map { it.id.value }.toSet()
+      if (propertyIds.toSet() != existingIds || propertyIds.size != properties.size) {
+        logger.warn { "Reorder properties failed: property IDs mismatch for entity $entityId" }
+        AppVersionError.PROPERTY_IDS_MISMATCH.left()
+      } else {
+        val propertyById = properties.associateBy { it.id.value }
+        propertyIds.mapNotNull { propertyById[it] }.right()
+      }
+    }.fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Properties reordered in entity $entityId in version $versionId" }
     return updated.right()
   }
 
-  override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String): Either<DomainError, AppVersion> {
+  override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String, path: List<String>): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Delete property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    if (entity.properties.none { it.id.value == propertyId }) {
+    val siblings = propertiesAtPath(entity, path) ?: run {
+      logger.warn { "Delete property failed: invalid path $path in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    val propertyName = siblings.find { it.id.value == propertyId }?.name ?: run {
       logger.warn { "Delete property failed: property not found: $propertyId in entity $entityId" }
       return AppVersionError.PROPERTY_NOT_FOUND.left()
     }
-    val propertyName = entity.properties.first { it.id.value == propertyId }.name
-    val updatedEntity = entity.copy(
-      properties = entity.properties.filter { it.id.value != propertyId },
-      displayText = removePropertyFromDisplayText(entity.displayText, propertyName),
-    )
+    val withPropertyRemoved = withPropertiesAtPath(entity, path) { properties -> properties.filter { it.id.value != propertyId }.right() }
+      .fold({ return it.left() }, { it })
+    val updatedEntity = if (path.isEmpty()) {
+      withPropertyRemoved.copy(displayText = removePropertyFromDisplayText(entity.displayText, propertyName))
+    } else {
+      withPropertyRemoved
+    }
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property deleted: $propertyId from entity $entityId in version $versionId" }
