@@ -8,13 +8,12 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.App
+import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
-import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
-import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
@@ -36,12 +35,12 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
-import java.util.UUID
 import kotlin.time.toJavaDuration
 
 data class DeveloperApiResult(
@@ -64,29 +63,12 @@ data class SortCriteriaRequest @JsonCreator constructor(
   @param:JsonProperty("direction") val direction: SortDirection,
 )
 
-/** Recursive request shape for defining the structure of an OBJECT property, mirroring the fields of a top-level property. */
-data class NestedPropertyRequest @JsonCreator constructor(
-  @param:JsonProperty("id") val id: String? = null,
-  @param:JsonProperty("name") val name: String,
-  @param:JsonProperty("type") val type: String,
-  @param:JsonProperty("nullable") val nullable: Boolean = true,
-  @param:JsonProperty("targetEntityId") val targetEntityId: String? = null,
-  @param:JsonProperty("listItemType") val listItemType: String? = null,
-  @param:JsonProperty("nestedProperties") val nestedProperties: List<NestedPropertyRequest> = emptyList(),
-) {
-  fun toProperty(): Property {
-    val propertyType = runCatching { PropertyType.valueOf(type.trim().uppercase()) }.getOrDefault(PropertyType.STRING)
-    return Property(
-      id = PropertyId(id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()),
-      name = name.trim(),
-      type = propertyType,
-      nullable = nullable,
-      targetEntityId = targetEntityId?.takeIf { it.isNotBlank() }?.let { EntityDefinitionId(it) },
-      listItemType = listItemType?.takeIf { it.isNotBlank() }?.let { runCatching { PropertyType.valueOf(it.trim().uppercase()) }.getOrNull() },
-      nestedProperties = if (propertyType == PropertyType.OBJECT) nestedProperties.map { it.toProperty() } else emptyList(),
-    )
-  }
-}
+/** A single segment of the breadcrumb trail when editing properties nested inside an OBJECT property. */
+data class PropertyBreadcrumb(
+  val id: String,
+  val name: String,
+  val path: String,
+)
 
 @Path("/ui/developer")
 @ApplicationScoped
@@ -252,8 +234,11 @@ class DeveloperAppResource {
             .data("selectedEntity", null)
             .data("selectedReport", null)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("entityPropertiesJson", EMPTY_JSON_ARRAY)
-            .data("nestedPropertiesJson", EMPTY_JSON_OBJECT),
+            .data("currentProperties", emptyList<Property>())
+            .data("currentPropertiesJson", EMPTY_JSON_ARRAY)
+            .data("path", "")
+            .data("breadcrumb", emptyList<PropertyBreadcrumb>())
+            .data("isNestedLevel", false),
         ).build()
       },
     )
@@ -266,6 +251,7 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
+    @QueryParam("path") pathParam: String?,
   ): Response {
     val developerId = currentDeveloperUserIdValue()
       ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
@@ -280,10 +266,12 @@ class DeveloperAppResource {
         val isDraft = version.status == AppVersionStatus.DRAFT
         val hasDiff = hasDiffForDraft(appId, isDraft)
         val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
-        val entityPropertiesJson = RawString(
-          ObjectMapper().writeValueAsString(
-            selectedEntity?.properties?.map { mapOf("id" to it.id.value, "name" to it.name) } ?: emptyList<Any>()
-          )
+        val pathIds = parsePath(pathParam)
+        val resolved = selectedEntity?.let { resolvePath(it, pathIds) }
+        val currentProperties = resolved?.properties ?: selectedEntity?.properties ?: emptyList()
+        val breadcrumb = resolved?.breadcrumb ?: emptyList()
+        val currentPropertiesJson = RawString(
+          ObjectMapper().writeValueAsString(currentProperties.map { mapOf("id" to it.id.value, "name" to it.name) }),
         )
         Response.ok(
           versionEditorTemplate
@@ -294,8 +282,11 @@ class DeveloperAppResource {
             .data("selectedEntity", selectedEntity)
             .data("selectedReport", null)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("entityPropertiesJson", entityPropertiesJson)
-            .data("nestedPropertiesJson", nestedPropertiesJsonFor(selectedEntity)),
+            .data("currentProperties", currentProperties)
+            .data("currentPropertiesJson", currentPropertiesJson)
+            .data("path", breadcrumb.lastOrNull()?.path ?: "")
+            .data("breadcrumb", breadcrumb)
+            .data("isNestedLevel", breadcrumb.isNotEmpty()),
         ).build()
       },
     )
@@ -331,8 +322,11 @@ class DeveloperAppResource {
             .data("selectedEntity", null)
             .data("selectedReport", selectedReport)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("entityPropertiesJson", EMPTY_JSON_ARRAY)
-            .data("nestedPropertiesJson", EMPTY_JSON_OBJECT),
+            .data("currentProperties", emptyList<Property>())
+            .data("currentPropertiesJson", EMPTY_JSON_ARRAY)
+            .data("path", "")
+            .data("breadcrumb", emptyList<PropertyBreadcrumb>())
+            .data("isNestedLevel", false),
         ).build()
       },
     )
@@ -525,6 +519,7 @@ class DeveloperAppResource {
     @FormParam("nullable") nullable: Boolean?,
     @FormParam("targetEntityId") targetEntityId: String?,
     @FormParam("listItemType") listItemType: String?,
+    @FormParam("path") path: String?,
   ): Response {
     if (name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property name is required.")).build()
@@ -532,12 +527,13 @@ class DeveloperAppResource {
     if (type.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property type is required.")).build()
     }
-    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType).fold(
+    val pathIds = parsePath(path)
+    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType, pathIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { version ->
-        val newPropertyId = version.entityDefinitions.find { it.id.value == entityId }?.properties?.find { it.name == name.trim() }?.id?.value
+        val newPropertyId = propertiesAtPathOf(version, entityId, pathIds)?.find { it.name == name.trim() }?.id?.value
         Response.ok(
-          DeveloperApiResult(true, "Property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId", propertyId = newPropertyId),
+          DeveloperApiResult(true, "Property added.", entityEditorUrl(appId, versionId, entityId, path), propertyId = newPropertyId),
         ).build()
       },
     )
@@ -555,6 +551,7 @@ class DeveloperAppResource {
     @FormParam("name") name: String,
     @FormParam("type") type: String,
     @FormParam("nullable") nullable: Boolean?,
+    @FormParam("path") path: String?,
   ): Response {
     if (name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property name is required.")).build()
@@ -562,9 +559,9 @@ class DeveloperAppResource {
     if (type.isBlank()) {
       return Response.ok(DeveloperApiResult(false, "Property type is required.")).build()
     }
-    return appVersionManagement.updateProperty(appId, versionId, entityId, propertyId, name.trim(), type.trim(), nullable ?: true).fold(
+    return appVersionManagement.updateProperty(appId, versionId, entityId, propertyId, name.trim(), type.trim(), nullable ?: true, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Property updated.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Property updated.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -598,6 +595,7 @@ class DeveloperAppResource {
     @FormParam("maxDatetime") maxDatetime: String?,
     @FormParam("minDuration") minDuration: String?,
     @FormParam("maxDuration") maxDuration: String?,
+    @FormParam("path") path: String?,
   ): Response {
     val constraints = mutableSetOf<PropertyConstraint>()
     if (uniqueKey == true) constraints += PropertyConstraint.UniqueKey
@@ -620,9 +618,9 @@ class DeveloperAppResource {
     parseLocalDateTime(maxDatetime)?.let { constraints += PropertyConstraint.MaxDatetime(it) }
     parseDuration(minDuration)?.let { constraints += PropertyConstraint.MinDuration(it) }
     parseDuration(maxDuration)?.let { constraints += PropertyConstraint.MaxDuration(it) }
-    return appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints).fold(
+    return appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Constraints saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Constraints saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -636,10 +634,11 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     @FormParam("default") default: String?,
+    @FormParam("path") path: String?,
   ): Response {
-    return appVersionManagement.setPropertyDefault(appId, versionId, entityId, propertyId, default).fold(
+    return appVersionManagement.setPropertyDefault(appId, versionId, entityId, propertyId, default, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Default value saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Default value saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -653,10 +652,11 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     @FormParam("smartDefault") smartDefault: String?,
+    @FormParam("path") path: String?,
   ): Response {
-    return appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault).fold(
+    return appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Smart default saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Smart default saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -672,9 +672,10 @@ class DeveloperAppResource {
     form: MultivaluedMap<String, String>,
   ): Response {
     val valueProposals = form["valueProposal"] ?: emptyList()
-    return appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals).fold(
+    val path = form["path"]?.firstOrNull()
+    return appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Value proposals saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Value proposals saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -688,10 +689,11 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     @FormParam("targetEntityId") targetEntityId: String?,
+    @FormParam("path") path: String?,
   ): Response {
-    return appVersionManagement.setPropertyTargetEntity(appId, versionId, entityId, propertyId, targetEntityId).fold(
+    return appVersionManagement.setPropertyTargetEntity(appId, versionId, entityId, propertyId, targetEntityId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Target entity saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Target entity saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -705,10 +707,11 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     @FormParam("listItemType") listItemType: String?,
+    @FormParam("path") path: String?,
   ): Response {
-    return appVersionManagement.setPropertyListItemType(appId, versionId, entityId, propertyId, listItemType).fold(
+    return appVersionManagement.setPropertyListItemType(appId, versionId, entityId, propertyId, listItemType, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "List item type saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "List item type saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -738,6 +741,7 @@ class DeveloperAppResource {
     @FormParam("itemMaxDatetime") itemMaxDatetime: String?,
     @FormParam("itemMinDuration") itemMinDuration: String?,
     @FormParam("itemMaxDuration") itemMaxDuration: String?,
+    @FormParam("path") path: String?,
   ): Response {
     val itemConstraints = mutableSetOf<PropertyConstraint>()
     if (itemMinLong != null) itemConstraints += PropertyConstraint.MinLong(itemMinLong)
@@ -757,26 +761,11 @@ class DeveloperAppResource {
     parseLocalDateTime(itemMaxDatetime)?.let { itemConstraints += PropertyConstraint.MaxDatetime(it) }
     parseDuration(itemMinDuration)?.let { itemConstraints += PropertyConstraint.MinDuration(it) }
     parseDuration(itemMaxDuration)?.let { itemConstraints += PropertyConstraint.MaxDuration(it) }
-    return appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints).fold(
+    return appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Item constraints saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Item constraints saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
-
-  @POST
-  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/nested-properties")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  fun setNestedProperties(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("entityId") entityId: String,
-    @PathParam("propertyId") propertyId: String,
-    nestedProperties: List<NestedPropertyRequest>,
-  ): Response = appVersionManagement.setNestedProperties(appId, versionId, entityId, propertyId, nestedProperties.map { it.toProperty() }).fold(
-    ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-    ifRight = { Response.ok(DeveloperApiResult(true, "Nested properties saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
-  )
 
   @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/reorder")
@@ -789,7 +778,8 @@ class DeveloperAppResource {
     form: MultivaluedMap<String, String>,
   ): Response {
     val propertyIds = form["propertyId"] ?: emptyList()
-    return appVersionManagement.reorderProperties(appId, versionId, entityId, propertyIds).fold(
+    val path = form["path"]?.firstOrNull()
+    return appVersionManagement.reorderProperties(appId, versionId, entityId, propertyIds, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Properties reordered.")).build() },
     )
@@ -797,16 +787,18 @@ class DeveloperAppResource {
 
   @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/delete")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteProperty(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
+    @FormParam("path") path: String?,
   ): Response {
-    return appVersionManagement.deleteProperty(appId, versionId, entityId, propertyId).fold(
+    return appVersionManagement.deleteProperty(appId, versionId, entityId, propertyId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Property deleted.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Property deleted.", entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -1000,7 +992,6 @@ class DeveloperAppResource {
     AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> "Only List properties support a list item type."
     AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> "An item type is required for List properties."
     AppVersionError.LIST_ITEM_TYPE_INVALID.code -> "Invalid list item type."
-    AppVersionError.NESTED_PROPERTIES_NOT_SUPPORTED.code -> "Only Object properties support nested properties."
     else -> "An unexpected error occurred. Please try again."
   }
 
@@ -1022,27 +1013,38 @@ class DeveloperAppResource {
     else -> "An unexpected error occurred. Please try again."
   }
 
-  /** Recursive view of an OBJECT property's nested structure, for embedding into the version editor page as JSON. */
-  private fun Property.toNestedPropertyView(): Map<String, Any?> = mapOf(
-    "id" to id.value,
-    "name" to name,
-    "type" to type.name,
-    "nullable" to nullable,
-    "targetEntityId" to targetEntityId?.value,
-    "listItemType" to listItemType?.name,
-    "nestedProperties" to nestedProperties.map { it.toNestedPropertyView() },
-  )
+  /** Parses a comma-joined chain of ancestor OBJECT property IDs into a path, as used to address nested property levels. */
+  private fun parsePath(pathParam: String?): List<String> = pathParam?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
 
-  private fun nestedPropertiesJsonFor(entity: EntityDefinition?): RawString = RawString(
-    ObjectMapper().writeValueAsString(
-      entity?.properties?.filter { it.type == PropertyType.OBJECT }
-        ?.associate { it.id.value to it.nestedProperties.map { nested -> nested.toNestedPropertyView() } } ?: emptyMap<String, Any>(),
-    ),
-  )
+  /** Builds the URL for the entity editor at the given nesting path, preserving the `path` query param if non-empty. */
+  private fun entityEditorUrl(appId: String, versionId: String, entityId: String, path: String?): String {
+    val base = "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId"
+    return if (path.isNullOrBlank()) base else "$base?path=$path"
+  }
+
+  private data class ResolvedPath(val properties: List<Property>, val breadcrumb: List<PropertyBreadcrumb>)
+
+  /** Descends into `entity` following `pathIds`, returning the properties at that level plus the breadcrumb trail. Null if the path is invalid. */
+  private fun resolvePath(entity: EntityDefinition, pathIds: List<String>): ResolvedPath? {
+    var currentProperties = entity.properties
+    val breadcrumb = mutableListOf<PropertyBreadcrumb>()
+    val accumulatedIds = mutableListOf<String>()
+    for (id in pathIds) {
+      val property = currentProperties.find { it.id.value == id && it.type == PropertyType.OBJECT } ?: return null
+      accumulatedIds += id
+      breadcrumb += PropertyBreadcrumb(id = property.id.value, name = property.name, path = accumulatedIds.joinToString(","))
+      currentProperties = property.nestedProperties
+    }
+    return ResolvedPath(currentProperties, breadcrumb)
+  }
+
+  private fun propertiesAtPathOf(version: AppVersion, entityId: String, pathIds: List<String>): List<Property>? {
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: return null
+    return resolvePath(entity, pathIds)?.properties ?: entity.properties.takeIf { pathIds.isEmpty() }
+  }
 
   companion object {
     private val EMPTY_JSON_ARRAY: RawString = RawString("[]")
-    private val EMPTY_JSON_OBJECT: RawString = RawString("{}")
     private val predefinedSmartDefaultsJson: RawString = RawString(
       ObjectMapper().writeValueAsString(
         PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->

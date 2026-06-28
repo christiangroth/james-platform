@@ -409,7 +409,7 @@ class DeveloperAppPageTests {
   }
 
   @Test
-  fun `object property nested properties are embedded as array for define structure button`() {
+  fun `nested OBJECT property properties can be added and shown when descending via path`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "Nested Properties App ${System.nanoTime()}")
@@ -450,26 +450,28 @@ class DeveloperAppPageTests {
       .extract().body().jsonPath().getString("propertyId")
 
     given()
-      .contentType("application/json")
-      .body("""[{"name":"Street","type":"STRING","nullable":false}]""")
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Street")
+      .formParam("type", "STRING")
+      .formParam("nullable", false)
+      .formParam("path", propertyId)
       .`when`()
-      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties/$propertyId/nested-properties")
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
       .then()
       .statusCode(200)
       .body(containsString("\"ok\":true"))
 
-    val pageBody = given()
+    val nestedPageBody = given()
+      .queryParam("path", propertyId)
       .`when`()
       .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    val nestedPropertiesJson = pageBody
-      .substringAfter("id=\"nested-properties-data\">")
-      .substringBefore("</script>")
-    assertThat(nestedPropertiesJson).contains("\"name\":\"Street\"")
-    assertThat(nestedPropertiesJson).doesNotContain("\"name\":\"Address\"")
+    assertThat(nestedPageBody).contains("Street")
+    assertThat(nestedPageBody).doesNotContain("Computed Properties")
+    assertThat(nestedPageBody).doesNotContain("Sort Order")
   }
 }
 

@@ -9,7 +9,18 @@
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
                 {#if selectedEntity != null}
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}Draft{/if}</a></li>
+                {#if isNestedLevel}
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}" class="breadcrumb-link" data-testid="breadcrumb-entity">{selectedEntity.name}</a></li>
+                {#for segment in breadcrumb}
+                {#if segment_hasNext}
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}?path={segment.path}" class="breadcrumb-link" data-testid="breadcrumb-nested-{segment.id}">{segment.name}</a></li>
+                {#else}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-nested-{segment.id}">{segment.name}</li>
+                {/if}
+                {/for}
+                {#else}
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-entity">{selectedEntity.name}</li>
+                {/if}
                 {#else if selectedReport != null}
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}Draft{/if}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-report">{selectedReport.name}</li>
@@ -51,6 +62,7 @@
                     <h2 class="fs-5 fw-semibold mb-0">Entity: {selectedEntity.name}</h2>
                 </div>
 
+                {#if !isNestedLevel}
                 <!-- Display Text builder -->
                 <div class="mb-4">
                     <h3 class="fs-6 fw-semibold mb-2">Display Text</h3>
@@ -84,12 +96,13 @@
                         {/if}
                     </div>
                 </div>
+                {/if}
 
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h3 class="fs-6 fw-semibold mb-0">Properties</h3>
                     {#btn-icon-add testId="open-add-property-modal-button" bsTarget="#editPropertyModal" entityId=selectedEntity.id action="add-property" extraClass="ms-auto" /}
                 </div>
-                {#if selectedEntity.properties.isEmpty}
+                {#if currentProperties.isEmpty}
                 <p class="app-section-label mb-3" data-testid="no-properties">No properties yet.</p>
                 {#else}
                 <div class="table-responsive">
@@ -105,8 +118,8 @@
                             <th>Smart Default</th>
                         </tr>
                     </thead>
-                    <tbody id="propertiesTbody" data-entity-id="{selectedEntity.id}">
-                        {#for prop in selectedEntity.properties}
+                    <tbody id="propertiesTbody" data-entity-id="{selectedEntity.id}" data-path="{path}">
+                        {#for prop in currentProperties}
                         <tr class="clickable-row" data-testid="property-row" tabindex="0" role="button"
                             aria-label="Edit property {prop.name}"
                             data-action="edit-property"
@@ -158,12 +171,12 @@
                                 {/if}
                                 {#if prop.type.name == "OBJECT"}
                                 <br><button type="button" class="btn btn-app-secondary btn-sm mt-1" style="font-size:0.7rem;padding:0.1rem 0.4rem;"
-                                        data-testid="configure-object-structure-{prop.id}"
-                                        data-action="configure-object-structure"
+                                        data-testid="descend-into-property-{prop.id}"
+                                        data-action="descend-into-property"
                                         data-property-id="{prop.id}"
-                                        data-property-name="{prop.name}">
-                                    {#if prop.nestedProperties.isEmpty}Define structure ⚠
-                                    {#else}{prop.nestedProperties.size} nested propert{#if prop.nestedProperties.size == 1}y{#else}ies{/if}
+                                        data-child-path="{prop.childPath(path)}">
+                                    {#if prop.nestedProperties.isEmpty}No properties yet ›
+                                    {#else}{prop.nestedProperties.size} propert{#if prop.nestedProperties.size == 1}y{#else}ies{/if} ›
                                     {/if}
                                 </button>
                                 {/if}
@@ -203,6 +216,7 @@
                 </div>
                 {/if}
 
+                {#if !isNestedLevel}
                 <!-- Computed Properties -->
                 <div class="d-flex align-items-center mb-2 gap-2 mt-4">
                     <h3 class="fs-6 fw-semibold mb-0">Computed Properties</h3>
@@ -255,6 +269,8 @@
                             data-bs-toggle="modal" data-bs-target="#deleteEntityModal"
                             data-entity-id="{selectedEntity.id}"
                             data-testid="delete-entity-button">Delete</button>
+                </div>
+                {/if}
                 </div>
 
             </div>
@@ -605,6 +621,7 @@
                 <form id="editPropertyForm">
                     <input type="hidden" id="editPropertyEntityId" name="entityId" value="">
                     <input type="hidden" id="editPropertyId" name="propertyId" value="">
+                    <input type="hidden" id="editPropertyPath" name="path" value="">
                     <div class="modal-body">
                         <div id="editPropertyError" class="alert alert-danger d-none mb-3" role="alert"></div>
                         <div class="mb-3">
@@ -969,35 +986,6 @@
     </div>
     {/if}
 
-    <!-- Object Structure Modal -->
-    {#if isDraft}
-    <div class="modal fade" id="objectStructureModal" tabindex="-1" aria-labelledby="objectStructureModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content app-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="objectStructureModalLabel">Object Structure</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="objectStructureError" class="alert alert-danger d-none mb-3" role="alert"></div>
-                    <p class="app-section-label mb-3" style="font-size:0.8rem;">Define the properties contained in this object. Objects may themselves contain nested objects.</p>
-                    <div id="objectStructureTree" data-testid="object-structure-tree"></div>
-                    <button type="button" class="btn btn-app-secondary btn-sm mt-2" id="objectStructureAddRootBtn" data-testid="object-structure-add-root">+ Add Property</button>
-                    <select id="objectStructureTargetEntityTemplate" class="d-none">
-                        {#for e in version.entityDefinitions}
-                        <option value="{e.id}">{e.name}</option>
-                        {/for}
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-app-primary" id="saveObjectStructureBtn" data-testid="save-object-structure-btn">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    {/if}
-
     <!-- Add Computed Property Modal -->
     {#if isDraft}
     {#if selectedEntity != null}
@@ -1220,8 +1208,7 @@
     {/content}
     {#scripts}
     <script type="application/json" id="predefined-smart-defaults-data">{predefinedSmartDefaultsJson}</script>
-    <script type="application/json" id="entity-properties-data">{entityPropertiesJson}</script>
-    <script type="application/json" id="nested-properties-data">{nestedPropertiesJson}</script>
+    <script type="application/json" id="entity-properties-data">{currentPropertiesJson}</script>
     <script>
         (function () {
             var appId = '{app.id}';
@@ -1424,9 +1411,13 @@
                     var modal = bootstrap.Modal.getInstance(deletePropertyModal);
                     if (modal) { modal.hide(); }
                     confirmDeletePropertyBtn.disabled = true;
+                    var deletePropertyTbody = document.getElementById('propertiesTbody');
+                    var deletePropertyPath = deletePropertyTbody ? (deletePropertyTbody.getAttribute('data-path') || '') : '';
+                    var deletePropertyFormData = new FormData();
+                    if (deletePropertyPath !== '') deletePropertyFormData.set('path', deletePropertyPath);
                     await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeletePropertyEntityId + '/properties/' + pendingDeletePropertyId + '/delete',
-                        null, true
+                        deletePropertyFormData, true
                     );
                     confirmDeletePropertyBtn.disabled = false;
                 });
@@ -1440,6 +1431,7 @@
             // Edit Property buttons (combined property + constraints)
             var editPropertyModal = document.getElementById('editPropertyModal');
             if (editPropertyModal) {
+                var currentPropertiesPath = document.getElementById('propertiesTbody') ? (document.getElementById('propertiesTbody').getAttribute('data-path') || '') : '';
                 var CONSTRAINT_TYPE_GROUPS = {
                     'LONG':     ['UniqueKey', 'Long'],
                     'DOUBLE':   ['UniqueKey', 'Double'],
@@ -1581,6 +1573,7 @@
                         var currentPropertyId = btn.getAttribute('data-property-id');
                         document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
                         document.getElementById('editPropertyId').value = currentPropertyId;
+                        document.getElementById('editPropertyPath').value = currentPropertiesPath;
                         document.getElementById('editPropertyModalLabel').textContent = 'Edit Property \u2013 ' + btn.getAttribute('data-property-name');
                         if (editPropertyDeleteBtn) { editPropertyDeleteBtn.classList.remove('d-none'); }
                         document.getElementById('editPropertyName').value = btn.getAttribute('data-property-name');
@@ -1645,6 +1638,7 @@
                     btn.addEventListener('click', function () {
                         document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
                         document.getElementById('editPropertyId').value = '';
+                        document.getElementById('editPropertyPath').value = currentPropertiesPath;
                         document.getElementById('editPropertyModalLabel').textContent = 'Add Property';
                         if (editPropertyDeleteBtn) { editPropertyDeleteBtn.classList.add('d-none'); }
                         document.getElementById('editPropertyName').value = '';
@@ -1685,12 +1679,14 @@
                     btn.disabled = true;
                     var entityId = document.getElementById('editPropertyEntityId').value;
                     var propertyId = document.getElementById('editPropertyId').value;
+                    var editPath = document.getElementById('editPropertyPath').value;
                     var isCreate = propertyId === '';
                     if (isCreate) {
                         var addFormData = new FormData();
                         addFormData.set('name', document.getElementById('editPropertyName').value);
                         addFormData.set('type', document.getElementById('editPropertyType').value);
                         addFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                        if (editPath !== '') addFormData.set('path', editPath);
                         var addTargetEntityId = document.getElementById('editPropertyTargetEntity').value;
                         if (addTargetEntityId !== '') addFormData.set('targetEntityId', addTargetEntityId);
                         var addListItemType = document.getElementById('editPropertyListItemType').value;
@@ -1711,6 +1707,7 @@
                         propFormData.set('name', document.getElementById('editPropertyName').value);
                         propFormData.set('type', document.getElementById('editPropertyType').value);
                         propFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                        if (editPath !== '') propFormData.set('path', editPath);
                         var propResult = await apiPost(
                             '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId,
                             propFormData, false
@@ -1722,6 +1719,7 @@
                         }
                     }
                     var constraintFormData = new FormData();
+                    if (editPath !== '') constraintFormData.set('path', editPath);
                     if (!document.getElementById('constraintGroupUniqueKey').classList.contains('d-none') && document.getElementById('constraintUniqueKey').checked) {
                         constraintFormData.set('uniqueKey', 'true');
                     }
@@ -1792,6 +1790,7 @@
                     var currentListItemType = document.getElementById('editPropertyListItemType').value;
                     if (currentType === 'LIST') {
                         var listItemTypeFormData = new FormData();
+                        if (editPath !== '') listItemTypeFormData.set('path', editPath);
                         if (currentListItemType !== '') listItemTypeFormData.set('listItemType', currentListItemType);
                         var listItemTypeResult = await apiPost(
                             '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/list-item-type',
@@ -1803,6 +1802,7 @@
                             return;
                         }
                         var itemConstraintFormData = new FormData();
+                        if (editPath !== '') itemConstraintFormData.set('path', editPath);
                         if (!document.getElementById('itemConstraintGroupLong').classList.contains('d-none')) {
                             var itemMinLong = document.getElementById('itemConstraintMinLong').value;
                             var itemMaxLong = document.getElementById('itemConstraintMaxLong').value;
@@ -1835,6 +1835,7 @@
                     }
                     if (currentType === 'REF' || (currentType === 'LIST' && currentListItemType === 'REF')) {
                         var targetEntityFormData = new FormData();
+                        if (editPath !== '') targetEntityFormData.set('path', editPath);
                         var targetEntityId = document.getElementById('editPropertyTargetEntity').value;
                         if (targetEntityId !== '') targetEntityFormData.set('targetEntityId', targetEntityId);
                         var targetEntityResult = await apiPost(
@@ -1849,6 +1850,7 @@
                     }
                     if (DEFAULT_TYPE_GROUP[currentType] !== undefined) {
                         var defaultFormData = new FormData();
+                        if (editPath !== '') defaultFormData.set('path', editPath);
                         var defaultVal = '';
                         if (currentType === 'LONG' && !document.getElementById('defaultGroupLong').classList.contains('d-none')) {
                             defaultVal = document.getElementById('defaultLong').value;
@@ -1881,6 +1883,7 @@
                         }
                     }
                     var smartDefaultFormData = new FormData();
+                    if (editPath !== '') smartDefaultFormData.set('path', editPath);
                     var smartDefaultVal = document.getElementById('editPropertySmartDefault').value;
                     if (!document.getElementById('smartDefaultSection').classList.contains('d-none') && smartDefaultVal !== '') {
                         smartDefaultFormData.set('smartDefault', smartDefaultVal);
@@ -1897,6 +1900,7 @@
                     }
                     if (currentType === 'STRING') {
                         var vpFormData = new FormData();
+                        if (editPath !== '') vpFormData.set('path', editPath);
                         document.querySelectorAll('#valueProposalCheckboxes input[type="checkbox"]:checked').forEach(function (cb) {
                             vpFormData.append('valueProposal', cb.getAttribute('data-vp-prop-id'));
                         });
@@ -1939,225 +1943,16 @@
                 }
             }
 
-            // Object Structure modal (recursive editor for OBJECT property nested properties)
-            var objectStructureModal = document.getElementById('objectStructureModal');
-            if (objectStructureModal) {
-                var NESTED_PROPERTIES = JSON.parse(document.getElementById('nested-properties-data').textContent);
-                var objectStructureTargetEntityOptionsHtml = document.getElementById('objectStructureTargetEntityTemplate').innerHTML;
-                var objectStructureEntityId = null;
-                var objectStructurePropertyId = null;
-                var objectStructureTree = [];
-                var objectStructureError = document.getElementById('objectStructureError');
-
-                function blankObjectStructureNode() {
-                    return { id: '', name: '', type: 'STRING', nullable: false, listItemType: '', targetEntityId: '', nestedProperties: [] };
-                }
-
-                function objectStructureNodeFromJson(np) {
-                    return {
-                        id: np.id || '',
-                        name: np.name,
-                        type: np.type,
-                        nullable: np.nullable,
-                        listItemType: np.listItemType || '',
-                        targetEntityId: np.targetEntityId || '',
-                        nestedProperties: (np.nestedProperties || []).map(objectStructureNodeFromJson),
-                    };
-                }
-
-                function renderObjectStructureTree() {
-                    var container = document.getElementById('objectStructureTree');
-                    container.innerHTML = '';
-                    if (objectStructureTree.length === 0) {
-                        var msg = document.createElement('p');
-                        msg.className = 'app-section-label mb-0';
-                        msg.style.fontSize = '0.85rem';
-                        msg.setAttribute('data-testid', 'object-structure-empty');
-                        msg.textContent = 'No properties defined yet.';
-                        container.appendChild(msg);
-                        return;
-                    }
-                    objectStructureTree.forEach(function (node, index) {
-                        container.appendChild(renderObjectStructureNode(node, objectStructureTree, index));
-                    });
-                }
-
-                function renderObjectStructureNode(node, siblings, index) {
-                    var card = document.createElement('div');
-                    card.className = 'card app-card p-2 mb-2';
-                    card.setAttribute('data-testid', 'object-structure-node');
-
-                    var row = document.createElement('div');
-                    row.className = 'd-flex gap-2 align-items-center flex-wrap';
-
-                    var nameInput = document.createElement('input');
-                    nameInput.type = 'text';
-                    nameInput.className = 'form-control app-form-control form-control-sm';
-                    nameInput.style.maxWidth = '180px';
-                    nameInput.placeholder = 'Property name';
-                    nameInput.value = node.name;
-                    nameInput.setAttribute('data-testid', 'object-structure-name-input');
-                    nameInput.addEventListener('input', function () { node.name = this.value; });
-
-                    var typeSelect = document.createElement('select');
-                    typeSelect.className = 'form-select app-form-control form-select-sm';
-                    typeSelect.style.maxWidth = '150px';
-                    typeSelect.setAttribute('data-testid', 'object-structure-type-select');
-                    ['STRING', 'LONG', 'DOUBLE', 'BOOLEAN', 'DATE', 'TIME', 'DATETIME', 'DURATION', 'REF', 'LIST', 'OBJECT'].forEach(function (t) {
-                        var opt = document.createElement('option');
-                        opt.value = t;
-                        opt.textContent = t;
-                        typeSelect.appendChild(opt);
-                    });
-                    typeSelect.value = node.type;
-
-                    var listItemSelect = document.createElement('select');
-                    listItemSelect.className = 'form-select app-form-control form-select-sm';
-                    listItemSelect.style.maxWidth = '150px';
-                    listItemSelect.setAttribute('data-testid', 'object-structure-list-item-select');
-                    listItemSelect.innerHTML = '<option value="">– List item type –</option>'
-                        + ['STRING', 'LONG', 'DOUBLE', 'BOOLEAN', 'DATE', 'TIME', 'DATETIME', 'DURATION', 'REF', 'OBJECT'].map(function (t) {
-                            return '<option value="' + t + '">' + t + '</option>';
-                        }).join('');
-                    listItemSelect.value = node.listItemType;
-
-                    var targetEntitySelect = document.createElement('select');
-                    targetEntitySelect.className = 'form-select app-form-control form-select-sm';
-                    targetEntitySelect.style.maxWidth = '160px';
-                    targetEntitySelect.setAttribute('data-testid', 'object-structure-target-entity-select');
-                    targetEntitySelect.innerHTML = '<option value="">– Target entity –</option>' + objectStructureTargetEntityOptionsHtml;
-                    targetEntitySelect.value = node.targetEntityId;
-
-                    function updateNodeVisibility() {
-                        var t = typeSelect.value;
-                        listItemSelect.classList.toggle('d-none', t !== 'LIST');
-                        targetEntitySelect.classList.toggle('d-none', !(t === 'REF' || (t === 'LIST' && listItemSelect.value === 'REF')));
-                    }
-                    typeSelect.addEventListener('change', function () { node.type = this.value; updateNodeVisibility(); renderObjectStructureTree(); });
-                    listItemSelect.addEventListener('change', function () { node.listItemType = this.value; updateNodeVisibility(); });
-                    targetEntitySelect.addEventListener('change', function () { node.targetEntityId = this.value; });
-                    updateNodeVisibility();
-
-                    var nullableWrapper = document.createElement('div');
-                    nullableWrapper.className = 'form-check';
-                    var nullableCheck = document.createElement('input');
-                    nullableCheck.type = 'checkbox';
-                    nullableCheck.className = 'form-check-input';
-                    nullableCheck.checked = node.nullable;
-                    nullableCheck.setAttribute('data-testid', 'object-structure-nullable-check');
-                    nullableCheck.addEventListener('change', function () { node.nullable = this.checked; });
-                    var nullableLabel = document.createElement('label');
-                    nullableLabel.className = 'form-check-label small';
-                    nullableLabel.style.color = 'var(--color-text-muted)';
-                    nullableLabel.textContent = 'Nullable';
-                    nullableWrapper.appendChild(nullableCheck);
-                    nullableWrapper.appendChild(nullableLabel);
-
-                    var removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.className = 'btn btn-app-secondary btn-sm';
-                    removeBtn.textContent = 'Remove';
-                    removeBtn.setAttribute('data-testid', 'object-structure-remove-btn');
-                    removeBtn.addEventListener('click', function () {
-                        siblings.splice(index, 1);
-                        renderObjectStructureTree();
-                    });
-
-                    row.appendChild(nameInput);
-                    row.appendChild(typeSelect);
-                    row.appendChild(listItemSelect);
-                    row.appendChild(targetEntitySelect);
-                    row.appendChild(nullableWrapper);
-                    row.appendChild(removeBtn);
-                    card.appendChild(row);
-
-                    if (node.type === 'OBJECT') {
-                        var nestedContainer = document.createElement('div');
-                        nestedContainer.className = 'ms-4 mt-2';
-                        node.nestedProperties.forEach(function (child, childIndex) {
-                            nestedContainer.appendChild(renderObjectStructureNode(child, node.nestedProperties, childIndex));
-                        });
-                        if (node.nestedProperties.length === 0) {
-                            var emptyMsg = document.createElement('p');
-                            emptyMsg.className = 'app-section-label mb-1';
-                            emptyMsg.style.fontSize = '0.8rem';
-                            emptyMsg.textContent = 'No nested properties yet.';
-                            nestedContainer.appendChild(emptyMsg);
-                        }
-                        var addNestedBtn = document.createElement('button');
-                        addNestedBtn.type = 'button';
-                        addNestedBtn.className = 'btn btn-app-secondary btn-sm';
-                        addNestedBtn.textContent = '+ Add nested property';
-                        addNestedBtn.setAttribute('data-testid', 'object-structure-add-nested-btn');
-                        addNestedBtn.addEventListener('click', function () {
-                            node.nestedProperties.push(blankObjectStructureNode());
-                            renderObjectStructureTree();
-                        });
-                        nestedContainer.appendChild(addNestedBtn);
-                        card.appendChild(nestedContainer);
-                    }
-
-                    return card;
-                }
-
-                function toNestedPropertyPayload(node) {
-                    var isList = node.type === 'LIST';
-                    var isRef = node.type === 'REF' || (isList && node.listItemType === 'REF');
-                    return {
-                        id: node.id || null,
-                        name: node.name,
-                        type: node.type,
-                        nullable: node.nullable,
-                        listItemType: isList ? (node.listItemType || null) : null,
-                        targetEntityId: isRef ? (node.targetEntityId || null) : null,
-                        nestedProperties: node.type === 'OBJECT' ? node.nestedProperties.map(toNestedPropertyPayload) : [],
-                    };
-                }
-
-                document.querySelectorAll('[data-action="configure-object-structure"]').forEach(function (btn) {
-                    btn.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        objectStructurePropertyId = btn.getAttribute('data-property-id');
-                        objectStructureEntityId = document.getElementById('propertiesTbody').getAttribute('data-entity-id');
-                        document.getElementById('objectStructureModalLabel').textContent = 'Object Structure – ' + btn.getAttribute('data-property-name');
-                        var existing = NESTED_PROPERTIES[objectStructurePropertyId] || [];
-                        objectStructureTree = existing.map(objectStructureNodeFromJson);
-                        objectStructureError.classList.add('d-none');
-                        renderObjectStructureTree();
-                        bootstrap.Modal.getOrCreateInstance(objectStructureModal).show();
-                    });
+            // Descend into an OBJECT property's nested properties (breadcrumb navigation)
+            document.querySelectorAll('[data-action="descend-into-property"]').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var entityId = document.getElementById('propertiesTbody').getAttribute('data-entity-id');
+                    var childPath = btn.getAttribute('data-child-path');
+                    window.location.href = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId
+                        + '?path=' + encodeURIComponent(childPath);
                 });
-
-                document.getElementById('objectStructureAddRootBtn').addEventListener('click', function () {
-                    objectStructureTree.push(blankObjectStructureNode());
-                    renderObjectStructureTree();
-                });
-
-                document.getElementById('saveObjectStructureBtn').addEventListener('click', async function () {
-                    objectStructureError.classList.add('d-none');
-                    try {
-                        var response = await fetch(
-                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + objectStructureEntityId
-                                + '/properties/' + objectStructurePropertyId + '/nested-properties',
-                            {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                                body: JSON.stringify(objectStructureTree.map(toNestedPropertyPayload)),
-                            }
-                        );
-                        var result = await response.json();
-                        if (result.ok) {
-                            window.location.reload();
-                        } else {
-                            objectStructureError.textContent = result.message;
-                            objectStructureError.classList.remove('d-none');
-                        }
-                    } catch (e) {
-                        objectStructureError.textContent = 'Network error. Please try again.';
-                        objectStructureError.classList.remove('d-none');
-                    }
-                });
-            }
+            });
 
             // Delete Report modal
             var deleteReportModal = document.getElementById('deleteReportModal');
@@ -2803,7 +2598,9 @@
                     var propertyIds = Array.from(propertiesTbody.querySelectorAll('tr')).map(function (r) {
                         return r.getAttribute('data-property-id');
                     });
+                    var reorderPath = propertiesTbody.getAttribute('data-path') || '';
                     var formData = new FormData();
+                    if (reorderPath !== '') formData.set('path', reorderPath);
                     propertyIds.forEach(function (id) { formData.append('propertyId', id); });
                     try {
                         var response = await fetch(

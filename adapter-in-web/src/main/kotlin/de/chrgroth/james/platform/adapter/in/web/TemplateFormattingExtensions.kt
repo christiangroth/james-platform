@@ -274,6 +274,10 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun targetEntityId(property: Property): String = property.targetEntityId?.value ?: ""
 
+  /** Returns the comma-joined `path` query value for descending into this OBJECT property, appending its id to the current path. */
+  @JvmStatic
+  fun childPath(property: Property, path: String): String = if (path.isBlank()) property.id.value else "$path,${property.id.value}"
+
   /** Returns the name of the target entity of a Reference property within the given version,
    * or empty string if not set or no longer found.
    */
