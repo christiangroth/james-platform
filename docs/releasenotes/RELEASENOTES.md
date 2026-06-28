@@ -1,3 +1,13 @@
+# 0.46.0 (2026.06.28)
+
+## New Features
+* Duration property values now show an input hint for the accepted text format (e.g. `1d 2h 30m 15s` or `02:30:15`).
+* Duration values entered in app data and property defaults are now validated against this format and rejected if invalid.
+
+
+
+---
+
 # 0.45.0 (2026.06.28)
 
 ## New Features
