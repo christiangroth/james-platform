@@ -451,6 +451,15 @@ class UserAppStoreResource {
     is PropertyConstraintViolation.MinSizeViolation -> "List must have at least ${violation.min} elements."
     is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
     is PropertyConstraintViolation.InvalidReferenceViolation -> "Selected reference is invalid or no longer exists."
+    is PropertyConstraintViolation.MinDateViolation -> "Date must not be before ${violation.min}."
+    is PropertyConstraintViolation.MaxDateViolation -> "Date must not be after ${violation.max}."
+    is PropertyConstraintViolation.MinTimeViolation -> "Time must not be before ${violation.min}."
+    is PropertyConstraintViolation.MaxTimeViolation -> "Time must not be after ${violation.max}."
+    is PropertyConstraintViolation.MinDatetimeViolation -> "Date/time must not be before ${violation.min}."
+    is PropertyConstraintViolation.MaxDatetimeViolation -> "Date/time must not be after ${violation.max}."
+    is PropertyConstraintViolation.MinDurationViolation -> "Duration must not be less than ${violation.min}."
+    is PropertyConstraintViolation.MaxDurationViolation -> "Duration must not exceed ${violation.max}."
+    is PropertyConstraintViolation.StepViolation -> "Value must be a multiple of ${violation.step}."
   }
 
   private fun applySortCriteria(

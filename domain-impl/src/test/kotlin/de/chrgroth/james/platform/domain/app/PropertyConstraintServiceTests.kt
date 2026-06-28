@@ -119,6 +119,190 @@ class PropertyConstraintServiceTests {
 
   // endregion
 
+  // region StepLong / StepDouble
+
+  @Test
+  fun `checkValue passes StepLong when value is a multiple of step`() {
+    val property = property(type = PropertyType.LONG, constraints = setOf(PropertyConstraint.StepLong(5L)))
+
+    assertThat(service.checkValue(property, 10L)).isEmpty()
+    assertThat(service.checkValue(property, 0L)).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports STEP_VIOLATION when Long value is not a multiple of step`() {
+    val property = property(type = PropertyType.LONG, constraints = setOf(PropertyConstraint.StepLong(5L)))
+
+    val violations = service.checkValue(property, 7L)
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.StepViolation(5L))
+  }
+
+  @Test
+  fun `checkValue passes StepDouble when value is a multiple of step`() {
+    val property = property(type = PropertyType.DOUBLE, constraints = setOf(PropertyConstraint.StepDouble(0.5)))
+
+    assertThat(service.checkValue(property, 1.0)).isEmpty()
+    assertThat(service.checkValue(property, 1.5)).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports STEP_VIOLATION when Double value is not a multiple of step`() {
+    val property = property(type = PropertyType.DOUBLE, constraints = setOf(PropertyConstraint.StepDouble(0.5)))
+
+    val violations = service.checkValue(property, 1.2)
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.StepViolation(0.5))
+  }
+
+  // endregion
+
+  // region MinDate / MaxDate
+
+  @Test
+  fun `checkValue passes MinDate and MaxDate when value is within range`() {
+    val property = property(
+      type = PropertyType.DATE,
+      constraints = setOf(PropertyConstraint.MinDate(java.time.LocalDate.parse("2020-01-01")), PropertyConstraint.MaxDate(java.time.LocalDate.parse("2030-01-01"))),
+    )
+
+    assertThat(service.checkValue(property, "2025-06-15")).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports MinDateViolation when date is before minimum`() {
+    val min = java.time.LocalDate.parse("2020-01-01")
+    val property = property(type = PropertyType.DATE, constraints = setOf(PropertyConstraint.MinDate(min)))
+
+    val violations = service.checkValue(property, "2019-12-31")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinDateViolation(min))
+  }
+
+  @Test
+  fun `checkValue reports MaxDateViolation when date is after maximum`() {
+    val max = java.time.LocalDate.parse("2030-01-01")
+    val property = property(type = PropertyType.DATE, constraints = setOf(PropertyConstraint.MaxDate(max)))
+
+    val violations = service.checkValue(property, "2030-01-02")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxDateViolation(max))
+  }
+
+  @Test
+  fun `checkValue skips MinDate when value is not a parseable date string`() {
+    val property = property(type = PropertyType.DATE, constraints = setOf(PropertyConstraint.MinDate(java.time.LocalDate.parse("2020-01-01"))))
+
+    assertThat(service.checkValue(property, "not a date")).isEmpty()
+  }
+
+  // endregion
+
+  // region MinTime / MaxTime
+
+  @Test
+  fun `checkValue passes MinTime and MaxTime when value is within range`() {
+    val property = property(
+      type = PropertyType.TIME,
+      constraints = setOf(PropertyConstraint.MinTime(java.time.LocalTime.parse("08:00:00")), PropertyConstraint.MaxTime(java.time.LocalTime.parse("18:00:00"))),
+    )
+
+    assertThat(service.checkValue(property, "12:00:00")).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports MinTimeViolation when time is before minimum`() {
+    val min = java.time.LocalTime.parse("08:00:00")
+    val property = property(type = PropertyType.TIME, constraints = setOf(PropertyConstraint.MinTime(min)))
+
+    val violations = service.checkValue(property, "07:59:59")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinTimeViolation(min))
+  }
+
+  @Test
+  fun `checkValue reports MaxTimeViolation when time is after maximum`() {
+    val max = java.time.LocalTime.parse("18:00:00")
+    val property = property(type = PropertyType.TIME, constraints = setOf(PropertyConstraint.MaxTime(max)))
+
+    val violations = service.checkValue(property, "18:00:01")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxTimeViolation(max))
+  }
+
+  // endregion
+
+  // region MinDatetime / MaxDatetime
+
+  @Test
+  fun `checkValue passes MinDatetime and MaxDatetime when value is within range`() {
+    val property = property(
+      type = PropertyType.DATETIME,
+      constraints = setOf(
+        PropertyConstraint.MinDatetime(java.time.LocalDateTime.parse("2020-01-01T00:00:00")),
+        PropertyConstraint.MaxDatetime(java.time.LocalDateTime.parse("2030-01-01T00:00:00")),
+      ),
+    )
+
+    assertThat(service.checkValue(property, "2025-06-15T12:00:00")).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports MinDatetimeViolation when datetime is before minimum`() {
+    val min = java.time.LocalDateTime.parse("2020-01-01T00:00:00")
+    val property = property(type = PropertyType.DATETIME, constraints = setOf(PropertyConstraint.MinDatetime(min)))
+
+    val violations = service.checkValue(property, "2019-12-31T23:59:59")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinDatetimeViolation(min))
+  }
+
+  @Test
+  fun `checkValue reports MaxDatetimeViolation when datetime is after maximum`() {
+    val max = java.time.LocalDateTime.parse("2030-01-01T00:00:00")
+    val property = property(type = PropertyType.DATETIME, constraints = setOf(PropertyConstraint.MaxDatetime(max)))
+
+    val violations = service.checkValue(property, "2030-01-01T00:00:01")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxDatetimeViolation(max))
+  }
+
+  // endregion
+
+  // region MinDuration / MaxDuration
+
+  @Test
+  fun `checkValue passes MinDuration and MaxDuration when value is within range`() {
+    val property = property(
+      type = PropertyType.DURATION,
+      constraints = setOf(PropertyConstraint.MinDuration(java.time.Duration.parse("PT1H")), PropertyConstraint.MaxDuration(java.time.Duration.parse("PT8H"))),
+    )
+
+    assertThat(service.checkValue(property, "PT4H")).isEmpty()
+  }
+
+  @Test
+  fun `checkValue reports MinDurationViolation when duration is below minimum`() {
+    val min = java.time.Duration.parse("PT1H")
+    val property = property(type = PropertyType.DURATION, constraints = setOf(PropertyConstraint.MinDuration(min)))
+
+    val violations = service.checkValue(property, "PT30M")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MinDurationViolation(min))
+  }
+
+  @Test
+  fun `checkValue reports MaxDurationViolation when duration exceeds maximum`() {
+    val max = java.time.Duration.parse("PT8H")
+    val property = property(type = PropertyType.DURATION, constraints = setOf(PropertyConstraint.MaxDuration(max)))
+
+    val violations = service.checkValue(property, "PT9H")
+
+    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxDurationViolation(max))
+  }
+
+  // endregion
+
   // region MinLength / MaxLength / Pattern
 
   @Test

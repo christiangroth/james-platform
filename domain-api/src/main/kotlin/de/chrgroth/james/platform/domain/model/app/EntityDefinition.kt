@@ -1,5 +1,9 @@
 package de.chrgroth.james.platform.domain.model.app
 
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import kotlin.reflect.KClass
 
 @JvmInline
@@ -59,10 +63,12 @@ sealed interface PropertyConstraint {
   // Numeric constraints (LONG)
   data class MinLong(val min: Long) : PropertyConstraint
   data class MaxLong(val max: Long) : PropertyConstraint
+  data class StepLong(val step: Long) : PropertyConstraint
 
   // Decimal constraints (DOUBLE)
   data class MinDouble(val min: Double) : PropertyConstraint
   data class MaxDouble(val max: Double) : PropertyConstraint
+  data class StepDouble(val step: Double) : PropertyConstraint
 
   // String constraints (STRING)
   data class MinLength(val min: Int) : PropertyConstraint
@@ -72,6 +78,22 @@ sealed interface PropertyConstraint {
   // List constraints (LIST)
   data class MinSize(val min: Int) : PropertyConstraint
   data class MaxSize(val max: Int) : PropertyConstraint
+
+  // Date constraints (DATE)
+  data class MinDate(val min: LocalDate) : PropertyConstraint
+  data class MaxDate(val max: LocalDate) : PropertyConstraint
+
+  // Time constraints (TIME)
+  data class MinTime(val min: LocalTime) : PropertyConstraint
+  data class MaxTime(val max: LocalTime) : PropertyConstraint
+
+  // Datetime constraints (DATETIME)
+  data class MinDatetime(val min: LocalDateTime) : PropertyConstraint
+  data class MaxDatetime(val max: LocalDateTime) : PropertyConstraint
+
+  // Duration constraints (DURATION)
+  data class MinDuration(val min: Duration) : PropertyConstraint
+  data class MaxDuration(val max: Duration) : PropertyConstraint
 }
 
 enum class PropertyType {
@@ -80,6 +102,7 @@ enum class PropertyType {
       PropertyConstraint.UniqueKey::class,
       PropertyConstraint.MinLong::class,
       PropertyConstraint.MaxLong::class,
+      PropertyConstraint.StepLong::class,
     )
   },
   DOUBLE {
@@ -87,6 +110,7 @@ enum class PropertyType {
       PropertyConstraint.UniqueKey::class,
       PropertyConstraint.MinDouble::class,
       PropertyConstraint.MaxDouble::class,
+      PropertyConstraint.StepDouble::class,
     )
   },
   BOOLEAN {
@@ -105,16 +129,22 @@ enum class PropertyType {
   DATE {
     override fun availableConstraints() = listOf(
       PropertyConstraint.UniqueKey::class,
+      PropertyConstraint.MinDate::class,
+      PropertyConstraint.MaxDate::class,
     )
   },
   TIME {
     override fun availableConstraints() = listOf(
       PropertyConstraint.UniqueKey::class,
+      PropertyConstraint.MinTime::class,
+      PropertyConstraint.MaxTime::class,
     )
   },
   DATETIME {
     override fun availableConstraints() = listOf(
       PropertyConstraint.UniqueKey::class,
+      PropertyConstraint.MinDatetime::class,
+      PropertyConstraint.MaxDatetime::class,
     )
   },
   REF {
@@ -127,6 +157,8 @@ enum class PropertyType {
   DURATION {
     override fun availableConstraints() = listOf(
       PropertyConstraint.UniqueKey::class,
+      PropertyConstraint.MinDuration::class,
+      PropertyConstraint.MaxDuration::class,
     )
   },
   LIST {
