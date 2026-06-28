@@ -18,6 +18,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
@@ -41,6 +42,7 @@ import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
 import java.util.UUID
+import kotlin.time.toJavaDuration
 
 data class DeveloperApiResult(
   val ok: Boolean,
@@ -1009,7 +1011,8 @@ class DeveloperAppResource {
   private fun parseLocalDateTime(value: String?): java.time.LocalDateTime? =
     value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.LocalDateTime.parse(it) }.getOrNull() }
 
-  private fun parseDuration(value: String?): java.time.Duration? = value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.Duration.parse(it) }.getOrNull() }
+  private fun parseDuration(value: String?): java.time.Duration? =
+    value?.takeIf { it.isNotBlank() }?.let { parseDurationValue(it) }?.toJavaDuration()
 
   private fun reportErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> "Name is required."

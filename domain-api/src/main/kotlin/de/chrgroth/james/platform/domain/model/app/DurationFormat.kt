@@ -37,3 +37,12 @@ fun parseDurationValue(raw: String): Duration? {
 }
 
 private fun String.toDurationPartOrZero(): Long = if (isEmpty()) 0L else toLong()
+
+/** Formats a duration as a colon-separated "hh:mm:ss" string, accepted back by [parseDurationValue]. */
+fun formatDurationValue(duration: java.time.Duration): String {
+  val totalSeconds = duration.seconds
+  val hours = totalSeconds / 3600
+  val minutes = (totalSeconds % 3600) / 60
+  val seconds = totalSeconds % 60
+  return "%d:%02d:%02d".format(hours, minutes, seconds)
+}
