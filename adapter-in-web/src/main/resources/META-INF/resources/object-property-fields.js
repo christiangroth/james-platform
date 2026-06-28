@@ -41,9 +41,32 @@ function objectFieldScalarInput(field, name, value) {
     input.className = 'form-control app-form-control form-control-sm';
     input.name = name;
     if (!field.nullable) input.required = true;
-    if (field.type === 'DOUBLE') input.step = 'any';
+    if (field.type === 'DOUBLE') input.step = field.step || 'any';
+    else if (field.type === 'LONG' && field.step) input.step = field.step;
     if (field.type === 'DURATION') input.placeholder = 'e.g. 1d 2h 30m 15s or 02:30:15';
     if (value !== undefined && value !== null) input.value = value;
+
+    if ((field.type === 'LONG' || field.type === 'DOUBLE') && field.step) {
+        var group = document.createElement('div');
+        group.className = 'input-group input-group-sm';
+        group.appendChild(input);
+        var stepDown = document.createElement('button');
+        stepDown.type = 'button';
+        stepDown.className = 'btn btn-app-secondary number-step-down';
+        stepDown.tabIndex = -1;
+        stepDown.setAttribute('aria-label', 'Decrease value');
+        stepDown.innerHTML = '&minus;';
+        group.appendChild(stepDown);
+        var stepUp = document.createElement('button');
+        stepUp.type = 'button';
+        stepUp.className = 'btn btn-app-secondary number-step-up';
+        stepUp.tabIndex = -1;
+        stepUp.setAttribute('aria-label', 'Increase value');
+        stepUp.innerHTML = '&plus;';
+        group.appendChild(stepUp);
+        return group;
+    }
+
     return input;
 }
 
@@ -126,3 +149,21 @@ var objectFieldReferenceOptionsData = {};
 function objectFieldReferenceOptions(propertyId) {
     return objectFieldReferenceOptionsData[propertyId];
 }
+
+/**
+ * Handles clicks on number-step-up / number-step-down buttons rendered next to numeric inputs that have a
+ * Step constraint configured (both server-rendered top-level fields and JS-rendered OBJECT fields above).
+ */
+document.addEventListener('click', function (e) {
+    var button = e.target.closest('.number-step-up, .number-step-down');
+    if (!button) return;
+    var input = button.closest('.input-group').querySelector('input');
+    if (!input) return;
+    if (button.classList.contains('number-step-up')) {
+        input.stepUp();
+    } else {
+        input.stepDown();
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+});

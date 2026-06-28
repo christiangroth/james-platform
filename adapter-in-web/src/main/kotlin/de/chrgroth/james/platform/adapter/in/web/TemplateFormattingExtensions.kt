@@ -144,6 +144,32 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun constraintStepDouble(property: Property): String = constraintValue<PropertyConstraint.StepDouble>(property.constraints) { it.step }
 
+  /**
+   * Returns the configured Step constraint value for LONG/DOUBLE properties, or empty string if none is set.
+   * Used to decide whether to show increment/decrement buttons.
+   */
+  @JvmStatic
+  fun constraintStep(property: Property): String = when (property.type) {
+    PropertyType.LONG -> constraintStepLong(property)
+    PropertyType.DOUBLE -> constraintStepDouble(property)
+    else -> ""
+  }
+
+  /**
+   * Returns the HTML `step` attribute value for LONG/DOUBLE properties: the configured Step constraint if set,
+   * otherwise "any" for DOUBLE (to allow arbitrary decimals) or empty string for LONG (native default step of 1).
+   * Returns empty string for all other property types.
+   */
+  @JvmStatic
+  fun numberStepAttribute(property: Property): String {
+    val step = constraintStep(property)
+    return when {
+      step.isNotEmpty() -> step
+      property.type == PropertyType.DOUBLE -> "any"
+      else -> ""
+    }
+  }
+
   /** Returns the MinDate constraint value, or empty string if not set. */
   @JvmStatic
   fun constraintMinDate(property: Property): String = constraintValue<PropertyConstraint.MinDate>(property.constraints) { it.min }

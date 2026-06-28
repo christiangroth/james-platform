@@ -72,16 +72,22 @@
                         {/for}
                     </select>
                     {#else}
-                    <input type="{prop.htmlInputType}"
-                           class="form-control app-form-control form-control-sm"
-                           name="prop_{prop.id}"
-                           id="prop_{prop.id}"
-                           {#if !prop.nullable}required{/if}
-                           {#if prop.type.name == "DOUBLE"}step="any"{/if}
-                           {#if prop.type.name == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
-                           {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
-                           {#if prop.hasValueProposals}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposals}" data-installed-app-id="{info.installedAppId}" data-entity-type-id="{entity.id}" data-property-id="{prop.id}"{/if}
-                           data-testid="property-input-{prop.id}">
+                    <div class="input-group input-group-sm">
+                        <input type="{prop.htmlInputType}"
+                               class="form-control app-form-control form-control-sm"
+                               name="prop_{prop.id}"
+                               id="prop_{prop.id}"
+                               {#if !prop.nullable}required{/if}
+                               {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
+                               {#if prop.type.name == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
+                               {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
+                               {#if prop.hasValueProposals}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposals}" data-installed-app-id="{info.installedAppId}" data-entity-type-id="{entity.id}" data-property-id="{prop.id}"{/if}
+                               data-testid="property-input-{prop.id}">
+                        {#if (prop.type.name == "LONG" || prop.type.name == "DOUBLE") && !prop.constraintStep.isEmpty}
+                        <button type="button" class="btn btn-app-secondary number-step-down" tabindex="-1" aria-label="Decrease value" data-testid="property-input-{prop.id}-step-down">&minus;</button>
+                        <button type="button" class="btn btn-app-secondary number-step-up" tabindex="-1" aria-label="Increase value" data-testid="property-input-{prop.id}-step-up">&plus;</button>
+                        {/if}
+                    </div>
                     {#if prop.hasValueProposals}<datalist id="datalist_{prop.id}"></datalist>{/if}
                     {/if}
                 </div>
