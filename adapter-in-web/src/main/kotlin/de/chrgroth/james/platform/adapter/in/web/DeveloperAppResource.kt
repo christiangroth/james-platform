@@ -42,7 +42,13 @@ import java.net.URI
 import java.time.Instant
 import java.util.UUID
 
-data class DeveloperApiResult(val ok: Boolean, val message: String, val redirectUrl: String? = null, val fieldErrors: Map<String, String>? = null)
+data class DeveloperApiResult(
+  val ok: Boolean,
+  val message: String,
+  val redirectUrl: String? = null,
+  val fieldErrors: Map<String, String>? = null,
+  val propertyId: String? = null,
+)
 
 data class DashboardAppInfo(
   val app: App,
@@ -526,7 +532,12 @@ class DeveloperAppResource {
     }
     return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { version ->
+        val newPropertyId = version.entityDefinitions.find { it.id.value == entityId }?.properties?.find { it.name == name.trim() }?.id?.value
+        Response.ok(
+          DeveloperApiResult(true, "Property added.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId", propertyId = newPropertyId),
+        ).build()
+      },
     )
   }
 
@@ -568,25 +579,45 @@ class DeveloperAppResource {
     @FormParam("uniqueKey") uniqueKey: Boolean?,
     @FormParam("minLong") minLong: Long?,
     @FormParam("maxLong") maxLong: Long?,
+    @FormParam("stepLong") stepLong: Long?,
     @FormParam("minDouble") minDouble: Double?,
     @FormParam("maxDouble") maxDouble: Double?,
+    @FormParam("stepDouble") stepDouble: Double?,
     @FormParam("minLength") minLength: Int?,
     @FormParam("maxLength") maxLength: Int?,
     @FormParam("pattern") pattern: String?,
     @FormParam("minSize") minSize: Int?,
     @FormParam("maxSize") maxSize: Int?,
+    @FormParam("minDate") minDate: String?,
+    @FormParam("maxDate") maxDate: String?,
+    @FormParam("minTime") minTime: String?,
+    @FormParam("maxTime") maxTime: String?,
+    @FormParam("minDatetime") minDatetime: String?,
+    @FormParam("maxDatetime") maxDatetime: String?,
+    @FormParam("minDuration") minDuration: String?,
+    @FormParam("maxDuration") maxDuration: String?,
   ): Response {
     val constraints = mutableSetOf<PropertyConstraint>()
     if (uniqueKey == true) constraints += PropertyConstraint.UniqueKey
     if (minLong != null) constraints += PropertyConstraint.MinLong(minLong)
     if (maxLong != null) constraints += PropertyConstraint.MaxLong(maxLong)
+    if (stepLong != null) constraints += PropertyConstraint.StepLong(stepLong)
     if (minDouble != null) constraints += PropertyConstraint.MinDouble(minDouble)
     if (maxDouble != null) constraints += PropertyConstraint.MaxDouble(maxDouble)
+    if (stepDouble != null) constraints += PropertyConstraint.StepDouble(stepDouble)
     if (minLength != null) constraints += PropertyConstraint.MinLength(minLength)
     if (maxLength != null) constraints += PropertyConstraint.MaxLength(maxLength)
     if (!pattern.isNullOrBlank()) constraints += PropertyConstraint.Pattern(pattern.trim())
     if (minSize != null) constraints += PropertyConstraint.MinSize(minSize)
     if (maxSize != null) constraints += PropertyConstraint.MaxSize(maxSize)
+    parseLocalDate(minDate)?.let { constraints += PropertyConstraint.MinDate(it) }
+    parseLocalDate(maxDate)?.let { constraints += PropertyConstraint.MaxDate(it) }
+    parseLocalTime(minTime)?.let { constraints += PropertyConstraint.MinTime(it) }
+    parseLocalTime(maxTime)?.let { constraints += PropertyConstraint.MaxTime(it) }
+    parseLocalDateTime(minDatetime)?.let { constraints += PropertyConstraint.MinDatetime(it) }
+    parseLocalDateTime(maxDatetime)?.let { constraints += PropertyConstraint.MaxDatetime(it) }
+    parseDuration(minDuration)?.let { constraints += PropertyConstraint.MinDuration(it) }
+    parseDuration(maxDuration)?.let { constraints += PropertyConstraint.MaxDuration(it) }
     return appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Constraints saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
@@ -690,20 +721,40 @@ class DeveloperAppResource {
     @PathParam("propertyId") propertyId: String,
     @FormParam("itemMinLong") itemMinLong: Long?,
     @FormParam("itemMaxLong") itemMaxLong: Long?,
+    @FormParam("itemStepLong") itemStepLong: Long?,
     @FormParam("itemMinDouble") itemMinDouble: Double?,
     @FormParam("itemMaxDouble") itemMaxDouble: Double?,
+    @FormParam("itemStepDouble") itemStepDouble: Double?,
     @FormParam("itemMinLength") itemMinLength: Int?,
     @FormParam("itemMaxLength") itemMaxLength: Int?,
     @FormParam("itemPattern") itemPattern: String?,
+    @FormParam("itemMinDate") itemMinDate: String?,
+    @FormParam("itemMaxDate") itemMaxDate: String?,
+    @FormParam("itemMinTime") itemMinTime: String?,
+    @FormParam("itemMaxTime") itemMaxTime: String?,
+    @FormParam("itemMinDatetime") itemMinDatetime: String?,
+    @FormParam("itemMaxDatetime") itemMaxDatetime: String?,
+    @FormParam("itemMinDuration") itemMinDuration: String?,
+    @FormParam("itemMaxDuration") itemMaxDuration: String?,
   ): Response {
     val itemConstraints = mutableSetOf<PropertyConstraint>()
     if (itemMinLong != null) itemConstraints += PropertyConstraint.MinLong(itemMinLong)
     if (itemMaxLong != null) itemConstraints += PropertyConstraint.MaxLong(itemMaxLong)
+    if (itemStepLong != null) itemConstraints += PropertyConstraint.StepLong(itemStepLong)
     if (itemMinDouble != null) itemConstraints += PropertyConstraint.MinDouble(itemMinDouble)
     if (itemMaxDouble != null) itemConstraints += PropertyConstraint.MaxDouble(itemMaxDouble)
+    if (itemStepDouble != null) itemConstraints += PropertyConstraint.StepDouble(itemStepDouble)
     if (itemMinLength != null) itemConstraints += PropertyConstraint.MinLength(itemMinLength)
     if (itemMaxLength != null) itemConstraints += PropertyConstraint.MaxLength(itemMaxLength)
     if (!itemPattern.isNullOrBlank()) itemConstraints += PropertyConstraint.Pattern(itemPattern.trim())
+    parseLocalDate(itemMinDate)?.let { itemConstraints += PropertyConstraint.MinDate(it) }
+    parseLocalDate(itemMaxDate)?.let { itemConstraints += PropertyConstraint.MaxDate(it) }
+    parseLocalTime(itemMinTime)?.let { itemConstraints += PropertyConstraint.MinTime(it) }
+    parseLocalTime(itemMaxTime)?.let { itemConstraints += PropertyConstraint.MaxTime(it) }
+    parseLocalDateTime(itemMinDatetime)?.let { itemConstraints += PropertyConstraint.MinDatetime(it) }
+    parseLocalDateTime(itemMaxDatetime)?.let { itemConstraints += PropertyConstraint.MaxDatetime(it) }
+    parseDuration(itemMinDuration)?.let { itemConstraints += PropertyConstraint.MinDuration(it) }
+    parseDuration(itemMaxDuration)?.let { itemConstraints += PropertyConstraint.MaxDuration(it) }
     return appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, "Item constraints saved.", "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
@@ -950,6 +1001,15 @@ class DeveloperAppResource {
     AppVersionError.NESTED_PROPERTIES_NOT_SUPPORTED.code -> "Only Object properties support nested properties."
     else -> "An unexpected error occurred. Please try again."
   }
+
+  private fun parseLocalDate(value: String?): java.time.LocalDate? = value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+
+  private fun parseLocalTime(value: String?): java.time.LocalTime? = value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.LocalTime.parse(it) }.getOrNull() }
+
+  private fun parseLocalDateTime(value: String?): java.time.LocalDateTime? =
+    value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.LocalDateTime.parse(it) }.getOrNull() }
+
+  private fun parseDuration(value: String?): java.time.Duration? = value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.Duration.parse(it) }.getOrNull() }
 
   private fun reportErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> "Name is required."

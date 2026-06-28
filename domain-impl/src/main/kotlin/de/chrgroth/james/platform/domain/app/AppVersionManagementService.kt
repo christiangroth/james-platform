@@ -1055,13 +1055,23 @@ class AppVersionManagementService(
   private fun isRestrictiveConstraint(constraint: PropertyConstraint): Boolean = when (constraint) {
     is PropertyConstraint.MinLong,
     is PropertyConstraint.MaxLong,
+    is PropertyConstraint.StepLong,
     is PropertyConstraint.MinDouble,
     is PropertyConstraint.MaxDouble,
+    is PropertyConstraint.StepDouble,
     is PropertyConstraint.MinLength,
     is PropertyConstraint.MaxLength,
     is PropertyConstraint.Pattern,
     is PropertyConstraint.MinSize,
     is PropertyConstraint.MaxSize,
+    is PropertyConstraint.MinDate,
+    is PropertyConstraint.MaxDate,
+    is PropertyConstraint.MinTime,
+    is PropertyConstraint.MaxTime,
+    is PropertyConstraint.MinDatetime,
+    is PropertyConstraint.MaxDatetime,
+    is PropertyConstraint.MinDuration,
+    is PropertyConstraint.MaxDuration,
     -> true
     else -> false
   }
@@ -1225,13 +1235,23 @@ class AppVersionManagementService(
     is PropertyConstraint.UniqueKey -> "unique-key"
     is PropertyConstraint.MinLong -> "min:${constraint.min}"
     is PropertyConstraint.MaxLong -> "max:${constraint.max}"
+    is PropertyConstraint.StepLong -> "step:${constraint.step}"
     is PropertyConstraint.MinDouble -> "min:${constraint.min}"
     is PropertyConstraint.MaxDouble -> "max:${constraint.max}"
+    is PropertyConstraint.StepDouble -> "step:${constraint.step}"
     is PropertyConstraint.MinLength -> "min-length:${constraint.min}"
     is PropertyConstraint.MaxLength -> "max-length:${constraint.max}"
     is PropertyConstraint.Pattern -> "pattern:${constraint.regex}"
     is PropertyConstraint.MinSize -> "min-size:${constraint.min}"
     is PropertyConstraint.MaxSize -> "max-size:${constraint.max}"
+    is PropertyConstraint.MinDate -> "min:${constraint.min}"
+    is PropertyConstraint.MaxDate -> "max:${constraint.max}"
+    is PropertyConstraint.MinTime -> "min:${constraint.min}"
+    is PropertyConstraint.MaxTime -> "max:${constraint.max}"
+    is PropertyConstraint.MinDatetime -> "min:${constraint.min}"
+    is PropertyConstraint.MaxDatetime -> "max:${constraint.max}"
+    is PropertyConstraint.MinDuration -> "min:${constraint.min}"
+    is PropertyConstraint.MaxDuration -> "max:${constraint.max}"
   }
 
   @Suppress("NestedBlockDepth")

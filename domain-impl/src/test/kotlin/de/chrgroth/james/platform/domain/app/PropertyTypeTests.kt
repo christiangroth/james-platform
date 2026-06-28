@@ -46,9 +46,9 @@ class PropertyTypeTests {
   // region LONG
 
   @Test
-  fun `LONG includes MinLong and MaxLong`() {
+  fun `LONG includes MinLong, MaxLong and StepLong`() {
     val constraints = PropertyType.LONG.availableConstraints()
-    assertThat(constraints).contains(PropertyConstraint.MinLong::class, PropertyConstraint.MaxLong::class)
+    assertThat(constraints).contains(PropertyConstraint.MinLong::class, PropertyConstraint.MaxLong::class, PropertyConstraint.StepLong::class)
   }
 
   @Test
@@ -68,9 +68,9 @@ class PropertyTypeTests {
   // region DOUBLE
 
   @Test
-  fun `DOUBLE includes MinDouble and MaxDouble`() {
+  fun `DOUBLE includes MinDouble, MaxDouble and StepDouble`() {
     val constraints = PropertyType.DOUBLE.availableConstraints()
-    assertThat(constraints).contains(PropertyConstraint.MinDouble::class, PropertyConstraint.MaxDouble::class)
+    assertThat(constraints).contains(PropertyConstraint.MinDouble::class, PropertyConstraint.MaxDouble::class, PropertyConstraint.StepDouble::class)
   }
 
   @Test
@@ -149,21 +149,21 @@ class PropertyTypeTests {
   }
 
   @Test
-  fun `DATE has only UniqueKey`() {
+  fun `DATE includes UniqueKey, MinDate and MaxDate`() {
     assertThat(PropertyType.DATE.availableConstraints())
-      .containsExactly(PropertyConstraint.UniqueKey::class)
+      .containsExactly(PropertyConstraint.UniqueKey::class, PropertyConstraint.MinDate::class, PropertyConstraint.MaxDate::class)
   }
 
   @Test
-  fun `TIME has only UniqueKey`() {
+  fun `TIME includes UniqueKey, MinTime and MaxTime`() {
     assertThat(PropertyType.TIME.availableConstraints())
-      .containsExactly(PropertyConstraint.UniqueKey::class)
+      .containsExactly(PropertyConstraint.UniqueKey::class, PropertyConstraint.MinTime::class, PropertyConstraint.MaxTime::class)
   }
 
   @Test
-  fun `DATETIME has only UniqueKey`() {
+  fun `DATETIME includes UniqueKey, MinDatetime and MaxDatetime`() {
     assertThat(PropertyType.DATETIME.availableConstraints())
-      .containsExactly(PropertyConstraint.UniqueKey::class)
+      .containsExactly(PropertyConstraint.UniqueKey::class, PropertyConstraint.MinDatetime::class, PropertyConstraint.MaxDatetime::class)
   }
 
   @Test
@@ -173,9 +173,9 @@ class PropertyTypeTests {
   }
 
   @Test
-  fun `DURATION has only UniqueKey`() {
+  fun `DURATION includes UniqueKey, MinDuration and MaxDuration`() {
     assertThat(PropertyType.DURATION.availableConstraints())
-      .containsExactly(PropertyConstraint.UniqueKey::class)
+      .containsExactly(PropertyConstraint.UniqueKey::class, PropertyConstraint.MinDuration::class, PropertyConstraint.MaxDuration::class)
   }
 
   // endregion
