@@ -1,3 +1,12 @@
+# 0.50.0 (2026.06.28)
+
+## New Features
+* Data entry for Object properties now uses the same breadcrumb-based navigation as the developer area: nested structures are entered by drilling into a property, with a breadcrumb trail to navigate back, instead of deeply nested boxes.
+
+
+
+---
+
 # 0.49.0 (2026.06.28)
 
 ## New Features
