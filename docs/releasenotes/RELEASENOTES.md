@@ -1,3 +1,13 @@
+# 0.51.0 (2026.06.28)
+
+## New Features
+* Improved contrast of borders and table dividers in the dark theme, making tables and cards easier to read.
+* Logout button now shows an icon and hides its text label on small screens to save space.
+
+
+
+---
+
 # 0.50.2 (2026.06.28)
 
 ## Bugfixes / Chore
