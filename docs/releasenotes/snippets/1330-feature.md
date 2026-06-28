@@ -1,0 +1,1 @@
+* Data entry for Object properties now uses the same breadcrumb-based navigation as the developer area: nested structures are entered by drilling into a property, with a breadcrumb trail to navigate back, instead of deeply nested boxes.
