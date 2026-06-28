@@ -1,3 +1,17 @@
+# 0.50.2 (2026.06.28)
+
+## Bugfixes / Chore
+* Fixed an issue where browsers could keep serving an outdated, cached version of JavaScript files (e.g. after an update) by appending a cache-busting version parameter to all custom script URLs.
+* Nested OBJECT properties in data entry forms are now visually set apart with a bordered card, and the breadcrumb showing the current nesting level is more clearly highlighted.
+* Moved the delete button for entities in the app version draft editor into the header row, now shown as an icon-only button.
+* Aligned the buttons in the "New App" creation dialog to the right.
+* Right-aligned the buttons on the "new data entry" form, with Cancel on the left and Save on the right.
+* Replaced the round "add data" button with a standard button styled like the other action buttons.
+
+
+
+---
+
 # 0.50.1 (2026.06.28)
 
 ## Bugfixes / Chore
