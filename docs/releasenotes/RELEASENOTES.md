@@ -1,3 +1,12 @@
+# 0.47.1 (2026.06.28)
+
+## Bugfixes / Chore
+* Fixed increment/decrement step buttons not showing up on numeric fields when editing existing data entries.
+
+
+
+---
+
 # 0.47.0 (2026.06.28)
 
 ## New Features
