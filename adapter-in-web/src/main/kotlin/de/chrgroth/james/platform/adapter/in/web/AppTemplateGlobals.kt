@@ -18,9 +18,12 @@ class AppTemplateGlobals {
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
+  private val assetVersion: String = System.currentTimeMillis().toString()
+
   fun onEngineBuilder(@Observes builder: EngineBuilder) {
     builder.addTemplateInstanceInitializer { instance ->
       instance.data("appBuildVersion", version)
+      instance.data("assetVersion", assetVersion)
       val isAdmin = runCatching { securityIdentity.roles?.contains(UserRole.ADMIN.name) ?: false }.getOrDefault(false)
       instance.data("isAdmin", isAdmin)
       val isDeveloper = runCatching { securityIdentity.roles?.contains(UserRole.DEVELOPER.name) ?: false }.getOrDefault(false)
