@@ -60,6 +60,7 @@
             <div class="card app-card p-4" data-testid="entity-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">Entity: {selectedEntity.name}</h2>
+                    {#btn-icon-delete testId="delete-entity-button" title="Delete entity" extraClass="ms-auto" bsTarget="#deleteEntityModal" action="" entityId=selectedEntity.id propertyId="" reportId="" username="" /}
                 </div>
 
                 {#if !isNestedLevel}
@@ -264,12 +265,6 @@
                 </div>
                 {/if}
 
-                <div class="d-flex justify-content-start mt-4">
-                    <button type="button" class="btn btn-app-danger btn-sm"
-                            data-bs-toggle="modal" data-bs-target="#deleteEntityModal"
-                            data-entity-id="{selectedEntity.id}"
-                            data-testid="delete-entity-button">Delete</button>
-                </div>
                 {/if}
                 </div>
 
