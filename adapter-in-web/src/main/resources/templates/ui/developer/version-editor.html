@@ -1649,7 +1649,7 @@
                         if (editPropertyDeleteBtn) { editPropertyDeleteBtn.classList.add('d-none'); }
                         document.getElementById('editPropertyName').value = '';
                         document.getElementById('editPropertyType').value = '';
-                        document.getElementById('editPropertyNullable').checked = true;
+                        document.getElementById('editPropertyNullable').checked = false;
                         document.getElementById('editPropertyTargetEntity').value = '';
                         document.getElementById('editPropertyListItemType').value = '';
                         document.getElementById('editPropertySmartDefault').value = '';
@@ -1950,7 +1950,7 @@
                 var objectStructureError = document.getElementById('objectStructureError');
 
                 function blankObjectStructureNode() {
-                    return { id: '', name: '', type: 'STRING', nullable: true, listItemType: '', targetEntityId: '', nestedProperties: [] };
+                    return { id: '', name: '', type: 'STRING', nullable: false, listItemType: '', targetEntityId: '', nestedProperties: [] };
                 }
 
                 function objectStructureNodeFromJson(np) {
