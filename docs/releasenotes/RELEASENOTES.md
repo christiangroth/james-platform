@@ -1,3 +1,12 @@
+# 0.50.1 (2026.06.28)
+
+## Bugfixes / Chore
+* Standardized button order and alignment across all pages and modals: Cancel/Back, then destructive (red), then save/positive (blue) actions.
+
+
+
+---
+
 # 0.50.0 (2026.06.28)
 
 ## New Features
