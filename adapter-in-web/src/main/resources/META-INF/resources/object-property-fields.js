@@ -155,7 +155,8 @@ function objectFieldReferenceOptions(propertyId) {
  * Step constraint configured (both server-rendered top-level fields and JS-rendered OBJECT fields above).
  */
 document.addEventListener('click', function (e) {
-    var button = e.target.closest('.number-step-up, .number-step-down');
+    var target = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
+    var button = target ? target.closest('.number-step-up, .number-step-down') : null;
     if (!button) return;
     var input = button.closest('.input-group').querySelector('input');
     if (!input) return;
