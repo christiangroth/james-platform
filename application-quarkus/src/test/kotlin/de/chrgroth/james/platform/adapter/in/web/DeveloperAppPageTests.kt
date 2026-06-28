@@ -9,6 +9,7 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import jakarta.inject.Inject
+import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.BeforeEach
@@ -405,6 +406,70 @@ class DeveloperAppPageTests {
       .then()
       .statusCode(200)
       .body(containsString("&lt;STRING&gt;"))
+  }
+
+  @Test
+  fun `object property nested properties are embedded as array for define structure button`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Nested Properties App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val propertyId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Address")
+      .formParam("type", "OBJECT")
+      .formParam("nullable", false)
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("propertyId")
+
+    given()
+      .contentType("application/json")
+      .body("""[{"name":"Street","type":"STRING","nullable":false}]""")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties/$propertyId/nested-properties")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val pageBody = given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    val nestedPropertiesJson = pageBody
+      .substringAfter("id=\"nested-properties-data\">")
+      .substringBefore("</script>")
+    assertThat(nestedPropertiesJson).contains("\"name\":\"Street\"")
+    assertThat(nestedPropertiesJson).doesNotContain("\"name\":\"Address\"")
   }
 }
 

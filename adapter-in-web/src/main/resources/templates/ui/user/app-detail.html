@@ -20,20 +20,7 @@
             {#else}
             <div class="table-responsive">
                 <table class="table table-sm mb-0 app-table" data-testid="app-data-table" data-entity-id="{tab.entityId}">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th></th>
-                        </tr>
-                    </thead>
                     <tbody>
-                        <tr data-testid="add-data-row">
-                            <td colspan="2">
-                                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
-                                   data-testid="add-data-button"
-                                   class="app-section-label">add more data ...</a>
-                            </td>
-                        </tr>
                         {#for item in tab.rows}
                         <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                             <td data-testid="app-data-index">{item_count}</td>
@@ -42,6 +29,13 @@
                         {/for}
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex justify-content-center mt-2">
+                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
+                   data-testid="add-data-button"
+                   class="app-add-data-btn"
+                   title="add more data"
+                   aria-label="add more data">+</a>
             </div>
             {/if}
             {/let}
@@ -75,20 +69,7 @@
                     {#else}
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 app-table" data-testid="app-data-table-{tab.entityName}" data-entity-id="{tab.entityId}">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
                             <tbody>
-                                <tr data-testid="add-data-tab-row-{tab.entityName}">
-                                    <td colspan="2">
-                                        <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
-                                           data-testid="add-data-tab-button-{tab.entityName}"
-                                           class="app-section-label">add more data ...</a>
-                                    </td>
-                                </tr>
                                 {#for item in tab.rows}
                                 <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                                     <td data-testid="app-data-index">{item_count}</td>
@@ -97,6 +78,13 @@
                                 {/for}
                             </tbody>
                         </table>
+                    </div>
+                    <div class="d-flex justify-content-center mt-2">
+                        <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
+                           data-testid="add-data-tab-button-{tab.entityName}"
+                           class="app-add-data-btn"
+                           title="add more data"
+                           aria-label="add more data">+</a>
                     </div>
                     {/if}
                 </div>
