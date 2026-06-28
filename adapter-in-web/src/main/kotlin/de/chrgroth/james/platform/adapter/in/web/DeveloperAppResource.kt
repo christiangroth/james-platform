@@ -1035,7 +1035,8 @@ class DeveloperAppResource {
 
   private fun nestedPropertiesJsonFor(entity: EntityDefinition?): RawString = RawString(
     ObjectMapper().writeValueAsString(
-      entity?.properties?.filter { it.type == PropertyType.OBJECT }?.associate { it.id.value to it.toNestedPropertyView() } ?: emptyMap<String, Any>(),
+      entity?.properties?.filter { it.type == PropertyType.OBJECT }
+        ?.associate { it.id.value to it.nestedProperties.map { nested -> nested.toNestedPropertyView() } } ?: emptyMap<String, Any>(),
     ),
   )
 
