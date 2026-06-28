@@ -160,6 +160,8 @@
                                value="{#if prop.value != null}{prop.value}{/if}"
                                {#if !prop.nullable}required{/if}
                                {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
+                               {#if !prop.min.isEmpty}min="{prop.min}"{/if}
+                               {#if !prop.max.isEmpty}max="{prop.max}"{/if}
                                {#if prop.type == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
                                {#if !prop.valueProposals.isEmpty}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposalsString}" data-installed-app-id="{detail.installedAppId}" data-entity-type-id="{detail.entityTypeId}" data-property-id="{prop.id}"{/if}
                                data-testid="edit-property-input-{prop.id}">

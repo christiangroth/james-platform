@@ -156,6 +156,22 @@ object TemplateFormattingExtensions {
     else -> ""
   }
 
+  /** Returns the configured Min constraint value for LONG/DOUBLE properties, or empty string if none is set. */
+  @JvmStatic
+  fun constraintMin(property: Property): String = when (property.type) {
+    PropertyType.LONG -> constraintMinLong(property)
+    PropertyType.DOUBLE -> constraintMinDouble(property)
+    else -> ""
+  }
+
+  /** Returns the configured Max constraint value for LONG/DOUBLE properties, or empty string if none is set. */
+  @JvmStatic
+  fun constraintMax(property: Property): String = when (property.type) {
+    PropertyType.LONG -> constraintMaxLong(property)
+    PropertyType.DOUBLE -> constraintMaxDouble(property)
+    else -> ""
+  }
+
   /**
    * Returns the HTML `step` attribute value for LONG/DOUBLE properties: the configured Step constraint if set,
    * otherwise "any" for DOUBLE (to allow arbitrary decimals) or empty string for LONG (native default step of 1).
