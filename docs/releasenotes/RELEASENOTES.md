@@ -1,3 +1,12 @@
+# 0.47.0 (2026.06.28)
+
+## New Features
+* Numeric input fields with a configured Step constraint now show plus/minus buttons and use the native HTML step behavior for entering values.
+
+
+
+---
+
 # 0.46.0 (2026.06.28)
 
 ## New Features
