@@ -10,6 +10,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.DURATION_FORMAT_HINT
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
@@ -460,6 +461,7 @@ class UserAppStoreResource {
     is PropertyConstraintViolation.MinDurationViolation -> "Duration must not be less than ${violation.min}."
     is PropertyConstraintViolation.MaxDurationViolation -> "Duration must not exceed ${violation.max}."
     is PropertyConstraintViolation.StepViolation -> "Value must be a multiple of ${violation.step}."
+    is PropertyConstraintViolation.InvalidDurationFormatViolation -> "Value must use the duration format $DURATION_FORMAT_HINT."
   }
 
   private fun applySortCriteria(

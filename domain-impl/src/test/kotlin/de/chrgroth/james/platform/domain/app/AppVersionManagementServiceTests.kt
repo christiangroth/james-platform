@@ -1379,6 +1379,35 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `setPropertyDefault sets default on DURATION property given unit-suffixed or colon-separated value`() {
+    val property = Property(id = PropertyId("p-1"), name = "Cooldown", type = PropertyType.DURATION)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns emptyList()
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "1d 2h 30m 15s")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.default).isEqualTo("1d 2h 30m 15s")
+  }
+
+  @Test
+  fun `setPropertyDefault fails when default does not match the accepted DURATION format`() {
+    val property = Property(id = PropertyId("p-1"), name = "Cooldown", type = PropertyType.DURATION)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "not-a-duration")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_VALUE_INVALID)
+  }
+
+  @Test
   fun `setPropertyDefault fails for LIST type`() {
     val property = Property(id = PropertyId("p-1"), name = "Items", type = PropertyType.LIST)
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))

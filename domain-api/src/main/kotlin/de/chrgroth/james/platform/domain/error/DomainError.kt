@@ -146,4 +146,5 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data class MinDurationViolation(val min: java.time.Duration) : PropertyConstraintViolation("PROP-017")
   data class MaxDurationViolation(val max: java.time.Duration) : PropertyConstraintViolation("PROP-018")
   data class StepViolation(val step: Number) : PropertyConstraintViolation("PROP-019")
+  data object InvalidDurationFormatViolation : PropertyConstraintViolation("PROP-020")
 }

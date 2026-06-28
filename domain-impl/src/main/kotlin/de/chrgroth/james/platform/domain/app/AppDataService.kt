@@ -18,6 +18,7 @@ import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -75,7 +76,7 @@ class AppDataService(
         property,
         parsedValue,
         existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId))
+      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
       if (violations.isNotEmpty()) {
         logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
@@ -171,7 +172,7 @@ class AppDataService(
         property,
         parsedValue,
         existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId))
+      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
       if (violations.isNotEmpty()) {
         logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
@@ -284,6 +285,17 @@ class AppDataService(
     return referencedIds.filter { it !in existingTargetIds }.map { PropertyConstraintViolation.InvalidReferenceViolation }
   }
 
+  /** Returns a violation for DURATION property values (scalar or LIST<DURATION> items) that do not match [DURATION_FORMAT_HINT]'s format. */
+  private fun durationFormatViolations(property: Property, storedValue: String?): List<PropertyConstraintViolation> {
+    if (storedValue.isNullOrBlank()) return emptyList()
+    val durationValues = when {
+      property.type == PropertyType.DURATION -> listOf(storedValue)
+      property.type == PropertyType.LIST && property.listItemType == PropertyType.DURATION -> decodeListValue(storedValue).filter { it.isNotBlank() }
+      else -> return emptyList()
+    }
+    return durationValues.filter { parseDurationValue(it) == null }.map { PropertyConstraintViolation.InvalidDurationFormatViolation }
+  }
+
   private fun parseValue(property: Property, storedValue: String?): Any? {
     if (storedValue.isNullOrBlank()) return null
     return when (property.type) {
@@ -312,6 +324,7 @@ class AppDataService(
     PropertyType.LONG -> rawValue.toLongOrNull()
     PropertyType.DOUBLE -> rawValue.toDoubleOrNull()
     PropertyType.BOOLEAN -> rawValue.equals("true", ignoreCase = true)
+    PropertyType.DURATION -> parseDurationValue(rawValue)
     else -> rawValue
   }
 
