@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.domain.app
 
+import de.chrgroth.james.platform.domain.model.app.formatDurationValue
 import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
@@ -38,5 +39,18 @@ class DurationFormatTests {
   @org.junit.jupiter.api.Test
   fun `sums unit-suffixed parts into the expected duration`() {
     assertThat(parseDurationValue("1d 2h 30m 15s")).isEqualTo(1.days + 2.hours + 30.minutes + 15.seconds)
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+    "PT2H30M15S, 2:30:15",
+    "PT24H, 24:00:00",
+    "PT0S, 0:00:00",
+  )
+  fun `formats a duration as colon-separated hh-mm-ss, accepted back by parseDurationValue`(iso: String, expected: String) {
+    val duration = java.time.Duration.parse(iso)
+
+    assertThat(formatDurationValue(duration)).isEqualTo(expected)
+    assertThat(parseDurationValue(formatDurationValue(duration))).isEqualTo(kotlin.time.Duration.parseIsoString(iso))
   }
 }

@@ -4,12 +4,13 @@ import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import jakarta.enterprise.context.ApplicationScoped
-import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import kotlin.time.toJavaDuration
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -41,9 +42,11 @@ class PropertyConstraintService : PropertyConstraintPort {
         is PropertyConstraint.MaxDatetime ->
           parseOrNull(value) { LocalDateTime.parse(it) }?.let { if (it > constraint.max) violations += PropertyConstraintViolation.MaxDatetimeViolation(constraint.max) }
         is PropertyConstraint.MinDuration ->
-          parseOrNull(value) { Duration.parse(it) }?.let { if (it < constraint.min) violations += PropertyConstraintViolation.MinDurationViolation(constraint.min) }
+          parseOrNull(value) { parseDurationValue(it)?.toJavaDuration() ?: error("invalid duration") }
+            ?.let { if (it < constraint.min) violations += PropertyConstraintViolation.MinDurationViolation(constraint.min) }
         is PropertyConstraint.MaxDuration ->
-          parseOrNull(value) { Duration.parse(it) }?.let { if (it > constraint.max) violations += PropertyConstraintViolation.MaxDurationViolation(constraint.max) }
+          parseOrNull(value) { parseDurationValue(it)?.toJavaDuration() ?: error("invalid duration") }
+            ?.let { if (it > constraint.max) violations += PropertyConstraintViolation.MaxDurationViolation(constraint.max) }
       }
     }
     val listItemType = property.listItemType
