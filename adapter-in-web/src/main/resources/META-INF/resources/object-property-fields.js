@@ -159,6 +159,10 @@ function buildObjectLevel(container, field, namePrefix, value, path) {
     var level = document.createElement('div');
     level.className = 'object-level' + (path === '' ? '' : ' d-none');
     level.dataset.path = path;
+    if (path !== '') {
+        var depth = path.split('.').length;
+        level.dataset.depth = ((depth - 1) % 2) + 1;
+    }
     container._pathNames[path] = field.name;
 
     if (field.nestedProperties.length === 0) {
