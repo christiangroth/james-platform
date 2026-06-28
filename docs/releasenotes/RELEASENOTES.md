@@ -1,3 +1,17 @@
+# 0.47.3 (2026.06.28)
+
+## Bugfixes / Chore
+* Fixed step increment/decrement buttons on numeric fields not responding to clicks when creating or editing objects.
+* New properties in the developer area no longer default to "Nullable" being checked.
+* Fixed the "Define structure" button for Object properties not opening the structure editor.
+* Cleaned up the entity data table on the app detail page.
+* Removed the table header row.
+* Replaced the "add more data" link with a centered gray plus button below the table.
+
+
+
+---
+
 # 0.47.2 (2026.06.28)
 
 ## Bugfixes / Chore
