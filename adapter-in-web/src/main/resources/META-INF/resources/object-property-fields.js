@@ -42,6 +42,7 @@ function objectFieldScalarInput(field, name, value) {
     input.name = name;
     if (!field.nullable) input.required = true;
     if (field.type === 'DOUBLE') input.step = 'any';
+    if (field.type === 'DURATION') input.placeholder = 'e.g. 1d 2h 30m 15s or 02:30:15';
     if (value !== undefined && value !== null) input.value = value;
     return input;
 }

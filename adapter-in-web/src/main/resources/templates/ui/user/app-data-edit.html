@@ -107,7 +107,7 @@
                                 <option value="false" {#if val == "false"}selected{/if}>false</option>
                             </select>
                             {#else}
-                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
+                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}>
                             {/if}
                             <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
                         </div>
@@ -128,7 +128,7 @@
                                     <option value="false">false</option>
                                 </select>
                                 {#else}
-                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
+                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}>
                                 {/if}
                                 <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
                             </div>
@@ -159,6 +159,7 @@
                            value="{#if prop.value != null}{prop.value}{/if}"
                            {#if !prop.nullable}required{/if}
                            {#if prop.type == "DOUBLE"}step="any"{/if}
+                           {#if prop.type == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
                            {#if !prop.valueProposals.isEmpty}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposalsString}" data-installed-app-id="{detail.installedAppId}" data-entity-type-id="{detail.entityTypeId}" data-property-id="{prop.id}"{/if}
                            data-testid="edit-property-input-{prop.id}">
                     {#if !prop.valueProposals.isEmpty}<datalist id="datalist_{prop.id}"></datalist>{/if}

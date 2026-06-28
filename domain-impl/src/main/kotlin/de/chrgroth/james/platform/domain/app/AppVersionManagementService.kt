@@ -19,6 +19,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
@@ -534,6 +535,7 @@ class AppVersionManagementService(
     } else {
       null
     }
+    PropertyType.DURATION -> if (parseDurationValue(value) != null) value else null
     else -> value
   }
 

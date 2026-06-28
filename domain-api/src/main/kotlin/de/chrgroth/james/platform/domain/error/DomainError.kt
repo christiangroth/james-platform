@@ -137,4 +137,5 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data class MinSizeViolation(val min: Int) : PropertyConstraintViolation("PROP-008")
   data class MaxSizeViolation(val max: Int) : PropertyConstraintViolation("PROP-009")
   data object InvalidReferenceViolation : PropertyConstraintViolation("PROP-010")
+  data object InvalidDurationFormatViolation : PropertyConstraintViolation("PROP-011")
 }

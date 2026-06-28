@@ -320,6 +320,46 @@ class AppDataServiceTests {
 
   // endregion
 
+  // region DURATION
+
+  private val durationEntityId = EntityDefinitionId("entity-3")
+  private val durationPropId = PropertyId("duration-prop")
+  private val durationProp = Property(id = durationPropId, name = "DurationField", type = PropertyType.DURATION, nullable = true)
+  private val durationEntityDef = EntityDefinition(id = durationEntityId, name = "DurationEntity", properties = listOf(durationProp))
+  private val appVersionWithDuration = appVersion.copy(entityDefinitions = listOf(entityDef, durationEntityDef))
+
+  @Test
+  fun `createAppData rejects DURATION value that does not match the accepted format`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDuration
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, durationEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(durationProp, null, emptyList()) } returns emptyList()
+
+    val data = mapOf("prop_${durationPropId.value}" to listOf("not-a-duration"))
+    val result = service.createAppData(userId, installedAppId.value, durationEntityId.value, data)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[durationPropId.value]).containsExactly(PropertyConstraintViolation.InvalidDurationFormatViolation)
+  }
+
+  @Test
+  fun `createAppData accepts DURATION values in unit-suffixed and colon-separated format`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDuration
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, durationEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(durationProp, any(), emptyList()) } returns emptyList()
+    justRun { appDataRepository.save(any()) }
+
+    val unitSuffixed = service.createAppData(userId, installedAppId.value, durationEntityId.value, mapOf("prop_${durationPropId.value}" to listOf("1d 2h 30m 15s")))
+    val colonSeparated = service.createAppData(userId, installedAppId.value, durationEntityId.value, mapOf("prop_${durationPropId.value}" to listOf("02:30:15")))
+
+    assertThat(unitSuffixed.isRight()).isTrue()
+    assertThat(colonSeparated.isRight()).isTrue()
+  }
+
+  // endregion
+
   // region getValueProposals
 
   @Test
