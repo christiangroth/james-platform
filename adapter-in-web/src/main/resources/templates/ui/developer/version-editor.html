@@ -1153,9 +1153,10 @@
     {/if}
     {/if}
 
-    <!-- Edit Sort Order Modal -->
     {#if isDraft}
     {#if selectedEntity != null}
+    {#if !isNestedLevel}
+    <!-- Edit Sort Order Modal -->
     {#if !selectedEntity.properties.isEmpty}
     <div class="modal fade" id="editSortOrderModal" tabindex="-1" aria-labelledby="editSortOrderModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -1201,6 +1202,7 @@
             </div>
         </div>
     </div>
+    {/if}
     {/if}
     {/if}
     {/if}
