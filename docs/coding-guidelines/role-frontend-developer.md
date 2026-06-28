@@ -62,6 +62,7 @@ Dark, technical appearance – fitting a developer tool. No generic Bootstrap de
 - **Muted/secondary** buttons for navigation and non-critical actions (Logout, Pagination) → use `.btn-app-secondary`
 - Green (`--spotify-green: #1db954`) reserved exclusively for Spotify-integration buttons → use `.btn-spotify`
 - Cards have a subtle border, no heavy shadow stack
+- Borders/dividers (`--color-border`, `--color-border-muted`) must stay visibly lighter than card/page backgrounds – this is a dark theme, not a low-contrast one. Tables, card outlines, and dividers must remain easy to scan; re-check contrast whenever a new dark-themed component is added
 - Monospace font for technical values (track IDs, timestamps, queue numbers)
 - Live indicators (●) in green with subtle CSS pulse animation
 - No clutter – whitespace is a design element
@@ -159,6 +160,24 @@ Three buttons (Cancel + Delete + Save), Cancel left-aligned, Delete+Save grouped
 - Pagination controls are shown only when there is more than one page
 - All tables must be wrapped in `<div class="table-responsive">` so they scroll horizontally on narrow screens
 
+### Responsive Buttons
+
+The primary target device is a small smartphone (e.g. iPhone SE) – screen width is at a premium, so labels must give way to icons before anything else.
+
+- Any button/link that has an icon must hide its text label below the `sm` breakpoint (~576px) and show icon-only, relying on `title`/`aria-label` for accessibility:
+
+```html
+<a href="/logout" class="btn btn-sm btn-app-secondary" title="Logout" aria-label="Logout">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-logout"/></svg>
+    <span class="d-none d-sm-inline ms-1">Logout</span>
+</a>
+```
+
+- Use Bootstrap's existing `d-none d-sm-inline` (or `d-sm-inline-block`) utility classes on the label `<span>` – no custom CSS needed.
+- `{#btn-icon-*}` tags are already icon-only and need no change.
+- Every button affected by this rule must always have a visible icon and a `title`/`aria-label` so icon-only mode stays accessible.
+- Apply this pattern when touching a page for other reasons, or when a button's label is causing wrapping/overflow on narrow screens; it does not need to be retrofitted everywhere in one pass.
+
 ## Navigation Concept
 
 The platform uses a **breadcrumb trail** to show the user's location within the hierarchy and to enable backward navigation.
@@ -239,6 +258,20 @@ All data tables must follow this structure. See also the CSS classes table above
 - Use `{#btn-icon-key}` instead of `{#btn-icon-edit}` for actions that only change a password/secret, so it isn't mistaken for editing the whole entity.
 - Add `ms-1` via `extraClass` on every icon button after the first to maintain consistent spacing.
 - Clickable rows (where clicking the row navigates or opens a modal) use class `app-clickable-row` and a `data-href` attribute; the JS handler is applied in the page `<script>` block.
+
+## Modals vs. Navigation
+
+Modals are appropriate for **flat, single-level** interactions: a short create/edit form, a confirmation dialog, a password change. They become a poor fit once content can nest
+(an entity property of type `OBJECT` containing a property list, which itself contains an `OBJECT` property, ...) – stacking modals or growing one modal to host arbitrary depth
+breaks usability and breaks the breadcrumb navigation concept described below.
+
+- **Prefer breadcrumb-navigated pages** (dedicated route per level, see "Navigation Concept") over modals whenever the content being edited can contain further nested levels of
+  the same kind – this is what keeps deeply nested entity/property structures navigable instead of needing to be crammed into one dialog.
+- **Modals remain the right tool** for actions that are inherently one level deep and self-contained: confirmation dialogs, simple create/rename forms, password/secret changes.
+- When introducing a new editable structure, decide up front whether it can ever nest. If it can, design it as a navigable page from the start rather than a modal that gets
+  awkwardly extended later.
+- Existing modal-based editors for deeply nested structures (e.g. the entity/version editor) are a known gap against this principle; migrating them is tracked as separate,
+  larger follow-up work rather than something to retrofit incidentally while touching nearby code.
 
 ## Modal Pattern
 

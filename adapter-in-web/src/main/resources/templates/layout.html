@@ -11,10 +11,10 @@
             --spotify-green: #1db954;
             --color-bg-card: #1e1e1e;
             --color-bg-nested: #161616;
-            --color-border: #333;
-            --color-border-muted: #444;
+            --color-border: #3d3d44;
+            --color-border-muted: #54545c;
             --color-text-primary: #e0e0e0;
-            --color-text-muted: #888;
+            --color-text-muted: #9a9aa2;
             --color-action: #0d6efd;
             --color-action-hover: #0b5ed7;
             --color-danger: #dc3545;
@@ -157,18 +157,19 @@
         .app-table {
             --bs-table-color: var(--color-text-primary);
             --bs-table-striped-color: var(--color-text-primary);
-            --bs-table-striped-bg: rgba(255, 255, 255, 0.05);
+            --bs-table-striped-bg: rgba(255, 255, 255, 0.07);
             color: var(--color-text-primary);
             background-color: transparent;
         }
         .app-table th,
         .app-table td {
-            border-color: var(--color-border) !important;
+            border-color: var(--color-border-muted) !important;
             background-color: transparent !important;
         }
         .app-table thead th {
             color: var(--color-text-muted);
-            font-weight: 400;
+            font-weight: 600;
+            border-bottom-width: 2px;
         }
         /* Override Bootstrap's dark table border and text color with app values */
         .table-dark {
@@ -324,7 +325,7 @@
             cursor: pointer;
         }
         .app-table tr.clickable-row:hover td {
-            background-color: rgba(255, 255, 255, 0.04) !important;
+            background-color: rgba(255, 255, 255, 0.06) !important;
         }
         /* Constraint text line in property tables */
         .app-constraint-text {
@@ -403,6 +404,10 @@
                 <circle cx="8" cy="5.5" r="2.5"/>
                 <path d="M2 14.5C2 11 4.5 9 8 9s6 2 6 5.5H2z"/>
             </symbol>
+            <symbol id="icon-nav-logout" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 1 0-1h8A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-8a.5.5 0 0 1-.5-.5z"/>
+                <path fill-rule="evenodd" d="M11.354 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L9.793 7.5H1.5a.5.5 0 0 0 0 1h8.293l-2.147 2.146a.5.5 0 0 0 .708.708z"/>
+            </symbol>
         </defs>
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
@@ -432,7 +437,10 @@
             </ul>
         </div>
         {/if}
-        <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link">Logout</a>
+        <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link" title="Logout" aria-label="Logout">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-logout"/></svg>
+            <span class="d-none d-sm-inline ms-1">Logout</span>
+        </a>
         {/insert}
     </nav>
     <script src="/webjars/bootstrap/js/bootstrap.bundle.min.js"></script>
