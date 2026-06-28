@@ -1,9 +1,14 @@
 /**
- * Recursively renders form fields for OBJECT property values, mirroring the per-type input rendering
- * used for top-level properties in app-data-new.html / app-data-edit.html. Shared by both templates
- * since OBJECT properties may contain nested OBJECT properties to arbitrary depth.
+ * Renders form fields for OBJECT property values, mirroring the per-type input rendering used for
+ * top-level properties in app-data-new.html / app-data-edit.html. Shared by both templates since
+ * OBJECT properties may contain nested OBJECT properties to arbitrary depth.
+ *
+ * Nested OBJECT properties are navigated breadcrumb-style: every nesting level is rendered into its own
+ * "object-level" div up front (so the underlying inputs keep their values across navigation) and only the
+ * active level is shown. Switching levels is pure DOM show/hide - no server requests - and the
+ * surrounding entity form is still submitted/saved as a single whole, only from the top level.
  */
-var LIST_VALUE_SEPARATOR = '';
+var LIST_VALUE_SEPARATOR = '';
 
 function objectFieldScalarInput(field, name, value) {
     if (field.htmlInputType === 'checkbox') {
@@ -104,15 +109,6 @@ function objectFieldList(field, name, rawValue) {
     return container;
 }
 
-function objectFieldNested(field, namePrefix, value) {
-    var container = document.createElement('div');
-    container.className = 'border rounded p-2 ms-2';
-    field.nestedProperties.forEach(function (nested) {
-        container.appendChild(buildObjectPropertyField(nested, namePrefix + '.' + nested.id, value ? value[nested.id] : undefined));
-    });
-    return container;
-}
-
 function buildObjectPropertyField(field, name, value) {
     var wrapper = document.createElement('div');
     wrapper.className = 'mb-3';
@@ -125,12 +121,120 @@ function buildObjectPropertyField(field, name, value) {
     wrapper.appendChild(label);
     if (field.type === 'LIST') {
         wrapper.appendChild(objectFieldList(field, name, value));
-    } else if (field.type === 'OBJECT') {
-        wrapper.appendChild(objectFieldNested(field, name, value));
     } else {
         wrapper.appendChild(objectFieldScalarInput(field, name, value));
     }
     return wrapper;
+}
+
+/** Renders the clickable row that drills into a nested OBJECT property's own level. */
+function buildObjectDescendRow(field, targetPath) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'mb-3';
+    wrapper.setAttribute('data-testid', 'object-field-' + field.id);
+    var label = document.createElement('label');
+    label.className = 'form-label form-label-sm d-block';
+    label.style.color = 'var(--color-text-muted)';
+    label.textContent = field.name + (field.nullable ? '' : ' *') + ' (OBJECT)';
+    wrapper.appendChild(label);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-app-secondary btn-sm descend-object-field';
+    btn.setAttribute('data-target-path', targetPath);
+    btn.setAttribute('data-testid', 'descend-object-field-' + field.id);
+    var count = field.nestedProperties.length;
+    var label2 = count === 0 ? 'No properties yet' : count + ' propert' + (count === 1 ? 'y' : 'ies');
+    btn.textContent = label2 + ' ›';
+    wrapper.appendChild(btn);
+    return wrapper;
+}
+
+/**
+ * Builds the level for `field` at `path` (its own nestedProperties), appending it to the container's
+ * levels wrapper, and recurses into any nested OBJECT properties to build their levels too. `path` is the
+ * dot-separated chain of nested property ids from the top-level OBJECT property down to this level; the
+ * top-level property's own level uses the empty path.
+ */
+function buildObjectLevel(container, field, namePrefix, value, path) {
+    var level = document.createElement('div');
+    level.className = 'object-level' + (path === '' ? '' : ' d-none');
+    level.dataset.path = path;
+    container._pathNames[path] = field.name;
+
+    if (field.nestedProperties.length === 0) {
+        var empty = document.createElement('p');
+        empty.className = 'app-section-label mb-0';
+        empty.textContent = 'No properties defined.';
+        level.appendChild(empty);
+    } else {
+        field.nestedProperties.forEach(function (nested) {
+            var nestedName = namePrefix + '.' + nested.id;
+            var nestedValue = value ? value[nested.id] : undefined;
+            if (nested.type === 'OBJECT') {
+                var childPath = path === '' ? nested.id : path + '.' + nested.id;
+                level.appendChild(buildObjectDescendRow(nested, childPath));
+                buildObjectLevel(container, nested, nestedName, nestedValue, childPath);
+            } else {
+                level.appendChild(buildObjectPropertyField(nested, nestedName, nestedValue));
+            }
+        });
+    }
+    container._levelsWrapper.appendChild(level);
+}
+
+function buildObjectBreadcrumbNav() {
+    var nav = document.createElement('nav');
+    nav.className = 'object-breadcrumb mb-2 d-none';
+    nav.setAttribute('aria-label', 'breadcrumb');
+    var ol = document.createElement('ol');
+    ol.className = 'breadcrumb mb-0';
+    nav.appendChild(ol);
+    return nav;
+}
+
+function appendObjectBreadcrumbItem(ol, label, path, isActive) {
+    var li = document.createElement('li');
+    li.className = 'breadcrumb-item' + (isActive ? ' active' : '');
+    if (isActive) {
+        li.setAttribute('aria-current', 'page');
+        li.textContent = label;
+    } else {
+        var a = document.createElement('a');
+        a.href = '#';
+        a.className = 'breadcrumb-link';
+        a.textContent = label;
+        a.setAttribute('data-target-path', path);
+        li.appendChild(a);
+    }
+    ol.appendChild(li);
+}
+
+function renderObjectBreadcrumb(container, path) {
+    var nav = container.querySelector('.object-breadcrumb');
+    var ol = nav.querySelector('ol');
+    ol.innerHTML = '';
+    if (path === '') {
+        nav.classList.add('d-none');
+        return;
+    }
+    nav.classList.remove('d-none');
+    var names = container._pathNames;
+    appendObjectBreadcrumbItem(ol, names[''], '', false);
+    var cumulative = '';
+    var segments = path.split('.');
+    segments.forEach(function (segmentId, index) {
+        cumulative = cumulative === '' ? segmentId : cumulative + '.' + segmentId;
+        appendObjectBreadcrumbItem(ol, names[cumulative], cumulative, index === segments.length - 1);
+    });
+    if (typeof truncateBreadcrumb === 'function') truncateBreadcrumb(ol);
+}
+
+/** Switches the visible nesting level of an OBJECT property container, purely client-side (no requests). */
+function activateObjectLevel(container, path) {
+    container.querySelectorAll(':scope > .object-levels > .object-level').forEach(function (level) {
+        level.classList.toggle('d-none', level.dataset.path !== path);
+    });
+    renderObjectBreadcrumb(container, path);
 }
 
 /** Renders the top-level fields for every `.object-property-fields` container found on the page. */
@@ -141,9 +245,14 @@ function renderObjectPropertyFields(objectFields, objectValues, referenceOptions
         var field = objectFields[propertyId];
         if (!field) return;
         var value = (objectValues && objectValues[propertyId]) || {};
-        field.nestedProperties.forEach(function (nested) {
-            container.appendChild(buildObjectPropertyField(nested, container.getAttribute('data-name-prefix') + '.' + nested.id, value[nested.id]));
-        });
+
+        container._pathNames = {};
+        container._levelsWrapper = document.createElement('div');
+        container._levelsWrapper.className = 'object-levels';
+        container.appendChild(buildObjectBreadcrumbNav());
+        container.appendChild(container._levelsWrapper);
+
+        buildObjectLevel(container, field, container.getAttribute('data-name-prefix'), value, '');
     });
 }
 
@@ -151,6 +260,25 @@ var objectFieldReferenceOptionsData = {};
 function objectFieldReferenceOptions(propertyId) {
     return objectFieldReferenceOptionsData[propertyId];
 }
+
+document.addEventListener('click', function (e) {
+    var target = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
+    if (!target) return;
+
+    var descendBtn = target.closest('.descend-object-field');
+    if (descendBtn) {
+        var container = descendBtn.closest('.object-property-fields');
+        if (container) activateObjectLevel(container, descendBtn.getAttribute('data-target-path'));
+        return;
+    }
+
+    var breadcrumbLink = target.closest('.object-breadcrumb a[data-target-path]');
+    if (breadcrumbLink) {
+        e.preventDefault();
+        var breadcrumbContainer = breadcrumbLink.closest('.object-property-fields');
+        if (breadcrumbContainer) activateObjectLevel(breadcrumbContainer, breadcrumbLink.getAttribute('data-target-path'));
+    }
+});
 
 /**
  * Handles clicks on number-step-up / number-step-down buttons rendered next to numeric inputs that have a
