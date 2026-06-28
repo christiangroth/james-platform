@@ -79,6 +79,8 @@
                                id="prop_{prop.id}"
                                {#if !prop.nullable}required{/if}
                                {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
+                               {#if !prop.constraintMin.isEmpty}min="{prop.constraintMin}"{/if}
+                               {#if !prop.constraintMax.isEmpty}max="{prop.constraintMax}"{/if}
                                {#if prop.type.name == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
                                {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
                                {#if prop.hasValueProposals}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposals}" data-installed-app-id="{info.installedAppId}" data-entity-type-id="{entity.id}" data-property-id="{prop.id}"{/if}

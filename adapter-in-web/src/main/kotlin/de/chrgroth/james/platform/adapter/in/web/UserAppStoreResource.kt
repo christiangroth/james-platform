@@ -57,6 +57,8 @@ data class AppDataPropertyView(
   val values: List<String> = emptyList(),
   val itemHtmlInputType: String = "text",
   val step: String = "",
+  val min: String = "",
+  val max: String = "",
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 
@@ -341,6 +343,8 @@ class UserAppStoreResource {
               values = if (prop.type == PropertyType.LIST) decodeListValue(appDataItem.data[prop.id.value]) else emptyList(),
               itemHtmlInputType = TemplateFormattingExtensions.itemHtmlInputType(prop),
               step = TemplateFormattingExtensions.constraintStep(prop),
+              min = TemplateFormattingExtensions.constraintMin(prop),
+              max = TemplateFormattingExtensions.constraintMax(prop),
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -584,6 +588,8 @@ class UserAppStoreResource {
     "itemHtmlInputType" to TemplateFormattingExtensions.itemHtmlInputType(this),
     "listItemType" to listItemType?.name,
     "step" to TemplateFormattingExtensions.constraintStep(this),
+    "min" to TemplateFormattingExtensions.constraintMin(this),
+    "max" to TemplateFormattingExtensions.constraintMax(this),
     "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
   )
 

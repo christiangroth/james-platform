@@ -43,6 +43,8 @@ function objectFieldScalarInput(field, name, value) {
     if (!field.nullable) input.required = true;
     if (field.type === 'DOUBLE') input.step = field.step || 'any';
     else if (field.type === 'LONG' && field.step) input.step = field.step;
+    if (field.min) input.min = field.min;
+    if (field.max) input.max = field.max;
     if (field.type === 'DURATION') input.placeholder = 'e.g. 1d 2h 30m 15s or 02:30:15';
     if (value !== undefined && value !== null) input.value = value;
 
@@ -153,6 +155,9 @@ function objectFieldReferenceOptions(propertyId) {
 /**
  * Handles clicks on number-step-up / number-step-down buttons rendered next to numeric inputs that have a
  * Step constraint configured (both server-rendered top-level fields and JS-rendered OBJECT fields above).
+ * The new value is computed manually (instead of via the native input.stepUp()/stepDown(), which throws an
+ * InvalidStateError when the current value isn't aligned with the step) and clamped to the input's min/max
+ * attributes, if set.
  */
 document.addEventListener('click', function (e) {
     var target = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
@@ -160,11 +165,15 @@ document.addEventListener('click', function (e) {
     if (!button) return;
     var input = button.closest('.input-group').querySelector('input');
     if (!input) return;
-    if (button.classList.contains('number-step-up')) {
-        input.stepUp();
-    } else {
-        input.stepDown();
-    }
+    var step = parseFloat(input.step);
+    if (!step) return;
+    var decimals = (input.step.split('.')[1] || '').length;
+    var current = parseFloat(input.value);
+    if (isNaN(current)) current = 0;
+    var next = button.classList.contains('number-step-up') ? current + step : current - step;
+    if (input.min !== '' && next < parseFloat(input.min)) next = parseFloat(input.min);
+    if (input.max !== '' && next > parseFloat(input.max)) next = parseFloat(input.max);
+    input.value = next.toFixed(decimals);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
 });
