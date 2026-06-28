@@ -56,8 +56,19 @@ data class AppDataPropertyView(
   val listItemType: String? = null,
   val values: List<String> = emptyList(),
   val itemHtmlInputType: String = "text",
+  val step: String = "",
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
+
+  /**
+   * Returns the HTML `step` attribute value: the configured Step constraint if set, otherwise "any" for DOUBLE
+   * properties (to allow arbitrary decimals) or empty string for all other property types.
+   */
+  fun numberStepAttribute(): String = when {
+    step.isNotEmpty() -> step
+    type == "DOUBLE" -> "any"
+    else -> ""
+  }
 }
 
 data class AppDataComputedPropertyView(
@@ -329,6 +340,7 @@ class UserAppStoreResource {
               listItemType = prop.listItemType?.name,
               values = if (prop.type == PropertyType.LIST) decodeListValue(appDataItem.data[prop.id.value]) else emptyList(),
               itemHtmlInputType = TemplateFormattingExtensions.itemHtmlInputType(prop),
+              step = TemplateFormattingExtensions.constraintStep(prop),
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -571,6 +583,7 @@ class UserAppStoreResource {
     "htmlInputType" to TemplateFormattingExtensions.htmlInputType(this),
     "itemHtmlInputType" to TemplateFormattingExtensions.itemHtmlInputType(this),
     "listItemType" to listItemType?.name,
+    "step" to TemplateFormattingExtensions.constraintStep(this),
     "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
   )
 
