@@ -177,10 +177,10 @@
                 {/if}
 
                 <div class="d-flex justify-content-between mt-4">
-                    <button type="button" class="btn btn-app-danger btn-sm" data-testid="delete-button"
-                            data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
+                    <a href="/ui/user/apps/{detail.installedAppId}?tab={detail.entityTypeId}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">Cancel</a>
                     <div class="d-flex gap-2">
-                        <a href="/ui/user/apps/{detail.installedAppId}?tab={detail.entityTypeId}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">Cancel</a>
+                        <button type="button" class="btn btn-app-danger btn-sm" data-testid="delete-button"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
                         <button type="submit" class="btn btn-app-primary btn-sm" data-testid="edit-submit-button">Save</button>
                     </div>
                 </div>

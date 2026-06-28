@@ -102,32 +102,47 @@ These rules apply to all pages and modals:
 ### Button Colors
 - **Save / Publish / positive actions** → blue (`.btn-app-primary`)
 - **Delete / Remove / destructive actions** → red (`.btn-app-danger`)
-- **Cancel / neutral actions** → gray (`.btn-app-secondary`)
+- **Cancel / Back / neutral actions** → gray (`.btn-app-secondary`)
 
-### Button Alignment
-- **Destructive buttons** (Delete, Remove) → always **left-aligned** in the bottom row
-- **Positive and neutral buttons** (Save, Cancel) → always **right-aligned** in the bottom row
-- When neutral and positive buttons appear together in the right-aligned group: neutral (Cancel) on the **left**, positive (Save) on the **right**
+### Button Order and Alignment
+
+Left to right order is always: **Cancel/Back → Destructive (red) → Constructive (blue)** — only the roles that are actually present in a given row appear, in that relative order.
+
+- **Two buttons present** → both **right-aligned** together (e.g. Cancel + Save, or Cancel + Delete, or Delete + Publish), in the order above.
+- **Three buttons present** (Cancel + Destructive + Constructive) → Cancel is **left-aligned** alone; Destructive and Constructive are grouped **right-aligned** together, destructive first.
+- **One button present** → right-aligned, unless it is a list-level action better placed elsewhere on the page (e.g. an "Add" icon button in a section header).
 
 ### Implementation Pattern
 
-For pages with a form bottom row:
+Two buttons (form bottom row or modal footer), both right-aligned:
+```html
+<div class="d-flex justify-content-end gap-2 mt-4">
+    <a href="..." class="btn btn-app-secondary btn-sm">Cancel</a>
+    <button type="submit" class="btn btn-app-primary btn-sm">Save</button>
+</div>
+```
+```html
+<div class="modal-footer">
+    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+    <button type="submit" class="btn btn-app-primary">Save</button>
+</div>
+```
+
+Three buttons (Cancel + Delete + Save), Cancel left-aligned, Delete+Save grouped right-aligned:
 ```html
 <div class="d-flex justify-content-between mt-4">
-    <button type="button" class="btn btn-app-danger btn-sm" ...>Delete</button>
+    <a href="..." class="btn btn-app-secondary btn-sm">Cancel</a>
     <div class="d-flex gap-2">
-        <a href="..." class="btn btn-app-secondary btn-sm">Cancel</a>
+        <button type="button" class="btn btn-app-danger btn-sm" ...>Delete</button>
         <button type="submit" class="btn btn-app-primary btn-sm">Save</button>
     </div>
 </div>
 ```
-
-For modals:
 ```html
 <div class="modal-footer justify-content-between">
-    <button type="button" class="btn btn-app-danger" ...>Delete</button>
+    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
     <div class="d-flex gap-2">
-        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-app-danger" ...>Delete</button>
         <button type="submit" class="btn btn-app-primary">Save</button>
     </div>
 </div>
@@ -271,9 +286,9 @@ When a destructive action button exists alongside Cancel/OK:
             <div class="modal-body">
                 <p>Are you sure you want to delete <strong id="deleteFooName" data-testid="delete-foo-name"></strong>? This action cannot be undone.</p>
             </div>
-            <div class="modal-footer justify-content-between">
-                <button type="button" class="btn btn-app-danger" id="confirmDeleteBtn" data-testid="confirm-delete-button">Delete</button>
+            <div class="modal-footer">
                 <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-app-danger" id="confirmDeleteBtn" data-testid="confirm-delete-button">Delete</button>
             </div>
         </div>
     </div>
@@ -286,8 +301,8 @@ When a destructive action button exists alongside Cancel/OK:
 - Always use `btn-close-white` on the close button so it is visible on dark backgrounds.
 - Forms inside modals must be reset and submit buttons re-enabled in the `hidden.bs.modal` event handler.
 - Pre-fill modal fields from the trigger button's `data-*` attributes in the `show.bs.modal` event handler.
-- When the modal footer contains both a destructive and a positive button, use `justify-content-between` on the footer so the destructive button sits on the left and the positive button on the right (see Button Placement Rules).
-- When the modal footer has only positive/neutral buttons (no destructive action), right-align them using the default `modal-footer` layout.
+- When the modal footer contains Cancel, a destructive button, and a positive button (three buttons), use `justify-content-between` on the footer so Cancel sits alone on the left and the destructive + positive buttons are grouped on the right (see Button Placement Rules).
+- When the modal footer has only two buttons (e.g. Cancel + Delete, or Cancel + Save), right-align them together using the default `modal-footer` layout.
 - Use `autocomplete="off"` on text inputs inside modals (and on search/filter fields) to prevent the browser from suggesting values that belong to other users or contexts. Use `autocomplete="new-password"` for password inputs in create/change-password flows.
 
 ### Pre-filling a modal from trigger data attributes
