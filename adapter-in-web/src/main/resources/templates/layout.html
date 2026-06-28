@@ -260,6 +260,37 @@
         .breadcrumb-ellipsis {
             color: var(--color-text-muted);
         }
+        /* OBJECT property value in data entry forms - bordered card so nested structure is recognizable */
+        .object-property-fields {
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background-color: var(--color-bg-nested);
+            padding: 0.75rem;
+        }
+        /* Local "you are here" navigation for the currently active nesting level */
+        .object-breadcrumb {
+            background-color: var(--color-bg-card);
+            border: 1px solid var(--color-border-muted);
+            border-radius: 4px;
+            padding: 0.375rem 0.75rem;
+        }
+        .object-breadcrumb .breadcrumb {
+            margin-bottom: 0;
+        }
+        /* Each deeper nesting level gets its own bordered card, alternating two depth colors so depth stays
+           visually distinguishable however many levels deep an OBJECT property is structured. */
+        .object-level[data-depth="1"] {
+            background-color: var(--color-bg-depth-albums);
+            border: 1px solid var(--color-border-depth-albums);
+            border-radius: 4px;
+            padding: 0.75rem;
+        }
+        .object-level[data-depth="2"] {
+            background-color: var(--color-bg-depth-tracks);
+            border: 1px solid var(--color-border-depth-tracks);
+            border-radius: 4px;
+            padding: 0.75rem;
+        }
         /* Dark modal */
         .app-modal-content {
             background-color: var(--color-bg-card);
