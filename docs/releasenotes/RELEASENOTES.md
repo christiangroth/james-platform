@@ -1,3 +1,12 @@
+# 0.51.1 (2026.06.28)
+
+## Bugfixes / Chore
+* The "add new entry" button on data entry tables now spans the full width of the table.
+
+
+
+---
+
 # 0.51.0 (2026.06.28)
 
 ## New Features
