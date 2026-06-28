@@ -1,3 +1,12 @@
+# 0.49.0 (2026.06.28)
+
+## New Features
+* Breadcrumbs now collapse responsively on narrower screens, keeping the home icon and the last two entries visible and replacing hidden entries with "…".
+
+
+
+---
+
 # 0.48.0 (2026.06.28)
 
 ## New Features
