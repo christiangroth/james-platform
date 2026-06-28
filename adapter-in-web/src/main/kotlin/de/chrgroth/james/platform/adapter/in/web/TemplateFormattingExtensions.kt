@@ -128,6 +128,10 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun constraintMaxLong(property: Property): String = constraintValue<PropertyConstraint.MaxLong>(property.constraints) { it.max }
 
+  /** Returns the StepLong constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintStepLong(property: Property): String = constraintValue<PropertyConstraint.StepLong>(property.constraints) { it.step }
+
   /** Returns the MinDouble constraint value, or empty string if not set. */
   @JvmStatic
   fun constraintMinDouble(property: Property): String = constraintValue<PropertyConstraint.MinDouble>(property.constraints) { it.min }
@@ -135,6 +139,42 @@ object TemplateFormattingExtensions {
   /** Returns the MaxDouble constraint value, or empty string if not set. */
   @JvmStatic
   fun constraintMaxDouble(property: Property): String = constraintValue<PropertyConstraint.MaxDouble>(property.constraints) { it.max }
+
+  /** Returns the StepDouble constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintStepDouble(property: Property): String = constraintValue<PropertyConstraint.StepDouble>(property.constraints) { it.step }
+
+  /** Returns the MinDate constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinDate(property: Property): String = constraintValue<PropertyConstraint.MinDate>(property.constraints) { it.min }
+
+  /** Returns the MaxDate constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxDate(property: Property): String = constraintValue<PropertyConstraint.MaxDate>(property.constraints) { it.max }
+
+  /** Returns the MinTime constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinTime(property: Property): String = constraintValue<PropertyConstraint.MinTime>(property.constraints) { it.min }
+
+  /** Returns the MaxTime constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxTime(property: Property): String = constraintValue<PropertyConstraint.MaxTime>(property.constraints) { it.max }
+
+  /** Returns the MinDatetime constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinDatetime(property: Property): String = constraintValue<PropertyConstraint.MinDatetime>(property.constraints) { it.min }
+
+  /** Returns the MaxDatetime constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxDatetime(property: Property): String = constraintValue<PropertyConstraint.MaxDatetime>(property.constraints) { it.max }
+
+  /** Returns the MinDuration constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMinDuration(property: Property): String = constraintValue<PropertyConstraint.MinDuration>(property.constraints) { it.min }
+
+  /** Returns the MaxDuration constraint value, or empty string if not set. */
+  @JvmStatic
+  fun constraintMaxDuration(property: Property): String = constraintValue<PropertyConstraint.MaxDuration>(property.constraints) { it.max }
 
   /** Returns the MinLength constraint value, or empty string if not set. */
   @JvmStatic
@@ -233,13 +273,23 @@ object TemplateFormattingExtensions {
           is PropertyConstraint.UniqueKey -> "unique-key"
           is PropertyConstraint.MinLong -> "min:${constraint.min}"
           is PropertyConstraint.MaxLong -> "max:${constraint.max}"
+          is PropertyConstraint.StepLong -> "step:${constraint.step}"
           is PropertyConstraint.MinDouble -> "min:${constraint.min}"
           is PropertyConstraint.MaxDouble -> "max:${constraint.max}"
+          is PropertyConstraint.StepDouble -> "step:${constraint.step}"
           is PropertyConstraint.MinLength -> "min-length:${constraint.min}"
           is PropertyConstraint.MaxLength -> "max-length:${constraint.max}"
           is PropertyConstraint.Pattern -> "pattern:${constraint.regex}"
           is PropertyConstraint.MinSize -> "min-size:${constraint.min}"
           is PropertyConstraint.MaxSize -> "max-size:${constraint.max}"
+          is PropertyConstraint.MinDate -> "min:${constraint.min}"
+          is PropertyConstraint.MaxDate -> "max:${constraint.max}"
+          is PropertyConstraint.MinTime -> "min:${constraint.min}"
+          is PropertyConstraint.MaxTime -> "max:${constraint.max}"
+          is PropertyConstraint.MinDatetime -> "min:${constraint.min}"
+          is PropertyConstraint.MaxDatetime -> "max:${constraint.max}"
+          is PropertyConstraint.MinDuration -> "min:${constraint.min}"
+          is PropertyConstraint.MaxDuration -> "max:${constraint.max}"
         }
       }
 

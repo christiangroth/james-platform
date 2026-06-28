@@ -24,6 +24,10 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 @ApplicationScoped
 class AppVersionRepositoryAdapter(
@@ -154,13 +158,23 @@ class AppVersionRepositoryAdapter(
     "UniqueKey" -> PropertyConstraint.UniqueKey
     "MinLong" -> longValue?.let { PropertyConstraint.MinLong(it) }
     "MaxLong" -> longValue?.let { PropertyConstraint.MaxLong(it) }
+    "StepLong" -> longValue?.let { PropertyConstraint.StepLong(it) }
     "MinDouble" -> doubleValue?.let { PropertyConstraint.MinDouble(it) }
     "MaxDouble" -> doubleValue?.let { PropertyConstraint.MaxDouble(it) }
+    "StepDouble" -> doubleValue?.let { PropertyConstraint.StepDouble(it) }
     "MinLength" -> intValue?.let { PropertyConstraint.MinLength(it) }
     "MaxLength" -> intValue?.let { PropertyConstraint.MaxLength(it) }
     "Pattern" -> stringValue?.let { PropertyConstraint.Pattern(it) }
     "MinSize" -> intValue?.let { PropertyConstraint.MinSize(it) }
     "MaxSize" -> intValue?.let { PropertyConstraint.MaxSize(it) }
+    "MinDate" -> stringValue?.let { runCatching { PropertyConstraint.MinDate(LocalDate.parse(it)) }.getOrNull() }
+    "MaxDate" -> stringValue?.let { runCatching { PropertyConstraint.MaxDate(LocalDate.parse(it)) }.getOrNull() }
+    "MinTime" -> stringValue?.let { runCatching { PropertyConstraint.MinTime(LocalTime.parse(it)) }.getOrNull() }
+    "MaxTime" -> stringValue?.let { runCatching { PropertyConstraint.MaxTime(LocalTime.parse(it)) }.getOrNull() }
+    "MinDatetime" -> stringValue?.let { runCatching { PropertyConstraint.MinDatetime(LocalDateTime.parse(it)) }.getOrNull() }
+    "MaxDatetime" -> stringValue?.let { runCatching { PropertyConstraint.MaxDatetime(LocalDateTime.parse(it)) }.getOrNull() }
+    "MinDuration" -> stringValue?.let { runCatching { PropertyConstraint.MinDuration(Duration.parse(it)) }.getOrNull() }
+    "MaxDuration" -> stringValue?.let { runCatching { PropertyConstraint.MaxDuration(Duration.parse(it)) }.getOrNull() }
     else -> null
   }
 
@@ -224,13 +238,23 @@ class AppVersionRepositoryAdapter(
       is PropertyConstraint.UniqueKey -> Unit
       is PropertyConstraint.MinLong -> doc.longValue = min
       is PropertyConstraint.MaxLong -> doc.longValue = max
+      is PropertyConstraint.StepLong -> doc.longValue = step
       is PropertyConstraint.MinDouble -> doc.doubleValue = min
       is PropertyConstraint.MaxDouble -> doc.doubleValue = max
+      is PropertyConstraint.StepDouble -> doc.doubleValue = step
       is PropertyConstraint.MinLength -> doc.intValue = min
       is PropertyConstraint.MaxLength -> doc.intValue = max
       is PropertyConstraint.Pattern -> doc.stringValue = regex
       is PropertyConstraint.MinSize -> doc.intValue = min
       is PropertyConstraint.MaxSize -> doc.intValue = max
+      is PropertyConstraint.MinDate -> doc.stringValue = min.toString()
+      is PropertyConstraint.MaxDate -> doc.stringValue = max.toString()
+      is PropertyConstraint.MinTime -> doc.stringValue = min.toString()
+      is PropertyConstraint.MaxTime -> doc.stringValue = max.toString()
+      is PropertyConstraint.MinDatetime -> doc.stringValue = min.toString()
+      is PropertyConstraint.MaxDatetime -> doc.stringValue = max.toString()
+      is PropertyConstraint.MinDuration -> doc.stringValue = min.toString()
+      is PropertyConstraint.MaxDuration -> doc.stringValue = max.toString()
     }
   }
 

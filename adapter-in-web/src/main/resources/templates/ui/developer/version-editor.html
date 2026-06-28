@@ -87,7 +87,7 @@
 
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h3 class="fs-6 fw-semibold mb-0">Properties</h3>
-                    {#btn-icon-add testId="open-add-property-modal-button" bsTarget="#addPropertyModal" entityId=selectedEntity.id extraClass="ms-auto" /}
+                    {#btn-icon-add testId="open-add-property-modal-button" bsTarget="#editPropertyModal" entityId=selectedEntity.id action="add-property" extraClass="ms-auto" /}
                 </div>
                 {#if selectedEntity.properties.isEmpty}
                 <p class="app-section-label mb-3" data-testid="no-properties">No properties yet.</p>
@@ -118,13 +118,23 @@
                             data-constraint-unique-key="{prop.constraintUniqueKey}"
                             data-constraint-min-long="{prop.constraintMinLong}"
                             data-constraint-max-long="{prop.constraintMaxLong}"
+                            data-constraint-step-long="{prop.constraintStepLong}"
                             data-constraint-min-double="{prop.constraintMinDouble}"
                             data-constraint-max-double="{prop.constraintMaxDouble}"
+                            data-constraint-step-double="{prop.constraintStepDouble}"
                             data-constraint-min-length="{prop.constraintMinLength}"
                             data-constraint-max-length="{prop.constraintMaxLength}"
                             data-constraint-pattern="{prop.constraintPattern}"
                             data-constraint-min-size="{prop.constraintMinSize}"
                             data-constraint-max-size="{prop.constraintMaxSize}"
+                            data-constraint-min-date="{prop.constraintMinDate}"
+                            data-constraint-max-date="{prop.constraintMaxDate}"
+                            data-constraint-min-time="{prop.constraintMinTime}"
+                            data-constraint-max-time="{prop.constraintMaxTime}"
+                            data-constraint-min-datetime="{prop.constraintMinDatetime}"
+                            data-constraint-max-datetime="{prop.constraintMaxDatetime}"
+                            data-constraint-min-duration="{prop.constraintMinDuration}"
+                            data-constraint-max-duration="{prop.constraintMaxDuration}"
                             data-default-value="{prop.defaultValue}"
                             data-smart-default="{prop.smartDefault}"
                             data-value-proposals="{prop.valueProposals}"
@@ -196,7 +206,7 @@
                 <!-- Computed Properties -->
                 <div class="d-flex align-items-center mb-2 gap-2 mt-4">
                     <h3 class="fs-6 fw-semibold mb-0">Computed Properties</h3>
-                    {#btn-icon-add testId="open-add-computed-property-modal-button" bsTarget="#addComputedPropertyModal" entityId=selectedEntity.id extraClass="ms-auto" /}
+                    {#btn-icon-add testId="open-add-computed-property-modal-button" bsTarget="#addComputedPropertyModal" entityId=selectedEntity.id action="" extraClass="ms-auto" /}
                 </div>
                 {#if selectedEntity.computedProperties.isEmpty}
                 <p class="app-section-label mb-3" data-testid="no-computed-properties">No computed properties yet.</p>
@@ -281,7 +291,7 @@
                 <!-- Entities table -->
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h2 class="fs-6 fw-semibold mb-0">Entities</h2>
-                    {#btn-icon-add testId="open-add-entity-modal-button" bsTarget="#addEntityModal" extraClass="ms-auto" entityId="" /}
+                    {#btn-icon-add testId="open-add-entity-modal-button" bsTarget="#addEntityModal" extraClass="ms-auto" entityId="" action="" /}
                 </div>
                 {#if version.entityDefinitions.isEmpty}
                 <p class="app-section-label mb-4" data-testid="no-entities">No entities yet.</p>
@@ -323,7 +333,7 @@
                 <!-- Reports table -->
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h2 class="fs-6 fw-semibold mb-0">Reports</h2>
-                    {#btn-icon-add testId="open-add-report-modal-button" bsTarget="#addReportModal" extraClass="ms-auto" entityId="" /}
+                    {#btn-icon-add testId="open-add-report-modal-button" bsTarget="#addReportModal" extraClass="ms-auto" entityId="" action="" /}
                 </div>
                 {#if version.reports.isEmpty}
                 <p class="app-section-label" data-testid="no-reports">No reports yet.</p>
@@ -604,6 +614,7 @@
                         <div class="mb-3">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type</label>
                             <select class="form-select app-form-control form-select-sm" id="editPropertyType" name="type" required data-testid="edit-property-type-select">
+                                <option value="">– Select –</option>
                                 <option value="STRING">String</option>
                                 <option value="LONG">Long (Integer)</option>
                                 <option value="DOUBLE">Double (Decimal)</option>
@@ -668,6 +679,10 @@
                                     <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMaxLong" placeholder="No maximum" data-testid="constraint-max-long">
                                 </div>
                             </div>
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Step</label>
+                                <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintStepLong" placeholder="No step" data-testid="constraint-step-long">
+                            </div>
                         </div>
                         <!-- Double constraints -->
                         <div class="constraint-group d-none" id="constraintGroupDouble">
@@ -679,6 +694,62 @@
                                 <div class="col-6">
                                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
                                     <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMaxDouble" placeholder="No maximum" data-testid="constraint-max-double">
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Step</label>
+                                <input type="number" step="any" min="0" class="form-control app-form-control form-control-sm" id="constraintStepDouble" placeholder="No step" data-testid="constraint-step-double">
+                            </div>
+                        </div>
+                        <!-- Date constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupDate">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min date</label>
+                                    <input type="date" class="form-control app-form-control form-control-sm" id="constraintMinDate" data-testid="constraint-min-date">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max date</label>
+                                    <input type="date" class="form-control app-form-control form-control-sm" id="constraintMaxDate" data-testid="constraint-max-date">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Time constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupTime">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min time</label>
+                                    <input type="time" class="form-control app-form-control form-control-sm" id="constraintMinTime" data-testid="constraint-min-time">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max time</label>
+                                    <input type="time" class="form-control app-form-control form-control-sm" id="constraintMaxTime" data-testid="constraint-max-time">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Datetime constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupDatetime">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min date/time</label>
+                                    <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMinDatetime" data-testid="constraint-min-datetime">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max date/time</label>
+                                    <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMaxDatetime" data-testid="constraint-max-datetime">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Duration constraints -->
+                        <div class="constraint-group d-none" id="constraintGroupDuration">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min duration</label>
+                                    <input type="text" class="form-control app-form-control form-control-sm" id="constraintMinDuration" placeholder="e.g. PT1H30M" autocomplete="off" data-testid="constraint-min-duration">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max duration</label>
+                                    <input type="text" class="form-control app-form-control form-control-sm" id="constraintMaxDuration" placeholder="e.g. PT8H" autocomplete="off" data-testid="constraint-max-duration">
                                 </div>
                             </div>
                         </div>
@@ -893,80 +964,6 @@
                     <button type="button" class="btn btn-app-danger" id="confirmDeleteReportBtn"
                             data-testid="confirm-delete-report-button">Delete</button>
                 </div>
-            </div>
-        </div>
-    </div>
-    {/if}
-
-    <!-- Add Property Modal -->
-    {#if isDraft}
-    <div class="modal fade" id="addPropertyModal" tabindex="-1" aria-labelledby="addPropertyModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content app-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addPropertyModalLabel">Add Property</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="addPropertyForm">
-                    <input type="hidden" id="addPropertyEntityId" name="entityId" value="">
-                    <div class="modal-body">
-                        <div id="addPropertyError" class="alert alert-danger d-none mb-3" role="alert"></div>
-                        <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
-                            <input type="text" class="form-control app-form-control" id="addPropertyName" name="name" required autocomplete="off" placeholder="e.g. OrderDate" data-testid="property-name-input">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:#f87171;">*</span></label>
-                            <select class="form-select app-form-control" id="addPropertyType" name="type" required data-testid="property-type-select">
-                                <option value="">– Select –</option>
-                                <option value="STRING">String</option>
-                                <option value="LONG">Long (Integer)</option>
-                                <option value="DOUBLE">Double (Decimal)</option>
-                                <option value="BOOLEAN">Boolean</option>
-                                <option value="DATE">Date</option>
-                                <option value="TIME">Time</option>
-                                <option value="DATETIME">DateTime</option>
-                                <option value="DURATION">Duration</option>
-                                <option value="REF">Reference</option>
-                                <option value="LIST">List</option>
-                                <option value="OBJECT">Object</option>
-                            </select>
-                        </div>
-                        <div id="addPropertyListItemTypeSection" class="mb-3 d-none">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">List Item Type <span style="color:#f87171;">*</span></label>
-                            <select class="form-select app-form-control" id="addPropertyListItemType" name="listItemType" data-testid="property-list-item-type-select">
-                                <option value="">– Select –</option>
-                                <option value="STRING">String</option>
-                                <option value="LONG">Long (Integer)</option>
-                                <option value="DOUBLE">Double (Decimal)</option>
-                                <option value="BOOLEAN">Boolean</option>
-                                <option value="DATE">Date</option>
-                                <option value="TIME">Time</option>
-                                <option value="DATETIME">DateTime</option>
-                                <option value="DURATION">Duration</option>
-                                <option value="REF">Reference</option>
-                                <option value="OBJECT">Object</option>
-                            </select>
-                        </div>
-                        <div id="addPropertyTargetEntitySection" class="mb-3 d-none">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
-                            <select class="form-select app-form-control" id="addPropertyTargetEntity" name="targetEntityId" data-testid="property-target-entity-select">
-                                <option value="">– Select –</option>
-                                {#for e in version.entityDefinitions}
-                                <option value="{e.id}">{e.name}</option>
-                                {/for}
-                            </select>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="nullable" id="nullableCheck" checked value="true" data-testid="property-nullable-check">
-                            <label class="form-check-label" for="nullableCheck" style="color:var(--color-text-muted);">Nullable</label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="add-property-submit">Add</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -1406,73 +1403,6 @@
                 });
             }
 
-            // Add Property modal form
-            var addPropertyForm = document.getElementById('addPropertyForm');
-            if (addPropertyForm) {
-                var addPropertyError = document.getElementById('addPropertyError');
-                var addPropertyTargetEntity = document.getElementById('addPropertyTargetEntity');
-                var addPropertyListItemType = document.getElementById('addPropertyListItemType');
-                function applyAddListItemTypeVisibility(propertyType, listItemType) {
-                    var isList = propertyType === 'LIST';
-                    document.getElementById('addPropertyListItemTypeSection').classList.toggle('d-none', !isList);
-                    addPropertyListItemType.required = isList;
-                    if (!isList) { addPropertyListItemType.value = ''; }
-                    var targetEntityRequired = propertyType === 'REF' || (isList && listItemType === 'REF');
-                    document.getElementById('addPropertyTargetEntitySection').classList.toggle('d-none', !targetEntityRequired);
-                    addPropertyTargetEntity.required = targetEntityRequired;
-                    if (!targetEntityRequired) { addPropertyTargetEntity.value = ''; }
-                }
-                document.getElementById('addPropertyType').addEventListener('change', function () {
-                    applyAddListItemTypeVisibility(this.value, addPropertyListItemType.value);
-                });
-                addPropertyListItemType.addEventListener('change', function () {
-                    applyAddListItemTypeVisibility(document.getElementById('addPropertyType').value, this.value);
-                });
-                addPropertyForm.addEventListener('submit', async function (e) {
-                    e.preventDefault();
-                    addPropertyError.classList.add('d-none');
-                    addPropertyError.textContent = '';
-                    var btn = addPropertyForm.querySelector('[type="submit"]');
-                    btn.disabled = true;
-                    var formData = new FormData(this);
-                    var entityId = formData.get('entityId');
-                    formData.set('nullable', document.getElementById('nullableCheck').checked ? 'true' : 'false');
-                    formData.delete('entityId');
-                    var result = await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties',
-                        formData, true
-                    );
-                    if (result && result.ok) {
-                        var addPropertyModalEl = document.getElementById('addPropertyModal');
-                        if (addPropertyModalEl) {
-                            var modal = bootstrap.Modal.getInstance(addPropertyModalEl);
-                            if (modal) { modal.hide(); }
-                        }
-                    } else {
-                        addPropertyError.textContent = result ? result.message : 'Network error. Please try again.';
-                        addPropertyError.classList.remove('d-none');
-                        btn.disabled = false;
-                    }
-                });
-                var addPropertyModalEl = document.getElementById('addPropertyModal');
-                if (addPropertyModalEl) {
-                    addPropertyModalEl.addEventListener('show.bs.modal', function (event) {
-                        var entityId = event.relatedTarget ? event.relatedTarget.getAttribute('data-entity-id') : null;
-                        if (entityId) { document.getElementById('addPropertyEntityId').value = entityId; }
-                    });
-                    addPropertyModalEl.addEventListener('hidden.bs.modal', function () {
-                        addPropertyForm.reset();
-                        document.getElementById('nullableCheck').checked = true;
-                        document.getElementById('addPropertyTargetEntitySection').classList.add('d-none');
-                        addPropertyTargetEntity.required = false;
-                        document.getElementById('addPropertyListItemTypeSection').classList.add('d-none');
-                        addPropertyListItemType.required = false;
-                        addPropertyError.classList.add('d-none');
-                        addPropertyError.textContent = '';
-                        addPropertyForm.querySelector('[type="submit"]').disabled = false;
-                    });
-                }
-            }
 
             // Delete Property modal
             var deletePropertyModal = document.getElementById('deletePropertyModal');
@@ -1515,10 +1445,10 @@
                     'DOUBLE':   ['UniqueKey', 'Double'],
                     'BOOLEAN':  ['UniqueKey'],
                     'STRING':   ['UniqueKey', 'String'],
-                    'DATE':     ['UniqueKey'],
-                    'TIME':     ['UniqueKey'],
-                    'DATETIME': ['UniqueKey'],
-                    'DURATION': ['UniqueKey'],
+                    'DATE':     ['UniqueKey', 'Date'],
+                    'TIME':     ['UniqueKey', 'Time'],
+                    'DATETIME': ['UniqueKey', 'Datetime'],
+                    'DURATION': ['UniqueKey', 'Duration'],
                     'REF':      ['UniqueKey'],
                     'LIST':     ['List'],
                     'OBJECT':   [],
@@ -1569,6 +1499,10 @@
                     document.getElementById('constraintGroupDouble').classList.toggle('d-none', !groups.includes('Double'));
                     document.getElementById('constraintGroupString').classList.toggle('d-none', !groups.includes('String'));
                     document.getElementById('constraintGroupList').classList.toggle('d-none', !groups.includes('List'));
+                    document.getElementById('constraintGroupDate').classList.toggle('d-none', !groups.includes('Date'));
+                    document.getElementById('constraintGroupTime').classList.toggle('d-none', !groups.includes('Time'));
+                    document.getElementById('constraintGroupDatetime').classList.toggle('d-none', !groups.includes('Datetime'));
+                    document.getElementById('constraintGroupDuration').classList.toggle('d-none', !groups.includes('Duration'));
                     document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
 
                     applyListItemTypeVisibility(propertyType, document.getElementById('editPropertyListItemType').value);
@@ -1648,6 +1582,7 @@
                         document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
                         document.getElementById('editPropertyId').value = currentPropertyId;
                         document.getElementById('editPropertyModalLabel').textContent = 'Edit Property \u2013 ' + btn.getAttribute('data-property-name');
+                        if (editPropertyDeleteBtn) { editPropertyDeleteBtn.classList.remove('d-none'); }
                         document.getElementById('editPropertyName').value = btn.getAttribute('data-property-name');
                         document.getElementById('editPropertyType').value = propertyType;
                         document.getElementById('editPropertyNullable').checked = btn.getAttribute('data-property-nullable') === 'true';
@@ -1656,6 +1591,16 @@
                         document.getElementById('constraintMaxLong').value = btn.getAttribute('data-constraint-max-long') || '';
                         document.getElementById('constraintMinDouble').value = btn.getAttribute('data-constraint-min-double') || '';
                         document.getElementById('constraintMaxDouble').value = btn.getAttribute('data-constraint-max-double') || '';
+                        document.getElementById('constraintStepLong').value = btn.getAttribute('data-constraint-step-long') || '';
+                        document.getElementById('constraintStepDouble').value = btn.getAttribute('data-constraint-step-double') || '';
+                        document.getElementById('constraintMinDate').value = btn.getAttribute('data-constraint-min-date') || '';
+                        document.getElementById('constraintMaxDate').value = btn.getAttribute('data-constraint-max-date') || '';
+                        document.getElementById('constraintMinTime').value = btn.getAttribute('data-constraint-min-time') || '';
+                        document.getElementById('constraintMaxTime').value = btn.getAttribute('data-constraint-max-time') || '';
+                        document.getElementById('constraintMinDatetime').value = btn.getAttribute('data-constraint-min-datetime') || '';
+                        document.getElementById('constraintMaxDatetime').value = btn.getAttribute('data-constraint-max-datetime') || '';
+                        document.getElementById('constraintMinDuration').value = btn.getAttribute('data-constraint-min-duration') || '';
+                        document.getElementById('constraintMaxDuration').value = btn.getAttribute('data-constraint-max-duration') || '';
                         document.getElementById('constraintMinLength').value = btn.getAttribute('data-constraint-min-length') || '';
                         document.getElementById('constraintMaxLength').value = btn.getAttribute('data-constraint-max-length') || '';
                         document.getElementById('constraintPattern').value = btn.getAttribute('data-constraint-pattern') || '';
@@ -1696,6 +1641,25 @@
                     });
                 });
 
+                document.querySelectorAll('[data-action="add-property"]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        document.getElementById('editPropertyEntityId').value = btn.getAttribute('data-entity-id');
+                        document.getElementById('editPropertyId').value = '';
+                        document.getElementById('editPropertyModalLabel').textContent = 'Add Property';
+                        if (editPropertyDeleteBtn) { editPropertyDeleteBtn.classList.add('d-none'); }
+                        document.getElementById('editPropertyName').value = '';
+                        document.getElementById('editPropertyType').value = '';
+                        document.getElementById('editPropertyNullable').checked = true;
+                        document.getElementById('editPropertyTargetEntity').value = '';
+                        document.getElementById('editPropertyListItemType').value = '';
+                        document.getElementById('editPropertySmartDefault').value = '';
+                        buildValueProposalCheckboxes(null, []);
+                        applyConstraintVisibility('');
+                        var modal = bootstrap.Modal.getOrCreateInstance(editPropertyModal);
+                        modal.show();
+                    });
+                });
+
                 document.getElementById('editPropertyType').addEventListener('change', function () {
                     applyConstraintVisibility(this.value);
                     applyListItemTypeVisibility(this.value, document.getElementById('editPropertyListItemType').value);
@@ -1721,18 +1685,41 @@
                     btn.disabled = true;
                     var entityId = document.getElementById('editPropertyEntityId').value;
                     var propertyId = document.getElementById('editPropertyId').value;
-                    var propFormData = new FormData();
-                    propFormData.set('name', document.getElementById('editPropertyName').value);
-                    propFormData.set('type', document.getElementById('editPropertyType').value);
-                    propFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
-                    var propResult = await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId,
-                        propFormData, false
-                    );
-                    if (!propResult || !propResult.ok) {
-                        showEditPropertyError(propResult ? propResult.message : 'Network error. Please try again.');
-                        btn.disabled = false;
-                        return;
+                    var isCreate = propertyId === '';
+                    if (isCreate) {
+                        var addFormData = new FormData();
+                        addFormData.set('name', document.getElementById('editPropertyName').value);
+                        addFormData.set('type', document.getElementById('editPropertyType').value);
+                        addFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                        var addTargetEntityId = document.getElementById('editPropertyTargetEntity').value;
+                        if (addTargetEntityId !== '') addFormData.set('targetEntityId', addTargetEntityId);
+                        var addListItemType = document.getElementById('editPropertyListItemType').value;
+                        if (addListItemType !== '') addFormData.set('listItemType', addListItemType);
+                        var addResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties',
+                            addFormData, false
+                        );
+                        if (!addResult || !addResult.ok || !addResult.propertyId) {
+                            showEditPropertyError(addResult ? addResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                            return;
+                        }
+                        propertyId = addResult.propertyId;
+                        document.getElementById('editPropertyId').value = propertyId;
+                    } else {
+                        var propFormData = new FormData();
+                        propFormData.set('name', document.getElementById('editPropertyName').value);
+                        propFormData.set('type', document.getElementById('editPropertyType').value);
+                        propFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                        var propResult = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId,
+                            propFormData, false
+                        );
+                        if (!propResult || !propResult.ok) {
+                            showEditPropertyError(propResult ? propResult.message : 'Network error. Please try again.');
+                            btn.disabled = false;
+                            return;
+                        }
                     }
                     var constraintFormData = new FormData();
                     if (!document.getElementById('constraintGroupUniqueKey').classList.contains('d-none') && document.getElementById('constraintUniqueKey').checked) {
@@ -1741,14 +1728,42 @@
                     if (!document.getElementById('constraintGroupLong').classList.contains('d-none')) {
                         var minLong = document.getElementById('constraintMinLong').value;
                         var maxLong = document.getElementById('constraintMaxLong').value;
+                        var stepLong = document.getElementById('constraintStepLong').value;
                         if (minLong !== '') constraintFormData.set('minLong', minLong);
                         if (maxLong !== '') constraintFormData.set('maxLong', maxLong);
+                        if (stepLong !== '') constraintFormData.set('stepLong', stepLong);
                     }
                     if (!document.getElementById('constraintGroupDouble').classList.contains('d-none')) {
                         var minDouble = document.getElementById('constraintMinDouble').value;
                         var maxDouble = document.getElementById('constraintMaxDouble').value;
+                        var stepDouble = document.getElementById('constraintStepDouble').value;
                         if (minDouble !== '') constraintFormData.set('minDouble', minDouble);
                         if (maxDouble !== '') constraintFormData.set('maxDouble', maxDouble);
+                        if (stepDouble !== '') constraintFormData.set('stepDouble', stepDouble);
+                    }
+                    if (!document.getElementById('constraintGroupDate').classList.contains('d-none')) {
+                        var minDate = document.getElementById('constraintMinDate').value;
+                        var maxDate = document.getElementById('constraintMaxDate').value;
+                        if (minDate !== '') constraintFormData.set('minDate', minDate);
+                        if (maxDate !== '') constraintFormData.set('maxDate', maxDate);
+                    }
+                    if (!document.getElementById('constraintGroupTime').classList.contains('d-none')) {
+                        var minTime = document.getElementById('constraintMinTime').value;
+                        var maxTime = document.getElementById('constraintMaxTime').value;
+                        if (minTime !== '') constraintFormData.set('minTime', minTime);
+                        if (maxTime !== '') constraintFormData.set('maxTime', maxTime);
+                    }
+                    if (!document.getElementById('constraintGroupDatetime').classList.contains('d-none')) {
+                        var minDatetime = document.getElementById('constraintMinDatetime').value;
+                        var maxDatetime = document.getElementById('constraintMaxDatetime').value;
+                        if (minDatetime !== '') constraintFormData.set('minDatetime', minDatetime);
+                        if (maxDatetime !== '') constraintFormData.set('maxDatetime', maxDatetime);
+                    }
+                    if (!document.getElementById('constraintGroupDuration').classList.contains('d-none')) {
+                        var minDuration = document.getElementById('constraintMinDuration').value;
+                        var maxDuration = document.getElementById('constraintMaxDuration').value;
+                        if (minDuration !== '') constraintFormData.set('minDuration', minDuration);
+                        if (maxDuration !== '') constraintFormData.set('maxDuration', maxDuration);
                     }
                     if (!document.getElementById('constraintGroupString').classList.contains('d-none')) {
                         var minLength = document.getElementById('constraintMinLength').value;
