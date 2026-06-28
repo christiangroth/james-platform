@@ -1,3 +1,14 @@
+# 0.47.4 (2026.06.28)
+
+## Bugfixes / Chore
+* Moved the "add data" button into the top row of the data table for a more compact display.
+* Fixed step buttons on numeric fields so they actually add or subtract the configured step from the current value.
+* Step buttons now respect configured minimum/maximum constraints and no longer go below or above them.
+
+
+
+---
+
 # 0.47.3 (2026.06.28)
 
 ## Bugfixes / Chore
