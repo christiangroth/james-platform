@@ -93,6 +93,14 @@ class DeveloperAppResource {
   private lateinit var versionDiffTemplate: Template
 
   @Inject
+  @Location("ui/developer/edit-property.html")
+  private lateinit var editPropertyTemplate: Template
+
+  @Inject
+  @Location("ui/developer/publish-version.html")
+  private lateinit var publishVersionTemplate: Template
+
+  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -287,6 +295,95 @@ class DeveloperAppResource {
             .data("path", breadcrumb.lastOrNull()?.path ?: "")
             .data("breadcrumb", breadcrumb)
             .data("isNestedLevel", breadcrumb.isNotEmpty()),
+        ).build()
+      },
+    )
+  }
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/new")
+  @Produces(MediaType.TEXT_HTML)
+  fun newProperty(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @QueryParam("path") pathParam: String?,
+  ): Response = editPropertyPage(appId, versionId, entityId, null, pathParam)
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/edit")
+  @Produces(MediaType.TEXT_HTML)
+  fun editProperty(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @QueryParam("path") pathParam: String?,
+  ): Response = editPropertyPage(appId, versionId, entityId, propertyId, pathParam)
+
+  private fun editPropertyPage(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String?,
+    pathParam: String?,
+  ): Response {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
+    if (appResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    val app = appResult.getOrNull()!!
+    return appVersionManagement.getVersion(appId, versionId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
+      ifRight = { version ->
+        val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
+          ?: return@fold Response.seeOther(URI.create("/ui/developer/apps/$appId/versions/$versionId")).build()
+        val pathIds = parsePath(pathParam)
+        val resolved = resolvePath(selectedEntity, pathIds)
+        val currentProperties = resolved?.properties ?: (selectedEntity.properties.takeIf { pathIds.isEmpty() } ?: emptyList())
+        val breadcrumb = resolved?.breadcrumb ?: emptyList()
+        val selectedProperty = propertyId?.let { id -> currentProperties.find { it.id.value == id } }
+        val currentPropertiesJson = RawString(
+          ObjectMapper().writeValueAsString(currentProperties.map { mapOf("id" to it.id.value, "name" to it.name) }),
+        )
+        Response.ok(
+          editPropertyTemplate
+            .data("app", app)
+            .data("version", version)
+            .data("selectedEntity", selectedEntity)
+            .data("selectedProperty", selectedProperty)
+            .data("path", breadcrumb.lastOrNull()?.path ?: "")
+            .data("breadcrumb", breadcrumb)
+            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
+            .data("currentPropertiesJson", currentPropertiesJson),
+        ).build()
+      },
+    )
+  }
+
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/publish")
+  @Produces(MediaType.TEXT_HTML)
+  fun publishVersionPage(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+  ): Response {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    val appResult = appManagement.getApp(appId, developerId)
+    if (appResult.isLeft()) {
+      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    val app = appResult.getOrNull()!!
+    return appVersionManagement.getVersion(appId, versionId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
+      ifRight = { version ->
+        Response.ok(
+          publishVersionTemplate
+            .data("app", app)
+            .data("version", version),
         ).build()
       },
     )
