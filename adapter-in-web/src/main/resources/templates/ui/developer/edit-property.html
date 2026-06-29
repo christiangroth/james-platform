@@ -1,0 +1,900 @@
+{#include layout.html}
+    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}Draft{/if} – {selectedEntity.name} – {#if selectedProperty}Edit Property{#else}Add Property{/if}{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">Development</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}Draft{/if}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}" class="breadcrumb-link" data-testid="breadcrumb-entity">{selectedEntity.name}</a></li>
+                {#for segment in breadcrumb}
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}?path={segment.path}" class="breadcrumb-link" data-testid="breadcrumb-nested-{segment.id}">{segment.name}</a></li>
+                {/for}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-edit-property">{#if selectedProperty}Edit Property{#else}Add Property{/if}</li>
+            </ol>
+        </nav>
+
+        <div id="editPropertyMessage" class="d-none mb-4" role="alert"></div>
+
+        <div class="card app-card p-4" data-testid="edit-property-editor">
+            <h2 class="fs-5 fw-semibold mb-3" data-testid="edit-property-title">{#if selectedProperty}Edit Property: {selectedProperty.name}{#else}Add Property{/if}</h2>
+
+            <div id="editPropertyInitialData" class="d-none"
+                 {#if selectedProperty}
+                 data-property-id="{selectedProperty.id}"
+                 data-property-name="{selectedProperty.name}"
+                 data-property-type="{selectedProperty.type}"
+                 data-property-nullable="{selectedProperty.nullable}"
+                 data-constraint-unique-key="{selectedProperty.constraintUniqueKey}"
+                 data-constraint-min-long="{selectedProperty.constraintMinLong}"
+                 data-constraint-max-long="{selectedProperty.constraintMaxLong}"
+                 data-constraint-step-long="{selectedProperty.constraintStepLong}"
+                 data-constraint-min-double="{selectedProperty.constraintMinDouble}"
+                 data-constraint-max-double="{selectedProperty.constraintMaxDouble}"
+                 data-constraint-step-double="{selectedProperty.constraintStepDouble}"
+                 data-constraint-min-length="{selectedProperty.constraintMinLength}"
+                 data-constraint-max-length="{selectedProperty.constraintMaxLength}"
+                 data-constraint-pattern="{selectedProperty.constraintPattern}"
+                 data-constraint-min-size="{selectedProperty.constraintMinSize}"
+                 data-constraint-max-size="{selectedProperty.constraintMaxSize}"
+                 data-constraint-min-date="{selectedProperty.constraintMinDate}"
+                 data-constraint-max-date="{selectedProperty.constraintMaxDate}"
+                 data-constraint-min-time="{selectedProperty.constraintMinTime}"
+                 data-constraint-max-time="{selectedProperty.constraintMaxTime}"
+                 data-constraint-min-datetime="{selectedProperty.constraintMinDatetime}"
+                 data-constraint-max-datetime="{selectedProperty.constraintMaxDatetime}"
+                 data-constraint-min-duration="{selectedProperty.constraintMinDuration}"
+                 data-constraint-max-duration="{selectedProperty.constraintMaxDuration}"
+                 data-default-value="{selectedProperty.defaultValue}"
+                 data-smart-default="{selectedProperty.smartDefault}"
+                 data-value-proposals="{selectedProperty.valueProposals}"
+                 data-target-entity-id="{selectedProperty.targetEntityId}"
+                 data-list-item-type="{selectedProperty.listItemType}"
+                 data-item-constraint-min-long="{selectedProperty.itemConstraintMinLong}"
+                 data-item-constraint-max-long="{selectedProperty.itemConstraintMaxLong}"
+                 data-item-constraint-min-double="{selectedProperty.itemConstraintMinDouble}"
+                 data-item-constraint-max-double="{selectedProperty.itemConstraintMaxDouble}"
+                 data-item-constraint-min-length="{selectedProperty.itemConstraintMinLength}"
+                 data-item-constraint-max-length="{selectedProperty.itemConstraintMaxLength}"
+                 data-item-constraint-pattern="{selectedProperty.itemConstraintPattern}"
+                 {/if}
+            ></div>
+
+            <form id="editPropertyForm">
+                <input type="hidden" id="editPropertyEntityId" name="entityId" value="{selectedEntity.id}">
+                <input type="hidden" id="editPropertyId" name="propertyId" value="{#if selectedProperty}{selectedProperty.id}{/if}">
+                <input type="hidden" id="editPropertyPath" name="path" value="{path}">
+                <div id="editPropertyError" class="alert alert-danger d-none mb-3" role="alert"></div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name</label>
+                    <input type="text" class="form-control app-form-control form-control-sm" id="editPropertyName" name="name" required autocomplete="off" data-testid="edit-property-name-input">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type</label>
+                    <select class="form-select app-form-control form-select-sm" id="editPropertyType" name="type" required data-testid="edit-property-type-select">
+                        <option value="">– Select –</option>
+                        <option value="STRING">String</option>
+                        <option value="LONG">Long (Integer)</option>
+                        <option value="DOUBLE">Double (Decimal)</option>
+                        <option value="BOOLEAN">Boolean</option>
+                        <option value="DATE">Date</option>
+                        <option value="TIME">Time</option>
+                        <option value="DATETIME">DateTime</option>
+                        <option value="DURATION">Duration</option>
+                        <option value="REF">Reference</option>
+                        <option value="LIST">List</option>
+                        <option value="OBJECT">Object</option>
+                    </select>
+                </div>
+                <div id="listItemTypeSection" class="mb-3 d-none">
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">List Item Type <span style="color:#f87171;">*</span></label>
+                    <select class="form-select app-form-control form-select-sm" id="editPropertyListItemType" data-testid="edit-property-list-item-type-select">
+                        <option value="">– Select –</option>
+                        <option value="STRING">String</option>
+                        <option value="LONG">Long (Integer)</option>
+                        <option value="DOUBLE">Double (Decimal)</option>
+                        <option value="BOOLEAN">Boolean</option>
+                        <option value="DATE">Date</option>
+                        <option value="TIME">Time</option>
+                        <option value="DATETIME">DateTime</option>
+                        <option value="DURATION">Duration</option>
+                        <option value="REF">Reference</option>
+                        <option value="OBJECT">Object</option>
+                    </select>
+                </div>
+                <div id="targetEntitySection" class="mb-3 d-none">
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
+                    <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" required data-testid="edit-property-target-entity-select">
+                        <option value="">– Select –</option>
+                        {#for e in version.entityDefinitions}
+                        <option value="{e.id}">{e.name}</option>
+                        {/for}
+                    </select>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="editPropertyNullable" name="nullable" value="true" data-testid="edit-property-nullable-check">
+                    <label class="form-check-label" for="editPropertyNullable" style="color:var(--color-text-muted);">Nullable</label>
+                </div>
+                <p class="mb-3" style="color:var(--color-text-muted);font-size:0.8rem;">Note: changing the type will clear any existing constraints on this property.</p>
+                <hr style="border-color:var(--color-border);">
+                <div class="app-section-label mb-2" id="editConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Constraints</div>
+                <!-- UniqueKey (all scalar types) -->
+                <div class="constraint-group" id="constraintGroupUniqueKey">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="constraintUniqueKey" data-testid="constraint-unique-key-check">
+                        <label class="form-check-label" for="constraintUniqueKey" style="color:var(--color-text-muted);">Unique Key</label>
+                    </div>
+                </div>
+                <!-- Long constraints -->
+                <div class="constraint-group d-none" id="constraintGroupLong">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMinLong" placeholder="No minimum" data-testid="constraint-min-long">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMaxLong" placeholder="No maximum" data-testid="constraint-max-long">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Step</label>
+                        <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintStepLong" placeholder="No step" data-testid="constraint-step-long">
+                    </div>
+                </div>
+                <!-- Double constraints -->
+                <div class="constraint-group d-none" id="constraintGroupDouble">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMinDouble" placeholder="No minimum" data-testid="constraint-min-double">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMaxDouble" placeholder="No maximum" data-testid="constraint-max-double">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Step</label>
+                        <input type="number" step="any" min="0" class="form-control app-form-control form-control-sm" id="constraintStepDouble" placeholder="No step" data-testid="constraint-step-double">
+                    </div>
+                </div>
+                <!-- Date constraints -->
+                <div class="constraint-group d-none" id="constraintGroupDate">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min date</label>
+                            <input type="date" class="form-control app-form-control form-control-sm" id="constraintMinDate" data-testid="constraint-min-date">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max date</label>
+                            <input type="date" class="form-control app-form-control form-control-sm" id="constraintMaxDate" data-testid="constraint-max-date">
+                        </div>
+                    </div>
+                </div>
+                <!-- Time constraints -->
+                <div class="constraint-group d-none" id="constraintGroupTime">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min time</label>
+                            <input type="time" class="form-control app-form-control form-control-sm" id="constraintMinTime" data-testid="constraint-min-time">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max time</label>
+                            <input type="time" class="form-control app-form-control form-control-sm" id="constraintMaxTime" data-testid="constraint-max-time">
+                        </div>
+                    </div>
+                </div>
+                <!-- Datetime constraints -->
+                <div class="constraint-group d-none" id="constraintGroupDatetime">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min date/time</label>
+                            <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMinDatetime" data-testid="constraint-min-datetime">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max date/time</label>
+                            <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMaxDatetime" data-testid="constraint-max-datetime">
+                        </div>
+                    </div>
+                </div>
+                <!-- Duration constraints -->
+                <div class="constraint-group d-none" id="constraintGroupDuration">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min duration</label>
+                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMinDuration" placeholder="e.g. 1d 2h 30m 15s or 02:30:15" autocomplete="off" data-testid="constraint-min-duration">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max duration</label>
+                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMaxDuration" placeholder="e.g. 1d 2h 30m 15s or 02:30:15" autocomplete="off" data-testid="constraint-max-duration">
+                        </div>
+                    </div>
+                </div>
+                <!-- String constraints -->
+                <div class="constraint-group d-none" id="constraintGroupString">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min length</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinLength" placeholder="No minimum" data-testid="constraint-min-length">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max length</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxLength" placeholder="No maximum" data-testid="constraint-max-length">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Pattern (regex)</label>
+                        <input type="text" class="form-control app-form-control form-control-sm" id="constraintPattern" placeholder="e.g. ^[A-Z].*" data-testid="constraint-pattern">
+                    </div>
+                </div>
+                <!-- List constraints -->
+                <div class="constraint-group d-none" id="constraintGroupList">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min size</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinSize" placeholder="No minimum" data-testid="constraint-min-size">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max size</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxSize" placeholder="No maximum" data-testid="constraint-max-size">
+                        </div>
+                    </div>
+                </div>
+                <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">No constraints available for this property type.</p>
+                <div class="app-section-label mb-2 d-none" id="itemConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Item Constraints</div>
+                <!-- List item Long constraints -->
+                <div class="constraint-group d-none" id="itemConstraintGroupLong">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMinLong" placeholder="No minimum" data-testid="item-constraint-min-long">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLong" placeholder="No maximum" data-testid="item-constraint-max-long">
+                        </div>
+                    </div>
+                </div>
+                <!-- List item Double constraints -->
+                <div class="constraint-group d-none" id="itemConstraintGroupDouble">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min value</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMinDouble" placeholder="No minimum" data-testid="item-constraint-min-double">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max value</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMaxDouble" placeholder="No maximum" data-testid="item-constraint-max-double">
+                        </div>
+                    </div>
+                </div>
+                <!-- List item String constraints -->
+                <div class="constraint-group d-none" id="itemConstraintGroupString">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Min length</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMinLength" placeholder="No minimum" data-testid="item-constraint-min-length">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Max length</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLength" placeholder="No maximum" data-testid="item-constraint-max-length">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Pattern (regex)</label>
+                        <input type="text" class="form-control app-form-control form-control-sm" id="itemConstraintPattern" placeholder="e.g. ^[A-Z].*" data-testid="item-constraint-pattern">
+                    </div>
+                </div>
+                <div id="defaultSection" class="d-none">
+                    <hr style="border-color:var(--color-border);">
+                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
+                    <!-- Default: Long -->
+                    <div class="default-group d-none" id="defaultGroupLong">
+                        <input type="number" step="1" class="form-control app-form-control form-control-sm" id="defaultLong" placeholder="No default" data-testid="default-long">
+                    </div>
+                    <!-- Default: Double -->
+                    <div class="default-group d-none" id="defaultGroupDouble">
+                        <input type="number" step="any" class="form-control app-form-control form-control-sm" id="defaultDouble" placeholder="No default" data-testid="default-double">
+                    </div>
+                    <!-- Default: Boolean -->
+                    <div class="default-group d-none" id="defaultGroupBoolean">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="defaultBoolean" data-testid="default-boolean">
+                            <label class="form-check-label" for="defaultBoolean" style="color:var(--color-text-muted);">Checked = true</label>
+                        </div>
+                    </div>
+                    <!-- Default: String -->
+                    <div class="default-group d-none" id="defaultGroupString">
+                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultString" placeholder="No default" autocomplete="off" data-testid="default-string">
+                    </div>
+                    <!-- Default: Date -->
+                    <div class="default-group d-none" id="defaultGroupDate">
+                        <input type="date" class="form-control app-form-control form-control-sm" id="defaultDate" data-testid="default-date">
+                    </div>
+                    <!-- Default: Time -->
+                    <div class="default-group d-none" id="defaultGroupTime">
+                        <input type="time" class="form-control app-form-control form-control-sm" id="defaultTime" data-testid="default-time">
+                    </div>
+                    <!-- Default: DateTime -->
+                    <div class="default-group d-none" id="defaultGroupDatetime">
+                        <input type="datetime-local" class="form-control app-form-control form-control-sm" id="defaultDatetime" data-testid="default-datetime">
+                    </div>
+                    <!-- Default: Duration -->
+                    <div class="default-group d-none" id="defaultGroupDuration">
+                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="e.g. 1d 2h 30m 15s or 02:30:15" autocomplete="off" data-testid="default-duration">
+                    </div>
+                </div>
+                <div id="smartDefaultSection" class="d-none">
+                    <hr style="border-color:var(--color-border);">
+                    <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Smart Default (Kotlin Script)</div>
+                    <p class="app-section-label mb-2" style="font-size:0.75rem;">Evaluated when creating new items. Variables: <code>it</code> (Map&lt;String, String?&gt;), <code>now</code> (Instant). Return a String or null.</p>
+                    <div id="smartDefaultGroup">
+                        <div id="predefinedSmartDefaultGroup" class="d-none mb-2">
+                            <div class="app-section-label mb-1" style="font-size:0.75rem;">Predefined</div>
+                            <div id="predefinedSmartDefaultButtons" class="d-flex flex-wrap gap-1"></div>
+                        </div>
+                        <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="e.g. now.toString()" data-testid="smart-default-script-input"></textarea>
+                    </div>
+                </div>
+                <div id="valueProposalSection" class="d-none">
+                    <hr style="border-color:var(--color-border);">
+                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Value Proposals</div>
+                    <div id="valueProposalGroup">
+                        <p class="app-section-label mb-2" style="font-size:0.75rem;">Select properties whose current values are used to filter value proposals for this field.</p>
+                        <div id="valueProposalCheckboxes"></div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}{#if path}?path={path}{/if}" class="btn btn-app-secondary btn-sm" data-testid="edit-property-cancel-button">Cancel</a>
+                    <div class="d-flex gap-2">
+                        {#if selectedProperty}
+                        <button type="button" class="btn btn-app-danger btn-sm" id="editPropertyDeleteBtn" data-testid="edit-property-delete-button">Delete</button>
+                        {/if}
+                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="edit-property-submit-button">Save</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Property Modal -->
+    <div class="modal fade" id="deletePropertyModal" tabindex="-1" aria-labelledby="deletePropertyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deletePropertyModalLabel">Remove Property</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to remove this property? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeletePropertyBtn" data-testid="confirm-delete-property-button">Remove</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {/content}
+    {#scripts}
+    <script type="application/json" id="predefined-smart-defaults-data">{predefinedSmartDefaultsJson}</script>
+    <script type="application/json" id="entity-properties-data">{currentPropertiesJson}</script>
+    <script>
+        (function () {
+            var appId = '{app.id}';
+            var versionId = '{version.id}';
+            var entityId = '{selectedEntity.id}';
+            var entityBackUrl = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId
+                + (document.getElementById('editPropertyPath').value ? ('?path=' + encodeURIComponent(document.getElementById('editPropertyPath').value)) : '');
+            var messagePanel = document.getElementById('editPropertyMessage');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            async function apiPost(url, formData, navigateOnSuccess) {
+                try {
+                    var body = formData ? new URLSearchParams(formData).toString() : '';
+                    var headers = { 'Accept': 'application/json' };
+                    if (body) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; }
+                    var response = await fetch(url, { method: 'POST', headers: headers, body: body || undefined });
+                    var result = await response.json();
+                    if (result.ok && result.redirectUrl && navigateOnSuccess) {
+                        window.location.href = result.redirectUrl;
+                    } else {
+                        showMessage(result.ok, result.message);
+                    }
+                    return result;
+                } catch (e) {
+                    showMessage(false, 'Network error. Please try again.');
+                    return null;
+                }
+            }
+
+            var CONSTRAINT_TYPE_GROUPS = {
+                'LONG':     ['UniqueKey', 'Long'],
+                'DOUBLE':   ['UniqueKey', 'Double'],
+                'BOOLEAN':  ['UniqueKey'],
+                'STRING':   ['UniqueKey', 'String'],
+                'DATE':     ['UniqueKey', 'Date'],
+                'TIME':     ['UniqueKey', 'Time'],
+                'DATETIME': ['UniqueKey', 'Datetime'],
+                'DURATION': ['UniqueKey', 'Duration'],
+                'REF':      ['UniqueKey'],
+                'LIST':     ['List'],
+                'OBJECT':   [],
+            };
+
+            var DEFAULT_TYPE_GROUP = {
+                'LONG':     'Long',
+                'DOUBLE':   'Double',
+                'BOOLEAN':  'Boolean',
+                'STRING':   'String',
+                'DATE':     'Date',
+                'TIME':     'Time',
+                'DATETIME': 'Datetime',
+                'DURATION': 'Duration',
+            };
+
+            var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
+
+            var ITEM_CONSTRAINT_TYPE_GROUPS = {
+                'LONG':   ['Long'],
+                'DOUBLE': ['Double'],
+                'STRING': ['String'],
+            };
+
+            function applyListItemTypeVisibility(propertyType, listItemType) {
+                var isList = propertyType === 'LIST';
+                document.getElementById('listItemTypeSection').classList.toggle('d-none', !isList);
+                document.getElementById('editPropertyListItemType').required = isList;
+
+                var itemGroups = isList ? (ITEM_CONSTRAINT_TYPE_GROUPS[listItemType] || []) : [];
+                document.getElementById('itemConstraintGroupLong').classList.toggle('d-none', !itemGroups.includes('Long'));
+                document.getElementById('itemConstraintGroupDouble').classList.toggle('d-none', !itemGroups.includes('Double'));
+                document.getElementById('itemConstraintGroupString').classList.toggle('d-none', !itemGroups.includes('String'));
+                document.getElementById('itemConstraintsLabel').classList.toggle('d-none', itemGroups.length === 0);
+
+                var targetEntityRequired = propertyType === 'REF' || (isList && listItemType === 'REF');
+                document.getElementById('targetEntitySection').classList.toggle('d-none', !targetEntityRequired);
+                document.getElementById('editPropertyTargetEntity').required = targetEntityRequired;
+            }
+
+            var PREDEFINED_SMART_DEFAULTS = JSON.parse(document.getElementById('predefined-smart-defaults-data').textContent);
+            var ENTITY_PROPERTIES = JSON.parse(document.getElementById('entity-properties-data').textContent);
+
+            function applyConstraintVisibility(propertyType) {
+                var groups = CONSTRAINT_TYPE_GROUPS[propertyType] || [];
+                document.getElementById('constraintGroupUniqueKey').classList.toggle('d-none', !groups.includes('UniqueKey'));
+                document.getElementById('constraintGroupLong').classList.toggle('d-none', !groups.includes('Long'));
+                document.getElementById('constraintGroupDouble').classList.toggle('d-none', !groups.includes('Double'));
+                document.getElementById('constraintGroupString').classList.toggle('d-none', !groups.includes('String'));
+                document.getElementById('constraintGroupList').classList.toggle('d-none', !groups.includes('List'));
+                document.getElementById('constraintGroupDate').classList.toggle('d-none', !groups.includes('Date'));
+                document.getElementById('constraintGroupTime').classList.toggle('d-none', !groups.includes('Time'));
+                document.getElementById('constraintGroupDatetime').classList.toggle('d-none', !groups.includes('Datetime'));
+                document.getElementById('constraintGroupDuration').classList.toggle('d-none', !groups.includes('Duration'));
+                document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
+
+                applyListItemTypeVisibility(propertyType, document.getElementById('editPropertyListItemType').value);
+
+                var defaultGroup = DEFAULT_TYPE_GROUP[propertyType] || null;
+                ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
+                    document.getElementById('defaultGroup' + g).classList.toggle('d-none', defaultGroup !== g);
+                });
+                document.getElementById('defaultSection').classList.toggle('d-none', defaultGroup == null);
+
+                var supportsSmartDefault = SMART_DEFAULT_SUPPORTED_TYPES.includes(propertyType);
+                document.getElementById('smartDefaultSection').classList.toggle('d-none', !supportsSmartDefault);
+
+                var supportsValueProposals = propertyType === 'STRING';
+                document.getElementById('valueProposalSection').classList.toggle('d-none', !supportsValueProposals);
+
+                var predefinedDefaults = (supportsSmartDefault && PREDEFINED_SMART_DEFAULTS[propertyType]) || [];
+                var predefinedContainer = document.getElementById('predefinedSmartDefaultButtons');
+                var predefinedGroup = document.getElementById('predefinedSmartDefaultGroup');
+                predefinedContainer.innerHTML = '';
+                if (predefinedDefaults.length > 0) {
+                    predefinedDefaults.forEach(function (pd) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-app-secondary btn-sm';
+                        btn.style.fontSize = '0.75rem';
+                        btn.setAttribute('data-testid', 'predefined-smart-default-' + pd.label.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+                        btn.textContent = pd.label;
+                        btn.addEventListener('click', function () {
+                            document.getElementById('editPropertySmartDefault').value = pd.script;
+                        });
+                        predefinedContainer.appendChild(btn);
+                    });
+                    predefinedGroup.classList.remove('d-none');
+                } else {
+                    predefinedGroup.classList.add('d-none');
+                }
+            }
+
+            function buildValueProposalCheckboxes(currentPropertyId, selectedIds) {
+                var container = document.getElementById('valueProposalCheckboxes');
+                container.innerHTML = '';
+                var otherProps = ENTITY_PROPERTIES.filter(function (p) { return p.id !== currentPropertyId; });
+                if (otherProps.length === 0) {
+                    var msg = document.createElement('p');
+                    msg.className = 'app-section-label mb-0';
+                    msg.style.fontSize = '0.85rem';
+                    msg.textContent = 'No other properties available.';
+                    container.appendChild(msg);
+                    return;
+                }
+                otherProps.forEach(function (prop) {
+                    var wrapper = document.createElement('div');
+                    wrapper.className = 'form-check mb-1';
+                    var cb = document.createElement('input');
+                    cb.className = 'form-check-input';
+                    cb.type = 'checkbox';
+                    cb.id = 'vpCheck_' + prop.id;
+                    cb.setAttribute('data-vp-prop-id', prop.id);
+                    cb.checked = selectedIds.includes(prop.id);
+                    cb.setAttribute('data-testid', 'value-proposal-check-' + prop.id);
+                    var label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.htmlFor = 'vpCheck_' + prop.id;
+                    label.style.color = 'var(--color-text-muted)';
+                    label.textContent = prop.name;
+                    wrapper.appendChild(cb);
+                    wrapper.appendChild(label);
+                    container.appendChild(wrapper);
+                });
+            }
+
+            // Populate the form from server-rendered initial data (edit mode) or leave it empty (add mode)
+            var initialData = document.getElementById('editPropertyInitialData');
+            var currentPropertyId = initialData.getAttribute('data-property-id') || '';
+            var initialType = initialData.getAttribute('data-property-type') || '';
+            document.getElementById('editPropertyName').value = initialData.getAttribute('data-property-name') || '';
+            document.getElementById('editPropertyType').value = initialType;
+            document.getElementById('editPropertyNullable').checked = initialData.getAttribute('data-property-nullable') === 'true';
+            document.getElementById('constraintUniqueKey').checked = initialData.getAttribute('data-constraint-unique-key') === 'true';
+            document.getElementById('constraintMinLong').value = initialData.getAttribute('data-constraint-min-long') || '';
+            document.getElementById('constraintMaxLong').value = initialData.getAttribute('data-constraint-max-long') || '';
+            document.getElementById('constraintMinDouble').value = initialData.getAttribute('data-constraint-min-double') || '';
+            document.getElementById('constraintMaxDouble').value = initialData.getAttribute('data-constraint-max-double') || '';
+            document.getElementById('constraintStepLong').value = initialData.getAttribute('data-constraint-step-long') || '';
+            document.getElementById('constraintStepDouble').value = initialData.getAttribute('data-constraint-step-double') || '';
+            document.getElementById('constraintMinDate').value = initialData.getAttribute('data-constraint-min-date') || '';
+            document.getElementById('constraintMaxDate').value = initialData.getAttribute('data-constraint-max-date') || '';
+            document.getElementById('constraintMinTime').value = initialData.getAttribute('data-constraint-min-time') || '';
+            document.getElementById('constraintMaxTime').value = initialData.getAttribute('data-constraint-max-time') || '';
+            document.getElementById('constraintMinDatetime').value = initialData.getAttribute('data-constraint-min-datetime') || '';
+            document.getElementById('constraintMaxDatetime').value = initialData.getAttribute('data-constraint-max-datetime') || '';
+            document.getElementById('constraintMinDuration').value = initialData.getAttribute('data-constraint-min-duration') || '';
+            document.getElementById('constraintMaxDuration').value = initialData.getAttribute('data-constraint-max-duration') || '';
+            document.getElementById('constraintMinLength').value = initialData.getAttribute('data-constraint-min-length') || '';
+            document.getElementById('constraintMaxLength').value = initialData.getAttribute('data-constraint-max-length') || '';
+            document.getElementById('constraintPattern').value = initialData.getAttribute('data-constraint-pattern') || '';
+            document.getElementById('constraintMinSize').value = initialData.getAttribute('data-constraint-min-size') || '';
+            document.getElementById('constraintMaxSize').value = initialData.getAttribute('data-constraint-max-size') || '';
+            document.getElementById('editPropertyTargetEntity').value = initialData.getAttribute('data-target-entity-id') || '';
+            document.getElementById('editPropertyListItemType').value = initialData.getAttribute('data-list-item-type') || '';
+            document.getElementById('itemConstraintMinLong').value = initialData.getAttribute('data-item-constraint-min-long') || '';
+            document.getElementById('itemConstraintMaxLong').value = initialData.getAttribute('data-item-constraint-max-long') || '';
+            document.getElementById('itemConstraintMinDouble').value = initialData.getAttribute('data-item-constraint-min-double') || '';
+            document.getElementById('itemConstraintMaxDouble').value = initialData.getAttribute('data-item-constraint-max-double') || '';
+            document.getElementById('itemConstraintMinLength').value = initialData.getAttribute('data-item-constraint-min-length') || '';
+            document.getElementById('itemConstraintMaxLength').value = initialData.getAttribute('data-item-constraint-max-length') || '';
+            document.getElementById('itemConstraintPattern').value = initialData.getAttribute('data-item-constraint-pattern') || '';
+            var defaultVal = initialData.getAttribute('data-default-value') || '';
+            document.getElementById('defaultLong').value = defaultVal;
+            document.getElementById('defaultDouble').value = defaultVal;
+            document.getElementById('defaultBoolean').checked = defaultVal === 'true';
+            document.getElementById('defaultString').value = defaultVal;
+            document.getElementById('defaultDate').value = defaultVal;
+            document.getElementById('defaultTime').value = defaultVal;
+            document.getElementById('defaultDatetime').value = defaultVal;
+            document.getElementById('defaultDuration').value = defaultVal;
+            document.getElementById('editPropertySmartDefault').value = initialData.getAttribute('data-smart-default') || '';
+            var rawVp = initialData.getAttribute('data-value-proposals') || '';
+            var selectedVpIds = rawVp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            buildValueProposalCheckboxes(currentPropertyId, selectedVpIds);
+            applyListItemTypeVisibility(initialType, document.getElementById('editPropertyListItemType').value);
+            applyConstraintVisibility(initialType);
+
+            document.getElementById('editPropertyType').addEventListener('change', function () {
+                applyConstraintVisibility(this.value);
+                applyListItemTypeVisibility(this.value, document.getElementById('editPropertyListItemType').value);
+            });
+
+            document.getElementById('editPropertyListItemType').addEventListener('change', function () {
+                applyListItemTypeVisibility(document.getElementById('editPropertyType').value, this.value);
+            });
+
+            var editPropertyError = document.getElementById('editPropertyError');
+
+            function showEditPropertyError(message) {
+                editPropertyError.textContent = message;
+                editPropertyError.classList.remove('d-none');
+            }
+
+            var editPropertyForm = document.getElementById('editPropertyForm');
+            editPropertyForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                editPropertyError.classList.add('d-none');
+                editPropertyError.textContent = '';
+                var btn = editPropertyForm.querySelector('[type="submit"]');
+                btn.disabled = true;
+                var propertyId = document.getElementById('editPropertyId').value;
+                var editPath = document.getElementById('editPropertyPath').value;
+                var isCreate = propertyId === '';
+                if (isCreate) {
+                    var addFormData = new FormData();
+                    addFormData.set('name', document.getElementById('editPropertyName').value);
+                    addFormData.set('type', document.getElementById('editPropertyType').value);
+                    addFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                    if (editPath !== '') addFormData.set('path', editPath);
+                    var addTargetEntityId = document.getElementById('editPropertyTargetEntity').value;
+                    if (addTargetEntityId !== '') addFormData.set('targetEntityId', addTargetEntityId);
+                    var addListItemType = document.getElementById('editPropertyListItemType').value;
+                    if (addListItemType !== '') addFormData.set('listItemType', addListItemType);
+                    var addResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties',
+                        addFormData, false
+                    );
+                    if (!addResult || !addResult.ok || !addResult.propertyId) {
+                        showEditPropertyError(addResult ? addResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                    propertyId = addResult.propertyId;
+                    document.getElementById('editPropertyId').value = propertyId;
+                } else {
+                    var propFormData = new FormData();
+                    propFormData.set('name', document.getElementById('editPropertyName').value);
+                    propFormData.set('type', document.getElementById('editPropertyType').value);
+                    propFormData.set('nullable', document.getElementById('editPropertyNullable').checked ? 'true' : 'false');
+                    if (editPath !== '') propFormData.set('path', editPath);
+                    var propResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId,
+                        propFormData, false
+                    );
+                    if (!propResult || !propResult.ok) {
+                        showEditPropertyError(propResult ? propResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                var constraintFormData = new FormData();
+                if (editPath !== '') constraintFormData.set('path', editPath);
+                if (!document.getElementById('constraintGroupUniqueKey').classList.contains('d-none') && document.getElementById('constraintUniqueKey').checked) {
+                    constraintFormData.set('uniqueKey', 'true');
+                }
+                if (!document.getElementById('constraintGroupLong').classList.contains('d-none')) {
+                    var minLong = document.getElementById('constraintMinLong').value;
+                    var maxLong = document.getElementById('constraintMaxLong').value;
+                    var stepLong = document.getElementById('constraintStepLong').value;
+                    if (minLong !== '') constraintFormData.set('minLong', minLong);
+                    if (maxLong !== '') constraintFormData.set('maxLong', maxLong);
+                    if (stepLong !== '') constraintFormData.set('stepLong', stepLong);
+                }
+                if (!document.getElementById('constraintGroupDouble').classList.contains('d-none')) {
+                    var minDouble = document.getElementById('constraintMinDouble').value;
+                    var maxDouble = document.getElementById('constraintMaxDouble').value;
+                    var stepDouble = document.getElementById('constraintStepDouble').value;
+                    if (minDouble !== '') constraintFormData.set('minDouble', minDouble);
+                    if (maxDouble !== '') constraintFormData.set('maxDouble', maxDouble);
+                    if (stepDouble !== '') constraintFormData.set('stepDouble', stepDouble);
+                }
+                if (!document.getElementById('constraintGroupDate').classList.contains('d-none')) {
+                    var minDate = document.getElementById('constraintMinDate').value;
+                    var maxDate = document.getElementById('constraintMaxDate').value;
+                    if (minDate !== '') constraintFormData.set('minDate', minDate);
+                    if (maxDate !== '') constraintFormData.set('maxDate', maxDate);
+                }
+                if (!document.getElementById('constraintGroupTime').classList.contains('d-none')) {
+                    var minTime = document.getElementById('constraintMinTime').value;
+                    var maxTime = document.getElementById('constraintMaxTime').value;
+                    if (minTime !== '') constraintFormData.set('minTime', minTime);
+                    if (maxTime !== '') constraintFormData.set('maxTime', maxTime);
+                }
+                if (!document.getElementById('constraintGroupDatetime').classList.contains('d-none')) {
+                    var minDatetime = document.getElementById('constraintMinDatetime').value;
+                    var maxDatetime = document.getElementById('constraintMaxDatetime').value;
+                    if (minDatetime !== '') constraintFormData.set('minDatetime', minDatetime);
+                    if (maxDatetime !== '') constraintFormData.set('maxDatetime', maxDatetime);
+                }
+                if (!document.getElementById('constraintGroupDuration').classList.contains('d-none')) {
+                    var minDuration = document.getElementById('constraintMinDuration').value;
+                    var maxDuration = document.getElementById('constraintMaxDuration').value;
+                    if (minDuration !== '') constraintFormData.set('minDuration', minDuration);
+                    if (maxDuration !== '') constraintFormData.set('maxDuration', maxDuration);
+                }
+                if (!document.getElementById('constraintGroupString').classList.contains('d-none')) {
+                    var minLength = document.getElementById('constraintMinLength').value;
+                    var maxLength = document.getElementById('constraintMaxLength').value;
+                    var pattern = document.getElementById('constraintPattern').value;
+                    if (minLength !== '') constraintFormData.set('minLength', minLength);
+                    if (maxLength !== '') constraintFormData.set('maxLength', maxLength);
+                    if (pattern !== '') constraintFormData.set('pattern', pattern);
+                }
+                if (!document.getElementById('constraintGroupList').classList.contains('d-none')) {
+                    var minSize = document.getElementById('constraintMinSize').value;
+                    var maxSize = document.getElementById('constraintMaxSize').value;
+                    if (minSize !== '') constraintFormData.set('minSize', minSize);
+                    if (maxSize !== '') constraintFormData.set('maxSize', maxSize);
+                }
+                var constraintResult = await apiPost(
+                    '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/constraints',
+                    constraintFormData, false
+                );
+                if (!constraintResult || !constraintResult.ok) {
+                    showEditPropertyError(constraintResult ? constraintResult.message : 'Network error. Please try again.');
+                    btn.disabled = false;
+                    return;
+                }
+                var currentType = document.getElementById('editPropertyType').value;
+                var currentListItemType = document.getElementById('editPropertyListItemType').value;
+                if (currentType === 'LIST') {
+                    var listItemTypeFormData = new FormData();
+                    if (editPath !== '') listItemTypeFormData.set('path', editPath);
+                    if (currentListItemType !== '') listItemTypeFormData.set('listItemType', currentListItemType);
+                    var listItemTypeResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/list-item-type',
+                        listItemTypeFormData, false
+                    );
+                    if (!listItemTypeResult || !listItemTypeResult.ok) {
+                        showEditPropertyError(listItemTypeResult ? listItemTypeResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                    var itemConstraintFormData = new FormData();
+                    if (editPath !== '') itemConstraintFormData.set('path', editPath);
+                    if (!document.getElementById('itemConstraintGroupLong').classList.contains('d-none')) {
+                        var itemMinLong = document.getElementById('itemConstraintMinLong').value;
+                        var itemMaxLong = document.getElementById('itemConstraintMaxLong').value;
+                        if (itemMinLong !== '') itemConstraintFormData.set('itemMinLong', itemMinLong);
+                        if (itemMaxLong !== '') itemConstraintFormData.set('itemMaxLong', itemMaxLong);
+                    }
+                    if (!document.getElementById('itemConstraintGroupDouble').classList.contains('d-none')) {
+                        var itemMinDouble = document.getElementById('itemConstraintMinDouble').value;
+                        var itemMaxDouble = document.getElementById('itemConstraintMaxDouble').value;
+                        if (itemMinDouble !== '') itemConstraintFormData.set('itemMinDouble', itemMinDouble);
+                        if (itemMaxDouble !== '') itemConstraintFormData.set('itemMaxDouble', itemMaxDouble);
+                    }
+                    if (!document.getElementById('itemConstraintGroupString').classList.contains('d-none')) {
+                        var itemMinLength = document.getElementById('itemConstraintMinLength').value;
+                        var itemMaxLength = document.getElementById('itemConstraintMaxLength').value;
+                        var itemPattern = document.getElementById('itemConstraintPattern').value;
+                        if (itemMinLength !== '') itemConstraintFormData.set('itemMinLength', itemMinLength);
+                        if (itemMaxLength !== '') itemConstraintFormData.set('itemMaxLength', itemMaxLength);
+                        if (itemPattern !== '') itemConstraintFormData.set('itemPattern', itemPattern);
+                    }
+                    var itemConstraintResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/item-constraints',
+                        itemConstraintFormData, false
+                    );
+                    if (!itemConstraintResult || !itemConstraintResult.ok) {
+                        showEditPropertyError(itemConstraintResult ? itemConstraintResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                if (currentType === 'REF' || (currentType === 'LIST' && currentListItemType === 'REF')) {
+                    var targetEntityFormData = new FormData();
+                    if (editPath !== '') targetEntityFormData.set('path', editPath);
+                    var targetEntityId = document.getElementById('editPropertyTargetEntity').value;
+                    if (targetEntityId !== '') targetEntityFormData.set('targetEntityId', targetEntityId);
+                    var targetEntityResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/target-entity',
+                        targetEntityFormData, false
+                    );
+                    if (!targetEntityResult || !targetEntityResult.ok) {
+                        showEditPropertyError(targetEntityResult ? targetEntityResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                if (DEFAULT_TYPE_GROUP[currentType] !== undefined) {
+                    var defaultFormData = new FormData();
+                    if (editPath !== '') defaultFormData.set('path', editPath);
+                    var defaultVal2 = '';
+                    if (currentType === 'LONG' && !document.getElementById('defaultGroupLong').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultLong').value;
+                    } else if (currentType === 'DOUBLE' && !document.getElementById('defaultGroupDouble').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultDouble').value;
+                    } else if (currentType === 'BOOLEAN' && !document.getElementById('defaultGroupBoolean').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultBoolean').checked ? 'true' : '';
+                    } else if (currentType === 'STRING' && !document.getElementById('defaultGroupString').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultString').value;
+                    } else if (currentType === 'DATE' && !document.getElementById('defaultGroupDate').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultDate').value;
+                    } else if (currentType === 'TIME' && !document.getElementById('defaultGroupTime').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultTime').value;
+                    } else if (currentType === 'DATETIME' && !document.getElementById('defaultGroupDatetime').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultDatetime').value;
+                    } else if (currentType === 'DURATION' && !document.getElementById('defaultGroupDuration').classList.contains('d-none')) {
+                        defaultVal2 = document.getElementById('defaultDuration').value;
+                    }
+                    if (defaultVal2 !== '') {
+                        defaultFormData.set('default', defaultVal2);
+                    }
+                    var defaultResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/default',
+                        defaultFormData, false
+                    );
+                    if (!defaultResult || !defaultResult.ok) {
+                        showEditPropertyError(defaultResult ? defaultResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                var smartDefaultFormData = new FormData();
+                if (editPath !== '') smartDefaultFormData.set('path', editPath);
+                var smartDefaultVal = document.getElementById('editPropertySmartDefault').value;
+                if (!document.getElementById('smartDefaultSection').classList.contains('d-none') && smartDefaultVal !== '') {
+                    smartDefaultFormData.set('smartDefault', smartDefaultVal);
+                }
+                var navigateAfterSmartDefault = currentType !== 'STRING';
+                var smartDefaultResult = await apiPost(
+                    '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/smart-default',
+                    smartDefaultFormData, navigateAfterSmartDefault
+                );
+                if (!smartDefaultResult || !smartDefaultResult.ok) {
+                    showEditPropertyError(smartDefaultResult ? smartDefaultResult.message : 'Network error. Please try again.');
+                    btn.disabled = false;
+                    return;
+                }
+                if (currentType === 'STRING') {
+                    var vpFormData = new FormData();
+                    if (editPath !== '') vpFormData.set('path', editPath);
+                    document.querySelectorAll('#valueProposalCheckboxes input[type="checkbox"]:checked').forEach(function (cb) {
+                        vpFormData.append('valueProposal', cb.getAttribute('data-vp-prop-id'));
+                    });
+                    var vpResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/value-proposals',
+                        vpFormData, true
+                    );
+                    if (!vpResult || !vpResult.ok) {
+                        showEditPropertyError(vpResult ? vpResult.message : 'Network error. Please try again.');
+                        btn.disabled = false;
+                    }
+                }
+            });
+
+            // Delete Property modal
+            var deletePropertyModal = document.getElementById('deletePropertyModal');
+            var editPropertyDeleteBtn = document.getElementById('editPropertyDeleteBtn');
+            if (editPropertyDeleteBtn && deletePropertyModal) {
+                editPropertyDeleteBtn.addEventListener('click', function () {
+                    var delModal = bootstrap.Modal.getOrCreateInstance(deletePropertyModal);
+                    delModal.show();
+                });
+                var confirmDeletePropertyBtn = document.getElementById('confirmDeletePropertyBtn');
+                confirmDeletePropertyBtn.addEventListener('click', async function () {
+                    var modal = bootstrap.Modal.getInstance(deletePropertyModal);
+                    if (modal) { modal.hide(); }
+                    confirmDeletePropertyBtn.disabled = true;
+                    var editPath = document.getElementById('editPropertyPath').value;
+                    var deletePropertyFormData = new FormData();
+                    if (editPath !== '') deletePropertyFormData.set('path', editPath);
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + currentPropertyId + '/delete',
+                        deletePropertyFormData, true
+                    );
+                    confirmDeletePropertyBtn.disabled = false;
+                });
+            }
+        })();
+    </script>
+    {/scripts}
+{/include}

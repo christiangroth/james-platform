@@ -211,11 +211,11 @@ Each page with a depth greater than 1 must include a Bootstrap breadcrumb immedi
 
 ### Depth map
 
-| User role | Root | Level 1 | Level 2 | Level 3 |
-|---|---|---|---|---|
-| User | `/ui/user/dashboard` | App detail, App Store | App Store detail | – |
-| Developer | `/ui/developer/dashboard` | App overview | Version editor | Entity / Report editor |
-| Admin | `/ui/admin/dashboard` | Users | – | – |
+| User role | Root | Level 1 | Level 2 | Level 3 | Level 4 |
+|---|---|---|---|---|---|
+| User | `/ui/user/dashboard` | App detail, App Store | App Store detail | – | – |
+| Developer | `/ui/developer/dashboard` | App overview | Version editor | Entity / Report editor / Publish | Add / Edit Property |
+| Admin | `/ui/admin/dashboard` | Users | – | – | – |
 
 ## Table Pattern
 
@@ -270,8 +270,9 @@ breaks usability and breaks the breadcrumb navigation concept described below.
 - **Modals remain the right tool** for actions that are inherently one level deep and self-contained: confirmation dialogs, simple create/rename forms, password/secret changes.
 - When introducing a new editable structure, decide up front whether it can ever nest. If it can, design it as a navigable page from the start rather than a modal that gets
   awkwardly extended later.
-- Existing modal-based editors for deeply nested structures (e.g. the entity/version editor) are a known gap against this principle; migrating them is tracked as separate,
-  larger follow-up work rather than something to retrofit incidentally while touching nearby code.
+- Example: the entity/version editor's property editor (`editPropertyModal`) and publish flow (`publishVersionModal`) were converted from modals into standalone breadcrumb-navigated
+  pages (`edit-property.html`, `publish-version.html`) once property editing grew complex enough (constraints, defaults, smart defaults, value proposals) to no longer fit a flat
+  modal. Use this as the reference pattern when a modal outgrows the "flat, single-level" criterion above.
 
 ## Modal Pattern
 
