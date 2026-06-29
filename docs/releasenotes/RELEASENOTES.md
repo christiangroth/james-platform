@@ -1,3 +1,12 @@
+# 0.52.0 (2026.06.29)
+
+## New Features
+* The property editor and the version publish dialog are now dedicated pages with breadcrumb navigation, instead of modals.
+
+
+
+---
+
 # 0.51.1 (2026.06.28)
 
 ## Bugfixes / Chore
