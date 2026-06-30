@@ -273,6 +273,10 @@ breaks usability and breaks the breadcrumb navigation concept described below.
 - Example: the entity/version editor's property editor (`editPropertyModal`) and publish flow (`publishVersionModal`) were converted from modals into standalone breadcrumb-navigated
   pages (`edit-property.html`, `publish-version.html`) once property editing grew complex enough (constraints, defaults, smart defaults, value proposals) to no longer fit a flat
   modal. Use this as the reference pattern when a modal outgrows the "flat, single-level" criterion above.
+- `edit-property.html` is also the reference pattern for **merging a "define structure" concern into the same page as the parent item's editor** instead of giving it its own
+  browsing flow: an `OBJECT` property's nested properties are managed in a "Nested Properties" section embedded directly in that property's own `edit-property.html` page, and
+  descending into a nested `OBJECT` property opens that property's `edit-property.html` again (one level deeper, addressed via the `path` query parameter). This keeps add/edit and
+  nested-structure definition for every property type in a single recursive view instead of splitting them across a property editor and a separate structure-browsing page.
 
 ## Modal Pattern
 

@@ -348,6 +348,10 @@ class DeveloperAppResource {
         val currentPropertiesJson = RawString(
           ObjectMapper().writeValueAsString(currentProperties.map { mapOf("id" to it.id.value, "name" to it.name) }),
         )
+        // The immediate parent OBJECT property (if any), so Cancel can return into the merged property editor
+        // instead of the old standalone nested-properties browsing view.
+        val parentPropertyId = breadcrumb.lastOrNull()?.id
+        val parentPath = if (breadcrumb.size >= 2) breadcrumb[breadcrumb.size - 2].path else ""
         Response.ok(
           editPropertyTemplate
             .data("app", app)
@@ -356,6 +360,8 @@ class DeveloperAppResource {
             .data("selectedProperty", selectedProperty)
             .data("path", breadcrumb.lastOrNull()?.path ?: "")
             .data("breadcrumb", breadcrumb)
+            .data("parentPropertyId", parentPropertyId)
+            .data("parentPath", parentPath)
             .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
             .data("currentPropertiesJson", currentPropertiesJson),
         ).build()
@@ -753,7 +759,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Smart default saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Smart default saved.", parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -772,7 +778,7 @@ class DeveloperAppResource {
     val path = form["path"]?.firstOrNull()
     return appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Value proposals saved.", entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Value proposals saved.", parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -895,7 +901,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.deleteProperty(appId, versionId, entityId, propertyId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Property deleted.", entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, "Property deleted.", parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -1117,6 +1123,20 @@ class DeveloperAppResource {
   private fun entityEditorUrl(appId: String, versionId: String, entityId: String, path: String?): String {
     val base = "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId"
     return if (path.isNullOrBlank()) base else "$base?path=$path"
+  }
+
+  /**
+   * Builds the URL to return to after saving or deleting a property at the given nesting path: the immediate parent
+   * OBJECT property's own (merged) editor page, where its nested structure is managed, or the entity editor at top
+   * level if the property has no parent.
+   */
+  private fun parentPropertyEditorUrl(appId: String, versionId: String, entityId: String, path: String?): String {
+    val pathIds = parsePath(path)
+    if (pathIds.isEmpty()) return entityEditorUrl(appId, versionId, entityId, null)
+    val parentId = pathIds.last()
+    val parentPath = pathIds.dropLast(1).joinToString(",")
+    val base = "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties/$parentId/edit"
+    return if (parentPath.isBlank()) base else "$base?path=$parentPath"
   }
 
   private data class ResolvedPath(val properties: List<Property>, val breadcrumb: List<PropertyBreadcrumb>)

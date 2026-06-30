@@ -140,15 +140,11 @@
                                 <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="property-list-item-type-{prop.id}">&lt;{prop.listItemType}&gt;</span>
                                 {/if}
                                 {#if prop.type.name == "OBJECT"}
-                                <br><button type="button" class="btn btn-app-secondary btn-sm mt-1" style="font-size:0.7rem;padding:0.1rem 0.4rem;"
-                                        data-testid="descend-into-property-{prop.id}"
-                                        data-action="descend-into-property"
-                                        data-property-id="{prop.id}"
-                                        data-child-path="{prop.childPath(path)}">
-                                    {#if prop.nestedProperties.isEmpty}No properties yet ›
-                                    {#else}{prop.nestedProperties.size} propert{#if prop.nestedProperties.size == 1}y{#else}ies{/if} ›
+                                <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="nested-property-count-{prop.id}">
+                                    {#if prop.nestedProperties.isEmpty}No properties yet
+                                    {#else}{prop.nestedProperties.size} propert{#if prop.nestedProperties.size == 1}y{#else}ies{/if}
                                     {/if}
-                                </button>
+                                </span>
                                 {/if}
                             </td>
                             <td>
@@ -968,17 +964,6 @@
                     confirmDeleteEntityBtn.disabled = false;
                 });
             }
-
-            // Descend into an OBJECT property's nested properties (breadcrumb navigation)
-            document.querySelectorAll('[data-action="descend-into-property"]').forEach(function (btn) {
-                btn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    var entityId = document.getElementById('propertiesTbody').getAttribute('data-entity-id');
-                    var childPath = btn.getAttribute('data-child-path');
-                    window.location.href = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId
-                        + '?path=' + encodeURIComponent(childPath);
-                });
-            });
 
             // Delete Report modal
             var deleteReportModal = document.getElementById('deleteReportModal');
