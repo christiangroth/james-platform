@@ -1,3 +1,13 @@
+# 0.55.0 (2026.07.01)
+
+## New Features
+* Added a new app icon/logo, used in the browser tab (favicon), the navbar, and the login page.
+* Redesigned the login page with a landing-page-style layout: a short product introduction next to the login form on wider screens, and a subtle background instead of a flat color.
+
+
+
+---
+
 # 0.54.0 (2026.07.01)
 
 ## New Features
