@@ -113,6 +113,15 @@
             border-color: var(--color-action) !important;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
         }
+        /* Hide native number input spin buttons - custom +/- step buttons are rendered instead */
+        .app-form-control[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .app-form-control[type="number"]::-webkit-outer-spin-button,
+        .app-form-control[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
         /* Select / dropdown in the dark theme – combine with Bootstrap .form-select */
         .app-select {
             background-color: var(--color-bg-card) !important;
