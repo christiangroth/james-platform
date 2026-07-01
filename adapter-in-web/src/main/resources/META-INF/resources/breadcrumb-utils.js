@@ -1,34 +1,41 @@
-var BREADCRUMB_SMALL_MAX_WIDTH = 768;
-var BREADCRUMB_MEDIUM_MAX_WIDTH = 1200;
-var BREADCRUMB_SMALL_THRESHOLD = 3;
-var BREADCRUMB_MEDIUM_THRESHOLD = 5;
-var BREADCRUMB_LARGE_THRESHOLD = 7;
-
-function breadcrumbThreshold() {
-    var width = window.innerWidth;
-    if (width < BREADCRUMB_SMALL_MAX_WIDTH) return BREADCRUMB_SMALL_THRESHOLD;
-    if (width < BREADCRUMB_MEDIUM_MAX_WIDTH) return BREADCRUMB_MEDIUM_THRESHOLD;
-    return BREADCRUMB_LARGE_THRESHOLD;
+function breadcrumbItems(ol) {
+    return Array.prototype.slice.call(ol.querySelectorAll(':scope > li.breadcrumb-item:not(.breadcrumb-ellipsis)'));
 }
 
-function truncateBreadcrumb(ol) {
+function breadcrumbWraps(items) {
+    var visible = items.filter(function (item) { return !item.classList.contains('d-none'); });
+    if (visible.length < 2) return false;
+    var firstTop = visible[0].offsetTop;
+    return visible.some(function (item) { return item.offsetTop !== firstTop; });
+}
+
+function applyBreadcrumbHiddenCount(ol, items, hiddenCount) {
     var existingEllipsis = ol.querySelector('.breadcrumb-ellipsis');
     if (existingEllipsis) existingEllipsis.remove();
-
-    var items = Array.prototype.slice.call(ol.querySelectorAll(':scope > li.breadcrumb-item'));
     items.forEach(function (item) { item.classList.remove('d-none'); });
 
-    var threshold = breadcrumbThreshold();
-    if (items.length <= threshold) return;
+    if (!hiddenCount) return;
 
-    var hiddenItems = items.slice(1, items.length - 2);
-    hiddenItems.forEach(function (item) { item.classList.add('d-none'); });
+    items.slice(1, 1 + hiddenCount).forEach(function (item) { item.classList.add('d-none'); });
 
     var ellipsis = document.createElement('li');
     ellipsis.className = 'breadcrumb-item breadcrumb-ellipsis';
     ellipsis.setAttribute('aria-hidden', 'true');
     ellipsis.textContent = '…';
     items[0].insertAdjacentElement('afterend', ellipsis);
+}
+
+function truncateBreadcrumb(ol) {
+    var items = breadcrumbItems(ol);
+    applyBreadcrumbHiddenCount(ol, items, 0);
+
+    // first and last two items are always kept visible, so hiding only ever helps once there are 4+ items
+    var maxHiddenCount = items.length - 3;
+    var hiddenCount = 0;
+    while (hiddenCount < maxHiddenCount && breadcrumbWraps(items)) {
+        hiddenCount++;
+        applyBreadcrumbHiddenCount(ol, items, hiddenCount);
+    }
 }
 
 function truncateAllBreadcrumbs() {
