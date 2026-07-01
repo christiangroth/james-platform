@@ -1,3 +1,12 @@
+# 0.53.3 (2026.07.01)
+
+## Bugfixes / Chore
+* Hid the browser's native number input up/down arrows so they no longer appear next to the custom step +/- buttons.
+
+
+
+---
+
 # 0.53.2 (2026.07.01)
 
 ## Bugfixes / Chore
