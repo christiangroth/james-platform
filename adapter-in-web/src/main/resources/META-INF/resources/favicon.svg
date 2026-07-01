@@ -1,6 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-  <circle cx="8" cy="8" r="8" fill="#444444"/>
-  <circle cx="8" cy="5.5" r="2.5" fill="#ffffff"/>
-  <path fill="#ffffff" d="M2 14.5C2 11 4.5 9 8 9s6 2 6 5.5H2z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="faviconGradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0d6efd"/>
+      <stop offset="1" stop-color="#1db954"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#faviconGradient)"/>
+  <path d="M19 8v11.6c0 3.1-2 5-5 5-2.3 0-4.1-1.1-5.2-3" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="23.2" cy="8.4" r="1.8" fill="#ffffff"/>
 </svg>
-

@@ -73,6 +73,9 @@ Both a dark and a light theme are implemented, see [design-light-mode-proposal.m
 are defined as CSS custom properties in `layout.html` under `:root` (dark, default) and `[data-theme="light"]` (light override) – **never hardcode a hex color in a template**;
 always reference the existing variable (e.g. `var(--color-text-muted)`) so both themes stay correct automatically.
 
+The app logo (`#icon-nav-app` in the shared SVG sprite, also embedded standalone in `favicon.svg`) and the login page's landing-style hero panel are documented in
+[design-branding-login-proposal.md](design-branding-login-proposal.md), including alternative background treatments that were considered but not implemented.
+
 ### Theme switching
 
 - The active theme is controlled by a `data-theme="dark"|"light"` attribute on `<html>`, set by an inline script at the very top of `<head>` in `layout.html` (before any
