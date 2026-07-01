@@ -1,3 +1,13 @@
+# 0.53.0 (2026.07.01)
+
+## New Features
+* Merged adding/editing a property and defining its nested structure (for Object properties) into a single, unified property editor view.
+* The Object property editor now lets you add and edit nested properties directly, including further nesting, without leaving the page.
+
+
+
+---
+
 # 0.52.0 (2026.06.29)
 
 ## New Features
