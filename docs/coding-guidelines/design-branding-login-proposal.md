@@ -21,7 +21,8 @@ landing page without adding marketing fluff.
 A single SVG mark (`viewBox="0 0 32 32"`) replaces the placeholder glyph everywhere it was used (navbar, login page, `favicon.svg`):
 
 - Rounded-square "app icon" shape (`rx="9"`, matching the squircle convention of modern OS app icons), filled with a diagonal gradient from `--color-action` blue (`#0d6efd`) to
-  `--spotify-green` (`#1db954`) — the platform's own two accent colors (general actions / Spotify integration), rather than an arbitrary new color.
+  a green accent (`#1db954`) — the platform's own two accent colors, rather than an arbitrary new color. (Note: this hex happens to match Spotify's brand green, but the app has
+  no Spotify integration — it's simply the platform's chosen accent green, and the unused `--spotify-green`/`.btn-spotify` CSS leftover from the starting template has been removed.)
 - A single white stroked "J" glyph, simple enough to stay legible at 16×16 (browser tab) size.
 - A small white dot accent near the top-right of the stroke, echoing the live-indicator dot already used elsewhere in the UI (see "Live indicators" in
   [role-frontend-developer.md](role-frontend-developer.md)).
