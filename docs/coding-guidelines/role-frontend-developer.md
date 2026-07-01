@@ -60,7 +60,6 @@ Dark, technical appearance – fitting a developer tool. No generic Bootstrap de
 - **Blue** (`--color-action: #0d6efd`) for primary action buttons (OK, Save, Submit, general actions) → use `.btn-app-primary`
 - **Red** (`--color-danger: #dc3545`) for destructive action buttons (Delete, Remove, irreversible actions) → use `.btn-app-danger`
 - **Muted/secondary** buttons for navigation and non-critical actions (Logout, Pagination) → use `.btn-app-secondary`
-- Green (`--spotify-green: #1db954`) reserved exclusively for Spotify-integration buttons → use `.btn-spotify`
 - Cards have a subtle border, no heavy shadow stack
 - Borders/dividers (`--color-border`, `--color-border-muted`) must stay visibly lighter than card/page backgrounds – this is a dark theme, not a low-contrast one. Tables, card outlines, and dividers must remain easy to scan; re-check contrast whenever a new dark-themed component is added
 - Monospace font for technical values (track IDs, timestamps, queue numbers)
@@ -107,7 +106,6 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 | `.btn-app-primary` | **Blue** primary action button (OK, Save, Submit) – add alongside Bootstrap `.btn` |
 | `.btn-app-danger` | **Red** destructive button (Delete, Remove) – add alongside Bootstrap `.btn` |
 | `.btn-app-secondary` | Muted secondary button (navigation, cancel, pagination) – add alongside Bootstrap `.btn` |
-| `.btn-spotify` | Spotify-green button for Spotify-specific auth/action flows – add alongside Bootstrap `.btn` |
 | `.app-badge-processing` | Blue status badge (`PROCESSING`) – add alongside Bootstrap `.badge` |
 | `.app-badge-failed` | Red status badge (`FAILED`) – add alongside Bootstrap `.badge` |
 | `.app-badge-high` | Red priority badge (`HIGH`) – add alongside Bootstrap `.badge` |

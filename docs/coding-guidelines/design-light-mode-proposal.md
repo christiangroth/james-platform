@@ -27,7 +27,6 @@ All values below are implemented in a `[data-theme="light"]` block in `layout.ht
 | `--color-action-hover` | `#0b5ed7` | `#0b5ed7` (unchanged) | |
 | `--color-danger` | `#dc3545` | `#dc3545` (unchanged) | |
 | `--color-danger-hover` | `#bb2d3b` | `#bb2d3b` (unchanged) | |
-| `--spotify-green` | `#1db954` | `#1db954` (unchanged for buttons) | See note below – do not reuse as text/link color in light mode |
 | `--color-bg-depth-albums` | `#161616` | `#eef0f2` | Level-1 nested `OBJECT` property |
 | `--color-bg-depth-tracks` | `#111111` | `#e2e5e9` | Level-2 nested `OBJECT` property |
 | `--color-border-depth-albums` | `#2a2a2a` | `#dde0e4` | Intentionally subtle, close to its own background – depth is conveyed by the background step, not the border |
@@ -40,8 +39,8 @@ All values below are implemented in a `[data-theme="light"]` block in `layout.ht
 | `--color-alert-danger-bg/-border/-text` | `#2a1a1a` / `#6b2222` / `#f8d7da` | `#f8d7da` / `#f1aeb5` / `#842029` | `.app-alert-danger` |
 | `--color-diff-added/-removed/-modified-*` | see `layout.html` | see `layout.html` | Diff badges/lines in `tags/diff-section.html`; light values reuse Bootstrap's default alert palette |
 
-Semantic color roles (blue = primary action, red = destructive, green = Spotify-only, muted gray = secondary) stay exactly the same in both themes, so the meaning of a color
-never changes when switching modes – only its concrete shade.
+Semantic color roles (blue = primary action, red = destructive, muted gray = secondary) stay exactly the same in both themes, so the meaning of a color never changes when
+switching modes – only its concrete shade.
 
 ## Contrast check (WCAG 2.1)
 
@@ -56,18 +55,16 @@ Approximate contrast ratios computed against the relevant background:
   by design
 - `--color-action` (`#0d6efd`) as text/link on white: **~4.5:1** – right at the AA threshold for normal text; prefer `--color-action-hover` (`#0b5ed7`, ~5.2:1) for small link
   text if a stricter margin is wanted
-- `--spotify-green` (`#1db954`) as text on white: **~2.6:1** – **fails AA for text.** It works well in dark mode (~7.2:1 on `#121212`) but must **not** be reused as link/text
-  color in light mode (e.g. `.docs-content a`). Keep it for solid-background buttons only (`.btn-spotify`, black text on green); `.docs-content a` uses `--color-action` in light
-  mode instead (see `[data-theme="light"] .docs-content a` in `layout.html`).
 
 ## Decisions made during implementation
 
 1. **Navbar treatment** – `.app-navbar` stays dark (`#000000`) in both themes for brand consistency, as recommended below. Its white text/icons are not theme-variable-driven
    since they are only ever seen on the fixed-dark navbar.
-2. **`.docs-content a` color** – moved off `--spotify-green` to `--color-action` in light mode, as flagged below.
-3. `.btn-close-white` (used inside every modal's dismiss button) is reset to Bootstrap's default (dark) close icon in light mode via `[data-theme="light"] .btn-close-white { filter: none; }`,
+2. `.btn-close-white` (used inside every modal's dismiss button) is reset to Bootstrap's default (dark) close icon in light mode via `[data-theme="light"] .btn-close-white { filter: none; }`,
    since modal surfaces are light in light mode.
-4. A handful of additional variables not anticipated by the original palette proposal (`--color-required`, `--color-code-text`, `--color-warning-text`, `--color-badge-muted-bg`,
+3. A handful of additional variables not anticipated by the original palette proposal (`--color-required`, `--color-code-text`, `--color-warning-text`, `--color-badge-muted-bg`,
    the `--color-alert-*` and `--color-diff-*` families) were added to remove hardcoded hex colors that were found scattered across `health.html`, `mongodb-viewer.html`,
    `publish-version.html`, `version-editor.html`, `edit-property.html` and `tags/diff-section.html` – these would otherwise have rendered unreadable or visually inconsistent
    once light mode became reachable.
+4. The unused `--spotify-green` variable and `.btn-spotify` button style (leftovers from the starting template – there is no Spotify integration in this app) were removed, along
+   with `.docs-content a`'s dependency on it (now uses `--color-action` in both themes).
