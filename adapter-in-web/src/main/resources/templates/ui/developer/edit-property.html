@@ -288,6 +288,82 @@
                         <input type="text" class="form-control app-form-control form-control-sm" id="itemConstraintPattern" placeholder="e.g. ^[A-Z].*" data-testid="item-constraint-pattern">
                     </div>
                 </div>
+                {#if selectedProperty && selectedProperty.type.name == "OBJECT"}
+                <hr style="border-color:var(--color-border);">
+                <div class="d-flex align-items-center mb-2 gap-2">
+                    <h3 class="fs-6 fw-semibold mb-0">Nested Properties</h3>
+                    <a class="btn btn-app-secondary btn-sm ms-auto" data-testid="open-add-nested-property-page-button"
+                       href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/new?path={selectedProperty.childPath(path)}"
+                       title="Add" aria-label="Add">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+                    </a>
+                </div>
+                {#if selectedProperty.nestedProperties.isEmpty}
+                <p class="app-section-label mb-0" data-testid="no-nested-properties">No nested properties yet.</p>
+                {#else}
+                <div class="table-responsive">
+                <table class="table table-sm mb-0 app-table" data-testid="nested-properties-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Constraints</th>
+                            <th>Target Entity</th>
+                            <th>Default</th>
+                            <th>Smart Default</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#for np in selectedProperty.nestedProperties}
+                        <tr class="clickable-row" data-testid="nested-property-row" tabindex="0" role="link"
+                            aria-label="Edit property {np.name}"
+                            data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/{np.id}/edit?path={selectedProperty.childPath(path)}"
+                            onclick="window.location.href=this.getAttribute('data-navigate-url')">
+                            <td>{np.name}</td>
+                            <td>
+                                {np.type}{#if np.nullable}?{/if}
+                                {#if np.type.name == "LIST" && np.listItemType}
+                                <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemType}&gt;</span>
+                                {/if}
+                                {#if np.type.name == "OBJECT"}
+                                <br><span class="app-section-label" style="font-size:0.75rem;">{#if np.nestedProperties.isEmpty}No properties yet{#else}{np.nestedProperties.size} propert{#if np.nestedProperties.size == 1}y{#else}ies{/if}{/if}</span>
+                                {/if}
+                            </td>
+                            <td>
+                                {#if np.constraintTexts.isEmpty}
+                                <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
+                                {#else}
+                                {#for ct in np.constraintTexts}<div class="app-constraint-text">{ct}</div>{/for}
+                                {/if}
+                            </td>
+                            <td>
+                                {#if np.targetEntityName(version)}
+                                <span class="app-section-label" style="font-size:0.85rem;">{np.targetEntityName(version)}</span>
+                                {#else}
+                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
+                                {/if}
+                            </td>
+                            <td>
+                                {#if np.defaultValue}
+                                <span class="app-section-label" style="font-size:0.85rem;">{np.defaultValue}</span>
+                                {#else}
+                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
+                                {/if}
+                            </td>
+                            <td>
+                                {#if np.smartDefault}
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{np.smartDefault}">script</span>
+                                {#else}
+                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
+                                {/if}
+                            </td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+                </div>
+                {/if}
+                {/if}
                 <div id="defaultSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
                     <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">Default Value</div>
@@ -361,83 +437,6 @@
                     </div>
                 </div>
             </form>
-
-            {#if selectedProperty && selectedProperty.type.name == "OBJECT"}
-            <hr style="border-color:var(--color-border);">
-            <div class="d-flex align-items-center mb-2 gap-2 mt-2">
-                <h3 class="fs-6 fw-semibold mb-0">Nested Properties</h3>
-                <a class="btn btn-app-secondary btn-sm ms-auto" data-testid="open-add-nested-property-page-button"
-                   href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/new?path={selectedProperty.childPath(path)}"
-                   title="Add" aria-label="Add">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
-                </a>
-            </div>
-            {#if selectedProperty.nestedProperties.isEmpty}
-            <p class="app-section-label mb-0" data-testid="no-nested-properties">No nested properties yet.</p>
-            {#else}
-            <div class="table-responsive">
-            <table class="table table-sm mb-0 app-table" data-testid="nested-properties-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Constraints</th>
-                        <th>Target Entity</th>
-                        <th>Default</th>
-                        <th>Smart Default</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#for np in selectedProperty.nestedProperties}
-                    <tr class="clickable-row" data-testid="nested-property-row" tabindex="0" role="link"
-                        aria-label="Edit property {np.name}"
-                        data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/{np.id}/edit?path={selectedProperty.childPath(path)}"
-                        onclick="window.location.href=this.getAttribute('data-navigate-url')">
-                        <td>{np.name}</td>
-                        <td>
-                            {np.type}{#if np.nullable}?{/if}
-                            {#if np.type.name == "LIST" && np.listItemType}
-                            <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemType}&gt;</span>
-                            {/if}
-                            {#if np.type.name == "OBJECT"}
-                            <br><span class="app-section-label" style="font-size:0.75rem;">{#if np.nestedProperties.isEmpty}No properties yet{#else}{np.nestedProperties.size} propert{#if np.nestedProperties.size == 1}y{#else}ies{/if}{/if}</span>
-                            {/if}
-                        </td>
-                        <td>
-                            {#if np.constraintTexts.isEmpty}
-                            <span class="app-section-label" style="font-size:0.75rem;">n/a</span>
-                            {#else}
-                            {#for ct in np.constraintTexts}<div class="app-constraint-text">{ct}</div>{/for}
-                            {/if}
-                        </td>
-                        <td>
-                            {#if np.targetEntityName(version)}
-                            <span class="app-section-label" style="font-size:0.85rem;">{np.targetEntityName(version)}</span>
-                            {#else}
-                            <span class="app-section-label" style="font-size:0.75rem;">—</span>
-                            {/if}
-                        </td>
-                        <td>
-                            {#if np.defaultValue}
-                            <span class="app-section-label" style="font-size:0.85rem;">{np.defaultValue}</span>
-                            {#else}
-                            <span class="app-section-label" style="font-size:0.75rem;">—</span>
-                            {/if}
-                        </td>
-                        <td>
-                            {#if np.smartDefault}
-                            <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{np.smartDefault}">script</span>
-                            {#else}
-                            <span class="app-section-label" style="font-size:0.75rem;">—</span>
-                            {/if}
-                        </td>
-                    </tr>
-                    {/for}
-                </tbody>
-            </table>
-            </div>
-            {/if}
-            {/if}
         </div>
     </div>
 
