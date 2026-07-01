@@ -1,3 +1,12 @@
+# 0.53.5 (2026.07.01)
+
+## Bugfixes / Chore
+* The button for adding a new data entry now uses the primary action color for better visibility.
+
+
+
+---
+
 # 0.53.4 (2026.07.01)
 
 ## Bugfixes / Chore
