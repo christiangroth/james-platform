@@ -69,8 +69,18 @@ Dark, technical appearance – fitting a developer tool. No generic Bootstrap de
 - Empty states are designed – no raw "No data found" text; include a descriptive message and context
 - Error states are designed – Bootstrap toast notifications with clear, user-friendly messages
 
-Only a dark theme is implemented today. A candidate light-mode palette (not implemented) is documented in [design-light-mode-proposal.md](design-light-mode-proposal.md) for a
-future theme-switch feature.
+Both a dark and a light theme are implemented, see [design-light-mode-proposal.md](design-light-mode-proposal.md) for the light palette rationale and contrast ratios. All colors
+are defined as CSS custom properties in `layout.html` under `:root` (dark, default) and `[data-theme="light"]` (light override) – **never hardcode a hex color in a template**;
+always reference the existing variable (e.g. `var(--color-text-muted)`) so both themes stay correct automatically.
+
+### Theme switching
+
+- The active theme is controlled by a `data-theme="dark"|"light"` attribute on `<html>`, set by an inline script at the very top of `<head>` in `layout.html` (before any
+  stylesheet) to avoid a flash of the wrong theme on page load.
+- Default (no stored preference): the OS/browser `prefers-color-scheme` setting is detected via `matchMedia` and followed live if it changes later.
+- Manual override: the sun/moon toggle button in the navbar (`#theme-toggle`, wired up in `theme-utils.js`) flips `data-theme` and persists the choice to `localStorage` under
+  the `theme` key; once a manual choice exists, OS theme changes are no longer followed.
+- The toggle button is rendered directly in `layout.html`'s navbar markup (outside any `{#insert}` block) so it is present on every page, including the login page.
 
 ## CSS Component Classes
 
@@ -89,6 +99,8 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 | `.app-accordion-item` | Dark-themed accordion item – use on `<div class="accordion-item">` |
 | `.breadcrumb-link` | Breadcrumb navigation link – use on `<a>` inside breadcrumb items |
 | `.app-readonly-banner` | Muted alert banner for published/read-only content – use on `<div class="alert">` |
+| `.app-alert-success` | Theme-aware success alert banner – use on `<div class="alert">` |
+| `.app-alert-danger` | Theme-aware danger alert banner – use on `<div class="alert">` |
 | `.btn-app-primary` | **Blue** primary action button (OK, Save, Submit) – add alongside Bootstrap `.btn` |
 | `.btn-app-danger` | **Red** destructive button (Delete, Remove) – add alongside Bootstrap `.btn` |
 | `.btn-app-secondary` | Muted secondary button (navigation, cancel, pagination) – add alongside Bootstrap `.btn` |
@@ -405,6 +417,7 @@ Two utility files are always available because they are included unconditionally
 |---|---|
 | `/META-INF/resources/settings-utils.js` | `layout.html` |
 | `/META-INF/resources/sse-utils.js` | `layout.html` |
+| `/META-INF/resources/theme-utils.js` | `layout.html` |
 
 ### `settings-utils.js`
 
@@ -440,6 +453,15 @@ connectSse('/dashboard/events', function (event) {
     }
 });
 ```
+
+### `theme-utils.js`
+
+| Function | Signature | Description |
+|---|---|---|
+| `initThemeToggle` | `()` | Wires up the `#theme-toggle` navbar button (click to flip `data-theme` and persist to `localStorage`) and, when no manual preference is stored, follows live OS `prefers-color-scheme` changes. Called automatically on `DOMContentLoaded`. |
+
+The initial theme (before this file even loads) is set by a small inline script at the top of `<head>` in `layout.html`, reading `localStorage.theme` or falling back to
+`prefers-color-scheme`, so there is no flash of the wrong theme on page load.
 
 ### When to use which utility
 

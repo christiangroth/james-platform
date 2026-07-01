@@ -6,7 +6,7 @@
         <h1 class="mb-4 fs-4 fw-semibold">System Health</h1>
 
         <div id="health-section">
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Cronjobs &amp; State</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">Cronjobs &amp; State</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-lg-6">
                     <div id="snippet-cronjobs" class="card h-100 app-card">
@@ -42,7 +42,7 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">MongoDB</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">MongoDB</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-sm-6 col-lg-6">
                     <div id="snippet-mongodb-collections" class="card h-100 app-card">
@@ -68,10 +68,10 @@
                                         {/for}
                                     </tbody>
                                     <tfoot>
-                                        <tr style="border-top:2px solid #555;">
-                                            <td style="color:#888;">Total</td>
-                                            <td class="text-end" style="color:#888;">{stats.mongoCollectionDocumentTotal.formatted}</td>
-                                            <td class="text-end" style="color:#888;">{stats.mongoCollectionSizeTotalKb.formatted} kb</td>
+                                        <tr style="border-top:2px solid var(--color-border);">
+                                            <td style="color:var(--color-text-muted);">Total</td>
+                                            <td class="text-end" style="color:var(--color-text-muted);">{stats.mongoCollectionDocumentTotal.formatted}</td>
+                                            <td class="text-end" style="color:var(--color-text-muted);">{stats.mongoCollectionSizeTotalKb.formatted} kb</td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -99,11 +99,11 @@
                                             <td>{q.name}</td>
                                             <td class="text-end">
                                                 {#if q.slowQueryCount > 0}
-                                                <span style="color:#f90;">{q.slowQueryCount.formatted}</span>
+                                                <span style="color:var(--color-warning-text);">{q.slowQueryCount.formatted}</span>
                                                 {#else}
-                                                <span style="color:#e0e0e0;">{q.slowQueryCount.formatted}</span>
+                                                <span style="color:var(--color-text-primary);">{q.slowQueryCount.formatted}</span>
                                                 {/if}
-                                                <span style="color:#e0e0e0;"> / {q.executionCountLast24h.formatted}</span>
+                                                <span style="color:var(--color-text-primary);"> / {q.executionCountLast24h.formatted}</span>
                                             </td>
                                         </tr>
                                         {/for}
@@ -116,7 +116,7 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:#888;letter-spacing:.05em;">Scripting</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">Scripting</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12">
                     <div id="snippet-scripting" class="card h-100 app-card">
@@ -147,9 +147,9 @@
                                             <td class="text-end">{s.executionCount.formatted}</td>
                                             <td class="text-end">
                                                 {#if s.errorCount > 0}
-                                                <span style="color:#f90;">{s.errorCount.formatted}</span>
+                                                <span style="color:var(--color-warning-text);">{s.errorCount.formatted}</span>
                                                 {#else}
-                                                <span style="color:#e0e0e0;">{s.errorCount.formatted}</span>
+                                                <span style="color:var(--color-text-primary);">{s.errorCount.formatted}</span>
                                                 {/if}
                                             </td>
                                             <td class="text-end">{s.totalDurationMs.formatted}</td>
