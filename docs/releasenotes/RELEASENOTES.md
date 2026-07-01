@@ -1,3 +1,12 @@
+# 0.53.2 (2026.07.01)
+
+## Bugfixes / Chore
+* Breadcrumbs now only shorten when there isn't enough space to show every entry on one line, and only as many entries as needed are hidden behind the "…" instead of always collapsing down to home, "…" and the last two entries.
+
+
+
+---
+
 # 0.53.1 (2026.07.01)
 
 ## Bugfixes / Chore

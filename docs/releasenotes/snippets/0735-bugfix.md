@@ -1,1 +1,0 @@
-* Breadcrumbs now only shorten when there isn't enough space to show every entry on one line, and only as many entries as needed are hidden behind the "…" instead of always collapsing down to home, "…" and the last two entries.
