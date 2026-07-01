@@ -470,6 +470,49 @@
             background-color: var(--color-bg-card);
             border-color: var(--color-border) var(--color-border) var(--color-bg-card);
         }
+        /* Login / landing page */
+        .login-shell {
+            min-height: calc(100vh - 52px);
+            background:
+                radial-gradient(circle at 15% 20%, rgba(13, 110, 253, 0.10), transparent 45%),
+                radial-gradient(circle at 85% 80%, rgba(29, 185, 84, 0.10), transparent 45%),
+                var(--color-bg-page);
+        }
+        .login-hero {
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 20% 25%, rgba(13, 110, 253, 0.25), transparent 55%),
+                radial-gradient(circle at 80% 75%, rgba(29, 185, 84, 0.25), transparent 55%),
+                var(--color-bg-nested);
+        }
+        .login-hero::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(var(--color-border-muted) 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.25;
+            pointer-events: none;
+        }
+        .login-hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 420px;
+        }
+        .login-hero-tagline {
+            color: var(--color-text-muted);
+        }
+        .login-hero-feature {
+            display: flex;
+            gap: 0.7rem;
+            align-items: flex-start;
+        }
+        .login-hero-feature svg {
+            flex: 0 0 auto;
+            margin-top: 0.15rem;
+            color: var(--color-text-muted);
+        }
     </style>
 </head>
 <body>
@@ -519,10 +562,14 @@
             <symbol id="icon-nav-profile" viewBox="0 0 16 16">
                 <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/>
             </symbol>
-            <symbol id="icon-nav-app" viewBox="0 0 16 16">
-                <circle cx="8" cy="8" r="8" fill="#444444"/>
-                <circle cx="8" cy="5.5" r="2.5"/>
-                <path d="M2 14.5C2 11 4.5 9 8 9s6 2 6 5.5H2z"/>
+            <linearGradient id="logoGradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#0d6efd"/>
+                <stop offset="1" stop-color="#1db954"/>
+            </linearGradient>
+            <symbol id="icon-nav-app" viewBox="0 0 32 32">
+                <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#logoGradient)"/>
+                <path d="M19 8v11.6c0 3.1-2 5-5 5-2.3 0-4.1-1.1-5.2-3" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="23.2" cy="8.4" r="1.8" fill="#ffffff"/>
             </symbol>
             <symbol id="icon-nav-logout" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 1 0-1h8A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-8a.5.5 0 0 1-.5-.5z"/>
@@ -538,7 +585,7 @@
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
         <a href="/" class="d-flex align-items-center text-decoration-none me-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#ffffff" viewBox="0 0 16 16" aria-label="James Platform Logo"><use href="#icon-nav-app"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32" aria-label="James Platform Logo"><use href="#icon-nav-app"/></svg>
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
