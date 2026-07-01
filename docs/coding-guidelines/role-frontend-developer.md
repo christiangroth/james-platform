@@ -69,6 +69,9 @@ Dark, technical appearance – fitting a developer tool. No generic Bootstrap de
 - Empty states are designed – no raw "No data found" text; include a descriptive message and context
 - Error states are designed – Bootstrap toast notifications with clear, user-friendly messages
 
+Only a dark theme is implemented today. A candidate light-mode palette (not implemented) is documented in [design-light-mode-proposal.md](design-light-mode-proposal.md) for a
+future theme-switch feature.
+
 ## CSS Component Classes
 
 All app-specific CSS classes are defined in the `<style>` block in `layout.html`. Use these instead of inline styles or Bootstrap utility-class combinations.
