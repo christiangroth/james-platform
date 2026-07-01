@@ -1,3 +1,12 @@
+# 0.53.4 (2026.07.01)
+
+## Bugfixes / Chore
+* Improved contrast of borders and dividers on dark cards, tables and form controls for better readability.
+
+
+
+---
+
 # 0.53.3 (2026.07.01)
 
 ## Bugfixes / Chore
