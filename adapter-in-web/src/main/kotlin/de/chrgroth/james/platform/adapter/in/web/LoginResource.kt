@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.domain.error.LoginError
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.port.`in`.user.LoginServicePort
@@ -39,6 +40,9 @@ class LoginResource {
 
   @Inject
   private lateinit var tokenEncryption: TokenEncryptionPort
+
+  @Inject
+  private lateinit var messages: AppMessages
 
   @GET
   @PermitAll
@@ -108,7 +112,7 @@ class LoginResource {
   }
 
   private fun errorMessage(code: String): String = when (code) {
-    LoginError.INVALID_CREDENTIALS.code -> "Invalid username or password. Please try again."
-    else -> "An unexpected error occurred. Please try again."
+    LoginError.INVALID_CREDENTIALS.code -> messages.loginErrorInvalidCredentials()
+    else -> messages.loginErrorUnexpected()
   }
 }

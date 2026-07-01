@@ -33,6 +33,17 @@ dedicated view model class inside `adapter-in-web`.
 - WebJar dependencies (Bootstrap, Font Awesome) are managed via the Gradle version catalog (`libs.versions.toml`)
 - The visible application name rendered in HTML is **James Platform**
 - No business logic in templates – domain decisions belong in the backend, presentation transformations belong in the resource class or `adapter-in-web`
+- No literal user-facing text in templates – only i18n message bundle placeholders (see "Internationalization (i18n)" below)
+
+## Internationalization (i18n)
+
+- Templates must not contain literal user-facing text – every piece of text is a placeholder resolved via the Qute message bundle, e.g. `{msg:loginTitle()}`
+- Message keys are declared as methods on `AppMessages` (`adapter-in-web/src/main/kotlin/.../adapter/in/web/i18n/AppMessages.kt`), annotated `@Message` with no value
+- Message values live exclusively in `adapter-in-web/src/main/resources/messages/msg_<locale>.properties` – never put the text inline as the `@Message` annotation value
+- **German (`de`) is the default and fallback locale** (`quarkus.default-locale=de` in `application-quarkus`) – `messages/msg_de.properties` is the source of truth until further locales are added
+- Error codes passed from the backend (e.g. `LoginError`) are still mapped to human-readable text in the resource class, but that text must come from `AppMessages`, not a hardcoded string
+- Exception: the application name **James Platform** is a brand name and is never translated
+- This is an incremental migration – `login.html` / `LoginResource` is the reference implementation; other templates still containing literal text are migrated as they are touched
 
 ## Live Updates via SSE
 
@@ -483,7 +494,7 @@ messages.
 **Display pattern:**
 
 - Read the `error` query parameter on the login page template.
-- Map the code to a human-readable message (mapping lives in `LoginResource`).
+- Map the code to a human-readable message via `AppMessages` (mapping lives in `LoginResource`, see "Internationalization (i18n)" above).
 - Display the message as a Bootstrap alert (`.alert-danger`) at the top of the login form.
 - Do **not** expose the raw error code to the user.
 
