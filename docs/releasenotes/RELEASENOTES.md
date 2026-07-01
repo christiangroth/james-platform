@@ -1,3 +1,13 @@
+# 0.55.1 (2026.07.01)
+
+## Bugfixes / Chore
+* Fixed the app logo/brand mark not rendering in light mode on some browsers.
+* Removed the unused Spotify-green color and button style left over from the starting template.
+
+
+
+---
+
 # 0.55.0 (2026.07.01)
 
 ## New Features
