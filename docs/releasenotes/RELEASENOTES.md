@@ -1,3 +1,13 @@
+# 0.53.1 (2026.07.01)
+
+## Bugfixes / Chore
+* Breadcrumb truncation now only kicks in with more items, so wide breadcrumbs stay fully visible on desktop screens more often.
+* Moved the Nested Properties section on the property editor page below the constraints and above the action buttons.
+
+
+
+---
+
 # 0.53.0 (2026.07.01)
 
 ## New Features
