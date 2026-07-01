@@ -89,7 +89,7 @@
                     </select>
                 </div>
                 <div id="listItemTypeSection" class="mb-3 d-none">
-                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">List Item Type <span style="color:#f87171;">*</span></label>
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">List Item Type <span style="color:var(--color-required);">*</span></label>
                     <select class="form-select app-form-control form-select-sm" id="editPropertyListItemType" data-testid="edit-property-list-item-type-select">
                         <option value="">– Select –</option>
                         <option value="STRING">String</option>
@@ -105,7 +105,7 @@
                     </select>
                 </div>
                 <div id="targetEntitySection" class="mb-3 d-none">
-                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:#f87171;">*</span></label>
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Target Entity <span style="color:var(--color-required);">*</span></label>
                     <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" required data-testid="edit-property-target-entity-select">
                         <option value="">– Select –</option>
                         {#for e in version.entityDefinitions}

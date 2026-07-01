@@ -5,10 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{#insert title}James Platform{/insert}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('theme');
+                var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="/webjars/bootstrap/css/bootstrap.min.css">
     <style>
         :root {
+            color-scheme: dark;
             --spotify-green: #1db954;
+            --color-bg-page: #121212;
             --color-bg-card: #1e1e1e;
             --color-bg-nested: #161616;
             --color-border: #686870;
@@ -19,13 +34,73 @@
             --color-action-hover: #0b5ed7;
             --color-danger: #dc3545;
             --color-danger-hover: #bb2d3b;
+            --color-required: #f87171;
+            --color-code-text: #cccccc;
+            --color-warning-text: #ff9900;
             --color-bg-depth-albums: #161616;
             --color-bg-depth-tracks: #111;
             --color-border-depth-albums: #2a2a2a;
             --color-border-depth-tracks: #1a1a1a;
+            --color-badge-muted-bg: #555555;
+            --color-row-hover-overlay: rgba(255, 255, 255, 0.06);
+            --color-table-stripe-overlay: rgba(255, 255, 255, 0.07);
+            --color-alert-success-bg: #1a2a1a;
+            --color-alert-success-border: #226b22;
+            --color-alert-success-text: #d4f0d4;
+            --color-alert-danger-bg: #2a1a1a;
+            --color-alert-danger-border: #6b2222;
+            --color-alert-danger-text: #f8d7da;
+            --color-diff-added-bg: #1a4a1a;
+            --color-diff-added-text: #4ade80;
+            --color-diff-added-border: #166534;
+            --color-diff-removed-bg: #4a1a1a;
+            --color-diff-removed-text: #f87171;
+            --color-diff-removed-border: #991b1b;
+            --color-diff-modified-bg: #1a2a4a;
+            --color-diff-modified-text: #60a5fa;
+            --color-diff-modified-border: #1d4ed8;
+            --color-diff-line-added-bg: #0d2f0d;
+            --color-diff-line-removed-bg: #2f0d0d;
+        }
+        [data-theme="light"] {
+            color-scheme: light;
+            --color-bg-page: #f4f5f7;
+            --color-bg-card: #ffffff;
+            --color-bg-nested: #eef0f2;
+            --color-border: #ccced2;
+            --color-border-muted: #9599a1;
+            --color-text-primary: #1a1a1e;
+            --color-text-muted: #5f6368;
+            --color-required: #dc3545;
+            --color-code-text: #495057;
+            --color-warning-text: #997404;
+            --color-bg-depth-albums: #eef0f2;
+            --color-bg-depth-tracks: #e2e5e9;
+            --color-border-depth-albums: #dde0e4;
+            --color-border-depth-tracks: #cfd3d8;
+            --color-badge-muted-bg: #6c757d;
+            --color-row-hover-overlay: rgba(0, 0, 0, 0.04);
+            --color-table-stripe-overlay: rgba(0, 0, 0, 0.035);
+            --color-alert-success-bg: #d1e7dd;
+            --color-alert-success-border: #a3cfbb;
+            --color-alert-success-text: #0f5132;
+            --color-alert-danger-bg: #f8d7da;
+            --color-alert-danger-border: #f1aeb5;
+            --color-alert-danger-text: #842029;
+            --color-diff-added-bg: #d1e7dd;
+            --color-diff-added-text: #0f5132;
+            --color-diff-added-border: #a3cfbb;
+            --color-diff-removed-bg: #f8d7da;
+            --color-diff-removed-text: #842029;
+            --color-diff-removed-border: #f1aeb5;
+            --color-diff-modified-bg: #cfe2ff;
+            --color-diff-modified-text: #084298;
+            --color-diff-modified-border: #9ec5fe;
+            --color-diff-line-added-bg: #eef8f1;
+            --color-diff-line-removed-bg: #fdf1f2;
         }
         body {
-            background-color: #121212;
+            background-color: var(--color-bg-page);
             color: var(--color-text-primary);
         }
         .app-navbar {
@@ -39,6 +114,19 @@
         .app-navbar .nav-link {
             padding-left: 0.375rem;
             padding-right: 0.375rem;
+        }
+        /* Theme toggle button - shows the icon of the currently active theme */
+        .theme-toggle-icon-moon {
+            display: inline;
+        }
+        .theme-toggle-icon-sun {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle-icon-moon {
+            display: none;
+        }
+        [data-theme="light"] .theme-toggle-icon-sun {
+            display: inline;
         }
         .btn-spotify {
             background-color: var(--spotify-green);
@@ -148,7 +236,7 @@
             color: #ffffff;
         }
         .app-badge-muted {
-            background-color: #555555;
+            background-color: var(--color-badge-muted-bg);
             color: #ffffff;
         }
         /* Dark card with app border */
@@ -166,7 +254,7 @@
         .app-table {
             --bs-table-color: var(--color-text-primary);
             --bs-table-striped-color: var(--color-text-primary);
-            --bs-table-striped-bg: rgba(255, 255, 255, 0.07);
+            --bs-table-striped-bg: var(--color-table-stripe-overlay);
             color: var(--color-text-primary);
             background-color: transparent;
         }
@@ -227,6 +315,10 @@
         }
         .docs-content a {
             color: var(--spotify-green);
+        }
+        /* --spotify-green fails AA contrast as text on a light background - use the action blue instead */
+        [data-theme="light"] .docs-content a {
+            color: var(--color-action);
         }
         .docs-content {
             max-width: 860px;
@@ -310,11 +402,30 @@
         .app-accordion-item .accordion-button::after {
             filter: invert(1);
         }
+        [data-theme="light"] .app-accordion-item .accordion-button::after {
+            filter: none;
+        }
+        /* Bootstrap's .btn-close-white inverts the icon to white for dark surfaces; modals use theme-aware
+           surfaces, so undo the inversion in light mode where the default dark close icon is already correct */
+        [data-theme="light"] .btn-close-white {
+            filter: none;
+        }
         /* Read-only published version banner */
         .app-readonly-banner {
             background-color: var(--color-bg-card);
             border-color: var(--color-border);
             color: var(--color-text-muted);
+        }
+        /* Success / danger alert banners - combine with Bootstrap .alert */
+        .app-alert-success {
+            background-color: var(--color-alert-success-bg);
+            border-color: var(--color-alert-success-border);
+            color: var(--color-alert-success-text);
+        }
+        .app-alert-danger {
+            background-color: var(--color-alert-danger-bg);
+            border-color: var(--color-alert-danger-border);
+            color: var(--color-alert-danger-text);
         }
         /* Section header – uppercase label above content blocks */
         .app-section-header {
@@ -334,7 +445,7 @@
             cursor: pointer;
         }
         .app-table tr.clickable-row:hover td {
-            background-color: rgba(255, 255, 255, 0.06) !important;
+            background-color: var(--color-row-hover-overlay) !important;
         }
         /* Constraint text line in property tables */
         .app-constraint-text {
@@ -417,6 +528,12 @@
                 <path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 1 0-1h8A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-8a.5.5 0 0 1-.5-.5z"/>
                 <path fill-rule="evenodd" d="M11.354 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L9.793 7.5H1.5a.5.5 0 0 0 0 1h8.293l-2.147 2.146a.5.5 0 0 0 .708.708z"/>
             </symbol>
+            <symbol id="icon-theme-sun" viewBox="0 0 16 16">
+                <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2a.5.5 0 0 1 .5-.5m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707L4.464 3.757a.5.5 0 0 1 0 .708"/>
+            </symbol>
+            <symbol id="icon-theme-moon" viewBox="0 0 16 16">
+                <path d="M6 .278a.768.768 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278M4.858 1.311A7.27 7.27 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.32 7.32 0 0 0 5.205-2.162q-.506.063-1.029.063c-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286"/>
+            </symbol>
         </defs>
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
@@ -427,6 +544,10 @@
         {#insert leftNavLinks}
         <span class="me-auto"></span>
         {/insert}
+        <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="Toggle color theme" aria-label="Toggle color theme">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-moon" aria-hidden="true"><use href="#icon-theme-moon"/></svg>
+        </button>
         {#insert navLinks}
         <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="Profile" aria-label="Go to profile page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
         <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="App Store" aria-label="Go to App Store"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
@@ -456,6 +577,7 @@
     <script src="/webjars/marked/lib/marked.umd.js"></script>
     <script src="/sse-utils.js?v={assetVersion}"></script>
     <script src="/breadcrumb-utils.js?v={assetVersion}"></script>
+    <script src="/theme-utils.js?v={assetVersion}"></script>
     {#insert navbarSse}
     <script>
         (function() {

@@ -22,7 +22,7 @@
                 <div id="version-bump-loading" class="text-center py-3 app-section-label">Loading version information…</div>
                 <div id="version-bump-content" class="d-none">
                     <div id="publish-no-changes" class="d-none">
-                        <div class="alert" style="background-color:#1a2a1a;border-color:#226b22;color:#d4f0d4;" role="alert" data-testid="no-changes-warning">
+                        <div class="alert app-alert-success" role="alert" data-testid="no-changes-warning">
                             No changes detected in entities or reports. Please make changes before publishing.
                         </div>
                     </div>
@@ -31,7 +31,7 @@
                             <p>This will publish the first version as <strong id="first-version-label" data-testid="first-version-label"></strong>.</p>
                         </div>
                         <div id="publish-breaking" class="d-none">
-                            <div class="alert" style="background-color:#2a1a1a;border-color:#6b2222;color:#f8d7da;" role="alert" data-testid="breaking-changes-warning">
+                            <div class="alert app-alert-danger" role="alert" data-testid="breaking-changes-warning">
                                 Breaking changes detected. Will be published as major version <strong id="breaking-version-label" data-testid="breaking-version-label"></strong>.
                             </div>
                         </div>
@@ -43,7 +43,7 @@
                             </div>
                         </div>
                         <div class="mt-3">
-                            <label class="form-label form-label-sm" for="releaseNotesInput" style="color:var(--color-text-muted);">Release Notes <span style="color:#f87171;">*</span></label>
+                            <label class="form-label form-label-sm" for="releaseNotesInput" style="color:var(--color-text-muted);">Release Notes <span style="color:var(--color-required);">*</span></label>
                             <textarea class="form-control app-form-control" id="releaseNotesInput" name="releaseNotes" rows="4" required placeholder="Describe what changed in this version…" data-testid="release-notes-input"></textarea>
                         </div>
                     </div>

@@ -28,7 +28,7 @@
             <p class="text-secondary small mt-3">No documents found in this collection to derive field schema.</p>
             {#else}
             <div class="mt-3 mb-2">
-                <h2 class="fs-6 fw-semibold mb-2" style="color:#888;letter-spacing:.04em;">Filters</h2>
+                <h2 class="fs-6 fw-semibold mb-2" style="color:var(--color-text-muted);letter-spacing:.04em;">Filters</h2>
                 <div class="row g-2">
                     {#for field in result.fields}
                     {#if field.fieldType.name == "STRING"}
@@ -58,7 +58,7 @@
 
             <!-- Sort options -->
             <div class="mt-3 mb-3">
-                <h2 class="fs-6 fw-semibold mb-2" style="color:#888;letter-spacing:.04em;">Sort</h2>
+                <h2 class="fs-6 fw-semibold mb-2" style="color:var(--color-text-muted);letter-spacing:.04em;">Sort</h2>
                 <div class="row g-2 align-items-center">
                     <div class="col-auto">
                         <select name="sort" class="form-select form-select-sm app-select"
@@ -95,7 +95,7 @@
 
         <!-- Results -->
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <h2 class="fs-6 fw-semibold mb-0" style="color:#888;letter-spacing:.04em;">
+            <h2 class="fs-6 fw-semibold mb-0" style="color:var(--color-text-muted);letter-spacing:.04em;">
                 Results
                 {#if result.totalCount > 0}
                 <span class="ms-2 text-secondary" style="font-size:.8rem;font-weight:400;">{result.totalCount} document(s) total</span>
@@ -117,7 +117,7 @@
         {#else}
 
         {#for doc in result.documents}
-        <pre class="mb-2" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;font-size:.78rem;color:#ccc;overflow-x:auto;">{doc}</pre>
+        <pre class="mb-2" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;font-size:.78rem;color:var(--color-code-text);overflow-x:auto;">{doc}</pre>
         {/for}
 
         <!-- Pagination -->

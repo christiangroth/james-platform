@@ -421,13 +421,13 @@
                                 {#if report.html}
                                 <div class="p-2">
                                     <div class="app-section-header mb-1">HTML</div>
-                                    <pre style="background-color:#111;padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:#ccc;max-height:200px;margin:0;">{report.html}</pre>
+                                    <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:200px;margin:0;">{report.html}</pre>
                                 </div>
                                 {/if}
                                 {#if report.script}
                                 <div class="p-2">
                                     <div class="app-section-header mb-1">Script</div>
-                                    <pre style="background-color:#111;padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:#ccc;max-height:200px;margin:0;">{report.script}</pre>
+                                    <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:200px;margin:0;">{report.script}</pre>
                                 </div>
                                 {/if}
                                 {#if !report.html && !report.script}
@@ -477,7 +477,7 @@
                 <form id="addEntityForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="newEntityName" class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <label for="newEntityName" class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:var(--color-required);">*</span></label>
                             <input type="text" class="form-control app-form-control" id="newEntityName" name="name" required autocomplete="off" placeholder="Entity name" data-testid="add-entity-name-input">
                         </div>
                     </div>
@@ -503,7 +503,7 @@
                 <form id="addReportForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="newReportName" class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <label for="newReportName" class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:var(--color-required);">*</span></label>
                             <input type="text" class="form-control app-form-control" id="newReportName" name="name" required autocomplete="off" placeholder="Report name" data-testid="add-report-name-input">
                         </div>
                     </div>
@@ -575,11 +575,11 @@
                     <input type="hidden" id="addComputedPropertyEntityId" name="entityId" value="">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:var(--color-required);">*</span></label>
                             <input type="text" class="form-control app-form-control" id="addComputedPropertyName" name="name" required autocomplete="off" placeholder="e.g. TotalAmount" data-testid="computed-property-name-input">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:#f87171;">*</span></label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:var(--color-required);">*</span></label>
                             <select class="form-select app-form-control" id="addComputedPropertyType" name="type" required data-testid="computed-property-type-select">
                                 <option value="">– Select –</option>
                                 <option value="STRING">String</option>
@@ -620,11 +620,11 @@
                     <div class="modal-body">
                         <div id="editComputedPropertyError" class="alert alert-danger d-none mb-3"></div>
                         <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:#f87171;">*</span></label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Name <span style="color:var(--color-required);">*</span></label>
                             <input type="text" class="form-control app-form-control form-control-sm" id="editComputedPropertyName" required autocomplete="off" data-testid="edit-computed-property-name-input">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:#f87171;">*</span></label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">Type <span style="color:var(--color-required);">*</span></label>
                             <select class="form-select app-form-control form-select-sm" id="editComputedPropertyType" required data-testid="edit-computed-property-type-select">
                                 <option value="STRING">String</option>
                                 <option value="LONG">Long (Integer)</option>
