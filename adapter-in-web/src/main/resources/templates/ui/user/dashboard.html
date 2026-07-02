@@ -1,15 +1,15 @@
 {#include layout.html}
-    {#title}James Platform – Dashboard{/title}
+    {#title}James Platform – {user:userBreadcrumbDashboardLabel()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <div class="d-flex align-items-center mb-4">
-            <h1 class="fs-4 fw-semibold mb-0" data-testid="welcome-message">My Apps</h1>
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="welcome-message">{user:userMyAppsHeading()}</h1>
             {#if isDeveloper}
             <a href="/ui/developer/dashboard"
                class="btn btn-app-secondary btn-sm ms-auto"
                data-testid="developer-dashboard-link"
-               aria-label="Go to developer dashboard">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" class="me-1" aria-hidden="true"><use href="#icon-nav-developer"/></svg>Development
+               aria-label="{user:userDeveloperDashboardAriaLabel()}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" class="me-1" aria-hidden="true"><use href="#icon-nav-developer"/></svg>{user:userDevelopmentLinkLabel()}
             </a>
             {/if}
         </div>
@@ -20,7 +20,7 @@
             <!-- Installed app tiles -->
             {#for info in installedApps}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/user/apps/{info.installedAppId}" class="text-decoration-none" data-testid="installed-app-tile" aria-label="Open app {info.appName}">
+                <a href="/ui/user/apps/{info.installedAppId}" class="text-decoration-none" data-testid="installed-app-tile" aria-label="{user:userOpenInstalledAppAriaLabel(info.appName)}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="installed-app-name">{info.appName}</div>
                         <div class="app-section-label mb-1" data-testid="installed-app-version">v{info.installedVersion.versionNumber}</div>
@@ -38,7 +38,7 @@
                                     data-testid="upgrade-button"
                                     data-installed-app-id="{info.installedAppId}"
                                     onclick="event.preventDefault(); upgradeApp('{info.installedAppId}', this)">
-                                Upgrade to v{info.latestVersion.versionNumber}
+                                {user:userUpgradeToVersionButton(info.latestVersion.versionNumber.value)}
                             </button>
                             {/if}
                         </div>
@@ -54,13 +54,14 @@
         (function () {
             var messagePanel = document.getElementById('dashboard-message');
             var messageTimer = null;
+            var networkErrorMessage = '{msg:commonNetworkError()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
                 messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
                 messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 messagePanel.innerHTML = message
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
                 messageTimer = setTimeout(function () {
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
@@ -80,7 +81,7 @@
                         showMessage(result.ok, result.message);
                     }
                 } catch (e) {
-                    showMessage(false, 'Network error. Please try again.');
+                    showMessage(false, networkErrorMessage);
                 } finally {
                     btn.disabled = false;
                 }
@@ -89,4 +90,3 @@
     </script>
     {/scripts}
 {/include}
-

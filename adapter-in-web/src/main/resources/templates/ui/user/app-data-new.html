@@ -1,43 +1,43 @@
 {#include layout.html}
-    {#title}James Platform – {info.appName} – New {entity.name}{/title}
+    {#title}James Platform – {info.appName} – {user:userNewEntityTitle(entity.name)}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-entity">New {entity.name}</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-entity">{user:userNewEntityTitle(entity.name)}</li>
             </ol>
         </nav>
 
         <div id="form-message" class="d-none mb-4" role="alert"></div>
 
         <div class="card app-card p-4">
-            <h2 class="fs-5 fw-semibold mb-4" data-testid="form-title">New {entity.name}</h2>
+            <h2 class="fs-5 fw-semibold mb-4" data-testid="form-title">{user:userNewEntityTitle(entity.name)}</h2>
 
             <form id="createDataForm">
                 <input type="hidden" name="entityTypeId" value="{entity.id}">
 
                 {#if entity.properties.isEmpty}
-                <p class="app-section-label mb-3" data-testid="no-properties">No properties defined for this entity.</p>
+                <p class="app-section-label mb-3" data-testid="no-properties">{user:userNoPropertiesDefinedMessage()}</p>
                 {#else}
                 {#for prop in entity.properties}
                 <div class="mb-3" data-testid="property-field">
                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);">
                         {prop.name}
-                        {#if !prop.nullable}<span class="text-danger ms-1" aria-label="required">*</span>{/if}
+                        {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
                         <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type.name == "LIST" && prop.listItemType != ""}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
                     {#if prop.type.name == "OBJECT"}
                     <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="property-input-{prop.id}"></div>
                     {#else if prop.type.name == "LIST"}
                     <div class="list-property-rows" data-property-id="{prop.id}">
-                        <button type="button" class="btn btn-app-secondary btn-sm add-list-row" data-testid="add-list-row-{prop.id}">+ Add value</button>
+                        <button type="button" class="btn btn-app-secondary btn-sm add-list-row" data-testid="add-list-row-{prop.id}">{user:userAddValueButton()}</button>
                         <template class="list-row-template">
                             <div class="d-flex align-items-center gap-2 mb-2 list-property-row">
                                 {#if prop.itemHtmlInputType == "select"}
                                 <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
-                                    <option value="">– Select –</option>
+                                    <option value="">{msg:commonSelectPlaceholder()}</option>
                                     {#for opt in referenceOptions.get(prop.id)}
                                     <option value="{opt.id}">{opt.displayText}</option>
                                     {/for}
@@ -48,9 +48,9 @@
                                     <option value="false">false</option>
                                 </select>
                                 {#else}
-                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}>
+                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}>
                                 {/if}
-                                <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
+                                <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="{user:userRemoveValueAriaLabel()}">&times;</button>
                             </div>
                         </template>
                     </div>
@@ -66,7 +66,7 @@
                             id="prop_{prop.id}"
                             {#if !prop.nullable}required{/if}
                             data-testid="property-input-{prop.id}">
-                        <option value="">– Select –</option>
+                        <option value="">{msg:commonSelectPlaceholder()}</option>
                         {#for opt in referenceOptions.get(prop.id)}
                         <option value="{opt.id}">{opt.displayText}</option>
                         {/for}
@@ -81,13 +81,13 @@
                                {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
                                {#if !prop.constraintMin.isEmpty}min="{prop.constraintMin}"{/if}
                                {#if !prop.constraintMax.isEmpty}max="{prop.constraintMax}"{/if}
-                               {#if prop.type.name == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
+                               {#if prop.type.name == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}
                                {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
                                {#if prop.hasValueProposals}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposals}" data-installed-app-id="{info.installedAppId}" data-entity-type-id="{entity.id}" data-property-id="{prop.id}"{/if}
                                data-testid="property-input-{prop.id}">
                         {#if (prop.type.name == "LONG" || prop.type.name == "DOUBLE") && !prop.constraintStep.isEmpty}
-                        <button type="button" class="btn btn-app-secondary number-step-down" tabindex="-1" aria-label="Decrease value" data-testid="property-input-{prop.id}-step-down">&minus;</button>
-                        <button type="button" class="btn btn-app-secondary number-step-up" tabindex="-1" aria-label="Increase value" data-testid="property-input-{prop.id}-step-up">&plus;</button>
+                        <button type="button" class="btn btn-app-secondary number-step-down" tabindex="-1" aria-label="{user:userDecreaseValueAriaLabel()}" data-testid="property-input-{prop.id}-step-down">&minus;</button>
+                        <button type="button" class="btn btn-app-secondary number-step-up" tabindex="-1" aria-label="{user:userIncreaseValueAriaLabel()}" data-testid="property-input-{prop.id}-step-up">&plus;</button>
                         {/if}
                     </div>
                     {#if prop.hasValueProposals}<datalist id="datalist_{prop.id}"></datalist>{/if}
@@ -97,8 +97,8 @@
                 {/if}
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="/ui/user/apps/{info.installedAppId}?tab={entity.id}" class="btn btn-app-secondary btn-sm" data-testid="cancel-button">Cancel</a>
-                    <button type="submit" class="btn btn-app-primary btn-sm" data-testid="submit-button">Save</button>
+                    <a href="/ui/user/apps/{info.installedAppId}?tab={entity.id}" class="btn btn-app-secondary btn-sm" data-testid="cancel-button">{msg:commonCancel()}</a>
+                    <button type="submit" class="btn btn-app-primary btn-sm" data-testid="submit-button">{msg:commonSave()}</button>
                 </div>
             </form>
         </div>
@@ -118,13 +118,14 @@
 
             var messagePanel = document.getElementById('form-message');
             var messageTimer = null;
+            var networkErrorMessage = '{msg:commonNetworkError()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
                 messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
                 messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 messagePanel.innerHTML = message
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
                 messageTimer = setTimeout(function () {
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
@@ -196,7 +197,7 @@
                         submitBtn.disabled = false;
                     }
                 } catch (ex) {
-                    showMessage(false, 'Network error. Please try again.');
+                    showMessage(false, networkErrorMessage);
                     submitBtn.disabled = false;
                 }
             });

@@ -97,7 +97,7 @@ class ProfilePageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="success-message""""))
-      .body(containsString("Password changed successfully."))
+      .body(containsString("Passwort erfolgreich geändert."))
   }
 
   @Test
@@ -108,7 +108,7 @@ class ProfilePageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="error-message""""))
-      .body(containsString("Current password is incorrect."))
+      .body(containsString("Das aktuelle Passwort ist falsch."))
   }
 
   @Test

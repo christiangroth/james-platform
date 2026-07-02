@@ -1,33 +1,33 @@
 {#include layout.html}
-    {#title}James Platform – {app.name} {#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{msg:developerDraftLabel()}{/if} – Diff{/title}
+    {#title}James Platform – {app.name} {#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{developer:developerDraftLabel()}{/if} – Diff{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{msg:developerBreadcrumbDevelopment()}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
-                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{diff.version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-diff">{msg:developerDiffBreadcrumb()}</li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{diff.version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-diff">{developer:developerDiffBreadcrumb()}</li>
             </ol>
         </nav>
 
         <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
             <div>
-                <h1 class="fs-4 fw-semibold mb-1" data-testid="diff-title">{msg:developerDiffTitlePrefix()} {diff.previousVersion.versionNumber} → {#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</h1>
-                <div class="app-section-label" data-testid="diff-subtitle">{msg:developerDiffSubtitlePrefix()} {diff.previousVersion.versionNumber} {msg:developerAndConnector()} {#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</div>
+                <h1 class="fs-4 fw-semibold mb-1" data-testid="diff-title">{developer:developerDiffTitlePrefix()} {diff.previousVersion.versionNumber} → {#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</h1>
+                <div class="app-section-label" data-testid="diff-subtitle">{developer:developerDiffSubtitlePrefix()} {diff.previousVersion.versionNumber} {developer:developerAndConnector()} {#if diff.version.versionNumber}{diff.version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</div>
             </div>
         </div>
 
         {#if diff.entityDiffs.isEmpty && diff.reportDiffs.isEmpty}
         <div class="card app-card p-4" data-testid="no-changes-message">
-            <p class="mb-0 app-section-label">{msg:developerNoChangesBetweenVersions()}</p>
+            <p class="mb-0 app-section-label">{developer:developerNoChangesBetweenVersions()}</p>
         </div>
         {#else}
 
         <!-- Entity Diffs -->
         {#if !diff.entityDiffs.isEmpty}
-        <h2 class="fs-5 fw-semibold mb-3" data-testid="entities-diff-heading">{msg:developerEntitiesHeading()}</h2>
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="entities-diff-heading">{developer:developerEntitiesHeading()}</h2>
         <div class="mb-4" data-testid="entity-diffs">
             {#for section in diff.entityDiffs}
             {#diff-section section=section sectionTestId="entity" /}
@@ -37,7 +37,7 @@
 
         <!-- Report Diffs -->
         {#if !diff.reportDiffs.isEmpty}
-        <h2 class="fs-5 fw-semibold mb-3" data-testid="reports-diff-heading">{msg:developerReportsHeading()}</h2>
+        <h2 class="fs-5 fw-semibold mb-3" data-testid="reports-diff-heading">{developer:developerReportsHeading()}</h2>
         <div class="mb-4" data-testid="report-diffs">
             {#for section in diff.reportDiffs}
             {#diff-section section=section sectionTestId="report" /}

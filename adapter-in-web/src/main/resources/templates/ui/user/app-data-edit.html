@@ -1,12 +1,12 @@
 {#include layout.html}
-    {#title}James Platform – {info.appName} – Edit Data{/title}
+    {#title}James Platform – {info.appName} – {user:userEditDataTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}?tab={detail.entityTypeId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">Edit Data</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">{user:userEditDataTitle()}</li>
             </ol>
         </nav>
 
@@ -20,25 +20,25 @@
                             data-bs-toggle="collapse" data-bs-target="#metadataCollapse"
                             aria-expanded="false" aria-controls="metadataCollapse"
                             data-testid="metadata-toggle">
-                        Metadata
+                        {user:userMetadataLabel()}
                     </button>
                 </h2>
                 <div id="metadataCollapse" class="accordion-collapse collapse" aria-labelledby="metadataHeading">
                     <div class="accordion-body">
                         <dl class="row mb-0">
-                            <dt class="col-sm-3 app-section-label fw-normal">ID</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userIdLabel()}</dt>
                             <dd class="col-sm-9 font-monospace" data-testid="detail-id">{detail.id}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">Entity Type</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userEntityTypeLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-entity-type">{detail.entityTypeName}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">Reference Text</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userReferenceTextLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-reference-text">{detail.referenceText}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">Display Text</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userDisplayTextLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-display-text">{detail.displayText}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">Version</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userVersionLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-version">{detail.objectVersion}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">Created</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userCreatedLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-created">{detail.createdAt.formatted}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">Last Modified</dt>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userLastModifiedLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-last-modified">{detail.lastChangedAt.formatted}</dd>
                         </dl>
                     </div>
@@ -55,7 +55,7 @@
                             data-bs-toggle="collapse" data-bs-target="#computedPropertiesCollapse"
                             aria-expanded="false" aria-controls="computedPropertiesCollapse"
                             data-testid="computed-properties-toggle">
-                        Computed Properties
+                        {user:userComputedPropertiesLabel()}
                     </button>
                 </h2>
                 <div id="computedPropertiesCollapse" class="accordion-collapse collapse" aria-labelledby="computedPropertiesHeading">
@@ -74,18 +74,18 @@
 
         <div class="card app-card p-4">
             <div class="d-flex align-items-center mb-4 gap-2">
-                <h2 class="fs-5 fw-semibold mb-0" data-testid="edit-title">Edit Data</h2>
+                <h2 class="fs-5 fw-semibold mb-0" data-testid="edit-title">{user:userEditDataTitle()}</h2>
             </div>
 
             <form id="editDataForm">
                 {#if detail.properties.isEmpty}
-                <p class="app-section-label mb-3" data-testid="no-edit-properties">No properties defined for this entity.</p>
+                <p class="app-section-label mb-3" data-testid="no-edit-properties">{user:userNoPropertiesDefinedMessage()}</p>
                 {#else}
                 {#for prop in detail.properties}
                 <div class="mb-3" data-testid="edit-property-field">
                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="edit_prop_{prop.id}">
                         {prop.name}
-                        {#if !prop.nullable}<span class="text-danger ms-1" aria-label="required">*</span>{/if}
+                        {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
                         <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type == "LIST" && prop.listItemType != null}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
                     {#if prop.type == "OBJECT"}
@@ -96,7 +96,7 @@
                         <div class="d-flex align-items-center gap-2 mb-2 list-property-row" data-testid="edit-property-input-{prop.id}">
                             {#if prop.itemHtmlInputType == "select"}
                             <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
-                                <option value="">– Select –</option>
+                                <option value="">{msg:commonSelectPlaceholder()}</option>
                                 {#for opt in prop.referenceOptions}
                                 <option value="{opt.id}" {#if opt.id == val}selected{/if}>{opt.displayText}</option>
                                 {/for}
@@ -107,17 +107,17 @@
                                 <option value="false" {#if val == "false"}selected{/if}>false</option>
                             </select>
                             {#else}
-                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}>
+                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}>
                             {/if}
-                            <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
+                            <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="{user:userRemoveValueAriaLabel()}">&times;</button>
                         </div>
                         {/for}
-                        <button type="button" class="btn btn-app-secondary btn-sm add-list-row" data-testid="add-list-row-{prop.id}">+ Add value</button>
+                        <button type="button" class="btn btn-app-secondary btn-sm add-list-row" data-testid="add-list-row-{prop.id}">{user:userAddValueButton()}</button>
                         <template class="list-row-template">
                             <div class="d-flex align-items-center gap-2 mb-2 list-property-row">
                                 {#if prop.itemHtmlInputType == "select"}
                                 <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
-                                    <option value="">– Select –</option>
+                                    <option value="">{msg:commonSelectPlaceholder()}</option>
                                     {#for opt in prop.referenceOptions}
                                     <option value="{opt.id}">{opt.displayText}</option>
                                     {/for}
@@ -128,9 +128,9 @@
                                     <option value="false">false</option>
                                 </select>
                                 {#else}
-                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}>
+                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}>
                                 {/if}
-                                <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="Remove value">&times;</button>
+                                <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="{user:userRemoveValueAriaLabel()}">&times;</button>
                             </div>
                         </template>
                     </div>
@@ -146,7 +146,7 @@
                             id="edit_prop_{prop.id}"
                             {#if !prop.nullable}required{/if}
                             data-testid="edit-property-input-{prop.id}">
-                        <option value="">– Select –</option>
+                        <option value="">{msg:commonSelectPlaceholder()}</option>
                         {#for opt in prop.referenceOptions}
                         <option value="{opt.id}" {#if opt.id == prop.value}selected{/if}>{opt.displayText}</option>
                         {/for}
@@ -162,12 +162,12 @@
                                {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
                                {#if !prop.min.isEmpty}min="{prop.min}"{/if}
                                {#if !prop.max.isEmpty}max="{prop.max}"{/if}
-                               {#if prop.type == "DURATION"}placeholder="e.g. 1d 2h 30m 15s or 02:30:15"{/if}
+                               {#if prop.type == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}
                                {#if !prop.valueProposals.isEmpty}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposalsString}" data-installed-app-id="{detail.installedAppId}" data-entity-type-id="{detail.entityTypeId}" data-property-id="{prop.id}"{/if}
                                data-testid="edit-property-input-{prop.id}">
                         {#if (prop.type == "LONG" || prop.type == "DOUBLE") && !prop.step.isEmpty}
-                        <button type="button" class="btn btn-app-secondary number-step-down" tabindex="-1" aria-label="Decrease value" data-testid="edit-property-input-{prop.id}-step-down">&minus;</button>
-                        <button type="button" class="btn btn-app-secondary number-step-up" tabindex="-1" aria-label="Increase value" data-testid="edit-property-input-{prop.id}-step-up">&plus;</button>
+                        <button type="button" class="btn btn-app-secondary number-step-down" tabindex="-1" aria-label="{user:userDecreaseValueAriaLabel()}" data-testid="edit-property-input-{prop.id}-step-down">&minus;</button>
+                        <button type="button" class="btn btn-app-secondary number-step-up" tabindex="-1" aria-label="{user:userIncreaseValueAriaLabel()}" data-testid="edit-property-input-{prop.id}-step-up">&plus;</button>
                         {/if}
                     </div>
                     {#if !prop.valueProposals.isEmpty}<datalist id="datalist_{prop.id}"></datalist>{/if}
@@ -177,11 +177,11 @@
                 {/if}
 
                 <div class="d-flex justify-content-between mt-4">
-                    <a href="/ui/user/apps/{detail.installedAppId}?tab={detail.entityTypeId}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">Cancel</a>
+                    <a href="/ui/user/apps/{detail.installedAppId}?tab={detail.entityTypeId}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">{msg:commonCancel()}</a>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-app-danger btn-sm" data-testid="delete-button"
-                                data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
-                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="edit-submit-button">Save</button>
+                                data-bs-toggle="modal" data-bs-target="#deleteModal">{msg:commonDelete()}</button>
+                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="edit-submit-button">{msg:commonSave()}</button>
                     </div>
                 </div>
             </form>
@@ -193,15 +193,15 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content app-modal-content">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title" id="deleteModalLabel">Delete Data</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="deleteModalLabel">{user:userDeleteDataModalTitle()}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    Are you sure you want to delete this data entry? This action cannot be undone.
+                    {user:userDeleteDataConfirm()}
                 </div>
                 <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-app-secondary btn-sm" data-bs-dismiss="modal" data-testid="cancel-delete-button">Cancel</button>
-                    <button type="button" class="btn btn-app-danger btn-sm" data-testid="confirm-delete-button" id="confirmDeleteButton">Delete</button>
+                    <button type="button" class="btn btn-app-secondary btn-sm" data-bs-dismiss="modal" data-testid="cancel-delete-button">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger btn-sm" data-testid="confirm-delete-button" id="confirmDeleteButton">{msg:commonDelete()}</button>
                 </div>
             </div>
         </div>
@@ -232,13 +232,14 @@
             var entityTypeId = meta.dataset.entityTypeId;
             var messagePanel = document.getElementById('page-message');
             var messageTimer = null;
+            var networkErrorMessage = '{msg:commonNetworkError()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
                 messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
                 messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 messagePanel.innerHTML = message
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
                 messageTimer = setTimeout(function () {
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
@@ -304,7 +305,7 @@
                         submitBtn.disabled = false;
                     }
                 } catch (ex) {
-                    showMessage(false, 'Network error. Please try again.');
+                    showMessage(false, networkErrorMessage);
                     submitBtn.disabled = false;
                 }
             });
@@ -334,7 +335,7 @@
                     }
                 } catch (ex) {
                     if (modal) { modal.hide(); }
-                    showMessage(false, 'Network error. Please try again.');
+                    showMessage(false, networkErrorMessage);
                     btn.disabled = false;
                 }
             });

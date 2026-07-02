@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.domain.error.UserProfileError
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
@@ -33,6 +34,9 @@ class ProfileResource {
 
   @Inject
   private lateinit var userProfileService: UserProfileServicePort
+
+  @Inject
+  private lateinit var msg: AppMessages
 
   @GET
   @Produces(MediaType.TEXT_HTML)
@@ -86,18 +90,18 @@ class ProfileResource {
   }
 
   private fun successMessage(code: String): String = when (code) {
-    "username-changed" -> "Username changed successfully."
-    "password-changed" -> "Password changed successfully."
-    else -> "Operation completed successfully."
+    "username-changed" -> msg.profileUsernameChangedMessage()
+    "password-changed" -> msg.profilePasswordChangedMessage()
+    else -> msg.profileOperationCompletedMessage()
   }
 
   private fun errorMessage(code: String): String = when (code) {
-    UserProfileError.USER_NOT_FOUND.code -> "User not found."
-    UserProfileError.USERNAME_ALREADY_EXISTS.code -> "Username already exists. Please choose a different username."
-    UserProfileError.INVALID_CURRENT_PASSWORD.code -> "Current password is incorrect."
-    UserProfileError.BLANK_INPUT.code -> "All fields are required."
-    UserProfileError.PASSWORDS_DO_NOT_MATCH.code -> "New passwords do not match."
-    else -> "An unexpected error occurred. Please try again."
+    UserProfileError.USER_NOT_FOUND.code -> msg.profileUserNotFoundError()
+    UserProfileError.USERNAME_ALREADY_EXISTS.code -> msg.profileUsernameExistsError()
+    UserProfileError.INVALID_CURRENT_PASSWORD.code -> msg.profileInvalidCurrentPasswordError()
+    UserProfileError.BLANK_INPUT.code -> msg.profileAllFieldsRequiredError()
+    UserProfileError.PASSWORDS_DO_NOT_MATCH.code -> msg.profilePasswordsDoNotMatchError()
+    else -> msg.commonUnexpectedError()
   }
 
   private fun renderProfile(successMsg: String? = null, errorMsg: String? = null): Any {

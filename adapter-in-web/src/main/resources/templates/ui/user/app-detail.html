@@ -4,19 +4,19 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item active" aria-current="page" data-testid="app-name">{info.appName}</li>
             </ol>
         </nav>
 
         <div class="card app-card p-4">
             {#if info.installedVersion.entityDefinitions.isEmpty}
-            <p class="mb-0 app-section-label" data-testid="no-data-message">No entities defined.</p>
+            <p class="mb-0 app-section-label" data-testid="no-data-message">{user:userNoEntitiesDefinedMessage()}</p>
             {#else if entityTabs.size == 1}
             {! Single entity: no tabs !}
             {#let tab=entityTabs.get(0)}
             {#if tab.rows.isEmpty}
-            <p class="mb-0 app-section-label" data-testid="no-data-message">No data yet.</p>
+            <p class="mb-0 app-section-label" data-testid="no-data-message">{user:userNoDataYetMessage()}</p>
             {#else}
             <div class="table-responsive">
                 <table class="table table-sm mb-0 app-table" data-testid="app-data-table" data-entity-id="{tab.entityId}">
@@ -26,8 +26,8 @@
                                 <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
                                    data-testid="add-data-button"
                                    class="btn btn-app-primary btn-sm w-100"
-                                   title="add more data"
-                                   aria-label="add more data">+</a>
+                                   title="{user:userAddMoreDataAriaLabel()}"
+                                   aria-label="{user:userAddMoreDataAriaLabel()}">+</a>
                             </td>
                         </tr>
                         {#for item in tab.rows}
@@ -67,7 +67,7 @@
                      aria-labelledby="tab-btn-{tab.entityId}"
                      data-testid="entity-tab-pane-{tab.entityName}">
                     {#if tab.rows.isEmpty}
-                    <p class="mb-0 app-section-label" data-testid="no-data-message-{tab.entityName}">No data yet.</p>
+                    <p class="mb-0 app-section-label" data-testid="no-data-message-{tab.entityName}">{user:userNoDataYetMessage()}</p>
                     {#else}
                     <div class="table-responsive">
                         <table class="table table-sm mb-0 app-table" data-testid="app-data-table-{tab.entityName}" data-entity-id="{tab.entityId}">
@@ -77,8 +77,8 @@
                                         <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
                                            data-testid="add-data-tab-button-{tab.entityName}"
                                            class="btn btn-app-primary btn-sm w-100"
-                                           title="add more data"
-                                           aria-label="add more data">+</a>
+                                           title="{user:userAddMoreDataAriaLabel()}"
+                                           aria-label="{user:userAddMoreDataAriaLabel()}">+</a>
                                     </td>
                                 </tr>
                                 {#for item in tab.rows}
@@ -102,6 +102,9 @@
     <script>
         (function () {
             var PAGE_SIZE = {pageSize};
+            var pageLabel = '{user:userPageLabel()}';
+            var previousLabel = '{user:userPreviousLabel()}';
+            var nextLabel = '{user:userNextLabel()}';
 
             // Restore active tab from URL query parameter
             var tabParam = new URLSearchParams(window.location.search).get('tab');
@@ -154,7 +157,7 @@
                 function updatePager() {
                     var pager = table.parentElement.querySelector('.app-data-pager');
                     if (!pager) { return; }
-                    pager.querySelector('.pager-info').textContent = 'Page ' + currentPage + ' / ' + totalPages;
+                    pager.querySelector('.pager-info').textContent = pageLabel + ' ' + currentPage + ' / ' + totalPages;
                     pager.querySelector('.pager-prev').disabled = currentPage <= 1;
                     pager.querySelector('.pager-next').disabled = currentPage >= totalPages;
                 }
@@ -167,14 +170,14 @@
                 prevBtn.type = 'button';
                 prevBtn.className = 'btn btn-app-secondary btn-sm pager-prev';
                 prevBtn.setAttribute('data-testid', 'pager-prev');
-                prevBtn.textContent = '\u2039 Previous';
+                prevBtn.textContent = '‹ ' + previousLabel;
                 var info = document.createElement('span');
                 info.className = 'app-section-label pager-info';
                 var nextBtn = document.createElement('button');
                 nextBtn.type = 'button';
                 nextBtn.className = 'btn btn-app-secondary btn-sm pager-next';
                 nextBtn.setAttribute('data-testid', 'pager-next');
-                nextBtn.textContent = 'Next \u203a';
+                nextBtn.textContent = nextLabel + ' ›';
                 prevBtn.addEventListener('click', function () {
                     if (currentPage > 1) { showPage(currentPage - 1); }
                 });

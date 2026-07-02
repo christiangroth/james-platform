@@ -4,8 +4,8 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/user/app-store" class="breadcrumb-link" data-testid="back-link">App Store</a></li>
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
+                <li class="breadcrumb-item"><a href="/ui/user/app-store" class="breadcrumb-link" data-testid="back-link">{user:userAppStoreTitle()}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="app-name">{detail.appName}</li>
             </ol>
         </nav>
@@ -15,12 +15,12 @@
         <div class="row g-3">
             <div class="col-12 col-md-8">
                 <div class="card app-card p-3 mb-3">
-                    <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">App Info</div>
+                    <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{user:userAppInfoHeading()}</div>
                     <div class="fw-semibold fs-5 mb-1" data-testid="detail-app-name">{detail.appName}</div>
                     {#if detail.appDescription}
                     <div class="app-section-label mb-2" data-testid="detail-app-description">{detail.appDescription}</div>
                     {/if}
-                    <div class="app-section-label" data-testid="detail-developer">Developer: {detail.developerName}</div>
+                    <div class="app-section-label" data-testid="detail-developer">{user:userDeveloperLabelWithName(detail.developerName)}</div>
                 </div>
 
                 <div class="card app-card p-3 mb-3">
@@ -29,11 +29,11 @@
                             class="btn btn-app-primary w-100"
                             data-testid="install-button"
                             onclick="installApp('{detail.appId}', this)">
-                        Install
+                        {user:userInstallButton()}
                     </button>
                     {#else}
                     <div class="app-section-label mb-2" data-testid="installed-version-info">
-                        Installed: v{installedApp.installedVersion.versionNumber}
+                        {user:userInstalledVersionLabel(installedApp.installedVersion.versionNumber.value)}
                     </div>
                     {#if installedApp.installedVersion.versionNumber != installedApp.latestVersion.versionNumber}
                     <button type="button"
@@ -41,30 +41,30 @@
                             data-testid="upgrade-button"
                             data-bs-toggle="modal"
                             data-bs-target="#upgradeModal">
-                        Upgrade to v{installedApp.latestVersion.versionNumber}
+                        {user:userUpgradeToVersionButton(installedApp.latestVersion.versionNumber.value)}
                     </button>
                     {#else}
-                    <span class="badge app-badge-muted w-100 py-2" data-testid="up-to-date-badge">Up to date</span>
+                    <span class="badge app-badge-muted w-100 py-2" data-testid="up-to-date-badge">{user:userUpToDateBadge()}</span>
                     {/if}
                     {/if}
                 </div>
 
                 <div class="card app-card p-3 mb-3">
                     <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">
-                        Latest Version: <span data-testid="detail-version">v{detail.latestVersion.versionNumber}</span>
+                        {user:userLatestVersionLabel()} <span data-testid="detail-version">v{detail.latestVersion.versionNumber}</span>
                     </div>
                     {#if detail.latestVersion.releaseNotes}
                     <div class="mb-3">
-                        <div class="app-section-label mb-1" style="font-size:0.7rem;letter-spacing:.06em;">Release Notes</div>
+                        <div class="app-section-label mb-1" style="font-size:0.7rem;letter-spacing:.06em;">{user:userReleaseNotesLabel()}</div>
                         <div data-testid="detail-release-notes" style="white-space:pre-wrap;">{detail.latestVersion.releaseNotes}</div>
                     </div>
                     {/if}
 
                     <div class="row g-3">
                         <div class="col-12 col-md-6">
-                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Entities</div>
+                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{user:userEntitiesLabel()}</div>
                             {#if detail.latestVersion.entityDefinitions.isEmpty}
-                            <p class="app-section-label mb-0" data-testid="no-entities">No entities.</p>
+                            <p class="app-section-label mb-0" data-testid="no-entities">{user:userNoEntitiesMessage()}</p>
                             {#else}
                             <ul class="list-unstyled mb-0">
                                 {#for entity in detail.latestVersion.entityDefinitions}
@@ -74,9 +74,9 @@
                             {/if}
                         </div>
                         <div class="col-12 col-md-6">
-                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Reports</div>
+                            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{user:userReportsLabel()}</div>
                             {#if detail.latestVersion.reports.isEmpty}
-                            <p class="app-section-label mb-0" data-testid="no-reports">No reports.</p>
+                            <p class="app-section-label mb-0" data-testid="no-reports">{user:userNoReportsMessage()}</p>
                             {#else}
                             <ul class="list-unstyled mb-0">
                                 {#for report in detail.latestVersion.reports}
@@ -90,7 +90,7 @@
 
                 {#if detail.allVersions.size > 1}
                 <div class="card app-card p-3 mb-3" data-testid="version-history">
-                    <div class="app-section-label mb-3" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">Version History</div>
+                    <div class="app-section-label mb-3" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{user:userVersionHistoryLabel()}</div>
                     {#for version in detail.allVersions}
                     {#if version_index > 0}
                     <div class="py-2" style="{#if version_index > 1}border-top:1px solid var(--color-border);{/if}" data-testid="version-history-item">
@@ -116,8 +116,8 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="upgradeModalLabel">App Update</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="upgradeModalLabel">{user:userAppUpdateModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
                     <div class="d-flex align-items-center gap-2 mb-3" data-testid="upgrade-version-info">
@@ -130,10 +130,10 @@
                     {/if}
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal" data-testid="upgrade-cancel-button">Cancel</button>
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal" data-testid="upgrade-cancel-button">{msg:commonCancel()}</button>
                     <button type="button" class="btn btn-app-primary" id="upgradeConfirmBtn" data-testid="upgrade-confirm-button"
                             onclick="upgradeApp('{installedApp.installedAppId}', this)">
-                        Upgrade
+                        {user:userUpgradeButton()}
                     </button>
                 </div>
             </div>
@@ -147,13 +147,14 @@
         (function () {
             var messagePanel = document.getElementById('detail-message');
             var messageTimer = null;
+            var networkErrorMessage = '{msg:commonNetworkError()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
                 messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
                 messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 messagePanel.innerHTML = message
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
                 messageTimer = setTimeout(function () {
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
@@ -174,7 +175,7 @@
                         btn.disabled = false;
                     }
                 } catch (e) {
-                    showMessage(false, 'Network error. Please try again.');
+                    showMessage(false, networkErrorMessage);
                     btn.disabled = false;
                 }
             };
@@ -199,7 +200,7 @@
                     }
                 } catch (e) {
                     closeModal();
-                    showMessage(false, 'Network error. Please try again.');
+                    showMessage(false, networkErrorMessage);
                     btn.disabled = false;
                 }
             };

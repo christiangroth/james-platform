@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
@@ -116,6 +117,9 @@ class DeveloperAppResource {
   @Inject
   private lateinit var msg: AppMessages
 
+  @Inject
+  private lateinit var devMsg: DeveloperMessages
+
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
@@ -150,13 +154,13 @@ class DeveloperAppResource {
     @FormParam("description") description: String?,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerAppNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerAppNameRequiredError())).build()
     }
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.ok(DeveloperApiResult(false, msg.developerUserNotFoundError())).build()
+      ?: return Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
     return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
-      ifRight = { app -> Response.ok(DeveloperApiResult(true, msg.developerAppCreatedMessage(), "/ui/developer/apps/${app.id.value}")).build() },
+      ifRight = { app -> Response.ok(DeveloperApiResult(true, devMsg.developerAppCreatedMessage(), "/ui/developer/apps/${app.id.value}")).build() },
     )
   }
 
@@ -170,13 +174,13 @@ class DeveloperAppResource {
     @FormParam("description") description: String?,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerAppNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerAppNameRequiredError())).build()
     }
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.ok(DeveloperApiResult(false, msg.developerUserNotFoundError())).build()
+      ?: return Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
     return appManagement.updateApp(appId, name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerAppUpdatedMessage())).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAppUpdatedMessage())).build() },
     )
   }
 
@@ -213,7 +217,7 @@ class DeveloperAppResource {
     return appVersionManagement.createVersion(appId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
-        Response.ok(DeveloperApiResult(true, msg.developerVersionCreatedMessage(), "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
+        Response.ok(DeveloperApiResult(true, devMsg.developerVersionCreatedMessage(), "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
       },
     )
   }
@@ -502,17 +506,17 @@ class DeveloperAppResource {
         when (error) {
           is DisplayTextInvalidError -> {
             val names = error.entityNames.joinToString(", ")
-            Response.ok(DeveloperApiResult(false, msg.developerInvalidDisplayTextError(names))).build()
+            Response.ok(DeveloperApiResult(false, devMsg.developerInvalidDisplayTextError(names))).build()
           }
           is InvalidObjectStructureError -> {
             val names = error.entityNames.joinToString(", ")
-            Response.ok(DeveloperApiResult(false, msg.developerInvalidObjectStructureError(names))).build()
+            Response.ok(DeveloperApiResult(false, devMsg.developerInvalidObjectStructureError(names))).build()
           }
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
       },
       ifRight = { version ->
-        Response.ok(DeveloperApiResult(true, msg.developerVersionPublishedMessage(), "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
+        Response.ok(DeveloperApiResult(true, devMsg.developerVersionPublishedMessage(), "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
       },
     )
   }
@@ -526,7 +530,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.deleteDraftVersion(appId, versionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerDraftVersionDeletedMessage(), "/ui/developer/apps/$appId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDraftVersionDeletedMessage(), "/ui/developer/apps/$appId")).build() },
     )
   }
 
@@ -540,13 +544,13 @@ class DeveloperAppResource {
     @FormParam("name") name: String,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerEntityNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerEntityNameRequiredError())).build()
     }
     return appVersionManagement.addEntity(appId, versionId, name.trim()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { version ->
         val entityId = version.entityDefinitions.find { it.name.equals(name.trim(), ignoreCase = true) }?.id?.value ?: ""
-        Response.ok(DeveloperApiResult(true, msg.developerEntityAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build()
+        Response.ok(DeveloperApiResult(true, devMsg.developerEntityAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build()
       },
     )
   }
@@ -561,7 +565,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.deleteEntity(appId, versionId, entityId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerEntityDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerEntityDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
     )
   }
 
@@ -576,7 +580,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.reorderEntities(appId, versionId, entityIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerEntitiesReorderedMessage())).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerEntitiesReorderedMessage())).build() },
     )
   }
 
@@ -593,7 +597,7 @@ class DeveloperAppResource {
     val domainSortBy = sortBy.map { req -> SortCriteria(propertyId = req.propertyId, direction = req.direction) }
     return appVersionManagement.updateEntitySortCriteria(appId, versionId, entityId, domainSortBy).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerSortCriteriaSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerSortCriteriaSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -609,7 +613,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -629,10 +633,10 @@ class DeveloperAppResource {
     @FormParam("path") path: String?,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerPropertyNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyNameRequiredError())).build()
     }
     if (type.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerPropertyTypeRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyTypeRequiredError())).build()
     }
     val pathIds = parsePath(path)
     return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType, pathIds).fold(
@@ -640,7 +644,7 @@ class DeveloperAppResource {
       ifRight = { version ->
         val newPropertyId = propertiesAtPathOf(version, entityId, pathIds)?.find { it.name == name.trim() }?.id?.value
         Response.ok(
-          DeveloperApiResult(true, msg.developerPropertyAddedMessage(), entityEditorUrl(appId, versionId, entityId, path), propertyId = newPropertyId),
+          DeveloperApiResult(true, devMsg.developerPropertyAddedMessage(), entityEditorUrl(appId, versionId, entityId, path), propertyId = newPropertyId),
         ).build()
       },
     )
@@ -661,14 +665,14 @@ class DeveloperAppResource {
     @FormParam("path") path: String?,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerPropertyNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyNameRequiredError())).build()
     }
     if (type.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerPropertyTypeRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyTypeRequiredError())).build()
     }
     return appVersionManagement.updateProperty(appId, versionId, entityId, propertyId, name.trim(), type.trim(), nullable ?: true, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerPropertyUpdatedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerPropertyUpdatedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -727,7 +731,7 @@ class DeveloperAppResource {
     parseDuration(maxDuration)?.let { constraints += PropertyConstraint.MaxDuration(it) }
     return appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -745,7 +749,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.setPropertyDefault(appId, versionId, entityId, propertyId, default, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerDefaultValueSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDefaultValueSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -763,7 +767,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerSmartDefaultSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerSmartDefaultSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -782,7 +786,7 @@ class DeveloperAppResource {
     val path = form["path"]?.firstOrNull()
     return appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerValueProposalsSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerValueProposalsSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -800,7 +804,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.setPropertyTargetEntity(appId, versionId, entityId, propertyId, targetEntityId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerTargetEntitySavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerTargetEntitySavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -818,7 +822,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.setPropertyListItemType(appId, versionId, entityId, propertyId, listItemType, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerListItemTypeSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerListItemTypeSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -870,7 +874,7 @@ class DeveloperAppResource {
     parseDuration(itemMaxDuration)?.let { itemConstraints += PropertyConstraint.MaxDuration(it) }
     return appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerItemConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerItemConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -888,7 +892,7 @@ class DeveloperAppResource {
     val path = form["path"]?.firstOrNull()
     return appVersionManagement.reorderProperties(appId, versionId, entityId, propertyIds, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerPropertiesReorderedMessage())).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerPropertiesReorderedMessage())).build() },
     )
   }
 
@@ -905,7 +909,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.deleteProperty(appId, versionId, entityId, propertyId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerPropertyDeletedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerPropertyDeletedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
 
@@ -921,11 +925,11 @@ class DeveloperAppResource {
     @FormParam("type") type: String,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerComputedPropertyNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
     return appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerComputedPropertyAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -942,11 +946,11 @@ class DeveloperAppResource {
     @FormParam("type") type: String,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerComputedPropertyNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
     return appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerComputedPropertyUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -963,7 +967,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.setComputedPropertyScript(appId, versionId, entityId, computedPropertyId, script).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerComputedPropertyScriptSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyScriptSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -980,7 +984,7 @@ class DeveloperAppResource {
     val computedPropertyIds = form["computedPropertyId"] ?: emptyList()
     return appVersionManagement.reorderComputedProperties(appId, versionId, entityId, computedPropertyIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerComputedPropertiesReorderedMessage())).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertiesReorderedMessage())).build() },
     )
   }
 
@@ -995,7 +999,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.deleteComputedProperty(appId, versionId, entityId, computedPropertyId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerComputedPropertyDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -1009,13 +1013,13 @@ class DeveloperAppResource {
     @FormParam("name") name: String,
   ): Response {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, msg.developerReportNameRequiredError())).build()
+      return Response.ok(DeveloperApiResult(false, devMsg.developerReportNameRequiredError())).build()
     }
     return appVersionManagement.addReport(appId, versionId, name.trim()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
       ifRight = { version ->
         val reportId = version.reports.find { it.name.equals(name.trim(), ignoreCase = true) }?.id?.value ?: ""
-        Response.ok(DeveloperApiResult(true, msg.developerReportAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build()
+        Response.ok(DeveloperApiResult(true, devMsg.developerReportAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build()
       },
     )
   }
@@ -1033,7 +1037,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.updateReport(appId, versionId, reportId, html ?: "", script ?: "").fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerReportSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerReportSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
     )
   }
 
@@ -1047,7 +1051,7 @@ class DeveloperAppResource {
   ): Response {
     return appVersionManagement.deleteReport(appId, versionId, reportId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, msg.developerReportDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerReportDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
     )
   }
 
@@ -1055,8 +1059,8 @@ class DeveloperAppResource {
     userProfile.getProfile(securityIdentity.principal.name).getOrNull()?.id?.value
 
   private fun appErrorMessage(code: String): String = when (code) {
-    AppError.BLANK_INPUT.code -> msg.developerAppNameRequiredError()
-    AppError.APP_NAME_ALREADY_EXISTS.code -> msg.developerAppNameExistsError()
+    AppError.BLANK_INPUT.code -> devMsg.developerAppNameRequiredError()
+    AppError.APP_NAME_ALREADY_EXISTS.code -> devMsg.developerAppNameExistsError()
     else -> msg.commonUnexpectedError()
   }
 
@@ -1064,41 +1068,41 @@ class DeveloperAppResource {
     isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
 
   private fun versionErrorMessage(code: String): String = when (code) {
-    AppVersionError.INVALID_BUMP_TYPE.code -> msg.developerInvalidBumpTypeError()
-    AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.code -> msg.developerDraftVersionExistsError()
-    AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.code -> msg.developerVersionNumberExistsError()
-    AppVersionError.BLANK_RELEASE_NOTES.code -> msg.developerReleaseNotesRequiredError()
-    AppVersionError.NO_CHANGES.code -> msg.developerNoChangesWarning()
-    AppVersionError.INVALID_OBJECT_STRUCTURE.code -> msg.developerInvalidObjectStructureGenericError()
+    AppVersionError.INVALID_BUMP_TYPE.code -> devMsg.developerInvalidBumpTypeError()
+    AppVersionError.DRAFT_VERSION_ALREADY_EXISTS.code -> devMsg.developerDraftVersionExistsError()
+    AppVersionError.VERSION_NUMBER_ALREADY_EXISTS.code -> devMsg.developerVersionNumberExistsError()
+    AppVersionError.BLANK_RELEASE_NOTES.code -> devMsg.developerReleaseNotesRequiredError()
+    AppVersionError.NO_CHANGES.code -> devMsg.developerNoChangesWarning()
+    AppVersionError.INVALID_OBJECT_STRUCTURE.code -> devMsg.developerInvalidObjectStructureGenericError()
     else -> msg.commonUnexpectedError()
   }
 
   private fun entityErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> msg.commonNameRequired()
-    AppVersionError.ENTITY_NAME_ALREADY_EXISTS.code -> msg.developerEntityNameExistsError()
-    AppVersionError.ENTITY_NOT_FOUND.code -> msg.developerEntityNotFoundError()
-    AppVersionError.ENTITY_IDS_MISMATCH.code -> msg.developerEntityIdsMismatchError()
-    AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.code -> msg.developerPropertyNameExistsError()
-    AppVersionError.PROPERTY_NOT_FOUND.code -> msg.developerPropertyNotFoundError()
-    AppVersionError.INVALID_PROPERTY_TYPE.code -> msg.developerInvalidPropertyTypeError()
-    AppVersionError.VERSION_NOT_IN_DRAFT.code -> msg.developerVersionNotInDraftError()
-    AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.code -> msg.developerDisplayTextNullablePropertyError()
-    AppVersionError.DEFAULT_NOT_SUPPORTED.code -> msg.developerDefaultNotSupportedError()
-    AppVersionError.DEFAULT_VALUE_INVALID.code -> msg.developerDefaultValueInvalidError()
-    AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> msg.developerSmartDefaultNotSupportedError()
-    AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> msg.developerSmartDefaultScriptInvalidError()
-    AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> msg.developerValueProposalsNotSupportedError()
-    AppVersionError.BOTH_DEFAULTS_SET.code -> msg.developerBothDefaultsSetError()
-    AppVersionError.PROPERTY_IDS_MISMATCH.code -> msg.developerPropertyIdsMismatchError()
-    AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.code -> msg.developerTargetEntityNotSupportedError()
-    AppVersionError.TARGET_ENTITY_NOT_FOUND.code -> msg.developerTargetEntityNotFoundError()
-    AppVersionError.TARGET_ENTITY_REQUIRED.code -> msg.developerTargetEntityRequiredError()
-    AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> msg.developerComputedPropertyNotFoundError()
-    AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> msg.developerComputedPropertyNameExistsError()
-    AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> msg.developerComputedPropertyTypeNotSupportedError()
-    AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> msg.developerListItemTypeNotSupportedError()
-    AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> msg.developerListItemTypeRequiredError()
-    AppVersionError.LIST_ITEM_TYPE_INVALID.code -> msg.developerListItemTypeInvalidError()
+    AppVersionError.ENTITY_NAME_ALREADY_EXISTS.code -> devMsg.developerEntityNameExistsError()
+    AppVersionError.ENTITY_NOT_FOUND.code -> devMsg.developerEntityNotFoundError()
+    AppVersionError.ENTITY_IDS_MISMATCH.code -> devMsg.developerEntityIdsMismatchError()
+    AppVersionError.PROPERTY_NAME_ALREADY_EXISTS.code -> devMsg.developerPropertyNameExistsError()
+    AppVersionError.PROPERTY_NOT_FOUND.code -> devMsg.developerPropertyNotFoundError()
+    AppVersionError.INVALID_PROPERTY_TYPE.code -> devMsg.developerInvalidPropertyTypeError()
+    AppVersionError.VERSION_NOT_IN_DRAFT.code -> devMsg.developerVersionNotInDraftError()
+    AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.code -> devMsg.developerDisplayTextNullablePropertyError()
+    AppVersionError.DEFAULT_NOT_SUPPORTED.code -> devMsg.developerDefaultNotSupportedError()
+    AppVersionError.DEFAULT_VALUE_INVALID.code -> devMsg.developerDefaultValueInvalidError()
+    AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> devMsg.developerSmartDefaultNotSupportedError()
+    AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> devMsg.developerSmartDefaultScriptInvalidError()
+    AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> devMsg.developerValueProposalsNotSupportedError()
+    AppVersionError.BOTH_DEFAULTS_SET.code -> devMsg.developerBothDefaultsSetError()
+    AppVersionError.PROPERTY_IDS_MISMATCH.code -> devMsg.developerPropertyIdsMismatchError()
+    AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.code -> devMsg.developerTargetEntityNotSupportedError()
+    AppVersionError.TARGET_ENTITY_NOT_FOUND.code -> devMsg.developerTargetEntityNotFoundError()
+    AppVersionError.TARGET_ENTITY_REQUIRED.code -> devMsg.developerTargetEntityRequiredError()
+    AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> devMsg.developerComputedPropertyNotFoundError()
+    AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.code -> devMsg.developerComputedPropertyNameExistsError()
+    AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.code -> devMsg.developerComputedPropertyTypeNotSupportedError()
+    AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> devMsg.developerListItemTypeNotSupportedError()
+    AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> devMsg.developerListItemTypeRequiredError()
+    AppVersionError.LIST_ITEM_TYPE_INVALID.code -> devMsg.developerListItemTypeInvalidError()
     else -> msg.commonUnexpectedError()
   }
 
@@ -1114,9 +1118,9 @@ class DeveloperAppResource {
 
   private fun reportErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> msg.commonNameRequired()
-    AppVersionError.REPORT_NAME_ALREADY_EXISTS.code -> msg.developerReportNameExistsError()
-    AppVersionError.REPORT_NOT_FOUND.code -> msg.developerReportNotFoundError()
-    AppVersionError.VERSION_NOT_IN_DRAFT.code -> msg.developerVersionNotInDraftError()
+    AppVersionError.REPORT_NAME_ALREADY_EXISTS.code -> devMsg.developerReportNameExistsError()
+    AppVersionError.REPORT_NOT_FOUND.code -> devMsg.developerReportNotFoundError()
+    AppVersionError.VERSION_NOT_IN_DRAFT.code -> devMsg.developerVersionNotInDraftError()
     else -> msg.commonUnexpectedError()
   }
 

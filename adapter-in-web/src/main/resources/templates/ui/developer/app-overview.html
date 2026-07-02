@@ -5,7 +5,7 @@
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{msg:developerBreadcrumbDevelopment()}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-app">{app.name}</li>
             </ol>
         </nav>
@@ -20,7 +20,7 @@
             <button type="button" class="btn btn-app-secondary btn-sm ms-auto mt-1"
                     data-bs-toggle="modal" data-bs-target="#editAppModal"
                     data-app-name="{app.name}" data-app-description="{app.description}"
-                    title="{msg:commonEdit()}" aria-label="{msg:developerEditAppAriaLabel()}"
+                    title="{msg:commonEdit()}" aria-label="{developer:developerEditAppAriaLabel()}"
                     data-testid="edit-app-button">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
             </button>
@@ -28,7 +28,7 @@
 
         <div id="overview-message" class="d-none mb-4" role="alert"></div>
 
-        <h2 class="fs-5 fw-semibold mb-3">{msg:developerVersionsHeading()}</h2>
+        <h2 class="fs-5 fw-semibold mb-3">{developer:developerVersionsHeading()}</h2>
         <div class="row g-3" data-testid="versions-grid">
             <!-- New Version tile (shown only when no draft exists) -->
             {#if !hasDraft}
@@ -38,11 +38,11 @@
                      id="newVersionTile"
                      data-testid="new-version-tile"
                      role="button"
-                     aria-label="{msg:developerNewVersionAriaLabel()}">
+                     aria-label="{developer:developerNewVersionAriaLabel()}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="var(--color-text-muted)" viewBox="0 0 16 16" class="mb-2" aria-hidden="true">
                         <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
                     </svg>
-                    <div class="fw-semibold fs-6">{msg:developerNewVersionTile()}</div>
+                    <div class="fw-semibold fs-6">{developer:developerNewVersionTile()}</div>
                 </div>
             </div>
             {/if}
@@ -50,9 +50,9 @@
             <!-- Existing version tiles -->
             {#for version in versions}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="Open version {#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}">
+                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="Open version {#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
-                        <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{#if version.versionNumber}{version.versionNumber}{#else}<span class="app-section-label">{msg:developerDraftLabel()}</span>{/if}</div>
+                        <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{#if version.versionNumber}{version.versionNumber}{#else}<span class="app-section-label">{developer:developerDraftLabel()}</span>{/if}</div>
                         <div class="app-section-label mb-2" data-testid="version-created-at">{version.createdAt.formatted}</div>
                         {#if version.releaseNotes}
                         <p class="mb-2" style="font-size:0.8rem;color:var(--color-text-muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;" data-testid="version-release-notes">{version.releaseNotes}</p>
@@ -66,7 +66,7 @@
                                style="font-size:0.75rem;"
                                data-testid="diff-button"
                                onclick="event.stopPropagation();">
-                                {msg:developerDiffButton()}
+                                {developer:developerDiffButton()}
                             </a>
                             {/if}
                         </div>
@@ -82,7 +82,7 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editAppModalLabel">{msg:developerEditAppModalTitle()}</h5>
+                    <h5 class="modal-title" id="editAppModalLabel">{developer:developerEditAppModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="editAppForm">
@@ -92,7 +92,7 @@
                             <input type="text" class="form-control app-form-control" id="editAppName" name="name" required autocomplete="off" data-testid="edit-app-name-input">
                         </div>
                         <div class="mb-3">
-                            <label for="editAppDescription" class="form-label">{msg:developerDescriptionLabel()}</label>
+                            <label for="editAppDescription" class="form-label">{developer:developerDescriptionLabel()}</label>
                             <textarea class="form-control app-form-control" id="editAppDescription" name="description" rows="3" autocomplete="off" data-testid="edit-app-description-input"></textarea>
                         </div>
                     </div>

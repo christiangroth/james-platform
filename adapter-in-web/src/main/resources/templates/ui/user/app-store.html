@@ -1,11 +1,11 @@
 {#include layout.html}
-    {#title}James Platform – App Store{/title}
+    {#title}James Platform – {user:userAppStoreTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="Dashboard" /}
-                <li class="breadcrumb-item active" aria-current="page" data-testid="page-title">App Store</li>
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="page-title">{user:userAppStoreTitle()}</li>
             </ol>
         </nav>
 
@@ -13,20 +13,20 @@
 
         {#if apps.isEmpty}
         <div class="card app-card p-4" data-testid="no-apps-message">
-            <p class="mb-0 app-section-label">No apps available yet.</p>
+            <p class="mb-0 app-section-label">{user:userNoAppsAvailableMessage()}</p>
         </div>
         {#else}
         <div class="row g-3" data-testid="store-apps-grid">
             {#for app in apps}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/user/app-store/apps/{app.appId}" class="text-decoration-none" data-testid="store-app-tile" aria-label="View details for {app.appName}">
+                <a href="/ui/user/app-store/apps/{app.appId}" class="text-decoration-none" data-testid="store-app-tile" aria-label="{user:userViewAppDetailsAriaLabel(app.appName)}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="store-app-name">{app.appName}</div>
                         <div class="app-section-label mb-1" data-testid="store-app-version">v{app.latestVersion.versionNumber}</div>
                         <div class="app-section-label text-truncate mb-2" data-testid="store-app-developer">{app.developerName}</div>
                         <div class="mt-auto">
                             {#if installedAppIds.contains(app.appId)}
-                            <span class="badge app-badge-muted" data-testid="installed-badge">Installed</span>
+                            <span class="badge app-badge-muted" data-testid="installed-badge">{user:userInstalledBadge()}</span>
                             {/if}
                         </div>
                     </div>

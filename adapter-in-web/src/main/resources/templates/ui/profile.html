@@ -1,19 +1,19 @@
 {#include layout.html}
-    {#title}James Platform – Profile{/title}
+    {#title}James Platform – {msg:profileHeading()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
-        <h1 class="mb-4 fs-4 fw-semibold">Profile</h1>
+        <h1 class="mb-4 fs-4 fw-semibold">{msg:profileHeading()}</h1>
 
         {#if successMessage}
         <div class="alert alert-success alert-dismissible mb-4" role="alert" data-testid="success-message">
             {successMessage}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>
         </div>
         {/if}
         {#if errorMessage}
         <div class="alert alert-danger alert-dismissible mb-4" role="alert" data-testid="error-message">
             {errorMessage}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>
         </div>
         {/if}
 
@@ -22,13 +22,13 @@
             <!-- Account Information (read-only) -->
             <div class="col-12 col-md-6">
                 <div class="card app-card p-4 h-100">
-                    <h2 class="fs-6 fw-semibold mb-3" data-testid="account-info-heading">Account Information</h2>
+                    <h2 class="fs-6 fw-semibold mb-3" data-testid="account-info-heading">{msg:profileAccountInfoHeading()}</h2>
                     <dl class="mb-0">
-                        <dt class="app-section-label">Username</dt>
+                        <dt class="app-section-label">{msg:loginUsernameLabel()}</dt>
                         <dd class="mb-3" data-testid="profile-username">{username}</dd>
-                        <dt class="app-section-label">Created</dt>
+                        <dt class="app-section-label">{msg:profileCreatedLabel()}</dt>
                         <dd class="mb-3" data-testid="profile-created-at">{#if createdAt}{createdAt.formatted}{#else}–{/if}</dd>
-                        <dt class="app-section-label">Last Login</dt>
+                        <dt class="app-section-label">{msg:profileLastLoginLabel()}</dt>
                         <dd class="mb-0" data-testid="profile-last-login-at">{#if lastLoginAt}{lastLoginAt.formatted}{#else}–{/if}</dd>
                     </dl>
                 </div>
@@ -37,13 +37,13 @@
             <!-- Change Username -->
             <div class="col-12 col-md-6">
                 <div class="card app-card p-4 h-100">
-                    <h2 class="fs-6 fw-semibold mb-3">Change Username</h2>
+                    <h2 class="fs-6 fw-semibold mb-3">{msg:profileChangeUsernameHeading()}</h2>
                     <form method="post" action="/ui/profile/username">
                         <div class="mb-3">
-                            <label for="newUsername" class="form-label">New Username</label>
+                            <label for="newUsername" class="form-label">{msg:profileNewUsernameLabel()}</label>
                             <input type="text" class="form-control app-form-control" id="newUsername" name="newUsername" required data-testid="new-username-input">
                         </div>
-                        <button type="submit" class="btn btn-app-primary" data-testid="change-username-button">Change Username</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="change-username-button">{msg:profileChangeUsernameHeading()}</button>
                     </form>
                 </div>
             </div>
@@ -51,21 +51,21 @@
             <!-- Change Password -->
             <div class="col-12 col-md-6">
                 <div class="card app-card p-4 h-100">
-                    <h2 class="fs-6 fw-semibold mb-3">Change Password</h2>
+                    <h2 class="fs-6 fw-semibold mb-3">{msg:profileChangePasswordHeading()}</h2>
                     <form method="post" action="/ui/profile/password">
                         <div class="mb-3">
-                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <label for="currentPassword" class="form-label">{msg:profileCurrentPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="currentPassword" name="currentPassword" autocomplete="current-password" required data-testid="current-password-input">
                         </div>
                         <div class="mb-3">
-                            <label for="newPassword" class="form-label">New Password</label>
+                            <label for="newPassword" class="form-label">{msg:profileNewPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="newPassword" name="newPassword" autocomplete="new-password" required data-testid="new-password-input">
                         </div>
                         <div class="mb-4">
-                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <label for="confirmPassword" class="form-label">{msg:profileConfirmPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required data-testid="confirm-password-input">
                         </div>
-                        <button type="submit" class="btn btn-app-primary" data-testid="change-password-button">Change Password</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="change-password-button">{msg:profileChangePasswordHeading()}</button>
                     </form>
                 </div>
             </div>

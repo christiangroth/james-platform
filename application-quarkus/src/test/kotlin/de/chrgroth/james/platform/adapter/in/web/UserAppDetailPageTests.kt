@@ -101,7 +101,7 @@ class UserAppDetailTabTests {
       .statusCode(200)
       .extract().body().asString()
 
-    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)"[^>]*aria-label="Open app ${Regex.escape(appName)}"""")
+    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)"[^>]*aria-label="App ${Regex.escape(appName)} öffnen"""")
       .find(dashboardHtml)?.groupValues?.get(1) ?: ""
 
     return Triple(installedAppId, entity1Id, entity2Id)
