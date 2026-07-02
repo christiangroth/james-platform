@@ -1,3 +1,12 @@
+# 0.56.0 (2026.07.02)
+
+## New Features
+* The subtle gradient background from the login page is now used as the default background on every page.
+
+
+
+---
+
 # 0.55.1 (2026.07.01)
 
 ## Bugfixes / Chore
