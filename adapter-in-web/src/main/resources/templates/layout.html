@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{#insert title}James Platform{/insert}</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any">
     <script>
         (function () {
             try {
@@ -99,7 +99,10 @@
             --color-diff-line-removed-bg: #fdf1f2;
         }
         body {
-            background-color: var(--color-bg-page);
+            background:
+                radial-gradient(circle at 15% 20%, rgba(13, 110, 253, 0.10), transparent 45%),
+                radial-gradient(circle at 85% 80%, rgba(29, 185, 84, 0.10), transparent 45%),
+                var(--color-bg-page);
             color: var(--color-text-primary);
         }
         .app-navbar {
@@ -456,11 +459,8 @@
         }
         /* Login / landing page */
         .login-shell {
+            /* background gradient now comes from body (applied site-wide); this just sets sizing */
             min-height: calc(100vh - 52px);
-            background:
-                radial-gradient(circle at 15% 20%, rgba(13, 110, 253, 0.10), transparent 45%),
-                radial-gradient(circle at 85% 80%, rgba(29, 185, 84, 0.10), transparent 45%),
-                var(--color-bg-page);
         }
         .login-hero {
             position: relative;
