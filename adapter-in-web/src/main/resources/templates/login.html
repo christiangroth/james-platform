@@ -9,19 +9,19 @@
             <div class="login-hero-content">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 32 32" class="mb-3" aria-hidden="true"><use href="#icon-nav-app"/></svg>
                 <h1 class="fs-2 fw-semibold mb-2">James Platform</h1>
-                <p class="login-hero-tagline mb-4">A personal low-code platform for building and running data-centric apps &ndash; no infrastructure boilerplate required.</p>
+                <p class="login-hero-tagline mb-4">{msg:loginHeroTagline()}</p>
                 <div class="d-flex flex-column gap-3">
                     <div class="login-hero-feature">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-config"/></svg>
-                        <span>Design your own data models and views</span>
+                        <span>{msg:loginHeroFeatureDataModels()}</span>
                     </div>
                     <div class="login-hero-feature">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg>
-                        <span>Install and operate apps without writing infrastructure code</span>
+                        <span>{msg:loginHeroFeatureInstallApps()}</span>
                     </div>
                     <div class="login-hero-feature">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-health"/></svg>
-                        <span>Built-in docs, health checks and monitoring</span>
+                        <span>{msg:loginHeroFeatureDocsHealth()}</span>
                     </div>
                 </div>
             </div>
@@ -36,17 +36,17 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 32 32" class="mb-2" aria-hidden="true"><use href="#icon-nav-app"/></svg>
                         <h1 class="fs-5 fw-semibold mb-0">James Platform</h1>
                     </div>
-                    <h2 class="fs-6 fw-semibold mb-3 d-none d-md-block">Log in</h2>
+                    <h2 class="fs-6 fw-semibold mb-3 d-none d-md-block">{msg:loginTitle()}</h2>
                     <form method="post" action="/login">
                         <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
+                            <label for="username" class="form-label">{msg:loginUsernameLabel()}</label>
                             <input type="text" class="form-control app-form-control" id="username" name="username" autocomplete="username" required>
                         </div>
                         <div class="mb-4">
-                            <label for="password" class="form-label">Password</label>
+                            <label for="password" class="form-label">{msg:loginPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="password" name="password" autocomplete="current-password" required>
                         </div>
-                        <button type="submit" class="btn btn-app-primary w-100" data-testid="login-button">Log in</button>
+                        <button type="submit" class="btn btn-app-primary w-100" data-testid="login-button">{msg:loginSubmitButton()}</button>
                     </form>
                 </div>
             </div>

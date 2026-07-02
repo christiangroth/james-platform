@@ -34,6 +34,18 @@ class LoginPageTests {
   }
 
   @Test
+  fun `login page displays german login texts from message bundle`() {
+    given()
+      .`when`()
+      .get("/")
+      .then()
+      .statusCode(200)
+      .body(containsString("Anmelden"))
+      .body(containsString("Benutzername"))
+      .body(containsString("Passwort"))
+  }
+
+  @Test
   fun `login page displays James Platform title`() {
     given()
       .`when`()
@@ -119,5 +131,19 @@ class LoginRedirectTests {
       .then()
       .statusCode(303)
       .header("Location", containsString("/?error="))
+  }
+
+  @Test
+  fun `login with invalid credentials displays german error message from message bundle`() {
+    given()
+      .redirects().follow(true)
+      .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+      .formParam("username", "unknown-user")
+      .formParam("password", "wrong-password")
+      .`when`()
+      .post("/login")
+      .then()
+      .statusCode(200)
+      .body(containsString("Ungültiger Benutzername oder ungültiges Passwort"))
   }
 }
