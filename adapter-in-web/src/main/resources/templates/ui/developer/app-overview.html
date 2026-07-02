@@ -4,7 +4,7 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-app">{app.name}</li>
             </ol>
@@ -50,7 +50,7 @@
             <!-- Existing version tiles -->
             {#for version in versions}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="Open version {#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}">
+                <a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="text-decoration-none" data-testid="version-tile" aria-label="{#if version.versionNumber}{developer:developerOpenVersionAriaLabel(version.versionNumber)}{#else}{developer:developerOpenDraftVersionAriaLabel()}{/if}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="version-number">{#if version.versionNumber}{version.versionNumber}{#else}<span class="app-section-label">{developer:developerDraftLabel()}</span>{/if}</div>
                         <div class="app-section-label mb-2" data-testid="version-created-at">{version.createdAt.formatted}</div>

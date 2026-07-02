@@ -97,6 +97,9 @@ interface DeveloperMessages {
   fun developerOpenVersionAriaLabel(version: String): String
 
   @Message
+  fun developerOpenDraftVersionAriaLabel(): String
+
+  @Message
   fun developerDiffButton(): String
 
   @Message
@@ -261,15 +264,6 @@ interface DeveloperMessages {
 
   @Message
   fun developerDragToReorderTitle(): String
-
-  @Message
-  fun developerEntityOrderNetworkError(): String
-
-  @Message
-  fun developerComputedPropertyOrderNetworkError(): String
-
-  @Message
-  fun developerPropertyOrderNetworkError(): String
 
   @Message
   fun developerLoadInfoErrorMessage(): String

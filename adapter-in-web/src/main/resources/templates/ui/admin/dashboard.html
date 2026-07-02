@@ -3,27 +3,27 @@
     {#navLinks}
     {#if isAdmin || isMonitoring}
     <div class="dropdown me-3">
-        <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{admin:adminNavTechnicalTitle()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
+        <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{msg:layoutNavTechnicalTitle()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-            <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>{admin:adminNavHealthLabel()}</a></li>
-            <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>{admin:adminNavConfigLabel()}</a></li>
-            <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>{admin:adminNavLogsUiLabel()}</a></li>
-            <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{admin:adminNavGrafanaLogsLabel()}</a></li>
-            <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{admin:adminNavGrafanaMetricsLabel()}</a></li>
-            <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{admin:adminNavMongoViewerLabel()}</a></li>
-            <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{admin:adminNavMongoAtlasLabel()}</a></li>
-            <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>{admin:adminNavDocsLabel()}</a></li>
-            <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>{admin:adminNavGithubLabel()}</a></li>
+            <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>{msg:layoutNavHealthLabel()}</a></li>
+            <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>{msg:layoutNavConfigLabel()}</a></li>
+            <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>{msg:layoutNavLogsUiLabel()}</a></li>
+            <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{msg:layoutNavGrafanaLogsLabel()}</a></li>
+            <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{msg:layoutNavGrafanaMetricsLabel()}</a></li>
+            <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbViewerLabel()}</a></li>
+            <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbAtlasLabel()}</a></li>
+            <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>{msg:layoutNavDocsLabel()}</a></li>
+            <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>{msg:layoutNavGithubLabel()}</a></li>
         </ul>
     </div>
     {/if}
-    <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link">{admin:adminNavLogoutLabel()}</a>
+    <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link">{msg:commonLogout()}</a>
     {/navLinks}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-admin">{admin:adminBreadcrumbAdmin()}</li>
             </ol>
         </nav>
