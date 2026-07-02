@@ -1,3 +1,12 @@
+# 0.60.0 (2026.07.02)
+
+## New Features
+* Translated the shared layout (navigation, footer), error page, and the admin area (dashboard, user management, health, logs, MongoDB viewer, configuration) into German.
+
+
+
+---
+
 # 0.59.0 (2026.07.02)
 
 ## New Features
