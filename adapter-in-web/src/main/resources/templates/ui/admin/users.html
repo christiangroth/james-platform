@@ -1,38 +1,38 @@
 {#include layout.html}
-    {#title}James Platform – User Management{/title}
+    {#title}James Platform – {admin:adminUserManagementTitle()}{/title}
     {#navLinks}
     {#if isAdmin || isMonitoring}
     <div class="dropdown me-3">
-        <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="Technical"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
+        <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{admin:adminNavTechnicalTitle()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-            <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>Health</a></li>
-            <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>Config</a></li>
-            <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>Logs UI</a></li>
-            <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Logs</a></li>
-            <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Metrics</a></li>
-            <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Viewer</a></li>
-            <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Atlas</a></li>
-            <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>Docs</a></li>
-            <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>Code</a></li>
+            <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>{admin:adminNavHealthLabel()}</a></li>
+            <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>{admin:adminNavConfigLabel()}</a></li>
+            <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>{admin:adminNavLogsUiLabel()}</a></li>
+            <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{admin:adminNavGrafanaLogsLabel()}</a></li>
+            <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{admin:adminNavGrafanaMetricsLabel()}</a></li>
+            <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{admin:adminNavMongoViewerLabel()}</a></li>
+            <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{admin:adminNavMongoAtlasLabel()}</a></li>
+            <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>{admin:adminNavDocsLabel()}</a></li>
+            <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>{admin:adminNavGithubLabel()}</a></li>
         </ul>
     </div>
     {/if}
-    <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link">Logout</a>
+    <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link">{admin:adminNavLogoutLabel()}</a>
     {/navLinks}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/admin/dashboard" class="breadcrumb-link" data-testid="breadcrumb-admin-link">Admin</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-users">User Management</li>
+                <li class="breadcrumb-item"><a href="/ui/admin/dashboard" class="breadcrumb-link" data-testid="breadcrumb-admin-link">{admin:adminBreadcrumbAdmin()}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-users">{admin:adminUserManagementTitle()}</li>
             </ol>
         </nav>
         <div class="d-flex align-items-center mb-4 gap-3">
-            <h1 class="fs-4 fw-semibold mb-0">User Management</h1>
+            <h1 class="fs-4 fw-semibold mb-0">{admin:adminUserManagementTitle()}</h1>
             <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#createUserModal" data-testid="create-user-button">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" class="me-1" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
-                New User
+                {admin:adminNewUserButtonLabel()}
             </button>
         </div>
 
@@ -45,12 +45,12 @@
                     <table class="table table-sm table-striped mb-0 app-table" data-testid="users-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Roles</th>
-                                <th>Status</th>
-                                <th>Since</th>
-                                <th>Last Login</th>
-                                <th class="text-end">Actions</th>
+                                <th>{msg:commonName()}</th>
+                                <th>{admin:adminColRoles()}</th>
+                                <th>{admin:adminColStatus()}</th>
+                                <th>{admin:adminColSince()}</th>
+                                <th>{admin:adminColLastLogin()}</th>
+                                <th class="text-end">{admin:adminColActions()}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -65,7 +65,7 @@
                                             data-username="{user.username}"
                                             data-roles="{#for r in user.roles}{r}{#if r_hasNext},{/if}{/for}"
                                             data-testid="manage-roles-button"
-                                            title="Manage roles">
+                                            title="{admin:adminManageRolesTitle()}">
                                         {role}
                                     </button>
                                     {/for}
@@ -76,8 +76,8 @@
                                             data-username="{user.username}"
                                             data-roles=""
                                             data-testid="manage-roles-button"
-                                            title="Manage roles">
-                                        + Add roles
+                                            title="{admin:adminManageRolesTitle()}">
+                                        {admin:adminAddRolesButton()}
                                     </button>
                                     {/if}
                                 </td>
@@ -89,15 +89,15 @@
                                             data-username="{user.username}"
                                             data-active="{user.active}"
                                             data-testid="{#if user.active}user-status-active{#else}user-status-inactive{/if}"
-                                            title="{#if user.active}Click to deactivate{#else}Click to activate{/if}">
-                                        {#if user.active}Active{#else}Inactive{/if}
+                                            title="{#if user.active}{admin:adminClickToDeactivateTitle()}{#else}{admin:adminClickToActivateTitle()}{/if}">
+                                        {#if user.active}{admin:adminStatusActive()}{#else}{admin:adminStatusInactive()}{/if}
                                     </button>
                                 </td>
                                 <td data-testid="user-created-at">{user.createdAt.formatted}</td>
                                 <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
                                 <td class="text-end">
-                                    {#btn-icon-key testId="set-password-button" title="Set Password" extraClass="" bsTarget="#setPasswordModal" username=user.username /}
-                                    {#btn-icon-delete testId="delete-user-button" title="Delete user" extraClass="ms-1" bsTarget="" action="delete-user" entityId="" propertyId="" reportId="" username=user.username /}
+                                    {#btn-icon-key testId="set-password-button" title="{admin:adminSetPasswordTitle()}" extraClass="" bsTarget="#setPasswordModal" username=user.username /}
+                                    {#btn-icon-delete testId="delete-user-button" title="{admin:adminDeleteUserTitle()}" extraClass="ms-1" bsTarget="" action="delete-user" entityId="" propertyId="" reportId="" username=user.username /}
                                 </td>
                             </tr>
                             {/for}
@@ -114,23 +114,23 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="createUserModalLabel">New User</h5>
+                    <h5 class="modal-title" id="createUserModalLabel">{admin:adminCreateUserModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="createUserForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="newUserUsername" class="form-label">Username</label>
+                            <label for="newUserUsername" class="form-label">{admin:adminUsernameLabel()}</label>
                             <input type="text" class="form-control app-form-control" id="newUserUsername" required autocomplete="off" data-testid="create-user-username-input">
                         </div>
                         <div class="mb-3">
-                            <label for="newUserPassword" class="form-label">Password</label>
+                            <label for="newUserPassword" class="form-label">{admin:adminPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="newUserPassword" name="password" required autocomplete="new-password" data-testid="create-user-password-input">
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="create-user-submit-button">Create</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="create-user-submit-button">{admin:adminCreateButton()}</button>
                     </div>
                 </form>
             </div>
@@ -142,19 +142,19 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="setPasswordModalLabel">Set Password – <span id="setPasswordUsernameTitle" data-testid="set-password-username-display"></span></h5>
+                    <h5 class="modal-title" id="setPasswordModalLabel">{admin:adminSetPasswordModalTitlePrefix()} <span id="setPasswordUsernameTitle" data-testid="set-password-username-display"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="setPasswordForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="setPasswordNew" class="form-label">New Password</label>
+                            <label for="setPasswordNew" class="form-label">{admin:adminNewPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="setPasswordNew" name="newPassword" required autocomplete="new-password" data-testid="set-password-new-input">
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="set-password-submit-button">Set Password</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="set-password-submit-button">{admin:adminSetPasswordSubmitButton()}</button>
                     </div>
                 </form>
             </div>
@@ -166,13 +166,13 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="manageRolesModalLabel">Manage Roles – <span id="manageRolesUsernameTitle" data-testid="manage-roles-username-display"></span></h5>
+                    <h5 class="modal-title" id="manageRolesModalLabel">{admin:adminManageRolesModalTitlePrefix()} <span id="manageRolesUsernameTitle" data-testid="manage-roles-username-display"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="manageRolesForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Roles</label>
+                            <label class="form-label">{admin:adminRolesLabel()}</label>
                             {#for role in allRoles}
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="roles" value="{role}" id="role-{role}" data-testid="role-checkbox-{role}">
@@ -182,8 +182,8 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="manage-roles-submit-button">Save Roles</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="manage-roles-submit-button">{admin:adminSaveRolesButton()}</button>
                     </div>
                 </form>
             </div>
@@ -193,6 +193,11 @@
     {#scripts}
     <script>
         (function () {
+            var refreshFailedMessage = '{admin:adminRefreshFailedMessage()}';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+            var usernameRequiredMessage = '{admin:adminUsernameRequiredMessage()}';
+            var deleteUserConfirmTemplate = '{admin:adminDeleteUserConfirmTemplate()}';
+
             var messagePanel = document.getElementById('users-message');
             var messageTimer = null;
 
@@ -214,7 +219,7 @@
                     var html = await response.text();
                     document.getElementById('users-table-container').innerHTML = html;
                 } catch (e) {
-                    showMessage(false, 'Failed to refresh user list. Please reload the page.');
+                    showMessage(false, refreshFailedMessage);
                 }
             }
 
@@ -227,7 +232,7 @@
                     });
                     return await response.json();
                 } catch (e) {
-                    return { ok: false, message: 'Network error. Please try again.' };
+                    return { ok: false, message: networkErrorMessage };
                 }
             }
 
@@ -236,7 +241,7 @@
                     var response = await fetch(url, { method: method });
                     return await response.json();
                 } catch (e) {
-                    return { ok: false, message: 'Network error. Please try again.' };
+                    return { ok: false, message: networkErrorMessage };
                 }
             }
 
@@ -246,7 +251,7 @@
                 createUserForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
                     var username = document.getElementById('newUserUsername').value.trim();
-                    if (!username) { showMessage(false, 'Username is required.'); return; }
+                    if (!username) { showMessage(false, usernameRequiredMessage); return; }
                     var result = await fetchForm('PUT', '/ui/admin/users/' + encodeURIComponent(username), new FormData(this));
                     if (result.ok) {
                         bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
@@ -340,7 +345,7 @@
                 var btn = e.target.closest('[data-action="delete-user"]');
                 if (!btn) { return; }
                 var username = btn.getAttribute('data-username');
-                if (!confirm('Delete user "' + username + '"? This action cannot be undone.')) { return; }
+                if (!confirm(deleteUserConfirmTemplate.replace('%USERNAME%', username))) { return; }
                 var result = await fetchAction('DELETE', '/ui/admin/users/' + encodeURIComponent(username));
                 showMessage(result.ok, result.message);
                 if (result.ok) { await refreshTable(); }
@@ -349,4 +354,3 @@
     </script>
     {/scripts}
 {/include}
-

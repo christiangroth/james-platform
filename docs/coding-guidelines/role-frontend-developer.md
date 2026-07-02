@@ -39,10 +39,10 @@ dedicated view model class inside `adapter-in-web`.
 
 - Templates must not contain literal user-facing text – every piece of text is a placeholder resolved via a Qute message bundle, e.g. `{msg:loginTitle()}` or `{developer:developerDraftLabel()}`
 - Message bundles are split by area, each with its own qualifier/prefix, interface file, and properties file – pick the bundle by where the text is used, not by who is logged in:
-  - **Base** (`msg:`) – `AppMessages` / `messages/msg_de.properties`: login, common (`commonCancel`, `commonSave`, …), property types, layout/navigation, profile, and anything shared across areas
+  - **Base** (`msg:`) – `AppMessages` / `messages/msg_de.properties`: login, common (`commonCancel`, `commonSave`, …), property types, `layout.html`/navigation, `error.html`, profile, and anything shared across areas
   - **Developer** (`developer:`) – `DeveloperMessages` / `messages/developer_de.properties`: everything under `ui/developer/**` plus `DeveloperAppResource`
   - **User** (`user:`) – `UserMessages` / `messages/user_de.properties`: everything under `ui/user/**` (dashboard, app store, app data) plus the backing resource classes
-  - **Admin** (`admin:`) – introduced the same way once admin templates (`ui/admin/**`, `health.html`, `logs.html`, `config.html`, `mongodb-viewer.html`) are migrated; not yet created since there is no admin content in a bundle yet
+  - **Admin** (`admin:`) – `AdminMessages` / `messages/admin_de.properties`: `ui/admin/**`, `health.html`, `logs.html`, `config.html`, `mongodb-viewer.html` plus `AdminUserManagementResource`
   - A page never mixes prefixes for its own area's keys, but may still reference `msg:` for shared/common keys (e.g. `msg:commonCancel()` inside a developer-area template)
 - Message keys are declared as methods on the relevant `*Messages` interface (`adapter-in-web/src/main/kotlin/.../adapter/in/web/i18n/`), annotated `@Message` with no value; each
   interface other than the base `AppMessages` is annotated `@MessageBundle("<qualifier>")` (e.g. `@MessageBundle("developer")`), which also determines its properties file name
@@ -57,8 +57,8 @@ dedicated view model class inside `adapter-in-web`.
   of adding near-duplicate keys
 - Hardcoded literal strings inside `<script>` blocks (e.g. `showMessage(false, 'Network error. Please try again.')`) should also be localized: declare a JS variable near the top of
   the page's IIFE from a `{msg:...}` expression (e.g. `var networkErrorMessage = '{msg:commonNetworkError()}';`) and reference that variable instead of the literal string
-- This is an incremental migration – `login.html` / `LoginResource` is the reference implementation for the base bundle, and the `ui/developer/**` pages are the reference for a
-  split area bundle; other templates still containing literal text are migrated as they are touched
+- `login.html` / `LoginResource` is the reference implementation for the base bundle, and the `ui/developer/**` pages are the reference for a split area bundle; all templates have
+  now been migrated to this pattern, so any newly added template or resource-class text must use a `*Messages` bundle from the start rather than a literal string
 
 ## Live Updates via SSE
 

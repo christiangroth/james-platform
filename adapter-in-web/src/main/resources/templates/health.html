@@ -1,25 +1,25 @@
 {#include layout.html}
-    {#title}James Platform – Health{/title}
+    {#title}James Platform – {admin:adminHealthTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
 
-        <h1 class="mb-4 fs-4 fw-semibold">System Health</h1>
+        <h1 class="mb-4 fs-4 fw-semibold">{admin:adminHealthTitle()}</h1>
 
         <div id="health-section">
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">Cronjobs &amp; State</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{admin:adminCronjobsStateHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-lg-6">
                     <div id="snippet-cronjobs" class="card h-100 app-card">
                         {#fragment id="snippet_cronjobs"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">Cronjobs</p>
+                            <p class="card-subtitle mb-3 app-section-label">{admin:adminCronjobsSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="cronjobs-table">
                                     <thead>
                                         <tr>
-                                            <th>Job</th>
-                                            <th>Cron</th>
-                                            <th class="text-end">Next</th>
+                                            <th>{admin:adminColJob()}</th>
+                                            <th>{admin:adminColCron()}</th>
+                                            <th class="text-end">{admin:adminColNext()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -30,7 +30,7 @@
                                                 {job.simpleName}
                                             </td>
                                             <td>{job.cronSchedule}</td>
-                                            <td class="cronjob-countdown text-end">{#if job.nextExecution}-{#else}N/A{/if}</td>
+                                            <td class="cronjob-countdown text-end">{#if job.nextExecution}-{#else}{msg:commonNotAvailable()}{/if}</td>
                                         </tr>
                                         {/for}
                                     </tbody>
@@ -42,20 +42,20 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">MongoDB</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{admin:adminMongoDbHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-sm-6 col-lg-6">
                     <div id="snippet-mongodb-collections" class="card h-100 app-card">
                         {#fragment id="snippet_mongodb_collections"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">Collections</p>
+                            <p class="card-subtitle mb-3 app-section-label">{admin:adminCollectionsSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="mongodb-collections-table">
                                     <thead>
                                         <tr>
-                                            <th>Collection</th>
-                                            <th class="text-end">#</th>
-                                            <th class="text-end">Size</th>
+                                            <th>{admin:adminColCollection()}</th>
+                                            <th class="text-end">{admin:adminColCount()}</th>
+                                            <th class="text-end">{admin:adminColSize()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -69,7 +69,7 @@
                                     </tbody>
                                     <tfoot>
                                         <tr style="border-top:2px solid var(--color-border);">
-                                            <td style="color:var(--color-text-muted);">Total</td>
+                                            <td style="color:var(--color-text-muted);">{admin:adminTotalLabel()}</td>
                                             <td class="text-end" style="color:var(--color-text-muted);">{stats.mongoCollectionDocumentTotal.formatted}</td>
                                             <td class="text-end" style="color:var(--color-text-muted);">{stats.mongoCollectionSizeTotalKb.formatted} kb</td>
                                         </tr>
@@ -84,13 +84,13 @@
                     <div id="snippet-mongodb-queries" class="card h-100 app-card">
                         {#fragment id="snippet_mongodb_queries"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">Queries (Last 24h)</p>
+                            <p class="card-subtitle mb-3 app-section-label">{admin:adminQueriesSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="mongodb-queries-table">
                                     <thead>
                                         <tr>
-                                            <th>Query</th>
-                                            <th class="text-end">Executions</th>
+                                            <th>{admin:adminColQuery()}</th>
+                                            <th class="text-end">{admin:adminColExecutions()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -116,26 +116,26 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">Scripting</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{admin:adminScriptingHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12">
                     <div id="snippet-scripting" class="card h-100 app-card">
                         {#fragment id="snippet_scripting"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">Script Executions</p>
+                            <p class="card-subtitle mb-3 app-section-label">{admin:adminScriptExecutionsSectionLabel()}</p>
                             {#if stats.scriptStats.isEmpty}
-                            <p class="app-section-label" data-testid="no-script-stats">No script executions recorded yet.</p>
+                            <p class="app-section-label" data-testid="no-script-stats">{admin:adminNoScriptStatsMessage()}</p>
                             {#else}
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="scripting-table">
                                     <thead>
                                         <tr>
-                                            <th>Type</th>
-                                            <th>Entity</th>
-                                            <th>Property</th>
-                                            <th class="text-end">Executions</th>
-                                            <th class="text-end">Errors</th>
-                                            <th class="text-end">Total ms</th>
+                                            <th>{msg:commonType()}</th>
+                                            <th>{admin:adminColEntity()}</th>
+                                            <th>{admin:adminColProperty()}</th>
+                                            <th class="text-end">{admin:adminColExecutions()}</th>
+                                            <th class="text-end">{admin:adminColErrors()}</th>
+                                            <th class="text-end">{admin:adminColTotalMs()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -180,6 +180,8 @@
     </style>
     <script>
         (function () {
+            var nowLabel = '{admin:adminNowLabel()}';
+
             function sortCronjobTable() {
                 var tbody = document.querySelector('[data-testid="cronjobs-table"] tbody');
                 if (!tbody) return;
@@ -211,7 +213,7 @@
                     var remaining = nextExec - Date.now();
                     var cell = row.querySelector('.cronjob-countdown');
                     if (remaining <= 0) {
-                        if (cell) cell.textContent = 'now';
+                        if (cell) cell.textContent = nowLabel;
                     } else {
                         if (cell) cell.textContent = formatCountdown(remaining);
                     }

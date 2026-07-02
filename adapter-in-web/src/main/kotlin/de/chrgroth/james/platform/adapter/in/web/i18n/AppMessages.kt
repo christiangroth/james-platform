@@ -79,6 +79,12 @@ interface AppMessages {
   @Message
   fun commonNameRequired(): String
 
+  @Message
+  fun commonLogout(): String
+
+  @Message
+  fun commonPublishVersion(): String
+
   // property types (shared across type/list-item-type selects)
   @Message
   fun propertyTypeString(): String
@@ -167,4 +173,60 @@ interface AppMessages {
 
   @Message
   fun profilePasswordsDoNotMatchError(): String
+
+  // layout / navigation
+  @Message
+  fun layoutLogoLabel(): String
+
+  @Message
+  fun layoutThemeToggleLabel(): String
+
+  @Message
+  fun layoutNavProfileTitle(): String
+
+  @Message
+  fun layoutNavProfileAriaLabel(): String
+
+  @Message
+  fun layoutNavAppStoreTitle(): String
+
+  @Message
+  fun layoutNavAppStoreAriaLabel(): String
+
+  @Message
+  fun layoutNavTechnicalTitle(): String
+
+  @Message
+  fun layoutNavHealthLabel(): String
+
+  @Message
+  fun layoutNavConfigLabel(): String
+
+  @Message
+  fun layoutNavLogsUiLabel(): String
+
+  @Message
+  fun layoutNavGrafanaLogsLabel(): String
+
+  @Message
+  fun layoutNavGrafanaMetricsLabel(): String
+
+  @Message
+  fun layoutNavMongodbViewerLabel(): String
+
+  @Message
+  fun layoutNavMongodbAtlasLabel(): String
+
+  @Message
+  fun layoutNavDocsLabel(): String
+
+  @Message
+  fun layoutNavGithubLabel(): String
+
+  // error page
+  @Message
+  fun errorLabel(): String
+
+  @Message
+  fun errorStackTraceHeading(): String
 }

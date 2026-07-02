@@ -569,38 +569,38 @@
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
         <a href="/" class="d-flex align-items-center text-decoration-none me-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32" aria-label="James Platform Logo"><use href="#icon-nav-app"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32" aria-label="James Platform {msg:layoutLogoLabel()}"><use href="#icon-nav-app"/></svg>
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
         <span class="me-auto"></span>
         {/insert}
-        <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="Toggle color theme" aria-label="Toggle color theme">
+        <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="{msg:layoutThemeToggleLabel()}" aria-label="{msg:layoutThemeToggleLabel()}">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-moon" aria-hidden="true"><use href="#icon-theme-moon"/></svg>
         </button>
         {#insert navLinks}
-        <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="Profile" aria-label="Go to profile page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
-        <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="App Store" aria-label="Go to App Store"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
+        <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="{msg:layoutNavProfileTitle()}" aria-label="{msg:layoutNavProfileAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
+        <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="{msg:layoutNavAppStoreTitle()}" aria-label="{msg:layoutNavAppStoreAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
         {#if isAdmin || isMonitoring}
         <div class="dropdown me-3">
-            <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="Technical"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
+            <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{msg:layoutNavTechnicalTitle()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
             <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-                <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>Health</a></li>
-                <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>Config</a></li>
-                <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>Logs UI</a></li>
-                <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Logs</a></li>
-                <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>Metrics</a></li>
-                <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Viewer</a></li>
-                <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>Atlas</a></li>
-                <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>Docs</a></li>
-                <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>Code</a></li>
+                <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>{msg:layoutNavHealthLabel()}</a></li>
+                <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>{msg:layoutNavConfigLabel()}</a></li>
+                <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>{msg:layoutNavLogsUiLabel()}</a></li>
+                <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{msg:layoutNavGrafanaLogsLabel()}</a></li>
+                <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{msg:layoutNavGrafanaMetricsLabel()}</a></li>
+                <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbViewerLabel()}</a></li>
+                <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbAtlasLabel()}</a></li>
+                <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>{msg:layoutNavDocsLabel()}</a></li>
+                <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>{msg:layoutNavGithubLabel()}</a></li>
             </ul>
         </div>
         {/if}
-        <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link" title="Logout" aria-label="Logout">
+        <a href="/logout" class="btn btn-sm btn-app-secondary" data-testid="logout-link" title="{msg:commonLogout()}" aria-label="{msg:commonLogout()}">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-logout"/></svg>
-            <span class="d-none d-sm-inline ms-1">Logout</span>
+            <span class="d-none d-sm-inline ms-1">{msg:commonLogout()}</span>
         </a>
         {/insert}
     </nav>

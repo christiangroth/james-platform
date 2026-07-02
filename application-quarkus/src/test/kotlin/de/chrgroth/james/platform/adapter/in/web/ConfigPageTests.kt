@@ -19,7 +19,7 @@ class ConfigPageTests {
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("Configuration"))
+      .body(containsString("Konfiguration"))
   }
 
   @Test
@@ -40,8 +40,8 @@ class ConfigPageTests {
       .get("/config")
       .then()
       .statusCode(200)
-      .body(containsString("Key"))
-      .body(containsString("Value"))
+      .body(containsString("Schlüssel"))
+      .body(containsString("Wert"))
   }
 
   @Test
@@ -52,7 +52,7 @@ class ConfigPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="config-table""""))
-      .body(containsString("Config"))
+      .body(containsString("Konfiguration"))
   }
 
   @Test
@@ -63,7 +63,7 @@ class ConfigPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="env-table""""))
-      .body(containsString("Environment"))
+      .body(containsString("Umgebung"))
   }
 
   @Test

@@ -19,7 +19,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("System Health"))
+      .body(containsString("Systemstatus"))
   }
 
   @Test
@@ -30,10 +30,10 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""id="health-section""""))
-      .body(containsString("Cronjobs &amp; State"))
+      .body(containsString("Cronjobs &amp; Zustand"))
       .body(containsString("MongoDB"))
-      .body(containsString("Collections"))
-      .body(containsString("Queries (Last 24h)"))
+      .body(containsString("Sammlungen"))
+      .body(containsString("Abfragen (letzte 24h)"))
   }
 
   @Test
@@ -43,8 +43,8 @@ class HealthPageTests {
       .get("/health")
       .then()
       .statusCode(200)
-      .body(containsString("Scripting"))
-      .body(containsString("Script Executions"))
+      .body(containsString("Skripting"))
+      .body(containsString("Skriptausführungen"))
       .body(containsString("""id="snippet-scripting""""))
   }
 
@@ -56,7 +56,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("Script Executions"))
+      .body(containsString("Skriptausführungen"))
   }
 
   @Test
@@ -132,9 +132,9 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("Collections"))
+      .body(containsString("Sammlungen"))
       .body(containsString("""data-testid="mongodb-collections-table""""))
-      .body(containsString("Size"))
+      .body(containsString("Größe"))
   }
 
   @Test
@@ -145,7 +145,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .contentType(containsString("text/html"))
-      .body(containsString("Queries (Last 24h)"))
+      .body(containsString("Abfragen (letzte 24h)"))
       .body(containsString("""data-testid="mongodb-queries-table""""))
   }
 
@@ -159,7 +159,7 @@ class HealthPageTests {
       .body(containsString("Cronjobs"))
       .body(containsString("""data-testid="cronjobs-table""""))
       .body(containsString("Cron"))
-      .body(containsString("Next"))
+      .body(containsString("Nächste Ausführung"))
   }
 
   @Test
@@ -240,7 +240,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="mongodb-queries-table""""))
-      .body(containsString("Executions"))
+      .body(containsString("Ausführungen"))
   }
 
   @Test

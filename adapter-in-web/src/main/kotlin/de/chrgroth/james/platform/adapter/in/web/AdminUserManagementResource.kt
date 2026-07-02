@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AdminMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
@@ -39,6 +41,12 @@ class AdminUserManagementResource {
   @Inject
   private lateinit var adminUserManagement: AdminUserManagementPort
 
+  @Inject
+  private lateinit var msg: AppMessages
+
+  @Inject
+  private lateinit var adminMsg: AdminMessages
+
   @GET
   @Produces(MediaType.TEXT_HTML)
   fun users(): Any = renderUsers()
@@ -62,7 +70,7 @@ class AdminUserManagementResource {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.createUser(username, password, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, "User created successfully.")).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserCreatedMessage())).build() },
     )
   }
 
@@ -72,7 +80,7 @@ class AdminUserManagementResource {
   fun activateUser(@PathParam("username") username: String): Response =
     adminUserManagement.activateUser(username).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, "User activated successfully.")).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserActivatedMessage())).build() },
     )
 
   @DELETE
@@ -82,7 +90,7 @@ class AdminUserManagementResource {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deactivateUser(username, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, "User deactivated successfully.")).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserDeactivatedMessage())).build() },
     )
   }
 
@@ -99,7 +107,7 @@ class AdminUserManagementResource {
     }
     return adminUserManagement.setPassword(username, newPassword).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, "Password set successfully.")).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminPasswordSetMessage())).build() },
     )
   }
 
@@ -118,7 +126,7 @@ class AdminUserManagementResource {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.setRoles(username, roles, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, "Roles updated successfully.")).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminRolesUpdatedMessage())).build() },
     )
   }
 
@@ -129,7 +137,7 @@ class AdminUserManagementResource {
     val callingUsername = securityIdentity.principal.name
     return adminUserManagement.deleteUser(username, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, "User deleted successfully.")).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserDeletedMessage())).build() },
     )
   }
 
@@ -148,14 +156,14 @@ class AdminUserManagementResource {
   }
 
   private fun errorMessage(code: String): String = when (code) {
-    UserAdminError.USER_NOT_FOUND.code -> "User not found."
-    UserAdminError.USERNAME_ALREADY_EXISTS.code -> "Username already exists. Please choose a different username."
-    UserAdminError.BLANK_INPUT.code -> "All fields are required."
-    UserAdminError.CANNOT_DEACTIVATE_SELF.code -> "You cannot deactivate your own account."
-    UserAdminError.CANNOT_DELETE_SELF.code -> "You cannot delete your own account."
-    UserAdminError.CANNOT_REMOVE_OWN_ADMIN_ROLE.code -> "You cannot remove your own admin role."
-    UserAdminError.SINGLE_ADMIN_VIOLATION.code -> "Another user already has the admin role. Only one admin is allowed at a time."
-    "password-blank" -> "Password must not be empty."
-    else -> "An unexpected error occurred. Please try again."
+    UserAdminError.USER_NOT_FOUND.code -> adminMsg.adminUserNotFoundError()
+    UserAdminError.USERNAME_ALREADY_EXISTS.code -> adminMsg.adminUsernameExistsError()
+    UserAdminError.BLANK_INPUT.code -> adminMsg.adminAllFieldsRequiredError()
+    UserAdminError.CANNOT_DEACTIVATE_SELF.code -> adminMsg.adminCannotDeactivateSelfError()
+    UserAdminError.CANNOT_DELETE_SELF.code -> adminMsg.adminCannotDeleteSelfError()
+    UserAdminError.CANNOT_REMOVE_OWN_ADMIN_ROLE.code -> adminMsg.adminCannotRemoveOwnAdminRoleError()
+    UserAdminError.SINGLE_ADMIN_VIOLATION.code -> adminMsg.adminSingleAdminViolationError()
+    "password-blank" -> adminMsg.adminPasswordBlankError()
+    else -> msg.commonUnexpectedError()
   }
 }
