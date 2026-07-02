@@ -1,3 +1,12 @@
+# 0.59.0 (2026.07.02)
+
+## New Features
+* Translated the app store, app dashboard, app data forms, and profile pages into German.
+
+
+
+---
+
 # 0.58.0 (2026.07.02)
 
 ## New Features
