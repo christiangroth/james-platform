@@ -1,25 +1,25 @@
 {#include layout.html}
-    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if} – {selectedEntity.name} – {#if selectedProperty}{msg:developerEditPropertyLabel()}{#else}{msg:developerAddPropertyLabel()}{/if}{/title}
+    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if} – {selectedEntity.name} – {#if selectedProperty}{developer:developerEditPropertyLabel()}{#else}{developer:developerAddPropertyLabel()}{/if}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{msg:developerBreadcrumbDevelopment()}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
-                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}" class="breadcrumb-link" data-testid="breadcrumb-entity">{selectedEntity.name}</a></li>
                 {#for segment in breadcrumb}
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}?path={segment.path}" class="breadcrumb-link" data-testid="breadcrumb-nested-{segment.id}">{segment.name}</a></li>
                 {/for}
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-edit-property">{#if selectedProperty}{msg:developerEditPropertyLabel()}{#else}{msg:developerAddPropertyLabel()}{/if}</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-edit-property">{#if selectedProperty}{developer:developerEditPropertyLabel()}{#else}{developer:developerAddPropertyLabel()}{/if}</li>
             </ol>
         </nav>
 
         <div id="editPropertyMessage" class="d-none mb-4" role="alert"></div>
 
         <div class="card app-card p-4" data-testid="edit-property-editor">
-            <h2 class="fs-5 fw-semibold mb-3" data-testid="edit-property-title">{#if selectedProperty}{msg:developerEditPropertyTitleWithName(selectedProperty.name)}{#else}{msg:developerAddPropertyLabel()}{/if}</h2>
+            <h2 class="fs-5 fw-semibold mb-3" data-testid="edit-property-title">{#if selectedProperty}{developer:developerEditPropertyTitleWithName(selectedProperty.name)}{#else}{developer:developerAddPropertyLabel()}{/if}</h2>
 
             <div id="editPropertyInitialData" class="d-none"
                  {#if selectedProperty}
@@ -89,7 +89,7 @@
                     </select>
                 </div>
                 <div id="listItemTypeSection" class="mb-3 d-none">
-                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerListItemTypeLabel()} <span style="color:var(--color-required);">*</span></label>
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerListItemTypeLabel()} <span style="color:var(--color-required);">*</span></label>
                     <select class="form-select app-form-control form-select-sm" id="editPropertyListItemType" data-testid="edit-property-list-item-type-select">
                         <option value="">{msg:commonSelectPlaceholder()}</option>
                         <option value="STRING">{msg:propertyTypeString()}</option>
@@ -105,7 +105,7 @@
                     </select>
                 </div>
                 <div id="targetEntitySection" class="mb-3 d-none">
-                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerTargetEntityLabel()} <span style="color:var(--color-required);">*</span></label>
+                    <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerTargetEntityLabel()} <span style="color:var(--color-required);">*</span></label>
                     <select class="form-select app-form-control form-select-sm" id="editPropertyTargetEntity" required data-testid="edit-property-target-entity-select">
                         <option value="">{msg:commonSelectPlaceholder()}</option>
                         {#for e in version.entityDefinitions}
@@ -115,61 +115,61 @@
                 </div>
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" id="editPropertyNullable" name="nullable" value="true" data-testid="edit-property-nullable-check">
-                    <label class="form-check-label" for="editPropertyNullable" style="color:var(--color-text-muted);">{msg:developerNullableLabel()}</label>
+                    <label class="form-check-label" for="editPropertyNullable" style="color:var(--color-text-muted);">{developer:developerNullableLabel()}</label>
                 </div>
-                <p class="mb-3" style="color:var(--color-text-muted);font-size:0.8rem;">{msg:developerTypeChangeNote()}</p>
+                <p class="mb-3" style="color:var(--color-text-muted);font-size:0.8rem;">{developer:developerTypeChangeNote()}</p>
                 <hr style="border-color:var(--color-border);">
-                <div class="app-section-label mb-2" id="editConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerConstraintsLabel()}</div>
+                <div class="app-section-label mb-2" id="editConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerConstraintsLabel()}</div>
                 <!-- UniqueKey (all scalar types) -->
                 <div class="constraint-group" id="constraintGroupUniqueKey">
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" id="constraintUniqueKey" data-testid="constraint-unique-key-check">
-                        <label class="form-check-label" for="constraintUniqueKey" style="color:var(--color-text-muted);">{msg:developerUniqueKeyLabel()}</label>
+                        <label class="form-check-label" for="constraintUniqueKey" style="color:var(--color-text-muted);">{developer:developerUniqueKeyLabel()}</label>
                     </div>
                 </div>
                 <!-- Long constraints -->
                 <div class="constraint-group d-none" id="constraintGroupLong">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinValueLabel()}</label>
-                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMinLong" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="constraint-min-long">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinValueLabel()}</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMinLong" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="constraint-min-long">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxValueLabel()}</label>
-                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMaxLong" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="constraint-max-long">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxValueLabel()}</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="constraintMaxLong" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="constraint-max-long">
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerStepLabel()}</label>
-                        <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintStepLong" placeholder="{msg:developerNoStepPlaceholder()}" data-testid="constraint-step-long">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerStepLabel()}</label>
+                        <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintStepLong" placeholder="{developer:developerNoStepPlaceholder()}" data-testid="constraint-step-long">
                     </div>
                 </div>
                 <!-- Double constraints -->
                 <div class="constraint-group d-none" id="constraintGroupDouble">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinValueLabel()}</label>
-                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMinDouble" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="constraint-min-double">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinValueLabel()}</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMinDouble" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="constraint-min-double">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxValueLabel()}</label>
-                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMaxDouble" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="constraint-max-double">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxValueLabel()}</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="constraintMaxDouble" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="constraint-max-double">
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerStepLabel()}</label>
-                        <input type="number" step="any" min="0" class="form-control app-form-control form-control-sm" id="constraintStepDouble" placeholder="{msg:developerNoStepPlaceholder()}" data-testid="constraint-step-double">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerStepLabel()}</label>
+                        <input type="number" step="any" min="0" class="form-control app-form-control form-control-sm" id="constraintStepDouble" placeholder="{developer:developerNoStepPlaceholder()}" data-testid="constraint-step-double">
                     </div>
                 </div>
                 <!-- Date constraints -->
                 <div class="constraint-group d-none" id="constraintGroupDate">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinDateLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinDateLabel()}</label>
                             <input type="date" class="form-control app-form-control form-control-sm" id="constraintMinDate" data-testid="constraint-min-date">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxDateLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxDateLabel()}</label>
                             <input type="date" class="form-control app-form-control form-control-sm" id="constraintMaxDate" data-testid="constraint-max-date">
                         </div>
                     </div>
@@ -178,11 +178,11 @@
                 <div class="constraint-group d-none" id="constraintGroupTime">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinTimeLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinTimeLabel()}</label>
                             <input type="time" class="form-control app-form-control form-control-sm" id="constraintMinTime" data-testid="constraint-min-time">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxTimeLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxTimeLabel()}</label>
                             <input type="time" class="form-control app-form-control form-control-sm" id="constraintMaxTime" data-testid="constraint-max-time">
                         </div>
                     </div>
@@ -191,11 +191,11 @@
                 <div class="constraint-group d-none" id="constraintGroupDatetime">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinDatetimeLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinDatetimeLabel()}</label>
                             <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMinDatetime" data-testid="constraint-min-datetime">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxDatetimeLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxDatetimeLabel()}</label>
                             <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMaxDatetime" data-testid="constraint-max-datetime">
                         </div>
                     </div>
@@ -204,12 +204,12 @@
                 <div class="constraint-group d-none" id="constraintGroupDuration">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinDurationLabel()}</label>
-                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMinDuration" placeholder="{msg:developerDurationPlaceholder()}" autocomplete="off" data-testid="constraint-min-duration">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinDurationLabel()}</label>
+                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMinDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="constraint-min-duration">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxDurationLabel()}</label>
-                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMaxDuration" placeholder="{msg:developerDurationPlaceholder()}" autocomplete="off" data-testid="constraint-max-duration">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxDurationLabel()}</label>
+                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMaxDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="constraint-max-duration">
                         </div>
                     </div>
                 </div>
@@ -217,44 +217,44 @@
                 <div class="constraint-group d-none" id="constraintGroupString">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinLengthLabel()}</label>
-                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinLength" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="constraint-min-length">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinLengthLabel()}</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinLength" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="constraint-min-length">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxLengthLabel()}</label>
-                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxLength" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="constraint-max-length">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxLengthLabel()}</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxLength" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="constraint-max-length">
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerPatternLabel()}</label>
-                        <input type="text" class="form-control app-form-control form-control-sm" id="constraintPattern" placeholder="{msg:developerPatternPlaceholder()}" data-testid="constraint-pattern">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerPatternLabel()}</label>
+                        <input type="text" class="form-control app-form-control form-control-sm" id="constraintPattern" placeholder="{developer:developerPatternPlaceholder()}" data-testid="constraint-pattern">
                     </div>
                 </div>
                 <!-- List constraints -->
                 <div class="constraint-group d-none" id="constraintGroupList">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinSizeLabel()}</label>
-                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinSize" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="constraint-min-size">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinSizeLabel()}</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMinSize" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="constraint-min-size">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxSizeLabel()}</label>
-                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxSize" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="constraint-max-size">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxSizeLabel()}</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="constraintMaxSize" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="constraint-max-size">
                         </div>
                     </div>
                 </div>
-                <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">{msg:developerNoConstraintsMessage()}</p>
-                <div class="app-section-label mb-2 d-none" id="itemConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerItemConstraintsLabel()}</div>
+                <p id="constraintGroupNone" class="app-section-label mb-0 d-none" style="font-size:0.85rem;">{developer:developerNoConstraintsMessage()}</p>
+                <div class="app-section-label mb-2 d-none" id="itemConstraintsLabel" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerItemConstraintsLabel()}</div>
                 <!-- List item Long constraints -->
                 <div class="constraint-group d-none" id="itemConstraintGroupLong">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinValueLabel()}</label>
-                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMinLong" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="item-constraint-min-long">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinValueLabel()}</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMinLong" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="item-constraint-min-long">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxValueLabel()}</label>
-                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLong" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="item-constraint-max-long">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxValueLabel()}</label>
+                            <input type="number" step="1" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLong" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="item-constraint-max-long">
                         </div>
                     </div>
                 </div>
@@ -262,12 +262,12 @@
                 <div class="constraint-group d-none" id="itemConstraintGroupDouble">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinValueLabel()}</label>
-                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMinDouble" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="item-constraint-min-double">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinValueLabel()}</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMinDouble" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="item-constraint-min-double">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxValueLabel()}</label>
-                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMaxDouble" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="item-constraint-max-double">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxValueLabel()}</label>
+                            <input type="number" step="any" class="form-control app-form-control form-control-sm" id="itemConstraintMaxDouble" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="item-constraint-max-double">
                         </div>
                     </div>
                 </div>
@@ -275,23 +275,23 @@
                 <div class="constraint-group d-none" id="itemConstraintGroupString">
                     <div class="row g-2 mb-2">
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMinLengthLabel()}</label>
-                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMinLength" placeholder="{msg:developerNoMinimumPlaceholder()}" data-testid="item-constraint-min-length">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinLengthLabel()}</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMinLength" placeholder="{developer:developerNoMinimumPlaceholder()}" data-testid="item-constraint-min-length">
                         </div>
                         <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerMaxLengthLabel()}</label>
-                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLength" placeholder="{msg:developerNoMaximumPlaceholder()}" data-testid="item-constraint-max-length">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxLengthLabel()}</label>
+                            <input type="number" step="1" min="0" class="form-control app-form-control form-control-sm" id="itemConstraintMaxLength" placeholder="{developer:developerNoMaximumPlaceholder()}" data-testid="item-constraint-max-length">
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerPatternLabel()}</label>
-                        <input type="text" class="form-control app-form-control form-control-sm" id="itemConstraintPattern" placeholder="{msg:developerPatternPlaceholder()}" data-testid="item-constraint-pattern">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerPatternLabel()}</label>
+                        <input type="text" class="form-control app-form-control form-control-sm" id="itemConstraintPattern" placeholder="{developer:developerPatternPlaceholder()}" data-testid="item-constraint-pattern">
                     </div>
                 </div>
                 {#if selectedProperty && selectedProperty.type.name == "OBJECT"}
                 <hr style="border-color:var(--color-border);">
                 <div class="d-flex align-items-center mb-2 gap-2">
-                    <h3 class="fs-6 fw-semibold mb-0">{msg:developerNestedPropertiesHeading()}</h3>
+                    <h3 class="fs-6 fw-semibold mb-0">{developer:developerNestedPropertiesHeading()}</h3>
                     <a class="btn btn-app-secondary btn-sm ms-auto" data-testid="open-add-nested-property-page-button"
                        href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/new?path={selectedProperty.childPath(path)}"
                        title="{msg:commonAdd()}" aria-label="{msg:commonAdd()}">
@@ -299,24 +299,24 @@
                     </a>
                 </div>
                 {#if selectedProperty.nestedProperties.isEmpty}
-                <p class="app-section-label mb-0" data-testid="no-nested-properties">{msg:developerNoNestedPropertiesMessage()}</p>
+                <p class="app-section-label mb-0" data-testid="no-nested-properties">{developer:developerNoNestedPropertiesMessage()}</p>
                 {#else}
                 <div class="table-responsive">
                 <table class="table table-sm mb-0 app-table" data-testid="nested-properties-table">
                     <thead>
                         <tr>
-                            <th>{msg:developerColName()}</th>
-                            <th>{msg:developerColType()}</th>
-                            <th>{msg:developerColConstraints()}</th>
-                            <th>{msg:developerColTargetEntity()}</th>
-                            <th>{msg:developerColDefault()}</th>
-                            <th>{msg:developerColSmartDefault()}</th>
+                            <th>{developer:developerColName()}</th>
+                            <th>{developer:developerColType()}</th>
+                            <th>{developer:developerColConstraints()}</th>
+                            <th>{developer:developerColTargetEntity()}</th>
+                            <th>{developer:developerColDefault()}</th>
+                            <th>{developer:developerColSmartDefault()}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {#for np in selectedProperty.nestedProperties}
                         <tr class="clickable-row" data-testid="nested-property-row" tabindex="0" role="link"
-                            aria-label="{msg:developerEditPropertyAriaLabel(np.name)}"
+                            aria-label="{developer:developerEditPropertyAriaLabel(np.name)}"
                             data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/{np.id}/edit?path={selectedProperty.childPath(path)}"
                             onclick="window.location.href=this.getAttribute('data-navigate-url')">
                             <td>{np.name}</td>
@@ -326,7 +326,7 @@
                                 <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemType}&gt;</span>
                                 {/if}
                                 {#if np.type.name == "OBJECT"}
-                                <br><span class="app-section-label" style="font-size:0.75rem;">{#if np.nestedProperties.isEmpty}{msg:developerNoPropertiesMessage()}{#else}{#if np.nestedProperties.size == 1}{msg:developerOnePropertyLabel()}{#else}{msg:developerPropertiesCountLabel(np.nestedProperties.size)}{/if}{/if}</span>
+                                <br><span class="app-section-label" style="font-size:0.75rem;">{#if np.nestedProperties.isEmpty}{developer:developerNoPropertiesMessage()}{#else}{#if np.nestedProperties.size == 1}{developer:developerOnePropertyLabel()}{#else}{developer:developerPropertiesCountLabel(np.nestedProperties.size)}{/if}{/if}</span>
                                 {/if}
                             </td>
                             <td>
@@ -352,7 +352,7 @@
                             </td>
                             <td>
                                 {#if np.smartDefault}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{np.smartDefault}">{msg:developerScriptBadge()}</span>
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{np.smartDefault}">{developer:developerScriptBadge()}</span>
                                 {#else}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
@@ -366,25 +366,25 @@
                 {/if}
                 <div id="defaultSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
-                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerDefaultValueLabel()}</div>
+                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerDefaultValueLabel()}</div>
                     <!-- Default: Long -->
                     <div class="default-group d-none" id="defaultGroupLong">
-                        <input type="number" step="1" class="form-control app-form-control form-control-sm" id="defaultLong" placeholder="{msg:developerNoDefaultPlaceholder()}" data-testid="default-long">
+                        <input type="number" step="1" class="form-control app-form-control form-control-sm" id="defaultLong" placeholder="{developer:developerNoDefaultPlaceholder()}" data-testid="default-long">
                     </div>
                     <!-- Default: Double -->
                     <div class="default-group d-none" id="defaultGroupDouble">
-                        <input type="number" step="any" class="form-control app-form-control form-control-sm" id="defaultDouble" placeholder="{msg:developerNoDefaultPlaceholder()}" data-testid="default-double">
+                        <input type="number" step="any" class="form-control app-form-control form-control-sm" id="defaultDouble" placeholder="{developer:developerNoDefaultPlaceholder()}" data-testid="default-double">
                     </div>
                     <!-- Default: Boolean -->
                     <div class="default-group d-none" id="defaultGroupBoolean">
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" id="defaultBoolean" data-testid="default-boolean">
-                            <label class="form-check-label" for="defaultBoolean" style="color:var(--color-text-muted);">{msg:developerCheckedTrueLabel()}</label>
+                            <label class="form-check-label" for="defaultBoolean" style="color:var(--color-text-muted);">{developer:developerCheckedTrueLabel()}</label>
                         </div>
                     </div>
                     <!-- Default: String -->
                     <div class="default-group d-none" id="defaultGroupString">
-                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultString" placeholder="{msg:developerNoDefaultPlaceholder()}" autocomplete="off" data-testid="default-string">
+                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultString" placeholder="{developer:developerNoDefaultPlaceholder()}" autocomplete="off" data-testid="default-string">
                     </div>
                     <!-- Default: Date -->
                     <div class="default-group d-none" id="defaultGroupDate">
@@ -400,26 +400,26 @@
                     </div>
                     <!-- Default: Duration -->
                     <div class="default-group d-none" id="defaultGroupDuration">
-                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="{msg:developerDurationPlaceholder()}" autocomplete="off" data-testid="default-duration">
+                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="default-duration">
                     </div>
                 </div>
                 <div id="smartDefaultSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
-                    <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerSmartDefaultLabel()}</div>
-                    <p class="app-section-label mb-2" style="font-size:0.75rem;">{msg:developerSmartDefaultHelp()}</p>
+                    <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerSmartDefaultLabel()}</div>
+                    <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerSmartDefaultHelp()}</p>
                     <div id="smartDefaultGroup">
                         <div id="predefinedSmartDefaultGroup" class="d-none mb-2">
-                            <div class="app-section-label mb-1" style="font-size:0.75rem;">{msg:developerPredefinedLabel()}</div>
+                            <div class="app-section-label mb-1" style="font-size:0.75rem;">{developer:developerPredefinedLabel()}</div>
                             <div id="predefinedSmartDefaultButtons" class="d-flex flex-wrap gap-1"></div>
                         </div>
-                        <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="{msg:developerSmartDefaultPlaceholder()}" data-testid="smart-default-script-input"></textarea>
+                        <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerSmartDefaultPlaceholder()}" data-testid="smart-default-script-input"></textarea>
                     </div>
                 </div>
                 <div id="valueProposalSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
-                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerValueProposalsLabel()}</div>
+                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerValueProposalsLabel()}</div>
                     <div id="valueProposalGroup">
-                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{msg:developerValueProposalsHelp()}</p>
+                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerValueProposalsHelp()}</p>
                         <div id="valueProposalCheckboxes"></div>
                     </div>
                 </div>
@@ -445,11 +445,11 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deletePropertyModalLabel">{msg:developerRemovePropertyModalTitle()}</h5>
+                    <h5 class="modal-title" id="deletePropertyModalLabel">{developer:developerRemovePropertyModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">{msg:developerRemovePropertyConfirm()}</p>
+                    <p class="mb-0">{developer:developerRemovePropertyConfirm()}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -472,7 +472,7 @@
                 + (document.getElementById('editPropertyPath').value ? ('?path=' + encodeURIComponent(document.getElementById('editPropertyPath').value)) : '');
             var messagePanel = document.getElementById('editPropertyMessage');
             var messageTimer = null;
-            var noOtherPropertiesMessage = '{msg:developerNoOtherPropertiesMessage()}';
+            var noOtherPropertiesMessage = '{developer:developerNoOtherPropertiesMessage()}';
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             function showMessage(ok, message) {

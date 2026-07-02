@@ -1,14 +1,14 @@
 {#include layout.html}
-    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}{#if selectedEntity != null} – {selectedEntity.name}{#else if selectedReport != null} – {selectedReport.name}{/if}{/title}
+    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}{#if selectedEntity != null} – {selectedEntity.name}{#else if selectedReport != null} – {selectedReport.name}{/if}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
-                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{msg:developerBreadcrumbDevelopment()}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
                 {#if selectedEntity != null}
-                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</a></li>
                 {#if isNestedLevel}
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}" class="breadcrumb-link" data-testid="breadcrumb-entity">{selectedEntity.name}</a></li>
                 {#for segment in breadcrumb}
@@ -22,10 +22,10 @@
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-entity">{selectedEntity.name}</li>
                 {/if}
                 {#else if selectedReport != null}
-                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}/versions/{version.id}" class="breadcrumb-link" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-report">{selectedReport.name}</li>
                 {#else}
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{msg:developerDraftLabel()}{/if}</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-version">{#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</li>
                 {/if}
             </ol>
         </nav>
@@ -40,14 +40,14 @@
             </div>
             {/if}
             {#if isDraft}
-            <span class="badge app-badge-failed d-none" id="breaking-changes-badge" data-testid="breaking-changes-badge">{msg:developerBreakingChangesBadge()}</span>
+            <span class="badge app-badge-failed d-none" id="breaking-changes-badge" data-testid="breaking-changes-badge">{developer:developerBreakingChangesBadge()}</span>
             {/if}
         </div>
 
         {#if !isDraft}
         {#if version.releaseNotes}
         <div class="card app-card p-3 mb-4" data-testid="version-release-notes-card">
-            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerReleaseNotesLabel()}</div>
+            <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerReleaseNotesLabel()}</div>
             <p class="mb-0" style="white-space:pre-wrap;" data-testid="version-release-notes">{version.releaseNotes}</p>
         </div>
         {/if}
@@ -59,21 +59,21 @@
             <!-- Entity Editor -->
             <div class="card app-card p-4" data-testid="entity-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
-                    <h2 class="fs-5 fw-semibold mb-0">{msg:developerEntityHeading(selectedEntity.name)}</h2>
+                    <h2 class="fs-5 fw-semibold mb-0">{developer:developerEntityHeading(selectedEntity.name)}</h2>
                     {#btn-icon-delete testId="delete-entity-button" title="{msg:commonDelete()}" extraClass="ms-auto" bsTarget="#deleteEntityModal" action="" entityId=selectedEntity.id propertyId="" reportId="" username="" /}
                 </div>
 
                 {#if !isNestedLevel}
                 <!-- Display Text builder -->
                 <div class="mb-4">
-                    <h3 class="fs-6 fw-semibold mb-2">{msg:developerDisplayTextHeading()}</h3>
+                    <h3 class="fs-6 fw-semibold mb-2">{developer:developerDisplayTextHeading()}</h3>
                     <div class="d-flex align-items-center gap-2">
                         <span class="app-section-label" style="font-size:0.85rem;" data-testid="display-text-value">
                             {#if selectedEntity.displayText}{selectedEntity.displayText}{#else}—{/if}
                         </span>
                         <button type="button" class="btn btn-app-secondary btn-sm"
                                 data-bs-toggle="modal" data-bs-target="#editDisplayTextModal"
-                                title="{msg:developerEditDisplayTextAriaLabel()}" aria-label="{msg:developerEditDisplayTextAriaLabel()}"
+                                title="{developer:developerEditDisplayTextAriaLabel()}" aria-label="{developer:developerEditDisplayTextAriaLabel()}"
                                 data-testid="open-display-text-modal-button">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
                         </button>
@@ -82,7 +82,7 @@
 
                 <!-- Sort Order -->
                 <div class="mb-4">
-                    <h3 class="fs-6 fw-semibold mb-2">{msg:developerSortOrderHeading()}</h3>
+                    <h3 class="fs-6 fw-semibold mb-2">{developer:developerSortOrderHeading()}</h3>
                     <div class="d-flex align-items-center gap-2">
                         <span class="app-section-label" style="font-size:0.85rem;" data-testid="sort-order-value">
                             {#if selectedEntity.sortOrderText}{selectedEntity.sortOrderText}{#else}—{/if}
@@ -90,7 +90,7 @@
                         {#if !selectedEntity.properties.isEmpty}
                         <button type="button" class="btn btn-app-secondary btn-sm"
                                 data-bs-toggle="modal" data-bs-target="#editSortOrderModal"
-                                title="{msg:developerEditSortOrderAriaLabel()}" aria-label="{msg:developerEditSortOrderAriaLabel()}"
+                                title="{developer:developerEditSortOrderAriaLabel()}" aria-label="{developer:developerEditSortOrderAriaLabel()}"
                                 data-testid="open-sort-order-modal-button">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
                         </button>
@@ -100,7 +100,7 @@
                 {/if}
 
                 <div class="d-flex align-items-center mb-2 gap-2">
-                    <h3 class="fs-6 fw-semibold mb-0">{msg:developerPropertiesHeading()}</h3>
+                    <h3 class="fs-6 fw-semibold mb-0">{developer:developerPropertiesHeading()}</h3>
                     <a class="btn btn-app-secondary btn-sm ms-auto" data-testid="open-add-property-page-button"
                        href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/new{#if path}?path={path}{/if}"
                        title="{msg:commonAdd()}" aria-label="{msg:commonAdd()}">
@@ -108,29 +108,29 @@
                     </a>
                 </div>
                 {#if currentProperties.isEmpty}
-                <p class="app-section-label mb-3" data-testid="no-properties">{msg:developerNoPropertiesMessage()}</p>
+                <p class="app-section-label mb-3" data-testid="no-properties">{developer:developerNoPropertiesMessage()}</p>
                 {#else}
                 <div class="table-responsive">
                 <table class="table table-sm mb-3 app-table" data-testid="properties-table">
                     <thead>
                         <tr>
                             <th style="width:1.5rem;"></th>
-                            <th>{msg:developerColName()}</th>
-                            <th>{msg:developerColType()}</th>
-                            <th>{msg:developerColConstraints()}</th>
-                            <th>{msg:developerColTargetEntity()}</th>
-                            <th>{msg:developerColDefault()}</th>
-                            <th>{msg:developerColSmartDefault()}</th>
+                            <th>{developer:developerColName()}</th>
+                            <th>{developer:developerColType()}</th>
+                            <th>{developer:developerColConstraints()}</th>
+                            <th>{developer:developerColTargetEntity()}</th>
+                            <th>{developer:developerColDefault()}</th>
+                            <th>{developer:developerColSmartDefault()}</th>
                         </tr>
                     </thead>
                     <tbody id="propertiesTbody" data-entity-id="{selectedEntity.id}" data-path="{path}">
                         {#for prop in currentProperties}
                         <tr class="clickable-row" data-testid="property-row" tabindex="0" role="link"
-                            aria-label="{msg:developerEditPropertyAriaLabel(prop.name)}"
+                            aria-label="{developer:developerEditPropertyAriaLabel(prop.name)}"
                             data-property-id="{prop.id}"
                             data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/{prop.id}/edit{#if path}?path={path}{/if}"
                             onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a') || event.target.closest('.drag-handle')) return; window.location.href=this.getAttribute('data-navigate-url')">
-                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{msg:developerDragToReorderTitle()}" data-testid="property-drag-handle">
+                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="property-drag-handle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
                             </td>
                             <td>{prop.name}</td>
@@ -141,7 +141,7 @@
                                 {/if}
                                 {#if prop.type.name == "OBJECT"}
                                 <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="nested-property-count-{prop.id}">
-                                    {#if prop.nestedProperties.isEmpty}{msg:developerNoPropertiesMessage()}{#else}{#if prop.nestedProperties.size == 1}{msg:developerOnePropertyLabel()}{#else}{msg:developerPropertiesCountLabel(prop.nestedProperties.size)}{/if}{/if}
+                                    {#if prop.nestedProperties.isEmpty}{developer:developerNoPropertiesMessage()}{#else}{#if prop.nestedProperties.size == 1}{developer:developerOnePropertyLabel()}{#else}{developer:developerPropertiesCountLabel(prop.nestedProperties.size)}{/if}{/if}
                                 </span>
                                 {/if}
                             </td>
@@ -168,7 +168,7 @@
                             </td>
                             <td>
                                 {#if prop.smartDefault}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="property-smart-default-{prop.id}" title="{prop.smartDefault}">{msg:developerScriptBadge()}</span>
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="property-smart-default-{prop.id}" title="{prop.smartDefault}">{developer:developerScriptBadge()}</span>
                                 {#else}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
@@ -183,40 +183,40 @@
                 {#if !isNestedLevel}
                 <!-- Computed Properties -->
                 <div class="d-flex align-items-center mb-2 gap-2 mt-4">
-                    <h3 class="fs-6 fw-semibold mb-0">{msg:developerComputedPropertiesHeading()}</h3>
+                    <h3 class="fs-6 fw-semibold mb-0">{developer:developerComputedPropertiesHeading()}</h3>
                     {#btn-icon-add testId="open-add-computed-property-modal-button" bsTarget="#addComputedPropertyModal" entityId=selectedEntity.id action="" extraClass="ms-auto" /}
                 </div>
                 {#if selectedEntity.computedProperties.isEmpty}
-                <p class="app-section-label mb-3" data-testid="no-computed-properties">{msg:developerNoComputedPropertiesMessage()}</p>
+                <p class="app-section-label mb-3" data-testid="no-computed-properties">{developer:developerNoComputedPropertiesMessage()}</p>
                 {#else}
                 <div class="table-responsive">
                 <table class="table table-sm mb-3 app-table" data-testid="computed-properties-table">
                     <thead>
                         <tr>
                             <th style="width:1.5rem;"></th>
-                            <th>{msg:developerColName()}</th>
-                            <th>{msg:developerColType()}</th>
-                            <th>{msg:developerColScript()}</th>
+                            <th>{developer:developerColName()}</th>
+                            <th>{developer:developerColType()}</th>
+                            <th>{developer:developerColScript()}</th>
                         </tr>
                     </thead>
                     <tbody id="computedPropertiesTbody" data-entity-id="{selectedEntity.id}">
                         {#for cp in selectedEntity.computedProperties}
                         <tr class="clickable-row" data-testid="computed-property-row" tabindex="0" role="button"
-                            aria-label="{msg:developerEditComputedPropertyAriaLabel(cp.name)}"
+                            aria-label="{developer:developerEditComputedPropertyAriaLabel(cp.name)}"
                             data-action="edit-computed-property"
                             data-entity-id="{selectedEntity.id}"
                             data-computed-property-id="{cp.id}"
                             data-computed-property-name="{cp.name}"
                             data-computed-property-type="{cp.type}"
                             data-computed-property-script="{cp.script}">
-                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{msg:developerDragToReorderTitle()}" data-testid="computed-property-drag-handle">
+                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="computed-property-drag-handle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
                             </td>
                             <td data-testid="computed-property-name">{cp.name}</td>
                             <td>{cp.type}</td>
                             <td>
                                 {#if cp.script}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="computed-property-script-{cp.id}" title="{cp.script}">{msg:developerScriptBadge()}</span>
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="computed-property-script-{cp.id}" title="{cp.script}">{developer:developerScriptBadge()}</span>
                                 {#else}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
@@ -237,16 +237,16 @@
             <!-- Report Editor -->
             <div class="card app-card p-4" data-testid="report-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
-                    <h2 class="fs-5 fw-semibold mb-0">{msg:developerReportHeading(selectedReport.name)}</h2>
+                    <h2 class="fs-5 fw-semibold mb-0">{developer:developerReportHeading(selectedReport.name)}</h2>
                 </div>
 
                 <form id="updateReportForm" data-report-id="{selectedReport.id}">
                     <div class="mb-2">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerHtmlLabel()}</label>
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerHtmlLabel()}</label>
                         <textarea class="form-control app-form-control form-control-sm" name="html" rows="8" style="font-family:monospace;font-size:0.8rem;" data-testid="report-html-input">{selectedReport.html}</textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerScriptLabel()}</label>
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerScriptLabel()}</label>
                         <textarea class="form-control app-form-control form-control-sm" name="script" rows="8" style="font-family:monospace;font-size:0.8rem;" data-testid="report-script-input">{selectedReport.script}</textarea>
                     </div>
                     <div class="d-flex justify-content-end gap-2 mt-3">
@@ -264,29 +264,29 @@
             <div data-testid="version-editor-placeholder">
                 <!-- Entities table -->
                 <div class="d-flex align-items-center mb-2 gap-2">
-                    <h2 class="fs-6 fw-semibold mb-0">{msg:developerEntitiesHeading()}</h2>
+                    <h2 class="fs-6 fw-semibold mb-0">{developer:developerEntitiesHeading()}</h2>
                     {#btn-icon-add testId="open-add-entity-modal-button" bsTarget="#addEntityModal" extraClass="ms-auto" entityId="" action="" /}
                 </div>
                 {#if version.entityDefinitions.isEmpty}
-                <p class="app-section-label mb-4" data-testid="no-entities">{msg:developerNoEntitiesMessage()}</p>
+                <p class="app-section-label mb-4" data-testid="no-entities">{developer:developerNoEntitiesMessage()}</p>
                 {#else}
                 <div class="table-responsive">
                 <table class="table table-sm mb-4 app-table" data-testid="entities-table">
                     <thead>
                         <tr>
                             <th style="width:1.5rem;"></th>
-                            <th>{msg:developerColName()}</th>
-                            <th>{msg:developerColProperties()}</th>
+                            <th>{developer:developerColName()}</th>
+                            <th>{developer:developerColProperties()}</th>
                         </tr>
                     </thead>
                     <tbody id="entitiesTbody">
                         {#for entity in version.sortedEntityDefinitions}
                         <tr class="clickable-row" data-testid="entity-row" tabindex="0" role="link"
-                            aria-label="{msg:developerOpenEntityAriaLabel(entity.name)}"
+                            aria-label="{developer:developerOpenEntityAriaLabel(entity.name)}"
                             data-entity-id="{entity.id}"
                             data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{entity.id}"
                             onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a') || event.target.closest('.drag-handle')) return; window.location.href=this.getAttribute('data-navigate-url')">
-                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{msg:developerDragToReorderTitle()}" data-testid="entity-drag-handle">
+                            <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="entity-drag-handle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
                             </td>
                             <td data-testid="entity-name-link">{entity.name}</td>
@@ -306,23 +306,23 @@
 
                 <!-- Reports table -->
                 <div class="d-flex align-items-center mb-2 gap-2">
-                    <h2 class="fs-6 fw-semibold mb-0">{msg:developerReportsHeading()}</h2>
+                    <h2 class="fs-6 fw-semibold mb-0">{developer:developerReportsHeading()}</h2>
                     {#btn-icon-add testId="open-add-report-modal-button" bsTarget="#addReportModal" extraClass="ms-auto" entityId="" action="" /}
                 </div>
                 {#if version.reports.isEmpty}
-                <p class="app-section-label" data-testid="no-reports">{msg:developerNoReportsMessage()}</p>
+                <p class="app-section-label" data-testid="no-reports">{developer:developerNoReportsMessage()}</p>
                 {#else}
                 <div class="table-responsive">
                 <table class="table table-sm app-table" data-testid="reports-table">
                     <thead>
                         <tr>
-                            <th>{msg:developerColName()}</th>
+                            <th>{developer:developerColName()}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {#for report in version.sortedReports}
                         <tr class="clickable-row" data-testid="report-row" tabindex="0" role="link"
-                            aria-label="{msg:developerOpenReportAriaLabel(report.name)}"
+                            aria-label="{developer:developerOpenReportAriaLabel(report.name)}"
                             data-navigate-url="/ui/developer/apps/{app.id}/versions/{version.id}/reports/{report.id}"
                             onclick="if(event.target.closest('[data-bs-toggle]') || event.target.closest('button') || event.target.closest('a')) return; window.location.href=this.getAttribute('data-navigate-url')">
                             <td data-testid="report-name-link">{report.name}</td>
@@ -335,17 +335,17 @@
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button type="button" class="btn btn-app-danger btn-sm"
                             data-bs-toggle="modal" data-bs-target="#deleteDraftVersionModal"
-                            title="{msg:developerDeleteDraftAriaLabel()}" aria-label="{msg:developerDeleteDraftAriaLabel()}"
+                            title="{developer:developerDeleteDraftAriaLabel()}" aria-label="{developer:developerDeleteDraftAriaLabel()}"
                             data-testid="delete-draft-version-button">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
                         {msg:commonDelete()}
                     </button>
                     <a class="btn btn-app-primary btn-sm"
                             href="/ui/developer/apps/{app.id}/versions/{version.id}/publish"
-                            title="{msg:developerPublishVersionAriaLabel()}" aria-label="{msg:developerPublishVersionAriaLabel()}"
+                            title="{developer:developerPublishVersionAriaLabel()}" aria-label="{developer:developerPublishVersionAriaLabel()}"
                             data-testid="publish-version-button">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg>
-                        {msg:developerPublishButton()}
+                        {developer:developerPublishButton()}
                     </a>
                 </div>
             </div>
@@ -353,23 +353,23 @@
         {#else}
             <!-- Published: show read-only summary -->
             <div class="mb-4">
-                <div class="app-section-header mb-3">{msg:developerEntitiesHeading()}</div>
+                <div class="app-section-header mb-3">{developer:developerEntitiesHeading()}</div>
                 {#if version.entityDefinitions.isEmpty}
-                <p class="app-section-label">{msg:developerNoEntitiesReadonly()}</p>
+                <p class="app-section-label">{developer:developerNoEntitiesReadonly()}</p>
                 {#else}
                 {#for entity in version.sortedEntityDefinitions}
                 <div class="mb-3" data-testid="entity-readonly-item">
                     <div class="fw-semibold mb-2" data-testid="entity-readonly-name">{entity.name}</div>
                     {#if entity.properties.isEmpty}
-                    <p class="app-section-label mb-0" style="font-size:0.8rem;">{msg:developerNoPropertiesReadonly()}</p>
+                    <p class="app-section-label mb-0" style="font-size:0.8rem;">{developer:developerNoPropertiesReadonly()}</p>
                     {#else}
                     <div class="table-responsive">
                     <table class="table table-sm mb-0 app-table" style="font-size:0.8rem;">
                         <thead>
                             <tr>
-                                <th>{msg:developerColName()}</th>
-                                <th>{msg:developerColType()}</th>
-                                <th>{msg:developerColConstraints()}</th>
+                                <th>{developer:developerColName()}</th>
+                                <th>{developer:developerColType()}</th>
+                                <th>{developer:developerColConstraints()}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -400,9 +400,9 @@
                 {/if}
             </div>
             <div>
-                <div class="app-section-header mb-3">{msg:developerReportsHeading()}</div>
+                <div class="app-section-header mb-3">{developer:developerReportsHeading()}</div>
                 {#if version.reports.isEmpty}
-                <p class="app-section-label">{msg:developerNoReportsReadonly()}</p>
+                <p class="app-section-label">{developer:developerNoReportsReadonly()}</p>
                 {#else}
                 <div class="accordion" id="reportsAccordion">
                     {#for report in version.sortedReports}
@@ -418,18 +418,18 @@
                             <div class="accordion-body p-0">
                                 {#if report.html}
                                 <div class="p-2">
-                                    <div class="app-section-header mb-1">{msg:developerHtmlLabel()}</div>
+                                    <div class="app-section-header mb-1">{developer:developerHtmlLabel()}</div>
                                     <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:200px;margin:0;">{report.html}</pre>
                                 </div>
                                 {/if}
                                 {#if report.script}
                                 <div class="p-2">
-                                    <div class="app-section-header mb-1">{msg:developerScriptLabel()}</div>
+                                    <div class="app-section-header mb-1">{developer:developerScriptLabel()}</div>
                                     <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:200px;margin:0;">{report.script}</pre>
                                 </div>
                                 {/if}
                                 {#if !report.html && !report.script}
-                                <p class="app-section-label p-2 mb-0" style="font-size:0.8rem;">{msg:developerNoContentMessage()}</p>
+                                <p class="app-section-label p-2 mb-0" style="font-size:0.8rem;">{developer:developerNoContentMessage()}</p>
                                 {/if}
                             </div>
                         </div>
@@ -447,11 +447,11 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deleteDraftVersionModalLabel">{msg:developerDeleteDraftVersionModalTitle()}</h5>
+                    <h5 class="modal-title" id="deleteDraftVersionModalLabel">{developer:developerDeleteDraftVersionModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">{msg:developerDeleteDraftVersionConfirm()}</p>
+                    <p class="mb-0">{developer:developerDeleteDraftVersionConfirm()}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -469,14 +469,14 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addEntityModalLabel">{msg:developerAddEntityModalTitle()}</h5>
+                    <h5 class="modal-title" id="addEntityModalLabel">{developer:developerAddEntityModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="addEntityForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="newEntityName" class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonName()} <span style="color:var(--color-required);">*</span></label>
-                            <input type="text" class="form-control app-form-control" id="newEntityName" name="name" required autocomplete="off" placeholder="{msg:developerEntityNamePlaceholder()}" data-testid="add-entity-name-input">
+                            <input type="text" class="form-control app-form-control" id="newEntityName" name="name" required autocomplete="off" placeholder="{developer:developerEntityNamePlaceholder()}" data-testid="add-entity-name-input">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -495,14 +495,14 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addReportModalLabel">{msg:developerAddReportModalTitle()}</h5>
+                    <h5 class="modal-title" id="addReportModalLabel">{developer:developerAddReportModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="addReportForm">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="newReportName" class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonName()} <span style="color:var(--color-required);">*</span></label>
-                            <input type="text" class="form-control app-form-control" id="newReportName" name="name" required autocomplete="off" placeholder="{msg:developerReportNamePlaceholder()}" data-testid="add-report-name-input">
+                            <input type="text" class="form-control app-form-control" id="newReportName" name="name" required autocomplete="off" placeholder="{developer:developerReportNamePlaceholder()}" data-testid="add-report-name-input">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -521,11 +521,11 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deleteEntityModalLabel">{msg:developerDeleteEntityModalTitle()}</h5>
+                    <h5 class="modal-title" id="deleteEntityModalLabel">{developer:developerDeleteEntityModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">{msg:developerDeleteEntityConfirm()}</p>
+                    <p class="mb-0">{developer:developerDeleteEntityConfirm()}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -543,11 +543,11 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deleteReportModalLabel">{msg:developerDeleteReportModalTitle()}</h5>
+                    <h5 class="modal-title" id="deleteReportModalLabel">{developer:developerDeleteReportModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">{msg:developerDeleteReportConfirm()}</p>
+                    <p class="mb-0">{developer:developerDeleteReportConfirm()}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -566,7 +566,7 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addComputedPropertyModalLabel">{msg:developerAddComputedPropertyModalTitle()}</h5>
+                    <h5 class="modal-title" id="addComputedPropertyModalLabel">{developer:developerAddComputedPropertyModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="addComputedPropertyForm">
@@ -574,7 +574,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonName()} <span style="color:var(--color-required);">*</span></label>
-                            <input type="text" class="form-control app-form-control" id="addComputedPropertyName" name="name" required autocomplete="off" placeholder="{msg:developerComputedPropertyNamePlaceholder()}" data-testid="computed-property-name-input">
+                            <input type="text" class="form-control app-form-control" id="addComputedPropertyName" name="name" required autocomplete="off" placeholder="{developer:developerComputedPropertyNamePlaceholder()}" data-testid="computed-property-name-input">
                         </div>
                         <div class="mb-3">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonType()} <span style="color:var(--color-required);">*</span></label>
@@ -609,7 +609,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editComputedPropertyModalLabel">{msg:developerEditComputedPropertyModalTitle()}</h5>
+                    <h5 class="modal-title" id="editComputedPropertyModalLabel">{developer:developerEditComputedPropertyModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="editComputedPropertyForm">
@@ -635,9 +635,9 @@
                             </select>
                         </div>
                         <hr style="border-color:var(--color-border);">
-                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{msg:developerScriptKotlinLabel()}</div>
-                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{msg:developerComputedPropertyScriptHelp()}</p>
-                        <textarea class="form-control app-form-control form-control-sm" id="editComputedPropertyScript" rows="5" style="font-family:monospace;font-size:0.8rem;" placeholder="{msg:developerComputedPropertyScriptPlaceholder()}" data-testid="computed-property-script-input"></textarea>
+                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerScriptKotlinLabel()}</div>
+                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerComputedPropertyScriptHelp()}</p>
+                        <textarea class="form-control app-form-control form-control-sm" id="editComputedPropertyScript" rows="5" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerComputedPropertyScriptPlaceholder()}" data-testid="computed-property-script-input"></textarea>
                     </div>
                     <div class="modal-footer justify-content-between">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -662,11 +662,11 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deleteComputedPropertyModalLabel">{msg:developerRemoveComputedPropertyModalTitle()}</h5>
+                    <h5 class="modal-title" id="deleteComputedPropertyModalLabel">{developer:developerRemoveComputedPropertyModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">{msg:developerRemoveComputedPropertyConfirm()}</p>
+                    <p class="mb-0">{developer:developerRemoveComputedPropertyConfirm()}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -686,17 +686,17 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editDisplayTextModalLabel">{msg:developerEditDisplayTextModalTitle()}</h5>
+                    <h5 class="modal-title" id="editDisplayTextModalLabel">{developer:developerEditDisplayTextModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="displayTextForm" data-entity-id="{selectedEntity.id}">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:developerTemplateLabel()}</label>
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerTemplateLabel()}</label>
                             <input type="text" class="form-control app-form-control form-control-sm"
                                    id="displayTextInput" name="displayText"
                                    value="{selectedEntity.displayText}"
-                                   placeholder="{msg:developerDisplayTextPlaceholder()}"
+                                   placeholder="{developer:developerDisplayTextPlaceholder()}"
                                    autocomplete="off"
                                    data-testid="display-text-input">
                         </div>
@@ -704,7 +704,7 @@
                             <span class="badge app-badge-muted me-1" style="cursor:pointer;"
                                   data-action="insert-display-text-token"
                                   data-token-prop-id="id"
-                                  data-testid="display-text-token-id">{msg:developerIdBadge()}</span>
+                                  data-testid="display-text-token-id">{developer:developerIdBadge()}</span>
                             {#for prop in selectedEntity.properties}
                             {#if !prop.nullable}
                             <span class="badge app-badge-muted me-1" style="cursor:pointer;"
@@ -735,12 +735,12 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editSortOrderModalLabel">{msg:developerEditSortOrderModalTitle()}</h5>
+                    <h5 class="modal-title" id="editSortOrderModalLabel">{developer:developerEditSortOrderModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
                     <select id="sortPropOptionsTemplate" class="d-none" aria-hidden="true">
-                        <option value="">{msg:developerPropertyPlaceholder()}</option>
+                        <option value="">{developer:developerPropertyPlaceholder()}</option>
                         {#for prop in selectedEntity.properties}
                         <option value="{prop.id}">{prop.name}</option>
                         {/for}
@@ -749,14 +749,14 @@
                         {#for criteria in selectedEntity.sortBy}
                         <div class="d-flex align-items-center gap-2 mb-2" data-testid="sort-criteria-row">
                             <select class="form-select app-form-control form-select-sm sort-prop-select" style="max-width:200px;" data-testid="sort-prop-select">
-                                <option value="">{msg:developerPropertyPlaceholder()}</option>
+                                <option value="">{developer:developerPropertyPlaceholder()}</option>
                                 {#for prop in selectedEntity.properties}
                                 <option value="{prop.id}" {#if prop.id == criteria.propertyId}selected{/if}>{prop.name}</option>
                                 {/for}
                             </select>
                             <select class="form-select app-form-control form-select-sm sort-dir-select" style="max-width:130px;" data-testid="sort-dir-select">
-                                <option value="ASC" {#if criteria.direction.name == "ASC"}selected{/if}>{msg:developerAscendingLabel()}</option>
-                                <option value="DESC" {#if criteria.direction.name == "DESC"}selected{/if}>{msg:developerDescendingLabel()}</option>
+                                <option value="ASC" {#if criteria.direction.name == "ASC"}selected{/if}>{developer:developerAscendingLabel()}</option>
+                                <option value="DESC" {#if criteria.direction.name == "DESC"}selected{/if}>{developer:developerDescendingLabel()}</option>
                             </select>
                             <button type="button" class="btn btn-app-danger btn-sm remove-sort-criteria-btn" data-testid="remove-sort-criteria-btn" title="{msg:commonRemove()}">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
@@ -765,7 +765,7 @@
                         {/for}
                     </div>
                     <div class="mt-2">
-                        <button type="button" id="addSortCriteriaBtn" class="btn btn-app-secondary btn-sm" data-testid="add-sort-criteria-btn">{msg:developerAddSortFieldButton()}</button>
+                        <button type="button" id="addSortCriteriaBtn" class="btn btn-app-secondary btn-sm" data-testid="add-sort-criteria-btn">{developer:developerAddSortFieldButton()}</button>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -789,13 +789,13 @@
             var messagePanel = document.getElementById('version-message');
             var messageTimer = null;
             var networkErrorMessage = '{msg:commonNetworkError()}';
-            var entityOrderNetworkError = '{msg:developerEntityOrderNetworkError()}';
-            var computedPropertyOrderNetworkError = '{msg:developerComputedPropertyOrderNetworkError()}';
-            var propertyOrderNetworkError = '{msg:developerPropertyOrderNetworkError()}';
-            var ascendingLabel = '{msg:developerAscendingLabel()}';
-            var descendingLabel = '{msg:developerDescendingLabel()}';
+            var entityOrderNetworkError = '{developer:developerEntityOrderNetworkError()}';
+            var computedPropertyOrderNetworkError = '{developer:developerComputedPropertyOrderNetworkError()}';
+            var propertyOrderNetworkError = '{developer:developerPropertyOrderNetworkError()}';
+            var ascendingLabel = '{developer:developerAscendingLabel()}';
+            var descendingLabel = '{developer:developerDescendingLabel()}';
             var removeLabel = '{msg:commonRemove()}';
-            var editComputedPropertyModalTitlePrefix = '{msg:developerEditComputedPropertyModalTitle()}';
+            var editComputedPropertyModalTitlePrefix = '{developer:developerEditComputedPropertyModalTitle()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }

@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
@@ -143,6 +145,12 @@ class UserAppStoreResource {
   @Inject
   private lateinit var computedProperty: ComputedPropertyPort
 
+  @Inject
+  private lateinit var msg: AppMessages
+
+  @Inject
+  private lateinit var userMsg: UserMessages
+
   @GET
   @Path("/user/app-store")
   @Produces(MediaType.TEXT_HTML)
@@ -183,7 +191,7 @@ class UserAppStoreResource {
     val userId = securityIdentity.principal.name
     return userAppStore.installApp(userId, appId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "App installed.", "/ui/user/dashboard")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppInstalledMessage(), "/ui/user/dashboard")).build() },
     )
   }
 
@@ -194,7 +202,7 @@ class UserAppStoreResource {
     val userId = securityIdentity.principal.name
     return userAppStore.upgradeApp(userId, installedAppId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, "App upgraded.", "/ui/user/dashboard")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppUpgradedMessage(), "/ui/user/dashboard")).build() },
     )
   }
 
@@ -282,7 +290,7 @@ class UserAppStoreResource {
     form: MultivaluedMap<String, String>,
   ): Response {
     val userId = securityIdentity.principal.name
-    val entityTypeId = form.getFirst("entityTypeId") ?: return Response.ok(DeveloperApiResult(false, "Entity type is required.")).build()
+    val entityTypeId = form.getFirst("entityTypeId") ?: return Response.ok(DeveloperApiResult(false, userMsg.userEntityTypeRequiredError())).build()
     val data = form.entries
       .filter { it.key.startsWith("prop_") }
       .associate { it.key to it.value }
@@ -297,7 +305,7 @@ class UserAppStoreResource {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
         }
       },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Data created.", "/ui/user/apps/$installedAppId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), "/ui/user/apps/$installedAppId")).build() },
     )
   }
 
@@ -397,7 +405,7 @@ class UserAppStoreResource {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
         }
       },
-      ifRight = { Response.ok(DeveloperApiResult(true, "Data updated.", "/ui/user/apps/$installedAppId/data/$dataId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userDataUpdatedMessage(), "/ui/user/apps/$installedAppId/data/$dataId")).build() },
     )
   }
 
@@ -433,51 +441,51 @@ class UserAppStoreResource {
     return appData.deleteAppData(userId, installedAppId, dataId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
       ifRight = { count ->
-        val message = if (count > 0) "Data deleted. $count reference(s) cleared." else "Data deleted."
+        val message = if (count > 0) userMsg.userDataDeletedWithReferencesMessage(count) else userMsg.userDataDeletedMessage()
         Response.ok(DeveloperApiResult(true, message, "/ui/user/apps/$installedAppId")).build()
       },
     )
   }
 
   private fun appStoreErrorMessage(code: String): String = when (code) {
-    UserAppStoreError.APP_NOT_FOUND.code -> "App not found."
-    UserAppStoreError.NO_PUBLISHED_VERSION.code -> "No published version available."
-    UserAppStoreError.ALREADY_INSTALLED.code -> "App is already installed."
-    UserAppStoreError.NOT_INSTALLED.code -> "App is not installed."
-    UserAppStoreError.INSTALLED_APP_NOT_FOUND.code -> "Installed app not found."
-    UserAppStoreError.ALREADY_UP_TO_DATE.code -> "App is already up to date."
-    else -> "An unexpected error occurred. Please try again."
+    UserAppStoreError.APP_NOT_FOUND.code -> userMsg.userAppNotFoundError()
+    UserAppStoreError.NO_PUBLISHED_VERSION.code -> userMsg.userNoPublishedVersionError()
+    UserAppStoreError.ALREADY_INSTALLED.code -> userMsg.userAlreadyInstalledError()
+    UserAppStoreError.NOT_INSTALLED.code -> userMsg.userNotInstalledError()
+    UserAppStoreError.INSTALLED_APP_NOT_FOUND.code -> userMsg.userInstalledAppNotFoundError()
+    UserAppStoreError.ALREADY_UP_TO_DATE.code -> userMsg.userAlreadyUpToDateError()
+    else -> msg.commonUnexpectedError()
   }
 
   private fun appDataErrorMessage(code: String): String = when (code) {
-    AppDataError.INSTALLED_APP_NOT_FOUND.code -> "Installed app not found."
-    AppDataError.ENTITY_NOT_FOUND.code -> "Entity type not found."
-    AppDataError.CONSTRAINT_VIOLATION.code -> "One or more values violate constraints."
-    AppDataError.APP_DATA_NOT_FOUND.code -> "App data not found."
-    AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> "Cannot delete: this entry is referenced by a required property in another record. Please remove or update the referencing records first."
-    else -> "An unexpected error occurred. Please try again."
+    AppDataError.INSTALLED_APP_NOT_FOUND.code -> userMsg.userInstalledAppNotFoundError()
+    AppDataError.ENTITY_NOT_FOUND.code -> userMsg.userEntityNotFoundError()
+    AppDataError.CONSTRAINT_VIOLATION.code -> userMsg.userConstraintViolationError()
+    AppDataError.APP_DATA_NOT_FOUND.code -> userMsg.userAppDataNotFoundError()
+    AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> userMsg.userReferencedByNonNullablePropertyError()
+    else -> msg.commonUnexpectedError()
   }
 
   private fun constraintViolationMessage(violation: PropertyConstraintViolation): String = when (violation) {
-    is PropertyConstraintViolation.UniqueKeyViolation -> "Value must be unique."
-    is PropertyConstraintViolation.MinValueViolation -> "Value is below the allowed minimum of ${violation.min}."
-    is PropertyConstraintViolation.MaxValueViolation -> "Value exceeds the allowed maximum of ${violation.max}."
-    is PropertyConstraintViolation.MinLengthViolation -> "Value must be at least ${violation.min} characters long."
-    is PropertyConstraintViolation.MaxLengthViolation -> "Value must not exceed ${violation.max} characters."
-    is PropertyConstraintViolation.PatternViolation -> "Value does not match the required pattern: ${violation.regex}."
-    is PropertyConstraintViolation.MinSizeViolation -> "List must have at least ${violation.min} elements."
-    is PropertyConstraintViolation.MaxSizeViolation -> "List must not have more than ${violation.max} elements."
-    is PropertyConstraintViolation.InvalidReferenceViolation -> "Selected reference is invalid or no longer exists."
-    is PropertyConstraintViolation.MinDateViolation -> "Date must not be before ${violation.min}."
-    is PropertyConstraintViolation.MaxDateViolation -> "Date must not be after ${violation.max}."
-    is PropertyConstraintViolation.MinTimeViolation -> "Time must not be before ${violation.min}."
-    is PropertyConstraintViolation.MaxTimeViolation -> "Time must not be after ${violation.max}."
-    is PropertyConstraintViolation.MinDatetimeViolation -> "Date/time must not be before ${violation.min}."
-    is PropertyConstraintViolation.MaxDatetimeViolation -> "Date/time must not be after ${violation.max}."
-    is PropertyConstraintViolation.MinDurationViolation -> "Duration must not be less than ${violation.min}."
-    is PropertyConstraintViolation.MaxDurationViolation -> "Duration must not exceed ${violation.max}."
-    is PropertyConstraintViolation.StepViolation -> "Value must be a multiple of ${violation.step}."
-    is PropertyConstraintViolation.InvalidDurationFormatViolation -> "Value must use the duration format $DURATION_FORMAT_HINT."
+    is PropertyConstraintViolation.UniqueKeyViolation -> userMsg.userUniqueKeyViolationError()
+    is PropertyConstraintViolation.MinValueViolation -> userMsg.userMinValueViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxValueViolation -> userMsg.userMaxValueViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinLengthViolation -> userMsg.userMinLengthViolationError(violation.min)
+    is PropertyConstraintViolation.MaxLengthViolation -> userMsg.userMaxLengthViolationError(violation.max)
+    is PropertyConstraintViolation.PatternViolation -> userMsg.userPatternViolationError(violation.regex)
+    is PropertyConstraintViolation.MinSizeViolation -> userMsg.userMinSizeViolationError(violation.min)
+    is PropertyConstraintViolation.MaxSizeViolation -> userMsg.userMaxSizeViolationError(violation.max)
+    is PropertyConstraintViolation.InvalidReferenceViolation -> userMsg.userInvalidReferenceViolationError()
+    is PropertyConstraintViolation.MinDateViolation -> userMsg.userMinDateViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxDateViolation -> userMsg.userMaxDateViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinTimeViolation -> userMsg.userMinTimeViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxTimeViolation -> userMsg.userMaxTimeViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinDatetimeViolation -> userMsg.userMinDatetimeViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxDatetimeViolation -> userMsg.userMaxDatetimeViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinDurationViolation -> userMsg.userMinDurationViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxDurationViolation -> userMsg.userMaxDurationViolationError(violation.max.toString())
+    is PropertyConstraintViolation.StepViolation -> userMsg.userStepViolationError(violation.step.toString())
+    is PropertyConstraintViolation.InvalidDurationFormatViolation -> userMsg.userInvalidDurationFormatViolationError(DURATION_FORMAT_HINT)
   }
 
   private fun applySortCriteria(

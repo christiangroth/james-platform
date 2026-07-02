@@ -118,7 +118,7 @@ class ComputedPropertyPanelTests {
       .statusCode(200)
       .extract().body().asString()
 
-    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)"[^>]*aria-label="Open app ${Regex.escape(appName)}"""")
+    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)"[^>]*aria-label="App ${Regex.escape(appName)} öffnen"""")
       .find(dashboardHtml)?.groupValues?.get(1) ?: ""
 
     return Triple(installedAppId, entityId, computedPropertyId)
@@ -154,7 +154,7 @@ class ComputedPropertyPanelTests {
       .then()
       .statusCode(200)
       .body(containsString("computed-properties-toggle"))
-      .body(containsString("Computed Properties"))
+      .body(containsString("Berechnete Eigenschaften"))
       .body(containsString("DoublePrice"))
   }
 
@@ -213,7 +213,7 @@ class ComputedPropertyPanelTests {
       .statusCode(200)
       .extract().body().asString()
 
-    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)"[^>]*aria-label="Open app ${Regex.escape(appName)}"""")
+    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)"[^>]*aria-label="App ${Regex.escape(appName)} öffnen"""")
       .find(dashboardHtml)?.groupValues?.get(1) ?: ""
 
     given()
@@ -241,6 +241,6 @@ class ComputedPropertyPanelTests {
       .then()
       .statusCode(200)
       .body(not(containsString("computed-properties-toggle")))
-      .body(not(containsString("Computed Properties")))
+      .body(not(containsString("Berechnete Eigenschaften")))
   }
 }

@@ -37,11 +37,19 @@ dedicated view model class inside `adapter-in-web`.
 
 ## Internationalization (i18n)
 
-- Templates must not contain literal user-facing text – every piece of text is a placeholder resolved via the Qute message bundle, e.g. `{msg:loginTitle()}`
-- Message keys are declared as methods on `AppMessages` (`adapter-in-web/src/main/kotlin/.../adapter/in/web/i18n/AppMessages.kt`), annotated `@Message` with no value
-- Message values live exclusively in `adapter-in-web/src/main/resources/messages/msg_<locale>.properties` – never put the text inline as the `@Message` annotation value
-- **German (`de`) is the default and fallback locale** (`quarkus.default-locale=de` in `application-quarkus`) – `messages/msg_de.properties` is the source of truth until further locales are added
-- Error codes passed from the backend (e.g. `LoginError`) are still mapped to human-readable text in the resource class, but that text must come from `AppMessages`, not a hardcoded string
+- Templates must not contain literal user-facing text – every piece of text is a placeholder resolved via a Qute message bundle, e.g. `{msg:loginTitle()}` or `{developer:developerDraftLabel()}`
+- Message bundles are split by area, each with its own qualifier/prefix, interface file, and properties file – pick the bundle by where the text is used, not by who is logged in:
+  - **Base** (`msg:`) – `AppMessages` / `messages/msg_de.properties`: login, common (`commonCancel`, `commonSave`, …), property types, layout/navigation, profile, and anything shared across areas
+  - **Developer** (`developer:`) – `DeveloperMessages` / `messages/developer_de.properties`: everything under `ui/developer/**` plus `DeveloperAppResource`
+  - **User** (`user:`) – `UserMessages` / `messages/user_de.properties`: everything under `ui/user/**` (dashboard, app store, app data) plus the backing resource classes
+  - **Admin** (`admin:`) – introduced the same way once admin templates (`ui/admin/**`, `health.html`, `logs.html`, `config.html`, `mongodb-viewer.html`) are migrated; not yet created since there is no admin content in a bundle yet
+  - A page never mixes prefixes for its own area's keys, but may still reference `msg:` for shared/common keys (e.g. `msg:commonCancel()` inside a developer-area template)
+- Message keys are declared as methods on the relevant `*Messages` interface (`adapter-in-web/src/main/kotlin/.../adapter/in/web/i18n/`), annotated `@Message` with no value; each
+  interface other than the base `AppMessages` is annotated `@MessageBundle("<qualifier>")` (e.g. `@MessageBundle("developer")`), which also determines its properties file name
+  (`messages/<qualifier>_<locale>.properties`)
+- Message values live exclusively in the bundle's `messages/<qualifier>_<locale>.properties` file – never put the text inline as the `@Message` annotation value
+- **German (`de`) is the default and fallback locale** (`quarkus.default-locale=de` in `application-quarkus`) – the `*_de.properties` files are the source of truth until further locales are added
+- Error codes passed from the backend (e.g. `LoginError`) are still mapped to human-readable text in the resource class, but that text must come from the appropriate `*Messages` bundle, not a hardcoded string
 - Exception: the application name **James Platform** is a brand name and is never translated
 - Parametrized message methods (e.g. `fun developerEntityHeading(name: String): String`) work because `adapter-in-web`'s Kotlin compilation enables the `javaParameters` compiler
   option (see `adapter-in-web/build.gradle.kts`) – without it, Qute cannot resolve `{name}`-style placeholders via reflection on Kotlin-compiled methods
@@ -49,7 +57,8 @@ dedicated view model class inside `adapter-in-web`.
   of adding near-duplicate keys
 - Hardcoded literal strings inside `<script>` blocks (e.g. `showMessage(false, 'Network error. Please try again.')`) should also be localized: declare a JS variable near the top of
   the page's IIFE from a `{msg:...}` expression (e.g. `var networkErrorMessage = '{msg:commonNetworkError()}';`) and reference that variable instead of the literal string
-- This is an incremental migration – `login.html` / `LoginResource` is the reference implementation; other templates still containing literal text are migrated as they are touched
+- This is an incremental migration – `login.html` / `LoginResource` is the reference implementation for the base bundle, and the `ui/developer/**` pages are the reference for a
+  split area bundle; other templates still containing literal text are migrated as they are touched
 
 ## Live Updates via SSE
 
