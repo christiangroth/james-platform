@@ -15,12 +15,13 @@
 
 ## Green Build Requirement for PRs
 
-**Every PR must have a green CI build before merging.** Follow these rules:
+**Every PR must be in a known-green state before merging into `main`.** Automatic CI (`.github/workflows/gradle.yml`) may not run on every push to a PR branch (e.g. branch-scoped triggers can be disabled to save CI minutes), so this requirement is primarily enforced by Claude itself — not by waiting for a CI badge:
 
-- **Never use `[no ci]`** in commit messages to bypass CI. All commits to a PR branch must be validated by CI.
-- **Run `./gradlew build` before pushing** to verify the build, tests, and static analysis all pass.
-- **CI must be green** on the PR branch before requesting or completing a merge into `main`.
-- If CI fails on a PR, fix the underlying issue — do not skip CI.
+- **Run `./gradlew build` locally before every commit and push.** This runs tests and static analysis and must pass; treat a local failure exactly like a red CI check.
+- **Never skip this local verification** to save time. There is no local equivalent of `[no ci]` — every commit must be built and tested first.
+- If the local build fails, fix the underlying issue before committing — do not work around it, disable checks, or push additional "fix" commits on top of a known-red state.
+- Automatic CI on `main` remains the final safety net after merge. If it ever goes red, treat it as a priority bug and fix it immediately.
+- If a human reviewer wants an independent CI run on a PR branch before merging, it can still be triggered manually via `workflow_dispatch` in the Actions tab.
 
 ## Formatting
 
