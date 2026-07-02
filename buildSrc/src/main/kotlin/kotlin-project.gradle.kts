@@ -75,5 +75,6 @@ tasks {
     testLogging {
       events("passed", "skipped", "failed")
     }
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
   }
 }
