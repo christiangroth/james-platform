@@ -1,0 +1,2 @@
+* Added a language switch to the navbar. German remains the default; the second option is an artificial "Underscore" test locale, generated automatically from the German texts, that replaces every letter and digit with `_` while keeping spaces and punctuation - useful for spotting texts that are not yet translatable.
+* The chosen language is remembered in the browser (cookie) so it stays selected across visits.

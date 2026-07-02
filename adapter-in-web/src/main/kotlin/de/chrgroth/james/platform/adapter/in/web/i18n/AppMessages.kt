@@ -182,6 +182,9 @@ interface AppMessages {
   fun layoutThemeToggleLabel(): String
 
   @Message
+  fun layoutLanguageToggleLabel(): String
+
+  @Message
   fun layoutNavProfileTitle(): String
 
   @Message
