@@ -56,6 +56,16 @@ class LoginPageTests {
   }
 
   @Test
+  fun `login page displays German hero tagline resolved from message bundle`() {
+    given()
+      .`when`()
+      .get("/")
+      .then()
+      .statusCode(200)
+      .body(containsString("Low-Code-Plattform"))
+  }
+
+  @Test
   fun `login page displays dynamic app version from build`() {
     given()
       .`when`()

@@ -43,6 +43,12 @@ dedicated view model class inside `adapter-in-web`.
 - **German (`de`) is the default and fallback locale** (`quarkus.default-locale=de` in `application-quarkus`) – `messages/msg_de.properties` is the source of truth until further locales are added
 - Error codes passed from the backend (e.g. `LoginError`) are still mapped to human-readable text in the resource class, but that text must come from `AppMessages`, not a hardcoded string
 - Exception: the application name **James Platform** is a brand name and is never translated
+- Parametrized message methods (e.g. `fun developerEntityHeading(name: String): String`) work because `adapter-in-web`'s Kotlin compilation enables the `javaParameters` compiler
+  option (see `adapter-in-web/build.gradle.kts`) – without it, Qute cannot resolve `{name}`-style placeholders via reflection on Kotlin-compiled methods
+- Reuse existing keys across pages wherever the text is identical (e.g. `commonCancel`, `commonSave`, `commonDelete`, `developerBreadcrumbDevelopment`, `developerDraftLabel`) instead
+  of adding near-duplicate keys
+- Hardcoded literal strings inside `<script>` blocks (e.g. `showMessage(false, 'Network error. Please try again.')`) should also be localized: declare a JS variable near the top of
+  the page's IIFE from a `{msg:...}` expression (e.g. `var networkErrorMessage = '{msg:commonNetworkError()}';`) and reference that variable instead of the literal string
 - This is an incremental migration – `login.html` / `LoginResource` is the reference implementation; other templates still containing literal text are migrated as they are touched
 
 ## Live Updates via SSE

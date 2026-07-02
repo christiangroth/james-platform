@@ -2,11 +2,11 @@
     <div class="card-header d-flex align-items-center gap-2" style="background-color:var(--color-bg-nested);border-color:var(--color-border);">
         <span class="fw-semibold" data-testid="{sectionTestId}-diff-name">{section.name}</span>
         {#if section.status.name == 'ADDED'}
-        <span class="badge ms-auto" style="background-color:var(--color-diff-added-bg);color:var(--color-diff-added-text);border:1px solid var(--color-diff-added-border);" data-testid="{sectionTestId}-diff-status">Added</span>
+        <span class="badge ms-auto" style="background-color:var(--color-diff-added-bg);color:var(--color-diff-added-text);border:1px solid var(--color-diff-added-border);" data-testid="{sectionTestId}-diff-status">{msg:developerDiffAdded()}</span>
         {#else if section.status.name == 'REMOVED'}
-        <span class="badge ms-auto" style="background-color:var(--color-diff-removed-bg);color:var(--color-diff-removed-text);border:1px solid var(--color-diff-removed-border);" data-testid="{sectionTestId}-diff-status">Removed</span>
+        <span class="badge ms-auto" style="background-color:var(--color-diff-removed-bg);color:var(--color-diff-removed-text);border:1px solid var(--color-diff-removed-border);" data-testid="{sectionTestId}-diff-status">{msg:developerDiffRemoved()}</span>
         {#else}
-        <span class="badge ms-auto" style="background-color:var(--color-diff-modified-bg);color:var(--color-diff-modified-text);border:1px solid var(--color-diff-modified-border);" data-testid="{sectionTestId}-diff-status">Modified</span>
+        <span class="badge ms-auto" style="background-color:var(--color-diff-modified-bg);color:var(--color-diff-modified-text);border:1px solid var(--color-diff-modified-border);" data-testid="{sectionTestId}-diff-status">{msg:developerDiffModified()}</span>
         {/if}
     </div>
     <div class="card-body p-0">
