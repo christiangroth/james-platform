@@ -1,3 +1,12 @@
+# 0.58.0 (2026.07.02)
+
+## New Features
+* Added German as the default language, starting with the login page and the developer app/version/property management screens.
+
+
+
+---
+
 # 0.57.0 (2026.07.02)
 
 ## New Features
