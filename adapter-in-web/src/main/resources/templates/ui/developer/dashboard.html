@@ -1,11 +1,11 @@
 {#include layout.html}
-    {#title}James Platform – Developer Dashboard{/title}
+    {#title}James Platform – {msg:developerDashboardTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-developer">Development</li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-developer">{msg:developerBreadcrumbDevelopment()}</li>
             </ol>
         </nav>
 
@@ -19,18 +19,18 @@
                      data-bs-toggle="modal" data-bs-target="#createAppModal"
                      data-testid="new-app-tile"
                      role="button"
-                     aria-label="Create a new app">
+                     aria-label="{msg:developerDashboardNewAppAriaLabel()}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="var(--color-text-muted)" viewBox="0 0 16 16" class="mb-2" aria-hidden="true">
                         <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
                     </svg>
-                    <div class="fw-semibold fs-6">New App</div>
+                    <div class="fw-semibold fs-6">{msg:developerDashboardNewAppTile()}</div>
                 </div>
             </div>
 
             <!-- Existing app tiles -->
             {#for appInfo in apps}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/developer/apps/{appInfo.app.id}" class="text-decoration-none" data-testid="app-tile" aria-label="Open app {appInfo.app.name}">
+                <a href="/ui/developer/apps/{appInfo.app.id}" class="text-decoration-none" data-testid="app-tile" aria-label="{msg:developerDashboardOpenAppAriaLabel(appInfo.app.name)}">
                     <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
                         <div class="fw-semibold fs-6 mb-1" data-testid="app-name">{appInfo.app.name}</div>
                         {#if appInfo.app.description}
@@ -38,7 +38,7 @@
                         {/if}
                         <div class="mt-auto d-flex align-items-center gap-2 flex-wrap">
                             {#if appInfo.hasDraft}
-                            <span class="badge app-badge-processing" data-testid="app-draft-badge">Draft</span>
+                            <span class="badge app-badge-processing" data-testid="app-draft-badge">{msg:developerDraftLabel()}</span>
                             {/if}
                             {#if appInfo.latestVersionNumber}
                             <span class="app-section-label" style="font-size:0.75rem;" data-testid="app-latest-version">v{appInfo.latestVersionNumber}</span>
@@ -57,23 +57,23 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="createAppModalLabel">New App</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="createAppModalLabel">{msg:developerCreateAppModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="createAppForm">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="newAppName" class="form-label">Name <span class="text-danger">*</span></label>
+                            <label for="newAppName" class="form-label">{msg:commonName()} <span class="text-danger">*</span></label>
                             <input type="text" class="form-control app-form-control" id="newAppName" name="name" required autocomplete="off" data-testid="create-app-name-input">
                         </div>
                         <div class="mb-3">
-                            <label for="newAppDescription" class="form-label">Description</label>
+                            <label for="newAppDescription" class="form-label">{msg:developerDescriptionLabel()}</label>
                             <textarea class="form-control app-form-control" id="newAppDescription" name="description" rows="3" autocomplete="off" data-testid="create-app-description-input"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer justify-content-end gap-2">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="create-app-submit-button">Create App</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="create-app-submit-button">{msg:developerCreateAppSubmitButton()}</button>
                     </div>
                 </form>
             </div>
@@ -85,13 +85,14 @@
         (function () {
             var messagePanel = document.getElementById('dashboard-message');
             var messageTimer = null;
+            var networkErrorMessage = '{msg:commonNetworkError()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
                 messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
                 messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 messagePanel.innerHTML = message
-                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
                 messageTimer = setTimeout(function () {
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
@@ -119,7 +120,7 @@
                             showMessage(result.ok, result.message);
                         }
                     } catch (e) {
-                        showMessage(false, 'Network error. Please try again.');
+                        showMessage(false, networkErrorMessage);
                     } finally {
                         submitBtn.disabled = false;
                     }

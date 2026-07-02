@@ -3,6 +3,14 @@ plugins {
   alias(libs.plugins.allopen)
 }
 
+kotlin {
+  // Qute message bundle interfaces (see AppMessages) resolve `{paramName}` placeholders via reflection on method
+  // parameter names, which the JVM only retains when compiled with this flag.
+  compilerOptions {
+    javaParameters = true
+  }
+}
+
 dependencies {
   implementation(project(":domain-api"))
 
