@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{currentLanguage}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -128,6 +128,23 @@
             display: none;
         }
         [data-theme="light"] .theme-toggle-icon-sun {
+            display: inline;
+        }
+        /* Language toggle button - shows the code of the currently active language */
+        .language-toggle-label-de,
+        .language-toggle-label-xx {
+            font-size: 0.75rem;
+        }
+        .language-toggle-label-de {
+            display: inline;
+        }
+        .language-toggle-label-xx {
+            display: none;
+        }
+        html[lang="xx"] .language-toggle-label-de {
+            display: none;
+        }
+        html[lang="xx"] .language-toggle-label-xx {
             display: inline;
         }
         /* Primary action button (OK, Save, Submit, general actions) */
@@ -579,6 +596,10 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-moon" aria-hidden="true"><use href="#icon-theme-moon"/></svg>
         </button>
+        <button type="button" id="language-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0 fw-bold" data-testid="language-toggle-button" title="{msg:layoutLanguageToggleLabel()}" aria-label="{msg:layoutLanguageToggleLabel()}">
+            <span class="language-toggle-label-de" aria-hidden="true">DE</span>
+            <span class="language-toggle-label-xx" aria-hidden="true">XX</span>
+        </button>
         {#insert navLinks}
         <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="{msg:layoutNavProfileTitle()}" aria-label="{msg:layoutNavProfileAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
         <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="{msg:layoutNavAppStoreTitle()}" aria-label="{msg:layoutNavAppStoreAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
@@ -609,6 +630,7 @@
     <script src="/sse-utils.js?v={assetVersion}"></script>
     <script src="/breadcrumb-utils.js?v={assetVersion}"></script>
     <script src="/theme-utils.js?v={assetVersion}"></script>
+    <script src="/language-utils.js?v={assetVersion}"></script>
     {#insert navbarSse}
     <script>
         (function() {

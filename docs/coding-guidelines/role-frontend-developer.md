@@ -37,6 +37,9 @@ dedicated view model class inside `adapter-in-web`.
 
 ## Internationalization (i18n)
 
+- **Standing rule, no exceptions:** any change to an existing template or any newly added template must never write literal user-facing text into the template. Every piece of text is
+  always a placeholder resolved via a Qute message bundle, e.g. `{msg:loginTitle()}` or `{developer:developerDraftLabel()}` – there is no "quick literal string for now" allowed, even
+  for a single word or a one-off page; add the key to the appropriate `*Messages` bundle and its `messages/<qualifier>_de.properties` file instead
 - Templates must not contain literal user-facing text – every piece of text is a placeholder resolved via a Qute message bundle, e.g. `{msg:loginTitle()}` or `{developer:developerDraftLabel()}`
 - Message bundles are split by area, each with its own qualifier/prefix, interface file, and properties file – pick the bundle by where the text is used, not by who is logged in:
   - **Base** (`msg:`) – `AppMessages` / `messages/msg_de.properties`: login, common (`commonCancel`, `commonSave`, …), property types, `layout.html`/navigation, `error.html`, profile, and anything shared across areas
@@ -48,7 +51,10 @@ dedicated view model class inside `adapter-in-web`.
   interface other than the base `AppMessages` is annotated `@MessageBundle("<qualifier>")` (e.g. `@MessageBundle("developer")`), which also determines its properties file name
   (`messages/<qualifier>_<locale>.properties`)
 - Message values live exclusively in the bundle's `messages/<qualifier>_<locale>.properties` file – never put the text inline as the `@Message` annotation value
-- **German (`de`) is the default and fallback locale** (`quarkus.default-locale=de` in `application-quarkus`) – the `*_de.properties` files are the source of truth until further locales are added
+- **German (`de`) is the default and fallback locale** (`quarkus.default-locale=de` in `application-quarkus`) – the `*_de.properties` files are the **only hand-maintained source of
+  truth**; every `*Messages` key must have a German value
+- A second locale, **`xx` ("Underscore")**, is generated automatically at build time from the German properties (see "Language switching" below) – never hand-author or edit an
+  `*_xx.properties` file; it is a build artifact, not source
 - Error codes passed from the backend (e.g. `LoginError`) are still mapped to human-readable text in the resource class, but that text must come from the appropriate `*Messages` bundle, not a hardcoded string
 - Exception: the application name **James Platform** is a brand name and is never translated
 - Parametrized message methods (e.g. `fun developerEntityHeading(name: String): String`) work because `adapter-in-web`'s Kotlin compilation enables the `javaParameters` compiler
@@ -109,6 +115,26 @@ The app logo (`#icon-nav-app` in the shared SVG sprite, also embedded standalone
 - Manual override: the sun/moon toggle button in the navbar (`#theme-toggle`, wired up in `theme-utils.js`) flips `data-theme` and persists the choice to `localStorage` under
   the `theme` key; once a manual choice exists, OS theme changes are no longer followed.
 - The toggle button is rendered directly in `layout.html`'s navbar markup (outside any `{#insert}` block) so it is present on every page, including the login page.
+
+### Language switching
+
+Unlike the theme toggle, the language choice must be known **server-side** before a page is rendered, since text is resolved by Qute message bundles during SSR (not via CSS). The
+mechanism therefore differs from the client-only theme toggle:
+
+- The active language is a `lang` cookie (`de` or `xx`, default `de`), persisted client-side – this is the "client persistent" option; there is no server-side/profile persistence.
+- `AppTemplateGlobals` (`adapter-in-web/.../adapter/in/web/AppTemplateGlobals.kt`) reads the `lang` cookie once per request via the injected `RoutingContext` and calls
+  `TemplateInstance.setLocale(...)` inside the global `addTemplateInstanceInitializer` hook – this is the **single, central** place locale resolution happens; individual resource
+  classes and templates never need to handle it themselves.
+- The `de`/`xx` toggle button in the navbar (`#language-toggle`, wired up in `language-utils.js`) sets the `lang` cookie and reloads the page so the new locale takes effect
+  immediately; it is rendered next to the theme toggle, outside any `{#insert}` block, so it is present on every page including the login page.
+- `<html lang="{currentLanguage}">` in `layout.html` reflects the resolved language (also exposed as the `currentLanguage` template global) and drives which toggle label
+  (`.language-toggle-label-de` / `.language-toggle-label-xx`) is visible via CSS, the same pattern as the theme toggle's sun/moon icons.
+- **`xx` ("Underscore") is an artificial test locale**, not a real translation: it is generated automatically at build time (`generatePseudoLocaleMessages` task in
+  `adapter-in-web/build.gradle.kts`) from every `messages/<qualifier>_de.properties` file by replacing each letter/digit with `_` while keeping whitespace, punctuation and other
+  special characters, and preserving `{param}` placeholders untouched. Its purpose is to make any template text that is **not** routed through a message bundle immediately obvious
+  during UI testing (it stays readable German instead of turning into underscores). Because it is generated from the current German properties on every build, it can never drift –
+  do not hand-author or commit an `*_xx.properties` file.
+- Registered as a supported locale via `quarkus.locales=de,xx` (both `adapter-in-web` and `application-quarkus` `application.properties`).
 
 ## CSS Component Classes
 
@@ -445,6 +471,7 @@ Two utility files are always available because they are included unconditionally
 | `/META-INF/resources/settings-utils.js` | `layout.html` |
 | `/META-INF/resources/sse-utils.js` | `layout.html` |
 | `/META-INF/resources/theme-utils.js` | `layout.html` |
+| `/META-INF/resources/language-utils.js` | `layout.html` |
 
 ### `settings-utils.js`
 
@@ -489,6 +516,14 @@ connectSse('/dashboard/events', function (event) {
 
 The initial theme (before this file even loads) is set by a small inline script at the top of `<head>` in `layout.html`, reading `localStorage.theme` or falling back to
 `prefers-color-scheme`, so there is no flash of the wrong theme on page load.
+
+### `language-utils.js`
+
+| Function | Signature | Description |
+|---|---|---|
+| `initLanguageToggle` | `()` | Wires up the `#language-toggle` navbar button (click to flip the `lang` cookie between `de` and `xx`, then reload the page so SSR re-renders in the new locale). Called automatically on `DOMContentLoaded`. |
+
+Unlike the theme toggle, the language must be known server-side before rendering (see "Language switching" above), so this reloads the page rather than only updating an attribute.
 
 ### When to use which utility
 
