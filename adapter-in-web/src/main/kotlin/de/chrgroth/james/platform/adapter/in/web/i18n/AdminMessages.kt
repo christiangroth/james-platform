@@ -6,40 +6,6 @@ import io.quarkus.qute.i18n.MessageBundle
 @MessageBundle("admin")
 interface AdminMessages {
 
-  // shared admin navbar dropdown (ui/admin/users.html, ui/admin/dashboard.html)
-  @Message
-  fun adminNavTechnicalTitle(): String
-
-  @Message
-  fun adminNavHealthLabel(): String
-
-  @Message
-  fun adminNavConfigLabel(): String
-
-  @Message
-  fun adminNavLogsUiLabel(): String
-
-  @Message
-  fun adminNavGrafanaLogsLabel(): String
-
-  @Message
-  fun adminNavGrafanaMetricsLabel(): String
-
-  @Message
-  fun adminNavMongoViewerLabel(): String
-
-  @Message
-  fun adminNavMongoAtlasLabel(): String
-
-  @Message
-  fun adminNavDocsLabel(): String
-
-  @Message
-  fun adminNavGithubLabel(): String
-
-  @Message
-  fun adminNavLogoutLabel(): String
-
   // admin dashboard
   @Message
   fun adminDashboardTitle(): String

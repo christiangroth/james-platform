@@ -4,7 +4,7 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="User Dashboard" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
                 {#if selectedEntity != null}
@@ -789,9 +789,6 @@
             var messagePanel = document.getElementById('version-message');
             var messageTimer = null;
             var networkErrorMessage = '{msg:commonNetworkError()}';
-            var entityOrderNetworkError = '{developer:developerEntityOrderNetworkError()}';
-            var computedPropertyOrderNetworkError = '{developer:developerComputedPropertyOrderNetworkError()}';
-            var propertyOrderNetworkError = '{developer:developerPropertyOrderNetworkError()}';
             var ascendingLabel = '{developer:developerAscendingLabel()}';
             var descendingLabel = '{developer:developerDescendingLabel()}';
             var removeLabel = '{msg:commonRemove()}';
@@ -1106,7 +1103,7 @@
                             versionBumpData = null;
                         }
                     } catch (e) {
-                        showMessage(false, entityOrderNetworkError);
+                        showMessage(false, networkErrorMessage);
                     }
                 }
 
@@ -1435,7 +1432,7 @@
                         var result = await response.json();
                         if (!result.ok) { showMessage(false, result.message); }
                     } catch (e) {
-                        showMessage(false, computedPropertyOrderNetworkError);
+                        showMessage(false, networkErrorMessage);
                     }
                 }
 
@@ -1514,7 +1511,7 @@
                         var result = await response.json();
                         if (!result.ok) { showMessage(false, result.message); }
                     } catch (e) {
-                        showMessage(false, propertyOrderNetworkError);
+                        showMessage(false, networkErrorMessage);
                     }
                 }
 
