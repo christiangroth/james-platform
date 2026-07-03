@@ -1,3 +1,22 @@
+# 0.61.1 (2026.07.03)
+
+## Bugfixes / Chore
+* Reordered the navigation bar: profile, language switch and theme switch are now left-aligned, while app store, tools and logout are right-aligned.
+* The page background now stretches over the full page height without repeating, no matter the screen resolution.
+* Login page now shows the app name, tagline and feature highlights on small screens too, not just on wider screens.
+* Fixed several texts in the nested object property editor (data entry forms) that were shown in English instead of being translated.
+* The breadcrumb navigation label is now translated instead of always showing the English word "breadcrumb".
+* Admin accounts no longer have access to the App Store, in the navigation or directly via URL.
+* Admin now always lands on the Admin Dashboard, and can no longer open the User Dashboard directly; non-admins can no longer open the Admin Dashboard directly.
+* Deleting a user now shows a confirmation dialog inside the app instead of a browser popup.
+* Health, logs, MongoDB viewer and configuration pages now use their own translation texts, separate from user administration.
+* The app name "James Platform" shown in the browser tab title, the login page heading and the navigation logo now comes from the translation files instead of being hardcoded.
+* Added a browser tab description and app name to the page metadata.
+
+
+
+---
+
 # 0.61.0 (2026.07.02)
 
 ## New Features
