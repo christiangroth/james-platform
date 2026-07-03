@@ -37,16 +37,16 @@ way product logos (Spotify, Slack, etc.) typically don't reflow with theme — a
 
 ## Login page → landing-page treatment
 
-`login.html` now splits into two panels above the `md` breakpoint (single column below it, unchanged behavior on mobile):
+`login.html` splits into two panels, stacked in a single column below the `md` breakpoint and shown side by side above it:
 
-- **Left "hero" panel** (`.login-hero`, hidden below `md`): logo mark at a larger size, the app name, the one-line product description already used in `README.md` ("A personal
-  low-code platform for building and running data-centric apps"), and three short feature bullets pulled directly from the real feature set (custom data models, installing apps
-  without infra boilerplate, built-in docs/health/monitoring) — no invented marketing copy.
-- **Right panel**: the existing login card, unchanged in behavior/markup for form fields, `data-testid`s, and error handling (`LoginPageTests`/`LoginRedirectTests` assert on
-  `data-testid="login-button"`, field `name`s, and the `James Platform` string, all still present).
+- **Hero panel** (`.login-hero`, top on narrow screens, left from `md` up): logo mark at a larger size, the app name, the one-line product description already used in
+  `README.md` ("A personal low-code platform for building and running data-centric apps"), and three short feature bullets pulled directly from the real feature set (custom
+  data models, installing apps without infra boilerplate, built-in docs/health/monitoring) — no invented marketing copy.
+- **Login card** (below the hero on narrow screens, right from `md` up): the existing login card, unchanged in behavior/markup for form fields, `data-testid`s, and error
+  handling (`LoginPageTests`/`LoginRedirectTests` assert on `data-testid="login-button"`, field `name`s, and the `James Platform` string, all still present).
 
-On mobile the hero panel is dropped entirely (`d-none d-md-flex`) and the login card falls back to the original compact single-column layout with its own small logo, so nothing
-is lost on small screens.
+On mobile the hero panel is shown above the login card instead of beside it (`flex-column flex-md-row` on `.login-shell`), so the app name, tagline and feature bullets are
+visible on every screen size, not just from `md` up.
 
 ## Alternative backgrounds considered
 
