@@ -1,22 +1,22 @@
 {#include layout.html}
-    {#title}{msg:commonAppName()} – {admin:adminConfigTitle()}{/title}
+    {#title}{msg:commonAppName()} – {monitoring:monitoringConfigTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
 
-        <h1 class="mb-4 fs-4 fw-semibold">{admin:adminConfigTitle()}</h1>
+        <h1 class="mb-4 fs-4 fw-semibold">{monitoring:monitoringConfigTitle()}</h1>
 
         <div id="config-section">
             <div class="row g-3 mb-4">
                 <div class="col-12">
                     <div class="card h-100 app-card">
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{admin:adminConfigEnvironmentSectionLabel()}</p>
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringConfigEnvironmentSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="env-table">
                                     <thead>
                                         <tr>
-                                            <th>{admin:adminColKey()}</th>
-                                            <th>{admin:adminColValue()}</th>
+                                            <th>{monitoring:monitoringColKey()}</th>
+                                            <th>{monitoring:monitoringColValue()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -37,13 +37,13 @@
                 <div class="col-12">
                     <div class="card h-100 app-card">
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{admin:adminConfigSectionLabel()}</p>
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringConfigSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="config-table">
                                     <thead>
                                         <tr>
-                                            <th>{admin:adminColKey()}</th>
-                                            <th>{admin:adminColValue()}</th>
+                                            <th>{monitoring:monitoringColKey()}</th>
+                                            <th>{monitoring:monitoringColValue()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>

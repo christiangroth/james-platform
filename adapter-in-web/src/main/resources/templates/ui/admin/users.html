@@ -108,7 +108,7 @@
                                 <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
                                 <td class="text-end">
                                     {#btn-icon-key testId="set-password-button" title="{admin:adminSetPasswordTitle()}" extraClass="" bsTarget="#setPasswordModal" username=user.username /}
-                                    {#btn-icon-delete testId="delete-user-button" title="{admin:adminDeleteUserTitle()}" extraClass="ms-1" bsTarget="" action="delete-user" entityId="" propertyId="" reportId="" username=user.username /}
+                                    {#btn-icon-delete testId="delete-user-button" title="{admin:adminDeleteUserTitle()}" extraClass="ms-1" bsTarget="#deleteUserModal" action="" entityId="" propertyId="" reportId="" username=user.username /}
                                 </td>
                             </tr>
                             {/for}
@@ -197,6 +197,23 @@
                         <button type="submit" class="btn btn-app-primary" data-testid="manage-roles-submit-button">{admin:adminSaveRolesButton()}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete User Modal -->
+    <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteUserModalLabel">{admin:adminDeleteUserModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" id="deleteUserModalBody" data-testid="delete-user-modal-body"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteUserButton" data-testid="confirm-delete-user-button">{admin:adminDeleteUserConfirmButton()}</button>
+                </div>
             </div>
         </div>
     </div>
@@ -351,16 +368,29 @@
                 if (result.ok) { await refreshTable(); }
             });
 
-            // Delete user
-            document.addEventListener('click', async function (e) {
-                var btn = e.target.closest('[data-action="delete-user"]');
-                if (!btn) { return; }
-                var username = btn.getAttribute('data-username');
-                if (!confirm(deleteUserConfirmTemplate.replace('%USERNAME%', username))) { return; }
-                var result = await fetchAction('DELETE', '/ui/admin/users/' + encodeURIComponent(username));
-                showMessage(result.ok, result.message);
-                if (result.ok) { await refreshTable(); }
-            });
+            // Delete user modal – populate confirmation text and username
+            var deleteUserModal = document.getElementById('deleteUserModal');
+            if (deleteUserModal) {
+                var deleteUserModalBody = document.getElementById('deleteUserModalBody');
+                deleteUserModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var username = trigger ? trigger.getAttribute('data-username') : '';
+                    deleteUserModalBody.textContent = deleteUserConfirmTemplate.replace('%USERNAME%', username);
+                    deleteUserModal.setAttribute('data-username', username);
+                });
+            }
+
+            // Delete user modal – confirm button submit
+            var confirmDeleteUserButton = document.getElementById('confirmDeleteUserButton');
+            if (confirmDeleteUserButton) {
+                confirmDeleteUserButton.addEventListener('click', async function () {
+                    var username = deleteUserModal.getAttribute('data-username') || '';
+                    var result = await fetchAction('DELETE', '/ui/admin/users/' + encodeURIComponent(username));
+                    bootstrap.Modal.getInstance(deleteUserModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
+            }
         }());
     </script>
     {/scripts}

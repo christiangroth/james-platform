@@ -609,7 +609,9 @@
         <span class="me-auto"></span>
         {/insert}
         {#insert navLinks}
+        {#if !isAdmin}
         <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="{msg:layoutNavAppStoreTitle()}" aria-label="{msg:layoutNavAppStoreAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
+        {/if}
         {#if isAdmin || isMonitoring}
         <div class="dropdown me-3">
             <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{msg:layoutNavTechnicalTitle()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>

@@ -8,6 +8,7 @@ import io.quarkus.qute.Location
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.ws.rs.GET
@@ -56,6 +57,7 @@ class UserDashboardResource {
   @GET
   @Path("/user/dashboard")
   @Authenticated
+  @BlockAdminAccess
   @Produces(MediaType.TEXT_HTML)
   fun userDashboard(): Any {
     val userId = securityIdentity.principal.name
@@ -84,7 +86,7 @@ class UserDashboardResource {
 
   @GET
   @Path("/admin/dashboard")
-  @Authenticated
+  @RolesAllowed("ADMIN")
   @Produces(MediaType.TEXT_HTML)
   fun adminDashboard() = adminDashboardTemplate.data("userCount", userRepository.findAll().size)
 }
