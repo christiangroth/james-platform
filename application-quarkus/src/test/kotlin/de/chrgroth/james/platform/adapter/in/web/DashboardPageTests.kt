@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 class DashboardPageTests {
 
   @Test
+  @TestSecurity(user = "test-user-a", roles = ["USER"])
   fun `user dashboard page is available and displays apps grid`() {
     given()
       .`when`()
@@ -21,6 +22,16 @@ class DashboardPageTests {
       .contentType(containsString("text/html"))
       .body(containsString("""data-testid="welcome-message""""))
       .body(containsString("""data-testid="apps-grid""""))
+  }
+
+  @Test
+  fun `admin cannot access user dashboard directly`() {
+    given()
+      .redirects().follow(false)
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(403)
   }
 
   @Test
@@ -127,6 +138,7 @@ class DashboardPageTests {
       .body(not(containsString("""data-testid="navbar-playback-icon""")))
   }
   @Test
+  @TestSecurity(user = "test-user-a", roles = ["USER"])
   fun `user dashboard page does not display app store tile`() {
     given()
       .`when`()
@@ -134,6 +146,21 @@ class DashboardPageTests {
       .then()
       .statusCode(200)
       .body(not(containsString("""data-testid="app-store-tile""")))  }
+}
+
+@QuarkusTest
+@TestSecurity(user = "test-user-non-admin", roles = ["USER"])
+class AdminDashboardUnauthorizedTests {
+
+  @Test
+  fun `non-admin cannot access admin dashboard directly`() {
+    given()
+      .redirects().follow(false)
+      .`when`()
+      .get("/ui/admin/dashboard")
+      .then()
+      .statusCode(403)
+  }
 }
 
 @QuarkusTest

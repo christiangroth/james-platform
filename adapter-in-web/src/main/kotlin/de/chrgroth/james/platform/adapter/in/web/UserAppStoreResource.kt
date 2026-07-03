@@ -107,6 +107,7 @@ data class EntityTab(
 @Path("/ui")
 @ApplicationScoped
 @Authenticated
+@BlockAdminAccess
 @Suppress("Unused", "TooManyFunctions")
 class UserAppStoreResource {
 

@@ -26,8 +26,8 @@ dependencies {
   implementation(libs.marked)
 }
 
-// Bundle qualifiers to pseudo-localize, matching the `messages/<qualifier>_de.properties` files (see AppMessages, DeveloperMessages, UserMessages, AdminMessages).
-val pseudoLocaleBundleQualifiers = listOf("msg", "developer", "user", "admin")
+// Bundle qualifiers to pseudo-localize, matching the `messages/<qualifier>_de.properties` files (see AppMessages, DeveloperMessages, UserMessages, AdminMessages, MonitoringMessages).
+val pseudoLocaleBundleQualifiers = listOf("msg", "developer", "user", "admin", "monitoring")
 val pseudoLocaleOutputDir = layout.buildDirectory.dir("generated/resources/pseudoLocale")
 
 sourceSets {
