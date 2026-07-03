@@ -38,6 +38,12 @@ interface AppMessages {
 
   // common
   @Message
+  fun commonAppName(): String
+
+  @Message
+  fun commonAppDescription(): String
+
+  @Message
   fun commonCancel(): String
 
   @Message
