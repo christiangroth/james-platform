@@ -9,6 +9,7 @@
  * surrounding entity form is still submitted/saved as a single whole, only from the top level.
  */
 var LIST_VALUE_SEPARATOR = '';
+var objectFieldMessages = {};
 
 function objectFieldScalarInput(field, name, value) {
     if (field.htmlInputType === 'checkbox') {
@@ -30,7 +31,7 @@ function objectFieldScalarInput(field, name, value) {
         if (!field.nullable) select.required = true;
         var emptyOpt = document.createElement('option');
         emptyOpt.value = '';
-        emptyOpt.textContent = '– Select –';
+        emptyOpt.textContent = objectFieldMessages.selectPlaceholder;
         select.appendChild(emptyOpt);
         (objectFieldReferenceOptions(field.id) || []).forEach(function (opt) {
             var option = document.createElement('option');
@@ -50,7 +51,7 @@ function objectFieldScalarInput(field, name, value) {
     else if (field.type === 'LONG' && field.step) input.step = field.step;
     if (field.min) input.min = field.min;
     if (field.max) input.max = field.max;
-    if (field.type === 'DURATION') input.placeholder = 'e.g. 1d 2h 30m 15s or 02:30:15';
+    if (field.type === 'DURATION') input.placeholder = objectFieldMessages.durationPlaceholder;
     if (value !== undefined && value !== null) input.value = value;
 
     if ((field.type === 'LONG' || field.type === 'DOUBLE') && field.step) {
@@ -61,14 +62,14 @@ function objectFieldScalarInput(field, name, value) {
         stepDown.type = 'button';
         stepDown.className = 'btn btn-app-secondary number-step-down';
         stepDown.tabIndex = -1;
-        stepDown.setAttribute('aria-label', 'Decrease value');
+        stepDown.setAttribute('aria-label', objectFieldMessages.decreaseValueAriaLabel);
         stepDown.innerHTML = '&minus;';
         group.appendChild(stepDown);
         var stepUp = document.createElement('button');
         stepUp.type = 'button';
         stepUp.className = 'btn btn-app-secondary number-step-up';
         stepUp.tabIndex = -1;
-        stepUp.setAttribute('aria-label', 'Increase value');
+        stepUp.setAttribute('aria-label', objectFieldMessages.increaseValueAriaLabel);
         stepUp.innerHTML = '&plus;';
         group.appendChild(stepUp);
         return group;
@@ -86,7 +87,7 @@ function objectFieldListRow(field, name, value) {
     removeBtn.type = 'button';
     removeBtn.className = 'btn btn-app-secondary btn-sm';
     removeBtn.innerHTML = '&times;';
-    removeBtn.setAttribute('aria-label', 'Remove value');
+    removeBtn.setAttribute('aria-label', objectFieldMessages.removeValueAriaLabel);
     removeBtn.addEventListener('click', function () { row.remove(); });
     row.appendChild(removeBtn);
     return row;
@@ -101,7 +102,7 @@ function objectFieldList(field, name, rawValue) {
     var addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'btn btn-app-secondary btn-sm';
-    addBtn.textContent = '+ Add value';
+    addBtn.textContent = objectFieldMessages.addValueButton;
     addBtn.addEventListener('click', function () {
         container.insertBefore(objectFieldListRow(field, name, ''), addBtn);
     });
@@ -143,7 +144,7 @@ function buildObjectDescendRow(field, targetPath) {
     btn.setAttribute('data-target-path', targetPath);
     btn.setAttribute('data-testid', 'descend-object-field-' + field.id);
     var count = field.nestedProperties.length;
-    var label2 = count === 0 ? 'No properties yet' : count + ' propert' + (count === 1 ? 'y' : 'ies');
+    var label2 = count === 0 ? objectFieldMessages.descendNoPropertiesLabel : objectFieldMessages.descendPropertyCountTemplate.replace('#', String(count));
     btn.textContent = label2 + ' ›';
     wrapper.appendChild(btn);
     return wrapper;
@@ -168,7 +169,7 @@ function buildObjectLevel(container, field, namePrefix, value, path) {
     if (field.nestedProperties.length === 0) {
         var empty = document.createElement('p');
         empty.className = 'app-section-label mb-0';
-        empty.textContent = 'No properties defined.';
+        empty.textContent = objectFieldMessages.noPropertiesDefinedMessage;
         level.appendChild(empty);
     } else {
         field.nestedProperties.forEach(function (nested) {
@@ -189,7 +190,7 @@ function buildObjectLevel(container, field, namePrefix, value, path) {
 function buildObjectBreadcrumbNav() {
     var nav = document.createElement('nav');
     nav.className = 'object-breadcrumb mb-2 d-none';
-    nav.setAttribute('aria-label', 'breadcrumb');
+    nav.setAttribute('aria-label', objectFieldMessages.breadcrumbAriaLabel);
     var ol = document.createElement('ol');
     ol.className = 'breadcrumb mb-0';
     nav.appendChild(ol);
@@ -242,8 +243,9 @@ function activateObjectLevel(container, path) {
 }
 
 /** Renders the top-level fields for every `.object-property-fields` container found on the page. */
-function renderObjectPropertyFields(objectFields, objectValues, referenceOptions) {
+function renderObjectPropertyFields(objectFields, objectValues, referenceOptions, messages) {
     objectFieldReferenceOptionsData = referenceOptions || {};
+    objectFieldMessages = messages || {};
     document.querySelectorAll('.object-property-fields').forEach(function (container) {
         var propertyId = container.getAttribute('data-property-id');
         var field = objectFields[propertyId];

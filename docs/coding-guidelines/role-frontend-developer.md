@@ -255,7 +255,7 @@ The platform uses a **breadcrumb trail** to show the user's location within the 
 Each page with a depth greater than 1 must include a Bootstrap breadcrumb immediately below the navbar at the top of the page content:
 
 ```html
-<nav aria-label="breadcrumb" class="mb-4">
+<nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
     <ol class="breadcrumb mb-0">
         {#breadcrumb-home homeUrl="/ui/<role>/dashboard" homeLabel="<Role> Dashboard" /}
         <!-- intermediate clickable items: -->
