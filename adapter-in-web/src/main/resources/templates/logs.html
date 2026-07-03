@@ -1,23 +1,23 @@
 {#include layout.html}
-    {#title}James Platform – {admin:adminLogsTitle()}{/title}
+    {#title}James Platform – {monitoring:monitoringLogsTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
 
-        <h1 class="mb-1 fs-4 fw-semibold">{admin:adminLogsTitle()}</h1>
-        <p class="app-section-label mb-4">{admin:adminLogsSubtitle()}</p>
+        <h1 class="mb-1 fs-4 fw-semibold">{monitoring:monitoringLogsTitle()}</h1>
+        <p class="app-section-label mb-4">{monitoring:monitoringLogsSubtitle()}</p>
 
         <div class="card h-100 app-card">
             <div class="card-body">
                 <ul class="nav nav-tabs mb-3" data-testid="logs-view-switch">
                     <li class="nav-item">
-                        <a class="nav-link {#if !isGroupedView}active{/if}" href="/logs" data-testid="logs-view-chronological">{admin:adminLogsChronologicalTab()}</a>
+                        <a class="nav-link {#if !isGroupedView}active{/if}" href="/logs" data-testid="logs-view-chronological">{monitoring:monitoringLogsChronologicalTab()}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {#if isGroupedView}active{/if}" href="/logs?view=grouped" data-testid="logs-view-grouped">{admin:adminLogsGroupedTab()}</a>
+                        <a class="nav-link {#if isGroupedView}active{/if}" href="/logs?view=grouped" data-testid="logs-view-grouped">{monitoring:monitoringLogsGroupedTab()}</a>
                     </li>
                 </ul>
                 {#if entries.isEmpty}
-                <p class="app-section-label mb-0" data-testid="logs-empty-state">{admin:adminLogsEmptyState()}</p>
+                <p class="app-section-label mb-0" data-testid="logs-empty-state">{monitoring:monitoringLogsEmptyState()}</p>
                 {#else if isGroupedView}
                 <div data-testid="logs-grouped-view">
                     {#for group in groups}
@@ -25,7 +25,7 @@
                         <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
                             <div>
                                 <strong data-testid="log-group-class">{group.clazz}</strong>
-                                <span class="app-section-label ms-2" data-testid="log-group-count">{admin:adminLogGroupEntriesLabel(group.count)}</span>
+                                <span class="app-section-label ms-2" data-testid="log-group-count">{monitoring:monitoringLogGroupEntriesLabel(group.count)}</span>
                             </div>
                             {#if group.level == 'ERROR'}
                             <span class="badge app-badge-failed" data-testid="log-group-level">{group.level}</span>
@@ -37,9 +37,9 @@
                             <table class="table table-sm mb-0 app-table" data-testid="logs-group-table">
                                 <thead>
                                     <tr>
-                                        <th>{admin:adminColTimestamp()}</th>
-                                        <th>{admin:adminColMessage()}</th>
-                                        <th>{admin:adminColStacktrace()}</th>
+                                        <th>{monitoring:monitoringColTimestamp()}</th>
+                                        <th>{monitoring:monitoringColMessage()}</th>
+                                        <th>{monitoring:monitoringColStacktrace()}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -50,7 +50,7 @@
                                         <td>
                                             {#if entry.stacktrace}
                                             <details data-testid="log-stacktrace">
-                                                <summary>{admin:adminShowLabel()}</summary>
+                                                <summary>{monitoring:monitoringShowLabel()}</summary>
                                                 <pre class="mb-0 small mt-2">{entry.stacktrace}</pre>
                                             </details>
                                             {#else}
@@ -70,11 +70,11 @@
                     <table class="table table-sm mb-0 app-table" data-testid="logs-table">
                         <thead>
                             <tr>
-                                <th>{admin:adminColTimestamp()}</th>
-                                <th>{admin:adminColLevel()}</th>
-                                <th>{admin:adminColClass()}</th>
-                                <th>{admin:adminColMessage()}</th>
-                                <th>{admin:adminColStacktrace()}</th>
+                                <th>{monitoring:monitoringColTimestamp()}</th>
+                                <th>{monitoring:monitoringColLevel()}</th>
+                                <th>{monitoring:monitoringColClass()}</th>
+                                <th>{monitoring:monitoringColMessage()}</th>
+                                <th>{monitoring:monitoringColStacktrace()}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -95,7 +95,7 @@
                                 <td>
                                     {#if entry.stacktrace}
                                     <details data-testid="log-stacktrace">
-                                        <summary>{admin:adminShowLabel()}</summary>
+                                        <summary>{monitoring:monitoringShowLabel()}</summary>
                                         <pre class="mb-0 small mt-2">{entry.stacktrace}</pre>
                                     </details>
                                     {#else}

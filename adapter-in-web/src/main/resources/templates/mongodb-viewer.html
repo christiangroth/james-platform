@@ -1,19 +1,19 @@
 {#include layout.html}
-    {#title}James Platform – {admin:adminMongoViewerTitle()}{/title}
+    {#title}James Platform – {monitoring:monitoringMongoViewerTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
 
-        <h1 class="mb-4 fs-4 fw-semibold">{admin:adminMongoViewerTitle()}</h1>
+        <h1 class="mb-4 fs-4 fw-semibold">{monitoring:monitoringMongoViewerTitle()}</h1>
 
         <!-- Collection selector -->
         <form method="get" action="/mongodb-viewer" id="viewer-form" class="mb-4">
             <div class="row g-2 align-items-end">
                 <div class="col-auto">
-                    <label for="collection-select" class="form-label text-secondary small mb-1">{admin:adminMongoCollectionLabel()}</label>
+                    <label for="collection-select" class="form-label text-secondary small mb-1">{monitoring:monitoringMongoCollectionLabel()}</label>
                     <select id="collection-select" name="collection" class="form-select form-select-sm app-select"
                             style="min-width:220px;"
                             onchange="changeCollection(this.value)">
-                        <option value="">{admin:adminMongoSelectCollectionOption()}</option>
+                        <option value="">{monitoring:monitoringMongoSelectCollectionOption()}</option>
                         {#for c in result.collections}
                         <option value="{c}" {#if c == result.selectedCollection}selected{/if}>{c}</option>
                         {/for}
@@ -25,31 +25,31 @@
 
             <!-- Filter fields -->
             {#if result.fields.empty}
-            <p class="text-secondary small mt-3">{admin:adminMongoNoDocumentsForSchemaMessage()}</p>
+            <p class="text-secondary small mt-3">{monitoring:monitoringMongoNoDocumentsForSchemaMessage()}</p>
             {#else}
             <div class="mt-3 mb-2">
-                <h2 class="fs-6 fw-semibold mb-2" style="color:var(--color-text-muted);letter-spacing:.04em;">{admin:adminMongoFiltersHeading()}</h2>
+                <h2 class="fs-6 fw-semibold mb-2" style="color:var(--color-text-muted);letter-spacing:.04em;">{monitoring:monitoringMongoFiltersHeading()}</h2>
                 <div class="row g-2">
                     {#for field in result.fields}
                     {#if field.fieldType.name == "STRING"}
                     <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge app-badge-muted" style="font-size:.7rem;font-weight:400;">{admin:adminMongoContainsBadge()}</span></label>
+                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge app-badge-muted" style="font-size:.7rem;font-weight:400;">{monitoring:monitoringMongoContainsBadge()}</span></label>
                         <input type="text" name="fc_{field.name}" value="{field.containsValue}"
                                class="form-control form-control-sm app-form-control"
-                               placeholder="{admin:adminMongoContainsPlaceholder()}">
+                               placeholder="{monitoring:monitoringMongoContainsPlaceholder()}">
                     </div>
                     {#else}
                     <div class="col-12 col-md-6 col-lg-4">
-                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge app-badge-muted" style="font-size:.7rem;font-weight:400;">{admin:adminMongoIdBadge()}</span></label>
+                        <label class="form-label text-secondary small mb-1">{field.name} <span class="badge app-badge-muted" style="font-size:.7rem;font-weight:400;">{monitoring:monitoringMongoIdBadge()}</span></label>
                         <input type="text" name="feq_{field.name}" value="{field.equalsValue}"
                                class="form-control form-control-sm app-form-control mb-1"
-                               placeholder="{admin:adminMongoEqualsPlaceholder()}">
+                               placeholder="{monitoring:monitoringMongoEqualsPlaceholder()}">
                         <input type="text" name="fin_{field.name}" value="{field.inValue}"
                                class="form-control form-control-sm app-form-control mb-1"
-                               placeholder="{admin:adminMongoInPlaceholder()}">
+                               placeholder="{monitoring:monitoringMongoInPlaceholder()}">
                         <input type="text" name="fnin_{field.name}" value="{field.notInValue}"
                                class="form-control form-control-sm app-form-control"
-                               placeholder="{admin:adminMongoNotInPlaceholder()}">
+                               placeholder="{monitoring:monitoringMongoNotInPlaceholder()}">
                     </div>
                     {/if}
                     {/for}
@@ -58,12 +58,12 @@
 
             <!-- Sort options -->
             <div class="mt-3 mb-3">
-                <h2 class="fs-6 fw-semibold mb-2" style="color:var(--color-text-muted);letter-spacing:.04em;">{admin:adminMongoSortHeading()}</h2>
+                <h2 class="fs-6 fw-semibold mb-2" style="color:var(--color-text-muted);letter-spacing:.04em;">{monitoring:monitoringMongoSortHeading()}</h2>
                 <div class="row g-2 align-items-center">
                     <div class="col-auto">
                         <select name="sort" class="form-select form-select-sm app-select"
                                 style="min-width:180px;">
-                            <option value="">{admin:adminMongoNoSortOption()}</option>
+                            <option value="">{monitoring:monitoringMongoNoSortOption()}</option>
                             {#for field in result.fields}
                             <option value="{field.name}" {#if field.name == result.sortField}selected{/if}>{field.name}</option>
                             {/for}
@@ -72,11 +72,11 @@
                     <div class="col-auto d-flex gap-3">
                         <div class="form-check form-check-inline mb-0">
                             <input class="form-check-input" type="radio" name="sortDir" id="sortAsc" value="asc" {#if !result.sortDesc}checked{/if}>
-                            <label class="form-check-label text-secondary small" for="sortAsc">{admin:adminMongoSortAscLabel()}</label>
+                            <label class="form-check-label text-secondary small" for="sortAsc">{monitoring:monitoringMongoSortAscLabel()}</label>
                         </div>
                         <div class="form-check form-check-inline mb-0">
                             <input class="form-check-input" type="radio" name="sortDir" id="sortDesc" value="desc" {#if result.sortDesc}checked{/if}>
-                            <label class="form-check-label text-secondary small" for="sortDesc">{admin:adminMongoSortDescLabel()}</label>
+                            <label class="form-check-label text-secondary small" for="sortDesc">{monitoring:monitoringMongoSortDescLabel()}</label>
                         </div>
                     </div>
                 </div>
@@ -85,7 +85,7 @@
             <!-- Apply button -->
             <input type="hidden" name="page" value="1">
             <input type="hidden" name="pageSize" value="{result.pageSize}">
-            <button type="submit" class="btn btn-sm btn-app-primary">{admin:adminMongoApplyFiltersButton()}</button>
+            <button type="submit" class="btn btn-sm btn-app-primary">{monitoring:monitoringMongoApplyFiltersButton()}</button>
             {/if}
 
             {/if}
@@ -96,13 +96,13 @@
         <!-- Results -->
         <div class="d-flex align-items-center justify-content-between mb-2">
             <h2 class="fs-6 fw-semibold mb-0" style="color:var(--color-text-muted);letter-spacing:.04em;">
-                {admin:adminMongoResultsHeading()}
+                {monitoring:monitoringMongoResultsHeading()}
                 {#if result.totalCount > 0}
-                <span class="ms-2 text-secondary" style="font-size:.8rem;font-weight:400;">{admin:adminMongoDocumentsTotalLabel(result.totalCount)}</span>
+                <span class="ms-2 text-secondary" style="font-size:.8rem;font-weight:400;">{monitoring:monitoringMongoDocumentsTotalLabel(result.totalCount)}</span>
                 {/if}
             </h2>
             <div class="d-flex align-items-center gap-2">
-                <label class="text-secondary small mb-0">{admin:adminMongoPerPageLabel()}</label>
+                <label class="text-secondary small mb-0">{monitoring:monitoringMongoPerPageLabel()}</label>
                 <select onchange="changePageSize(this.value)" class="form-select form-select-sm app-select"
                         style="width:auto;">
                     {#for ps in pageSizes}
@@ -113,7 +113,7 @@
         </div>
 
         {#if result.documents.empty}
-        <p class="text-secondary small">{admin:adminMongoNoDocumentsMatchMessage()}</p>
+        <p class="text-secondary small">{monitoring:monitoringMongoNoDocumentsMatchMessage()}</p>
         {#else}
 
         {#for doc in result.documents}
@@ -123,13 +123,13 @@
         <!-- Pagination -->
         <div class="d-flex align-items-center justify-content-between mt-3">
             <div class="text-secondary small">
-                {admin:adminMongoPageLabel(result.page, result.totalPages)}
+                {monitoring:monitoringMongoPageLabel(result.page, result.totalPages)}
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-sm btn-app-secondary" onclick="goToPage({result.prevPage})"
-                        {#if !result.hasPrev}disabled{/if}>{admin:adminMongoPrevButton()}</button>
+                        {#if !result.hasPrev}disabled{/if}>{monitoring:monitoringMongoPrevButton()}</button>
                 <button type="button" class="btn btn-sm btn-app-secondary" onclick="goToPage({result.nextPage})"
-                        {#if !result.hasNext}disabled{/if}>{admin:adminMongoNextButton()}</button>
+                        {#if !result.hasNext}disabled{/if}>{monitoring:monitoringMongoNextButton()}</button>
             </div>
         </div>
 

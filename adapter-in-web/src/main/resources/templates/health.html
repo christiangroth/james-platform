@@ -1,25 +1,25 @@
 {#include layout.html}
-    {#title}James Platform – {admin:adminHealthTitle()}{/title}
+    {#title}James Platform – {monitoring:monitoringHealthTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
 
-        <h1 class="mb-4 fs-4 fw-semibold">{admin:adminHealthTitle()}</h1>
+        <h1 class="mb-4 fs-4 fw-semibold">{monitoring:monitoringHealthTitle()}</h1>
 
         <div id="health-section">
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{admin:adminCronjobsStateHeading()}</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringCronjobsStateHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-lg-6">
                     <div id="snippet-cronjobs" class="card h-100 app-card">
                         {#fragment id="snippet_cronjobs"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{admin:adminCronjobsSectionLabel()}</p>
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringCronjobsSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="cronjobs-table">
                                     <thead>
                                         <tr>
-                                            <th>{admin:adminColJob()}</th>
-                                            <th>{admin:adminColCron()}</th>
-                                            <th class="text-end">{admin:adminColNext()}</th>
+                                            <th>{monitoring:monitoringColJob()}</th>
+                                            <th>{monitoring:monitoringColCron()}</th>
+                                            <th class="text-end">{monitoring:monitoringColNext()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -42,20 +42,20 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{admin:adminMongoDbHeading()}</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringMongoDbHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12 col-sm-6 col-lg-6">
                     <div id="snippet-mongodb-collections" class="card h-100 app-card">
                         {#fragment id="snippet_mongodb_collections"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{admin:adminCollectionsSectionLabel()}</p>
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringCollectionsSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="mongodb-collections-table">
                                     <thead>
                                         <tr>
-                                            <th>{admin:adminColCollection()}</th>
-                                            <th class="text-end">{admin:adminColCount()}</th>
-                                            <th class="text-end">{admin:adminColSize()}</th>
+                                            <th>{monitoring:monitoringColCollection()}</th>
+                                            <th class="text-end">{monitoring:monitoringColCount()}</th>
+                                            <th class="text-end">{monitoring:monitoringColSize()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -69,7 +69,7 @@
                                     </tbody>
                                     <tfoot>
                                         <tr style="border-top:2px solid var(--color-border);">
-                                            <td style="color:var(--color-text-muted);">{admin:adminTotalLabel()}</td>
+                                            <td style="color:var(--color-text-muted);">{monitoring:monitoringTotalLabel()}</td>
                                             <td class="text-end" style="color:var(--color-text-muted);">{stats.mongoCollectionDocumentTotal.formatted}</td>
                                             <td class="text-end" style="color:var(--color-text-muted);">{stats.mongoCollectionSizeTotalKb.formatted} kb</td>
                                         </tr>
@@ -84,13 +84,13 @@
                     <div id="snippet-mongodb-queries" class="card h-100 app-card">
                         {#fragment id="snippet_mongodb_queries"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{admin:adminQueriesSectionLabel()}</p>
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringQueriesSectionLabel()}</p>
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="mongodb-queries-table">
                                     <thead>
                                         <tr>
-                                            <th>{admin:adminColQuery()}</th>
-                                            <th class="text-end">{admin:adminColExecutions()}</th>
+                                            <th>{monitoring:monitoringColQuery()}</th>
+                                            <th class="text-end">{monitoring:monitoringColExecutions()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -116,26 +116,26 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{admin:adminScriptingHeading()}</h2>
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringScriptingHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12">
                     <div id="snippet-scripting" class="card h-100 app-card">
                         {#fragment id="snippet_scripting"}
                         <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{admin:adminScriptExecutionsSectionLabel()}</p>
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringScriptExecutionsSectionLabel()}</p>
                             {#if stats.scriptStats.isEmpty}
-                            <p class="app-section-label" data-testid="no-script-stats">{admin:adminNoScriptStatsMessage()}</p>
+                            <p class="app-section-label" data-testid="no-script-stats">{monitoring:monitoringNoScriptStatsMessage()}</p>
                             {#else}
                             <div class="table-responsive">
                                 <table class="table table-sm mb-0 app-table" data-testid="scripting-table">
                                     <thead>
                                         <tr>
                                             <th>{msg:commonType()}</th>
-                                            <th>{admin:adminColEntity()}</th>
-                                            <th>{admin:adminColProperty()}</th>
-                                            <th class="text-end">{admin:adminColExecutions()}</th>
-                                            <th class="text-end">{admin:adminColErrors()}</th>
-                                            <th class="text-end">{admin:adminColTotalMs()}</th>
+                                            <th>{monitoring:monitoringColEntity()}</th>
+                                            <th>{monitoring:monitoringColProperty()}</th>
+                                            <th class="text-end">{monitoring:monitoringColExecutions()}</th>
+                                            <th class="text-end">{monitoring:monitoringColErrors()}</th>
+                                            <th class="text-end">{monitoring:monitoringColTotalMs()}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -180,7 +180,7 @@
     </style>
     <script>
         (function () {
-            var nowLabel = '{admin:adminNowLabel()}';
+            var nowLabel = '{monitoring:monitoringNowLabel()}';
 
             function sortCronjobTable() {
                 var tbody = document.querySelector('[data-testid="cronjobs-table"] tbody');
