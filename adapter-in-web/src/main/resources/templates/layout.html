@@ -98,11 +98,16 @@
             --color-diff-line-added-bg: #eef8f1;
             --color-diff-line-removed-bg: #fdf1f2;
         }
+        html {
+            min-height: 100%;
+        }
         body {
+            min-height: 100vh;
             background:
                 radial-gradient(circle at 15% 20%, rgba(13, 110, 253, 0.10), transparent 45%),
                 radial-gradient(circle at 85% 80%, rgba(29, 185, 84, 0.10), transparent 45%),
                 var(--color-bg-page);
+            background-repeat: no-repeat;
             color: var(--color-text-primary);
         }
         .app-navbar {
@@ -590,18 +595,18 @@
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
-        <span class="me-auto"></span>
-        {/insert}
-        <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="{msg:layoutThemeToggleLabel()}" aria-label="{msg:layoutThemeToggleLabel()}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-moon" aria-hidden="true"><use href="#icon-theme-moon"/></svg>
-        </button>
+        <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="{msg:layoutNavProfileTitle()}" aria-label="{msg:layoutNavProfileAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
         <button type="button" id="language-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0 fw-bold" data-testid="language-toggle-button" title="{msg:layoutLanguageToggleLabel()}" aria-label="{msg:layoutLanguageToggleLabel()}">
             <span class="language-toggle-label-de" aria-hidden="true">DE</span>
             <span class="language-toggle-label-xx" aria-hidden="true">XX</span>
         </button>
+        <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="{msg:layoutThemeToggleLabel()}" aria-label="{msg:layoutThemeToggleLabel()}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-moon" aria-hidden="true"><use href="#icon-theme-moon"/></svg>
+        </button>
+        <span class="me-auto"></span>
+        {/insert}
         {#insert navLinks}
-        <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="{msg:layoutNavProfileTitle()}" aria-label="{msg:layoutNavProfileAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-profile"/></svg></a>
         <a href="/ui/user/app-store" class="nav-link text-white me-3" data-testid="app-store-link" title="{msg:layoutNavAppStoreTitle()}" aria-label="{msg:layoutNavAppStoreAriaLabel()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-store"/></svg></a>
         {#if isAdmin || isMonitoring}
         <div class="dropdown me-3">
