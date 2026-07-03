@@ -126,6 +126,15 @@ interface UserMessages {
   @Message
   fun userIncreaseValueAriaLabel(): String
 
+  @Message
+  fun userObjectNoPropertiesDefinedMessage(): String
+
+  @Message
+  fun userObjectDescendNoPropertiesLabel(): String
+
+  @Message
+  fun userObjectDescendPropertyCountLabel(): String
+
   // app data edit
   @Message
   fun userEditDataTitle(): String

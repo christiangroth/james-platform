@@ -2,7 +2,7 @@
     {#title}James Platform – {info.appName} – {user:userNewEntityTitle(entity.name)}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
-        <nav aria-label="breadcrumb" class="mb-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
@@ -113,7 +113,19 @@
             renderObjectPropertyFields(
                 JSON.parse(document.getElementById('object-fields-data').textContent),
                 {},
-                JSON.parse(document.getElementById('reference-options-data').textContent)
+                JSON.parse(document.getElementById('reference-options-data').textContent),
+                {
+                    selectPlaceholder: '{msg:commonSelectPlaceholder()}',
+                    durationPlaceholder: '{user:userDurationPlaceholder()}',
+                    decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
+                    increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',
+                    removeValueAriaLabel: '{user:userRemoveValueAriaLabel()}',
+                    addValueButton: '{user:userAddValueButton()}',
+                    descendNoPropertiesLabel: '{user:userObjectDescendNoPropertiesLabel()}',
+                    descendPropertyCountTemplate: '{user:userObjectDescendPropertyCountLabel()}',
+                    noPropertiesDefinedMessage: '{user:userObjectNoPropertiesDefinedMessage()}',
+                    breadcrumbAriaLabel: '{msg:commonBreadcrumbAriaLabel()}'
+                }
             );
 
             var messagePanel = document.getElementById('form-message');

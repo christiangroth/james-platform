@@ -39,7 +39,7 @@ function truncateBreadcrumb(ol) {
 }
 
 function truncateAllBreadcrumbs() {
-    document.querySelectorAll('nav[aria-label="breadcrumb"] > ol.breadcrumb').forEach(truncateBreadcrumb);
+    document.querySelectorAll('nav.page-breadcrumb > ol.breadcrumb').forEach(truncateBreadcrumb);
 }
 
 document.addEventListener('DOMContentLoaded', truncateAllBreadcrumbs);

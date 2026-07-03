@@ -71,6 +71,9 @@ interface AppMessages {
   fun commonNotAvailable(): String
 
   @Message
+  fun commonBreadcrumbAriaLabel(): String
+
+  @Message
   fun commonNetworkError(): String
 
   @Message
