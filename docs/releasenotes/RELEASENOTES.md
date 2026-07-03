@@ -1,3 +1,12 @@
+# 0.61.2 (2026.07.03)
+
+## Bugfixes / Chore
+* Fixed the browser tab icon not showing up on mobile Safari-based browsers (e.g. Firefox on iOS), which don't support SVG favicons, by adding PNG fallback icons.
+
+
+
+---
+
 # 0.61.1 (2026.07.03)
 
 ## Bugfixes / Chore
