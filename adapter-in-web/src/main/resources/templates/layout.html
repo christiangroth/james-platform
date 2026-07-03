@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{#insert title}James Platform{/insert}</title>
+    <meta name="application-name" content="{msg:commonAppName()}">
+    <meta name="description" content="{msg:commonAppDescription()}">
+    <title>{#insert title}{msg:commonAppName()}{/insert}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any">
     <script>
         (function () {
@@ -591,7 +593,7 @@
     </svg>
     <nav class="app-navbar d-flex align-items-center px-3 py-2">
         <a href="/" class="d-flex align-items-center text-decoration-none me-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32" aria-label="James Platform {msg:layoutLogoLabel()}"><use href="#icon-nav-app"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32" aria-label="{msg:commonAppName()} {msg:layoutLogoLabel()}"><use href="#icon-nav-app"/></svg>
         </a>
         {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}

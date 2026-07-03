@@ -1,5 +1,5 @@
 {#include layout.html}
-    {#title}James Platform – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if} – {selectedEntity.name} – {#if selectedProperty}{developer:developerEditPropertyLabel()}{#else}{developer:developerAddPropertyLabel()}{/if}{/title}
+    {#title}{msg:commonAppName()} – {app.name} {#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if} – {selectedEntity.name} – {#if selectedProperty}{developer:developerEditPropertyLabel()}{#else}{developer:developerAddPropertyLabel()}{/if}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">

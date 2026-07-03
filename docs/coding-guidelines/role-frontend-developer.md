@@ -56,7 +56,9 @@ dedicated view model class inside `adapter-in-web`.
 - A second locale, **`xx` ("Underscore")**, is generated automatically at build time from the German properties (see "Language switching" below) – never hand-author or edit an
   `*_xx.properties` file; it is a build artifact, not source
 - Error codes passed from the backend (e.g. `LoginError`) are still mapped to human-readable text in the resource class, but that text must come from the appropriate `*Messages` bundle, not a hardcoded string
-- Exception: the application name **James Platform** is a brand name and is never translated
+- The application name **James Platform** is a brand name and its text never actually changes between locales, but it is still resolved via `{msg:commonAppName()}` like any other
+  text – never hardcoded – so it is included in every page `<title>`, the login heading, the navbar logo's `aria-label`, and the `<meta name="application-name">` tag in
+  `layout.html`
 - Parametrized message methods (e.g. `fun developerEntityHeading(name: String): String`) work because `adapter-in-web`'s Kotlin compilation enables the `javaParameters` compiler
   option (see `adapter-in-web/build.gradle.kts`) – without it, Qute cannot resolve `{name}`-style placeholders via reflection on Kotlin-compiled methods
 - Reuse existing keys across pages wherever the text is identical (e.g. `commonCancel`, `commonSave`, `commonDelete`, `developerBreadcrumbDevelopment`, `developerDraftLabel`) instead
