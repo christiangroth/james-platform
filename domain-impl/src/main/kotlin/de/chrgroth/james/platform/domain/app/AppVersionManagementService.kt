@@ -1179,7 +1179,7 @@ class AppVersionManagementService(
     // Removed entities (in predecessor but not in version)
     for (entity in predecessor.entityDefinitions.sortedBy { it.name }) {
       if (entity.id !in versionMap) {
-        val lines = entityToDslLines(entity).map { DiffLine(it, DiffLineStatus.REMOVED) }
+        val lines = entityToDslLines(entity, predecessor.entityDefinitions).map { DiffLine(it, DiffLineStatus.REMOVED) }
         result.add(SectionDiff(entity.name, DiffStatus.REMOVED, lines))
       }
     }
@@ -1187,7 +1187,7 @@ class AppVersionManagementService(
     // Added entities (in version but not in predecessor)
     for (entity in version.entityDefinitions.sortedBy { it.name }) {
       if (entity.id !in predMap) {
-        val lines = entityToDslLines(entity).map { DiffLine(it, DiffLineStatus.ADDED) }
+        val lines = entityToDslLines(entity, version.entityDefinitions).map { DiffLine(it, DiffLineStatus.ADDED) }
         result.add(SectionDiff(entity.name, DiffStatus.ADDED, lines))
       }
     }
@@ -1195,8 +1195,8 @@ class AppVersionManagementService(
     // Modified or unchanged entities (in both)
     for (entity in version.entityDefinitions.sortedBy { it.name }) {
       val predEntity = predMap[entity.id] ?: continue
-      val oldLines = entityToDslLines(predEntity)
-      val newLines = entityToDslLines(entity)
+      val oldLines = entityToDslLines(predEntity, predecessor.entityDefinitions)
+      val newLines = entityToDslLines(entity, version.entityDefinitions)
       val diffLines = diffLines(oldLines, newLines)
       val status = if (diffLines.any { it.status != DiffLineStatus.UNCHANGED }) DiffStatus.MODIFIED else DiffStatus.UNCHANGED
       if (status != DiffStatus.UNCHANGED) {
@@ -1243,25 +1243,11 @@ class AppVersionManagementService(
     return result.sortedBy { it.name }
   }
 
-  private fun entityToDslLines(entity: EntityDefinition): List<String> {
+  private fun entityToDslLines(entity: EntityDefinition, allEntities: List<EntityDefinition>): List<String> {
     val lines = mutableListOf<String>()
     lines.add("entity ${entity.name} {")
     for (prop in entity.properties.sortedBy { it.name }) {
-      val nullable = if (prop.nullable) "?" else "!"
-      val constraintParts = prop.constraints
-        .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
-        .map { constraintToString(it) }
-      val constraintsStr = if (constraintParts.isNotEmpty()) " [${constraintParts.joinToString(", ")}]" else ""
-      lines.add("  ${prop.name}: ${prop.type}$nullable$constraintsStr")
-      if (prop.default != null) {
-        lines.add("    default: ${prop.default}")
-      }
-      if (prop.smartDefault != null) {
-        lines.add("    smart-default: ${prop.smartDefault}")
-      }
-      if (prop.valueProposals.isNotEmpty()) {
-        lines.add("    value-proposals: ${prop.valueProposals.joinToString(", ")}")
-      }
+      lines.addAll(propertyToDslLines(prop, allEntities, "  "))
     }
     for (cp in entity.computedProperties) {
       lines.add("  computed ${cp.name}: ${cp.type}")
@@ -1271,6 +1257,46 @@ class AppVersionManagementService(
     }
     lines.add("}")
     return lines
+  }
+
+  private fun propertyToDslLines(prop: Property, allEntities: List<EntityDefinition>, indent: String): List<String> {
+    val lines = mutableListOf<String>()
+    val nullable = if (prop.nullable) "?" else "!"
+    val constraintsStr = constraintsToDslString(prop.constraints)
+    lines.add("$indent${prop.name}: ${prop.type}$nullable$constraintsStr")
+    if (prop.default != null) {
+      lines.add("$indent  default: ${prop.default}")
+    }
+    if (prop.smartDefault != null) {
+      lines.add("$indent  smart-default: ${prop.smartDefault}")
+    }
+    if (prop.valueProposals.isNotEmpty()) {
+      lines.add("$indent  value-proposals: ${prop.valueProposals.joinToString(", ")}")
+    }
+    val targetEntityId = prop.targetEntityId
+    if (targetEntityId != null) {
+      val targetName = allEntities.find { it.id == targetEntityId }?.name ?: targetEntityId.value
+      lines.add("$indent  target-entity: $targetName")
+    }
+    if (prop.listItemType != null) {
+      val itemConstraintsStr = constraintsToDslString(prop.itemConstraints)
+      lines.add("$indent  item-type: ${prop.listItemType}$itemConstraintsStr")
+    }
+    if (prop.nestedProperties.isNotEmpty()) {
+      lines.add("$indent  properties {")
+      for (nested in prop.nestedProperties.sortedBy { it.name }) {
+        lines.addAll(propertyToDslLines(nested, allEntities, "$indent    "))
+      }
+      lines.add("$indent  }")
+    }
+    return lines
+  }
+
+  private fun constraintsToDslString(constraints: Set<PropertyConstraint>): String {
+    val constraintParts = constraints
+      .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
+      .map { constraintToString(it) }
+    return if (constraintParts.isNotEmpty()) " [${constraintParts.joinToString(", ")}]" else ""
   }
 
   private fun reportToDslLines(report: Report): List<String> {

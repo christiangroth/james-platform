@@ -321,9 +321,9 @@
                             onclick="window.location.href=this.getAttribute('data-navigate-url')">
                             <td>{np.name}</td>
                             <td>
-                                {np.type}{#if np.nullable}?{/if}
+                                {np.type.propertyTypeLabel}{#if np.nullable}?{/if}
                                 {#if np.type.name == "LIST" && np.listItemType}
-                                <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemType}&gt;</span>
+                                <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemTypeLabel}&gt;</span>
                                 {/if}
                                 {#if np.type.name == "OBJECT"}
                                 <br><span class="app-section-label" style="font-size:0.75rem;">{#if np.nestedProperties.isEmpty}{developer:developerNoPropertiesMessage()}{#else}{#if np.nestedProperties.size == 1}{developer:developerOnePropertyLabel()}{#else}{developer:developerPropertiesCountLabel(np.nestedProperties.size)}{/if}{/if}</span>

@@ -301,47 +301,6 @@ object TemplateFormattingExtensions {
   fun targetEntityName(property: Property, version: AppVersion): String =
     property.targetEntityId?.let { id -> version.entityDefinitions.find { it.id == id }?.name } ?: ""
 
-  /** Returns a sorted list of human-readable constraint text representations for the property,
-   * using the same format as the version diff view (e.g. "min:0", "max:100", "unique-key").
-   * Returns an empty list if no constraints are defined.
-   */
-  @JvmStatic
-  fun constraintTexts(property: Property): List<String> {
-    val texts = constraintTextsFor(property.constraints).toMutableList()
-    if (property.type == PropertyType.LIST) {
-      texts += constraintTextsFor(property.itemConstraints).map { "item-$it" }
-    }
-    return texts
-  }
-
-  private fun constraintTextsFor(constraints: Set<PropertyConstraint>): List<String> =
-    constraints
-      .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
-      .map { constraint ->
-        when (constraint) {
-          is PropertyConstraint.UniqueKey -> "unique-key"
-          is PropertyConstraint.MinLong -> "min:${constraint.min}"
-          is PropertyConstraint.MaxLong -> "max:${constraint.max}"
-          is PropertyConstraint.StepLong -> "step:${constraint.step}"
-          is PropertyConstraint.MinDouble -> "min:${constraint.min}"
-          is PropertyConstraint.MaxDouble -> "max:${constraint.max}"
-          is PropertyConstraint.StepDouble -> "step:${constraint.step}"
-          is PropertyConstraint.MinLength -> "min-length:${constraint.min}"
-          is PropertyConstraint.MaxLength -> "max-length:${constraint.max}"
-          is PropertyConstraint.Pattern -> "pattern:${constraint.regex}"
-          is PropertyConstraint.MinSize -> "min-size:${constraint.min}"
-          is PropertyConstraint.MaxSize -> "max-size:${constraint.max}"
-          is PropertyConstraint.MinDate -> "min:${constraint.min}"
-          is PropertyConstraint.MaxDate -> "max:${constraint.max}"
-          is PropertyConstraint.MinTime -> "min:${constraint.min}"
-          is PropertyConstraint.MaxTime -> "max:${constraint.max}"
-          is PropertyConstraint.MinDatetime -> "min:${constraint.min}"
-          is PropertyConstraint.MaxDatetime -> "max:${constraint.max}"
-          is PropertyConstraint.MinDuration -> "min:${constraint.min}"
-          is PropertyConstraint.MaxDuration -> "max:${constraint.max}"
-        }
-      }
-
   /** Returns the entity's property names joined as a comma-separated string,
    * or an empty string if the entity has no properties.
    */
