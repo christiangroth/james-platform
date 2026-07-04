@@ -1,3 +1,13 @@
+# 0.62.1 (2026.07.04)
+
+## Bugfixes / Chore
+* Fixed the breadcrumbs on the entity data create and edit pages, which were missing the entity name.* Fixed unreadable hint text below data entry input fields in Dark Mode.
+* Fixed the info icon next to constrained fields not reacting to clicks - it now shows the hint on click/tap as well as on hover.
+
+
+
+---
+
 # 0.62.0 (2026.07.04)
 
 ## New Features
