@@ -308,6 +308,28 @@ class UserAppStoreResource {
     ).build()
   }
 
+  @GET
+  @Path("/user/apps/{installedAppId}/data/defaults")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun newAppDataDefaults(
+    @PathParam("installedAppId") installedAppId: String,
+    @QueryParam("entityId") entityId: String?,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.ok(emptyMap<String, String>()).build() },
+      ifRight = { it },
+    )
+    val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
+      ?: return Response.ok(emptyMap<String, String>()).build()
+    val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
+    val defaults = entityDef.properties
+      .filter { it.type.supportsDefault() }
+      .mapNotNull { property -> (property.default ?: computedSmartDefaults[property.id.value])?.let { property.id.value to it } }
+      .toMap()
+    return Response.ok(defaults).build()
+  }
+
   @POST
   @Path("/user/apps/{installedAppId}/data")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)

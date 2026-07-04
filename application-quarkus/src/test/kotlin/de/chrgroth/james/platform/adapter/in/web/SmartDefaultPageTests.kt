@@ -176,4 +176,43 @@ class SmartDefaultPageTests {
       .contentType(containsString("text/html"))
       .body(containsString("""value="$expectedDatePrefix"""))
   }
+
+  @Test
+  fun `data defaults endpoint returns freshly computed DATE_TODAY smart default as JSON`() {
+    val appName = "Smart Default Defaults Endpoint App ${System.nanoTime()}"
+    val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATE_TODAY)
+    val expectedDate = LocalDate.now(ZoneOffset.UTC).toString()
+
+    val entityHtml = given()
+      .queryParam("entityId", entityId)
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/new")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    val propertyId = Regex("""data-testid="property-input-([^"]+)"""").find(entityHtml)?.groupValues?.get(1) ?: ""
+
+    given()
+      .queryParam("entityId", entityId)
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/defaults")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(propertyId, org.hamcrest.CoreMatchers.equalTo(expectedDate))
+  }
+
+  @Test
+  fun `data defaults endpoint returns an empty object for an unknown entity id`() {
+    val appName = "Smart Default Defaults Unknown Entity App ${System.nanoTime()}"
+    val (installedAppId, _) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATE_TODAY)
+
+    given()
+      .queryParam("entityId", "unknown-entity-id")
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/defaults")
+      .then()
+      .statusCode(200)
+      .body(containsString("{}"))
+  }
 }
