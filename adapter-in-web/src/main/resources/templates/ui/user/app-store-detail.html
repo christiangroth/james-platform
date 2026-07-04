@@ -15,7 +15,18 @@
         <div class="row g-3">
             <div class="col-12 col-md-8">
                 <div class="card app-card p-3 mb-3">
-                    <div class="app-section-label mb-1" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{user:userAppInfoHeading()}</div>
+                    <div class="d-flex align-items-start justify-content-between mb-1 gap-2">
+                        <div class="app-section-label" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">{user:userAppInfoHeading()}</div>
+                        {#if installedApp == null}
+                        <button type="button"
+                                class="btn btn-app-primary btn-sm"
+                                title="{user:userInstallButton()}" aria-label="{user:userInstallButton()}"
+                                data-testid="install-button"
+                                onclick="installApp('{detail.appId}', this)">
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                        </button>
+                        {/if}
+                    </div>
                     <div class="fw-semibold fs-5 mb-1" data-testid="detail-app-name">{detail.appName}</div>
                     {#if detail.appDescription}
                     <div class="app-section-label mb-2" data-testid="detail-app-description">{detail.appDescription}</div>
@@ -23,15 +34,8 @@
                     <div class="app-section-label" data-testid="detail-developer">{user:userDeveloperLabelWithName(detail.developerName)}</div>
                 </div>
 
+                {#if installedApp != null}
                 <div class="card app-card p-3 mb-3">
-                    {#if installedApp == null}
-                    <button type="button"
-                            class="btn btn-app-primary w-100"
-                            data-testid="install-button"
-                            onclick="installApp('{detail.appId}', this)">
-                        {user:userInstallButton()}
-                    </button>
-                    {#else}
                     <div class="app-section-label mb-2" data-testid="installed-version-info">
                         {user:userInstalledVersionLabel(installedApp.installedVersion.versionNumber)}
                     </div>
@@ -46,8 +50,8 @@
                     {#else}
                     <span class="badge app-badge-muted w-100 py-2" data-testid="up-to-date-badge">{user:userUpToDateBadge()}</span>
                     {/if}
-                    {/if}
                 </div>
+                {/if}
 
                 <div class="card app-card p-3 mb-3">
                     <div class="app-section-label mb-2" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.06em;">

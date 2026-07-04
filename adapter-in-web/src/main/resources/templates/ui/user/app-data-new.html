@@ -127,8 +127,12 @@
                 {/if}
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="{entityListUrl}" class="btn btn-app-secondary btn-sm" data-testid="cancel-button">{msg:commonCancel()}</a>
-                    <button type="submit" class="btn btn-app-primary btn-sm" data-testid="submit-button">{msg:commonSave()}</button>
+                    <a href="{entityListUrl}" class="btn btn-app-secondary btn-sm" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}" data-testid="cancel-button">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </a>
+                    <button type="submit" class="btn btn-app-primary btn-sm" title="{msg:commonSave()}" aria-label="{msg:commonSave()}" data-testid="submit-button">
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>
+                    </button>
                 </div>
             </form>
         </div>

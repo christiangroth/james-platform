@@ -2,6 +2,17 @@
     {#title}{msg:commonAppName()} – {msg:profileHeading()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#if isAdmin}
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel=admin:adminDashboardTitle() /}
+                {#else}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                {/if}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-profile">{msg:profileHeading()}</li>
+            </ol>
+        </nav>
+
         <h1 class="mb-4 fs-4 fw-semibold">{msg:profileHeading()}</h1>
 
         {#if successMessage}
@@ -37,13 +48,18 @@
             <!-- Change Username -->
             <div class="col-12 col-md-6">
                 <div class="card app-card p-4 h-100">
-                    <h2 class="fs-6 fw-semibold mb-3">{msg:profileChangeUsernameHeading()}</h2>
-                    <form method="post" action="/ui/profile/username">
+                    <div class="d-flex align-items-center mb-3 gap-2">
+                        <h2 class="fs-6 fw-semibold mb-0">{msg:profileChangeUsernameHeading()}</h2>
+                        <button type="submit" form="changeUsernameForm" class="btn btn-app-primary btn-sm ms-auto"
+                                title="{msg:commonSave()}" aria-label="{msg:profileChangeUsernameHeading()}" data-testid="change-username-button">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <form id="changeUsernameForm" method="post" action="/ui/profile/username">
                         <div class="mb-3">
                             <label for="newUsername" class="form-label">{msg:profileNewUsernameLabel()}</label>
                             <input type="text" class="form-control app-form-control" id="newUsername" name="newUsername" required data-testid="new-username-input">
                         </div>
-                        <button type="submit" class="btn btn-app-primary" data-testid="change-username-button">{msg:profileChangeUsernameHeading()}</button>
                     </form>
                 </div>
             </div>
@@ -51,8 +67,14 @@
             <!-- Change Password -->
             <div class="col-12 col-md-6">
                 <div class="card app-card p-4 h-100">
-                    <h2 class="fs-6 fw-semibold mb-3">{msg:profileChangePasswordHeading()}</h2>
-                    <form method="post" action="/ui/profile/password">
+                    <div class="d-flex align-items-center mb-3 gap-2">
+                        <h2 class="fs-6 fw-semibold mb-0">{msg:profileChangePasswordHeading()}</h2>
+                        <button type="submit" form="changePasswordForm" class="btn btn-app-primary btn-sm ms-auto"
+                                title="{msg:commonSave()}" aria-label="{msg:profileChangePasswordHeading()}" data-testid="change-password-button">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <form id="changePasswordForm" method="post" action="/ui/profile/password">
                         <div class="mb-3">
                             <label for="currentPassword" class="form-label">{msg:profileCurrentPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="currentPassword" name="currentPassword" autocomplete="current-password" required data-testid="current-password-input">
@@ -65,7 +87,6 @@
                             <label for="confirmPassword" class="form-label">{msg:profileConfirmPasswordLabel()}</label>
                             <input type="password" class="form-control app-form-control" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required data-testid="confirm-password-input">
                         </div>
-                        <button type="submit" class="btn btn-app-primary" data-testid="change-password-button">{msg:profileChangePasswordHeading()}</button>
                     </form>
                 </div>
             </div>

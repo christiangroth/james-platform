@@ -70,8 +70,12 @@
                         </div>
                     </div>
                     <div class="modal-footer justify-content-end gap-2">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="create-app-submit-button">{developer:developerCreateAppSubmitButton()}</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="create-app-submit-button" title="{developer:developerCreateAppSubmitButton()}" aria-label="{developer:developerCreateAppSubmitButton()}">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </form>
             </div>
