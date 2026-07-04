@@ -145,48 +145,37 @@
     <script src="/object-property-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
-            var dataCreateModeStorageKey = 'james-data-create-mode:{info.installedAppId}:{entity.id}';
-
-            function loadDataCreateState() {
-                try {
-                    var state = JSON.parse(localStorage.getItem(dataCreateModeStorageKey) || '{}');
-                    return { mode: state.mode || 'standard', snapshot: state.snapshot || null };
-                } catch (ex) {
-                    return { mode: 'standard', snapshot: null };
-                }
-            }
-
-            function saveDataCreateState(state) {
-                localStorage.setItem(dataCreateModeStorageKey, JSON.stringify(state));
-            }
-
-            function getDataCreateMode() {
-                return loadDataCreateState().mode;
-            }
-
-            var dataCreateState = loadDataCreateState();
-
-            renderObjectPropertyFields(
-                JSON.parse(document.getElementById('object-fields-data').textContent),
-                (dataCreateState.mode === 'snapshot' && dataCreateState.snapshot) ? dataCreateState.snapshot.objects : {},
-                JSON.parse(document.getElementById('reference-options-data').textContent),
-                {
-                    selectPlaceholder: '{msg:commonSelectPlaceholder()}',
-                    durationPlaceholder: '{user:userDurationPlaceholder()}',
-                    requiredAriaLabel: '{user:userRequiredAriaLabel()}',
-                    constraintInfoAriaLabel: '{user:userConstraintInfoAriaLabel()}',
-                    decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
-                    increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',
-                    removeValueAriaLabel: '{user:userRemoveValueAriaLabel()}',
-                    addValueButton: '{user:userAddValueButton()}',
-                    descendNoPropertiesLabel: '{user:userObjectDescendNoPropertiesLabel()}',
-                    descendPropertyCountTemplate: '{user:userObjectDescendPropertyCountLabel()}',
-                    noPropertiesDefinedMessage: '{user:userObjectNoPropertiesDefinedMessage()}',
-                    breadcrumbAriaLabel: '{msg:commonBreadcrumbAriaLabel()}'
-                }
-            );
-
             var createForm = document.getElementById('createDataForm');
+            var objectFieldsData = JSON.parse(document.getElementById('object-fields-data').textContent);
+            var referenceOptionsData = JSON.parse(document.getElementById('reference-options-data').textContent);
+            var objectFieldRenderMessages = {
+                selectPlaceholder: '{msg:commonSelectPlaceholder()}',
+                durationPlaceholder: '{user:userDurationPlaceholder()}',
+                requiredAriaLabel: '{user:userRequiredAriaLabel()}',
+                constraintInfoAriaLabel: '{user:userConstraintInfoAriaLabel()}',
+                decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
+                increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',
+                removeValueAriaLabel: '{user:userRemoveValueAriaLabel()}',
+                addValueButton: '{user:userAddValueButton()}',
+                descendNoPropertiesLabel: '{user:userObjectDescendNoPropertiesLabel()}',
+                descendPropertyCountTemplate: '{user:userObjectDescendPropertyCountLabel()}',
+                noPropertiesDefinedMessage: '{user:userObjectNoPropertiesDefinedMessage()}',
+                breadcrumbAriaLabel: '{msg:commonBreadcrumbAriaLabel()}'
+            };
+
+            function renderObjectFields(objectValues) {
+                createForm.querySelectorAll('.object-property-fields[data-property-id]').forEach(function (container) {
+                    container.innerHTML = '';
+                });
+                renderObjectPropertyFields(objectFieldsData, objectValues || {}, referenceOptionsData, objectFieldRenderMessages);
+            }
+
+            // Create mode and any captured snapshot live only in memory: the editor always starts in Standard
+            // Mode, and both are lost as soon as the user navigates away from or reloads this page.
+            var dataCreateState = { mode: 'standard', snapshot: null };
+
+            renderObjectFields({});
+
             var multiModeButton = document.getElementById('mode-multi-button');
             var snapshotButton = document.getElementById('mode-snapshot-button');
             var snapshotDeleteButton = document.getElementById('mode-snapshot-delete-button');
@@ -195,7 +184,7 @@
 
             // Reads the current form values (top-level scalars/lists, plus nested OBJECT property values keyed
             // the same way decodeObjectValue()/objectValuesJsonFor() shape them server-side) into a plain
-            // snapshot object that can be persisted to localStorage and later replayed onto a freshly loaded form.
+            // snapshot object that is kept in memory and replayed onto the form after each subsequent submit.
             function captureFormSnapshot(form) {
                 var scalars = {};
                 var lists = {};
@@ -276,12 +265,22 @@
                 });
             }
 
-            if (dataCreateState.mode === 'snapshot') {
-                applyFormSnapshot(dataCreateState.snapshot);
+            // Clears the form back to its initial render (freshly re-rendering OBJECT property fields too) and,
+            // in Snapshot Mode, replays the captured snapshot - so the next entry starts from the same values.
+            function resetFormForNextEntry() {
+                createForm.reset();
+                createForm.querySelectorAll('.list-property-rows[data-property-id]').forEach(function (container) {
+                    container.querySelectorAll('.list-property-row').forEach(function (row) { row.remove(); });
+                });
+                clearFieldErrors(createForm);
+
+                var snapshot = dataCreateState.mode === 'snapshot' ? dataCreateState.snapshot : null;
+                renderObjectFields(snapshot ? snapshot.objects : {});
+                if (snapshot) applyFormSnapshot(snapshot);
             }
 
             function updateModeButtons() {
-                var mode = getDataCreateMode();
+                var mode = dataCreateState.mode;
 
                 multiModeButton.classList.toggle('d-none', mode === 'snapshot');
                 multiModeButton.classList.toggle('active', mode === 'multi');
@@ -296,17 +295,17 @@
             }
 
             multiModeButton.addEventListener('click', function () {
-                saveDataCreateState({ mode: getDataCreateMode() === 'multi' ? 'standard' : 'multi', snapshot: null });
+                dataCreateState = { mode: dataCreateState.mode === 'multi' ? 'standard' : 'multi', snapshot: null };
                 updateModeButtons();
             });
 
             snapshotButton.addEventListener('click', function () {
-                saveDataCreateState({ mode: 'snapshot', snapshot: captureFormSnapshot(createForm) });
+                dataCreateState = { mode: 'snapshot', snapshot: captureFormSnapshot(createForm) };
                 updateModeButtons();
             });
 
             snapshotDeleteButton.addEventListener('click', function () {
-                saveDataCreateState({ mode: 'multi', snapshot: null });
+                dataCreateState = { mode: 'multi', snapshot: null };
                 updateModeButtons();
             });
 
@@ -388,9 +387,10 @@
                     });
                     var result = await response.json();
                     if (result.ok && result.redirectUrl) {
-                        if (getDataCreateMode() === 'multi' || getDataCreateMode() === 'snapshot') {
+                        if (dataCreateState.mode === 'multi' || dataCreateState.mode === 'snapshot') {
                             showMessage(true, result.message);
-                            setTimeout(function () { window.location.reload(); }, 800);
+                            resetFormForNextEntry();
+                            submitBtn.disabled = false;
                         } else {
                             window.location.href = result.redirectUrl;
                         }
