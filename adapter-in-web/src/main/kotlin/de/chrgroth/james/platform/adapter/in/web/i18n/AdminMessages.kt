@@ -11,9 +11,6 @@ interface AdminMessages {
   fun adminDashboardTitle(): String
 
   @Message
-  fun adminBreadcrumbAdmin(): String
-
-  @Message
   fun adminUserManagementAriaLabel(): String
 
   @Message
