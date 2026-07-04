@@ -44,6 +44,19 @@ class LogsPageTests {
   }
 
   @Test
+  fun `logs page contains breadcrumb with user home for non-admin monitoring role and active logs item`() {
+    given()
+      .`when`()
+      .get("/logs")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="breadcrumb-home-link""""))
+      .body(containsString("""href="/ui/user/dashboard""""))
+      .body(containsString("""data-testid="breadcrumb-logs""""))
+      .body(containsString("Log-Viewer"))
+  }
+
+  @Test
   fun `logs page displays newest entries first with level badges and expandable stacktrace`() {
     val now = Instant.now()
     logBuffer.add(

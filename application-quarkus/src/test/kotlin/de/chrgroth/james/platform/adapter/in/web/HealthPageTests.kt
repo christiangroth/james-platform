@@ -272,4 +272,17 @@ class HealthPageTests {
       .statusCode(200)
       .body(containsString("connectSse('/health/events'"))
   }
+
+  @Test
+  fun `health page contains breadcrumb with admin home and active health item`() {
+    given()
+      .`when`()
+      .get("/health")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="breadcrumb-home-link""""))
+      .body(containsString("""href="/ui/admin/dashboard""""))
+      .body(containsString("""data-testid="breadcrumb-health""""))
+      .body(containsString("Systemstatus"))
+  }
 }

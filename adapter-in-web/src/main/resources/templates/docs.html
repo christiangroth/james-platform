@@ -2,6 +2,16 @@
     {#title}{msg:commonAppName()} – {title}{/title}
     {#content}
     <div class="container py-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#if isAdmin}
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel=admin:adminDashboardTitle() /}
+                {#else}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                {/if}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-docs">{title}</li>
+            </ol>
+        </nav>
         <div id="docs-rendered" class="docs-content"></div>
         <textarea id="docs-raw" class="d-none">{markdownContent}</textarea>
     </div>

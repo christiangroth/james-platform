@@ -128,4 +128,17 @@ class ConfigPageTests {
       .statusCode(200)
       .body(containsString("""data-testid="logs-ui-link""""))
   }
+
+  @Test
+  fun `config page contains breadcrumb with admin home and active config item`() {
+    given()
+      .`when`()
+      .get("/config")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="breadcrumb-home-link""""))
+      .body(containsString("""href="/ui/admin/dashboard""""))
+      .body(containsString("""data-testid="breadcrumb-config""""))
+      .body(containsString("Konfiguration"))
+  }
 }
