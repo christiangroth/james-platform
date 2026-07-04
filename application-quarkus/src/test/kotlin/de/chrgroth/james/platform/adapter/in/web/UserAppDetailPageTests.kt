@@ -249,6 +249,24 @@ class UserAppDetailPageTests {
   }
 
   @Test
+  fun `new data page has header buttons to create and delete a snapshot`() {
+    val appName = "Snapshot Mode App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/new?entityId=$entityId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"mode-snapshot-button\""), "Expected a header button to create/replace a snapshot")
+    assertTrue(html.contains("data-testid=\"mode-snapshot-delete-button\""), "Expected a header button to delete a snapshot")
+  }
+
+  @Test
   fun `edit data page breadcrumb includes both the entity name and the display text`() {
     val appName = "Edit Breadcrumb App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)

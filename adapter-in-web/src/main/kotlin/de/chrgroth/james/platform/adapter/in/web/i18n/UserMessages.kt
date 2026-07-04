@@ -153,6 +153,15 @@ interface UserMessages {
   @Message
   fun userMultiModeButton(): String
 
+  @Message
+  fun userSnapshotCreateButton(): String
+
+  @Message
+  fun userSnapshotReplaceButton(): String
+
+  @Message
+  fun userSnapshotDeleteButton(): String
+
   // app data edit
   @Message
   fun userEditDataTitle(): String

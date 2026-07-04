@@ -16,12 +16,27 @@
         <div class="card app-card p-4">
             <div class="d-flex align-items-center mb-4 gap-2">
                 <h2 class="fs-5 fw-semibold mb-0" data-testid="form-title">{user:userNewEntityTitle(entity.name)}</h2>
-                <button type="button" class="btn btn-app-secondary btn-sm ms-auto" id="mode-multi-button" data-testid="mode-multi-button"
-                        title="{user:userMultiModeButton()}" aria-label="{user:userMultiModeButton()}" aria-pressed="false">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                        <path d="M13 0H6a2 2 0 0 0-2 2 2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2 2 2 0 0 0 2-2V2a2 2 0 0 0-2-2m0 13V4a2 2 0 0 0-2-2H5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1M3 4a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
-                    </svg>
-                </button>
+                <div class="ms-auto d-flex gap-2">
+                    <button type="button" class="btn btn-app-secondary btn-sm" id="mode-snapshot-button" data-testid="mode-snapshot-button"
+                            title="{user:userSnapshotCreateButton()}" aria-label="{user:userSnapshotCreateButton()}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                            <circle cx="8" cy="8" r="3.5"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn btn-app-secondary btn-sm" id="mode-multi-button" data-testid="mode-multi-button"
+                            title="{user:userMultiModeButton()}" aria-label="{user:userMultiModeButton()}" aria-pressed="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M13 0H6a2 2 0 0 0-2 2 2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2 2 2 0 0 0 2-2V2a2 2 0 0 0-2-2m0 13V4a2 2 0 0 0-2-2H5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1M3 4a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn btn-app-secondary btn-sm" id="mode-snapshot-delete-button" data-testid="mode-snapshot-delete-button"
+                            title="{user:userSnapshotDeleteButton()}" aria-label="{user:userSnapshotDeleteButton()}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <rect x="3" y="3" width="10" height="10" rx="1"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <form id="createDataForm">
@@ -130,9 +145,30 @@
     <script src="/object-property-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
+            var dataCreateModeStorageKey = 'james-data-create-mode:{info.installedAppId}:{entity.id}';
+
+            function loadDataCreateState() {
+                try {
+                    var state = JSON.parse(localStorage.getItem(dataCreateModeStorageKey) || '{}');
+                    return { mode: state.mode || 'standard', snapshot: state.snapshot || null };
+                } catch (ex) {
+                    return { mode: 'standard', snapshot: null };
+                }
+            }
+
+            function saveDataCreateState(state) {
+                localStorage.setItem(dataCreateModeStorageKey, JSON.stringify(state));
+            }
+
+            function getDataCreateMode() {
+                return loadDataCreateState().mode;
+            }
+
+            var dataCreateState = loadDataCreateState();
+
             renderObjectPropertyFields(
                 JSON.parse(document.getElementById('object-fields-data').textContent),
-                {},
+                (dataCreateState.mode === 'snapshot' && dataCreateState.snapshot) ? dataCreateState.snapshot.objects : {},
                 JSON.parse(document.getElementById('reference-options-data').textContent),
                 {
                     selectPlaceholder: '{msg:commonSelectPlaceholder()}',
@@ -150,29 +186,127 @@
                 }
             );
 
-            var dataCreateModeStorageKey = 'james-data-create-mode:{info.installedAppId}:{entity.id}';
+            var createForm = document.getElementById('createDataForm');
             var multiModeButton = document.getElementById('mode-multi-button');
+            var snapshotButton = document.getElementById('mode-snapshot-button');
+            var snapshotDeleteButton = document.getElementById('mode-snapshot-delete-button');
+            var snapshotCreateLabel = '{user:userSnapshotCreateButton()}';
+            var snapshotReplaceLabel = '{user:userSnapshotReplaceButton()}';
 
-            function getDataCreateMode() {
-                try {
-                    return JSON.parse(localStorage.getItem(dataCreateModeStorageKey) || '{}').mode || 'standard';
-                } catch (ex) {
-                    return 'standard';
-                }
+            // Reads the current form values (top-level scalars/lists, plus nested OBJECT property values keyed
+            // the same way decodeObjectValue()/objectValuesJsonFor() shape them server-side) into a plain
+            // snapshot object that can be persisted to localStorage and later replayed onto a freshly loaded form.
+            function captureFormSnapshot(form) {
+                var scalars = {};
+                var lists = {};
+                var objects = {};
+
+                form.querySelectorAll('.object-property-fields[data-property-id]').forEach(function (container) {
+                    var propId = container.getAttribute('data-property-id');
+                    objects[propId] = captureObjectContainerValue(container, propId);
+                });
+
+                form.querySelectorAll('.list-property-rows[data-property-id]').forEach(function (container) {
+                    var propId = container.getAttribute('data-property-id');
+                    var values = [];
+                    container.querySelectorAll('.list-property-row').forEach(function (row) {
+                        var input = row.querySelector('[name="prop_' + propId + '"]');
+                        if (input) values.push(input.value);
+                    });
+                    lists[propId] = values;
+                });
+
+                form.querySelectorAll('[name^="prop_"]').forEach(function (el) {
+                    if (el.closest('.object-property-fields') || el.closest('.list-property-rows')) return;
+                    var propId = el.name.substring('prop_'.length);
+                    scalars[propId] = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : el.value;
+                });
+
+                return { scalars: scalars, lists: lists, objects: objects };
             }
 
-            function setDataCreateMode(mode) {
-                localStorage.setItem(dataCreateModeStorageKey, JSON.stringify({ mode: mode }));
+            function captureObjectContainerValue(container, propId) {
+                var prefix = 'prop_' + propId + '.';
+                var result = {};
+                container.querySelectorAll('[name^="' + prefix + '"]').forEach(function (el) {
+                    var path = el.name.substring(prefix.length).split('.');
+                    var node = result;
+                    for (var i = 0; i < path.length - 1; i++) {
+                        node[path[i]] = node[path[i]] || {};
+                        node = node[path[i]];
+                    }
+                    var last = path[path.length - 1];
+                    var value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : el.value;
+                    if (node[last] === undefined) {
+                        node[last] = value;
+                    } else if (Array.isArray(node[last])) {
+                        node[last].push(value);
+                    } else {
+                        node[last] = [node[last], value];
+                    }
+                });
+                return result;
+            }
+
+            // Replays a previously captured snapshot's top-level scalar and list values onto the freshly rendered
+            // form. Nested OBJECT property values are handled separately, up front, via renderObjectPropertyFields.
+            function applyFormSnapshot(snapshot) {
+                if (!snapshot) return;
+                Object.keys(snapshot.scalars || {}).forEach(function (propId) {
+                    var el = document.getElementById('prop_' + propId);
+                    if (!el) return;
+                    if (el.type === 'checkbox') {
+                        el.checked = snapshot.scalars[propId] === 'true';
+                    } else {
+                        el.value = snapshot.scalars[propId];
+                    }
+                });
+                Object.keys(snapshot.lists || {}).forEach(function (propId) {
+                    var container = document.querySelector('.list-property-rows[data-property-id="' + propId + '"]');
+                    if (!container) return;
+                    var addBtn = container.querySelector('.add-list-row');
+                    var tpl = container.querySelector('.list-row-template');
+                    (snapshot.lists[propId] || []).forEach(function (value) {
+                        var row = tpl.content.firstElementChild.cloneNode(true);
+                        container.insertBefore(row, addBtn);
+                        attachRemoveHandler(row.querySelector('.list-remove-row'));
+                        var input = row.querySelector('[name="prop_' + propId + '"]');
+                        if (input) input.value = value;
+                    });
+                });
+            }
+
+            if (dataCreateState.mode === 'snapshot') {
+                applyFormSnapshot(dataCreateState.snapshot);
             }
 
             function updateModeButtons() {
-                var multiActive = getDataCreateMode() === 'multi';
-                multiModeButton.classList.toggle('active', multiActive);
-                multiModeButton.setAttribute('aria-pressed', multiActive ? 'true' : 'false');
+                var mode = getDataCreateMode();
+
+                multiModeButton.classList.toggle('d-none', mode === 'snapshot');
+                multiModeButton.classList.toggle('active', mode === 'multi');
+                multiModeButton.setAttribute('aria-pressed', mode === 'multi' ? 'true' : 'false');
+
+                snapshotButton.classList.toggle('d-none', mode === 'standard');
+                var snapshotLabel = mode === 'snapshot' ? snapshotReplaceLabel : snapshotCreateLabel;
+                snapshotButton.title = snapshotLabel;
+                snapshotButton.setAttribute('aria-label', snapshotLabel);
+
+                snapshotDeleteButton.classList.toggle('d-none', mode !== 'snapshot');
             }
 
             multiModeButton.addEventListener('click', function () {
-                setDataCreateMode(getDataCreateMode() === 'multi' ? 'standard' : 'multi');
+                saveDataCreateState({ mode: getDataCreateMode() === 'multi' ? 'standard' : 'multi', snapshot: null });
+                updateModeButtons();
+            });
+
+            snapshotButton.addEventListener('click', function () {
+                saveDataCreateState({ mode: 'snapshot', snapshot: captureFormSnapshot(createForm) });
+                updateModeButtons();
+            });
+
+            snapshotDeleteButton.addEventListener('click', function () {
+                saveDataCreateState({ mode: 'multi', snapshot: null });
                 updateModeButtons();
             });
 
@@ -254,7 +388,7 @@
                     });
                     var result = await response.json();
                     if (result.ok && result.redirectUrl) {
-                        if (getDataCreateMode() === 'multi') {
+                        if (getDataCreateMode() === 'multi' || getDataCreateMode() === 'snapshot') {
                             showMessage(true, result.message);
                             setTimeout(function () { window.location.reload(); }, 800);
                         } else {
