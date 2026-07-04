@@ -141,7 +141,7 @@
                                     <tbody>
                                         {#for s in stats.scriptStats}
                                         <tr>
-                                            <td><span class="app-badge-muted badge">{s.type}</span></td>
+                                            <td><span class="app-badge-muted badge">{#if s.type.name == "SMART_DEFAULT"}{monitoring:monitoringScriptTypeSmartDefaultBadge()}{#else}{monitoring:monitoringScriptTypeComputedPropertyBadge()}{/if}</span></td>
                                             <td>{s.entityName}</td>
                                             <td>{s.propertyName}</td>
                                             <td class="text-end">{s.executionCount.formatted}</td>
