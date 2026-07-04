@@ -232,6 +232,15 @@
             -webkit-appearance: none;
             margin: 0;
         }
+        /* Bootstrap's own .form-text color isn't tied to our [data-theme] variables, so it stays unreadable on dark backgrounds */
+        .form-text {
+            color: var(--color-text-muted);
+        }
+        /* Constraint hint tooltips may contain multiple lines (joined with \n) - preserve them instead of collapsing to one line */
+        .tooltip .tooltip-inner {
+            white-space: pre-line;
+            text-align: left;
+        }
         /* Select / dropdown in the dark theme – combine with Bootstrap .form-select */
         .app-select {
             background-color: var(--color-bg-card) !important;
