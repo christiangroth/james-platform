@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -30,6 +31,7 @@ class UserAppStoreService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
+  private val appDataRepository: AppDataRepositoryPort,
   private val userRepository: UserRepositoryPort,
 ) : UserAppStorePort {
 
@@ -161,6 +163,21 @@ class UserAppStoreService(
     installedAppRepository.save(upgraded)
     logger.info { "App upgraded: installedAppId=$installedAppId to version ${latestVersion.versionNumber!!.value}" }
     return upgraded.right()
+  }
+
+  override fun uninstallApp(userId: String, installedAppId: String): Either<DomainError, Unit> {
+    val existing = installedAppRepository.findById(InstalledAppId(installedAppId)) ?: run {
+      logger.warn { "Uninstall app failed: installed app not found: $installedAppId" }
+      return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    if (existing.userId != userId) {
+      logger.warn { "Uninstall app failed: installed app not found for user: $userId" }
+      return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    appDataRepository.deleteAllByInstalledAppId(existing.id)
+    installedAppRepository.delete(existing.id)
+    logger.info { "App uninstalled: installedAppId=$installedAppId for user=$userId" }
+    return Unit.right()
   }
 
   companion object : KLogging()

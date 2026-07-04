@@ -11,4 +11,5 @@ interface AppDataRepositoryPort {
   fun findById(id: AppDataId): AppData?
   fun save(appData: AppData)
   fun delete(id: AppDataId)
+  fun deleteAllByInstalledAppId(installedAppId: InstalledAppId)
 }

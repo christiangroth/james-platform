@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -27,8 +28,9 @@ class UserAppStoreServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
+  private val appDataRepository: AppDataRepositoryPort = mockk()
   private val userRepository: UserRepositoryPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, userRepository)
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, userRepository)
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
@@ -349,6 +351,45 @@ class UserAppStoreServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.ALREADY_UP_TO_DATE)
+  }
+
+  // endregion
+
+  // region uninstallApp
+
+  @Test
+  fun `uninstallApp deletes app data and installed app for valid user and installed app id`() {
+    val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
+    justRun { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
+    justRun { installedAppRepository.delete(InstalledAppId("inst-1")) }
+
+    val result = service.uninstallApp("user-1", "inst-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
+    verify { installedAppRepository.delete(InstalledAppId("inst-1")) }
+  }
+
+  @Test
+  fun `uninstallApp fails when installed app not found`() {
+    every { installedAppRepository.findById(InstalledAppId("unknown")) } returns null
+
+    val result = service.uninstallApp("user-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `uninstallApp fails when installed app belongs to another user`() {
+    val existing = installedApp(id = "inst-1", userId = "user-2", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
+
+    val result = service.uninstallApp("user-1", "inst-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
   }
 
   // endregion

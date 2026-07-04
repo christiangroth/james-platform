@@ -36,4 +36,5 @@ interface UserAppStorePort {
   fun getInstalledApp(userId: String, installedAppId: String): Either<DomainError, InstalledAppInfo>
   fun installApp(userId: String, appId: String): Either<DomainError, InstalledApp>
   fun upgradeApp(userId: String, installedAppId: String): Either<DomainError, InstalledApp>
+  fun uninstallApp(userId: String, installedAppId: String): Either<DomainError, Unit>
 }

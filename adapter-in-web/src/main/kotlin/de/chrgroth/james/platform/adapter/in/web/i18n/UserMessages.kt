@@ -101,9 +101,24 @@ interface UserMessages {
   @Message
   fun userNextLabel(): String
 
+  @Message
+  fun userOpenEntityAriaLabel(name: String): String
+
+  @Message
+  fun userEntityDataCountLabel(count: Int): String
+
+  @Message
+  fun userDeleteInstalledAppModalTitle(): String
+
+  @Message
+  fun userDeleteInstalledAppConfirm(): String
+
   // app data new / edit (shared form fields)
   @Message
   fun userNewEntityTitle(name: String): String
+
+  @Message
+  fun userNewEntityBreadcrumbLabel(): String
 
   @Message
   fun userNoPropertiesDefinedMessage(): String
@@ -178,6 +193,9 @@ interface UserMessages {
 
   @Message
   fun userAppUpgradedMessage(): String
+
+  @Message
+  fun userAppUninstalledMessage(): String
 
   @Message
   fun userEntityTypeRequiredError(): String
