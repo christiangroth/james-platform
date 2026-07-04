@@ -1,3 +1,19 @@
+# 0.66.0 (2026.07.04)
+
+## New Features
+* Cancel, delete and save buttons on the data entry, property, version and report editing screens are now icon-only instead of showing text labels.
+* The App Store install button is now icon-only and sits right-aligned in the app info card instead of its own full-width button.
+* The profile page now shows a breadcrumb trail, and its save buttons are icon-only and right-aligned in each section heading.
+* The New App, Add Entity and Add Report dialogs now use icon-only Cancel/Save buttons.
+* Added breadcrumbs to the Health, Config, Log Viewer, MongoDB Viewer and Docs pages.
+
+## Bugfixes / Chore
+* Fixed the breadcrumb separator being invisible in dark mode.
+
+
+
+---
+
 # 0.65.3 (2026.07.04)
 
 ## Bugfixes / Chore
