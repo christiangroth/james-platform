@@ -1,3 +1,15 @@
+# 0.64.0 (2026.07.04)
+
+## New Features
+* Added a Snapshot mode to the new data form, available once Multi mode is active. Creating a snapshot captures the current field values so future saves reopen the form pre-filled with them instead of blank defaults; the snapshot can be replaced with the current values at any time or deleted to return to Multi mode.
+* The new data form always opens in Standard mode; a Multi or Snapshot mode selection is no longer remembered once you leave or reload the page.
+* In Multi/Snapshot mode, each new entry now freshly recomputes smart defaults instead of reusing the ones from the initial page load, unless a field's value was explicitly captured in the snapshot.
+* Fields carrying a value from the active snapshot are now visually highlighted in the form.
+
+
+
+---
+
 # 0.63.0 (2026.07.04)
 
 ## New Features
