@@ -51,6 +51,9 @@ class AdminUserManagementPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="breadcrumb-users""""))
+      .body(containsString("""data-testid="breadcrumb-home-link""""))
+      .body(containsString("""href="/ui/admin/dashboard""""))
+      .body(not(containsString("""data-testid="breadcrumb-admin-link"""")))
   }
 
   @Test

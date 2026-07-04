@@ -34,8 +34,7 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
-                <li class="breadcrumb-item"><a href="/ui/admin/dashboard" class="breadcrumb-link" data-testid="breadcrumb-admin-link">{admin:adminBreadcrumbAdmin()}</a></li>
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel="{admin:adminDashboardTitle()}" /}
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-users">{admin:adminUserManagementTitle()}</li>
             </ol>
         </nav>
