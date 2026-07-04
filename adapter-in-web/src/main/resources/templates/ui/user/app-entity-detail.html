@@ -1,0 +1,125 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {info.appName} – {entity.entityName}{/title}
+    {#content}
+    <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-entity">{entity.entityName}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="entity-title">{entity.entityName}</h1>
+            <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={entity.entityId}"
+               class="btn btn-app-secondary btn-sm ms-auto"
+               data-testid="add-data-button"
+               title="{msg:commonAdd()}"
+               aria-label="{user:userAddMoreDataAriaLabel()}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+            </a>
+        </div>
+
+        <div class="card app-card p-4">
+            {#if entity.rows.isEmpty}
+            <p class="mb-0 app-section-label" data-testid="no-data-message">{user:userNoDataYetMessage()}</p>
+            {#else}
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 app-table" data-testid="app-data-table" data-entity-id="{entity.entityId}">
+                    <tbody>
+                        {#for item in entity.rows}
+                        <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
+                            <td data-testid="app-data-index">{item_count}</td>
+                            <td class="text-truncate" style="max-width:400px;" title="{item.displayText}" data-testid="app-data-display-text">{item.displayText}</td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+            </div>
+            {/if}
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var PAGE_SIZE = {pageSize};
+            var pageLabel = '{user:userPageLabel()}';
+            var previousLabel = '{user:userPreviousLabel()}';
+            var nextLabel = '{user:userNextLabel()}';
+
+            // Clickable rows
+            document.querySelectorAll('.app-clickable-row').forEach(function (row) {
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function () {
+                    window.location.href = this.dataset.href;
+                });
+            });
+
+            // Pagination per table
+            function initPagination(table) {
+                var tbody = table.querySelector('tbody');
+                if (!tbody) { return; }
+                var rows = Array.from(tbody.querySelectorAll('tr[data-testid="app-data-row"]'));
+                if (rows.length <= PAGE_SIZE) {
+                    return;
+                }
+
+                var totalPages = Math.ceil(rows.length / PAGE_SIZE);
+                var currentPage = 1;
+
+                function showPage(page) {
+                    currentPage = page;
+                    rows.forEach(function (row, idx) {
+                        var rowPage = Math.floor(idx / PAGE_SIZE) + 1;
+                        row.style.display = rowPage === page ? '' : 'none';
+                    });
+                    updatePager();
+                }
+
+                function updatePager() {
+                    var pager = table.parentElement.querySelector('.app-data-pager');
+                    if (!pager) { return; }
+                    pager.querySelector('.pager-info').textContent = pageLabel + ' ' + currentPage + ' / ' + totalPages;
+                    pager.querySelector('.pager-prev').disabled = currentPage <= 1;
+                    pager.querySelector('.pager-next').disabled = currentPage >= totalPages;
+                }
+
+                // Build pager
+                var pager = document.createElement('div');
+                pager.className = 'app-data-pager d-flex align-items-center gap-2 mt-2';
+                pager.setAttribute('data-testid', 'data-pager');
+                var prevBtn = document.createElement('button');
+                prevBtn.type = 'button';
+                prevBtn.className = 'btn btn-app-secondary btn-sm pager-prev';
+                prevBtn.setAttribute('data-testid', 'pager-prev');
+                prevBtn.textContent = '‹ ' + previousLabel;
+                var info = document.createElement('span');
+                info.className = 'app-section-label pager-info';
+                var nextBtn = document.createElement('button');
+                nextBtn.type = 'button';
+                nextBtn.className = 'btn btn-app-secondary btn-sm pager-next';
+                nextBtn.setAttribute('data-testid', 'pager-next');
+                nextBtn.textContent = nextLabel + ' ›';
+                prevBtn.addEventListener('click', function () {
+                    if (currentPage > 1) { showPage(currentPage - 1); }
+                });
+                nextBtn.addEventListener('click', function () {
+                    if (currentPage < totalPages) { showPage(currentPage + 1); }
+                });
+                pager.appendChild(prevBtn);
+                pager.appendChild(info);
+                pager.appendChild(nextBtn);
+                table.parentElement.appendChild(pager);
+
+                showPage(1);
+            }
+
+            document.querySelectorAll('[data-entity-id]').forEach(function (table) {
+                initPagination(table);
+            });
+        })();
+    </script>
+    {/scripts}
+{/include}

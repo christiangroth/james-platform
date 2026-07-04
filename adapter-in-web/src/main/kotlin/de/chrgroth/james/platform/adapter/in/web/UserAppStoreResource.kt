@@ -124,6 +124,10 @@ class UserAppStoreResource {
   private lateinit var appDetailTemplate: Template
 
   @Inject
+  @Location("ui/user/app-entity-detail.html")
+  private lateinit var appEntityDetailTemplate: Template
+
+  @Inject
   @Location("ui/user/app-data-new.html")
   private lateinit var appDataNewTemplate: Template
 
@@ -210,10 +214,7 @@ class UserAppStoreResource {
   @GET
   @Path("/user/apps/{installedAppId}")
   @Produces(MediaType.TEXT_HTML)
-  fun installedAppDetail(
-    @PathParam("installedAppId") installedAppId: String,
-    @QueryParam("tab") tab: String?,
-  ): Response {
+  fun installedAppDetail(@PathParam("installedAppId") installedAppId: String): Response {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
@@ -222,37 +223,51 @@ class UserAppStoreResource {
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
 
-    val entities = info.installedVersion.entityDefinitions
-    val entityTabs = entities.map { entityDef ->
-      val entityRows = allAppData
-        .filter { it.entityType.value == entityDef.id.value }
-        .let { rows -> applySortCriteria(rows, entityDef, entityById) }
-        .map { item ->
-          AppDataRow(
-            id = item.id.value,
-            displayText = computeDisplayText(entityDef, item.id.value, item.data),
-          )
-        }
-      val totalPages = maxOf(1, (entityRows.size + PAGE_SIZE - 1) / PAGE_SIZE)
-      EntityTab(
-        entityId = entityDef.id.value,
-        entityName = entityDef.name,
-        rows = entityRows,
-        currentPage = 1,
-        totalPages = totalPages,
-      )
-    }
-
-    val activeEntityId = tab?.let { t -> entities.find { it.id.value == t }?.id?.value }
-      ?: entities.firstOrNull()?.id?.value
+    val entityTabs = info.installedVersion.entityDefinitions.map { entityDef -> buildEntityTab(entityDef, entityById, allAppData) }
 
     return Response.ok(
       appDetailTemplate
         .data("info", info)
         .data("entityTabs", entityTabs)
-        .data("activeEntityId", activeEntityId)
         .data("pageSize", PAGE_SIZE),
     ).build()
+  }
+
+  @GET
+  @Path("/user/apps/{installedAppId}/entities/{entityTypeId}")
+  @Produces(MediaType.TEXT_HTML)
+  fun installedAppEntityDetail(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("entityTypeId") entityTypeId: String,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityTypeId }
+      ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+    val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
+    val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+    val entityTab = buildEntityTab(entityDef, entityById, allAppData)
+
+    return Response.ok(
+      appEntityDetailTemplate
+        .data("info", info)
+        .data("entity", entityTab)
+        .data("pageSize", PAGE_SIZE),
+    ).build()
+  }
+
+  @POST
+  @Path("/user/apps/{installedAppId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteInstalledApp(@PathParam("installedAppId") installedAppId: String): Response {
+    val userId = securityIdentity.principal.name
+    return userAppStore.uninstallApp(userId, installedAppId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppUninstalledMessage(), "/ui/user/dashboard")).build() },
+    )
   }
 
   @GET
@@ -277,6 +292,7 @@ class UserAppStoreResource {
         .data("entity", entityDef)
         .data("smartDefaults", computedSmartDefaults)
         .data("referenceOptions", referenceOptions)
+        .data("entityListUrl", entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size))
         .data("objectFieldsJson", objectFieldsJsonFor(entityDef.properties))
         .data("referenceOptionsJson", referenceOptionsJsonFor(referenceOptions)),
     ).build()
@@ -306,7 +322,10 @@ class UserAppStoreResource {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
         }
       },
-      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), "/ui/user/apps/$installedAppId")).build() },
+      ifRight = {
+        val entityCount = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions?.size ?: 1
+        Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), entityListUrl(installedAppId, entityTypeId, entityCount))).build()
+      },
     )
   }
 
@@ -374,6 +393,7 @@ class UserAppStoreResource {
           appDataEditTemplate
             .data("info", info)
             .data("detail", detail)
+            .data("entityListUrl", entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size))
             .data("objectFieldsJson", objectFieldsJsonFor(entityDef.properties))
             .data("objectValuesJson", objectValuesJsonFor(entityDef.properties, appDataItem.data))
             .data("referenceOptionsJson", referenceOptionsJsonFor(referenceOptions)),
@@ -406,7 +426,10 @@ class UserAppStoreResource {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
         }
       },
-      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userDataUpdatedMessage(), "/ui/user/apps/$installedAppId/data/$dataId")).build() },
+      ifRight = { updated ->
+        val entityCount = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions?.size ?: 1
+        Response.ok(DeveloperApiResult(true, userMsg.userDataUpdatedMessage(), entityListUrl(installedAppId, updated.entityType.value, entityCount))).build()
+      },
     )
   }
 
@@ -439,12 +462,39 @@ class UserAppStoreResource {
     @PathParam("dataId") dataId: String,
   ): Response {
     val userId = securityIdentity.principal.name
+    val entityTypeId = appData.getAppData(userId, installedAppId, dataId).getOrNull()?.entityType?.value
     return appData.deleteAppData(userId, installedAppId, dataId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
       ifRight = { count ->
         val message = if (count > 0) userMsg.userDataDeletedWithReferencesMessage(count) else userMsg.userDataDeletedMessage()
-        Response.ok(DeveloperApiResult(true, message, "/ui/user/apps/$installedAppId")).build()
+        val entityCount = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions?.size ?: 1
+        val redirectUrl = entityTypeId?.let { entityListUrl(installedAppId, it, entityCount) } ?: "/ui/user/apps/$installedAppId"
+        Response.ok(DeveloperApiResult(true, message, redirectUrl)).build()
       },
+    )
+  }
+
+  /** Builds the URL for the entity's data list: the app detail page itself when it is the only entity type, otherwise its dedicated entity page. */
+  private fun entityListUrl(installedAppId: String, entityTypeId: String, entityCount: Int): String =
+    if (entityCount <= 1) "/ui/user/apps/$installedAppId" else "/ui/user/apps/$installedAppId/entities/$entityTypeId"
+
+  private fun buildEntityTab(entityDef: EntityDefinition, entityById: Map<String, EntityDefinition>, allAppData: List<AppData>): EntityTab {
+    val entityRows = allAppData
+      .filter { it.entityType.value == entityDef.id.value }
+      .let { rows -> applySortCriteria(rows, entityDef, entityById) }
+      .map { item ->
+        AppDataRow(
+          id = item.id.value,
+          displayText = computeDisplayText(entityDef, item.id.value, item.data),
+        )
+      }
+    val totalPages = maxOf(1, (entityRows.size + PAGE_SIZE - 1) / PAGE_SIZE)
+    return EntityTab(
+      entityId = entityDef.id.value,
+      entityName = entityDef.name,
+      rows = entityRows,
+      currentPage = 1,
+      totalPages = totalPages,
     )
   }
 

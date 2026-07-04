@@ -9,27 +9,35 @@
             </ol>
         </nav>
 
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="app-title">{info.appName}</h1>
+            {#btn-icon-delete testId="delete-installed-app-button" title=msg:commonDelete() extraClass="ms-auto" bsTarget="#deleteInstalledAppModal" action="" entityId="" propertyId="" reportId="" username="" /}
+        </div>
+
+        <div id="app-detail-message" class="d-none mb-4" role="alert"></div>
+
         <div class="card app-card p-4">
             {#if info.installedVersion.entityDefinitions.isEmpty}
             <p class="mb-0 app-section-label" data-testid="no-data-message">{user:userNoEntitiesDefinedMessage()}</p>
             {#else if entityTabs.size == 1}
-            {! Single entity: no tabs !}
+            {! Single entity: no tabs, table shown directly !}
             {#let tab=entityTabs.get(0)}
+            <div class="d-flex align-items-center mb-3 gap-2">
+                <h2 class="fs-6 fw-semibold mb-0" data-testid="entity-heading">{tab.entityName}</h2>
+                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
+                   class="btn btn-app-secondary btn-sm ms-auto"
+                   data-testid="add-data-button"
+                   title="{msg:commonAdd()}"
+                   aria-label="{user:userAddMoreDataAriaLabel()}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+                </a>
+            </div>
             {#if tab.rows.isEmpty}
             <p class="mb-0 app-section-label" data-testid="no-data-message">{user:userNoDataYetMessage()}</p>
             {#else}
             <div class="table-responsive">
                 <table class="table table-sm mb-0 app-table" data-testid="app-data-table" data-entity-id="{tab.entityId}">
                     <tbody>
-                        <tr data-testid="add-data-row">
-                            <td colspan="2">
-                                <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
-                                   data-testid="add-data-button"
-                                   class="btn btn-app-primary btn-sm w-100"
-                                   title="{user:userAddMoreDataAriaLabel()}"
-                                   aria-label="{user:userAddMoreDataAriaLabel()}">+</a>
-                            </td>
-                        </tr>
                         {#for item in tab.rows}
                         <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
                             <td data-testid="app-data-index">{item_count}</td>
@@ -42,59 +50,39 @@
             {/if}
             {/let}
             {#else}
-            {! Multiple entities: tabs !}
-            <ul class="nav nav-tabs mb-3" id="entityTabs" role="tablist" data-testid="entity-tabs">
+            {! Multiple entities: tile overview (consistent with dashboard app tiles) !}
+            <div class="row g-3" data-testid="entity-tiles">
                 {#for tab in entityTabs}
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link {#if tab.entityId == activeEntityId}active{/if}"
-                            id="tab-btn-{tab.entityId}"
-                            data-bs-toggle="tab"
-                            data-bs-target="#tab-{tab.entityId}"
-                            type="button" role="tab"
-                            aria-controls="tab-{tab.entityId}"
-                            aria-selected="{#if tab.entityId == activeEntityId}true{#else}false{/if}"
-                            data-testid="entity-tab-{tab.entityName}">
-                        {tab.entityName}
-                    </button>
-                </li>
-                {/for}
-            </ul>
-            <div class="tab-content" id="entityTabsContent">
-                {#for tab in entityTabs}
-                <div class="tab-pane fade {#if tab.entityId == activeEntityId}show active{/if}"
-                     id="tab-{tab.entityId}"
-                     role="tabpanel"
-                     aria-labelledby="tab-btn-{tab.entityId}"
-                     data-testid="entity-tab-pane-{tab.entityName}">
-                    {#if tab.rows.isEmpty}
-                    <p class="mb-0 app-section-label" data-testid="no-data-message-{tab.entityName}">{user:userNoDataYetMessage()}</p>
-                    {#else}
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0 app-table" data-testid="app-data-table-{tab.entityName}" data-entity-id="{tab.entityId}">
-                            <tbody>
-                                <tr data-testid="add-data-row-{tab.entityName}">
-                                    <td colspan="2">
-                                        <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}"
-                                           data-testid="add-data-tab-button-{tab.entityName}"
-                                           class="btn btn-app-primary btn-sm w-100"
-                                           title="{user:userAddMoreDataAriaLabel()}"
-                                           aria-label="{user:userAddMoreDataAriaLabel()}">+</a>
-                                    </td>
-                                </tr>
-                                {#for item in tab.rows}
-                                <tr data-testid="app-data-row" class="app-clickable-row" data-href="/ui/user/apps/{info.installedAppId}/data/{item.id}">
-                                    <td data-testid="app-data-index">{item_count}</td>
-                                    <td class="text-truncate" style="max-width:400px;" title="{item.displayText}" data-testid="app-data-display-text">{item.displayText}</td>
-                                </tr>
-                                {/for}
-                            </tbody>
-                        </table>
-                    </div>
-                    {/if}
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <a href="/ui/user/apps/{info.installedAppId}/entities/{tab.entityId}" class="text-decoration-none" data-testid="entity-tile" aria-label="{user:userOpenEntityAriaLabel(tab.entityName)}">
+                        <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
+                            <div class="fw-semibold fs-6 mb-1" data-testid="entity-tile-name">{tab.entityName}</div>
+                            <div class="app-section-label" data-testid="entity-tile-count">{user:userEntityDataCountLabel(tab.rows.size)}</div>
+                        </div>
+                    </a>
                 </div>
                 {/for}
             </div>
             {/if}
+        </div>
+    </div>
+
+    <!-- Delete Installed App Modal -->
+    <div class="modal fade" id="deleteInstalledAppModal" tabindex="-1" aria-labelledby="deleteInstalledAppModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="deleteInstalledAppModalLabel">{user:userDeleteInstalledAppModalTitle()}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body">
+                    {user:userDeleteInstalledAppConfirm()}
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-app-secondary btn-sm" data-bs-dismiss="modal" data-testid="cancel-delete-installed-app-button">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger btn-sm" data-testid="confirm-delete-installed-app-button" id="confirmDeleteInstalledAppButton">{msg:commonDelete()}</button>
+                </div>
+            </div>
         </div>
     </div>
     {/content}
@@ -105,25 +93,51 @@
             var pageLabel = '{user:userPageLabel()}';
             var previousLabel = '{user:userPreviousLabel()}';
             var nextLabel = '{user:userNextLabel()}';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+            var installedAppId = '{info.installedAppId}';
 
-            // Restore active tab from URL query parameter
-            var tabParam = new URLSearchParams(window.location.search).get('tab');
-            if (tabParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tabParam)) {
-                var tabBtn = document.getElementById('tab-btn-' + tabParam);
-                if (tabBtn) {
-                    bootstrap.Tab.getOrCreateInstance(tabBtn).show();
-                }
+            var messagePanel = document.getElementById('app-detail-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
             }
 
-            // Update URL when switching tabs so each tab has its own URL
-            document.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (tabBtn) {
-                tabBtn.addEventListener('shown.bs.tab', function (e) {
-                    var entityTypeId = e.target.id.replace('tab-btn-', '');
-                    var url = new URL(window.location.href);
-                    url.searchParams.set('tab', entityTypeId);
-                    history.replaceState(null, '', url.toString());
+            // Delete installed app confirmation
+            var confirmDeleteInstalledAppButton = document.getElementById('confirmDeleteInstalledAppButton');
+            if (confirmDeleteInstalledAppButton) {
+                confirmDeleteInstalledAppButton.addEventListener('click', async function () {
+                    var btn = this;
+                    btn.disabled = true;
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('deleteInstalledAppModal'));
+                    try {
+                        var response = await fetch('/ui/user/apps/' + installedAppId + '/delete', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        var result = await response.json();
+                        if (modal) { modal.hide(); }
+                        if (result.ok && result.redirectUrl) {
+                            window.location.href = result.redirectUrl;
+                        } else {
+                            showMessage(false, result.message);
+                            btn.disabled = false;
+                        }
+                    } catch (ex) {
+                        if (modal) { modal.hide(); }
+                        showMessage(false, networkErrorMessage);
+                        btn.disabled = false;
+                    }
                 });
-            });
+            }
 
             // Clickable rows
             document.querySelectorAll('.app-clickable-row').forEach(function (row) {
@@ -199,4 +213,3 @@
     </script>
     {/scripts}
 {/include}
-

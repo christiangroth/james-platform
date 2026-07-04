@@ -53,6 +53,12 @@ class AppDataRepositoryAdapter(
     }
   }
 
+  override fun deleteAllByInstalledAppId(installedAppId: InstalledAppId) {
+    mongoQueryMetrics.timed("app_data.deleteAllByInstalledAppId") {
+      appDataDocumentRepository.mongoCollection().deleteMany(Filters.eq(INSTALLED_APP_ID_FIELD, installedAppId.value))
+    }
+  }
+
   private fun AppDataDocument.toDomain() = AppData(
     id = AppDataId(id),
     userId = userId,

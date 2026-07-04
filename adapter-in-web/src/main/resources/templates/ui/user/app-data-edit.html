@@ -5,8 +5,8 @@
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
-                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}?tab={detail.entityTypeId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">{user:userEditDataTitle()}</li>
+                <li class="breadcrumb-item"><a href="{entityListUrl}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-data">{detail.displayText}</li>
             </ol>
         </nav>
 
@@ -177,7 +177,7 @@
                 {/if}
 
                 <div class="d-flex justify-content-between mt-4">
-                    <a href="/ui/user/apps/{detail.installedAppId}?tab={detail.entityTypeId}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">{msg:commonCancel()}</a>
+                    <a href="{entityListUrl}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">{msg:commonCancel()}</a>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-app-danger btn-sm" data-testid="delete-button"
                                 data-bs-toggle="modal" data-bs-target="#deleteModal">{msg:commonDelete()}</button>
@@ -241,7 +241,6 @@
             var meta = document.getElementById('app-data-meta');
             var installedAppId = meta.dataset.installedAppId;
             var dataId = meta.dataset.dataId;
-            var entityTypeId = meta.dataset.entityTypeId;
             var messagePanel = document.getElementById('page-message');
             var messageTimer = null;
             var networkErrorMessage = '{msg:commonNetworkError()}';
@@ -336,11 +335,7 @@
                     var result = await response.json();
                     if (modal) { modal.hide(); }
                     if (result.ok && result.redirectUrl) {
-                        var redirectUrl = new URL(result.redirectUrl, window.location.origin);
-                        if (entityTypeId) {
-                            redirectUrl.searchParams.set('tab', entityTypeId);
-                        }
-                        window.location.href = redirectUrl.toString();
+                        window.location.href = result.redirectUrl;
                     } else {
                         showMessage(false, result.message);
                         btn.disabled = false;

@@ -48,6 +48,12 @@ class InstalledAppRepositoryAdapter(
     }
   }
 
+  override fun delete(id: InstalledAppId) {
+    mongoQueryMetrics.timed("installed_app.delete") {
+      installedAppDocumentRepository.deleteById(id.value)
+    }
+  }
+
   private fun InstalledAppDocument.toDomain() = InstalledApp(
     id = InstalledAppId(id),
     userId = userId,

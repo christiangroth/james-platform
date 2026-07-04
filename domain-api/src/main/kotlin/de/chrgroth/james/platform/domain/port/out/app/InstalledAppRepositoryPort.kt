@@ -10,4 +10,5 @@ interface InstalledAppRepositoryPort {
   fun findAllByUserId(userId: String): List<InstalledApp>
   fun findAllByAppId(appId: AppId): List<InstalledApp>
   fun save(installedApp: InstalledApp)
+  fun delete(id: InstalledAppId)
 }
