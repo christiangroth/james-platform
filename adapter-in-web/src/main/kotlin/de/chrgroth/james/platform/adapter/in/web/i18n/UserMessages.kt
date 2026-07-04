@@ -293,4 +293,8 @@ interface UserMessages {
 
   @Message
   fun userInvalidDurationFormatViolationError(format: String): String
+
+  // app data new / edit (constraint hints)
+  @Message
+  fun userConstraintInfoAriaLabel(): String
 }
