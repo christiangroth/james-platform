@@ -1,3 +1,14 @@
+# 0.63.0 (2026.07.04)
+
+## New Features
+* Added a "Mehrfacherfassung" (multi create) toggle to the new data form. When active, saving keeps you in the form with a fresh, empty entry instead of returning to the data list.
+
+## Bugfixes / Chore
+* Added a concept document for future Developer test data and Report testing support (no behavior change yet).* Added a concept document for App Version Migrations.
+
+
+---
+
 # 0.62.1 (2026.07.04)
 
 ## Bugfixes / Chore
