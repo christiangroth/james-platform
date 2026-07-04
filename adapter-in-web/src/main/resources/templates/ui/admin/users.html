@@ -34,7 +34,7 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel="{admin:adminDashboardTitle()}" /}
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel=admin:adminDashboardTitle() /}
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-users">{admin:adminUserManagementTitle()}</li>
             </ol>
         </nav>
@@ -106,8 +106,8 @@
                                 <td data-testid="user-created-at">{user.createdAt.formatted}</td>
                                 <td data-testid="user-last-login">{#if user.lastLoginAt}{user.lastLoginAt.formatted}{#else}–{/if}</td>
                                 <td class="text-end">
-                                    {#btn-icon-key testId="set-password-button" title="{admin:adminSetPasswordTitle()}" extraClass="" bsTarget="#setPasswordModal" username=user.username /}
-                                    {#btn-icon-delete testId="delete-user-button" title="{admin:adminDeleteUserTitle()}" extraClass="ms-1" bsTarget="#deleteUserModal" action="" entityId="" propertyId="" reportId="" username=user.username /}
+                                    {#btn-icon-key testId="set-password-button" title=admin:adminSetPasswordTitle() extraClass="" bsTarget="#setPasswordModal" username=user.username /}
+                                    {#btn-icon-delete testId="delete-user-button" title=admin:adminDeleteUserTitle() extraClass="ms-1" bsTarget="#deleteUserModal" action="" entityId="" propertyId="" reportId="" username=user.username /}
                                 </td>
                             </tr>
                             {/for}
