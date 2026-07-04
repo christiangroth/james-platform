@@ -158,9 +158,6 @@ interface UserMessages {
   fun userMetadataLabel(): String
 
   @Message
-  fun userIdLabel(): String
-
-  @Message
   fun userEntityTypeLabel(): String
 
   @Message
@@ -168,9 +165,6 @@ interface UserMessages {
 
   @Message
   fun userDisplayTextLabel(): String
-
-  @Message
-  fun userVersionLabel(): String
 
   @Message
   fun userCreatedLabel(): String

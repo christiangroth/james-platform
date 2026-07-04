@@ -110,6 +110,15 @@ function objectFieldList(field, name, rawValue) {
     return container;
 }
 
+/** Builds the red required-marker span appended to a field label, mirroring the server-rendered top-level fields. */
+function buildRequiredAsterisk() {
+    var span = document.createElement('span');
+    span.className = 'text-danger ms-1';
+    span.setAttribute('aria-label', objectFieldMessages.requiredAriaLabel);
+    span.textContent = '*';
+    return span;
+}
+
 function buildObjectPropertyField(field, name, value) {
     var wrapper = document.createElement('div');
     wrapper.className = 'mb-3';
@@ -117,8 +126,8 @@ function buildObjectPropertyField(field, name, value) {
     var label = document.createElement('label');
     label.className = 'form-label form-label-sm';
     label.style.color = 'var(--color-text-muted)';
-    var typeLabel = field.type + (field.type === 'LIST' && field.listItemType ? '<' + field.listItemType + '>' : '') + (field.nullable ? '?' : '');
-    label.textContent = field.name + (field.nullable ? '' : ' *') + ' (' + typeLabel + ')';
+    label.appendChild(document.createTextNode(field.name));
+    if (!field.nullable) label.appendChild(buildRequiredAsterisk());
     wrapper.appendChild(label);
     if (field.type === 'LIST') {
         wrapper.appendChild(objectFieldList(field, name, value));
@@ -136,7 +145,8 @@ function buildObjectDescendRow(field, targetPath) {
     var label = document.createElement('label');
     label.className = 'form-label form-label-sm d-block';
     label.style.color = 'var(--color-text-muted)';
-    label.textContent = field.name + (field.nullable ? '' : ' *') + ' (OBJECT)';
+    label.appendChild(document.createTextNode(field.name));
+    if (!field.nullable) label.appendChild(buildRequiredAsterisk());
     wrapper.appendChild(label);
     var btn = document.createElement('button');
     btn.type = 'button';

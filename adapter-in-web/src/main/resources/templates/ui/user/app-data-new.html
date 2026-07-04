@@ -26,7 +26,6 @@
                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);">
                         {prop.name}
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
-                        <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type.name == "LIST" && prop.listItemType != ""}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
                     {#if prop.type.name == "OBJECT"}
                     <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="property-input-{prop.id}"></div>
@@ -117,6 +116,7 @@
                 {
                     selectPlaceholder: '{msg:commonSelectPlaceholder()}',
                     durationPlaceholder: '{user:userDurationPlaceholder()}',
+                    requiredAriaLabel: '{user:userRequiredAriaLabel()}',
                     decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
                     increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',
                     removeValueAriaLabel: '{user:userRemoveValueAriaLabel()}',

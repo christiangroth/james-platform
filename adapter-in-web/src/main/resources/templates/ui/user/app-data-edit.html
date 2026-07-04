@@ -26,20 +26,16 @@
                 <div id="metadataCollapse" class="accordion-collapse collapse" aria-labelledby="metadataHeading">
                     <div class="accordion-body">
                         <dl class="row mb-0">
-                            <dt class="col-sm-3 app-section-label fw-normal">{user:userIdLabel()}</dt>
-                            <dd class="col-sm-9 font-monospace" data-testid="detail-id">{detail.id}</dd>
                             <dt class="col-sm-3 app-section-label fw-normal">{user:userEntityTypeLabel()}</dt>
-                            <dd class="col-sm-9" data-testid="detail-entity-type">{detail.entityTypeName}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">{user:userReferenceTextLabel()}</dt>
-                            <dd class="col-sm-9" data-testid="detail-reference-text">{detail.referenceText}</dd>
+                            <dd class="col-sm-9" data-testid="detail-entity-type">{detail.entityTypeName} (<span class="font-monospace" data-testid="detail-id">{detail.id}</span>)</dd>
                             <dt class="col-sm-3 app-section-label fw-normal">{user:userDisplayTextLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-display-text">{detail.displayText}</dd>
-                            <dt class="col-sm-3 app-section-label fw-normal">{user:userVersionLabel()}</dt>
-                            <dd class="col-sm-9" data-testid="detail-version">{detail.objectVersion}</dd>
+                            <dt class="col-sm-3 app-section-label fw-normal">{user:userReferenceTextLabel()}</dt>
+                            <dd class="col-sm-9" data-testid="detail-reference-text">{detail.referenceText}</dd>
                             <dt class="col-sm-3 app-section-label fw-normal">{user:userCreatedLabel()}</dt>
                             <dd class="col-sm-9" data-testid="detail-created">{detail.createdAt.formatted}</dd>
                             <dt class="col-sm-3 app-section-label fw-normal">{user:userLastModifiedLabel()}</dt>
-                            <dd class="col-sm-9" data-testid="detail-last-modified">{detail.lastChangedAt.formatted}</dd>
+                            <dd class="col-sm-9" data-testid="detail-last-modified">{detail.lastChangedAt.formatted} (<span data-testid="detail-version">v{detail.objectVersion}</span>)</dd>
                         </dl>
                     </div>
                 </div>
@@ -86,7 +82,6 @@
                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="edit_prop_{prop.id}">
                         {prop.name}
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
-                        <span class="ms-1 app-section-label" style="font-size:0.7rem;">({prop.type}{#if prop.type == "LIST" && prop.listItemType != null}&lt;{prop.listItemType}&gt;{/if}{#if prop.nullable}?{/if})</span>
                     </label>
                     {#if prop.type == "OBJECT"}
                     <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="edit-property-input-{prop.id}"></div>
@@ -227,6 +222,7 @@
                 {
                     selectPlaceholder: '{msg:commonSelectPlaceholder()}',
                     durationPlaceholder: '{user:userDurationPlaceholder()}',
+                    requiredAriaLabel: '{user:userRequiredAriaLabel()}',
                     decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
                     increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',
                     removeValueAriaLabel: '{user:userRemoveValueAriaLabel()}',
