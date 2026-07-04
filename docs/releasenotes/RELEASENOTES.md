@@ -1,3 +1,12 @@
+# 0.65.3 (2026.07.04)
+
+## Bugfixes / Chore
+* The snapshot button on the new-data form is now highlighted the same way as the multi/focus buttons while a snapshot is active.
+
+
+
+---
+
 # 0.65.2 (2026.07.04)
 
 ## Bugfixes / Chore
