@@ -1,3 +1,18 @@
+# 0.61.4 (2026.07.04)
+
+## Bugfixes / Chore
+* Installed apps can now be deleted from their detail page.
+* Entities within an installed app are now opened via dedicated pages and breadcrumbs instead of tabs.
+* Opening an installed app now shows its data directly when it has only one entity, or a tile overview when it has several.
+* The "add" button for new entries now sits above the table instead of inside it.
+* The breadcrumb for creating a new entry now just says "Neu" instead of repeating the entity name.
+* The breadcrumb when editing an entry now shows the entry's display text instead of a generic label.
+* Saving an edited entry now returns to the entry list instead of staying on the edit page.
+
+
+
+---
+
 # 0.61.3 (2026.07.04)
 
 ## Bugfixes / Chore
