@@ -14,7 +14,15 @@
         <div id="form-message" class="d-none mb-4" role="alert"></div>
 
         <div class="card app-card p-4">
-            <h2 class="fs-5 fw-semibold mb-4" data-testid="form-title">{user:userNewEntityTitle(entity.name)}</h2>
+            <div class="d-flex align-items-center mb-4 gap-2">
+                <h2 class="fs-5 fw-semibold mb-0" data-testid="form-title">{user:userNewEntityTitle(entity.name)}</h2>
+                <button type="button" class="btn btn-app-secondary btn-sm ms-auto" id="mode-multi-button" data-testid="mode-multi-button"
+                        title="{user:userMultiModeButton()}" aria-label="{user:userMultiModeButton()}" aria-pressed="false">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M13 0H6a2 2 0 0 0-2 2 2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2 2 2 0 0 0 2-2V2a2 2 0 0 0-2-2m0 13V4a2 2 0 0 0-2-2H5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1M3 4a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
+                    </svg>
+                </button>
+            </div>
 
             <form id="createDataForm">
                 <input type="hidden" name="entityTypeId" value="{entity.id}">
@@ -142,6 +150,34 @@
                 }
             );
 
+            var dataCreateModeStorageKey = 'james-data-create-mode:{info.installedAppId}:{entity.id}';
+            var multiModeButton = document.getElementById('mode-multi-button');
+
+            function getDataCreateMode() {
+                try {
+                    return JSON.parse(localStorage.getItem(dataCreateModeStorageKey) || '{}').mode || 'standard';
+                } catch (ex) {
+                    return 'standard';
+                }
+            }
+
+            function setDataCreateMode(mode) {
+                localStorage.setItem(dataCreateModeStorageKey, JSON.stringify({ mode: mode }));
+            }
+
+            function updateModeButtons() {
+                var multiActive = getDataCreateMode() === 'multi';
+                multiModeButton.classList.toggle('active', multiActive);
+                multiModeButton.setAttribute('aria-pressed', multiActive ? 'true' : 'false');
+            }
+
+            multiModeButton.addEventListener('click', function () {
+                setDataCreateMode(getDataCreateMode() === 'multi' ? 'standard' : 'multi');
+                updateModeButtons();
+            });
+
+            updateModeButtons();
+
             var messagePanel = document.getElementById('form-message');
             var messageTimer = null;
             var networkErrorMessage = '{msg:commonNetworkError()}';
@@ -218,7 +254,12 @@
                     });
                     var result = await response.json();
                     if (result.ok && result.redirectUrl) {
-                        window.location.href = result.redirectUrl;
+                        if (getDataCreateMode() === 'multi') {
+                            showMessage(true, result.message);
+                            setTimeout(function () { window.location.reload(); }, 800);
+                        } else {
+                            window.location.href = result.redirectUrl;
+                        }
                     } else {
                         showMessage(result.ok, result.message, result.errorDetails);
                         if (result.fieldErrors) {
