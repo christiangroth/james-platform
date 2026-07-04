@@ -1,3 +1,13 @@
+# 0.65.0 (2026.07.04)
+
+## New Features
+* Added a Fokus mode to the new data form, available once a Snapshot is active, which hides fields carried over from the snapshot so only the remaining fields need to be filled in.
+* Refined icons for the Multi and Snapshot header buttons on the new data form.
+
+
+
+---
+
 # 0.64.1 (2026.07.04)
 
 ## Bugfixes / Chore
