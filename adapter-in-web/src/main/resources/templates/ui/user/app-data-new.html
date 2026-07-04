@@ -19,37 +19,20 @@
                 <div class="ms-auto d-flex gap-2">
                     <button type="button" class="btn btn-app-secondary btn-sm" id="mode-focus-button" data-testid="mode-focus-button"
                             title="{user:userFocusModeButton()}" aria-label="{user:userFocusModeButton()}" aria-pressed="false">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-                            <path d="M8 13A5 5 0 1 1 8 3a5 5 0 0 1 0 10m0 1A6 6 0 1 0 8 2a6 6 0 0 0 0 12"/>
-                            <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/>
-                            <path d="M9.5 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
-                        </svg>
+                        <i class="bi bi-bullseye" aria-hidden="true"></i>
                     </button>
                     <button type="button" class="btn btn-app-secondary btn-sm" id="mode-snapshot-button" data-testid="mode-snapshot-button"
                             title="{user:userSnapshotCreateButton()}" aria-label="{user:userSnapshotCreateButton()}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5"/>
-                            <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5zm0 1v3a1 1 0 0 0 1 1h3v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
-                        </svg>
+                        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
                     </button>
                     <button type="button" class="btn btn-app-secondary btn-sm" id="mode-multi-button" data-testid="mode-multi-button"
                             title="{user:userMultiModeButton()}" aria-label="{user:userMultiModeButton()}" aria-pressed="false">
-                        <svg id="mode-multi-icon-inactive" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M4.98 2a.5.5 0 0 0-.39.188L1.54 6H5a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0A.5.5 0 0 1 9 6h3.46l-3.05-3.812A.5.5 0 0 0 9.02 2zm1.17-.437A1.5 1.5 0 0 1 6.02 1h3.96a1.5 1.5 0 0 1 1.17.563l3.7 4.625a.5.5 0 0 1 .106.374l-.39 3.124A1.5 1.5 0 0 1 13.08 11H2.92a1.5 1.5 0 0 1-1.489-1.314l-.39-3.124a.5.5 0 0 1 .106-.374z"/>
-                            <path d="M0 10.5A.5.5 0 0 1 .5 10H5a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0 .5.5 0 0 1 .5-.5h4.5a.5.5 0 0 1 .5.5v3a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 0 13.5z"/>
-                        </svg>
-                        <svg id="mode-multi-icon-active" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" class="d-none">
-                            <path d="M4.98 2a.5.5 0 0 0-.39.188L1.54 6H5a.5.5 0 0 1 .5.5 1.5 1.5 0 1 0 3 0A.5.5 0 0 1 9 6h3.46l-3.05-3.812A.5.5 0 0 0 9.02 2z"/>
-                            <path d="M0 6.5V10h4.323a1.5 1.5 0 0 1 1.415 1h4.524a1.5 1.5 0 0 1 1.415-1H16V6.5l-2 3.5-2-3.5H4L2 10 0 6.5m0 4V13.5A1.5 1.5 0 0 0 1.5 15h13a1.5 1.5 0 0 0 1.5-1.5v-3H11.242a1.5 1.5 0 0 1-1.415 1H6.173a1.5 1.5 0 0 1-1.415-1z"/>
-                        </svg>
+                        <i id="mode-multi-icon-inactive" class="bi bi-inboxes" aria-hidden="true"></i>
+                        <i id="mode-multi-icon-active" class="bi bi-inboxes-fill d-none" aria-hidden="true"></i>
                     </button>
                     <button type="button" class="btn btn-app-secondary btn-sm" id="mode-snapshot-delete-button" data-testid="mode-snapshot-delete-button"
                             title="{user:userSnapshotDeleteButton()}" aria-label="{user:userSnapshotDeleteButton()}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3V2h11v1z"/>
-                        </svg>
+                        <i class="bi bi-trash" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
