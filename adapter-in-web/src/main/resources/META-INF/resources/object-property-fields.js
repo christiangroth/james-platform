@@ -120,7 +120,8 @@ function buildRequiredAsterisk() {
 }
 
 /** Builds the info icon appended to a field label when it has constraints beyond min/max/length/size, mirroring
- * the server-rendered top-level fields. `hintText` becomes the native tooltip shown on hover. */
+ * the server-rendered top-level fields. `hintText` is shown in a Bootstrap tooltip triggered on click/focus, so it
+ * also works on touch devices where a native hover-only title wouldn't. */
 function buildConstraintInfoIcon(hintText) {
     var ns = 'http://www.w3.org/2000/svg';
     var svg = document.createElementNS(ns, 'svg');
@@ -129,13 +130,23 @@ function buildConstraintInfoIcon(hintText) {
     svg.setAttribute('fill', 'currentColor');
     svg.setAttribute('viewBox', '0 0 16 16');
     svg.classList.add('ms-1');
-    svg.style.cursor = 'help';
+    svg.style.cursor = 'pointer';
+    svg.setAttribute('tabindex', '0');
+    svg.setAttribute('role', 'button');
     svg.setAttribute('aria-label', objectFieldMessages.constraintInfoAriaLabel);
     svg.setAttribute('title', hintText);
+    svg.setAttribute('data-bs-toggle', 'tooltip');
+    svg.setAttribute('data-bs-trigger', 'focus');
     var use = document.createElementNS(ns, 'use');
     use.setAttribute('href', '#icon-info-circle');
     svg.appendChild(use);
+    initConstraintInfoTooltip(svg);
     return svg;
+}
+
+/** Activates the Bootstrap tooltip on a constraint info icon (both server-rendered and JS-rendered ones use this). */
+function initConstraintInfoTooltip(el) {
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) new bootstrap.Tooltip(el);
 }
 
 /** Builds the muted min/max/length/size hint text shown under a field's input, mirroring the server-rendered top-level fields. */
@@ -307,6 +318,10 @@ var objectFieldReferenceOptionsData = {};
 function objectFieldReferenceOptions(propertyId) {
     return objectFieldReferenceOptionsData[propertyId];
 }
+
+// activates the constraint info tooltips for the server-rendered top-level fields; JS-rendered OBJECT fields
+// activate theirs individually in buildConstraintInfoIcon() above, since they don't exist yet at this point
+document.querySelectorAll('svg[data-bs-toggle="tooltip"]').forEach(initConstraintInfoTooltip);
 
 document.addEventListener('click', function (e) {
     var target = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
