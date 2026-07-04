@@ -1,3 +1,20 @@
+# 0.61.3 (2026.07.04)
+
+## Bugfixes / Chore
+* The admin area breadcrumb home icon now links directly to the admin dashboard, and the separate "Administration" breadcrumb entry was removed so admins can no longer accidentally navigate into the user area.
+* Fixed a missing translation for the "Smart Default" badge in the system status scripting table.
+* Added missing secret masking for additional TLS keystore and Slack webhook configuration keys.
+* Fixed an error in the MongoDB Viewer when the total document count was very large.
+* The version diff now shows all property details, including list item type, list item constraints, referenced entity and nested object properties.
+* Fixed the version status badge (Draft/Published) not being translated.
+* Property data types and constraints shown in the read-only property tables are now translated instead of showing raw internal values.
+* Fixed untranslated hover texts on the "set password" and "delete user" action buttons in the admin user management page.
+* Fixed several other untranslated breadcrumb and button labels caused by the same underlying template issue.
+
+
+
+---
+
 # 0.61.2 (2026.07.03)
 
 ## Bugfixes / Chore

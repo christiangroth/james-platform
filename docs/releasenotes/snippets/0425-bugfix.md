@@ -1,1 +1,0 @@
-* The admin area breadcrumb home icon now links directly to the admin dashboard, and the separate "Administration" breadcrumb entry was removed so admins can no longer accidentally navigate into the user area.
