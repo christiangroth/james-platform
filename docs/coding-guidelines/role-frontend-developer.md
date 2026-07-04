@@ -106,7 +106,7 @@ Both a dark and a light theme are implemented, see [design-light-mode-proposal.m
 are defined as CSS custom properties in `layout.html` under `:root` (dark, default) and `[data-theme="light"]` (light override) – **never hardcode a hex color in a template**;
 always reference the existing variable (e.g. `var(--color-text-muted)`) so both themes stay correct automatically.
 
-The app logo (`#icon-nav-app` in the shared SVG sprite, also embedded standalone in `favicon.svg`) and the login page's landing-style hero panel are documented in
+Icons are the [Bootstrap Icons](https://icons.getbootstrap.com/) webfont (`org.webjars.npm:bootstrap-icons`, linked in `layout.html`) rendered as `<i class="bi bi-name"></i>`. The only remaining hand-drawn SVGs are genuine brand logos that aren't in that icon set: the app's own gradient logo (`#icon-nav-app` in the shared SVG sprite, also embedded standalone in `favicon.svg`), the Grafana logo (`#icon-nav-grafana`), and the MongoDB logo (`#icon-nav-mongodb`). The app logo and the login page's landing-style hero panel are documented in
 [design-branding-login-proposal.md](design-branding-login-proposal.md), including alternative background treatments that were considered but not implemented.
 
 ### Theme switching
@@ -238,7 +238,7 @@ The primary target device is a small smartphone (e.g. iPhone SE) – screen widt
 
 ```html
 <a href="/logout" class="btn btn-sm btn-app-secondary" title="Logout" aria-label="Logout">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><use href="#icon-nav-logout"/></svg>
+    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
     <span class="d-none d-sm-inline ms-1">Logout</span>
 </a>
 ```
@@ -324,7 +324,7 @@ All data tables must follow this structure. See also the CSS classes table above
 - Add `mb-0` when the table is the last element inside a card; use `mb-3` when followed by additional content.
 - Use `table-striped` for long read-only tables (e.g. health, config); omit it for interactive tables.
 - The **Actions** column header must be `class="text-end"` and each actions cell must be `class="text-end"`.
-- Use the standard icon-button tags (`{#btn-icon-edit}`, `{#btn-icon-key}`, `{#btn-icon-delete}`) for row actions – do not inline raw `<button>` elements with SVGs.
+- Use the standard icon-button tags (`{#btn-icon-edit}`, `{#btn-icon-key}`, `{#btn-icon-delete}`) for row actions – do not inline raw `<button>` elements with icons.
 - Use `{#btn-icon-key}` instead of `{#btn-icon-edit}` for actions that only change a password/secret, so it isn't mistaken for editing the whole entity.
 - Add `ms-1` via `extraClass` on every icon button after the first to maintain consistent spacing.
 - Clickable rows (where clicking the row navigates or opens a modal) use class `app-clickable-row` and a `data-href` attribute; the JS handler is applied in the page `<script>` block.
@@ -439,7 +439,7 @@ All reusable HTML fragments are stored in `templates/tags/` and invoked with the
 | `{#btn-icon-key testId="..." title="..." bsTarget="..." username=... extraClass="..." /}` | Secondary icon button (key icon) that opens a "set password" modal |
 | `{#btn-icon-delete testId="..." title="..." bsTarget="..." action="..." entityId=... propertyId=... reportId=... username=... extraClass="..." /}` | Danger icon button for delete/remove actions |
 | `{#btn-icon-publish testId="..." bsTarget="..." extraClass="..." /}` | Primary icon button that opens a "publish" modal |
-| `{#status-icon condition=... size="16" /}` | Green check or red cross SVG icon |
+| `{#status-icon condition=... size="16" /}` | Green check or red cross icon |
 | `{#diff-section section=... sectionTestId="..." /}` | Diff card with added/removed/modified badge and line-level diff |
 
 ### Usage examples

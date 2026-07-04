@@ -84,10 +84,10 @@
                         {prop.name}
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
                         {#if prop.hasAnyOtherConstraints}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" class="ms-1"
-                             style="cursor:pointer;" tabindex="0" role="button" aria-label="{user:userConstraintInfoAriaLabel()}"
-                             title="{prop.combinedOtherConstraintHint}" data-bs-toggle="tooltip" data-bs-trigger="focus"
-                             data-testid="edit-property-constraint-info-{prop.id}"><use href="#icon-info-circle"/></svg>
+                        <i class="bi bi-info-circle ms-1"
+                           style="cursor:pointer;" tabindex="0" role="button" aria-label="{user:userConstraintInfoAriaLabel()}"
+                           title="{prop.combinedOtherConstraintHint}" data-bs-toggle="tooltip" data-bs-trigger="focus"
+                           data-testid="edit-property-constraint-info-{prop.id}"></i>
                         {/if}
                     </label>
                     {#if prop.type == "OBJECT"}

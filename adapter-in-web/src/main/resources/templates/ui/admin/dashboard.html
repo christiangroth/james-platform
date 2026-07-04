@@ -6,25 +6,25 @@
         <span class="language-toggle-label-xx" aria-hidden="true">_</span>
     </button>
     <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="{msg:layoutThemeToggleLabel()}" aria-label="{msg:layoutThemeToggleLabel()}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-moon" aria-hidden="true"><use href="#icon-theme-moon"/></svg>
+        <i class="bi bi-sun theme-toggle-icon-sun" style="font-size:18px;" aria-hidden="true"></i>
+        <i class="bi bi-moon theme-toggle-icon-moon" style="font-size:18px;" aria-hidden="true"></i>
     </button>
     <span class="me-auto"></span>
     {/leftNavLinks}
     {#navLinks}
     {#if isAdmin || isMonitoring}
     <div class="dropdown me-3">
-        <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{msg:layoutNavTechnicalTitle()}"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg></button>
+        <button type="button" class="nav-link text-white dropdown-toggle bg-transparent border-0 p-0" data-bs-toggle="dropdown" aria-expanded="false" data-testid="technical-menu" title="{msg:layoutNavTechnicalTitle()}"><i class="bi bi-tools" style="font-size:18px;"></i></button>
         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-            <li><a href="/health" class="dropdown-item" data-testid="health-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-health"/></svg>{msg:layoutNavHealthLabel()}</a></li>
-            <li><a href="/config" class="dropdown-item" data-testid="config-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-config"/></svg>{msg:layoutNavConfigLabel()}</a></li>
-            <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-tools"/></svg>{msg:layoutNavLogsUiLabel()}</a></li>
+            <li><a href="/health" class="dropdown-item" data-testid="health-link"><i class="bi bi-activity me-2"></i>{msg:layoutNavHealthLabel()}</a></li>
+            <li><a href="/config" class="dropdown-item" data-testid="config-link"><i class="bi bi-gear me-2"></i>{msg:layoutNavConfigLabel()}</a></li>
+            <li><a href="/logs" class="dropdown-item" data-testid="logs-ui-link"><i class="bi bi-tools me-2"></i>{msg:layoutNavLogsUiLabel()}</a></li>
             <li><a href="https://jamesplatform.grafana.net/d/sadlil-loki-apps-dashboard/quarkus-logs" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-logs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{msg:layoutNavGrafanaLogsLabel()}</a></li>
             <li><a href="https://jamesplatform.grafana.net/d/quarkus-james-platform/quarkus-metrics" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="grafana-metrics-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="-181.1 -67 264.2 318"><use href="#icon-nav-grafana"/></svg>{msg:layoutNavGrafanaMetricsLabel()}</a></li>
             <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbViewerLabel()}</a></li>
             <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbAtlasLabel()}</a></li>
-            <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-docs"/></svg>{msg:layoutNavDocsLabel()}</a></li>
-            <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-github"/></svg>{msg:layoutNavGithubLabel()}</a></li>
+            <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><i class="bi bi-book me-2"></i>{msg:layoutNavDocsLabel()}</a></li>
+            <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><i class="bi bi-github me-2"></i>{msg:layoutNavGithubLabel()}</a></li>
         </ul>
     </div>
     {/if}
@@ -41,7 +41,7 @@
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                 <a href="/ui/admin/users" class="text-decoration-none" data-testid="user-count-tile" aria-label="{admin:adminUserManagementAriaLabel()}">
                     <div class="card app-card p-3 h-100 d-flex flex-column align-items-center justify-content-center text-center" style="cursor:pointer;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="var(--color-text-primary)" viewBox="0 0 16 16" class="mb-2" aria-hidden="true"><use href="#icon-nav-profile"/></svg>
+                        <i class="bi bi-person-circle mb-2" style="color:var(--color-text-primary);font-size:32px;" aria-hidden="true"></i>
                         <div class="fw-semibold fs-5" data-testid="user-count">{userCount.formatted}</div>
                         <div class="app-section-label mt-1">{admin:adminUsersTileLabel()}</div>
                     </div>

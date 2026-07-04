@@ -123,25 +123,17 @@ function buildRequiredAsterisk() {
  * the server-rendered top-level fields. `hintText` is shown in a Bootstrap tooltip triggered on click/focus, so it
  * also works on touch devices where a native hover-only title wouldn't. */
 function buildConstraintInfoIcon(hintText) {
-    var ns = 'http://www.w3.org/2000/svg';
-    var svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('width', '14');
-    svg.setAttribute('height', '14');
-    svg.setAttribute('fill', 'currentColor');
-    svg.setAttribute('viewBox', '0 0 16 16');
-    svg.classList.add('ms-1');
-    svg.style.cursor = 'pointer';
-    svg.setAttribute('tabindex', '0');
-    svg.setAttribute('role', 'button');
-    svg.setAttribute('aria-label', objectFieldMessages.constraintInfoAriaLabel);
-    svg.setAttribute('title', hintText);
-    svg.setAttribute('data-bs-toggle', 'tooltip');
-    svg.setAttribute('data-bs-trigger', 'focus');
-    var use = document.createElementNS(ns, 'use');
-    use.setAttribute('href', '#icon-info-circle');
-    svg.appendChild(use);
-    initConstraintInfoTooltip(svg);
-    return svg;
+    var icon = document.createElement('i');
+    icon.className = 'bi bi-info-circle ms-1';
+    icon.style.cursor = 'pointer';
+    icon.setAttribute('tabindex', '0');
+    icon.setAttribute('role', 'button');
+    icon.setAttribute('aria-label', objectFieldMessages.constraintInfoAriaLabel);
+    icon.setAttribute('title', hintText);
+    icon.setAttribute('data-bs-toggle', 'tooltip');
+    icon.setAttribute('data-bs-trigger', 'focus');
+    initConstraintInfoTooltip(icon);
+    return icon;
 }
 
 /** Activates the Bootstrap tooltip on a constraint info icon (both server-rendered and JS-rendered ones use this). */
