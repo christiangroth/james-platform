@@ -406,6 +406,7 @@
                 multiIconActive.classList.toggle('d-none', mode !== 'multi');
 
                 snapshotButton.classList.toggle('d-none', mode === 'standard' || mode === 'focus');
+                snapshotButton.classList.toggle('active', mode === 'snapshot');
                 var snapshotLabel = mode === 'snapshot' ? snapshotReplaceLabel : snapshotCreateLabel;
                 snapshotButton.title = snapshotLabel;
                 snapshotButton.setAttribute('aria-label', snapshotLabel);
