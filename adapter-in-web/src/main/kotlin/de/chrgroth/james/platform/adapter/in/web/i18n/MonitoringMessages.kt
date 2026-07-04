@@ -76,6 +76,12 @@ interface MonitoringMessages {
   @Message
   fun monitoringColTotalMs(): String
 
+  @Message
+  fun monitoringScriptTypeSmartDefaultBadge(): String
+
+  @Message
+  fun monitoringScriptTypeComputedPropertyBadge(): String
+
   // logs page
   @Message
   fun monitoringLogsTitle(): String
@@ -166,7 +172,7 @@ interface MonitoringMessages {
   fun monitoringMongoResultsHeading(): String
 
   @Message
-  fun monitoringMongoDocumentsTotalLabel(count: Int): String
+  fun monitoringMongoDocumentsTotalLabel(count: Long): String
 
   @Message
   fun monitoringMongoPerPageLabel(): String
