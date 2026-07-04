@@ -165,6 +165,9 @@ interface UserMessages {
   @Message
   fun userSnapshotFieldHint(): String
 
+  @Message
+  fun userFocusModeButton(): String
+
   // app data edit
   @Message
   fun userEditDataTitle(): String
