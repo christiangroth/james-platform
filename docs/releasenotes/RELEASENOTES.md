@@ -1,3 +1,23 @@
+# 0.62.0 (2026.07.04)
+
+## New Features
+* The pseudo language used to spot missing translations is now only available to users with the monitoring permission, and is hidden from everyone else in the language switcher.
+* When only one language is available, the language switcher is greyed out and no longer clickable.
+* The pseudo language is now shown as "_" instead of "XX" in the language switcher.
+
+## Bugfixes / Chore
+* When saving app data fails constraint checks, the error message now lists every failing property (including ones nested inside object properties) together with its exact error, instead of just a generic "one or more values violate constraints" message.
+* The required-field asterisk is now shown in red for properties nested inside object properties, matching top-level fields.
+* The metadata section of the app data edit page now lists entity, display text, reference text, created and last-modified/version information in a clearer order.
+* Technical data types are no longer shown next to input fields when creating or editing app data.
+* Fixed an error page shown for installed apps in the App Store when viewing an app's detail page.
+* Min/max, length, and size constraints are now shown as a hint under the input field when creating or editing app data.
+* Pattern, step, and other advanced constraints are now shown via an info icon next to the field label instead of being hidden.
+
+
+
+---
+
 # 0.61.4 (2026.07.04)
 
 ## Bugfixes / Chore
