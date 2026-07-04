@@ -1,9 +1,9 @@
 {#include layout.html}
     {#title}{msg:commonAppName()} – {admin:adminUserManagementTitle()}{/title}
     {#leftNavLinks}
-    <button type="button" id="language-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0 fw-bold" data-testid="language-toggle-button" title="{msg:layoutLanguageToggleLabel()}" aria-label="{msg:layoutLanguageToggleLabel()}">
+    <button type="button" id="language-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0 fw-bold" data-testid="language-toggle-button" title="{msg:layoutLanguageToggleLabel()}" aria-label="{msg:layoutLanguageToggleLabel()}"{#if !isMonitoring} disabled{/if}>
         <span class="language-toggle-label-de" aria-hidden="true">DE</span>
-        <span class="language-toggle-label-xx" aria-hidden="true">XX</span>
+        <span class="language-toggle-label-xx" aria-hidden="true">_</span>
     </button>
     <button type="button" id="theme-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0" data-testid="theme-toggle-button" title="{msg:layoutThemeToggleLabel()}" aria-label="{msg:layoutThemeToggleLabel()}">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="theme-toggle-icon-sun" aria-hidden="true"><use href="#icon-theme-sun"/></svg>
