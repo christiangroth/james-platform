@@ -4,7 +4,7 @@
     <div class="container-fluid py-4 px-3 px-md-4">
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
             <ol class="breadcrumb mb-0">
-                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel="{user:userBreadcrumbDashboardLabel()}" /}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
                 <li class="breadcrumb-item"><a href="/ui/developer/dashboard" class="breadcrumb-link" data-testid="breadcrumb-developer">{developer:developerBreadcrumbDevelopment()}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/developer/apps/{app.id}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{app.name}</a></li>
                 {#if selectedEntity != null}
@@ -60,7 +60,7 @@
             <div class="card app-card p-4" data-testid="entity-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">{developer:developerEntityHeading(selectedEntity.name)}</h2>
-                    {#btn-icon-delete testId="delete-entity-button" title="{msg:commonDelete()}" extraClass="ms-auto" bsTarget="#deleteEntityModal" action="" entityId=selectedEntity.id propertyId="" reportId="" username="" /}
+                    {#btn-icon-delete testId="delete-entity-button" title=msg:commonDelete() extraClass="ms-auto" bsTarget="#deleteEntityModal" action="" entityId=selectedEntity.id propertyId="" reportId="" username="" /}
                 </div>
 
                 {#if !isNestedLevel}
