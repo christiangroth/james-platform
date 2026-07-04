@@ -253,8 +253,13 @@
                         <button type="button" class="btn btn-app-danger btn-sm"
                                 data-bs-toggle="modal" data-bs-target="#deleteReportModal"
                                 data-report-id="{selectedReport.id}"
-                                data-testid="delete-report-button">{msg:commonDelete()}</button>
-                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="save-report-button">{msg:commonSave()}</button>
+                                title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}"
+                                data-testid="delete-report-button">
+                            <i class="bi bi-trash" aria-hidden="true"></i>
+                        </button>
+                        <button type="submit" class="btn btn-app-primary btn-sm" title="{msg:commonSave()}" aria-label="{msg:commonSave()}" data-testid="save-report-button">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -338,14 +343,12 @@
                             title="{developer:developerDeleteDraftAriaLabel()}" aria-label="{developer:developerDeleteDraftAriaLabel()}"
                             data-testid="delete-draft-version-button">
                         <i class="bi bi-trash" aria-hidden="true"></i>
-                        {msg:commonDelete()}
                     </button>
                     <a class="btn btn-app-primary btn-sm"
                             href="/ui/developer/apps/{app.id}/versions/{version.id}/publish"
                             title="{developer:developerPublishVersionAriaLabel()}" aria-label="{developer:developerPublishVersionAriaLabel()}"
                             data-testid="publish-version-button">
                         <i class="bi bi-upload" aria-hidden="true"></i>
-                        {developer:developerPublishButton()}
                     </a>
                 </div>
             </div>
@@ -480,8 +483,12 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="add-entity-submit">{msg:commonAdd()}</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="add-entity-submit" title="{msg:commonAdd()}" aria-label="{msg:commonAdd()}">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -506,8 +513,12 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="add-report-submit">{msg:commonAdd()}</button>
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="add-report-submit" title="{msg:commonAdd()}" aria-label="{msg:commonAdd()}">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </form>
             </div>

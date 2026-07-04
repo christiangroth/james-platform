@@ -182,11 +182,17 @@
                 {/if}
 
                 <div class="d-flex justify-content-between mt-4">
-                    <a href="{entityListUrl}" class="btn btn-app-secondary btn-sm" data-testid="edit-cancel-button">{msg:commonCancel()}</a>
+                    <a href="{entityListUrl}" class="btn btn-app-secondary btn-sm" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}" data-testid="edit-cancel-button">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </a>
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-app-danger btn-sm" data-testid="delete-button"
-                                data-bs-toggle="modal" data-bs-target="#deleteModal">{msg:commonDelete()}</button>
-                        <button type="submit" class="btn btn-app-primary btn-sm" data-testid="edit-submit-button">{msg:commonSave()}</button>
+                        <button type="button" class="btn btn-app-danger btn-sm" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-button"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="bi bi-trash" aria-hidden="true"></i>
+                        </button>
+                        <button type="submit" class="btn btn-app-primary btn-sm" title="{msg:commonSave()}" aria-label="{msg:commonSave()}" data-testid="edit-submit-button">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </div>
             </form>
