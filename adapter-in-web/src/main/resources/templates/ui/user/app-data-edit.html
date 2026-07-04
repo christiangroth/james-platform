@@ -83,12 +83,6 @@
                     <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="edit_prop_{prop.id}">
                         {prop.name}
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
-                        {#if prop.hasAnyOtherConstraints}
-                        <i class="bi bi-info-circle ms-1"
-                           style="cursor:pointer;" tabindex="0" role="button" aria-label="{user:userConstraintInfoAriaLabel()}"
-                           title="{prop.combinedOtherConstraintHint}" data-bs-toggle="tooltip" data-bs-trigger="focus"
-                           data-testid="edit-property-constraint-info-{prop.id}"></i>
-                        {/if}
                     </label>
                     {#if prop.type == "OBJECT"}
                     <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="edit-property-input-{prop.id}"></div>
@@ -136,8 +130,11 @@
                             </div>
                         </template>
                     </div>
-                    {#if !prop.itemMinMaxHint.isEmpty}
-                    <div class="form-text" data-testid="edit-property-hint-{prop.id}">{prop.itemMinMaxHint}</div>
+                    {#if !prop.constraintHint.isEmpty}
+                    <div class="form-text" data-testid="edit-property-hint-{prop.id}">{prop.constraintHint}</div>
+                    {/if}
+                    {#if !prop.itemConstraintHint.isEmpty}
+                    <div class="form-text" data-testid="edit-property-item-hint-{prop.id}">{prop.itemConstraintHint}</div>
                     {/if}
                     {#else if prop.htmlInputType == "checkbox"}
                     <div class="form-check">
@@ -175,8 +172,8 @@
                         <button type="button" class="btn btn-app-secondary number-step-up" tabindex="-1" aria-label="{user:userIncreaseValueAriaLabel()}" data-testid="edit-property-input-{prop.id}-step-up">&plus;</button>
                         {/if}
                     </div>
-                    {#if !prop.minMaxHint.isEmpty}
-                    <div class="form-text" data-testid="edit-property-hint-{prop.id}">{prop.minMaxHint}</div>
+                    {#if !prop.constraintHint.isEmpty}
+                    <div class="form-text" data-testid="edit-property-hint-{prop.id}">{prop.constraintHint}</div>
                     {/if}
                     {#if !prop.valueProposals.isEmpty}<datalist id="datalist_{prop.id}"></datalist>{/if}
                     {/if}
@@ -236,7 +233,6 @@
                     selectPlaceholder: '{msg:commonSelectPlaceholder()}',
                     durationPlaceholder: '{user:userDurationPlaceholder()}',
                     requiredAriaLabel: '{user:userRequiredAriaLabel()}',
-                    constraintInfoAriaLabel: '{user:userConstraintInfoAriaLabel()}',
                     decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
                     increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',
                     removeValueAriaLabel: '{user:userRemoveValueAriaLabel()}',

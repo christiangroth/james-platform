@@ -119,29 +119,7 @@ function buildRequiredAsterisk() {
     return span;
 }
 
-/** Builds the info icon appended to a field label when it has constraints beyond min/max/length/size, mirroring
- * the server-rendered top-level fields. `hintText` is shown in a Bootstrap tooltip triggered on click/focus, so it
- * also works on touch devices where a native hover-only title wouldn't. */
-function buildConstraintInfoIcon(hintText) {
-    var icon = document.createElement('i');
-    icon.className = 'bi bi-info-circle ms-1';
-    icon.style.cursor = 'pointer';
-    icon.setAttribute('tabindex', '0');
-    icon.setAttribute('role', 'button');
-    icon.setAttribute('aria-label', objectFieldMessages.constraintInfoAriaLabel);
-    icon.setAttribute('title', hintText);
-    icon.setAttribute('data-bs-toggle', 'tooltip');
-    icon.setAttribute('data-bs-trigger', 'focus');
-    initConstraintInfoTooltip(icon);
-    return icon;
-}
-
-/** Activates the Bootstrap tooltip on a constraint info icon (both server-rendered and JS-rendered ones use this). */
-function initConstraintInfoTooltip(el) {
-    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) new bootstrap.Tooltip(el);
-}
-
-/** Builds the muted min/max/length/size hint text shown under a field's input, mirroring the server-rendered top-level fields. */
+/** Builds the muted constraint hint text shown under a field's input, mirroring the server-rendered top-level fields. */
 function buildConstraintHintText(text) {
     var div = document.createElement('div');
     div.className = 'form-text';
@@ -158,15 +136,14 @@ function buildObjectPropertyField(field, name, value) {
     label.style.color = 'var(--color-text-muted)';
     label.appendChild(document.createTextNode(field.name));
     if (!field.nullable) label.appendChild(buildRequiredAsterisk());
-    var otherHint = [field.otherConstraintHint, field.itemOtherConstraintHint].filter(Boolean).join('\n');
-    if (otherHint) label.appendChild(buildConstraintInfoIcon(otherHint));
     wrapper.appendChild(label);
     if (field.type === 'LIST') {
         wrapper.appendChild(objectFieldList(field, name, value));
-        if (field.itemMinMaxHint) wrapper.appendChild(buildConstraintHintText(field.itemMinMaxHint));
+        if (field.constraintHint) wrapper.appendChild(buildConstraintHintText(field.constraintHint));
+        if (field.itemConstraintHint) wrapper.appendChild(buildConstraintHintText(field.itemConstraintHint));
     } else {
         wrapper.appendChild(objectFieldScalarInput(field, name, value));
-        if (field.minMaxHint) wrapper.appendChild(buildConstraintHintText(field.minMaxHint));
+        if (field.constraintHint) wrapper.appendChild(buildConstraintHintText(field.constraintHint));
     }
     return wrapper;
 }
@@ -310,10 +287,6 @@ var objectFieldReferenceOptionsData = {};
 function objectFieldReferenceOptions(propertyId) {
     return objectFieldReferenceOptionsData[propertyId];
 }
-
-// activates the constraint info tooltips for the server-rendered top-level fields; JS-rendered OBJECT fields
-// activate theirs individually in buildConstraintInfoIcon() above, since they don't exist yet at this point
-document.querySelectorAll('svg[data-bs-toggle="tooltip"]').forEach(initConstraintInfoTooltip);
 
 document.addEventListener('click', function (e) {
     var target = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;

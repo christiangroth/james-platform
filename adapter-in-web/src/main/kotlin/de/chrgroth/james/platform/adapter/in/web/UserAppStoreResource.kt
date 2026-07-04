@@ -61,10 +61,8 @@ data class AppDataPropertyView(
   val step: String = "",
   val min: String = "",
   val max: String = "",
-  val minMaxHint: String = "",
-  val otherConstraintHint: String = "",
-  val itemMinMaxHint: String = "",
-  val itemOtherConstraintHint: String = "",
+  val constraintHint: String = "",
+  val itemConstraintHint: String = "",
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 
@@ -77,12 +75,6 @@ data class AppDataPropertyView(
     type == "DOUBLE" -> "any"
     else -> ""
   }
-
-  /** Returns true if there are any constraints, own or item-level, not already covered by [minMaxHint]/[itemMinMaxHint]. */
-  fun hasAnyOtherConstraints(): Boolean = otherConstraintHint.isNotEmpty() || itemOtherConstraintHint.isNotEmpty()
-
-  /** Returns [otherConstraintHint] and [itemOtherConstraintHint] combined into a single string suitable for a `title` tooltip. */
-  fun combinedOtherConstraintHint(): String = listOf(otherConstraintHint, itemOtherConstraintHint).filter { it.isNotEmpty() }.joinToString("\n")
 }
 
 data class AppDataComputedPropertyView(
@@ -406,10 +398,8 @@ class UserAppStoreResource {
               step = TemplateFormattingExtensions.constraintStep(prop),
               min = TemplateFormattingExtensions.constraintMin(prop),
               max = TemplateFormattingExtensions.constraintMax(prop),
-              minMaxHint = PropertyLabelTemplateExtensions.minMaxConstraintHint(prop),
-              otherConstraintHint = PropertyLabelTemplateExtensions.otherConstraintHintText(prop),
-              itemMinMaxHint = PropertyLabelTemplateExtensions.itemMinMaxConstraintHint(prop),
-              itemOtherConstraintHint = PropertyLabelTemplateExtensions.itemOtherConstraintHintText(prop),
+              constraintHint = PropertyLabelTemplateExtensions.constraintHint(prop),
+              itemConstraintHint = PropertyLabelTemplateExtensions.itemConstraintHint(prop),
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -687,10 +677,8 @@ class UserAppStoreResource {
     "step" to TemplateFormattingExtensions.constraintStep(this),
     "min" to TemplateFormattingExtensions.constraintMin(this),
     "max" to TemplateFormattingExtensions.constraintMax(this),
-    "minMaxHint" to PropertyLabelTemplateExtensions.minMaxConstraintHint(this),
-    "otherConstraintHint" to PropertyLabelTemplateExtensions.otherConstraintHintText(this),
-    "itemMinMaxHint" to PropertyLabelTemplateExtensions.itemMinMaxConstraintHint(this),
-    "itemOtherConstraintHint" to PropertyLabelTemplateExtensions.itemOtherConstraintHintText(this),
+    "constraintHint" to PropertyLabelTemplateExtensions.constraintHint(this),
+    "itemConstraintHint" to PropertyLabelTemplateExtensions.itemConstraintHint(this),
     "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
   )
 

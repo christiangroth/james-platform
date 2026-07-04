@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -18,6 +19,7 @@ object PropertyLabelTemplateExtensions {
 
   private val appMessages: AppMessages by lazy { Arc.container().instance(AppMessages::class.java).get() }
   private val developerMessages: DeveloperMessages by lazy { Arc.container().instance(DeveloperMessages::class.java).get() }
+  private val userMessages: UserMessages by lazy { Arc.container().instance(UserMessages::class.java).get() }
 
   /** Returns the translated label for the given property type (e.g. "Text", "Ganzzahl"). */
   @JvmStatic
@@ -54,9 +56,36 @@ object PropertyLabelTemplateExtensions {
     return texts
   }
 
+  /** Explicit display order for constraint kinds: groups each property's own min/max pair together with min
+   * before max. Sorting by class name alone (the natural alternative) would put "Max…" before "Min…" for every
+   * pair, since they only differ from the third letter on, which reads confusingly to users.
+   */
+  private val CONSTRAINT_ORDER: List<Class<out PropertyConstraint>> = listOf(
+    PropertyConstraint.UniqueKey::class.java,
+    PropertyConstraint.MinLong::class.java,
+    PropertyConstraint.MaxLong::class.java,
+    PropertyConstraint.StepLong::class.java,
+    PropertyConstraint.MinDouble::class.java,
+    PropertyConstraint.MaxDouble::class.java,
+    PropertyConstraint.StepDouble::class.java,
+    PropertyConstraint.MinLength::class.java,
+    PropertyConstraint.MaxLength::class.java,
+    PropertyConstraint.Pattern::class.java,
+    PropertyConstraint.MinSize::class.java,
+    PropertyConstraint.MaxSize::class.java,
+    PropertyConstraint.MinDate::class.java,
+    PropertyConstraint.MaxDate::class.java,
+    PropertyConstraint.MinTime::class.java,
+    PropertyConstraint.MaxTime::class.java,
+    PropertyConstraint.MinDatetime::class.java,
+    PropertyConstraint.MaxDatetime::class.java,
+    PropertyConstraint.MinDuration::class.java,
+    PropertyConstraint.MaxDuration::class.java,
+  )
+
   private fun constraintTextsFor(constraints: Set<PropertyConstraint>): List<String> =
     constraints
-      .sortedWith(compareBy({ it.javaClass.name }, { it.toString() }))
+      .sortedBy { CONSTRAINT_ORDER.indexOf(it.javaClass) }
       .map { constraint ->
         when (constraint) {
           is PropertyConstraint.UniqueKey -> developerMessages.developerUniqueKeyLabel()
@@ -82,75 +111,43 @@ object PropertyLabelTemplateExtensions {
         }
       }
 
-  /** Constraint kinds shown as a short, always-visible hint under the input (bounds the user can hit while typing). */
-  private val MIN_MAX_CONSTRAINT_CLASSES: Set<Class<out PropertyConstraint>> = setOf(
-    PropertyConstraint.MinLong::class.java,
-    PropertyConstraint.MaxLong::class.java,
-    PropertyConstraint.MinDouble::class.java,
-    PropertyConstraint.MaxDouble::class.java,
-    PropertyConstraint.MinLength::class.java,
-    PropertyConstraint.MaxLength::class.java,
-    PropertyConstraint.MinDate::class.java,
-    PropertyConstraint.MaxDate::class.java,
-    PropertyConstraint.MinTime::class.java,
-    PropertyConstraint.MaxTime::class.java,
-    PropertyConstraint.MinDatetime::class.java,
-    PropertyConstraint.MaxDatetime::class.java,
-    PropertyConstraint.MinDuration::class.java,
-    PropertyConstraint.MaxDuration::class.java,
-    PropertyConstraint.MinSize::class.java,
-    PropertyConstraint.MaxSize::class.java,
-  )
+  /** Returns the short, translated hint text for a single constraint (e.g. "Min: 0", "Format: ^[A-Z].*"), meant
+   * to be combined with other constraints and shown directly under the input.
+   */
+  private fun shortConstraintText(constraint: PropertyConstraint): String = when (constraint) {
+    is PropertyConstraint.UniqueKey -> userMessages.userHintUniqueKeyLabel()
+    is PropertyConstraint.MinLong -> "${userMessages.userHintMinLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxLong -> "${userMessages.userHintMaxLabel()}: ${constraint.max}"
+    is PropertyConstraint.StepLong -> "${userMessages.userHintStepLabel()}: ${constraint.step}"
+    is PropertyConstraint.MinDouble -> "${userMessages.userHintMinLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxDouble -> "${userMessages.userHintMaxLabel()}: ${constraint.max}"
+    is PropertyConstraint.StepDouble -> "${userMessages.userHintStepLabel()}: ${constraint.step}"
+    is PropertyConstraint.MinLength -> "${userMessages.userHintMinLengthLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxLength -> "${userMessages.userHintMaxLengthLabel()}: ${constraint.max}"
+    is PropertyConstraint.Pattern -> "${userMessages.userHintPatternLabel()}: ${constraint.regex}"
+    is PropertyConstraint.MinSize -> "${userMessages.userHintMinSizeLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxSize -> "${userMessages.userHintMaxSizeLabel()}: ${constraint.max}"
+    is PropertyConstraint.MinDate -> "${userMessages.userHintMinDateLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxDate -> "${userMessages.userHintMaxDateLabel()}: ${constraint.max}"
+    is PropertyConstraint.MinTime -> "${userMessages.userHintMinTimeLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxTime -> "${userMessages.userHintMaxTimeLabel()}: ${constraint.max}"
+    is PropertyConstraint.MinDatetime -> "${userMessages.userHintMinDatetimeLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxDatetime -> "${userMessages.userHintMaxDatetimeLabel()}: ${constraint.max}"
+    is PropertyConstraint.MinDuration -> "${userMessages.userHintMinDurationLabel()}: ${constraint.min}"
+    is PropertyConstraint.MaxDuration -> "${userMessages.userHintMaxDurationLabel()}: ${constraint.max}"
+  }
 
-  /** Returns a short "Min: x · Max: y"-style hint text for the property's own min/max/length/size constraints,
-   * meant to be shown directly under the input. Returns empty string if none of these constraints are set.
+  private fun constraintHintFor(constraints: Set<PropertyConstraint>): String =
+    constraints.sortedBy { CONSTRAINT_ORDER.indexOf(it.javaClass) }.joinToString(" · ") { shortConstraintText(it) }
+
+  /** Returns a short, combined hint text for all of the property's own constraints (e.g. "Min: 0 · Max: 100"),
+   * in logical (min-before-max) order, meant to be shown directly under the input. Returns empty string if the
+   * property has no constraints.
    */
   @JvmStatic
-  fun minMaxConstraintHint(property: Property): String =
-    constraintTextsFor(property.constraints.filter { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet()).joinToString(" · ")
+  fun constraintHint(property: Property): String = constraintHintFor(property.constraints)
 
-  /** Returns the property's remaining constraint descriptions (pattern, step, unique key) not already covered
-   * by [minMaxConstraintHint], meant to be shown behind an info icon since they're less commonly relevant.
-   */
+  /** Same as [constraintHint], but for a LIST property's item constraints. */
   @JvmStatic
-  fun otherConstraintTexts(property: Property): List<String> =
-    constraintTextsFor(property.constraints.filterNot { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet())
-
-  /** Returns [otherConstraintTexts] joined into a single string suitable for a `title` tooltip attribute. */
-  @JvmStatic
-  fun otherConstraintHintText(property: Property): String = otherConstraintTexts(property).joinToString("\n")
-
-  /** Returns true if the property has any constraints not already covered by [minMaxConstraintHint]. */
-  @JvmStatic
-  fun hasOtherConstraints(property: Property): Boolean = otherConstraintTexts(property).isNotEmpty()
-
-  /** Same as [minMaxConstraintHint], but for a LIST property's item constraints. */
-  @JvmStatic
-  fun itemMinMaxConstraintHint(property: Property): String =
-    constraintTextsFor(property.itemConstraints.filter { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet()).joinToString(" · ")
-
-  /** Same as [otherConstraintTexts], but for a LIST property's item constraints. */
-  @JvmStatic
-  fun itemOtherConstraintTexts(property: Property): List<String> =
-    constraintTextsFor(property.itemConstraints.filterNot { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet())
-
-  /** Returns [itemOtherConstraintTexts] joined into a single string suitable for a `title` tooltip attribute. */
-  @JvmStatic
-  fun itemOtherConstraintHintText(property: Property): String = itemOtherConstraintTexts(property).joinToString("\n")
-
-  /** Returns true if the property's LIST items have any constraints not already covered by [itemMinMaxConstraintHint]. */
-  @JvmStatic
-  fun hasItemOtherConstraints(property: Property): Boolean = itemOtherConstraintTexts(property).isNotEmpty()
-
-  /** Returns [otherConstraintTexts] and [itemOtherConstraintTexts] combined into a single string suitable
-   * for a `title` tooltip attribute next to the property's label.
-   */
-  @JvmStatic
-  fun combinedOtherConstraintHintText(property: Property): String =
-    (otherConstraintTexts(property) + itemOtherConstraintTexts(property)).joinToString("\n")
-
-  /** Returns true if [combinedOtherConstraintHintText] would be non-empty. */
-  @JvmStatic
-  fun hasAnyOtherConstraints(property: Property): Boolean =
-    hasOtherConstraints(property) || hasItemOtherConstraints(property)
+  fun itemConstraintHint(property: Property): String = constraintHintFor(property.itemConstraints)
 }
