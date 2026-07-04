@@ -51,6 +51,7 @@ data class DeveloperApiResult(
   val redirectUrl: String? = null,
   val fieldErrors: Map<String, String>? = null,
   val propertyId: String? = null,
+  val errorDetails: List<String>? = null,
 )
 
 data class DashboardAppInfo(
