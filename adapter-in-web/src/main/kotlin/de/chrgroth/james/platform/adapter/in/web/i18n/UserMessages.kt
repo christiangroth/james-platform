@@ -150,6 +150,9 @@ interface UserMessages {
   @Message
   fun userObjectDescendPropertyCountLabel(): String
 
+  @Message
+  fun userMultiModeButton(): String
+
   // app data edit
   @Message
   fun userEditDataTitle(): String

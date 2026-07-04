@@ -232,6 +232,23 @@ class UserAppDetailPageTests {
   }
 
   @Test
+  fun `new data page has a header button to toggle multi create mode`() {
+    val appName = "Multi Mode App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/new?entityId=$entityId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"mode-multi-button\""), "Expected a header button to toggle multi create mode")
+  }
+
+  @Test
   fun `edit data page breadcrumb includes both the entity name and the display text`() {
     val appName = "Edit Breadcrumb App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
