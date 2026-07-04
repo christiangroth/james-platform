@@ -1,3 +1,12 @@
+# 0.65.1 (2026.07.04)
+
+## Bugfixes / Chore
+* Icons throughout the app now render from the official Bootstrap Icons font instead of hand-recreated shapes, so they match the real icon set exactly.
+
+
+
+---
+
 # 0.65.0 (2026.07.04)
 
 ## New Features
