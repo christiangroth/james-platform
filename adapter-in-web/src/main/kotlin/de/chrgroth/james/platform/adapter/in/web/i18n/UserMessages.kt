@@ -312,7 +312,55 @@ interface UserMessages {
   @Message
   fun userInvalidDurationFormatViolationError(format: String): String
 
-  // app data new / edit (constraint hints)
+  // app data new / edit (constraint hints, shown under the input)
   @Message
-  fun userConstraintInfoAriaLabel(): String
+  fun userHintMinLabel(): String
+
+  @Message
+  fun userHintMaxLabel(): String
+
+  @Message
+  fun userHintStepLabel(): String
+
+  @Message
+  fun userHintMinLengthLabel(): String
+
+  @Message
+  fun userHintMaxLengthLabel(): String
+
+  @Message
+  fun userHintPatternLabel(): String
+
+  @Message
+  fun userHintMinSizeLabel(): String
+
+  @Message
+  fun userHintMaxSizeLabel(): String
+
+  @Message
+  fun userHintMinDateLabel(): String
+
+  @Message
+  fun userHintMaxDateLabel(): String
+
+  @Message
+  fun userHintMinTimeLabel(): String
+
+  @Message
+  fun userHintMaxTimeLabel(): String
+
+  @Message
+  fun userHintMinDatetimeLabel(): String
+
+  @Message
+  fun userHintMaxDatetimeLabel(): String
+
+  @Message
+  fun userHintMinDurationLabel(): String
+
+  @Message
+  fun userHintMaxDurationLabel(): String
+
+  @Message
+  fun userHintUniqueKeyLabel(): String
 }
