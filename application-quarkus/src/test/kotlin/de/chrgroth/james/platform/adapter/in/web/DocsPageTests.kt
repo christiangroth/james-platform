@@ -101,6 +101,19 @@ class DocsPageTests {
     assertThat(body.indexOf("marked.umd.js")).isLessThan(body.indexOf("marked.parse("))
   }
 
+  @Test
+  fun `docs arc42 page contains breadcrumb with user home and active doc title`() {
+    given()
+      .`when`()
+      .get("/docs/arc42/arc42.md")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="breadcrumb-home-link""""))
+      .body(containsString("""href="/ui/user/dashboard""""))
+      .body(containsString("""data-testid="breadcrumb-docs""""))
+      .body(containsString("james-platform"))
+  }
+
   private fun assertMarkdownRenderingPipeline(body: String, expectedMarkdownContent: String) {
     assertThat(body).contains("""id="docs-raw"""")
     assertThat(body).contains(expectedMarkdownContent)

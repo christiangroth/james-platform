@@ -2,6 +2,16 @@
     {#title}{msg:commonAppName()} – {monitoring:monitoringHealthTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#if isAdmin}
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel=admin:adminDashboardTitle() /}
+                {#else}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                {/if}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-health">{msg:layoutNavHealthLabel()}</li>
+            </ol>
+        </nav>
 
         <h1 class="mb-4 fs-4 fw-semibold">{monitoring:monitoringHealthTitle()}</h1>
 

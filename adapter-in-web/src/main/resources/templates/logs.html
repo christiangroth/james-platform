@@ -2,6 +2,16 @@
     {#title}{msg:commonAppName()} – {monitoring:monitoringLogsTitle()}{/title}
     {#content}
     <div class="container-fluid py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#if isAdmin}
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel=admin:adminDashboardTitle() /}
+                {#else}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                {/if}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-logs">{msg:layoutNavLogsUiLabel()}</li>
+            </ol>
+        </nav>
 
         <h1 class="mb-1 fs-4 fw-semibold">{monitoring:monitoringLogsTitle()}</h1>
         <p class="app-section-label mb-4">{monitoring:monitoringLogsSubtitle()}</p>
