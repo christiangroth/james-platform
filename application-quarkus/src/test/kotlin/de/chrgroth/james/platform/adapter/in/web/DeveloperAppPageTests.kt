@@ -405,7 +405,7 @@ class DeveloperAppPageTests {
       .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
       .then()
       .statusCode(200)
-      .body(containsString("&lt;STRING&gt;"))
+      .body(containsString("&lt;Text&gt;"))
   }
 
   @Test

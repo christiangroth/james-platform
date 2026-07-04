@@ -135,9 +135,9 @@
                             </td>
                             <td>{prop.name}</td>
                             <td>
-                                {prop.type}{#if prop.nullable}?{/if}
+                                {prop.type.propertyTypeLabel}{#if prop.nullable}?{/if}
                                 {#if prop.type.name == "LIST" && prop.listItemType}
-                                <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="property-list-item-type-{prop.id}">&lt;{prop.listItemType}&gt;</span>
+                                <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="property-list-item-type-{prop.id}">&lt;{prop.listItemTypeLabel}&gt;</span>
                                 {/if}
                                 {#if prop.type.name == "OBJECT"}
                                 <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="nested-property-count-{prop.id}">
@@ -213,7 +213,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
                             </td>
                             <td data-testid="computed-property-name">{cp.name}</td>
-                            <td>{cp.type}</td>
+                            <td>{cp.type.propertyTypeLabel}</td>
                             <td>
                                 {#if cp.script}
                                 <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="computed-property-script-{cp.id}" title="{cp.script}">{developer:developerScriptBadge()}</span>
@@ -377,9 +377,9 @@
                             <tr data-testid="property-readonly-row">
                                 <td>{prop.name}</td>
                                 <td>
-                                    {prop.type}{#if prop.nullable}?{/if}
+                                    {prop.type.propertyTypeLabel}{#if prop.nullable}?{/if}
                                     {#if prop.type.name == "LIST" && prop.listItemType}
-                                    <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{prop.listItemType}&gt;</span>
+                                    <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{prop.listItemTypeLabel}&gt;</span>
                                     {/if}
                                 </td>
                                 <td>

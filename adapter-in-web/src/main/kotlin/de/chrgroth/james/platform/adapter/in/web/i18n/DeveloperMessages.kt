@@ -14,6 +14,9 @@ interface DeveloperMessages {
   fun developerDraftLabel(): String
 
   @Message
+  fun developerPublishedLabel(): String
+
+  @Message
   fun developerOnePropertyLabel(): String
 
   @Message

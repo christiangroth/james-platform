@@ -1988,6 +1988,69 @@ class AppVersionManagementServiceTests {
     assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 0L") }
   }
 
+  @Test
+  fun `getVersionDiff shows list item type and item constraints in diff lines when changed`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val updatedProp = prop.copy(itemConstraints = setOf(PropertyConstraint.MaxLength(10)))
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("item-type: STRING") && it.contains("max-length:10") }
+  }
+
+  @Test
+  fun `getVersionDiff shows target entity name in diff lines when changed`() {
+    val targetEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer")
+    val prop = Property(id = PropertyId("p-1"), name = "Owner", type = PropertyType.REF)
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef, targetEntity), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val updatedProp = prop.copy(targetEntityId = EntityDefinitionId("e-2"))
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp)), targetEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("target-entity: Customer") }
+  }
+
+  @Test
+  fun `getVersionDiff shows nested properties in diff lines when changed`() {
+    val nestedProp = Property(id = PropertyId("np-1"), name = "Street", type = PropertyType.STRING)
+    val prop = Property(id = PropertyId("p-1"), name = "Address", type = PropertyType.OBJECT, nestedProperties = listOf(nestedProp))
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val updatedNestedProp = nestedProp.copy(nullable = false)
+    val updatedProp = prop.copy(nestedProperties = listOf(updatedNestedProp))
+    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
+
+    val result = service.getVersionDiff("app-1", "ver-new")
+
+    assertThat(result.isRight()).isTrue()
+    val diff = result.getOrNull()!!
+    val entityDiff = diff.entityDiffs.first()
+    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("Street: STRING!") }
+  }
+
   // endregion
 
   // region deleteDraftVersion
