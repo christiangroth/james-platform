@@ -57,13 +57,15 @@ class DashboardPageTests {
   }
 
   @Test
-  fun `admin dashboard page displays breadcrumb`() {
+  fun `admin dashboard page displays breadcrumb home link pointing to admin dashboard`() {
     given()
       .`when`()
       .get("/ui/admin/dashboard")
       .then()
       .statusCode(200)
-      .body(containsString("""data-testid="breadcrumb-admin""""))
+      .body(containsString("""data-testid="breadcrumb-home-link""""))
+      .body(containsString("""href="/ui/admin/dashboard""""))
+      .body(not(containsString("""data-testid="breadcrumb-admin"""")))
   }
 
   @Test
