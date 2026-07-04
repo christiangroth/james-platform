@@ -1,3 +1,13 @@
+# 0.64.1 (2026.07.04)
+
+## Bugfixes / Chore
+* Snapshot mode no longer stores field values that still match their default, so only intentional overrides are carried over to the next entry.
+* Updated the header icons for the new-data-form's Multi, Snapshot and Snapshot-delete buttons.
+
+
+
+---
+
 # 0.64.0 (2026.07.04)
 
 ## New Features
