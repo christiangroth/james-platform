@@ -81,4 +81,76 @@ object PropertyLabelTemplateExtensions {
           is PropertyConstraint.MaxDuration -> "${developerMessages.developerMaxDurationLabel()}: ${constraint.max}"
         }
       }
+
+  /** Constraint kinds shown as a short, always-visible hint under the input (bounds the user can hit while typing). */
+  private val MIN_MAX_CONSTRAINT_CLASSES: Set<Class<out PropertyConstraint>> = setOf(
+    PropertyConstraint.MinLong::class.java,
+    PropertyConstraint.MaxLong::class.java,
+    PropertyConstraint.MinDouble::class.java,
+    PropertyConstraint.MaxDouble::class.java,
+    PropertyConstraint.MinLength::class.java,
+    PropertyConstraint.MaxLength::class.java,
+    PropertyConstraint.MinDate::class.java,
+    PropertyConstraint.MaxDate::class.java,
+    PropertyConstraint.MinTime::class.java,
+    PropertyConstraint.MaxTime::class.java,
+    PropertyConstraint.MinDatetime::class.java,
+    PropertyConstraint.MaxDatetime::class.java,
+    PropertyConstraint.MinDuration::class.java,
+    PropertyConstraint.MaxDuration::class.java,
+    PropertyConstraint.MinSize::class.java,
+    PropertyConstraint.MaxSize::class.java,
+  )
+
+  /** Returns a short "Min: x · Max: y"-style hint text for the property's own min/max/length/size constraints,
+   * meant to be shown directly under the input. Returns empty string if none of these constraints are set.
+   */
+  @JvmStatic
+  fun minMaxConstraintHint(property: Property): String =
+    constraintTextsFor(property.constraints.filter { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet()).joinToString(" · ")
+
+  /** Returns the property's remaining constraint descriptions (pattern, step, unique key) not already covered
+   * by [minMaxConstraintHint], meant to be shown behind an info icon since they're less commonly relevant.
+   */
+  @JvmStatic
+  fun otherConstraintTexts(property: Property): List<String> =
+    constraintTextsFor(property.constraints.filterNot { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet())
+
+  /** Returns [otherConstraintTexts] joined into a single string suitable for a `title` tooltip attribute. */
+  @JvmStatic
+  fun otherConstraintHintText(property: Property): String = otherConstraintTexts(property).joinToString("\n")
+
+  /** Returns true if the property has any constraints not already covered by [minMaxConstraintHint]. */
+  @JvmStatic
+  fun hasOtherConstraints(property: Property): Boolean = otherConstraintTexts(property).isNotEmpty()
+
+  /** Same as [minMaxConstraintHint], but for a LIST property's item constraints. */
+  @JvmStatic
+  fun itemMinMaxConstraintHint(property: Property): String =
+    constraintTextsFor(property.itemConstraints.filter { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet()).joinToString(" · ")
+
+  /** Same as [otherConstraintTexts], but for a LIST property's item constraints. */
+  @JvmStatic
+  fun itemOtherConstraintTexts(property: Property): List<String> =
+    constraintTextsFor(property.itemConstraints.filterNot { it.javaClass in MIN_MAX_CONSTRAINT_CLASSES }.toSet())
+
+  /** Returns [itemOtherConstraintTexts] joined into a single string suitable for a `title` tooltip attribute. */
+  @JvmStatic
+  fun itemOtherConstraintHintText(property: Property): String = itemOtherConstraintTexts(property).joinToString("\n")
+
+  /** Returns true if the property's LIST items have any constraints not already covered by [itemMinMaxConstraintHint]. */
+  @JvmStatic
+  fun hasItemOtherConstraints(property: Property): Boolean = itemOtherConstraintTexts(property).isNotEmpty()
+
+  /** Returns [otherConstraintTexts] and [itemOtherConstraintTexts] combined into a single string suitable
+   * for a `title` tooltip attribute next to the property's label.
+   */
+  @JvmStatic
+  fun combinedOtherConstraintHintText(property: Property): String =
+    (otherConstraintTexts(property) + itemOtherConstraintTexts(property)).joinToString("\n")
+
+  /** Returns true if [combinedOtherConstraintHintText] would be non-empty. */
+  @JvmStatic
+  fun hasAnyOtherConstraints(property: Property): Boolean =
+    hasOtherConstraints(property) || hasItemOtherConstraints(property)
 }

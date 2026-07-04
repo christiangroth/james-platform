@@ -119,6 +119,33 @@ function buildRequiredAsterisk() {
     return span;
 }
 
+/** Builds the info icon appended to a field label when it has constraints beyond min/max/length/size, mirroring
+ * the server-rendered top-level fields. `hintText` becomes the native tooltip shown on hover. */
+function buildConstraintInfoIcon(hintText) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('width', '14');
+    svg.setAttribute('height', '14');
+    svg.setAttribute('fill', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.classList.add('ms-1');
+    svg.style.cursor = 'help';
+    svg.setAttribute('aria-label', objectFieldMessages.constraintInfoAriaLabel);
+    svg.setAttribute('title', hintText);
+    var use = document.createElementNS(ns, 'use');
+    use.setAttribute('href', '#icon-info-circle');
+    svg.appendChild(use);
+    return svg;
+}
+
+/** Builds the muted min/max/length/size hint text shown under a field's input, mirroring the server-rendered top-level fields. */
+function buildConstraintHintText(text) {
+    var div = document.createElement('div');
+    div.className = 'form-text';
+    div.textContent = text;
+    return div;
+}
+
 function buildObjectPropertyField(field, name, value) {
     var wrapper = document.createElement('div');
     wrapper.className = 'mb-3';
@@ -128,11 +155,15 @@ function buildObjectPropertyField(field, name, value) {
     label.style.color = 'var(--color-text-muted)';
     label.appendChild(document.createTextNode(field.name));
     if (!field.nullable) label.appendChild(buildRequiredAsterisk());
+    var otherHint = [field.otherConstraintHint, field.itemOtherConstraintHint].filter(Boolean).join('\n');
+    if (otherHint) label.appendChild(buildConstraintInfoIcon(otherHint));
     wrapper.appendChild(label);
     if (field.type === 'LIST') {
         wrapper.appendChild(objectFieldList(field, name, value));
+        if (field.itemMinMaxHint) wrapper.appendChild(buildConstraintHintText(field.itemMinMaxHint));
     } else {
         wrapper.appendChild(objectFieldScalarInput(field, name, value));
+        if (field.minMaxHint) wrapper.appendChild(buildConstraintHintText(field.minMaxHint));
     }
     return wrapper;
 }
