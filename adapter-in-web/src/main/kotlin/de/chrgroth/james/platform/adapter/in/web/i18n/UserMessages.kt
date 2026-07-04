@@ -162,6 +162,9 @@ interface UserMessages {
   @Message
   fun userSnapshotDeleteButton(): String
 
+  @Message
+  fun userSnapshotFieldHint(): String
+
   // app data edit
   @Message
   fun userEditDataTitle(): String

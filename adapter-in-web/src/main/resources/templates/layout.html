@@ -246,6 +246,16 @@
             white-space: pre-line;
             text-align: left;
         }
+        /* Marks form fields whose value was carried over from an active create-mode snapshot rather than a freshly computed default */
+        .is-snapshot-field {
+            border-color: var(--color-warning-text) !important;
+            background-color: rgba(255, 153, 0, 0.08) !important;
+        }
+        .is-snapshot-field-container {
+            border-left: 3px solid var(--color-warning-text);
+            padding-left: 0.5rem;
+            border-radius: 2px;
+        }
         /* Select / dropdown in the dark theme – combine with Bootstrap .form-select */
         .app-select {
             background-color: var(--color-bg-card) !important;

@@ -214,6 +214,91 @@
                 return { scalars: scalars, lists: lists, objects: objects };
             }
 
+            // Determines which top-level scalar/list/object property ids currently hold a meaningful
+            // (non-empty) value in the snapshot - only those are considered "part of the snapshot" and
+            // are excluded from the fresh-defaults re-fetch and highlighted in the UI.
+            function snapshotFieldIds(snapshot) {
+                var ids = { scalars: {}, lists: {}, objects: {} };
+                if (!snapshot) return ids;
+                Object.keys(snapshot.scalars || {}).forEach(function (propId) {
+                    var value = snapshot.scalars[propId];
+                    if (value !== '' && value != null) ids.scalars[propId] = true;
+                });
+                Object.keys(snapshot.lists || {}).forEach(function (propId) {
+                    if ((snapshot.lists[propId] || []).length > 0) ids.lists[propId] = true;
+                });
+                Object.keys(snapshot.objects || {}).forEach(function (propId) {
+                    if (objectHasAnyValue(snapshot.objects[propId])) ids.objects[propId] = true;
+                });
+                return ids;
+            }
+
+            function objectHasAnyValue(node) {
+                if (node == null) return false;
+                if (typeof node !== 'object') return node !== '';
+                return Object.keys(node).some(function (key) { return objectHasAnyValue(node[key]); });
+            }
+
+            var snapshotFieldHint = '{user:userSnapshotFieldHint()}';
+
+            // Highlights the fields that currently hold a value carried over from the active snapshot,
+            // clearing any previous highlighting first.
+            function applySnapshotHighlights(snapshot) {
+                createForm.querySelectorAll('.is-snapshot-field').forEach(function (el) {
+                    el.classList.remove('is-snapshot-field');
+                    el.removeAttribute('title');
+                });
+                createForm.querySelectorAll('.is-snapshot-field-container').forEach(function (el) {
+                    el.classList.remove('is-snapshot-field-container');
+                    el.removeAttribute('title');
+                });
+
+                var ids = snapshotFieldIds(snapshot);
+                Object.keys(ids.scalars).forEach(function (propId) {
+                    var el = document.getElementById('prop_' + propId);
+                    if (!el) return;
+                    el.classList.add('is-snapshot-field');
+                    el.title = snapshotFieldHint;
+                });
+                Object.keys(ids.lists).forEach(function (propId) {
+                    var container = createForm.querySelector('.list-property-rows[data-property-id="' + propId + '"]');
+                    if (!container) return;
+                    container.classList.add('is-snapshot-field-container');
+                    container.title = snapshotFieldHint;
+                });
+                Object.keys(ids.objects).forEach(function (propId) {
+                    var container = createForm.querySelector('.object-property-fields[data-property-id="' + propId + '"]');
+                    if (!container) return;
+                    container.classList.add('is-snapshot-field-container');
+                    container.title = snapshotFieldHint;
+                });
+            }
+
+            // Freshly re-fetches smart/static defaults from the server and applies them to every field
+            // that isn't currently holding a meaningful snapshot value, so Multi/Snapshot mode entries
+            // get up-to-date defaults (e.g. "now") instead of the ones computed on the initial page load.
+            function applyFreshDefaults(snapshot) {
+                var ids = snapshotFieldIds(snapshot).scalars;
+                return fetch('/ui/user/apps/{info.installedAppId}/data/defaults?entityId={entity.id}', {
+                    headers: { 'Accept': 'application/json' },
+                }).then(function (r) {
+                    return r.ok ? r.json() : {};
+                }).then(function (defaults) {
+                    Object.keys(defaults || {}).forEach(function (propId) {
+                        if (ids[propId]) return;
+                        var el = document.getElementById('prop_' + propId);
+                        if (!el) return;
+                        var value = defaults[propId];
+                        if (value == null) return;
+                        if (el.type === 'checkbox') {
+                            el.checked = value === 'true';
+                        } else {
+                            el.value = value;
+                        }
+                    });
+                }).catch(function () {});
+            }
+
             function captureObjectContainerValue(container, propId) {
                 var prefix = 'prop_' + propId + '.';
                 var result = {};
@@ -277,6 +362,8 @@
                 var snapshot = dataCreateState.mode === 'snapshot' ? dataCreateState.snapshot : null;
                 renderObjectFields(snapshot ? snapshot.objects : {});
                 if (snapshot) applyFormSnapshot(snapshot);
+                applySnapshotHighlights(snapshot);
+                applyFreshDefaults(snapshot);
             }
 
             function updateModeButtons() {
@@ -297,16 +384,19 @@
             multiModeButton.addEventListener('click', function () {
                 dataCreateState = { mode: dataCreateState.mode === 'multi' ? 'standard' : 'multi', snapshot: null };
                 updateModeButtons();
+                applySnapshotHighlights(null);
             });
 
             snapshotButton.addEventListener('click', function () {
                 dataCreateState = { mode: 'snapshot', snapshot: captureFormSnapshot(createForm) };
                 updateModeButtons();
+                applySnapshotHighlights(dataCreateState.snapshot);
             });
 
             snapshotDeleteButton.addEventListener('click', function () {
                 dataCreateState = { mode: 'multi', snapshot: null };
                 updateModeButtons();
+                applySnapshotHighlights(null);
             });
 
             updateModeButtons();
