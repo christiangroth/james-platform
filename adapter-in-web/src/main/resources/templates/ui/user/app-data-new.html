@@ -132,16 +132,27 @@
             var messageTimer = null;
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
-            function showMessage(ok, message) {
+            function showMessage(ok, message, errorDetails) {
                 if (messageTimer) { clearTimeout(messageTimer); }
                 messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
                 messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 messagePanel.innerHTML = message
                     + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+                if (errorDetails && errorDetails.length) {
+                    var list = document.createElement('ul');
+                    list.className = 'mb-0 mt-2 ps-3';
+                    list.setAttribute('data-testid', 'error-details');
+                    errorDetails.forEach(function (detail) {
+                        var item = document.createElement('li');
+                        item.textContent = detail;
+                        list.appendChild(item);
+                    });
+                    messagePanel.insertBefore(list, messagePanel.querySelector('.btn-close'));
+                }
                 messageTimer = setTimeout(function () {
                     messagePanel.className = 'd-none mb-4';
                     messagePanel.removeAttribute('data-testid');
-                }, 5000);
+                }, errorDetails && errorDetails.length ? 15000 : 5000);
             }
 
             function clearFieldErrors(form) {
@@ -195,7 +206,7 @@
                     if (result.ok && result.redirectUrl) {
                         window.location.href = result.redirectUrl;
                     } else {
-                        showMessage(result.ok, result.message);
+                        showMessage(result.ok, result.message, result.errorDetails);
                         if (result.fieldErrors) {
                             showFieldErrors(form, result.fieldErrors);
                         }

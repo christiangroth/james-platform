@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
+import de.chrgroth.james.platform.domain.error.PathedConstraintViolation
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
@@ -87,6 +88,8 @@ class AppDataServiceTests {
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
     every { propertyConstraint.checkValue(prop1, "duplicate", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
+    every { propertyConstraint.checkValueWithPaths(prop1, "duplicate", emptyList()) } returns listOf(PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation))
+    every { propertyConstraint.checkValueWithPaths(prop2, null, emptyList()) } returns listOf(PathedConstraintViolation("Field2", PropertyConstraintViolation.MinValueViolation(10L)))
 
     val data = mapOf("prop_${prop1Id.value}" to listOf("duplicate"))
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
@@ -100,6 +103,10 @@ class AppDataServiceTests {
     assertThat(violationError.propertyViolations).containsKey(prop2Id.value)
     assertThat(violationError.propertyViolations[prop1Id.value]).containsExactly(PropertyConstraintViolation.UniqueKeyViolation)
     assertThat(violationError.propertyViolations[prop2Id.value]).containsExactly(PropertyConstraintViolation.MinValueViolation(10L))
+    assertThat(violationError.pathedViolations).containsExactlyInAnyOrder(
+      PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation),
+      PathedConstraintViolation("Field2", PropertyConstraintViolation.MinValueViolation(10L)),
+    )
   }
 
   @Test
@@ -109,6 +116,7 @@ class AppDataServiceTests {
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
     every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(prop1, "dup", emptyList()) } returns listOf(PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation))
 
     val data = mapOf("prop_${prop1Id.value}" to listOf("dup"))
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
@@ -146,6 +154,8 @@ class AppDataServiceTests {
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
     every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
     every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
+    every { propertyConstraint.checkValueWithPaths(prop1, "dup", emptyList()) } returns listOf(PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation))
+    every { propertyConstraint.checkValueWithPaths(prop2, null, emptyList()) } returns listOf(PathedConstraintViolation("Field2", PropertyConstraintViolation.MinValueViolation(10L)))
 
     val data = mapOf("prop_${prop1Id.value}" to listOf("dup"))
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
@@ -154,6 +164,10 @@ class AppDataServiceTests {
     val error = result.leftOrNull() as AppDataConstraintViolationError
     assertThat(error.propertyViolations).containsKey(prop1Id.value)
     assertThat(error.propertyViolations).containsKey(prop2Id.value)
+    assertThat(error.pathedViolations).containsExactlyInAnyOrder(
+      PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation),
+      PathedConstraintViolation("Field2", PropertyConstraintViolation.MinValueViolation(10L)),
+    )
   }
 
   @Test
@@ -277,6 +291,7 @@ class AppDataServiceTests {
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, refEntityId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
     every { propertyConstraint.checkValue(refTargetProp, "unknown-id", emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(refTargetProp, "unknown-id", emptyList()) } returns emptyList()
 
     val data = mapOf("prop_${refTargetPropId.value}" to listOf("unknown-id"))
     val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
@@ -309,6 +324,7 @@ class AppDataServiceTests {
     every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns versionWithUnconfiguredRef
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, refEntityId) } returns emptyList()
     every { propertyConstraint.checkValue(refPropNullable, "data-1", emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(refPropNullable, "data-1", emptyList()) } returns emptyList()
 
     val data = mapOf("prop_${refPropId.value}" to listOf("data-1"))
     val result = service.createAppData(userId, installedAppId.value, refEntityId.value, data)
@@ -334,6 +350,7 @@ class AppDataServiceTests {
     every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDuration
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, durationEntityId) } returns emptyList()
     every { propertyConstraint.checkValue(durationProp, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(durationProp, null, emptyList()) } returns emptyList()
 
     val data = mapOf("prop_${durationPropId.value}" to listOf("not-a-duration"))
     val result = service.createAppData(userId, installedAppId.value, durationEntityId.value, data)

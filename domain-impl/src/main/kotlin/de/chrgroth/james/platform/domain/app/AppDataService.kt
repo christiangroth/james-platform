@@ -6,6 +6,7 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.DomainError
+import de.chrgroth.james.platform.domain.error.PathedConstraintViolation
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
@@ -69,22 +70,23 @@ class AppDataService(
 
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
+    val allPathedViolations = mutableListOf<PathedConstraintViolation>()
     for (property in entityDef.properties) {
       val storedValue = storedValueFor(property, data)
       val parsedValue = parseValue(property, storedValue)
-      val violations = propertyConstraint.checkValue(
-        property,
-        parsedValue,
-        existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
+      val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
+      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
+      val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
         logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
+        allPathedViolations += propertyConstraint.checkValueWithPaths(property, parsedValue, existingParsedValues)
+        allPathedViolations += extraViolations.map { PathedConstraintViolation(property.name, it) }
       }
       parsedData[property.id.value] = storedValue
     }
     if (allViolations.isNotEmpty()) {
-      return AppDataConstraintViolationError(allViolations).left()
+      return AppDataConstraintViolationError(allViolations, allPathedViolations).left()
     }
 
     val now = Instant.now()
@@ -165,22 +167,23 @@ class AppDataService(
 
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
+    val allPathedViolations = mutableListOf<PathedConstraintViolation>()
     for (property in entityDef.properties) {
       val storedValue = storedValueFor(property, data)
       val parsedValue = parseValue(property, storedValue)
-      val violations = propertyConstraint.checkValue(
-        property,
-        parsedValue,
-        existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } },
-      ) + referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
+      val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
+      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
+      val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
         logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
         allViolations[property.id.value] = violations
+        allPathedViolations += propertyConstraint.checkValueWithPaths(property, parsedValue, existingParsedValues)
+        allPathedViolations += extraViolations.map { PathedConstraintViolation(property.name, it) }
       }
       parsedData[property.id.value] = storedValue
     }
     if (allViolations.isNotEmpty()) {
-      return AppDataConstraintViolationError(allViolations).left()
+      return AppDataConstraintViolationError(allViolations, allPathedViolations).left()
     }
 
     val updatedAppData = existingAppData.copy(

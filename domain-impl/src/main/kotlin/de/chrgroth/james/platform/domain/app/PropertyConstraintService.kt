@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.domain.app
 
+import de.chrgroth.james.platform.domain.error.PathedConstraintViolation
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
@@ -17,6 +18,44 @@ import kotlin.time.toJavaDuration
 class PropertyConstraintService : PropertyConstraintPort {
 
   override fun checkValue(property: Property, value: Any?, existingValues: List<Any?>): List<PropertyConstraintViolation> {
+    val violations = ownViolations(property, value, existingValues).toMutableList()
+    val listItemType = property.listItemType
+    if (property.type == PropertyType.LIST && listItemType != null && value is List<*>) {
+      val itemProperty = property.copy(type = listItemType, constraints = property.itemConstraints)
+      for (item in value) {
+        violations += checkValue(itemProperty, item, emptyList())
+      }
+    }
+    if (property.type == PropertyType.OBJECT && value is Map<*, *>) {
+      for (nestedProperty in property.nestedProperties) {
+        violations += checkValue(nestedProperty, value[nestedProperty.id.value], emptyList())
+      }
+    }
+    return violations
+  }
+
+  override fun checkValueWithPaths(property: Property, value: Any?, existingValues: List<Any?>): List<PathedConstraintViolation> =
+    checkValueWithPaths(property, value, existingValues, property.name)
+
+  private fun checkValueWithPaths(property: Property, value: Any?, existingValues: List<Any?>, path: String): List<PathedConstraintViolation> {
+    val violations = ownViolations(property, value, existingValues).map { PathedConstraintViolation(path, it) }.toMutableList()
+    val listItemType = property.listItemType
+    if (property.type == PropertyType.LIST && listItemType != null && value is List<*>) {
+      val itemProperty = property.copy(type = listItemType, constraints = property.itemConstraints)
+      for (item in value) {
+        violations += checkValueWithPaths(itemProperty, item, emptyList(), path)
+      }
+    }
+    if (property.type == PropertyType.OBJECT && value is Map<*, *>) {
+      for (nestedProperty in property.nestedProperties) {
+        violations += checkValueWithPaths(nestedProperty, value[nestedProperty.id.value], emptyList(), "$path > ${nestedProperty.name}")
+      }
+    }
+    return violations
+  }
+
+  /** Checks only the constraints declared directly on [property] (no recursion into LIST items or OBJECT nested properties). */
+  private fun ownViolations(property: Property, value: Any?, existingValues: List<Any?>): List<PropertyConstraintViolation> {
     val violations = mutableListOf<PropertyConstraintViolation>()
     for (constraint in property.constraints) {
       when (constraint) {
@@ -47,18 +86,6 @@ class PropertyConstraintService : PropertyConstraintPort {
         is PropertyConstraint.MaxDuration ->
           parseOrNull(value) { parseDurationValue(it)?.toJavaDuration() ?: error("invalid duration") }
             ?.let { if (it > constraint.max) violations += PropertyConstraintViolation.MaxDurationViolation(constraint.max) }
-      }
-    }
-    val listItemType = property.listItemType
-    if (property.type == PropertyType.LIST && listItemType != null && value is List<*>) {
-      val itemProperty = property.copy(type = listItemType, constraints = property.itemConstraints)
-      for (item in value) {
-        violations += checkValue(itemProperty, item, emptyList())
-      }
-    }
-    if (property.type == PropertyType.OBJECT && value is Map<*, *>) {
-      for (nestedProperty in property.nestedProperties) {
-        violations += checkValue(nestedProperty, value[nestedProperty.id.value], emptyList())
       }
     }
     return violations

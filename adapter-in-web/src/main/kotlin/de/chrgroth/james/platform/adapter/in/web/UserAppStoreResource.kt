@@ -317,7 +317,8 @@ class UserAppStoreResource {
           val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
             violations.joinToString(" ") { constraintViolationMessage(it) }
           }
-          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors)).build()
+          val errorDetails = error.pathedViolations.map { "${it.path}: ${constraintViolationMessage(it.violation)}" }
+          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors, errorDetails = errorDetails)).build()
         } else {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
         }
@@ -421,7 +422,8 @@ class UserAppStoreResource {
           val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
             violations.joinToString(" ") { constraintViolationMessage(it) }
           }
-          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors)).build()
+          val errorDetails = error.pathedViolations.map { "${it.path}: ${constraintViolationMessage(it.violation)}" }
+          Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors, errorDetails = errorDetails)).build()
         } else {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
         }

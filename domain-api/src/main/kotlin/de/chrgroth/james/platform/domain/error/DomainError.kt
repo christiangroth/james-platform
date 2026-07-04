@@ -110,9 +110,16 @@ enum class AppDataError(override val code: String) : DomainError {
 
 data class AppDataConstraintViolationError(
   val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
+  val pathedViolations: List<PathedConstraintViolation> = emptyList(),
 ) : DomainError {
   override val code: String = AppDataError.CONSTRAINT_VIOLATION.code
 }
+
+/** Pairs a constraint violation with the human-readable property path (e.g. "Address > Street") that produced it, so nested violations remain identifiable without navigating into the nested property. */
+data class PathedConstraintViolation(
+  val path: String,
+  val violation: PropertyConstraintViolation,
+)
 
 data class DisplayTextInvalidError(
   val entityNames: List<String>,
