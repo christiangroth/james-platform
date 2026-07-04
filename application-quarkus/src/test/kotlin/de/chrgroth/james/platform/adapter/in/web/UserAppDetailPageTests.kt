@@ -214,7 +214,7 @@ class UserAppDetailPageTests {
   }
 
   @Test
-  fun `new data page breadcrumb shows only Neu instead of entity name`() {
+  fun `new data page breadcrumb includes the entity name`() {
     val appName = "New Data Breadcrumb App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
     val entityId = addEntity(appId, versionId, "Entity One")
@@ -227,12 +227,12 @@ class UserAppDetailPageTests {
       .statusCode(200)
       .extract().body().asString()
 
-    val breadcrumbEntity = Regex("""data-testid="breadcrumb-entity">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
-    assertTrue(breadcrumbEntity == "Neu", "Expected breadcrumb to show only 'Neu', but was: $breadcrumbEntity")
+    val breadcrumbEntityLink = Regex("""data-testid="breadcrumb-entity-link">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
+    assertTrue(breadcrumbEntityLink == "Entity One", "Expected breadcrumb to show the entity name, but was: $breadcrumbEntityLink")
   }
 
   @Test
-  fun `edit data page breadcrumb shows display text instead of generic edit label`() {
+  fun `edit data page breadcrumb includes both the entity name and the display text`() {
     val appName = "Edit Breadcrumb App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
     val entityId = addEntity(appId, versionId, "Entity One")
@@ -245,6 +245,9 @@ class UserAppDetailPageTests {
       .then()
       .statusCode(200)
       .extract().body().asString()
+
+    val breadcrumbEntityLink = Regex("""data-testid="breadcrumb-entity-link">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
+    assertTrue(breadcrumbEntityLink == "Entity One", "Expected breadcrumb to show the entity name, but was: $breadcrumbEntityLink")
 
     val breadcrumbData = Regex("""data-testid="breadcrumb-data">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
     assertTrue(breadcrumbData != "Daten bearbeiten", "Expected breadcrumb to show the entry's display text, but was: $breadcrumbData")
