@@ -325,6 +325,17 @@ lower-priority cleanup batch.
   `org.webjars.npm:bootstrap-icons` WebJar dependency (`gradle/libs.versions.toml`,
   `adapter-in-web/build.gradle.kts`) and replaces several hand-copied/rebuilt inline SVG icons
   with the standard icon font/set. Generic build+UI simplification, no domain coupling.
+- **Unify page content width across all pages** (`70d2e310`): the Docs page had its own
+  `max-width: 860px` while every other page used bare `.container-fluid` (unbounded, full
+  viewport width) — an inconsistency Chris flagged directly. Introduces one shared
+  `.app-page-container` rule in `layout.html` (full width below the `lg` breakpoint/992px,
+  capped at two thirds of the viewport and centered from 992px up) and applies it to every
+  page template, replacing both `.container-fluid` and the bespoke Docs cap. Strong backport
+  candidate — every affected template (`layout.html`, `docs.html`, `health.html`,
+  `config.html`, `logs.html`, `mongodb-viewer.html`, `error.html`, `ui/admin/*`,
+  `ui/profile.html`, `ui/user/dashboard.html`) already exists in the template with the same
+  structure, so the fix ports close to verbatim; only the James-Platform-specific
+  `ui/developer/*` and `ui/user/app-*` templates it also touches don't exist there yet.
 - **Icon-only buttons to reduce UI text** (`201a3077`, PR #464, building on `234fc434` PR
   #263 above): continues the shared icon-button tag pattern, converting more text buttons to
   icon-only across generic pages, plus adds breadcrumbs to the profile page.
