@@ -1,1 +1,2 @@
 * Refreshed docs/backport.md with commits merged since it was first written, and verified each historical fix against the template project's current state.
+* Reviewed arc42 documentation and ADRs for staleness: filled in placeholder sections with actual current-state content, corrected descriptions of already-implemented features that still read as "planned", and added ADRs for local cookie-based authentication and computed-property script execution.
