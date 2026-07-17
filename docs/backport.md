@@ -10,11 +10,17 @@ monitoring views, general menu & session handling, general UI templates, and cod
 guidelines/agent info — so they can be ported back into the template project for the benefit
 of future projects bootstrapped from it.
 
-Scope of the survey: all commits in `0ac4e9a8..HEAD` (295 commits at the time of writing).
-Automated "`[Gradle Release Plugin] - new/pre tag commit`" version-bump commits are omitted
-throughout as noise. Commits that only touch James-Platform's specific business domain (Apps,
-Entities, Reports, Slack integration, Spotify integration, etc.) are intentionally excluded —
-only generic, reusable infra/process/pattern changes are listed.
+Scope of the survey: all commits in `0ac4e9a8..HEAD` (316 commits as of the 2026-07-17
+refresh; 295 at first writing on 2026-07-04). Automated "`[Gradle Release Plugin] - new/pre
+tag commit`" version-bump commits are omitted throughout as noise. Commits that only touch
+James-Platform's specific business domain (Apps, Entities, Reports, Slack integration,
+Spotify integration, etc.) are intentionally excluded — only generic, reusable
+infra/process/pattern changes are listed.
+
+Every entry below has also been cross-checked against the *current* state of
+`template-gradle-kotlin-quarkus-ssr-mongodb` (not just diffed against the bootstrap commit),
+since the template kept evolving independently after the fork. See section 9 for items that
+turned out to already be resolved upstream and no longer need porting.
 
 Each entry references the short commit hash and, where visible, the PR number, so the actual
 diff can be inspected with `git show <hash>` in this repository.
@@ -35,6 +41,18 @@ diff can be inspected with `git show <hash>` in this repository.
   `maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)` to the
   shared `kotlin-project.gradle.kts` convention plugin's `test` task.
 
+### Test coverage tooling
+- **Kover code-coverage reporting** (present since `0ac4e9a8`, i.e. inherited from the
+  pre-bootstrap "SpCtl" history rather than added afterwards — which is why it fell outside the
+  commit-range scan above, but it is absent from the current template and is a genuine gap):
+  the root `build.gradle.kts` configures `kover { merge { allProjects() } }` for a combined
+  cross-module report, and the shared `kotlin-project.gradle.kts` convention plugin applies
+  `org.jetbrains.kotlinx.kover` with `reports { total { html { onCheck.set(true) };
+  verify { onCheck.set(true); rule { minBound(0) } } } }` (an intentionally toothless
+  `minBound(0)` verify rule — coverage is measured and reported on every `check`, but not yet
+  enforced with a real threshold). Directly portable as-is; raising `minBound` is a separate,
+  optional follow-up.
+
 ### Docker / packaging
 - **Disable Quarkus dev services outside the dev profile** (`82c55ce0`, PR #311): changes
   `quarkus.devservices.enabled=true` to `%dev.quarkus.devservices.enabled=true`, fixing a
@@ -46,6 +64,12 @@ diff can be inspected with `git show <hash>` in this repository.
   `Plugin.kt`, `Processing.kt`) had been copy-pasted into `buildSrc` alongside the canonical
   externally-published plugin. Worth checking whether the template carries the same
   copy-paste artifact.
+- **Custom release-note snippet templates** (`releasenotes-templates/{bugfix,feature,
+  highlight,next-version}.md`, present in this repo, absent from the template): small
+  Markdown format fragments consumed by the release-notes Gradle plugin to render each
+  snippet type and the aggregated version section. Generic formatting, not James-Platform
+  specific — the template currently falls back to the plugin's built-in defaults, so porting
+  these is optional polish rather than a fix.
 
 ### Known regression (not a backport candidate, flagged for awareness)
 - Commit `61332672` (PR #155, ostensibly a session-cookie fix) also stripped detekt entirely
@@ -78,23 +102,51 @@ diff can be inspected with `git show <hash>` in this repository.
   `claude_args: "--allowedTools Edit,MultiEdit,Write,Glob,Grep,LS,Read,Bash(git:*),Bash(./gradlew:*),Bash(gh:*)"`
   plus `GH_TOKEN`/`GHCR_PAT` env vars. When backporting, genericize the build-tool entry
   (e.g. `Bash(<build-tool>:*)`).
+- **Restrict the Claude workflow to the repository owner** (`808efa0d`, PR #468): adds
+  `github.actor == 'christiangroth'` as an `&&`-guard around the existing `if:` condition on
+  the `claude` job. Motivated by making this repository public — with `issue_comment`/
+  `issues`/`pull_request_review*` triggers and write permissions + secrets, any GitHub user
+  could otherwise post an `@claude` comment and get code executed with repo-write access and
+  `GHCR_PAT`/`CLAUDE_CODE_OAUTH_TOKEN` exposure. **Applies equally to the template**, and more
+  urgently if/when it or any project generated from it goes public — genericize the hardcoded
+  username to a templated placeholder when porting.
 
 ## 3. Grafana resources & monitoring infrastructure
 
 - **Remove hardcoded dashboard `id` to fix Grafana provisioning** (`0c42637c`, PR #183):
   dropped the numeric `id` field from `monitoring/grafana/quarkus-logs.json`, keeping only
   `uid` — the generically correct way to author provisioned dashboards (a stale numeric id
-  causes silent provisioning failures/overwrites).
+  causes silent provisioning failures/overwrites). **Verified 2026-07-17: already resolved in
+  the template's current `quarkus-logs.json`** (top-level `id` is `null`), so no action needed
+  — likely fixed independently on the template side after the fork. Kept here for the
+  historical record / as a gotcha to document.
 - **Fix Alloy crash from invalid River syntax** (`36c21f45`, PR #241): renamed component
   labels in `deploy/alloy/config.alloy` from hyphenated (`"james-platform_containers"`) to
   underscored (`"james_platform_containers"`), since Grafana Alloy's River config language
   doesn't allow hyphens in component labels — a config-language gotcha worth documenting in
-  the template's Alloy example.
+  the template's Alloy example. **Verified 2026-07-17: already resolved** — the template's
+  current `deploy/alloy/config.alloy` already uses underscored labels. No action needed.
 - **Add Docker healthcheck for Quarkus service in Swarm stack** (`36c21f45`, PR #241, same
   commit): adds a `wget .../q/health/ready` healthcheck to `deploy/docker-stack.yml` so Swarm
-  waits for readiness before routing traffic — a generic readiness-probe pattern (later
-  removed again in this repo's own deployment context via `50260ad8`, but worth keeping as a
-  template default).
+  waits for readiness before routing traffic — a generic readiness-probe pattern. **Verified
+  2026-07-17: still missing from the template's current `deploy/docker-stack.yml`** — this one
+  is a real, still-open backport candidate. Caveat: it was silently removed from this repo's
+  own stack the same day via `50260ad8` ("Update docker-stack.yml", no explanation in the
+  commit message). Before porting, confirm `wget` is actually present in the Quarkus container
+  base image used by the template — a healthcheck that can never succeed (missing binary)
+  would block Swarm rolling deployments forever, which is the most likely reason it was pulled
+  here.
+- **Remove unused `APP_OAUTH_REDIRECT_URI` and mask `http.auth.encryption.key`**
+  (`29ad7cfb`, PR #186): the template's original OAuth-flavored scaffolding left a dead
+  `APP_OAUTH_REDIRECT_URI` env var wired through `gradle.yml`/`docker-stack.yml`, and
+  `http.auth.encryption.key` was missing from `app.health.masked-config-keys` — meaning that
+  secret would render in clear text on the in-app `/config`/`/health` pages. A real
+  security-relevant masking gap at the time. **Verified 2026-07-17: moot** — the template has
+  since evolved its auth-key naming independently (now `app.csrf-hmac-key`, already masked,
+  and no `APP_OAUTH_REDIRECT_URI` reference exists anywhere in its current `docker-stack.yml`).
+  No action needed, but worth remembering the *lesson*: whenever a new secret-backed config
+  key is introduced, double check `app.health.masked-config-keys` in the same change (see also
+  `ec115ea9` below, which is the same class of bug recurring later).
 - **Make Grafana Cloud provisioning non-blocking in CI** — see `f83a5b22` in section 2.
 - See also section 4 for the new in-app Logs UI, and section 5 for monitoring-page
   role-gating/secret-masking hardening (`1d5ab9ef`, `ec115ea9`).
@@ -128,6 +180,9 @@ candidate. Genuinely new additions since the copy:
   keys, and fixes an `Int`→`Long` `ClassCastException` in the MongoDB document-count viewer.
   The underlying lesson (secret-masking allowlist must be kept in sync with new config keys)
   is generic.
+- **Add breadcrumbs to Health, Config, Logs, MongoDB Viewer and Docs pages** (`9e26a704`, PR
+  #463): rolls the breadcrumb pattern (see section 6/7) out to the last remaining generic
+  pages that didn't have it yet. Fully generic, no domain coupling.
 
 ## 5. Admin area & user management
 
@@ -229,6 +284,14 @@ lower-priority cleanup batch.
 - **Gradient background as page default** (`e3d63899`, PR #408): promotes the login page's
   gradient background to the default for all pages.
 - **Navbar reorder + full-viewport background** (`75adabbf`, PR #425) — see section 6.
+- **Proposal (not yet built anywhere, open item): generic background image.** Today's
+  "background" is a pure CSS `radial-gradient` of two brand-colored blobs over
+  `--color-bg-page` (`layout.html`), no image asset involved. Chris raised the idea of giving
+  the template an actual generic background image/graphic (theme-neutral or with explicit
+  light/dark variants) to accompany the light/dark theme work, rather than only a CSS
+  gradient. This needs a design/asset decision (SVG preferred for crisp scaling and small
+  payload; must hold up in both themes; should stay subtle enough not to fight page content)
+  before it can be implemented — tracked here as a design TODO, not a commit to port.
 
 ### Favicon / branding
 - **Add app icon (favicon, nav, login)** (`0a09d37a`, PR #150): establishes the
@@ -258,6 +321,31 @@ lower-priority cleanup batch.
 - **Cache-busting for custom JS assets** (`a869b57a`, PR #386): a version query-param helper
   (`AppTemplateGlobals.kt`) wired into `layout.html` for static-asset cache-busting — generic
   infra for any Quarkus/Qute app.
+- **In-app Mermaid diagram rendering for the Docs page** (`4085fb33`, see ADR
+  [0009](../adr/0009-diagram-rendering-mermaid.md)): adds the `mermaid` WebJar and a small
+  module script in `docs.html` that finds marked's `<pre><code class="language-mermaid">`
+  output and renders it with `mermaid.run()`, theme-aware and re-rendered on theme toggle.
+  Same `​```mermaid` fenced blocks also render natively on GitHub. Fully generic — the
+  template's own `docs.html`/`layout.html`/`marked` setup is identical, so this ports close to
+  verbatim; only the specific diagrams in this repo's arc42.md are James-Platform-specific.
+- **Bootstrap Icons instead of hand-rebuilt SVGs** (`0bedadab`, PR #460): adds the
+  `org.webjars.npm:bootstrap-icons` WebJar dependency (`gradle/libs.versions.toml`,
+  `adapter-in-web/build.gradle.kts`) and replaces several hand-copied/rebuilt inline SVG icons
+  with the standard icon font/set. Generic build+UI simplification, no domain coupling.
+- **Unify page content width across all pages** (`70d2e310`): the Docs page had its own
+  `max-width: 860px` while every other page used bare `.container-fluid` (unbounded, full
+  viewport width) — an inconsistency Chris flagged directly. Introduces one shared
+  `.app-page-container` rule in `layout.html` (full width below the `lg` breakpoint/992px,
+  capped at two thirds of the viewport and centered from 992px up) and applies it to every
+  page template, replacing both `.container-fluid` and the bespoke Docs cap. Strong backport
+  candidate — every affected template (`layout.html`, `docs.html`, `health.html`,
+  `config.html`, `logs.html`, `mongodb-viewer.html`, `error.html`, `ui/admin/*`,
+  `ui/profile.html`, `ui/user/dashboard.html`) already exists in the template with the same
+  structure, so the fix ports close to verbatim; only the James-Platform-specific
+  `ui/developer/*` and `ui/user/app-*` templates it also touches don't exist there yet.
+- **Icon-only buttons to reduce UI text** (`201a3077`, PR #464, building on `234fc434` PR
+  #263 above): continues the shared icon-button tag pattern, converting more text buttons to
+  icon-only across generic pages, plus adds breadcrumbs to the profile page.
 
 ## 8. Coding guidelines & agent information
 
@@ -306,3 +394,38 @@ lower-priority cleanup batch.
   James-Platform-specific `0007-persistent-outbox-pattern.md`, which is correctly excluded.
 - No changes to `docs/releasenotes/templates/*` in range; the refined release-note-snippet
   *convention* lives in `CLAUDE.md` (see `99b47b2d` above) rather than in the template files.
+- `docs/adr/0005-markdown-rendering-library.md` (choice of `marked` for rendering the in-app
+  docs/release-notes viewer) is new since bootstrap but tied to a feature (`docs.html`
+  markdown rendering) that already exists generically in the template's own baseline — worth
+  porting only alongside/after confirming what markdown library the template's `docs.html`
+  currently relies on, otherwise the ADR would document a decision the template hasn't
+  actually made.
+
+## 9. Verification against current template state (refreshed 2026-07-17)
+
+This report was originally built by scanning this repo's own commit history
+(`0ac4e9a8..HEAD`) in isolation. Since the template kept evolving on its own after the fork
+(last template commit seen: 2026-06-08), some historical fixes here turned out to be moot —
+the template already resolved them independently, in its own way. Re-verified directly
+against the template's current `main` branch:
+
+**Already resolved upstream — no action needed, kept above for historical context only:**
+- Grafana dashboard hardcoded `id` (section 3, `0c42637c`)
+- Alloy hyphenated component-label crash (section 3, `36c21f45`)
+- `APP_OAUTH_REDIRECT_URI` leftover / `http.auth.encryption.key` masking gap (section 3,
+  `29ad7cfb`) — template renamed the underlying key to `app.csrf-hmac-key` and already masks
+  it; the OAuth env var reference is gone entirely.
+
+**Confirmed still missing / still applicable — genuine open backport candidates:**
+- Docker Swarm healthcheck/readiness-probe in `deploy/docker-stack.yml` (section 3,
+  `36c21f45`) — verify `wget` availability in the template's base image first, see caveat
+  above.
+- Everything else listed in sections 1–8 that isn't called out as "verified resolved" here.
+
+**Not a backport item, but worth the repository owner's attention independently of the
+template:** this repo's own `core/` Gradle module (`core/src/main/kotlin/.../Errors.kt`,
+`Utils.kt`) is tracked in git but not wired into `settings.gradle.kts` — dead weight left over
+from the pre-bootstrap "SpCtl" project structure. Likewise, a stale root-level
+`docker-stack.yml` (Postgres-based, superseded by the actively used `deploy/docker-stack.yml`)
+sits unused at the repo root. Both are james-platform hygiene cleanups, unrelated to the
+template.

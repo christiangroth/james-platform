@@ -1,7 +1,7 @@
 {#include layout.html}
     {#title}{msg:commonAppName()} – {msg:errorLabel()}{/title}
     {#content}
-    <div class="container-fluid py-4 px-3 px-md-4">
+    <div class="app-page-container py-4 px-3 px-md-4">
         <h1 class="mb-4 fs-4 fw-semibold" data-testid="error-heading">{msg:errorLabel()} {statusCode}</h1>
         <div class="alert alert-danger mb-4" role="alert">
             <div class="fw-semibold" data-testid="error-type">{errorType}</div>

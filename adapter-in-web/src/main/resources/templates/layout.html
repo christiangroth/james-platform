@@ -286,6 +286,19 @@
             background-color: var(--color-badge-muted-bg);
             color: #ffffff;
         }
+        /* Shared page-content wrapper: full width on small/medium screens, capped and centered
+           on large screens so lines/tables don't stretch edge-to-edge on wide monitors. Used
+           by every page instead of Bootstrap's `.container-fluid` directly. */
+        .app-page-container {
+            width: 100%;
+        }
+        @media (min-width: 992px) {
+            .app-page-container {
+                max-width: 66.6667%;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
         /* Dark card with app border */
         .app-card {
             background-color: var(--color-bg-card);
@@ -363,8 +376,14 @@
         .docs-content a {
             color: var(--color-action);
         }
-        .docs-content {
-            max-width: 860px;
+        .docs-content .mermaid {
+            overflow-x: auto;
+            text-align: center;
+            margin-bottom: 1em;
+        }
+        .docs-content .mermaid svg {
+            max-width: 100%;
+            height: auto;
         }
         .form-control::placeholder {
             color: var(--color-text-muted);

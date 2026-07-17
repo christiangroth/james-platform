@@ -37,11 +37,17 @@ James Platform is a personal Low Code system for building and running data-centr
   - A name unique within the App.
   - A globally unique internal ID (immutable).
   - An ordered list of **Properties**.
+  - An optional **display text template** – a string that interpolates property values (e.g. `{firstName} {lastName}`) into a human-readable label shown for each object in list views and `ref` pickers, instead of a raw ID.
 - A Property has:
   - A name unique within the Entity (mutable).
   - An ID unique within the Entity (immutable).
   - A data type and associated constraints.
-- **Computed properties** – a Developer may define derived properties by providing a piece of code that computes the value based on the entity and its other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. The execution environment (backend Kotlin Script vs. browser JavaScript) will be decided later – only one option will be implemented. Sandboxing and error-handling rules are to be defined.
+  - An optional static **default** value, and/or a **smart default** (see below).
+  - Optional **value proposals** – a Developer-configured list of suggested values offered to the User as autocomplete options in the create/edit form.
+  - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
+  - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
+- **Computed properties** – a Developer may define derived properties by providing a Kotlin script that computes the value based on the entity's other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. Scripts run backend-side via the JSR-223 Kotlin scripting engine, each on its own virtual thread with a configurable timeout (`app.script.timeout-ms`, default 500ms); a timed-out or failing script yields `null` for that property without failing the surrounding request. There is no deeper sandboxing (no memory/IO isolation) beyond the timeout — see ADR [0008](../adr/0008-computed-property-script-execution.md).
+- **Smart defaults** – like a static default, but computed by a Kotlin script (same execution model, engine, and timeout as computed properties) when the create form is opened, seeded with any static defaults already set on the entity. Unlike computed properties, a smart default is only a starting value — the User may freely overwrite it before saving, and it is not re-evaluated afterwards.
 
 ### Supported Data Types
 
@@ -55,6 +61,7 @@ James Platform is a personal Low Code system for building and running data-centr
 | `time`     | Time of day                                                                                           |
 | `datetime` | Combined date and time                                                                                |
 | `ref`      | Reference to an object of the same or another Entity within the same App Version                      |
+| `duration` | A span of time (`java.time.Duration`)                                                                 |
 | `List`     | Ordered list of any type except `List`                                                                |
 | `object`   | Inline nested object with its own property list (analogous to an anonymous Entity without a global ID) |
 
@@ -65,14 +72,14 @@ Cyclic reference graphs via `ref` are detected and rejected at schema-definition
 | Constraint   | Applies to    | Description                                                     |
 |--------------|---------------|-----------------------------------------------------------------|
 | `NOT NULL`   | all types     | Value must be present                                           |
-| `UNIQUE KEY` | all types     | All values across all objects of this Entity must be distinct   |
+| `UNIQUE KEY` | all types     | All values across all objects of this Entity must be distinct (not applicable to `List`/`object`) |
 
-Additional type-specific constraints (e.g. min/max for numbers, regex for strings) are defined in future versions.
+Additional per-type constraints are supported: `min`/`max`/`step` for `long` and `Double`; `min`/`max` length and a regex `pattern` for `String`; `min`/`max` for `date`, `time`, `datetime`, and `duration`; `min`/`max` size for `List`. `List` items may carry their own item-level constraints (all of the above except `UNIQUE KEY`).
 
 ### Generic User Interface
 
 - **List view** – shows all objects of an Entity; supports deletion, sorting by any column, and user-defined sort parameters. A Developer may configure default sort parameters; the User may override them at runtime.
-- **Create / Edit form** – generated automatically from the Entity definition. Future versions will add multi-create workflows and creation templates.
+- **Create / Edit form** – generated automatically from the Entity definition. Three create modes are supported: single-object creation, **Focus** mode (carries values from the previous object forward as defaults for the next one), and **Snapshot** mode (captures the current form state as a reusable template that can be replaced or deleted).
 
 ### Data Sharing
 
@@ -86,12 +93,14 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
+**Status: domain model only (`Report`, `Page` in `domain-api`) — no web adapter, endpoint, or UI exists yet.** The rest of this subsection describes the intended design, not current behavior:
+
 - A Report belongs to one App and has a unique name within that App.
 - A Report contains at least one **Page**; each Page provides HTML markup and JavaScript logic.
 - A Report may declare which entities to load and may define per-Entity filter expressions.
 - A set of built-in helper functions (charts, aggregation, date handling, …) is available to every Report; this code is maintained as part of the platform and is not user-supplied.
 - A Report may only access data from its own App installation (sandbox boundary).
-- The platform must prevent Developers from embedding malicious code in Reports (concept to be finalised).
+- The platform must prevent Developers from embedding malicious code in Reports (concept to be finalised — see the sandboxing trade-off already accepted for computed properties in ADR [0008](../adr/0008-computed-property-script-execution.md), which Reports will likely need to revisit given Reports execute in the browser, not backend-side).
 
 ## Quality Goals
 
@@ -102,12 +111,6 @@ The shared installation is treated as a separate installation. Supported sharing
 | 3        | Developer UX     | App and schema creation must feel lightweight; no boilerplate for common CRUD patterns.       |
 | 4        | Reliability      | External operations (e.g. notifications) are delivered on a best-effort basis.                |
 | 5        | Maintainability  | Hexagonal architecture and clear module boundaries keep the codebase understandable.          |
-
-## Stakeholders
-
-| Role/Name        | Contact   | Expectations                                                             |
-|------------------|-----------|--------------------------------------------------------------------------|
-| Developer / User | (private) | Allow-listed user(s); operates and uses the application for personal use |
 
 # Architecture Constraints
 
@@ -128,14 +131,11 @@ The shared installation is treated as a separate installation. Supported sharing
 
 James Platform is a personal Low Code system. Its primary purpose is to let a single Developer define data models (Entities) and user-facing views (Reports), then let Users install and operate those App Versions to manage their own data – all without writing infrastructure code.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        James Platform                            │
-│                                                                  │
-│  Admin ──► User Management                                       │
-│  Developer ──► App/Version/Entity/Report definition              │
-│  User ──► App Version installation, data management, sharing     │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    Admin["Admin"] -->|manages| UserMgmt["User Management"]
+    Developer["Developer"] -->|defines| AppDef["App / Version / Entity / Report"]
+    User["User"] -->|installs & operates| AppOps["Installation, data management, sharing"]
 ```
 
 **External actors:**
@@ -162,7 +162,7 @@ James Platform is a personal Low Code system. Its primary purpose is to let a si
 | Goal              | Design decision                                                                                                    |
 |-------------------|--------------------------------------------------------------------------------------------------------------------|
 | Correctness       | Constraint validation and cyclic-reference detection in the domain layer; enforced before any persistence write.   |
-| Security          | Role-based access via `QuarkusSecurityIdentity`; Report sandbox (concept TBD); `HttpOnly` AES session cookie.      |
+| Security          | Role-based access via `QuarkusSecurityIdentity`; `HttpOnly` AES session cookie; computed-property scripts run with a timeout guard only, no deeper sandbox (Report sandboxing still a concept, see [Reports](#reports)). |
 | Developer UX      | Generic CRUD UI generated from Entity metadata; semver auto-derived; no boilerplate for common patterns.           |
 | Reliability       | External operations (notifications, …) are delivered on a best-effort basis.                                       |
 | Maintainability   | Hexagonal architecture with strict module-dependency rules; zero infrastructure in `domain-api` / `domain-impl`.   |
@@ -173,7 +173,39 @@ James Platform is a personal Low Code system. Its primary purpose is to let a si
 
 ## Whitebox Overall System
 
-*work in progress*
+The system follows a hexagonal (ports & adapters) architecture, see ADR
+[0002](../adr/0002-backend-hexagonal-architecture.md). `domain-api` and `domain-impl` contain
+all business logic and are free of infrastructure dependencies; every inbound and outbound
+integration lives in its own `adapter-*` module and depends inward on `domain-api` only. A
+per-module dependency graph is generated on every build via the `dev.iurysouza.modulegraph`
+Gradle plugin into `build/reports/modulegraph/modules.md` — regenerate it for the precise,
+always-current picture; the diagram below is a simplified, hand-maintained overview of the
+dependency direction only.
+
+```mermaid
+flowchart TB
+    subgraph Inbound["Inbound Adapters"]
+        AIW["adapter-in-web"]
+        AIS["adapter-in-starter"]
+        AISC["adapter-in-scheduler (unused)"]
+    end
+
+    DA["domain-api<br/>ports + domain model"]
+    DI["domain-impl<br/>business logic"]
+
+    subgraph Outbound["Outbound Adapters"]
+        AOC["adapter-out-config"]
+        AOM["adapter-out-mongodb"]
+        AOS["adapter-out-scheduler"]
+        AOSL["adapter-out-slack"]
+    end
+
+    Inbound -->|implements inbound ports| DA
+    DI -->|implements| DA
+    DI -->|calls outbound ports| Outbound
+```
+
+`application-quarkus` wires all of the above together (CDI, configuration, tests).
 
 ### Module Overview
 
@@ -185,27 +217,73 @@ Base package: `de.chrgroth.james.platform`
 | `domain-impl`         | –          | Business logic implementing the inbound port interfaces                               |
 | `adapter-in-web`      | inbound    | HTTP endpoints, Qute SSR templates, SSE adapters, cookie auth mechanism               |
 | `adapter-in-starter`  | inbound    | One-time startup beans (starters) for data migrations and one-time bugfixes           |
+| `adapter-in-scheduler` | inbound   | Wired with the Quarkus scheduler extension; currently unused — no `@Scheduled` job exists yet, reserved for future use |
 | `adapter-out-config`  | outbound   | Reads Quarkus/MicroProfile config and environment variables for health/config display |
 | `adapter-out-mongodb` | outbound   | MongoDB persistence: user repository, MongoDB viewer, stats adapter                  |
 | `adapter-out-scheduler` | outbound | Reads Quarkus scheduler metadata for health/cronjob display                          |
 | `adapter-out-slack`   | outbound   | Slack notification adapter                                                            |
 | `application-quarkus` | –          | Wiring only: CDI, configuration, integration tests                                   |
 
+Note: a `core` module also exists in the repository (`Errors.kt`, `Utils.kt`, pre-dating the
+current hexagonal structure) but is **not** included in `settings.gradle.kts` and is not part
+of the build — dead weight left over from an earlier project iteration, not a real module.
+
 ### External Dependencies
 
-Provided via [christiangroth/quarkus-one-time-starters](https://github.com/christiangroth/quarkus-one-time-starters) (GitHub Packages). Three artifacts:
+Two of Chris's own projects, both hosted as GitHub Packages (Maven repositories declared in
+`settings.gradle.kts`, resolved with a `GHCR_PAT`/`GITHUB_ACTOR` credential):
 
-- `domain-api` – contracts: `Starter`, `StarterSkipPredicate`, `StarterCompletionFlag`
-- `domain-impl` – execution orchestration and startup observer
-- `adapter-out-persistence-mongodb` – MongoDB persistence for starter execution state
+- [christiangroth/quarkus-one-time-starters](https://github.com/christiangroth/quarkus-one-time-starters) — runtime dependency, three artifacts:
+  - `domain-api` – contracts: `Starter`, `StarterSkipPredicate`, `StarterCompletionFlag`
+  - `domain-impl` – execution orchestration and startup observer
+  - `adapter-out-persistence-mongodb` – MongoDB persistence for starter execution state
+- [christiangroth/gradle-release-notes-plugin](https://github.com/christiangroth/gradle-release-notes-plugin) — build-time Gradle plugin (`de.chrgroth.gradle.release-notes`) that
+  compiles `docs/releasenotes/snippets/*.md` into `docs/releasenotes/RELEASENOTES.md` on
+  release; not a runtime dependency of the application itself. See [Release
+  Process](#release-process).
 
-## Level 2
-
-*work in progress*
+No outbox pattern is in use — an earlier persistent-outbox concept was removed entirely
+(`0affc8fc`, see `docs/backport.md`) and no equivalent replaced it, in-house or external.
 
 # Runtime View
 
-*work in progress*
+Example: a User saves an object through the generic data-entry form, triggering computed
+properties and a live update to any other connected client of the same installation.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant W as adapter-in-web
+    participant D as domain-impl
+    participant M as adapter-out-mongodb
+    participant O as other clients (SSE)
+
+    B->>W: POST app-data
+    W->>D: AppDataService.save()
+    D->>D: ComputedPropertyService.computeValues()
+    D->>M: persist(data)
+    M-->>D: ok
+    D->>O: CDI event "data changed"
+    D-->>W: ApiResult(ok=true)
+    W-->>B: JSON response
+    O-->>O: SSE: data-changed
+```
+
+Other notable flows:
+
+- **Login:** `POST /login` → `LoginServicePort` verifies the bcrypt hash → on success, an
+  AES-encrypted session cookie is issued and the user is redirected by role to
+  `/ui/{user|developer|admin}/dashboard` (`303`, not `307`, to avoid re-submitting the login
+  form on redirect).
+- **Computed property evaluation:** on every data read/write through `AppDataService`,
+  `ComputedPropertyService` evaluates each entity's computed properties in definition order on
+  a virtual thread with a timeout (default 500ms); a timeout or script error yields `null` for
+  that property without failing the request (see [Computed properties](#entities-and-properties)
+  and ADR [0008](../adr/0008-computed-property-script-execution.md)).
+- **Live updates:** browser clients open a per-user SSE connection; domain services fire CDI
+  events on state changes, which `DashboardSseAdapter`/`HealthSseAdapter` (in `adapter-in-web`)
+  translate into named SSE events pushed to connected clients (see [Server-Sent Events (SSE)
+  and Live Updates](#server-sent-events-sse-and-live-updates)).
 
 # Deployment View
 
@@ -219,9 +297,35 @@ The application is deployed on an existing VPS running Docker Swarm. Traefik han
 | Reverse Proxy | Traefik                 | TLS via Let's Encrypt, already provisioned |
 | Database      | MongoDB Atlas           | Two projects: prod + dev                   |
 
+```mermaid
+flowchart TB
+    GH["GitHub main"] -->|push to main| CI["GitHub Actions CI/CD<br/>secrets from GitHub Actions secrets"]
+    CI -->|1. build + push native image| GHCR["GHCR (ghcr.io)"]
+    CI -->|2. SCP stack file + SSH deploy<br/>secrets as env vars| VPS
+    GHCR -->|3. pull image| Swarm
+
+    subgraph VPS["VPS"]
+        Traefik["Traefik (pre-existing)<br/>routes via global_router network"]
+        subgraph Swarm["Docker Swarm stack: james-platform"]
+            Quarkus["quarkus (native image)"]
+            Alloy["Grafana Alloy sidecar"]
+        end
+        Traefik --> Quarkus
+    end
+
+    Quarkus --> Mongo["MongoDB Atlas (external, managed)"]
+    Alloy --> Grafana["Grafana Cloud (external)"]
+```
+
 ## Infrastructure Level 2
 
-Secrets are never stored in deployment configuration – always provided via environment variables from a `.env` file that is not checked into Git.
+Secrets are never committed to Git or hardcoded. Locally, they come from a git-ignored `.env`
+file (`dev.sh`/`prod.sh`). For CI/CD and production, they are configured as **GitHub Actions
+repository secrets** and flow into the deployment as follows: the `gradle.yml` release job
+reads them via `${{ secrets.* }}`, passes them as environment variables into the
+`appleboy/ssh-action` SSH step, and the deploy script on the VPS forwards them into
+`docker stack deploy`'s environment so the running containers pick them up — the deploying
+GitHub Actions runner never writes them to a file on the VPS.
 
 ### Environments
 
@@ -294,10 +398,6 @@ All domain failures are represented as typed `DomainError` values wrapped in Arr
 Backend services notify SSE streams via CDI events. The SSE endpoint delivers the initial state on connect, then pushes named update events to connected clients via per-user
 reactive streams.
 
-## Scheduler Jobs
-
-*work in progress*
-
 ## Starters
 
 One-time startup beans for data migrations, schema changes, and one-time bugfixes. Each starter executes exactly once in `NORMAL` (prod) mode; failed starters are retried on the
@@ -313,9 +413,10 @@ Node.js, or build steps are required.
 - Templates: Qute (Quarkus SSR)
 - CSS: Bootstrap 5 via WebJar
 - Interactivity: Vanilla JS (fetch API)
-- Icons: Font Awesome via WebJar
+- Icons: Bootstrap Icons via WebJar
 - Live Updates: Server-Sent Events via native `EventSource` API
 - Markdown rendering: marked via WebJar (docs and release notes pages)
+- Diagram rendering: Mermaid via WebJar (Docs page only; GitHub renders the same `​```mermaid` blocks natively)
 
 **Design target:** The primary use case is a smartphone. All pages must work on narrow screens. Tables must be wrapped in `<div class="table-responsive">`.
 
@@ -331,13 +432,36 @@ page as a non-clickable `<li class="breadcrumb-item active">` item.
 
 Architecture documentation (`docs/arc42`), ADRs (`docs/adr`), and release notes (`docs/releasenotes`) are served to the logged-in user directly from the application. A Gradle copy
 task bundles the Markdown files into the `adapter-in-web` classpath at build time. A `DocsResource` endpoint reads and passes the raw Markdown to Qute templates; the `marked`
-WebJar renders it in the browser.
+WebJar renders it in the browser. Diagrams are authored as `​```mermaid` fenced code blocks — rendered natively by GitHub, and rendered in-app by the `mermaid` WebJar, which
+post-processes `marked`'s output (see ADR [0009](../adr/0009-diagram-rendering-mermaid.md)).
 
 ## Configuration
 
-All sensitive configuration is provided via environment variables:
+All secrets are provided via environment variables, never committed to Git or hardcoded —
+locally via a git-ignored `.env` file (`dev.sh`/`prod.sh`), in CI/CD via GitHub Actions
+repository secrets (`gradle.yml`), and at runtime via the Docker stack's `environment:` block
+(`deploy/docker-stack.yml`):
 
-*work in progress*
+| Variable                          | Purpose                                                          |
+|------------------------------------|-------------------------------------------------------------------|
+| `MONGODB_CONNECTION_STRING`        | MongoDB Atlas connection string (prod profile)                    |
+| `APP_TOKEN_ENCRYPTION_KEY`         | AES key for session-cookie encryption (`TokenEncryptionPort`)     |
+| `SLACK_WEBHOOK_URL`                | Slack incoming webhook for system notifications (optional)        |
+| `TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE` | Traefik routing rule for the deployed service                |
+| `GHCR_PAT`                         | GitHub Container Registry / Package Registry token (CI + runtime pull) |
+| `GRAFANA_CLOUD_{METRICS,LOGS}_{URL,USERNAME,API_KEY}` | Grafana Cloud remote-write/Loki credentials (Alloy sidecar) |
+| `CONTABO_SSH_{HOST,USER,PRIVATE_KEY}` | Deployment target SSH access (release workflow)                |
+| `CLAUDE_CODE_OAUTH_TOKEN`          | Claude Code GitHub Action authentication                          |
+
+**Secret masking:** the in-app `/config` and `/health` pages render live Quarkus/MicroProfile
+config, but redact values for keys listed in `app.health.masked-config-keys` /
+`app.health.masked-env-keys` (`adapter-in-web` `application.properties`). Any new
+secret-backed config key must be added to this list in the same change that introduces it —
+this has been missed twice historically (see `docs/backport.md` section 3).
+
+**Other notable non-secret config:** `app.script.timeout-ms` (computed-property/smart-default
+script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
+`quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`).
 
 # Architecture Decisions
 
@@ -349,26 +473,35 @@ All sensitive configuration is provided via environment variables:
 | [0004](../adr/0004-using-ai-coding-agents.md)               | Using AI Coding Agents                             |
 | [0005](../adr/0005-markdown-rendering-library.md)           | Markdown Rendering Library: marked                 |
 | [0006](../adr/0006-error-handling-concept.md)               | Error Handling: Arrow Either&lt;DomainError, T&gt; |
-
-# Quality Requirements
-
-## Quality Requirements Overview
-
-*work in progress*
-
-## Quality Scenarios
-
-*work in progress*
+| [0007](../adr/0007-local-cookie-based-authentication.md)    | Authentication: Local Cookie-Based Sessions         |
+| [0008](../adr/0008-computed-property-script-execution.md)   | Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard |
+| [0009](../adr/0009-diagram-rendering-mermaid.md)             | Diagram Rendering: Mermaid                          |
 
 # Risks and Technical Debts
 
 ## Risks
 
-*work in progress*
+- **Computed-property scripts have no real sandbox** — only a timeout guard (see ADR
+  [0008](../adr/0008-computed-property-script-execution.md)). A Developer account is trusted;
+  if that trust model ever changes (e.g. multi-tenant, non-trusted Developers), this needs
+  revisiting before Reports (which are meant to run Developer-supplied code too) are built.
+- **No static analysis tooling.** detekt was removed while fixing an unrelated session-cookie
+  bug (see `docs/backport.md` section 1) and never reinstated; regressions in code quality/
+  complexity are currently only caught by review, not CI.
+- **Single external dependency for auth secrets.** `APP_TOKEN_ENCRYPTION_KEY` must never
+  change in production (invalidates all sessions) and has no rotation mechanism.
 
 ## Technical Debts
 
-*work in progress*
+- **Dead `core/` Gradle module** (`core/src/main/kotlin/.../Errors.kt`, `Utils.kt`) is tracked
+  in git but not included in `settings.gradle.kts` — leftover from the project's pre-hexagonal
+  "SpCtl" history, safe to delete.
+- **Stale root-level `docker-stack.yml`** (Postgres-based) is superseded by the actively used
+  `deploy/docker-stack.yml` (MongoDB-based) but still sits at the repository root, tracked in
+  git — safe to delete.
+- **Reports are domain-model-only** (see [Reports](#reports)) — `Report`/`Page` types exist
+  but there is no adapter, endpoint, or UI; the corresponding sandboxing story is also still
+  unresolved (see Risks above).
 
 # Glossary
 
@@ -389,3 +522,9 @@ All sensitive configuration is provided via environment variables:
 | Semver            | Semantic versioning (Major.Minor.Patch). Version numbers in James Platform are derived automatically.              |
 | Breaking change   | A schema change that is incompatible with existing data (e.g. removing an Entity or renaming an immutable ID).    |
 | Starter           | A one-time startup bean that executes exactly once (data migrations, schema fixes).                               |
+| Focus mode        | A create-form mode that carries values from the previously created object forward as defaults for the next one.  |
+| Snapshot          | A reusable create-form template capturing a fixed set of field values, which can be replaced or deleted.          |
+| Computed property | A Property whose value is derived at read/write time by a backend Kotlin script (see ADR 0008), not stored directly by the User. |
+| Smart default     | A Property's default value computed by a Kotlin script when the create form opens; the User may still overwrite it, unlike a computed property. |
+| Value proposals   | A Developer-configured list of suggested values offered as autocomplete options for a Property in the create/edit form. |
+| Display text      | A per-Entity template string that interpolates Property values into a human-readable label, shown in list views and `ref` pickers instead of a raw ID. |
