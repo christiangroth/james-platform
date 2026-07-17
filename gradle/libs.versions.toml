@@ -12,6 +12,7 @@ kotlinxDatetime = "0.7.1"
 kotlinxSerialization = "1.7.3"
 kover = "0.9.7"
 marked = "17.0.3"
+mermaid = "11.4.1"
 mockk = "1.14.9"
 quarkus = "3.32.1"
 quarkusStarters = "0.6.1"
@@ -32,6 +33,7 @@ kotlinxDatetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime-jvm", versi
 kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kover = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
 marked = { module = "org.webjars.npm:marked", version.ref = "marked" }
+mermaid = { module = "org.webjars.npm:mermaid", version.ref = "mermaid" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 quarkusAgroal = { module = "io.quarkus:quarkus-agroal" }
 quarkusBom = { module = "io.quarkus.platform:quarkus-bom", version.ref = "quarkus" }

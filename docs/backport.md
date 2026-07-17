@@ -321,6 +321,13 @@ lower-priority cleanup batch.
 - **Cache-busting for custom JS assets** (`a869b57a`, PR #386): a version query-param helper
   (`AppTemplateGlobals.kt`) wired into `layout.html` for static-asset cache-busting — generic
   infra for any Quarkus/Qute app.
+- **In-app Mermaid diagram rendering for the Docs page** (see ADR
+  [0009](../adr/0009-diagram-rendering-mermaid.md)): adds the `mermaid` WebJar and a small
+  module script in `docs.html` that finds marked's `<pre><code class="language-mermaid">`
+  output and renders it with `mermaid.run()`, theme-aware and re-rendered on theme toggle.
+  Same `​```mermaid` fenced blocks also render natively on GitHub. Fully generic — the
+  template's own `docs.html`/`layout.html`/`marked` setup is identical, so this ports close to
+  verbatim; only the specific diagrams in this repo's arc42.md are James-Platform-specific.
 - **Bootstrap Icons instead of hand-rebuilt SVGs** (`0bedadab`, PR #460): adds the
   `org.webjars.npm:bootstrap-icons` WebJar dependency (`gradle/libs.versions.toml`,
   `adapter-in-web/build.gradle.kts`) and replaces several hand-copied/rebuilt inline SVG icons

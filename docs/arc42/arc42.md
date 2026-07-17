@@ -131,14 +131,11 @@ The shared installation is treated as a separate installation. Supported sharing
 
 James Platform is a personal Low Code system. Its primary purpose is to let a single Developer define data models (Entities) and user-facing views (Reports), then let Users install and operate those App Versions to manage their own data – all without writing infrastructure code.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        James Platform                            │
-│                                                                  │
-│  Admin ──► User Management                                       │
-│  Developer ──► App/Version/Entity/Report definition              │
-│  User ──► App Version installation, data management, sharing     │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    Admin["Admin"] -->|manages| UserMgmt["User Management"]
+    Developer["Developer"] -->|defines| AppDef["App / Version / Entity / Report"]
+    User["User"] -->|installs & operates| AppOps["Installation, data management, sharing"]
 ```
 
 **External actors:**
@@ -185,31 +182,30 @@ Gradle plugin into `build/reports/modulegraph/modules.md` — regenerate it for 
 always-current picture; the diagram below is a simplified, hand-maintained overview of the
 dependency direction only.
 
-```
-                ┌───────────────────────────────────────────┐
-                │              Inbound Adapters               │
-                │  adapter-in-web · adapter-in-starter ·      │
-                │  adapter-in-scheduler (currently unused)    │
-                └────────────────────┬────────────────────────┘
-                                     │ implements inbound ports
-                ┌────────────────────▼────────────────────────┐
-                │                domain-api                     │
-                │        ports (interfaces) + domain model       │
-                └────────────────────▲────────────────────────┘
-                                     │ implements
-                ┌────────────────────┴────────────────────────┐
-                │                domain-impl                     │
-                │              business logic                    │
-                └────────────────────┬────────────────────────┘
-                                     │ calls outbound ports
-                ┌────────────────────▼────────────────────────┐
-                │              Outbound Adapters                │
-                │  adapter-out-config · adapter-out-mongodb ·   │
-                │  adapter-out-scheduler · adapter-out-slack    │
-                └───────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Inbound["Inbound Adapters"]
+        AIW["adapter-in-web"]
+        AIS["adapter-in-starter"]
+        AISC["adapter-in-scheduler (unused)"]
+    end
 
-      application-quarkus wires all of the above together (CDI, configuration, tests)
+    DA["domain-api<br/>ports + domain model"]
+    DI["domain-impl<br/>business logic"]
+
+    subgraph Outbound["Outbound Adapters"]
+        AOC["adapter-out-config"]
+        AOM["adapter-out-mongodb"]
+        AOS["adapter-out-scheduler"]
+        AOSL["adapter-out-slack"]
+    end
+
+    Inbound -->|implements inbound ports| DA
+    DI -->|implements| DA
+    DI -->|calls outbound ports| Outbound
 ```
+
+`application-quarkus` wires all of the above together (CDI, configuration, tests).
 
 ### Module Overview
 
@@ -254,20 +250,23 @@ No outbox pattern is in use — an earlier persistent-outbox concept was removed
 Example: a User saves an object through the generic data-entry form, triggering computed
 properties and a live update to any other connected client of the same installation.
 
-```
-Browser        adapter-in-web              domain-impl               adapter-out-mongodb   other clients
-  │                  │                           │                           │                  │
-  │─ POST app-data ─►│                           │                           │                  │
-  │                  │─ AppDataService.save() ──►│                           │                  │
-  │                  │                           │─ ComputedPropertyService  │                  │
-  │                  │                           │  .computeValues() ─┐      │                  │
-  │                  │                           │◄────────────────────┘     │                  │
-  │                  │                           │─ persist(data) ──────────►│                  │
-  │                  │                           │◄──────────────────────────┤                  │
-  │                  │                           │─ CDI event "data changed" ───────────────────►│
-  │                  │◄─ ApiResult(ok=true) ─────┤                           │                  │
-  │◄─ JSON response ─┤                           │                           │  SSE: data-changed│
-  │                  │                           │                           │                  │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant W as adapter-in-web
+    participant D as domain-impl
+    participant M as adapter-out-mongodb
+    participant O as other clients (SSE)
+
+    B->>W: POST app-data
+    W->>D: AppDataService.save()
+    D->>D: ComputedPropertyService.computeValues()
+    D->>M: persist(data)
+    M-->>D: ok
+    D->>O: CDI event "data changed"
+    D-->>W: ApiResult(ok=true)
+    W-->>B: JSON response
+    O-->>O: SSE: data-changed
 ```
 
 Other notable flows:
@@ -298,32 +297,24 @@ The application is deployed on an existing VPS running Docker Swarm. Traefik han
 | Reverse Proxy | Traefik                 | TLS via Let's Encrypt, already provisioned |
 | Database      | MongoDB Atlas           | Two projects: prod + dev                   |
 
-```
-┌─────────────┐  push to   ┌───────────────────────┐  1. build+push  ┌──────────────────┐
-│ GitHub main  ├───────────►│ GitHub Actions CI/CD   ├────────────────►│ GHCR              │
-└─────────────┘  main       │ (gradle.yml, release   │  native image   │ (ghcr.io)         │
-                             │ job — secrets from     │                 └────────┬──────────┘
-                             │ GitHub Actions secrets)│                          │
-                             └───────────┬────────────┘                          │
-                                         │ 2. SCP stack file + SSH deploy,        │
-                                         │    secrets passed as env vars          │
-                                         ▼                                       │
-┌────────────────────────────────────────────────────────────────────┐ 3. pull  │
-│ VPS — Traefik (pre-existing, routes via "global_router" network)     │◄─────────┘
-│        │                                                             │
-│        ▼                                                             │
-│  Docker Swarm stack "james-platform"                                 │
-│  ┌───────────────────┐        ┌───────────────────────────────┐    │
-│  │ quarkus (native)   │        │ Grafana Alloy sidecar           │    │
-│  │ image from step 3  │        │ (metrics + logs forwarder)      │    │
-│  └─────────┬──────────┘        └────────────┬────────────────────┘    │
-└────────────┼─────────────────────────────────┼─────────────────────────┘
-             │                                  │
-             ▼                                  ▼
-   ┌──────────────────┐              ┌───────────────────────┐
-   │ MongoDB Atlas      │              │ Grafana Cloud           │
-   │ (external, managed)│              │ (metrics + logs, ext.)  │
-   └──────────────────┘              └───────────────────────┘
+```mermaid
+flowchart TB
+    GH["GitHub main"] -->|push to main| CI["GitHub Actions CI/CD<br/>secrets from GitHub Actions secrets"]
+    CI -->|1. build + push native image| GHCR["GHCR (ghcr.io)"]
+    CI -->|2. SCP stack file + SSH deploy<br/>secrets as env vars| VPS
+    GHCR -->|3. pull image| Swarm
+
+    subgraph VPS["VPS"]
+        Traefik["Traefik (pre-existing)<br/>routes via global_router network"]
+        subgraph Swarm["Docker Swarm stack: james-platform"]
+            Quarkus["quarkus (native image)"]
+            Alloy["Grafana Alloy sidecar"]
+        end
+        Traefik --> Quarkus
+    end
+
+    Quarkus --> Mongo["MongoDB Atlas (external, managed)"]
+    Alloy --> Grafana["Grafana Cloud (external)"]
 ```
 
 ## Infrastructure Level 2
@@ -425,6 +416,7 @@ Node.js, or build steps are required.
 - Icons: Bootstrap Icons via WebJar
 - Live Updates: Server-Sent Events via native `EventSource` API
 - Markdown rendering: marked via WebJar (docs and release notes pages)
+- Diagram rendering: Mermaid via WebJar (Docs page only; GitHub renders the same `​```mermaid` blocks natively)
 
 **Design target:** The primary use case is a smartphone. All pages must work on narrow screens. Tables must be wrapped in `<div class="table-responsive">`.
 
@@ -440,7 +432,8 @@ page as a non-clickable `<li class="breadcrumb-item active">` item.
 
 Architecture documentation (`docs/arc42`), ADRs (`docs/adr`), and release notes (`docs/releasenotes`) are served to the logged-in user directly from the application. A Gradle copy
 task bundles the Markdown files into the `adapter-in-web` classpath at build time. A `DocsResource` endpoint reads and passes the raw Markdown to Qute templates; the `marked`
-WebJar renders it in the browser.
+WebJar renders it in the browser. Diagrams are authored as `​```mermaid` fenced code blocks — rendered natively by GitHub, and rendered in-app by the `mermaid` WebJar, which
+post-processes `marked`'s output (see ADR [0009](../adr/0009-diagram-rendering-mermaid.md)).
 
 ## Configuration
 
@@ -482,6 +475,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0006](../adr/0006-error-handling-concept.md)               | Error Handling: Arrow Either&lt;DomainError, T&gt; |
 | [0007](../adr/0007-local-cookie-based-authentication.md)    | Authentication: Local Cookie-Based Sessions         |
 | [0008](../adr/0008-computed-property-script-execution.md)   | Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard |
+| [0009](../adr/0009-diagram-rendering-mermaid.md)             | Diagram Rendering: Mermaid                          |
 
 # Risks and Technical Debts
 

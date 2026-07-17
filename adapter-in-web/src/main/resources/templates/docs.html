@@ -19,5 +19,42 @@
         document.getElementById('docs-rendered').innerHTML =
             marked.parse(document.getElementById('docs-raw').value);
     </script>
+    <script type="module">
+        // GitHub renders ```mermaid fenced blocks natively; marked.js (used above) does not, so it
+        // leaves them as <pre><code class="language-mermaid">...</code></pre>. This module finds those
+        // blocks, hands them to mermaid.js, and re-renders on theme toggle since mermaid bakes colors
+        // into the SVG at render time rather than using CSS variables.
+        import mermaid from '/webjars/mermaid/dist/mermaid.esm.min.mjs';
+
+        function mermaidTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'light' ? 'default' : 'dark';
+        }
+
+        function renderMermaidDiagrams() {
+            var blocks = document.querySelectorAll('#docs-rendered pre code.language-mermaid');
+            if (blocks.length === 0) return;
+            blocks.forEach(function (code) {
+                var container = document.createElement('div');
+                container.className = 'mermaid';
+                container.textContent = code.textContent;
+                code.parentElement.replaceWith(container);
+            });
+            mermaid.initialize({ startOnLoad: false, theme: mermaidTheme() });
+            mermaid.run({ querySelector: '#docs-rendered .mermaid' });
+        }
+
+        renderMermaidDiagrams();
+
+        var themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', function () {
+                // Re-parse from the raw source rather than re-running mermaid against the already-
+                // rendered SVGs, so each diagram starts from a clean, unprocessed .mermaid node.
+                document.getElementById('docs-rendered').innerHTML =
+                    marked.parse(document.getElementById('docs-raw').value);
+                renderMermaidDiagrams();
+            });
+        }
+    </script>
     {/content}
 {/include}
