@@ -321,7 +321,7 @@ lower-priority cleanup batch.
 - **Cache-busting for custom JS assets** (`a869b57a`, PR #386): a version query-param helper
   (`AppTemplateGlobals.kt`) wired into `layout.html` for static-asset cache-busting — generic
   infra for any Quarkus/Qute app.
-- **In-app Mermaid diagram rendering for the Docs page** (see ADR
+- **In-app Mermaid diagram rendering for the Docs page** (`4085fb33`, see ADR
   [0009](../adr/0009-diagram-rendering-mermaid.md)): adds the `mermaid` WebJar and a small
   module script in `docs.html` that finds marked's `<pre><code class="language-mermaid">`
   output and renders it with `mermaid.run()`, theme-aware and re-rendered on theme toggle.
