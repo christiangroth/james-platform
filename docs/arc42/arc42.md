@@ -37,11 +37,17 @@ James Platform is a personal Low Code system for building and running data-centr
   - A name unique within the App.
   - A globally unique internal ID (immutable).
   - An ordered list of **Properties**.
+  - An optional **display text template** – a string that interpolates property values (e.g. `{firstName} {lastName}`) into a human-readable label shown for each object in list views and `ref` pickers, instead of a raw ID.
 - A Property has:
   - A name unique within the Entity (mutable).
   - An ID unique within the Entity (immutable).
   - A data type and associated constraints.
+  - An optional static **default** value, and/or a **smart default** (see below).
+  - Optional **value proposals** – a Developer-configured list of suggested values offered to the User as autocomplete options in the create/edit form.
+  - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
+  - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
 - **Computed properties** – a Developer may define derived properties by providing a Kotlin script that computes the value based on the entity's other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. Scripts run backend-side via the JSR-223 Kotlin scripting engine, each on its own virtual thread with a configurable timeout (`app.script.timeout-ms`, default 500ms); a timed-out or failing script yields `null` for that property without failing the surrounding request. There is no deeper sandboxing (no memory/IO isolation) beyond the timeout — see ADR [0008](../adr/0008-computed-property-script-execution.md).
+- **Smart defaults** – like a static default, but computed by a Kotlin script (same execution model, engine, and timeout as computed properties) when the create form is opened, seeded with any static defaults already set on the entity. Unlike computed properties, a smart default is only a starting value — the User may freely overwrite it before saving, and it is not re-evaluated afterwards.
 
 ### Supported Data Types
 
@@ -105,12 +111,6 @@ The shared installation is treated as a separate installation. Supported sharing
 | 3        | Developer UX     | App and schema creation must feel lightweight; no boilerplate for common CRUD patterns.       |
 | 4        | Reliability      | External operations (e.g. notifications) are delivered on a best-effort basis.                |
 | 5        | Maintainability  | Hexagonal architecture and clear module boundaries keep the codebase understandable.          |
-
-## Stakeholders
-
-| Role/Name        | Contact   | Expectations                                                             |
-|------------------|-----------|--------------------------------------------------------------------------|
-| Developer / User | (private) | Allow-listed user(s); operates and uses the application for personal use |
 
 # Architecture Constraints
 
@@ -181,8 +181,35 @@ The system follows a hexagonal (ports & adapters) architecture, see ADR
 all business logic and are free of infrastructure dependencies; every inbound and outbound
 integration lives in its own `adapter-*` module and depends inward on `domain-api` only. A
 per-module dependency graph is generated on every build via the `dev.iurysouza.modulegraph`
-Gradle plugin into `build/reports/modulegraph/modules.md` — regenerate it rather than
-hand-drawing a diagram here, so it never drifts from `settings.gradle.kts`.
+Gradle plugin into `build/reports/modulegraph/modules.md` — regenerate it for the precise,
+always-current picture; the diagram below is a simplified, hand-maintained overview of the
+dependency direction only.
+
+```
+                ┌───────────────────────────────────────────┐
+                │              Inbound Adapters               │
+                │  adapter-in-web · adapter-in-starter ·      │
+                │  adapter-in-scheduler (currently unused)    │
+                └────────────────────┬────────────────────────┘
+                                     │ implements inbound ports
+                ┌────────────────────▼────────────────────────┐
+                │                domain-api                     │
+                │        ports (interfaces) + domain model       │
+                └────────────────────▲────────────────────────┘
+                                     │ implements
+                ┌────────────────────┴────────────────────────┐
+                │                domain-impl                     │
+                │              business logic                    │
+                └────────────────────┬────────────────────────┘
+                                     │ calls outbound ports
+                ┌────────────────────▼────────────────────────┐
+                │              Outbound Adapters                │
+                │  adapter-out-config · adapter-out-mongodb ·   │
+                │  adapter-out-scheduler · adapter-out-slack    │
+                └───────────────────────────────────────────────┘
+
+      application-quarkus wires all of the above together (CDI, configuration, tests)
+```
 
 ### Module Overview
 
@@ -207,30 +234,43 @@ of the build — dead weight left over from an earlier project iteration, not a 
 
 ### External Dependencies
 
-Provided via [christiangroth/quarkus-one-time-starters](https://github.com/christiangroth/quarkus-one-time-starters) (GitHub Packages). Three artifacts:
+Two of Chris's own projects, both hosted as GitHub Packages (Maven repositories declared in
+`settings.gradle.kts`, resolved with a `GHCR_PAT`/`GITHUB_ACTOR` credential):
 
-- `domain-api` – contracts: `Starter`, `StarterSkipPredicate`, `StarterCompletionFlag`
-- `domain-impl` – execution orchestration and startup observer
-- `adapter-out-persistence-mongodb` – MongoDB persistence for starter execution state
+- [christiangroth/quarkus-one-time-starters](https://github.com/christiangroth/quarkus-one-time-starters) — runtime dependency, three artifacts:
+  - `domain-api` – contracts: `Starter`, `StarterSkipPredicate`, `StarterCompletionFlag`
+  - `domain-impl` – execution orchestration and startup observer
+  - `adapter-out-persistence-mongodb` – MongoDB persistence for starter execution state
+- [christiangroth/gradle-release-notes-plugin](https://github.com/christiangroth/gradle-release-notes-plugin) — build-time Gradle plugin (`de.chrgroth.gradle.release-notes`) that
+  compiles `docs/releasenotes/snippets/*.md` into `docs/releasenotes/RELEASENOTES.md` on
+  release; not a runtime dependency of the application itself. See [Release
+  Process](#release-process).
 
-## Level 2
-
-The two central domain aggregates are:
-
-- **User** (`domain-impl/.../domain/user`) – accounts, roles (`USER`, `DEVELOPER`, `ADMIN`,
-  `MONITORING`), authentication, profile self-service. See [Authentication and Access
-  Control](#authentication-and-access-control).
-- **App** (`domain-impl/.../domain/app`) – Apps, Versions, `EntityDefinition`/`Property`/
-  `ComputedProperty`, generic CRUD data (`AppDataService`), smart defaults
-  (`SmartDefaultService`), computed properties (`ComputedPropertyService`), and version
-  publishing/migration (`AppVersionManagementService`). `Report`/`Page` exist as domain types
-  only — see the [Reports](#reports) status note above.
-
-Supporting, cross-cutting domain logic (health/config/log/MongoDB-viewer read models) has no
-persistent state of its own — it projects data already owned by
-`adapter-out-config`/`adapter-out-mongodb`/`adapter-out-scheduler` for the in-app Tools pages.
+No outbox pattern is in use — an earlier persistent-outbox concept was removed entirely
+(`0affc8fc`, see `docs/backport.md`) and no equivalent replaced it, in-house or external.
 
 # Runtime View
+
+Example: a User saves an object through the generic data-entry form, triggering computed
+properties and a live update to any other connected client of the same installation.
+
+```
+Browser        adapter-in-web              domain-impl               adapter-out-mongodb   other clients
+  │                  │                           │                           │                  │
+  │─ POST app-data ─►│                           │                           │                  │
+  │                  │─ AppDataService.save() ──►│                           │                  │
+  │                  │                           │─ ComputedPropertyService  │                  │
+  │                  │                           │  .computeValues() ─┐      │                  │
+  │                  │                           │◄────────────────────┘     │                  │
+  │                  │                           │─ persist(data) ──────────►│                  │
+  │                  │                           │◄──────────────────────────┤                  │
+  │                  │                           │─ CDI event "data changed" ───────────────────►│
+  │                  │◄─ ApiResult(ok=true) ─────┤                           │                  │
+  │◄─ JSON response ─┤                           │                           │  SSE: data-changed│
+  │                  │                           │                           │                  │
+```
+
+Other notable flows:
 
 - **Login:** `POST /login` → `LoginServicePort` verifies the bcrypt hash → on success, an
   AES-encrypted session cookie is issued and the user is redirected by role to
@@ -258,9 +298,43 @@ The application is deployed on an existing VPS running Docker Swarm. Traefik han
 | Reverse Proxy | Traefik                 | TLS via Let's Encrypt, already provisioned |
 | Database      | MongoDB Atlas           | Two projects: prod + dev                   |
 
+```
+┌─────────────┐  push to   ┌───────────────────────┐  1. build+push  ┌──────────────────┐
+│ GitHub main  ├───────────►│ GitHub Actions CI/CD   ├────────────────►│ GHCR              │
+└─────────────┘  main       │ (gradle.yml, release   │  native image   │ (ghcr.io)         │
+                             │ job — secrets from     │                 └────────┬──────────┘
+                             │ GitHub Actions secrets)│                          │
+                             └───────────┬────────────┘                          │
+                                         │ 2. SCP stack file + SSH deploy,        │
+                                         │    secrets passed as env vars          │
+                                         ▼                                       │
+┌────────────────────────────────────────────────────────────────────┐ 3. pull  │
+│ VPS — Traefik (pre-existing, routes via "global_router" network)     │◄─────────┘
+│        │                                                             │
+│        ▼                                                             │
+│  Docker Swarm stack "james-platform"                                 │
+│  ┌───────────────────┐        ┌───────────────────────────────┐    │
+│  │ quarkus (native)   │        │ Grafana Alloy sidecar           │    │
+│  │ image from step 3  │        │ (metrics + logs forwarder)      │    │
+│  └─────────┬──────────┘        └────────────┬────────────────────┘    │
+└────────────┼─────────────────────────────────┼─────────────────────────┘
+             │                                  │
+             ▼                                  ▼
+   ┌──────────────────┐              ┌───────────────────────┐
+   │ MongoDB Atlas      │              │ Grafana Cloud           │
+   │ (external, managed)│              │ (metrics + logs, ext.)  │
+   └──────────────────┘              └───────────────────────┘
+```
+
 ## Infrastructure Level 2
 
-Secrets are never stored in deployment configuration – always provided via environment variables from a `.env` file that is not checked into Git.
+Secrets are never committed to Git or hardcoded. Locally, they come from a git-ignored `.env`
+file (`dev.sh`/`prod.sh`). For CI/CD and production, they are configured as **GitHub Actions
+repository secrets** and flow into the deployment as follows: the `gradle.yml` release job
+reads them via `${{ secrets.* }}`, passes them as environment variables into the
+`appleboy/ssh-action` SSH step, and the deploy script on the VPS forwards them into
+`docker stack deploy`'s environment so the running containers pick them up — the deploying
+GitHub Actions runner never writes them to a file on the VPS.
 
 ### Environments
 
@@ -332,12 +406,6 @@ All domain failures are represented as typed `DomainError` values wrapped in Arr
 
 Backend services notify SSE streams via CDI events. The SSE endpoint delivers the initial state on connect, then pushes named update events to connected clients via per-user
 reactive streams.
-
-## Scheduler Jobs
-
-No scheduled jobs are currently implemented. `adapter-in-scheduler` is wired with the Quarkus
-scheduler extension and reserved for future `@Scheduled` jobs; `adapter-out-scheduler` already
-reads scheduler metadata for the health page, ready to display jobs once any exist.
 
 ## Starters
 
@@ -415,25 +483,6 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0007](../adr/0007-local-cookie-based-authentication.md)    | Authentication: Local Cookie-Based Sessions         |
 | [0008](../adr/0008-computed-property-script-execution.md)   | Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard |
 
-# Quality Requirements
-
-## Quality Requirements Overview
-
-See [Quality Goals](#quality-goals) for the prioritized list. Given the single-developer,
-personal-use scope (see [Architecture Constraints](#architecture-constraints)), quality
-requirements are tracked as the concrete scenarios below rather than a full ISO-25010-style
-catalog.
-
-## Quality Scenarios
-
-| # | Quality Goal    | Scenario                                                                                          |
-|---|-----------------|-----------------------------------------------------------------------------------------------------|
-| 1 | Correctness     | A Developer attempts to save an Entity change that would introduce a cyclic `ref` graph → the change is rejected at schema-definition time with a typed `DomainError`, not persisted. |
-| 2 | Security        | An authenticated `MONITORING`-role user requests `/ui/admin/dashboard` → `BlockAdminAccessFilter` denies access regardless of any other roles held, independent of `@RolesAllowed`. |
-| 3 | Security        | A computed-property script runs longer than `app.script.timeout-ms` (default 500ms) → evaluation is cancelled, the property resolves to `null`, and the enclosing request still succeeds. |
-| 4 | Reliability     | The configured Slack webhook is unreachable when a startup/shutdown notification fires → the failure is logged and swallowed; application startup/shutdown is not blocked. |
-| 5 | Developer UX    | A session cookie with less than 5 days remaining until `maxAge` is presented → it is transparently re-issued with a fresh 14-day expiry, without requiring re-login. |
-
 # Risks and Technical Debts
 
 ## Risks
@@ -482,3 +531,6 @@ catalog.
 | Focus mode        | A create-form mode that carries values from the previously created object forward as defaults for the next one.  |
 | Snapshot          | A reusable create-form template capturing a fixed set of field values, which can be replaced or deleted.          |
 | Computed property | A Property whose value is derived at read/write time by a backend Kotlin script (see ADR 0008), not stored directly by the User. |
+| Smart default     | A Property's default value computed by a Kotlin script when the create form opens; the User may still overwrite it, unlike a computed property. |
+| Value proposals   | A Developer-configured list of suggested values offered as autocomplete options for a Property in the create/edit form. |
+| Display text      | A per-Entity template string that interpolates Property values into a human-readable label, shown in list views and `ref` pickers instead of a raw ID. |
