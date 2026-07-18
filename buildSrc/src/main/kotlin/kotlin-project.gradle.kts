@@ -75,6 +75,11 @@ tasks {
     testLogging {
       events("passed", "skipped", "failed")
     }
-    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+    // Was (availableProcessors() / 2).coerceAtLeast(1): with application-quarkus's fixed
+    // quarkus.http.test-port=8081, concurrent forks race to bind the same port, causing
+    // QuarkusBindException. Forcing a single fork trades away some test-suite wall-clock time
+    // for correctness until the port is made per-fork (or forks are scoped to modules that don't
+    // run @QuarkusTest).
+    maxParallelForks = 1
   }
 }
