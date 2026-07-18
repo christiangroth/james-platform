@@ -39,7 +39,15 @@ diff can be inspected with `git show <hash>` in this repository.
   on the branch (`main` writes, feature branches read-only).
 - **Parallelize test execution across JVM forks** (`093812b6`, PR #411): adds
   `maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)` to the
-  shared `kotlin-project.gradle.kts` convention plugin's `test` task.
+  shared `kotlin-project.gradle.kts` convention plugin's `test` task. **Caveat found 2026-07-18
+  (`d7642644`): this races with `application-quarkus`'s fixed `quarkus.http.test-port=8081`** —
+  concurrent forks can bind-race the same port and fail `@QuarkusTest`s with
+  `QuarkusBindException`. Reproduced deterministically in this repo's own CI once a genuinely
+  fresh test run finally happened (masked for weeks by a chain of `[no ci]` commits plus Gradle
+  build-cache reuse). Reverted to `maxParallelForks = 1` here as an immediate fix. If backporting
+  this to the template, either randomize the test port instead of fixing it, or don't parallelize
+  the module that runs `@QuarkusTest` — don't blindly copy the fixed-port + parallel-forks
+  combination.
 
 ### Test coverage tooling
 - **Kover code-coverage reporting** (present since `0ac4e9a8`, i.e. inherited from the
