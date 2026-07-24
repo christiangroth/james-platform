@@ -12,6 +12,8 @@ import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
+import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
@@ -78,6 +80,7 @@ class ImportServiceTests {
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
     assertThat(saved.captured.selectedDataPath).isEqualTo("items")
     assertThat(saved.captured.detectedDataPaths).containsExactly(DataPath("items", 2))
+    assertThat(saved.captured.detectedSchema).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 2), mandatory = true))
   }
 
   @Test
@@ -94,6 +97,7 @@ class ImportServiceTests {
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
     assertThat(saved.captured.selectedDataPath).isNull()
     assertThat(saved.captured.detectedDataPaths).containsExactlyInAnyOrder(DataPath("a", 1), DataPath("b", 2))
+    assertThat(saved.captured.detectedSchema).isEmpty()
   }
 
   @Test
@@ -241,6 +245,7 @@ class ImportServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
     assertThat(saved.captured.selectedDataPath).isEqualTo("items")
+    assertThat(saved.captured.detectedSchema).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 2), mandatory = true))
   }
 
   @Test

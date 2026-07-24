@@ -16,6 +16,21 @@ data class DataPath(
   val size: Int,
 )
 
+enum class SchemaPropertyType {
+  STRING,
+  NUMBER,
+  BOOLEAN,
+  OBJECT,
+  ARRAY,
+  NULL,
+}
+
+data class SchemaProperty(
+  val path: String,
+  val typeCounts: Map<SchemaPropertyType, Int>,
+  val mandatory: Boolean,
+)
+
 data class ImportDocument(
   val id: ImportDocumentId,
   val userId: String,
@@ -26,6 +41,7 @@ data class ImportDocument(
   val payload: String,
   val detectedDataPaths: List<DataPath> = emptyList(),
   val selectedDataPath: String? = null,
+  val detectedSchema: List<SchemaProperty> = emptyList(),
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )
