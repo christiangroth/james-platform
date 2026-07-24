@@ -18,8 +18,23 @@ class ImportDocumentDocument {
   var detectedDataPaths: List<DataPathDocument> = emptyList()
   var selectedDataPath: String? = null
   var detectedSchema: List<SchemaPropertyDocument> = emptyList()
+  var mapping: MappingDocument? = null
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
+}
+
+class MappingDocument {
+  lateinit var name: String
+  lateinit var type: String
+  lateinit var targetEntityDefinitionId: String
+  var fieldMappings: List<FieldMappingDocument> = emptyList()
+}
+
+class FieldMappingDocument {
+  lateinit var targetPropertyId: String
+  var sourcePath: String? = null
+  lateinit var conversion: String
+  var fallbackValue: String? = null
 }
 
 class DataPathDocument {

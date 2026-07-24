@@ -67,6 +67,9 @@
                                     {/if}
                                 </td>
                                 <td class="text-end">
+                                    {#if doc.mappable}
+                                    <a href="/ui/user/apps/{doc.installedAppId}/imports/{doc.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
+                                    {/if}
                                     <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{doc.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
                                         <i class="bi bi-trash" aria-hidden="true"></i>
                                     </button>

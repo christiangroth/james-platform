@@ -4,17 +4,29 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.error.TokenError
+import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.AppVersionId
+import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
-import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.imports.DataPath
+import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.MappingIssue
+import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
+import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
@@ -34,8 +46,9 @@ class ImportServiceTests {
   private val importDocumentRepository = mockk<ImportDocumentRepositoryPort>()
   private val importFetch = mockk<ImportFetchPort>()
   private val tokenEncryption = mockk<TokenEncryptionPort>()
+  private val appVersionRepository = mockk<AppVersionRepositoryPort>()
 
-  private val service = ImportService(installedAppRepository, importDocumentRepository, importFetch, tokenEncryption)
+  private val service = ImportService(installedAppRepository, importDocumentRepository, importFetch, tokenEncryption, appVersionRepository)
 
   private val installedApp = InstalledApp(
     id = InstalledAppId("installed-1"),
@@ -307,11 +320,145 @@ class ImportServiceTests {
     assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
   }
 
+  @Test
+  fun `update mapping succeeds and transitions to READY when mapping is complete and valid`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val doc = importDocument(
+      status = ImportStatus.DATA_IDENTIFIED,
+      detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true)),
+    )
+    every { importDocumentRepository.findById(doc.id) } returns doc
+    val saved = slot<ImportDocument>()
+    justRun { importDocumentRepository.save(capture(saved)) }
+
+    val result = service.updateMapping(
+      "user-1",
+      "installed-1",
+      doc.id.value,
+      "Contact",
+      MappingType.FIND,
+      "entity-1",
+      listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.READY)
+    assertThat(saved.captured.mapping?.name).isEqualTo("Contact")
+    val view = result.getOrNull()!!
+    assertThat(view.validation?.isReady).isTrue()
+  }
+
+  @Test
+  fun `update mapping stays DATA_IDENTIFIED and reports a missing mandatory field`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+    val saved = slot<ImportDocument>()
+    justRun { importDocumentRepository.save(capture(saved)) }
+
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", MappingType.FIND, "entity-1", emptyList())
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
+    assertThat(result.getOrNull()?.validation?.blockingIssues).containsExactly(MappingIssue.MissingMandatoryField(PropertyId("prop-1")))
+  }
+
+  @Test
+  fun `update mapping fails when entity definition is not found`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", MappingType.FIND, "unknown-entity", emptyList())
+
+    assertThat(result).isEqualTo(ImportError.ENTITY_DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `update mapping fails when a field mapping targets an unknown property`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.updateMapping(
+      "user-1",
+      "installed-1",
+      doc.id.value,
+      "Contact",
+      MappingType.FIND,
+      "entity-1",
+      listOf(FieldMapping(targetPropertyId = PropertyId("unknown-prop"), sourcePath = "name")),
+    )
+
+    assertThat(result).isEqualTo(ImportError.MAPPING_PROPERTY_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `update mapping fails with a blank name`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, " ", MappingType.FIND, "entity-1", emptyList())
+
+    assertThat(result).isEqualTo(ImportError.BLANK_MAPPING_NAME.left())
+  }
+
+  @Test
+  fun `update mapping fails when document has no data path selected yet`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(status = ImportStatus.DOWNLOADED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", MappingType.FIND, "entity-1", emptyList())
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_MAPPABLE.left())
+  }
+
+  @Test
+  fun `get mapping view returns entity definitions and no validation when nothing is mapped yet`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.getMappingView("user-1", "installed-1", doc.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    val view = result.getOrNull()!!
+    assertThat(view.entityDefinitions).containsExactly(entityDefinition)
+    assertThat(view.validation).isNull()
+  }
+
+  private val entityDefinition = EntityDefinition(
+    id = EntityDefinitionId("entity-1"),
+    name = "Contact",
+    properties = listOf(
+      Property(id = PropertyId("prop-1"), name = "Name", type = PropertyType.STRING, nullable = false),
+    ),
+  )
+
+  private val appVersion = AppVersion(
+    id = AppVersionId("version-1"),
+    appId = AppId("app-1"),
+    versionNumber = VersionNumber("1.0.0"),
+    releaseNotes = null,
+    entityDefinitions = listOf(entityDefinition),
+    reports = emptyList(),
+    status = AppVersionStatus.PUBLISHED,
+    createdAt = Instant.now(),
+  )
+
   private fun importDocument(
     installedAppId: InstalledAppId = InstalledAppId("installed-1"),
     createdAt: Instant = Instant.now(),
     status: ImportStatus = ImportStatus.DOWNLOADED,
     payload: String = """{"foo":"bar"}""",
+    detectedSchema: List<SchemaProperty> = emptyList(),
   ) = ImportDocument(
     id = ImportDocumentId("doc-${System.nanoTime()}"),
     userId = "user-1",
@@ -320,6 +467,7 @@ class ImportServiceTests {
     encryptedBearerToken = "encrypted-token",
     status = status,
     payload = payload,
+    detectedSchema = detectedSchema,
     createdAt = createdAt,
     lastChangedAt = createdAt,
   )

@@ -8,10 +8,15 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.Mapping
+import de.chrgroth.james.platform.domain.model.imports.MappingType
+import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
+import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
@@ -28,6 +33,7 @@ class ImportService(
   private val importDocumentRepository: ImportDocumentRepositoryPort,
   private val importFetch: ImportFetchPort,
   private val tokenEncryption: TokenEncryptionPort,
+  private val appVersionRepository: AppVersionRepositoryPort,
 ) : ImportPort {
 
   override fun listImportDocuments(userId: String, installedAppId: String): Either<DomainError, List<ImportDocument>> {
@@ -129,6 +135,85 @@ class ImportService(
     logger.info { "Data path selected: importDocumentId=$importDocumentId path=${resolved.path}" }
     return updated.right()
   }
+
+  override fun getMappingView(userId: String, installedAppId: String, importDocumentId: String): Either<DomainError, MappingView> {
+    val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
+      logger.warn { "Get mapping view failed: installed app not found: $installedAppId for user: $userId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val existing = importDocumentRepository.findById(ImportDocumentId(importDocumentId))
+    if (existing == null || existing.installedAppId != installedApp.id) {
+      logger.warn { "Get mapping view failed: import document not found: $importDocumentId for installedAppId: $installedAppId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_FOUND.left()
+    }
+
+    val entityDefinitions = entityDefinitionsOf(installedApp)
+    val validation = existing.mapping?.let { mapping ->
+      entityDefinitions.find { it.id == mapping.targetEntityDefinitionId }?.let { entityDefinition ->
+        MappingValidator.validate(mapping, entityDefinition, existing.detectedSchema)
+      }
+    }
+    return MappingView(existing, entityDefinitions, validation).right()
+  }
+
+  override fun updateMapping(
+    userId: String,
+    installedAppId: String,
+    importDocumentId: String,
+    name: String,
+    type: MappingType,
+    targetEntityDefinitionId: String,
+    fieldMappings: List<FieldMapping>,
+  ): Either<DomainError, MappingView> {
+    val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
+      logger.warn { "Update mapping failed: installed app not found: $installedAppId for user: $userId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val existing = importDocumentRepository.findById(ImportDocumentId(importDocumentId))
+    if (existing == null || existing.installedAppId != installedApp.id) {
+      logger.warn { "Update mapping failed: import document not found: $importDocumentId for installedAppId: $installedAppId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_FOUND.left()
+    }
+    if (existing.status != ImportStatus.DATA_IDENTIFIED && existing.status != ImportStatus.READY) {
+      logger.warn { "Update mapping failed: import document not mappable: $importDocumentId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_MAPPABLE.left()
+    }
+    if (name.isBlank()) {
+      logger.warn { "Update mapping failed: blank mapping name for importDocumentId: $importDocumentId" }
+      return ImportError.BLANK_MAPPING_NAME.left()
+    }
+
+    val entityDefinitions = entityDefinitionsOf(installedApp)
+    val entityDefinition = entityDefinitions.find { it.id.value == targetEntityDefinitionId }
+    if (entityDefinition == null) {
+      logger.warn { "Update mapping failed: entity definition not found: $targetEntityDefinitionId for importDocumentId: $importDocumentId" }
+      return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
+    }
+    val propertyIds = entityDefinition.properties.map { it.id }.toSet()
+    if (fieldMappings.any { it.targetPropertyId !in propertyIds }) {
+      logger.warn { "Update mapping failed: unknown target property for importDocumentId: $importDocumentId" }
+      return ImportError.MAPPING_PROPERTY_NOT_FOUND.left()
+    }
+
+    val mapping = Mapping(
+      name = name.trim(),
+      type = type,
+      targetEntityDefinitionId = entityDefinition.id,
+      fieldMappings = fieldMappings,
+    )
+    val validation = MappingValidator.validate(mapping, entityDefinition, existing.detectedSchema)
+    val updated = existing.copy(
+      status = if (validation.isReady) ImportStatus.READY else ImportStatus.DATA_IDENTIFIED,
+      mapping = mapping,
+      lastChangedAt = Instant.now(),
+    )
+    importDocumentRepository.save(updated)
+    logger.info { "Mapping updated: importDocumentId=$importDocumentId status=${updated.status}" }
+    return MappingView(updated, entityDefinitions, validation).right()
+  }
+
+  private fun entityDefinitionsOf(installedApp: InstalledApp) =
+    appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)?.entityDefinitions.orEmpty()
 
   override fun deleteImportDocument(userId: String, installedAppId: String, importDocumentId: String): Either<DomainError, Unit> {
     val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {

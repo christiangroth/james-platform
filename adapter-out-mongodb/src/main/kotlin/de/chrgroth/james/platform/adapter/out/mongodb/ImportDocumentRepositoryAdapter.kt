@@ -2,11 +2,17 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.imports.DataPath
+import de.chrgroth.james.platform.domain.model.imports.FieldMapping
+import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.Mapping
+import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
@@ -63,6 +69,7 @@ class ImportDocumentRepositoryAdapter(
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
     selectedDataPath = selectedDataPath,
     detectedSchema = detectedSchema.map { it.toDomain() },
+    mapping = mapping?.toDomain(),
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -85,6 +92,20 @@ class ImportDocumentRepositoryAdapter(
     max = max,
   )
 
+  private fun MappingDocument.toDomain() = Mapping(
+    name = name,
+    type = MappingType.valueOf(type),
+    targetEntityDefinitionId = EntityDefinitionId(targetEntityDefinitionId),
+    fieldMappings = fieldMappings.map { it.toDomain() },
+  )
+
+  private fun FieldMappingDocument.toDomain() = FieldMapping(
+    targetPropertyId = PropertyId(targetPropertyId),
+    sourcePath = sourcePath,
+    conversion = FieldMappingConversion.valueOf(conversion),
+    fallbackValue = fallbackValue,
+  )
+
   private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
     doc.id = id.value
     doc.userId = userId
@@ -96,6 +117,7 @@ class ImportDocumentRepositoryAdapter(
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
     doc.selectedDataPath = selectedDataPath
     doc.detectedSchema = detectedSchema.map { it.toDocument() }
+    doc.mapping = mapping?.toDocument()
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }
@@ -116,6 +138,20 @@ class ImportDocumentRepositoryAdapter(
   private fun NumericRange.toDocument() = NumericRangeDocument().also { doc ->
     doc.min = min
     doc.max = max
+  }
+
+  private fun Mapping.toDocument() = MappingDocument().also { doc ->
+    doc.name = name
+    doc.type = type.name
+    doc.targetEntityDefinitionId = targetEntityDefinitionId.value
+    doc.fieldMappings = fieldMappings.map { it.toDocument() }
+  }
+
+  private fun FieldMapping.toDocument() = FieldMappingDocument().also { doc ->
+    doc.targetPropertyId = targetPropertyId.value
+    doc.sourcePath = sourcePath
+    doc.conversion = conversion.name
+    doc.fallbackValue = fallbackValue
   }
 
   companion object {
