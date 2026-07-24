@@ -84,6 +84,7 @@ class ImportService(
       payload = rawPayload,
       detectedDataPaths = detectedDataPaths,
       selectedDataPath = singleMatch?.path,
+      detectedSchema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty(),
       createdAt = now,
       lastChangedAt = now,
     )
@@ -111,7 +112,8 @@ class ImportService(
       return ImportError.BLANK_DATA_PATH.left()
     }
 
-    val resolved = DataPathDetector.resolve(objectMapper.readTree(existing.payload), dataPath.trim())
+    val parsed = objectMapper.readTree(existing.payload)
+    val resolved = DataPathDetector.resolve(parsed, dataPath.trim())
     if (resolved == null) {
       logger.warn { "Select data path failed: invalid data path for importDocumentId: $importDocumentId" }
       return ImportError.INVALID_DATA_PATH.left()
@@ -120,6 +122,7 @@ class ImportService(
     val updated = existing.copy(
       status = ImportStatus.DATA_IDENTIFIED,
       selectedDataPath = resolved.path,
+      detectedSchema = SchemaDetector.detect(parsed, resolved.path),
       lastChangedAt = Instant.now(),
     )
     importDocumentRepository.save(updated)

@@ -7,6 +7,8 @@ import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
+import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import java.time.Instant
@@ -59,6 +61,7 @@ class ImportDocumentRepositoryAdapter(
     payload = payload,
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
     selectedDataPath = selectedDataPath,
+    detectedSchema = detectedSchema.map { it.toDomain() },
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -66,6 +69,12 @@ class ImportDocumentRepositoryAdapter(
   private fun DataPathDocument.toDomain() = DataPath(
     path = path,
     size = size,
+  )
+
+  private fun SchemaPropertyDocument.toDomain() = SchemaProperty(
+    path = path,
+    typeCounts = typeCounts.mapKeys { SchemaPropertyType.valueOf(it.key) },
+    mandatory = mandatory,
   )
 
   private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
@@ -78,6 +87,7 @@ class ImportDocumentRepositoryAdapter(
     doc.payload = payload
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
     doc.selectedDataPath = selectedDataPath
+    doc.detectedSchema = detectedSchema.map { it.toDocument() }
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }
@@ -85,6 +95,12 @@ class ImportDocumentRepositoryAdapter(
   private fun DataPath.toDocument() = DataPathDocument().also { doc ->
     doc.path = path
     doc.size = size
+  }
+
+  private fun SchemaProperty.toDocument() = SchemaPropertyDocument().also { doc ->
+    doc.path = path
+    doc.typeCounts = typeCounts.mapKeys { it.key.name }
+    doc.mandatory = mandatory
   }
 
   companion object {

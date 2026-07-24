@@ -17,6 +17,7 @@ class ImportDocumentDocument {
   lateinit var payload: String
   var detectedDataPaths: List<DataPathDocument> = emptyList()
   var selectedDataPath: String? = null
+  var detectedSchema: List<SchemaPropertyDocument> = emptyList()
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
 }
@@ -24,4 +25,10 @@ class ImportDocumentDocument {
 class DataPathDocument {
   lateinit var path: String
   var size: Int = 0
+}
+
+class SchemaPropertyDocument {
+  lateinit var path: String
+  var typeCounts: Map<String, Int> = emptyMap()
+  var mandatory: Boolean = false
 }
