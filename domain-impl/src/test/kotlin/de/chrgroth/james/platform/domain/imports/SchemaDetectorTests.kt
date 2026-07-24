@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.domain.imports
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import org.assertj.core.api.Assertions.assertThat
@@ -16,7 +17,9 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true))
+    assertThat(result).containsExactly(
+      SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true, numericRange = NumericRange(min = 1.0, max = 2.0)),
+    )
   }
 
   @Test
@@ -25,7 +28,9 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1), mandatory = false))
+    assertThat(result).containsExactly(
+      SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1), mandatory = false, numericRange = NumericRange(min = 1.0, max = 1.0)),
+    )
   }
 
   @Test
@@ -39,6 +44,8 @@ class SchemaDetectorTests {
         "a",
         mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.STRING to 1, SchemaPropertyType.BOOLEAN to 1),
         mandatory = true,
+        numericRange = NumericRange(min = 1.0, max = 1.0),
+        stringLengthCounts = mapOf(4 to 1),
       ),
     )
   }
@@ -50,7 +57,12 @@ class SchemaDetectorTests {
     val result = SchemaDetector.detect(root, "items")
 
     assertThat(result).containsExactly(
-      SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.DOUBLE to 1), mandatory = true),
+      SchemaProperty(
+        "a",
+        mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.DOUBLE to 1),
+        mandatory = true,
+        numericRange = NumericRange(min = 1.0, max = 2.5),
+      ),
     )
   }
 
@@ -80,7 +92,9 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.STRING to 2), mandatory = true))
+    assertThat(result).containsExactly(
+      SchemaProperty("a", mapOf(SchemaPropertyType.STRING to 2), mandatory = true, stringLengthCounts = mapOf(10 to 1, 7 to 1)),
+    )
   }
 
   @Test
@@ -91,7 +105,7 @@ class SchemaDetectorTests {
 
     assertThat(result).containsExactlyInAnyOrder(
       SchemaProperty("address", mapOf(SchemaPropertyType.OBJECT to 2), mandatory = true),
-      SchemaProperty("address.city", mapOf(SchemaPropertyType.STRING to 2), mandatory = true),
+      SchemaProperty("address.city", mapOf(SchemaPropertyType.STRING to 2), mandatory = true, stringLengthCounts = mapOf(6 to 2)),
     )
   }
 
@@ -103,7 +117,7 @@ class SchemaDetectorTests {
 
     assertThat(result).containsExactlyInAnyOrder(
       SchemaProperty("address", mapOf(SchemaPropertyType.OBJECT to 1), mandatory = false),
-      SchemaProperty("address.city", mapOf(SchemaPropertyType.STRING to 1), mandatory = false),
+      SchemaProperty("address.city", mapOf(SchemaPropertyType.STRING to 1), mandatory = false, stringLengthCounts = mapOf(6 to 1)),
     )
   }
 
@@ -123,7 +137,12 @@ class SchemaDetectorTests {
     val result = SchemaDetector.detect(root, "items")
 
     assertThat(result).containsExactly(
-      SchemaProperty("a", mapOf(SchemaPropertyType.NULL to 1, SchemaPropertyType.LONG to 1), mandatory = true),
+      SchemaProperty(
+        "a",
+        mapOf(SchemaPropertyType.NULL to 1, SchemaPropertyType.LONG to 1),
+        mandatory = true,
+        numericRange = NumericRange(min = 1.0, max = 1.0),
+      ),
     )
   }
 
@@ -133,6 +152,71 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "data.nested.items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1), mandatory = true))
+    assertThat(result).containsExactly(
+      SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1), mandatory = true, numericRange = NumericRange(min = 1.0, max = 1.0)),
+    )
+  }
+
+  @Test
+  fun `detect tracks min and max of integral numeric values`() {
+    val root = objectMapper.readTree("""{"items":[{"a":5},{"a":1},{"a":9}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(
+      SchemaProperty(
+        "a",
+        mapOf(SchemaPropertyType.LONG to 3),
+        mandatory = true,
+        numericRange = NumericRange(min = 1.0, max = 9.0),
+      ),
+    )
+  }
+
+  @Test
+  fun `detect tracks min and max across mixed integral and decimal numeric values`() {
+    val root = objectMapper.readTree("""{"items":[{"a":1},{"a":2.5},{"a":-3.1}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(
+      SchemaProperty(
+        "a",
+        mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.DOUBLE to 2),
+        mandatory = true,
+        numericRange = NumericRange(min = -3.1, max = 2.5),
+      ),
+    )
+  }
+
+  @Test
+  fun `detect counts occurring string lengths`() {
+    val root = objectMapper.readTree("""{"items":[{"a":"ab"},{"a":"cd"},{"a":"efg"}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(
+      SchemaProperty(
+        "a",
+        mapOf(SchemaPropertyType.STRING to 3),
+        mandatory = true,
+        stringLengthCounts = mapOf(2 to 2, 3 to 1),
+      ),
+    )
+  }
+
+  @Test
+  fun `detect does not track numeric range or string lengths for other types`() {
+    val root = objectMapper.readTree("""{"items":[{"a":true},{"a":null}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(
+      SchemaProperty(
+        "a",
+        mapOf(SchemaPropertyType.BOOLEAN to 1, SchemaPropertyType.NULL to 1),
+        mandatory = true,
+      ),
+    )
   }
 }

@@ -31,4 +31,11 @@ class SchemaPropertyDocument {
   lateinit var path: String
   var typeCounts: Map<String, Int> = emptyMap()
   var mandatory: Boolean = false
+  var numericRange: NumericRangeDocument? = null
+  var stringLengthCounts: Map<String, Int> = emptyMap()
+}
+
+class NumericRangeDocument {
+  var min: Double = 0.0
+  var max: Double = 0.0
 }

@@ -28,10 +28,17 @@ enum class SchemaPropertyType {
   NULL,
 }
 
+data class NumericRange(
+  val min: Double,
+  val max: Double,
+)
+
 data class SchemaProperty(
   val path: String,
   val typeCounts: Map<SchemaPropertyType, Int>,
   val mandatory: Boolean,
+  val numericRange: NumericRange? = null,
+  val stringLengthCounts: Map<Int, Int> = emptyMap(),
 )
 
 data class ImportDocument(
