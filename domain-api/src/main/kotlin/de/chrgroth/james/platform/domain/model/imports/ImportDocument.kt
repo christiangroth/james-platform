@@ -18,7 +18,10 @@ data class DataPath(
 
 enum class SchemaPropertyType {
   STRING,
-  NUMBER,
+  DATE,
+  DATETIME,
+  LONG,
+  DOUBLE,
   BOOLEAN,
   OBJECT,
   ARRAY,

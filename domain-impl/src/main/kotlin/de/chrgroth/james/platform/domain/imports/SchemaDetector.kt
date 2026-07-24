@@ -7,11 +7,16 @@ import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 /**
  * Derives a schema for the objects found at a given data path: for every property, including nested ones inside
  * objects, all occurring value types are counted and whether the property is present on every object (mandatory)
- * or not (optional). Arrays are never descended into, matching DataPathDetector's dot-path semantics.
+ * or not (optional). Arrays are never descended into, matching DataPathDetector's dot-path semantics. Numbers are
+ * split into LONG (integral) and DOUBLE (fractional), and textual values matching a date or datetime pattern are
+ * reported as DATE/DATETIME rather than STRING.
  */
 object SchemaDetector {
 
   private const val PATH_SEPARATOR = "."
+
+  private val DATE_PATTERN = Regex("""^\d{4}-\d{2}-\d{2}$""")
+  private val DATETIME_PATTERN = Regex("""^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$""")
 
   fun detect(root: JsonNode, path: String): List<SchemaProperty> {
     val objects = resolveObjects(root, path)
@@ -59,9 +64,16 @@ object SchemaDetector {
   private fun JsonNode.schemaPropertyType(): SchemaPropertyType = when {
     isObject -> SchemaPropertyType.OBJECT
     isArray -> SchemaPropertyType.ARRAY
-    isTextual -> SchemaPropertyType.STRING
+    isTextual -> asText().textualSchemaPropertyType()
     isBoolean -> SchemaPropertyType.BOOLEAN
-    isNumber -> SchemaPropertyType.NUMBER
+    isIntegralNumber -> SchemaPropertyType.LONG
+    isFloatingPointNumber -> SchemaPropertyType.DOUBLE
     else -> SchemaPropertyType.NULL
+  }
+
+  private fun String.textualSchemaPropertyType(): SchemaPropertyType = when {
+    DATETIME_PATTERN.matches(this) -> SchemaPropertyType.DATETIME
+    DATE_PATTERN.matches(this) -> SchemaPropertyType.DATE
+    else -> SchemaPropertyType.STRING
   }
 }

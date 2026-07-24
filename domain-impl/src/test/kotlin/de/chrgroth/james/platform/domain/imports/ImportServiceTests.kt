@@ -80,7 +80,7 @@ class ImportServiceTests {
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
     assertThat(saved.captured.selectedDataPath).isEqualTo("items")
     assertThat(saved.captured.detectedDataPaths).containsExactly(DataPath("items", 2))
-    assertThat(saved.captured.detectedSchema).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 2), mandatory = true))
+    assertThat(saved.captured.detectedSchema).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true))
   }
 
   @Test
@@ -245,7 +245,7 @@ class ImportServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
     assertThat(saved.captured.selectedDataPath).isEqualTo("items")
-    assertThat(saved.captured.detectedSchema).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 2), mandatory = true))
+    assertThat(saved.captured.detectedSchema).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true))
   }
 
   @Test

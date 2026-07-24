@@ -16,7 +16,7 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 2), mandatory = true))
+    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true))
   }
 
   @Test
@@ -25,7 +25,7 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 1), mandatory = false))
+    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1), mandatory = false))
   }
 
   @Test
@@ -37,10 +37,50 @@ class SchemaDetectorTests {
     assertThat(result).containsExactly(
       SchemaProperty(
         "a",
-        mapOf(SchemaPropertyType.NUMBER to 1, SchemaPropertyType.STRING to 1, SchemaPropertyType.BOOLEAN to 1),
+        mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.STRING to 1, SchemaPropertyType.BOOLEAN to 1),
         mandatory = true,
       ),
     )
+  }
+
+  @Test
+  fun `detect distinguishes integral numbers from decimal numbers`() {
+    val root = objectMapper.readTree("""{"items":[{"a":1},{"a":2.5}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(
+      SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.DOUBLE to 1), mandatory = true),
+    )
+  }
+
+  @Test
+  fun `detect recognizes ISO date strings as DATE`() {
+    val root = objectMapper.readTree("""{"items":[{"a":"2024-01-15"},{"a":"2024-02-20"}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.DATE to 2), mandatory = true))
+  }
+
+  @Test
+  fun `detect recognizes ISO datetime strings as DATETIME`() {
+    val root = objectMapper.readTree(
+      """{"items":[{"a":"2024-01-15T10:30:00Z"},{"a":"2024-01-15T10:30:00.123+02:00"}]}""",
+    )
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.DATETIME to 2), mandatory = true))
+  }
+
+  @Test
+  fun `detect treats non-matching strings as STRING`() {
+    val root = objectMapper.readTree("""{"items":[{"a":"not a date"},{"a":"2024-01"}]}""")
+
+    val result = SchemaDetector.detect(root, "items")
+
+    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.STRING to 2), mandatory = true))
   }
 
   @Test
@@ -83,7 +123,7 @@ class SchemaDetectorTests {
     val result = SchemaDetector.detect(root, "items")
 
     assertThat(result).containsExactly(
-      SchemaProperty("a", mapOf(SchemaPropertyType.NULL to 1, SchemaPropertyType.NUMBER to 1), mandatory = true),
+      SchemaProperty("a", mapOf(SchemaPropertyType.NULL to 1, SchemaPropertyType.LONG to 1), mandatory = true),
     )
   }
 
@@ -93,6 +133,6 @@ class SchemaDetectorTests {
 
     val result = SchemaDetector.detect(root, "data.nested.items")
 
-    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.NUMBER to 1), mandatory = true))
+    assertThat(result).containsExactly(SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 1), mandatory = true))
   }
 }
