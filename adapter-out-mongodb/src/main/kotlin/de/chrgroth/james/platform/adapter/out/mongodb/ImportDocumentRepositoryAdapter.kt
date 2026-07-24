@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
@@ -75,6 +76,13 @@ class ImportDocumentRepositoryAdapter(
     path = path,
     typeCounts = typeCounts.mapKeys { SchemaPropertyType.valueOf(it.key) },
     mandatory = mandatory,
+    numericRange = numericRange?.toDomain(),
+    stringLengthCounts = stringLengthCounts.mapKeys { it.key.toInt() },
+  )
+
+  private fun NumericRangeDocument.toDomain() = NumericRange(
+    min = min,
+    max = max,
   )
 
   private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
@@ -101,6 +109,13 @@ class ImportDocumentRepositoryAdapter(
     doc.path = path
     doc.typeCounts = typeCounts.mapKeys { it.key.name }
     doc.mandatory = mandatory
+    doc.numericRange = numericRange?.toDocument()
+    doc.stringLengthCounts = stringLengthCounts.mapKeys { it.key.toString() }
+  }
+
+  private fun NumericRange.toDocument() = NumericRangeDocument().also { doc ->
+    doc.min = min
+    doc.max = max
   }
 
   companion object {
