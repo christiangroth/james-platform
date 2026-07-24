@@ -95,6 +95,7 @@
                 </div>
                 <form id="newImportForm">
                     <div class="modal-body">
+                        <div id="import-modal-message" class="d-none mb-3" role="alert"></div>
                         <div class="mb-3">
                             <label for="importSourceUrl" class="form-label">{user:userImportUrlLabel()}</label>
                             <input type="url" class="form-control app-form-control" id="importSourceUrl" name="sourceUrl" required autocomplete="off" data-testid="import-url-input">
@@ -152,6 +153,33 @@
                 }, 5000);
             }
 
+            // Errors while the "New Import" modal is open must be shown inside the modal itself –
+            // the page-level message panel above is covered by the still-open modal/backdrop.
+            var importModalMessage = document.getElementById('import-modal-message');
+
+            function showImportModalMessage(message, errorDetails) {
+                importModalMessage.className = 'alert alert-danger mb-3';
+                importModalMessage.setAttribute('data-testid', 'error-message');
+                importModalMessage.innerHTML = message;
+                if (errorDetails && errorDetails.length) {
+                    var list = document.createElement('ul');
+                    list.className = 'mb-0 mt-2 ps-3';
+                    list.setAttribute('data-testid', 'error-details');
+                    errorDetails.forEach(function (detail) {
+                        var item = document.createElement('li');
+                        item.textContent = detail;
+                        list.appendChild(item);
+                    });
+                    importModalMessage.appendChild(list);
+                }
+            }
+
+            function clearImportModalMessage() {
+                importModalMessage.className = 'd-none mb-3';
+                importModalMessage.innerHTML = '';
+                importModalMessage.removeAttribute('data-testid');
+            }
+
             async function refreshTable() {
                 try {
                     var response = await fetch(basePath + '/table', { cache: 'no-store' });
@@ -186,16 +214,25 @@
 
             // New import form submit
             var newImportForm = document.getElementById('newImportForm');
+            var newImportModal = document.getElementById('newImportModal');
             if (newImportForm) {
                 newImportForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
+                    clearImportModalMessage();
                     var result = await fetchForm('POST', basePath, new FormData(this));
                     if (result.ok) {
-                        bootstrap.Modal.getInstance(document.getElementById('newImportModal')).hide();
+                        bootstrap.Modal.getInstance(newImportModal).hide();
                         this.reset();
                         await refreshTable();
+                        showMessage(true, result.message);
+                    } else {
+                        showImportModalMessage(result.message, result.errorDetails);
                     }
-                    showMessage(result.ok, result.message);
+                });
+            }
+            if (newImportModal) {
+                newImportModal.addEventListener('hidden.bs.modal', function () {
+                    clearImportModalMessage();
                 });
             }
 
