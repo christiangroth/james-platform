@@ -17,6 +17,8 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingType
+import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
+import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -34,8 +36,26 @@ class DryRunExecutorTests {
 
   private fun entityDefinition(vararg properties: Property) = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Contact", properties = properties.toList())
 
-  private fun execute(records: List<com.fasterxml.jackson.databind.JsonNode>, mapping: Mapping, entityDefinition: EntityDefinition, existingAppData: List<AppData> = emptyList()) =
-    DryRunExecutor.execute(records, mapping, entityDefinition, existingAppData, propertyConstraint)
+  private fun execute(
+    records: List<com.fasterxml.jackson.databind.JsonNode>,
+    mapping: Mapping,
+    entityDefinition: EntityDefinition,
+    existingAppData: List<AppData> = emptyList(),
+    entityDefinitionsById: Map<EntityDefinitionId, EntityDefinition> = mapOf(entityDefinition.id to entityDefinition),
+    referencedAppDataByEntityId: Map<EntityDefinitionId, List<AppData>> = emptyMap(),
+  ) = DryRunExecutor.execute(records, mapping, entityDefinition, existingAppData, entityDefinitionsById, referencedAppDataByEntityId, propertyConstraint)
+
+  private fun appData(entityType: EntityDefinitionId, data: Map<String, String?>, id: String = "existing-1") = AppData(
+    id = AppDataId(id),
+    userId = "user-1",
+    installedAppId = InstalledAppId("installed-1"),
+    appVersion = VersionNumber("1.0.0"),
+    entityType = entityType,
+    objectVersion = 1,
+    createdAt = Instant.now(),
+    lastChangedAt = Instant.now(),
+    data = data,
+  )
 
   @Test
   fun `directly mapped value with no violated constraints is valid`() {
@@ -152,5 +172,71 @@ class DryRunExecutorTests {
 
     assertThat(result[0].isValid).isTrue()
     assertThat(result[1].issues.single()).isEqualTo(DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, false))
+  }
+
+  @Test
+  fun `reference lookup resolves to the id of the matching referenced entity`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val codePropertyId = PropertyId("code-prop")
+    val referencedEntity = EntityDefinition(id = referencedEntityId, name = "Company", properties = listOf(Property(id = codePropertyId, name = "Code", type = PropertyType.STRING, nullable = false)))
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, referenceLookup = ReferenceLookup(listOf(ReferenceLookupCriterion(codePropertyId, "companyCode")))))
+    val matching = appData(referencedEntityId, mapOf(codePropertyId.value to "ACME"), id = "company-1")
+
+    val result = execute(
+      records("""[{"companyCode":"ACME"}]"""),
+      mapping,
+      entity,
+      entityDefinitionsById = mapOf(entity.id to entity, referencedEntityId to referencedEntity),
+      referencedAppDataByEntityId = mapOf(referencedEntityId to listOf(matching)),
+    )
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "company-1"))
+  }
+
+  @Test
+  fun `reference lookup without a match falls back to the configured fallback value`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val codePropertyId = PropertyId("code-prop")
+    val referencedEntity = EntityDefinition(id = referencedEntityId, name = "Company", properties = listOf(Property(id = codePropertyId, name = "Code", type = PropertyType.STRING, nullable = false)))
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(
+      FieldMapping(
+        targetPropertyId = propertyId,
+        referenceLookup = ReferenceLookup(listOf(ReferenceLookupCriterion(codePropertyId, "companyCode"))),
+        fallbackValue = "default-company",
+      ),
+    )
+
+    val result = execute(
+      records("""[{"companyCode":"UNKNOWN"}]"""),
+      mapping,
+      entity,
+      entityDefinitionsById = mapOf(entity.id to entity, referencedEntityId to referencedEntity),
+      referencedAppDataByEntityId = mapOf(referencedEntityId to emptyList()),
+    )
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "default-company"))
+  }
+
+  @Test
+  fun `reference lookup without a match and without a fallback is reported as a missing mandatory value`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val codePropertyId = PropertyId("code-prop")
+    val referencedEntity = EntityDefinition(id = referencedEntityId, name = "Company", properties = listOf(Property(id = codePropertyId, name = "Code", type = PropertyType.STRING, nullable = false)))
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, referenceLookup = ReferenceLookup(listOf(ReferenceLookupCriterion(codePropertyId, "companyCode")))))
+
+    val result = execute(
+      records("""[{"companyCode":"UNKNOWN"}]"""),
+      mapping,
+      entity,
+      entityDefinitionsById = mapOf(entity.id to entity, referencedEntityId to referencedEntity),
+      referencedAppDataByEntityId = mapOf(referencedEntityId to emptyList()),
+    )
+
+    assertThat(result.single().issues).contains(DryRunIssue.MissingMandatoryValue(propertyId))
   }
 }

@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
+import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
@@ -160,7 +161,7 @@ class ImportService(
     val entityDefinitions = entityDefinitionsOf(installedApp)
     val validation = existing.mapping?.let { mapping ->
       entityDefinitions.find { it.id == mapping.targetEntityDefinitionId }?.let { entityDefinition ->
-        MappingValidator.validate(mapping, entityDefinition, existing.detectedSchema)
+        MappingValidator.validate(mapping, entityDefinition, existing.detectedSchema, entityDefinitions, propertyConstraint)
       }
     }
     return MappingView(existing, entityDefinitions, validation).right()
@@ -211,7 +212,7 @@ class ImportService(
       targetEntityDefinitionId = entityDefinition.id,
       fieldMappings = fieldMappings,
     )
-    val validation = MappingValidator.validate(mapping, entityDefinition, existing.detectedSchema)
+    val validation = MappingValidator.validate(mapping, entityDefinition, existing.detectedSchema, entityDefinitions, propertyConstraint)
     val updated = existing.copy(
       status = if (validation.isReady) ImportStatus.READY else ImportStatus.DATA_IDENTIFIED,
       mapping = mapping,
@@ -237,7 +238,7 @@ class ImportService(
       return ImportError.IMPORT_DOCUMENT_NOT_READY.left()
     }
 
-    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp.id)
+    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp)
     logger.info { "Dry run executed: importDocumentId=$importDocumentId total=${objects.size} invalid=${objects.count { !it.isValid }}" }
     return DryRunReport(existing.id, objects).right()
   }
@@ -257,7 +258,7 @@ class ImportService(
       return ImportError.IMPORT_DOCUMENT_NOT_READY.left()
     }
 
-    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp.id)
+    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp)
     val now = Instant.now()
     var savedCount = 0
     for (obj in objects.filter { it.isValid }) {
@@ -291,14 +292,23 @@ class ImportService(
     return mapping to entityDefinition
   }
 
-  private fun executeDryRun(existing: ImportDocument, mapping: Mapping, entityDefinition: EntityDefinition, installedAppId: InstalledAppId) =
-    DryRunExecutor.execute(
+  private fun executeDryRun(existing: ImportDocument, mapping: Mapping, entityDefinition: EntityDefinition, installedApp: InstalledApp): List<DryRunObject> {
+    val entityDefinitions = entityDefinitionsOf(installedApp)
+    val referencedEntityIds = mapping.fieldMappings.mapNotNull { fieldMapping ->
+      fieldMapping.referenceLookup ?: return@mapNotNull null
+      entityDefinition.properties.find { it.id == fieldMapping.targetPropertyId }?.targetEntityId
+    }.toSet()
+
+    return DryRunExecutor.execute(
       records = recordsAt(existing),
       mapping = mapping,
       entityDefinition = entityDefinition,
-      existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityDefinition.id),
+      existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id),
+      entityDefinitionsById = entityDefinitions.associateBy { it.id },
+      referencedAppDataByEntityId = referencedEntityIds.associateWith { appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, it) },
       propertyConstraint = propertyConstraint,
     )
+  }
 
   private fun recordsAt(existing: ImportDocument): List<JsonNode> {
     val path = existing.selectedDataPath ?: return emptyList()

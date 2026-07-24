@@ -4,10 +4,16 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.error.ImportFetchFailedError
+import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.AppDataId
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.InjectMock
@@ -32,6 +38,9 @@ class UserImportResourceTests {
 
   @Inject
   lateinit var userRepository: UserRepositoryPort
+
+  @Inject
+  lateinit var appDataRepository: AppDataRepositoryPort
 
   @BeforeEach
   fun setup() {
@@ -121,6 +130,19 @@ class UserImportResourceTests {
       .formParam("name", name)
       .formParam("type", type)
       .formParam("nullable", nullable)
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("propertyId")
+
+  private fun addReferenceProperty(appId: String, versionId: String, entityId: String, name: String, targetEntityId: String): String =
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", name)
+      .formParam("type", "REF")
+      .formParam("nullable", false)
+      .formParam("targetEntityId", targetEntityId)
       .`when`()
       .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
       .then()
@@ -605,5 +627,87 @@ class UserImportResourceTests {
       .extract().body().asString()
 
     assertTrue(tableHtml.contains("data-testid=\"no-imports-message\""), "Expected the import document to have been deleted after accepting the dry run")
+  }
+
+  @Test
+  fun `reference lookup resolves a mapped REF property to the id of the matching referenced entity`() {
+    val appName = "Import Lookup App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val companyEntityId = addEntity(appId, versionId, "Company")
+    val codePropertyId = addProperty(appId, versionId, companyEntityId, "Code", "STRING", nullable = false)
+    val contactEntityId = addEntity(appId, versionId, "Contact")
+    val namePropertyId = addProperty(appId, versionId, contactEntityId, "Name", "STRING", nullable = false)
+    val companyPropertyId = addReferenceProperty(appId, versionId, contactEntityId, "Company", companyEntityId)
+    val installedAppId = publishAndInstall(appId, appName)
+
+    val companyAppDataId = AppDataId(UUID.randomUUID().toString())
+    appDataRepository.save(
+      AppData(
+        id = companyAppDataId,
+        userId = "test-import-trigger-user",
+        installedAppId = InstalledAppId(installedAppId),
+        appVersion = VersionNumber("1.0.0"),
+        entityType = EntityDefinitionId(companyEntityId),
+        objectVersion = 1,
+        createdAt = Instant.now(),
+        lastChangedAt = Instant.now(),
+        data = mapOf(codePropertyId to "ACME"),
+      ),
+    )
+
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn("""{"items":[{"name":"Alice","companyCode":"ACME"}]}""".right())
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body(
+        """
+        {
+          "name": "Contact Mapping",
+          "type": "FIND",
+          "targetEntityDefinitionId": "$contactEntityId",
+          "fieldMappings": [
+            { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
+            {
+              "targetPropertyId": "$companyPropertyId", "sourcePath": null, "conversion": "NONE", "fallbackValue": null,
+              "referenceLookup": { "criteria": [ { "targetPropertyId": "$codePropertyId", "sourcePath": "companyCode" } ] }
+            }
+          ]
+        }
+        """.trimIndent(),
+      )
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val mappingHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/imports/$importId/mapping?entityDefinitionId=$contactEntityId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import document to be READY once the reference lookup is fully configured")
+
+    given()
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/dry-run/accept")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val savedContact = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId)).single()
+    assertTrue(savedContact.data[companyPropertyId] == companyAppDataId.value, "Expected the Contact's Company reference to resolve to the seeded Company's id")
   }
 }
