@@ -129,6 +129,24 @@ enum class ImportError(override val code: String) : DomainError {
   ;
 }
 
+/**
+ * Carries the technical reason a source URL was rejected (malformed, unsupported scheme, unresolvable host,
+ * disallowed target address, ...) alongside the generic [ImportError.INVALID_URL] code, so the UI can show it
+ * to the user for debugging instead of only a generic message.
+ */
+data class ImportInvalidUrlError(val detail: String) : DomainError {
+  override val code: String = ImportError.INVALID_URL.code
+}
+
+/**
+ * Carries the technical reason fetching the source URL failed (HTTP status, timeout, connection error, ...)
+ * alongside the generic [ImportError.FETCH_FAILED] code, so the UI can show it to the user for debugging
+ * instead of only a generic message.
+ */
+data class ImportFetchFailedError(val detail: String) : DomainError {
+  override val code: String = ImportError.FETCH_FAILED.code
+}
+
 data class AppDataConstraintViolationError(
   val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
   val pathedViolations: List<PathedConstraintViolation> = emptyList(),

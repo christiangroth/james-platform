@@ -5,7 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
+import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.error.ImportFetchFailedError
+import de.chrgroth.james.platform.domain.error.ImportInvalidUrlError
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -197,7 +200,7 @@ class UserImportResource {
       return Response.ok(DeveloperApiResult(false, userMsg.userImportTokenRequiredError())).build()
     }
     return importPort.triggerImport(userId, installedAppId, sourceUrl, bearerToken).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
     )
   }
@@ -493,6 +496,12 @@ class UserImportResource {
     ImportError.MAPPING_PROPERTY_NOT_FOUND.code -> userMsg.userImportMappingPropertyNotFoundError()
     ImportError.IMPORT_DOCUMENT_NOT_READY.code -> userMsg.userImportDocumentNotReadyError()
     else -> msg.commonUnexpectedError()
+  }
+
+  private fun importErrorDetails(error: DomainError): List<String>? = when (error) {
+    is ImportInvalidUrlError -> listOf(error.detail)
+    is ImportFetchFailedError -> listOf(error.detail)
+    else -> null
   }
 
   companion object {

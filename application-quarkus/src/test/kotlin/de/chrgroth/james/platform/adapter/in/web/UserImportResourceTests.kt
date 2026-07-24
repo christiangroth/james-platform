@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.error.ImportFetchFailedError
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
@@ -221,6 +222,24 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
+  }
+
+  @Test
+  fun `trigger import reports the technical fetch failure detail`() {
+    val installedAppId = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn(ImportFetchFailedError("Server responded with HTTP status 503.").left())
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+      .body("errorDetails[0]", equalTo("Server responded with HTTP status 503."))
   }
 
   @Test

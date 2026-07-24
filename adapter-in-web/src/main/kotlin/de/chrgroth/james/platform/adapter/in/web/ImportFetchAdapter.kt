@@ -5,6 +5,8 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.error.ImportFetchFailedError
+import de.chrgroth.james.platform.domain.error.ImportInvalidUrlError
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -38,27 +40,27 @@ class ImportFetchAdapter : ImportFetchPort {
       URI.create(url)
     } catch (e: Exception) {
       logger.warn { "Import fetch rejected: malformed URL" }
-      return ImportError.INVALID_URL.left()
+      return ImportInvalidUrlError("Malformed URL: ${e.message}").left()
     }
     val scheme = uri.scheme?.lowercase()
     if (scheme != "http" && scheme != "https") {
       logger.warn { "Import fetch rejected: unsupported scheme: $scheme" }
-      return ImportError.INVALID_URL.left()
+      return ImportInvalidUrlError("Unsupported URL scheme '${scheme ?: uri}'. Only http and https are allowed.").left()
     }
     val host = uri.host
     if (host.isNullOrBlank()) {
       logger.warn { "Import fetch rejected: missing host in URL" }
-      return ImportError.INVALID_URL.left()
+      return ImportInvalidUrlError("URL has no host.").left()
     }
     val addresses = try {
       InetAddress.getAllByName(host)
     } catch (e: Exception) {
       logger.warn { "Import fetch rejected: could not resolve host: $host" }
-      return ImportError.INVALID_URL.left()
+      return ImportInvalidUrlError("Host could not be resolved: $host").left()
     }
     if (addresses.isEmpty() || addresses.any { isBlockedAddress(it) }) {
       logger.warn { "Import fetch rejected: host resolves to a blocked address range: $host" }
-      return ImportError.INVALID_URL.left()
+      return ImportInvalidUrlError("Host '$host' resolves to a disallowed address range (e.g. loopback, link-local or private network).").left()
     }
     return uri.right()
   }
@@ -82,7 +84,7 @@ class ImportFetchAdapter : ImportFetchPort {
     response.body().use { input ->
       if (response.statusCode() !in HTTP_OK_RANGE) {
         logger.warn { "Import fetch failed with status ${response.statusCode()} for url: $uri" }
-        return@use ImportError.FETCH_FAILED.left()
+        return@use ImportFetchFailedError("Server responded with HTTP status ${response.statusCode()}.").left()
       }
       val buffer = ByteArrayOutputStream()
       val chunk = ByteArray(READ_BUFFER_SIZE)
@@ -101,7 +103,7 @@ class ImportFetchAdapter : ImportFetchPort {
     }
   } catch (e: Exception) {
     logger.warn(e) { "Import fetch failed for url: $uri" }
-    ImportError.FETCH_FAILED.left()
+    ImportFetchFailedError("${e::class.simpleName}: ${e.message ?: "no further details"}").left()
   }
 
   companion object : KLogging() {

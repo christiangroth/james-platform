@@ -4,6 +4,8 @@ import arrow.core.Either
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.error.ImportFetchFailedError
+import de.chrgroth.james.platform.domain.error.ImportInvalidUrlError
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -24,35 +26,45 @@ class ImportFetchAdapterTests {
   fun `fetch rejects loopback host`() {
     val result = adapter.fetch("http://127.0.0.1:1/data", "token")
     assertThat(result.isLeft()).isTrue()
-    assertThat((result as Either.Left).value).isEqualTo(ImportError.INVALID_URL)
+    val error = (result as Either.Left).value
+    assertThat(error.code).isEqualTo(ImportError.INVALID_URL.code)
+    assertThat((error as ImportInvalidUrlError).detail).isNotBlank()
   }
 
   @Test
   fun `fetch rejects localhost hostname`() {
     val result = adapter.fetch("http://localhost:1/data", "token")
     assertThat(result.isLeft()).isTrue()
-    assertThat((result as Either.Left).value).isEqualTo(ImportError.INVALID_URL)
+    val error = (result as Either.Left).value
+    assertThat(error.code).isEqualTo(ImportError.INVALID_URL.code)
+    assertThat((error as ImportInvalidUrlError).detail).isNotBlank()
   }
 
   @Test
   fun `fetch rejects cloud metadata address`() {
     val result = adapter.fetch("http://169.254.169.254/latest/meta-data", "token")
     assertThat(result.isLeft()).isTrue()
-    assertThat((result as Either.Left).value).isEqualTo(ImportError.INVALID_URL)
+    val error = (result as Either.Left).value
+    assertThat(error.code).isEqualTo(ImportError.INVALID_URL.code)
+    assertThat((error as ImportInvalidUrlError).detail).isNotBlank()
   }
 
   @Test
   fun `fetch rejects unsupported scheme`() {
     val result = adapter.fetch("ftp://example.com/data", "token")
     assertThat(result.isLeft()).isTrue()
-    assertThat((result as Either.Left).value).isEqualTo(ImportError.INVALID_URL)
+    val error = (result as Either.Left).value
+    assertThat(error.code).isEqualTo(ImportError.INVALID_URL.code)
+    assertThat((error as ImportInvalidUrlError).detail).contains("ftp")
   }
 
   @Test
   fun `fetch rejects malformed url`() {
     val result = adapter.fetch("not a url", "token")
     assertThat(result.isLeft()).isTrue()
-    assertThat((result as Either.Left).value).isEqualTo(ImportError.INVALID_URL)
+    val error = (result as Either.Left).value
+    assertThat(error.code).isEqualTo(ImportError.INVALID_URL.code)
+    assertThat((error as ImportInvalidUrlError).detail).isNotBlank()
   }
 
   @Test
@@ -82,7 +94,9 @@ class ImportFetchAdapterTests {
     val result = adapter.performRequest(URI.create("http://127.0.0.1:${httpServer.address.port}/data"), "token")
 
     assertThat(result.isLeft()).isTrue()
-    assertThat((result as Either.Left).value).isEqualTo(ImportError.FETCH_FAILED)
+    val error = (result as Either.Left).value
+    assertThat(error.code).isEqualTo(ImportError.FETCH_FAILED.code)
+    assertThat((error as ImportFetchFailedError).detail).contains("500")
   }
 
   @Test
