@@ -3,11 +3,17 @@ package de.chrgroth.james.platform.domain.imports
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.AppDataId
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
+import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
@@ -15,7 +21,9 @@ import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.MappingView
+import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
@@ -34,6 +42,8 @@ class ImportService(
   private val importFetch: ImportFetchPort,
   private val tokenEncryption: TokenEncryptionPort,
   private val appVersionRepository: AppVersionRepositoryPort,
+  private val appDataRepository: AppDataRepositoryPort,
+  private val propertyConstraint: PropertyConstraintPort,
 ) : ImportPort {
 
   override fun listImportDocuments(userId: String, installedAppId: String): Either<DomainError, List<ImportDocument>> {
@@ -210,6 +220,93 @@ class ImportService(
     importDocumentRepository.save(updated)
     logger.info { "Mapping updated: importDocumentId=$importDocumentId status=${updated.status}" }
     return MappingView(updated, entityDefinitions, validation).right()
+  }
+
+  override fun dryRun(userId: String, installedAppId: String, importDocumentId: String): Either<DomainError, DryRunReport> {
+    val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
+      logger.warn { "Dry run failed: installed app not found: $installedAppId for user: $userId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val existing = importDocumentRepository.findById(ImportDocumentId(importDocumentId))
+    if (existing == null || existing.installedAppId != installedApp.id) {
+      logger.warn { "Dry run failed: import document not found: $importDocumentId for installedAppId: $installedAppId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_FOUND.left()
+    }
+    val (mapping, entityDefinition) = readyMappingAndEntity(existing, installedApp) ?: run {
+      logger.warn { "Dry run failed: import document not ready: $importDocumentId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_READY.left()
+    }
+
+    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp.id)
+    logger.info { "Dry run executed: importDocumentId=$importDocumentId total=${objects.size} invalid=${objects.count { !it.isValid }}" }
+    return DryRunReport(existing.id, objects).right()
+  }
+
+  override fun acceptDryRun(userId: String, installedAppId: String, importDocumentId: String): Either<DomainError, DryRunAcceptResult> {
+    val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
+      logger.warn { "Accept dry run failed: installed app not found: $installedAppId for user: $userId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val existing = importDocumentRepository.findById(ImportDocumentId(importDocumentId))
+    if (existing == null || existing.installedAppId != installedApp.id) {
+      logger.warn { "Accept dry run failed: import document not found: $importDocumentId for installedAppId: $installedAppId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_FOUND.left()
+    }
+    val (mapping, entityDefinition) = readyMappingAndEntity(existing, installedApp) ?: run {
+      logger.warn { "Accept dry run failed: import document not ready: $importDocumentId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_READY.left()
+    }
+
+    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp.id)
+    val now = Instant.now()
+    var savedCount = 0
+    for (obj in objects.filter { it.isValid }) {
+      val data = entityDefinition.properties.associate { it.id.value to obj.targetData[it.id] }
+      appDataRepository.save(
+        AppData(
+          id = AppDataId(UUID.randomUUID().toString()),
+          userId = userId,
+          installedAppId = installedApp.id,
+          appVersion = installedApp.installedVersionNumber,
+          entityType = entityDefinition.id,
+          objectVersion = 1,
+          createdAt = now,
+          lastChangedAt = now,
+          data = data,
+        ),
+      )
+      savedCount++
+    }
+    val discardedCount = objects.size - savedCount
+
+    importDocumentRepository.delete(existing.id)
+    logger.info { "Dry run accepted: importDocumentId=$importDocumentId saved=$savedCount discarded=$discardedCount" }
+    return DryRunAcceptResult(savedCount, discardedCount).right()
+  }
+
+  private fun readyMappingAndEntity(existing: ImportDocument, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
+    if (existing.status != ImportStatus.READY) return null
+    val mapping = existing.mapping ?: return null
+    val entityDefinition = entityDefinitionsOf(installedApp).find { it.id == mapping.targetEntityDefinitionId } ?: return null
+    return mapping to entityDefinition
+  }
+
+  private fun executeDryRun(existing: ImportDocument, mapping: Mapping, entityDefinition: EntityDefinition, installedAppId: InstalledAppId) =
+    DryRunExecutor.execute(
+      records = recordsAt(existing),
+      mapping = mapping,
+      entityDefinition = entityDefinition,
+      existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityDefinition.id),
+      propertyConstraint = propertyConstraint,
+    )
+
+  private fun recordsAt(existing: ImportDocument): List<JsonNode> {
+    val path = existing.selectedDataPath ?: return emptyList()
+    var current = objectMapper.readTree(existing.payload)
+    for (segment in path.split(".")) {
+      current = current.get(segment) ?: return emptyList()
+    }
+    return current.toList()
   }
 
   private fun entityDefinitionsOf(installedApp: InstalledApp) =

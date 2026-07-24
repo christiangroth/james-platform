@@ -125,6 +125,7 @@ enum class ImportError(override val code: String) : DomainError {
   BLANK_MAPPING_NAME("IMPORT-014"),
   ENTITY_DEFINITION_NOT_FOUND("IMPORT-015"),
   MAPPING_PROPERTY_NOT_FOUND("IMPORT-016"),
+  IMPORT_DOCUMENT_NOT_READY("IMPORT-017"),
   ;
 }
 

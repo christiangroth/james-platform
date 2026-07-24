@@ -14,7 +14,10 @@
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{user:userImportMappingTitle()}</h1>
             <span class="badge border-0 app-badge-processing" data-testid="mapping-status">{statusLabel}</span>
-            <a href="/ui/user/apps/{info.installedAppId}/imports" class="btn btn-app-secondary btn-sm ms-auto" data-testid="back-to-imports-link">{user:userImportMappingBackToImportsLabel()}</a>
+            {#if isReady}
+            <a href="/ui/user/apps/{info.installedAppId}/imports/{importDocumentId}/dry-run" class="btn btn-app-primary btn-sm ms-auto" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+            {/if}
+            <a href="/ui/user/apps/{info.installedAppId}/imports" class="btn btn-app-secondary btn-sm {#if !isReady}ms-auto{/if}" data-testid="back-to-imports-link">{user:userImportMappingBackToImportsLabel()}</a>
         </div>
 
         <div id="mapping-message" class="d-none mb-4" role="alert"></div>

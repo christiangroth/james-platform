@@ -3,6 +3,8 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
+import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
+import de.chrgroth.james.platform.domain.model.app.DURATION_FORMAT_HINT
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -150,4 +152,27 @@ object PropertyLabelTemplateExtensions {
   /** Same as [constraintHint], but for a LIST property's item constraints. */
   @JvmStatic
   fun itemConstraintHint(property: Property): String = constraintHintFor(property.itemConstraints)
+
+  /** Returns a translated, human-readable message for a single constraint violation (e.g. when reporting why an `AppData` value or a dry-run object was rejected). */
+  fun constraintViolationMessage(violation: PropertyConstraintViolation): String = when (violation) {
+    is PropertyConstraintViolation.UniqueKeyViolation -> userMessages.userUniqueKeyViolationError()
+    is PropertyConstraintViolation.MinValueViolation -> userMessages.userMinValueViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxValueViolation -> userMessages.userMaxValueViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinLengthViolation -> userMessages.userMinLengthViolationError(violation.min)
+    is PropertyConstraintViolation.MaxLengthViolation -> userMessages.userMaxLengthViolationError(violation.max)
+    is PropertyConstraintViolation.PatternViolation -> userMessages.userPatternViolationError(violation.regex)
+    is PropertyConstraintViolation.MinSizeViolation -> userMessages.userMinSizeViolationError(violation.min)
+    is PropertyConstraintViolation.MaxSizeViolation -> userMessages.userMaxSizeViolationError(violation.max)
+    is PropertyConstraintViolation.InvalidReferenceViolation -> userMessages.userInvalidReferenceViolationError()
+    is PropertyConstraintViolation.MinDateViolation -> userMessages.userMinDateViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxDateViolation -> userMessages.userMaxDateViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinTimeViolation -> userMessages.userMinTimeViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxTimeViolation -> userMessages.userMaxTimeViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinDatetimeViolation -> userMessages.userMinDatetimeViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxDatetimeViolation -> userMessages.userMaxDatetimeViolationError(violation.max.toString())
+    is PropertyConstraintViolation.MinDurationViolation -> userMessages.userMinDurationViolationError(violation.min.toString())
+    is PropertyConstraintViolation.MaxDurationViolation -> userMessages.userMaxDurationViolationError(violation.max.toString())
+    is PropertyConstraintViolation.StepViolation -> userMessages.userStepViolationError(violation.step.toString())
+    is PropertyConstraintViolation.InvalidDurationFormatViolation -> userMessages.userInvalidDurationFormatViolationError(DURATION_FORMAT_HINT)
+  }
 }

@@ -67,6 +67,9 @@
                                     {/if}
                                 </td>
                                 <td class="text-end">
+                                    {#if doc.readyForDryRun}
+                                    <a href="/ui/user/apps/{doc.installedAppId}/imports/{doc.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+                                    {/if}
                                     {#if doc.mappable}
                                     <a href="/ui/user/apps/{doc.installedAppId}/imports/{doc.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
                                     {/if}
