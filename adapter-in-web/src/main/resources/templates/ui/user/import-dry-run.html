@@ -1,0 +1,154 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {info.appName} – {user:userImportDryRunTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-dry-run">{user:userImportDryRunTitle()}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="dry-run-title">{user:userImportDryRunTitle()}</h1>
+            <a href="/ui/user/apps/{info.installedAppId}/imports/{importDocumentId}/mapping" class="btn btn-app-secondary btn-sm ms-auto" data-testid="back-to-mapping-link">{user:userImportDryRunBackToMappingLabel()}</a>
+        </div>
+
+        <div id="dry-run-message" class="d-none mb-4" role="alert"></div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-auto">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold" data-testid="total-count">{totalCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunTotalLabel()}</div>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold text-success" data-testid="valid-count">{validCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunValidLabel()}</div>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold text-danger" data-testid="invalid-count">{invalidCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunInvalidLabel()}</div>
+                </div>
+            </div>
+        </div>
+
+        {#if invalidObjects.isEmpty}
+        <div class="card app-card p-4 mb-4">
+            <p class="mb-0" data-testid="all-valid-message">{user:userImportDryRunAllValidMessage()}</p>
+        </div>
+        {#else}
+        <h2 class="fs-6 fw-semibold" data-testid="invalid-objects-heading">{user:userImportDryRunInvalidObjectsHeading()}</h2>
+        <div class="accordion mb-4" id="invalidObjectsAccordion">
+            {#for object in invalidObjects}
+            <div class="accordion-item" data-testid="dry-run-object">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#object-{object_index}" data-testid="dry-run-object-toggle">
+                        {user:userImportDryRunObjectLabel(object.index)}
+                    </button>
+                </h2>
+                <div id="object-{object_index}" class="accordion-collapse collapse" data-bs-parent="#invalidObjectsAccordion">
+                    <div class="accordion-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="app-section-label small mb-1">{user:userImportDryRunColSourceData()}</div>
+                                <pre class="mb-0 small" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;overflow-x:auto;color:var(--color-code-text);max-height:300px;" data-testid="dry-run-source-data">{object.sourceDataJson}</pre>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="app-section-label small mb-1">{user:userImportDryRunColTargetObject()}</div>
+                                <table class="table table-sm mb-0" data-testid="dry-run-target-object">
+                                    <tbody>
+                                        {#for property in object.properties}
+                                        <tr class="{#if property.hasIssue}table-danger{/if}" data-testid="dry-run-property-row">
+                                            <td class="fw-semibold">{property.name}<div class="app-section-label small">{property.typeLabel}</div></td>
+                                            <td data-testid="dry-run-property-value">{property.value}</td>
+                                        </tr>
+                                        {#for issue in property.issues}
+                                        <tr>
+                                            <td colspan="2" class="small text-danger" data-testid="dry-run-issue">
+                                                {issue.message}
+                                                {#if issue.staticallyChecked}
+                                                <span class="badge border-0 app-badge-processing ms-1" data-testid="statically-checked-badge">{user:userImportDryRunStaticallyCheckedBadge()}</span>
+                                                {#else}
+                                                <span class="badge border-0 app-badge-danger ms-1" data-testid="new-check-badge">{user:userImportDryRunNewCheckBadge()}</span>
+                                                {/if}
+                                            </td>
+                                        </tr>
+                                        {/for}
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {/for}
+        </div>
+        {/if}
+
+        <div class="d-flex">
+            <button type="button" class="btn btn-app-primary ms-auto" data-bs-toggle="modal" data-bs-target="#acceptDryRunModal" data-testid="accept-dry-run-button">{user:userImportDryRunAcceptButton()}</button>
+        </div>
+    </div>
+
+    <!-- Accept Dry-Run Modal -->
+    <div class="modal fade" id="acceptDryRunModal" tabindex="-1" aria-labelledby="acceptDryRunModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="acceptDryRunModalLabel">{user:userImportDryRunAcceptModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="accept-dry-run-modal-body">{user:userImportDryRunAcceptConfirm(validCount, invalidCount)}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-primary" id="confirmAcceptDryRunButton" data-testid="confirm-accept-dry-run-button">{user:userImportDryRunAcceptButton()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var installedAppId = '{info.installedAppId}';
+            var importDocumentId = '{importDocumentId}';
+            var basePath = '/ui/user/apps/' + encodeURIComponent(installedAppId) + '/imports/' + encodeURIComponent(importDocumentId) + '/dry-run';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('dry-run-message');
+
+            function showMessage(ok, message) {
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+            }
+
+            var confirmAcceptDryRunButton = document.getElementById('confirmAcceptDryRunButton');
+            if (confirmAcceptDryRunButton) {
+                confirmAcceptDryRunButton.addEventListener('click', async function () {
+                    try {
+                        var response = await fetch(basePath + '/accept', { method: 'POST' });
+                        var result = await response.json();
+                        bootstrap.Modal.getInstance(document.getElementById('acceptDryRunModal')).hide();
+                        showMessage(result.ok, result.message);
+                        if (result.ok && result.redirectUrl) {
+                            setTimeout(function () { window.location.href = result.redirectUrl; }, 600);
+                        }
+                    } catch (e) {
+                        showMessage(false, networkErrorMessage);
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}

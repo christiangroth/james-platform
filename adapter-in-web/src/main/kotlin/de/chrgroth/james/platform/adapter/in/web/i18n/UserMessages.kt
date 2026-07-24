@@ -237,6 +237,9 @@ interface UserMessages {
   @Message
   fun userImportMappingPropertyNotFoundError(): String
 
+  @Message
+  fun userImportDocumentNotReadyError(): String
+
   // import mapping page
   @Message
   fun userImportMappingTitle(): String
@@ -369,6 +372,58 @@ interface UserMessages {
 
   @Message
   fun userImportSchemaTypeNull(): String
+
+  // import dry-run page
+  @Message
+  fun userImportDryRunTitle(): String
+
+  @Message
+  fun userImportDryRunLinkLabel(): String
+
+  @Message
+  fun userImportDryRunBackToMappingLabel(): String
+
+  @Message
+  fun userImportDryRunTotalLabel(): String
+
+  @Message
+  fun userImportDryRunValidLabel(): String
+
+  @Message
+  fun userImportDryRunInvalidLabel(): String
+
+  @Message
+  fun userImportDryRunAllValidMessage(): String
+
+  @Message
+  fun userImportDryRunInvalidObjectsHeading(): String
+
+  @Message
+  fun userImportDryRunObjectLabel(index: Int): String
+
+  @Message
+  fun userImportDryRunColSourceData(): String
+
+  @Message
+  fun userImportDryRunColTargetObject(): String
+
+  @Message
+  fun userImportDryRunStaticallyCheckedBadge(): String
+
+  @Message
+  fun userImportDryRunNewCheckBadge(): String
+
+  @Message
+  fun userImportDryRunAcceptButton(): String
+
+  @Message
+  fun userImportDryRunAcceptModalTitle(): String
+
+  @Message
+  fun userImportDryRunAcceptConfirm(validCount: Int, invalidCount: Int): String
+
+  @Message
+  fun userImportDryRunAcceptedMessage(savedCount: Int, discardedCount: Int): String
 
   // app data new / edit (shared form fields)
   @Message

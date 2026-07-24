@@ -509,4 +509,82 @@ class UserImportResourceTests {
       .statusCode(200)
       .body("ok", equalTo(false))
   }
+
+  private fun readyImportWithOneValidAndOneInvalidRecord(): Pair<InstalledAppWithEntity, String> {
+    val app = installAppWithMandatoryStringProperty()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn("""{"items":[{"name":"Alice"},{"name":null}]}""".right())
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/${app.installedAppId}/imports")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body(
+        """
+        {
+          "name": "Contact Mapping",
+          "type": "FIND",
+          "targetEntityDefinitionId": "${app.entityId}",
+          "fieldMappings": [
+            { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
+          ]
+        }
+        """.trimIndent(),
+      )
+      .`when`()
+      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    return app to importId
+  }
+
+  @Test
+  fun `dry run page reports one valid and one invalid object with the missing mandatory value highlighted`() {
+    val (app, importId) = readyImportWithOneValidAndOneInvalidRecord()
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/apps/${app.installedAppId}/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"valid-count\">1<"), "Expected exactly one valid object")
+    assertTrue(html.contains("data-testid=\"invalid-count\">1<"), "Expected exactly one invalid object")
+    assertTrue(html.contains("data-testid=\"dry-run-object\""), "Expected the invalid object to be rendered")
+    assertTrue(html.contains("data-testid=\"dry-run-issue\""), "Expected the missing mandatory value issue to be rendered")
+    assertTrue(html.contains("data-testid=\"statically-checked-badge\""), "Expected the missing mandatory value issue to be flagged as already checked statically")
+  }
+
+  @Test
+  fun `accepting a dry run saves the valid object, discards the invalid one and deletes the import document`() {
+    val (app, importId) = readyImportWithOneValidAndOneInvalidRecord()
+
+    given()
+      .`when`()
+      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/dry-run/accept")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+      .body("redirectUrl", equalTo("/ui/user/apps/${app.installedAppId}/imports"))
+
+    val tableHtml = given()
+      .`when`()
+      .get("/ui/user/apps/${app.installedAppId}/imports/table")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(tableHtml.contains("data-testid=\"no-imports-message\""), "Expected the import document to have been deleted after accepting the dry run")
+  }
 }

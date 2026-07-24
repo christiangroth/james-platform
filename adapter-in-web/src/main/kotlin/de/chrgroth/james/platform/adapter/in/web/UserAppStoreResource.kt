@@ -4,7 +4,6 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
-import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
@@ -12,7 +11,6 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
-import de.chrgroth.james.platform.domain.model.app.DURATION_FORMAT_HINT
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
@@ -339,9 +337,9 @@ class UserAppStoreResource {
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
           val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
-            violations.joinToString(" ") { constraintViolationMessage(it) }
+            violations.joinToString(" ") { PropertyLabelTemplateExtensions.constraintViolationMessage(it) }
           }
-          val errorDetails = error.pathedViolations.map { "${it.path}: ${constraintViolationMessage(it.violation)}" }
+          val errorDetails = error.pathedViolations.map { "${it.path}: ${PropertyLabelTemplateExtensions.constraintViolationMessage(it.violation)}" }
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors, errorDetails = errorDetails)).build()
         } else {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
@@ -446,9 +444,9 @@ class UserAppStoreResource {
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
           val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
-            violations.joinToString(" ") { constraintViolationMessage(it) }
+            violations.joinToString(" ") { PropertyLabelTemplateExtensions.constraintViolationMessage(it) }
           }
-          val errorDetails = error.pathedViolations.map { "${it.path}: ${constraintViolationMessage(it.violation)}" }
+          val errorDetails = error.pathedViolations.map { "${it.path}: ${PropertyLabelTemplateExtensions.constraintViolationMessage(it.violation)}" }
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code), fieldErrors = fieldErrors, errorDetails = errorDetails)).build()
         } else {
           Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build()
@@ -543,28 +541,6 @@ class UserAppStoreResource {
     AppDataError.APP_DATA_NOT_FOUND.code -> userMsg.userAppDataNotFoundError()
     AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> userMsg.userReferencedByNonNullablePropertyError()
     else -> msg.commonUnexpectedError()
-  }
-
-  private fun constraintViolationMessage(violation: PropertyConstraintViolation): String = when (violation) {
-    is PropertyConstraintViolation.UniqueKeyViolation -> userMsg.userUniqueKeyViolationError()
-    is PropertyConstraintViolation.MinValueViolation -> userMsg.userMinValueViolationError(violation.min.toString())
-    is PropertyConstraintViolation.MaxValueViolation -> userMsg.userMaxValueViolationError(violation.max.toString())
-    is PropertyConstraintViolation.MinLengthViolation -> userMsg.userMinLengthViolationError(violation.min)
-    is PropertyConstraintViolation.MaxLengthViolation -> userMsg.userMaxLengthViolationError(violation.max)
-    is PropertyConstraintViolation.PatternViolation -> userMsg.userPatternViolationError(violation.regex)
-    is PropertyConstraintViolation.MinSizeViolation -> userMsg.userMinSizeViolationError(violation.min)
-    is PropertyConstraintViolation.MaxSizeViolation -> userMsg.userMaxSizeViolationError(violation.max)
-    is PropertyConstraintViolation.InvalidReferenceViolation -> userMsg.userInvalidReferenceViolationError()
-    is PropertyConstraintViolation.MinDateViolation -> userMsg.userMinDateViolationError(violation.min.toString())
-    is PropertyConstraintViolation.MaxDateViolation -> userMsg.userMaxDateViolationError(violation.max.toString())
-    is PropertyConstraintViolation.MinTimeViolation -> userMsg.userMinTimeViolationError(violation.min.toString())
-    is PropertyConstraintViolation.MaxTimeViolation -> userMsg.userMaxTimeViolationError(violation.max.toString())
-    is PropertyConstraintViolation.MinDatetimeViolation -> userMsg.userMinDatetimeViolationError(violation.min.toString())
-    is PropertyConstraintViolation.MaxDatetimeViolation -> userMsg.userMaxDatetimeViolationError(violation.max.toString())
-    is PropertyConstraintViolation.MinDurationViolation -> userMsg.userMinDurationViolationError(violation.min.toString())
-    is PropertyConstraintViolation.MaxDurationViolation -> userMsg.userMaxDurationViolationError(violation.max.toString())
-    is PropertyConstraintViolation.StepViolation -> userMsg.userStepViolationError(violation.step.toString())
-    is PropertyConstraintViolation.InvalidDurationFormatViolation -> userMsg.userInvalidDurationFormatViolationError(DURATION_FORMAT_HINT)
   }
 
   private fun applySortCriteria(
