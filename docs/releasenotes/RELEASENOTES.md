@@ -1,3 +1,12 @@
+# 0.70.0 (2026.07.24)
+
+## New Features
+* Detected import schemas now also record, per property, the observed minimum/maximum value for numbers and the frequency of occurring lengths for strings, laying the groundwork for validating source data against target constraints.
+
+
+
+---
+
 # 0.69.0 (2026.07.24)
 
 ## New Features
