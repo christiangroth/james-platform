@@ -15,6 +15,13 @@ class ImportDocumentDocument {
   lateinit var encryptedBearerToken: String
   lateinit var status: String
   lateinit var payload: String
+  var detectedDataPaths: List<DataPathDocument> = emptyList()
+  var selectedDataPath: String? = null
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
+}
+
+class DataPathDocument {
+  lateinit var path: String
+  var size: Int = 0
 }

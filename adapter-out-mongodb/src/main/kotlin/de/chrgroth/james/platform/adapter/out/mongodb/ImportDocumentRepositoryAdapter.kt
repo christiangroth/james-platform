@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
@@ -50,8 +51,15 @@ class ImportDocumentRepositoryAdapter(
     encryptedBearerToken = encryptedBearerToken,
     status = ImportStatus.valueOf(status),
     payload = payload,
+    detectedDataPaths = detectedDataPaths.map { it.toDomain() },
+    selectedDataPath = selectedDataPath,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
+  )
+
+  private fun DataPathDocument.toDomain() = DataPath(
+    path = path,
+    size = size,
   )
 
   private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
@@ -62,8 +70,15 @@ class ImportDocumentRepositoryAdapter(
     doc.encryptedBearerToken = encryptedBearerToken
     doc.status = status.name
     doc.payload = payload
+    doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
+    doc.selectedDataPath = selectedDataPath
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
+  }
+
+  private fun DataPath.toDocument() = DataPathDocument().also { doc ->
+    doc.path = path
+    doc.size = size
   }
 
   companion object {

@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
@@ -25,9 +26,17 @@ import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
 
+data class DataPathRow(
+  val path: String,
+  val size: Int,
+)
+
 data class ImportDocumentRow(
   val id: String,
   val statusLabel: String,
+  val awaitingDataPathSelection: Boolean,
+  val detectedDataPaths: List<DataPathRow>,
+  val selectedDataPath: String?,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )
@@ -104,6 +113,25 @@ class UserImportResource {
   }
 
   @POST
+  @Path("/{importDocumentId}/select-path")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun selectDataPath(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("importDocumentId") importDocumentId: String,
+    @FormParam("dataPath") dataPath: String?,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    if (dataPath.isNullOrBlank()) {
+      return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
+    }
+    return importPort.selectDataPath(userId, installedAppId, importDocumentId, dataPath).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDataPathSelectedMessage())).build() },
+    )
+  }
+
+  @POST
   @Path("/{importDocumentId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteImport(
@@ -123,12 +151,21 @@ class UserImportResource {
   private fun ImportDocument.toRow() = ImportDocumentRow(
     id = id.value,
     statusLabel = statusLabel(status),
+    awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
+    detectedDataPaths = detectedDataPaths.map { it.toRow() },
+    selectedDataPath = selectedDataPath,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
 
+  private fun DataPath.toRow() = DataPathRow(
+    path = path,
+    size = size,
+  )
+
   private fun statusLabel(status: ImportStatus): String = when (status) {
     ImportStatus.DOWNLOADED -> userMsg.userImportStatusDownloaded()
+    ImportStatus.DATA_IDENTIFIED -> userMsg.userImportStatusDataIdentified()
   }
 
   private fun importErrorMessage(code: String): String = when (code) {
@@ -141,6 +178,9 @@ class UserImportResource {
     ImportError.NOT_A_JSON_OBJECT.code -> userMsg.userImportNotJsonObjectError()
     ImportError.RESPONSE_TOO_LARGE.code -> userMsg.userImportResponseTooLargeError()
     ImportError.IMPORT_DOCUMENT_NOT_FOUND.code -> userMsg.userImportDocumentNotFoundError()
+    ImportError.IMPORT_DOCUMENT_NOT_DOWNLOADED.code -> userMsg.userImportDocumentNotDownloadedError()
+    ImportError.BLANK_DATA_PATH.code -> userMsg.userImportBlankDataPathError()
+    ImportError.INVALID_DATA_PATH.code -> userMsg.userImportInvalidDataPathError()
     else -> msg.commonUnexpectedError()
   }
 }

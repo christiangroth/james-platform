@@ -35,6 +35,7 @@
                                 <th>{user:userImportColCreatedAt()}</th>
                                 <th>{user:userImportColLastActivity()}</th>
                                 <th>{user:userImportColStatus()}</th>
+                                <th>{user:userImportDataPathLabel()}</th>
                                 <th class="text-end">{user:userImportColActions()}</th>
                             </tr>
                         </thead>
@@ -44,6 +45,27 @@
                                 <td data-testid="import-created-at">{doc.createdAt.formatted}</td>
                                 <td data-testid="import-last-changed-at">{doc.lastChangedAt.formatted}</td>
                                 <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{doc.statusLabel}</span></td>
+                                <td data-testid="import-data-path">
+                                    {#if doc.awaitingDataPathSelection}
+                                    <form class="d-flex gap-2 align-items-start data-path-form" data-import-id="{doc.id}">
+                                        {#if doc.detectedDataPaths.isEmpty}
+                                        <div>
+                                            <input type="text" class="form-control form-control-sm app-form-control" name="dataPath" placeholder="{user:userImportDataPathManualLabel()}" required autocomplete="off" data-testid="data-path-input">
+                                            <div class="form-text">{user:userImportDataPathManualHint()}</div>
+                                        </div>
+                                        {#else}
+                                        <select class="form-select form-select-sm app-form-control" name="dataPath" required data-testid="data-path-select">
+                                            {#for candidate in doc.detectedDataPaths}
+                                            <option value="{candidate.path}">{candidate.path} ({user:userImportDataPathSizeLabel(candidate.size)})</option>
+                                            {/for}
+                                        </select>
+                                        {/if}
+                                        <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="data-path-submit">{user:userImportDataPathSelectButton()}</button>
+                                    </form>
+                                    {#else}
+                                    <span data-testid="selected-data-path">{doc.selectedDataPath}</span>
+                                    {/if}
+                                </td>
                                 <td class="text-end">
                                     <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{doc.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
                                         <i class="bi bi-trash" aria-hidden="true"></i>
@@ -171,6 +193,20 @@
                         await refreshTable();
                     }
                     showMessage(result.ok, result.message);
+                });
+            }
+
+            // Data path selection form submit (delegated, since rows are re-rendered after each refresh)
+            var importsTableContainer = document.getElementById('imports-table-container');
+            if (importsTableContainer) {
+                importsTableContainer.addEventListener('submit', async function (e) {
+                    var form = e.target.closest('.data-path-form');
+                    if (!form) { return; }
+                    e.preventDefault();
+                    var importId = form.getAttribute('data-import-id');
+                    var result = await fetchForm('POST', basePath + '/' + encodeURIComponent(importId) + '/select-path', new FormData(form));
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
                 });
             }
 
