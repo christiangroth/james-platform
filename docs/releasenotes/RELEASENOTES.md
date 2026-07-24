@@ -1,3 +1,13 @@
+# 0.72.1 (2026.07.24)
+
+## Bugfixes / Chore
+* Fixed import error messages being hidden behind the still-open "New Import" dialog instead of shown inside it.
+* Import errors now include the technical reason (e.g. HTTP status code or connection failure) so users can debug a failing import URL.
+
+
+
+---
+
 # 0.72.0 (2026.07.24)
 
 ## New Features
