@@ -123,6 +123,69 @@ interface UserMessages {
   @Message
   fun userNoImportsMessage(): String
 
+  @Message
+  fun userNewImportButtonLabel(): String
+
+  @Message
+  fun userImportUrlLabel(): String
+
+  @Message
+  fun userImportBearerTokenLabel(): String
+
+  @Message
+  fun userImportSubmitButton(): String
+
+  @Message
+  fun userImportColCreatedAt(): String
+
+  @Message
+  fun userImportColLastActivity(): String
+
+  @Message
+  fun userImportColStatus(): String
+
+  @Message
+  fun userImportColActions(): String
+
+  @Message
+  fun userImportStatusDownloaded(): String
+
+  @Message
+  fun userDeleteImportModalTitle(): String
+
+  @Message
+  fun userDeleteImportConfirm(): String
+
+  @Message
+  fun userImportCreatedMessage(): String
+
+  @Message
+  fun userImportDeletedMessage(): String
+
+  @Message
+  fun userImportUrlRequiredError(): String
+
+  @Message
+  fun userImportTokenRequiredError(): String
+
+  @Message
+  fun userImportInvalidUrlError(): String
+
+  @Message
+  fun userImportFetchFailedError(): String
+
+  @Message
+  fun userImportInvalidJsonError(): String
+
+  @Message
+  fun userImportNotJsonObjectError(): String
+
+  @Message
+  fun userImportResponseTooLargeError(): String
+
+  @Message
+  fun userImportDocumentNotFoundError(): String
+
   // app data new / edit (shared form fields)
   @Message
   fun userNewEntityTitle(name: String): String

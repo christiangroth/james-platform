@@ -14,6 +14,7 @@ class MongoIndexInitializer(
   private val appVersionDocumentRepository: AppVersionDocumentRepository,
   private val installedAppDocumentRepository: InstalledAppDocumentRepository,
   private val userDocumentRepository: UserDocumentRepository,
+  private val importDocumentDocumentRepository: ImportDocumentDocumentRepository,
 ) {
 
   fun onStartup(@Observes event: StartupEvent) {
@@ -48,6 +49,10 @@ class MongoIndexInitializer(
     // app_user: speed up findByUsername
     userDocumentRepository.mongoCollection().createIndex(
       Indexes.ascending(UserRepositoryAdapter.USERNAME_FIELD),
+    )
+    // import_document: speed up findAllByInstalledAppId
+    importDocumentDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ImportDocumentRepositoryAdapter.INSTALLED_APP_ID_FIELD),
     )
     logger.info { "MongoDB indexes ready." }
   }
