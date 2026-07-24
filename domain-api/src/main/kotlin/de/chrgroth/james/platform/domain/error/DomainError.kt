@@ -108,6 +108,19 @@ enum class AppDataError(override val code: String) : DomainError {
   ;
 }
 
+enum class ImportError(override val code: String) : DomainError {
+  INSTALLED_APP_NOT_FOUND("IMPORT-001"),
+  BLANK_URL("IMPORT-002"),
+  BLANK_BEARER_TOKEN("IMPORT-003"),
+  INVALID_URL("IMPORT-004"),
+  FETCH_FAILED("IMPORT-005"),
+  INVALID_JSON_RESPONSE("IMPORT-006"),
+  NOT_A_JSON_OBJECT("IMPORT-007"),
+  RESPONSE_TOO_LARGE("IMPORT-008"),
+  IMPORT_DOCUMENT_NOT_FOUND("IMPORT-009"),
+  ;
+}
+
 data class AppDataConstraintViolationError(
   val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
   val pathedViolations: List<PathedConstraintViolation> = emptyList(),

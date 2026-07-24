@@ -12,11 +12,190 @@
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="imports-title">{user:userImportsTitle()}</h1>
+            <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#newImportModal" data-testid="new-import-button">
+                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                {user:userNewImportButtonLabel()}
+            </button>
         </div>
 
-        <div class="card app-card p-4">
-            <p class="mb-0 app-section-label" data-testid="no-imports-message">{user:userNoImportsMessage()}</p>
+        <div id="imports-message" class="d-none mb-4" role="alert"></div>
+
+        <div id="imports-table-container">
+            {#fragment id="imports_table"}
+            {#if documents.isEmpty}
+            <div class="card app-card p-4">
+                <p class="mb-0 app-section-label" data-testid="no-imports-message">{user:userNoImportsMessage()}</p>
+            </div>
+            {#else}
+            <div class="card app-card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0 app-table" data-testid="imports-table">
+                        <thead>
+                            <tr>
+                                <th>{user:userImportColCreatedAt()}</th>
+                                <th>{user:userImportColLastActivity()}</th>
+                                <th>{user:userImportColStatus()}</th>
+                                <th class="text-end">{user:userImportColActions()}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for doc in documents}
+                            <tr data-testid="import-row">
+                                <td data-testid="import-created-at">{doc.createdAt.formatted}</td>
+                                <td data-testid="import-last-changed-at">{doc.lastChangedAt.formatted}</td>
+                                <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{doc.statusLabel}</span></td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{doc.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {/if}
+            {/fragment}
+        </div>
+    </div>
+
+    <!-- New Import Modal -->
+    <div class="modal fade" id="newImportModal" tabindex="-1" aria-labelledby="newImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newImportModalLabel">{user:userNewImportButtonLabel()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="newImportForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="importSourceUrl" class="form-label">{user:userImportUrlLabel()}</label>
+                            <input type="url" class="form-control app-form-control" id="importSourceUrl" name="sourceUrl" required autocomplete="off" data-testid="import-url-input">
+                        </div>
+                        <div class="mb-3">
+                            <label for="importBearerToken" class="form-label">{user:userImportBearerTokenLabel()}</label>
+                            <input type="password" class="form-control app-form-control" id="importBearerToken" name="bearerToken" required autocomplete="off" data-testid="import-token-input">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="import-submit-button">{user:userImportSubmitButton()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Import Modal -->
+    <div class="modal fade" id="deleteImportModal" tabindex="-1" aria-labelledby="deleteImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteImportModalLabel">{user:userDeleteImportModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="delete-import-modal-body">{user:userDeleteImportConfirm()}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteImportButton" data-testid="confirm-delete-import-button">{msg:commonDelete()}</button>
+                </div>
+            </div>
         </div>
     </div>
     {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var installedAppId = '{info.installedAppId}';
+            var basePath = '/ui/user/apps/' + encodeURIComponent(installedAppId) + '/imports';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('imports-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            async function refreshTable() {
+                try {
+                    var response = await fetch(basePath + '/table', { cache: 'no-store' });
+                    var html = await response.text();
+                    document.getElementById('imports-table-container').innerHTML = html;
+                } catch (e) {
+                    showMessage(false, networkErrorMessage);
+                }
+            }
+
+            async function fetchForm(method, url, formData) {
+                try {
+                    var response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(formData).toString()
+                    });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            async function fetchAction(method, url) {
+                try {
+                    var response = await fetch(url, { method: method });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            // New import form submit
+            var newImportForm = document.getElementById('newImportForm');
+            if (newImportForm) {
+                newImportForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var result = await fetchForm('POST', basePath, new FormData(this));
+                    if (result.ok) {
+                        bootstrap.Modal.getInstance(document.getElementById('newImportModal')).hide();
+                        this.reset();
+                        await refreshTable();
+                    }
+                    showMessage(result.ok, result.message);
+                });
+            }
+
+            // Delete import modal – remember which document to delete
+            var deleteImportModal = document.getElementById('deleteImportModal');
+            if (deleteImportModal) {
+                deleteImportModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var importId = trigger ? trigger.getAttribute('data-import-id') : '';
+                    deleteImportModal.setAttribute('data-import-id', importId);
+                });
+            }
+
+            // Delete import modal – confirm button submit
+            var confirmDeleteImportButton = document.getElementById('confirmDeleteImportButton');
+            if (confirmDeleteImportButton) {
+                confirmDeleteImportButton.addEventListener('click', async function () {
+                    var importId = deleteImportModal.getAttribute('data-import-id') || '';
+                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(importId) + '/delete');
+                    bootstrap.Modal.getInstance(deleteImportModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
 {/include}
