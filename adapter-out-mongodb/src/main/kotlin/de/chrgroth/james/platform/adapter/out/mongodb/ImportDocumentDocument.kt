@@ -35,6 +35,16 @@ class FieldMappingDocument {
   var sourcePath: String? = null
   lateinit var conversion: String
   var fallbackValue: String? = null
+  var referenceLookup: ReferenceLookupDocument? = null
+}
+
+class ReferenceLookupDocument {
+  var criteria: List<ReferenceLookupCriterionDocument> = emptyList()
+}
+
+class ReferenceLookupCriterionDocument {
+  lateinit var targetPropertyId: String
+  lateinit var sourcePath: String
 }
 
 class DataPathDocument {
