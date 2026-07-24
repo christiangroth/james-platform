@@ -35,6 +35,8 @@ class AppTemplateGlobals {
       instance.data("isDeveloper", isDeveloper)
       val isMonitoring = runCatching { securityIdentity.roles?.contains(UserRole.MONITORING.name) ?: false }.getOrDefault(false)
       instance.data("isMonitoring", isMonitoring)
+      val isDataImport = runCatching { securityIdentity.roles?.contains(UserRole.DATA_IMPORT.name) ?: false }.getOrDefault(false)
+      instance.data("isDataImport", isDataImport)
       val language = currentLanguage()
       instance.setLocale(language.locale)
       instance.data("currentLanguage", language.code)

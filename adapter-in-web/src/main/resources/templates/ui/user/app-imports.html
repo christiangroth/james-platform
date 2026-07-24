@@ -1,0 +1,22 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {info.appName} – {user:userImportsTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-imports">{user:userImportsTitle()}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="imports-title">{user:userImportsTitle()}</h1>
+        </div>
+
+        <div class="card app-card p-4">
+            <p class="mb-0 app-section-label" data-testid="no-imports-message">{user:userNoImportsMessage()}</p>
+        </div>
+    </div>
+    {/content}
+{/include}
