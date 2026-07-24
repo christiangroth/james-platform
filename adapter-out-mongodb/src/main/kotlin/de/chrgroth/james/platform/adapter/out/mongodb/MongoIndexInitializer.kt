@@ -54,6 +54,10 @@ class MongoIndexInitializer(
     importDocumentDocumentRepository.mongoCollection().createIndex(
       Indexes.ascending(ImportDocumentRepositoryAdapter.INSTALLED_APP_ID_FIELD),
     )
+    // import_document: speed up deleteAllLastChangedBefore
+    importDocumentDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ImportDocumentRepositoryAdapter.LAST_CHANGED_AT_FIELD),
+    )
     logger.info { "MongoDB indexes ready." }
   }
 

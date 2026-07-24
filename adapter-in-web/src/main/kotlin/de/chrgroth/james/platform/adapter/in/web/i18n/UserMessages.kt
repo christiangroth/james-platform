@@ -151,6 +151,27 @@ interface UserMessages {
   fun userImportStatusDownloaded(): String
 
   @Message
+  fun userImportStatusDataIdentified(): String
+
+  @Message
+  fun userImportDataPathLabel(): String
+
+  @Message
+  fun userImportDataPathSizeLabel(count: Int): String
+
+  @Message
+  fun userImportDataPathSelectButton(): String
+
+  @Message
+  fun userImportDataPathManualLabel(): String
+
+  @Message
+  fun userImportDataPathManualHint(): String
+
+  @Message
+  fun userImportSelectedDataPathLabel(): String
+
+  @Message
   fun userDeleteImportModalTitle(): String
 
   @Message
@@ -161,6 +182,9 @@ interface UserMessages {
 
   @Message
   fun userImportDeletedMessage(): String
+
+  @Message
+  fun userImportDataPathSelectedMessage(): String
 
   @Message
   fun userImportUrlRequiredError(): String
@@ -185,6 +209,15 @@ interface UserMessages {
 
   @Message
   fun userImportDocumentNotFoundError(): String
+
+  @Message
+  fun userImportDocumentNotDownloadedError(): String
+
+  @Message
+  fun userImportBlankDataPathError(): String
+
+  @Message
+  fun userImportInvalidDataPathError(): String
 
   // app data new / edit (shared form fields)
   @Message

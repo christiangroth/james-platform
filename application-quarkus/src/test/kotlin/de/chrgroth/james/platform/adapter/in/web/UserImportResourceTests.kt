@@ -239,4 +239,141 @@ class UserImportResourceTests {
       .statusCode(200)
       .body("ok", equalTo(false))
   }
+
+  private fun triggerImportAndGetId(installedAppId: String): String {
+    val tableHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/imports/table")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    return Regex("""data-import-id="([^"]+)"""").find(tableHtml)?.groupValues?.get(1)
+      ?: error("Expected an import id in the rendered table")
+  }
+
+  @Test
+  fun `trigger import auto-selects the single detected data path`() {
+    val installedAppId = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"a":1},{"a":2}]}""".right())
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val tableHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/imports/table")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(tableHtml.contains("data-testid=\"selected-data-path\">items<"), "Expected the auto-selected data path to be rendered")
+  }
+
+  @Test
+  fun `select data path reports an error for a path that is not an array of objects`() {
+    val installedAppId = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("dataPath", "foo")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/select-path")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+  }
+
+  @Test
+  fun `select data path succeeds and updates the table`() {
+    val installedAppId = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"a":[{"x":1}],"b":[{"y":1},{"y":2}]}""".right())
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("dataPath", "b")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/select-path")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val tableHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/imports/table")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(tableHtml.contains("data-testid=\"selected-data-path\">b<"), "Expected the manually selected data path to be rendered")
+  }
+
+  @Test
+  fun `select data path reports an error for a blank path`() {
+    val installedAppId = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("dataPath", "")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/select-path")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+  }
+
+  @Test
+  fun `select data path reports an error for an unknown document id`() {
+    val installedAppId = installApp()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("dataPath", "items")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/unknown-id/select-path")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+  }
 }

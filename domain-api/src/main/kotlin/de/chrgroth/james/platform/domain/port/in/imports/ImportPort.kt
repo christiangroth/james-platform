@@ -8,4 +8,5 @@ interface ImportPort {
   fun listImportDocuments(userId: String, installedAppId: String): Either<DomainError, List<ImportDocument>>
   fun triggerImport(userId: String, installedAppId: String, sourceUrl: String, bearerToken: String): Either<DomainError, ImportDocument>
   fun deleteImportDocument(userId: String, installedAppId: String, importDocumentId: String): Either<DomainError, Unit>
+  fun selectDataPath(userId: String, installedAppId: String, importDocumentId: String, dataPath: String): Either<DomainError, ImportDocument>
 }

@@ -3,11 +3,13 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
+import java.time.Instant
 
 @ApplicationScoped
 class ImportDocumentRepositoryAdapter(
@@ -42,6 +44,11 @@ class ImportDocumentRepositoryAdapter(
     }
   }
 
+  override fun deleteAllLastChangedBefore(cutoff: Instant): Long =
+    mongoQueryMetrics.timed("import_document.deleteAllLastChangedBefore") {
+      importDocumentDocumentRepository.mongoCollection().deleteMany(Filters.lt(LAST_CHANGED_AT_FIELD, cutoff)).deletedCount
+    }
+
   private fun ImportDocumentDocument.toDomain() = ImportDocument(
     id = ImportDocumentId(id),
     userId = userId,
@@ -50,8 +57,15 @@ class ImportDocumentRepositoryAdapter(
     encryptedBearerToken = encryptedBearerToken,
     status = ImportStatus.valueOf(status),
     payload = payload,
+    detectedDataPaths = detectedDataPaths.map { it.toDomain() },
+    selectedDataPath = selectedDataPath,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
+  )
+
+  private fun DataPathDocument.toDomain() = DataPath(
+    path = path,
+    size = size,
   )
 
   private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
@@ -62,12 +76,20 @@ class ImportDocumentRepositoryAdapter(
     doc.encryptedBearerToken = encryptedBearerToken
     doc.status = status.name
     doc.payload = payload
+    doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
+    doc.selectedDataPath = selectedDataPath
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
+  }
+
+  private fun DataPath.toDocument() = DataPathDocument().also { doc ->
+    doc.path = path
+    doc.size = size
   }
 
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val INSTALLED_APP_ID_FIELD = "installedAppId"
+    internal const val LAST_CHANGED_AT_FIELD = "lastChangedAt"
   }
 }

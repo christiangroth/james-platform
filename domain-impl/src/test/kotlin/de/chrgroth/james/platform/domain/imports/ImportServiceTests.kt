@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
@@ -58,7 +59,41 @@ class ImportServiceTests {
     assertThat(saved.captured.encryptedBearerToken).isEqualTo("encrypted-token")
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
     assertThat(saved.captured.payload).isEqualTo("""{"foo":"bar"}""")
+    assertThat(saved.captured.detectedDataPaths).isEmpty()
+    assertThat(saved.captured.selectedDataPath).isNull()
     verify(exactly = 1) { importDocumentRepository.save(any()) }
+  }
+
+  @Test
+  fun `trigger import auto-selects the single detected data path`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"a":1},{"a":2}]}""".right()
+    every { tokenEncryption.encrypt("secret-token") } returns "encrypted-token".right()
+    val saved = slot<ImportDocument>()
+    justRun { importDocumentRepository.save(capture(saved)) }
+
+    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
+    assertThat(saved.captured.selectedDataPath).isEqualTo("items")
+    assertThat(saved.captured.detectedDataPaths).containsExactly(DataPath("items", 2))
+  }
+
+  @Test
+  fun `trigger import stays downloaded and stores all candidates when multiple data paths are detected`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"a":[{"x":1}],"b":[{"y":1},{"y":2}]}""".right()
+    every { tokenEncryption.encrypt("secret-token") } returns "encrypted-token".right()
+    val saved = slot<ImportDocument>()
+    justRun { importDocumentRepository.save(capture(saved)) }
+
+    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
+    assertThat(saved.captured.selectedDataPath).isNull()
+    assertThat(saved.captured.detectedDataPaths).containsExactlyInAnyOrder(DataPath("a", 1), DataPath("b", 2))
   }
 
   @Test
@@ -193,17 +228,88 @@ class ImportServiceTests {
     assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
   }
 
+  @Test
+  fun `select data path succeeds for a valid path and identifies the data`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(payload = """{"items":[{"a":1},{"a":2}]}""")
+    every { importDocumentRepository.findById(doc.id) } returns doc
+    val saved = slot<ImportDocument>()
+    justRun { importDocumentRepository.save(capture(saved)) }
+
+    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "items")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
+    assertThat(saved.captured.selectedDataPath).isEqualTo("items")
+  }
+
+  @Test
+  fun `select data path fails for a blank path`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument()
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, " ")
+
+    assertThat(result).isEqualTo(ImportError.BLANK_DATA_PATH.left())
+  }
+
+  @Test
+  fun `select data path fails for a path that does not resolve to an array of objects`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(payload = """{"foo":"bar"}""")
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "foo")
+
+    assertThat(result).isEqualTo(ImportError.INVALID_DATA_PATH.left())
+  }
+
+  @Test
+  fun `select data path fails when document is not in DOWNLOADED status`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "items")
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_DOWNLOADED.left())
+  }
+
+  @Test
+  fun `select data path fails when document does not exist`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { importDocumentRepository.findById(ImportDocumentId("missing")) } returns null
+
+    val result = service.selectDataPath("user-1", "installed-1", "missing", "items")
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `select data path fails when document belongs to another installed app`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(installedAppId = InstalledAppId("other-installed-app"))
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "items")
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
+  }
+
   private fun importDocument(
     installedAppId: InstalledAppId = InstalledAppId("installed-1"),
     createdAt: Instant = Instant.now(),
+    status: ImportStatus = ImportStatus.DOWNLOADED,
+    payload: String = """{"foo":"bar"}""",
   ) = ImportDocument(
     id = ImportDocumentId("doc-${System.nanoTime()}"),
     userId = "user-1",
     installedAppId = installedAppId,
     sourceUrl = "https://example.com/data",
     encryptedBearerToken = "encrypted-token",
-    status = ImportStatus.DOWNLOADED,
-    payload = """{"foo":"bar"}""",
+    status = status,
+    payload = payload,
     createdAt = createdAt,
     lastChangedAt = createdAt,
   )

@@ -60,6 +60,31 @@ class HealthPageTests {
   }
 
   @Test
+  fun `health page displays import cleanup sub-heading and snippet`() {
+    given()
+      .`when`()
+      .get("/health")
+      .then()
+      .statusCode(200)
+      .body(containsString("Import-Bereinigung"))
+      .body(containsString("Bereinigungs-Cronjob"))
+      .body(containsString("""id="snippet-import-cleanup""""))
+  }
+
+  @Test
+  fun `health snippet endpoint for import cleanup is available`() {
+    given()
+      .`when`()
+      .get("/health/snippets/import-cleanup")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("text/html"))
+      .body(containsString("Bereinigungs-Cronjob"))
+      .body(containsString("""data-testid="import-cleanup-table""""))
+      .body(containsString("Noch nicht ausgeführt"))
+  }
+
+  @Test
   fun `health page contains sse connection setup with reconnect interval`() {
     given()
       .`when`()

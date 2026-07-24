@@ -70,6 +70,9 @@ class ImportService(
 
     val encryptedToken = tokenEncryption.encrypt(trimmedToken).fold({ return it.left() }, { it })
 
+    val detectedDataPaths = DataPathDetector.detect(parsed)
+    val singleMatch = detectedDataPaths.singleOrNull()
+
     val now = Instant.now()
     val importDocument = ImportDocument(
       id = ImportDocumentId(UUID.randomUUID().toString()),
@@ -77,14 +80,51 @@ class ImportService(
       installedAppId = installedApp.id,
       sourceUrl = trimmedUrl,
       encryptedBearerToken = encryptedToken,
-      status = ImportStatus.DOWNLOADED,
+      status = if (singleMatch != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
       payload = rawPayload,
+      detectedDataPaths = detectedDataPaths,
+      selectedDataPath = singleMatch?.path,
       createdAt = now,
       lastChangedAt = now,
     )
     importDocumentRepository.save(importDocument)
-    logger.info { "Import document created: installedAppId=$installedAppId sourceUrl=$trimmedUrl" }
+    logger.info { "Import document created: installedAppId=$installedAppId sourceUrl=$trimmedUrl detectedDataPaths=${detectedDataPaths.size}" }
     return importDocument.right()
+  }
+
+  override fun selectDataPath(userId: String, installedAppId: String, importDocumentId: String, dataPath: String): Either<DomainError, ImportDocument> {
+    val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
+      logger.warn { "Select data path failed: installed app not found: $installedAppId for user: $userId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val existing = importDocumentRepository.findById(ImportDocumentId(importDocumentId))
+    if (existing == null || existing.installedAppId != installedApp.id) {
+      logger.warn { "Select data path failed: import document not found: $importDocumentId for installedAppId: $installedAppId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_FOUND.left()
+    }
+    if (existing.status != ImportStatus.DOWNLOADED) {
+      logger.warn { "Select data path failed: import document not in DOWNLOADED status: $importDocumentId" }
+      return ImportError.IMPORT_DOCUMENT_NOT_DOWNLOADED.left()
+    }
+    if (dataPath.isBlank()) {
+      logger.warn { "Select data path failed: blank data path for importDocumentId: $importDocumentId" }
+      return ImportError.BLANK_DATA_PATH.left()
+    }
+
+    val resolved = DataPathDetector.resolve(objectMapper.readTree(existing.payload), dataPath.trim())
+    if (resolved == null) {
+      logger.warn { "Select data path failed: invalid data path for importDocumentId: $importDocumentId" }
+      return ImportError.INVALID_DATA_PATH.left()
+    }
+
+    val updated = existing.copy(
+      status = ImportStatus.DATA_IDENTIFIED,
+      selectedDataPath = resolved.path,
+      lastChangedAt = Instant.now(),
+    )
+    importDocumentRepository.save(updated)
+    logger.info { "Data path selected: importDocumentId=$importDocumentId path=${resolved.path}" }
+    return updated.right()
   }
 
   override fun deleteImportDocument(userId: String, installedAppId: String, importDocumentId: String): Either<DomainError, Unit> {

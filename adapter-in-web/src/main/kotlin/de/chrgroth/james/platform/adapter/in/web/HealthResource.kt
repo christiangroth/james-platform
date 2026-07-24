@@ -56,4 +56,11 @@ class HealthResource {
   @Produces(MediaType.TEXT_HTML)
   fun snippetScripting(): TemplateInstance =
     healthTemplate.getFragment("snippet_scripting").data("stats", health.getStats())
+
+  @GET
+  @Path("/snippets/import-cleanup")
+  @Authenticated
+  @Produces(MediaType.TEXT_HTML)
+  fun snippetImportCleanup(): TemplateInstance =
+    healthTemplate.getFragment("snippet_import_cleanup").data("stats", health.getStats())
 }
