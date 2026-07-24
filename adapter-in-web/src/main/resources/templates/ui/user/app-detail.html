@@ -11,7 +11,13 @@
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="app-title">{info.appName}</h1>
-            {#btn-icon-delete testId="delete-installed-app-button" title=msg:commonDelete() extraClass="ms-auto" bsTarget="#deleteInstalledAppModal" action="" entityId="" propertyId="" reportId="" username="" /}
+            {#if isDataImport}
+            <a href="/ui/user/apps/{info.installedAppId}/imports" class="btn btn-app-secondary btn-sm ms-auto" data-testid="import-button" title="{user:userImportButtonLabel()}" aria-label="{user:userImportButtonLabel()}">
+                <i class="bi bi-cloud-upload" aria-hidden="true"></i>
+                <span class="d-none d-sm-inline ms-1">{user:userImportButtonLabel()}</span>
+            </a>
+            {/if}
+            {#btn-icon-delete testId="delete-installed-app-button" title=msg:commonDelete() extraClass="{#if isDataImport}ms-1{#else}ms-auto{/if}" bsTarget="#deleteInstalledAppModal" action="" entityId="" propertyId="" reportId="" username="" /}
         </div>
 
         <div id="app-detail-message" class="d-none mb-4" role="alert"></div>

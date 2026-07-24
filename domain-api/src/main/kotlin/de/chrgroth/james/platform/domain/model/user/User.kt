@@ -23,4 +23,5 @@ enum class UserRole {
   DEVELOPER,
   ADMIN,
   MONITORING,
+  DATA_IMPORT,
 }

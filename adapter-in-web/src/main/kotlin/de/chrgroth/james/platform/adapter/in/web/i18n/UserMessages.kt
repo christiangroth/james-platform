@@ -113,6 +113,16 @@ interface UserMessages {
   @Message
   fun userDeleteInstalledAppConfirm(): String
 
+  @Message
+  fun userImportButtonLabel(): String
+
+  // app imports
+  @Message
+  fun userImportsTitle(): String
+
+  @Message
+  fun userNoImportsMessage(): String
+
   // app data new / edit (shared form fields)
   @Message
   fun userNewEntityTitle(name: String): String

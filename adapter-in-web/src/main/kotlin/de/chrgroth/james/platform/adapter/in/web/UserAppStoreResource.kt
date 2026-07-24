@@ -26,6 +26,7 @@ import io.quarkus.qute.RawString
 import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
+import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.ws.rs.Consumes
@@ -128,6 +129,10 @@ class UserAppStoreResource {
   @Inject
   @Location("ui/user/app-entity-detail.html")
   private lateinit var appEntityDetailTemplate: Template
+
+  @Inject
+  @Location("ui/user/app-imports.html")
+  private lateinit var appImportsTemplate: Template
 
   @Inject
   @Location("ui/user/app-data-new.html")
@@ -259,6 +264,19 @@ class UserAppStoreResource {
         .data("entity", entityTab)
         .data("pageSize", PAGE_SIZE),
     ).build()
+  }
+
+  @GET
+  @Path("/user/apps/{installedAppId}/imports")
+  @Produces(MediaType.TEXT_HTML)
+  @RolesAllowed("DATA_IMPORT")
+  fun installedAppImports(@PathParam("installedAppId") installedAppId: String): Response {
+    val userId = securityIdentity.principal.name
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    return Response.ok(appImportsTemplate.data("info", info)).build()
   }
 
   @POST
