@@ -174,6 +174,47 @@
                     </div>
                 </div>
             </div>
+
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringImportCleanupHeading()}</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div id="snippet-import-cleanup" class="card h-100 app-card">
+                        {#fragment id="snippet_import_cleanup"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringImportCleanupSectionLabel()}</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="import-cleanup-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{monitoring:monitoringColLastRun()}</th>
+                                            <th class="text-end">{monitoring:monitoringColExecutions()}</th>
+                                            <th class="text-end">{monitoring:monitoringColDeleted()}</th>
+                                            <th class="text-end">{monitoring:monitoringColErrors()}</th>
+                                            <th class="text-end">{monitoring:monitoringColTotalMs()}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr data-testid="import-cleanup-row">
+                                            <td>{#if stats.importCleanupStats.lastRunAt}{stats.importCleanupStats.lastRunAt.formatted}{#else}{monitoring:monitoringImportCleanupNeverRunLabel()}{/if}</td>
+                                            <td class="text-end">{stats.importCleanupStats.executionCount.formatted}</td>
+                                            <td class="text-end">{stats.importCleanupStats.deletedCount.formatted}</td>
+                                            <td class="text-end">
+                                                {#if stats.importCleanupStats.errorCount > 0}
+                                                <span style="color:var(--color-warning-text);">{stats.importCleanupStats.errorCount.formatted}</span>
+                                                {#else}
+                                                <span style="color:var(--color-text-primary);">{stats.importCleanupStats.errorCount.formatted}</span>
+                                                {/if}
+                                            </td>
+                                            <td class="text-end">{stats.importCleanupStats.totalDurationMs.formatted}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

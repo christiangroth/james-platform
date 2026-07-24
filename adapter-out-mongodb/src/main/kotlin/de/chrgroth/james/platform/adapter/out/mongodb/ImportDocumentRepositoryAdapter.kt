@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
+import java.time.Instant
 
 @ApplicationScoped
 class ImportDocumentRepositoryAdapter(
@@ -42,6 +43,11 @@ class ImportDocumentRepositoryAdapter(
       importDocumentDocumentRepository.deleteById(id.value)
     }
   }
+
+  override fun deleteAllLastChangedBefore(cutoff: Instant): Long =
+    mongoQueryMetrics.timed("import_document.deleteAllLastChangedBefore") {
+      importDocumentDocumentRepository.mongoCollection().deleteMany(Filters.lt(LAST_CHANGED_AT_FIELD, cutoff)).deletedCount
+    }
 
   private fun ImportDocumentDocument.toDomain() = ImportDocument(
     id = ImportDocumentId(id),
@@ -84,5 +90,6 @@ class ImportDocumentRepositoryAdapter(
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val INSTALLED_APP_ID_FIELD = "installedAppId"
+    internal const val LAST_CHANGED_AT_FIELD = "lastChangedAt"
   }
 }

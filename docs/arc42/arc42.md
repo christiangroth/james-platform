@@ -217,7 +217,7 @@ Base package: `de.chrgroth.james.platform`
 | `domain-impl`         | –          | Business logic implementing the inbound port interfaces                               |
 | `adapter-in-web`      | inbound    | HTTP endpoints, Qute SSR templates, SSE adapters, cookie auth mechanism               |
 | `adapter-in-starter`  | inbound    | One-time startup beans (starters) for data migrations and one-time bugfixes           |
-| `adapter-in-scheduler` | inbound   | Wired with the Quarkus scheduler extension; currently unused — no `@Scheduled` job exists yet, reserved for future use |
+| `adapter-in-scheduler` | inbound   | Wired with the Quarkus scheduler extension; runs the `@Scheduled` import document cleanup cronjob |
 | `adapter-out-config`  | outbound   | Reads Quarkus/MicroProfile config and environment variables for health/config display |
 | `adapter-out-mongodb` | outbound   | MongoDB persistence: user repository, MongoDB viewer, stats adapter                  |
 | `adapter-out-scheduler` | outbound | Reads Quarkus scheduler metadata for health/cronjob display                          |
@@ -461,6 +461,8 @@ this has been missed twice historically (see `docs/backport.md` section 3).
 
 **Other notable non-secret config:** `app.script.timeout-ms` (computed-property/smart-default
 script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
+`app.imports.cleanup.retention-days` (import document cleanup cronjob, default 14 days),
+`app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
 `quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`).
 
 # Architecture Decisions

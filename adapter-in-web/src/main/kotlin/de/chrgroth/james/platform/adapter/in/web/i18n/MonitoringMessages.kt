@@ -82,6 +82,21 @@ interface MonitoringMessages {
   @Message
   fun monitoringScriptTypeComputedPropertyBadge(): String
 
+  @Message
+  fun monitoringImportCleanupHeading(): String
+
+  @Message
+  fun monitoringImportCleanupSectionLabel(): String
+
+  @Message
+  fun monitoringColLastRun(): String
+
+  @Message
+  fun monitoringColDeleted(): String
+
+  @Message
+  fun monitoringImportCleanupNeverRunLabel(): String
+
   // logs page
   @Message
   fun monitoringLogsTitle(): String
