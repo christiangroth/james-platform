@@ -1,3 +1,16 @@
+# 0.72.0 (2026.07.24)
+
+## New Features
+* Imports mit vollständigem Mapping (Status "Bereit") können nun per Dry-Run geprüft werden, bevor sie übernommen werden.
+* Der Dry-Run-Report zeigt an, wie viele der erzeugten Objekte gültig sind und listet ungültige Objekte im Detail auf, jeweils mit den zugehörigen Quelldaten zum Vergleich.
+* Jede gefundene Verletzung zeigt an, ob sie bereits beim Mapping geprüft wurde oder neu im Dry-Run erkannt wurde (insbesondere Format-/Regex-Prüfungen).
+* Nach der Übernahme werden alle gültigen Objekte gespeichert, ungültige verworfen und das Import-Dokument samt Rohdaten gelöscht.
+* Alternativ kann vor der Übernahme jederzeit zum Mapping zurückgesprungen werden, um es weiter anzupassen.
+
+
+
+---
+
 # 0.71.0 (2026.07.24)
 
 ## New Features
