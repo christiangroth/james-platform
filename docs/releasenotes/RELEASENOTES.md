@@ -1,3 +1,14 @@
+# 0.68.0 (2026.07.24)
+
+## New Features
+* Import documents now automatically detect the JSON array holding the actual data to import.
+* If exactly one matching array is found it is selected automatically; otherwise you can pick from the detected candidates or enter a path manually.
+* Import documents that have not been updated for 14 days are now automatically deleted by a daily cleanup job, with its metrics visible on the system health page.
+
+
+
+---
+
 # 0.67.0 (2026.07.24)
 
 ## New Features
