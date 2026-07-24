@@ -2,8 +2,11 @@ package de.chrgroth.james.platform.domain.imports
 
 import arrow.core.left
 import arrow.core.right
+import de.chrgroth.james.platform.domain.app.PropertyConstraintService
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.error.TokenError
+import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
@@ -17,15 +20,19 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.imports.DataPath
+import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
+import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
 import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
@@ -47,8 +54,18 @@ class ImportServiceTests {
   private val importFetch = mockk<ImportFetchPort>()
   private val tokenEncryption = mockk<TokenEncryptionPort>()
   private val appVersionRepository = mockk<AppVersionRepositoryPort>()
+  private val appDataRepository = mockk<AppDataRepositoryPort>()
+  private val propertyConstraint = PropertyConstraintService()
 
-  private val service = ImportService(installedAppRepository, importDocumentRepository, importFetch, tokenEncryption, appVersionRepository)
+  private val service = ImportService(
+    installedAppRepository,
+    importDocumentRepository,
+    importFetch,
+    tokenEncryption,
+    appVersionRepository,
+    appDataRepository,
+    propertyConstraint,
+  )
 
   private val installedApp = InstalledApp(
     id = InstalledAppId("installed-1"),
@@ -434,6 +451,94 @@ class ImportServiceTests {
     assertThat(view.validation).isNull()
   }
 
+  @Test
+  fun `dry run fails when import document is not ready`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.dryRun("user-1", "installed-1", doc.id.value)
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_READY.left())
+  }
+
+  @Test
+  fun `dry run validates every source record and reports a report with valid and invalid objects`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val doc = importDocument(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice"},{"name":null}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.dryRun("user-1", "installed-1", doc.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    val report = result.getOrNull()!!
+    assertThat(report.totalCount).isEqualTo(2)
+    assertThat(report.validCount).isEqualTo(1)
+    assertThat(report.invalidCount).isEqualTo(1)
+    assertThat(report.invalidObjects.single().issues).containsExactly(DryRunIssue.MissingMandatoryValue(PropertyId("prop-1")))
+  }
+
+  @Test
+  fun `dry run fails when installed app is not owned by the user`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+
+    val result = service.dryRun("someone-else", "installed-1", "doc-1")
+
+    assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `accept dry run saves valid objects, discards invalid ones and deletes the import document`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val doc = importDocument(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice"},{"name":null}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importDocumentRepository.findById(doc.id) } returns doc
+    val savedAppData = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedAppData)) }
+    justRun { importDocumentRepository.delete(doc.id) }
+
+    val result = service.acceptDryRun("user-1", "installed-1", doc.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(DryRunAcceptResult(savedCount = 1, discardedCount = 1))
+    assertThat(savedAppData.captured.data).isEqualTo(mapOf("prop-1" to "Alice"))
+    assertThat(savedAppData.captured.installedAppId).isEqualTo(InstalledAppId("installed-1"))
+    assertThat(savedAppData.captured.entityType).isEqualTo(EntityDefinitionId("entity-1"))
+    verify(exactly = 1) { appDataRepository.save(any()) }
+    verify(exactly = 1) { importDocumentRepository.delete(doc.id) }
+  }
+
+  @Test
+  fun `accept dry run fails when import document is not ready`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
+    every { importDocumentRepository.findById(doc.id) } returns doc
+
+    val result = service.acceptDryRun("user-1", "installed-1", doc.id.value)
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_READY.left())
+  }
+
+  private val readyMapping = Mapping(
+    name = "Contact",
+    type = MappingType.FIND,
+    targetEntityDefinitionId = EntityDefinitionId("entity-1"),
+    fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
+  )
+
   private val entityDefinition = EntityDefinition(
     id = EntityDefinitionId("entity-1"),
     name = "Contact",
@@ -459,12 +564,16 @@ class ImportServiceTests {
     status: ImportStatus = ImportStatus.DOWNLOADED,
     payload: String = """{"foo":"bar"}""",
     detectedSchema: List<SchemaProperty> = emptyList(),
+    selectedDataPath: String? = null,
+    mapping: Mapping? = null,
   ) = ImportDocument(
     id = ImportDocumentId("doc-${System.nanoTime()}"),
     userId = "user-1",
     installedAppId = installedAppId,
     sourceUrl = "https://example.com/data",
     encryptedBearerToken = "encrypted-token",
+    selectedDataPath = selectedDataPath,
+    mapping = mapping,
     status = status,
     payload = payload,
     detectedSchema = detectedSchema,

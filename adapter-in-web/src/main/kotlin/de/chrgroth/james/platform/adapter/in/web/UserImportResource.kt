@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.ImportError
@@ -9,6 +10,8 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.imports.DataPath
+import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
+import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
@@ -51,6 +54,7 @@ data class ImportDocumentRow(
   val statusLabel: String,
   val awaitingDataPathSelection: Boolean,
   val mappable: Boolean,
+  val readyForDryRun: Boolean,
   val detectedDataPaths: List<DataPathRow>,
   val selectedDataPath: String?,
   val createdAt: Instant,
@@ -86,6 +90,25 @@ data class MappingPropertyRow(
   val issueMessages: List<String>,
 )
 
+data class DryRunIssueRow(
+  val message: String,
+  val staticallyChecked: Boolean,
+)
+
+data class DryRunPropertyRow(
+  val name: String,
+  val typeLabel: String,
+  val value: String,
+  val hasIssue: Boolean,
+  val issues: List<DryRunIssueRow>,
+)
+
+data class DryRunObjectRow(
+  val index: Int,
+  val sourceDataJson: String,
+  val properties: List<DryRunPropertyRow>,
+)
+
 data class FieldMappingRequest @JsonCreator constructor(
   @param:JsonProperty("targetPropertyId") val targetPropertyId: String,
   @param:JsonProperty("sourcePath") val sourcePath: String?,
@@ -114,6 +137,10 @@ class UserImportResource {
   @Inject
   @Location("ui/user/import-mapping.html")
   private lateinit var mappingTemplate: Template
+
+  @Inject
+  @Location("ui/user/import-dry-run.html")
+  private lateinit var dryRunTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -272,6 +299,56 @@ class UserImportResource {
     )
   }
 
+  @GET
+  @Path("/{importDocumentId}/dry-run")
+  @Produces(MediaType.TEXT_HTML)
+  fun dryRun(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("importDocumentId") importDocumentId: String,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    val view = importPort.getMappingView(userId, installedAppId, importDocumentId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
+      ifRight = { it },
+    )
+    val entityDefinition = view.importDocument.mapping?.let { mapping -> view.entityDefinitions.find { it.id == mapping.targetEntityDefinitionId } }
+    val report = importPort.dryRun(userId, installedAppId, importDocumentId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports/$importDocumentId/mapping")).build() },
+      ifRight = { it },
+    )
+
+    return Response.ok(
+      dryRunTemplate
+        .data("info", info)
+        .data("importDocumentId", importDocumentId)
+        .data("totalCount", report.totalCount)
+        .data("validCount", report.validCount)
+        .data("invalidCount", report.invalidCount)
+        .data("invalidObjects", entityDefinition?.let { entity -> report.invalidObjects.map { it.toRow(entity) } }.orEmpty()),
+    ).build()
+  }
+
+  @POST
+  @Path("/{importDocumentId}/dry-run/accept")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun acceptDryRun(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("importDocumentId") importDocumentId: String,
+  ): Response {
+    val userId = securityIdentity.principal.name
+    return importPort.acceptDryRun(userId, installedAppId, importDocumentId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
+      ifRight = { result ->
+        val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
+        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/apps/$installedAppId/imports")).build()
+      },
+    )
+  }
+
   @POST
   @Path("/{importDocumentId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
@@ -295,6 +372,7 @@ class UserImportResource {
     statusLabel = statusLabel(status),
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
     mappable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
+    readyForDryRun = status == ImportStatus.READY,
     detectedDataPaths = detectedDataPaths.map { it.toRow() },
     selectedDataPath = selectedDataPath,
     createdAt = createdAt,
@@ -305,6 +383,28 @@ class UserImportResource {
     path = path,
     size = size,
   )
+
+  private fun DryRunObject.toRow(entityDefinition: EntityDefinition): DryRunObjectRow {
+    val issuesByProperty = issues.groupBy { it.targetPropertyId }
+    val properties = entityDefinition.properties.map { property ->
+      val propertyIssues = issuesByProperty[property.id].orEmpty()
+      DryRunPropertyRow(
+        name = property.name,
+        typeLabel = PropertyLabelTemplateExtensions.propertyTypeLabel(property.type),
+        value = targetData[property.id].orEmpty(),
+        hasIssue = propertyIssues.isNotEmpty(),
+        issues = propertyIssues.map { DryRunIssueRow(dryRunIssueMessage(it), it.staticallyChecked) },
+      )
+    }
+    return DryRunObjectRow(index + 1, prettyPrintedSourceData(sourceDataJson), properties)
+  }
+
+  private fun dryRunIssueMessage(issue: DryRunIssue): String = when (issue) {
+    is DryRunIssue.MissingMandatoryValue -> userMsg.userImportMappingIssueMissingMandatory()
+    is DryRunIssue.ConstraintViolated -> PropertyLabelTemplateExtensions.constraintViolationMessage(issue.violation)
+  }
+
+  private fun prettyPrintedSourceData(json: String): String = runCatching { objectMapper.readTree(json).toPrettyString() }.getOrDefault(json)
 
   private fun buildPropertyRows(entityDefinition: EntityDefinition, mapping: Mapping?, view: MappingView): List<MappingPropertyRow> {
     val fieldMappingsByProperty = mapping?.fieldMappings?.associateBy { it.targetPropertyId }.orEmpty()
@@ -391,6 +491,11 @@ class UserImportResource {
     ImportError.BLANK_MAPPING_NAME.code -> userMsg.userImportBlankMappingNameError()
     ImportError.ENTITY_DEFINITION_NOT_FOUND.code -> userMsg.userImportEntityDefinitionNotFoundError()
     ImportError.MAPPING_PROPERTY_NOT_FOUND.code -> userMsg.userImportMappingPropertyNotFoundError()
+    ImportError.IMPORT_DOCUMENT_NOT_READY.code -> userMsg.userImportDocumentNotReadyError()
     else -> msg.commonUnexpectedError()
+  }
+
+  companion object {
+    private val objectMapper = ObjectMapper()
   }
 }
