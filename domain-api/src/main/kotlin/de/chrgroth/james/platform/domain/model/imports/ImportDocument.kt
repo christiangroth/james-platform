@@ -9,6 +9,7 @@ value class ImportDocumentId(val value: String)
 enum class ImportStatus {
   DOWNLOADED,
   DATA_IDENTIFIED,
+  READY,
 }
 
 data class DataPath(
@@ -52,6 +53,7 @@ data class ImportDocument(
   val detectedDataPaths: List<DataPath> = emptyList(),
   val selectedDataPath: String? = null,
   val detectedSchema: List<SchemaProperty> = emptyList(),
+  val mapping: Mapping? = null,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )

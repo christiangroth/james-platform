@@ -1,0 +1,171 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {info.appName} – {user:userImportMappingTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-mapping">{user:userImportMappingTitle()}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{user:userImportMappingTitle()}</h1>
+            <span class="badge border-0 app-badge-processing" data-testid="mapping-status">{statusLabel}</span>
+            <a href="/ui/user/apps/{info.installedAppId}/imports" class="btn btn-app-secondary btn-sm ms-auto" data-testid="back-to-imports-link">{user:userImportMappingBackToImportsLabel()}</a>
+        </div>
+
+        <div id="mapping-message" class="d-none mb-4" role="alert"></div>
+
+        <div class="card app-card p-3 p-md-4 mb-4">
+            <form method="get" id="entitySelectForm" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label for="entityDefinitionId" class="form-label">{user:userImportMappingSelectEntityLabel()}</label>
+                    <select id="entityDefinitionId" name="entityDefinitionId" class="form-select app-form-control" onchange="this.form.submit()" data-testid="entity-select">
+                        <option value="" {#if !hasEntitySelected}selected{/if}>{user:userImportMappingSelectEntityPlaceholder()}</option>
+                        {#for entity in entityOptions}
+                        <option value="{entity.id}" {#if entity.selected}selected{/if}>{entity.name}</option>
+                        {/for}
+                    </select>
+                    <div class="form-text">{user:userImportMappingSelectEntityHint()}</div>
+                </div>
+                <noscript><div class="col-auto"><button type="submit" class="btn btn-app-secondary btn-sm">{msg:commonCancel()}</button></div></noscript>
+            </form>
+        </div>
+
+        {#if hasEntitySelected}
+        <form id="mappingForm">
+            <div class="card app-card p-3 p-md-4 mb-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="mappingName" class="form-label">{user:userImportMappingNameLabel()}</label>
+                        <input type="text" class="form-control app-form-control" id="mappingName" name="name" value="{mappingName}" required autocomplete="off" data-testid="mapping-name-input">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="mappingType" class="form-label">{user:userImportMappingTypeLabel()}</label>
+                        <select id="mappingType" name="type" class="form-select app-form-control" data-testid="mapping-type-select">
+                            <option value="FIND" {#if mappingType == 'FIND'}selected{/if}>{user:userImportMappingTypeFindLabel()}</option>
+                            <option value="FIND_OR_CREATE" {#if mappingType == 'FIND_OR_CREATE'}selected{/if}>{user:userImportMappingTypeFindOrCreateLabel()}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card app-card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0 app-table" data-testid="mapping-fields-table">
+                        <thead>
+                            <tr>
+                                <th>{user:userImportMappingColProperty()}</th>
+                                <th>{user:userImportMappingColSourceField()}</th>
+                                <th>{user:userImportMappingColConversion()}</th>
+                                <th>{user:userImportMappingColFallbackValue()}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for property in propertyRows}
+                            <tr data-testid="mapping-property-row" data-property-id="{property.id}">
+                                <td>
+                                    <div class="fw-semibold">{property.name}</div>
+                                    <div class="app-section-label small">{property.typeLabel}
+                                        {#if property.mandatory}<span class="badge border-0 app-badge-danger ms-1" data-testid="mandatory-badge">{user:userImportMappingMandatoryBadge()}</span>{/if}
+                                        {#if property.hasPattern}<span class="badge border-0 app-badge-processing ms-1" data-testid="pattern-badge" title="{user:userImportMappingPatternBadge()}">{user:userImportMappingPatternBadge()}</span>{/if}
+                                    </div>
+                                    {#if !property.constraintHint.isEmpty}<div class="form-text">{property.constraintHint}</div>{/if}
+                                    {#for issue in property.issueMessages}
+                                    <div class="text-danger small" data-testid="mapping-issue">{issue}</div>
+                                    {/for}
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm app-form-control source-path-select" data-testid="source-path-select">
+                                        <option value="" {#if property.sourcePath == ''}selected{/if}>{user:userImportMappingNoSourceFieldOption()}</option>
+                                        {#for field in schemaFieldOptions}
+                                        <option value="{field.path}" {#if field.path == property.sourcePath}selected{/if}>{field.label}</option>
+                                        {/for}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm app-form-control conversion-select" data-testid="conversion-select">
+                                        {#for option in conversionOptions}
+                                        <option value="{option.value}" {#if option.value == property.conversion}selected{/if}>{option.label}</option>
+                                        {/for}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm app-form-control fallback-value-input" value="{property.fallbackValue}" placeholder="{user:userImportMappingFallbackValuePlaceholder()}" autocomplete="off" data-testid="fallback-value-input">
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="d-flex mt-4">
+                <button type="submit" class="btn btn-app-primary ms-auto" data-testid="save-mapping-button">{user:userImportMappingSaveButton()}</button>
+            </div>
+        </form>
+        {/if}
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var installedAppId = '{info.installedAppId}';
+            var importDocumentId = '{importDocumentId}';
+            var basePath = '/ui/user/apps/' + encodeURIComponent(installedAppId) + '/imports/' + encodeURIComponent(importDocumentId) + '/mapping';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('mapping-message');
+
+            function showMessage(ok, message) {
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+            }
+
+            var mappingForm = document.getElementById('mappingForm');
+            if (mappingForm) {
+                mappingForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+
+                    var fieldMappings = [];
+                    mappingForm.querySelectorAll('[data-testid="mapping-property-row"]').forEach(function (row) {
+                        fieldMappings.push({
+                            targetPropertyId: row.getAttribute('data-property-id'),
+                            sourcePath: row.querySelector('.source-path-select').value,
+                            conversion: row.querySelector('.conversion-select').value,
+                            fallbackValue: row.querySelector('.fallback-value-input').value
+                        });
+                    });
+
+                    var payload = {
+                        name: mappingForm.querySelector('#mappingName').value,
+                        type: mappingForm.querySelector('#mappingType').value,
+                        targetEntityDefinitionId: document.getElementById('entityDefinitionId').value,
+                        fieldMappings: fieldMappings
+                    };
+
+                    try {
+                        var response = await fetch(basePath, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        var result = await response.json();
+                        showMessage(result.ok, result.message);
+                        if (result.ok) {
+                            setTimeout(function () { window.location.reload(); }, 600);
+                        }
+                    } catch (e) {
+                        showMessage(false, networkErrorMessage);
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}

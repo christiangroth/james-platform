@@ -154,6 +154,12 @@ interface UserMessages {
   fun userImportStatusDataIdentified(): String
 
   @Message
+  fun userImportStatusReady(): String
+
+  @Message
+  fun userImportMappingLinkLabel(): String
+
+  @Message
   fun userImportDataPathLabel(): String
 
   @Message
@@ -218,6 +224,151 @@ interface UserMessages {
 
   @Message
   fun userImportInvalidDataPathError(): String
+
+  @Message
+  fun userImportDocumentNotMappableError(): String
+
+  @Message
+  fun userImportBlankMappingNameError(): String
+
+  @Message
+  fun userImportEntityDefinitionNotFoundError(): String
+
+  @Message
+  fun userImportMappingPropertyNotFoundError(): String
+
+  // import mapping page
+  @Message
+  fun userImportMappingTitle(): String
+
+  @Message
+  fun userImportMappingBackToImportsLabel(): String
+
+  @Message
+  fun userImportMappingSelectEntityLabel(): String
+
+  @Message
+  fun userImportMappingSelectEntityPlaceholder(): String
+
+  @Message
+  fun userImportMappingSelectEntityHint(): String
+
+  @Message
+  fun userImportMappingNameLabel(): String
+
+  @Message
+  fun userImportMappingTypeLabel(): String
+
+  @Message
+  fun userImportMappingTypeFindLabel(): String
+
+  @Message
+  fun userImportMappingTypeFindOrCreateLabel(): String
+
+  @Message
+  fun userImportMappingColProperty(): String
+
+  @Message
+  fun userImportMappingColSourceField(): String
+
+  @Message
+  fun userImportMappingColConversion(): String
+
+  @Message
+  fun userImportMappingColFallbackValue(): String
+
+  @Message
+  fun userImportMappingNoSourceFieldOption(): String
+
+  @Message
+  fun userImportMappingFallbackValuePlaceholder(): String
+
+  @Message
+  fun userImportMappingMandatoryBadge(): String
+
+  @Message
+  fun userImportMappingPatternBadge(): String
+
+  @Message
+  fun userImportMappingSaveButton(): String
+
+  @Message
+  fun userImportMappingStatusReadyMessage(): String
+
+  @Message
+  fun userImportMappingStatusIncompleteMessage(): String
+
+  @Message
+  fun userImportMappingIssueMissingMandatory(): String
+
+  @Message
+  fun userImportMappingIssueIncompatibleType(sourceType: String, targetType: String): String
+
+  @Message
+  fun userImportMappingIssueNumericRange(observedMin: String, observedMax: String): String
+
+  @Message
+  fun userImportMappingIssueStringLength(observedMin: Int, observedMax: Int): String
+
+  @Message
+  fun userImportMappingIssueNotStaticallyValidated(regex: String): String
+
+  @Message
+  fun userImportMappingConversionNone(): String
+
+  @Message
+  fun userImportMappingConversionStringToLong(): String
+
+  @Message
+  fun userImportMappingConversionStringToDouble(): String
+
+  @Message
+  fun userImportMappingConversionStringToBoolean(): String
+
+  @Message
+  fun userImportMappingConversionLongToDouble(): String
+
+  @Message
+  fun userImportMappingConversionLongToString(): String
+
+  @Message
+  fun userImportMappingConversionDoubleToString(): String
+
+  @Message
+  fun userImportMappingConversionBooleanToString(): String
+
+  @Message
+  fun userImportMappingConversionStringToDate(): String
+
+  @Message
+  fun userImportMappingConversionStringToDatetime(): String
+
+  @Message
+  fun userImportSchemaTypeString(): String
+
+  @Message
+  fun userImportSchemaTypeDate(): String
+
+  @Message
+  fun userImportSchemaTypeDatetime(): String
+
+  @Message
+  fun userImportSchemaTypeLong(): String
+
+  @Message
+  fun userImportSchemaTypeDouble(): String
+
+  @Message
+  fun userImportSchemaTypeBoolean(): String
+
+  @Message
+  fun userImportSchemaTypeObject(): String
+
+  @Message
+  fun userImportSchemaTypeArray(): String
+
+  @Message
+  fun userImportSchemaTypeNull(): String
 
   // app data new / edit (shared form fields)
   @Message
