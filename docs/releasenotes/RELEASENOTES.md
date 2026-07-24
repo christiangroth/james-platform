@@ -1,3 +1,17 @@
+# 0.67.0 (2026.07.24)
+
+## New Features
+* Added a new `DATA_IMPORT` user role, assignable only by administrators.
+* Users with the `DATA_IMPORT` role now see an Import entry point on each installed app, leading to a new (still empty) page for managing import documents.
+* Users with the `DATA_IMPORT` role can now trigger an import by entering a URL and a Bearer token on the app's import page.
+* The server fetches the URL, requires the response to be a JSON object, and stores it as an import document (status "Downloaded").
+* The Bearer token is stored encrypted, never in plain text.
+* The import page now shows a table of import documents (created date, last activity date, status, delete button).
+
+
+
+---
+
 # 0.66.1 (2026.07.18)
 
 ## Bugfixes / Chore
