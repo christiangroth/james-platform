@@ -1,3 +1,13 @@
+# 0.69.0 (2026.07.24)
+
+## New Features
+* Import documents now automatically derive a schema of the identified source objects, listing every property (including nested ones) with its occurring value types and whether it is always present.
+* Detected schema types now distinguish whole numbers from decimal numbers, and recognize date and date-time formatted text values instead of treating them as plain strings.
+
+
+
+---
+
 # 0.68.0 (2026.07.24)
 
 ## New Features
