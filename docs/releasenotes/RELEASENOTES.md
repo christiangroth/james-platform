@@ -1,3 +1,16 @@
+# 0.71.0 (2026.07.24)
+
+## New Features
+* Import documents can now be mapped to an app entity: pick a target entity and mapping type (find or find-or-create), then map each source field to a target property.
+* Mappings are validated automatically for matching types, mandatory fields, and value/length constraints against the source data's detected schema, with issues shown directly on the mapping page.
+* Simple type conversions and static fallback values can be configured to resolve small type mismatches.
+* Format/pattern constraints on target fields are flagged as not yet checked here; they are validated later during the dry run.
+* Incomplete mappings are saved automatically; the import document becomes "Ready" once its mapping is complete and valid.
+
+
+
+---
+
 # 0.70.0 (2026.07.24)
 
 ## New Features
