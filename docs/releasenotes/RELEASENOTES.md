@@ -1,3 +1,14 @@
+# 0.73.0 (2026.07.25)
+
+## New Features
+* Import mappings can now fill reference fields by looking up a matching instance of the referenced entity (based on one or more source fields), instead of requiring a direct value mapping.
+* For mandatory reference fields, a static fallback value can be configured for the case where the lookup finds no match.
+* Fallback values are now checked against the target field's constraints already when saving the mapping, not only during the dry-run.
+
+
+
+---
+
 # 0.72.1 (2026.07.24)
 
 ## Bugfixes / Chore
