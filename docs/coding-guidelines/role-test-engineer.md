@@ -210,3 +210,6 @@ val playlist = Playlist(
 - **Framework behavior** – do not test that Quarkus starts, that CDI wiring works (that is what Layer 4 is for), or that Jackson serializes a field you did not configure
 - **Adapter mock call counts** exclusively – a test that only verifies `verify { port.method() }` without asserting any state or return value provides low confidence
 - **Boilerplate** – do not test getter/setter pairs of plain data classes
+- **Pure delegation/wiring classes** – a class whose entire body is "call the one method on my single dependency" (e.g. a `@Scheduled` method that just forwards to a port) adds no
+  value when unit-tested in isolation – mocking the dependency and verifying it was called proves nothing beyond what the compiler already guarantees. If the wiring is worth
+  testing, cover it through a Layer 3 `@QuarkusTest` (e.g. asserting the schedule actually fires) rather than a standalone unit test
