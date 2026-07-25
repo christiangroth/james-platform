@@ -1,5 +1,5 @@
 {#include layout.html}
-    {#title}{msg:commonAppName()} – {msg:releaseNotesHeading()}{/title}
+    {#title}{msg:commonAppName()} – {monitoring:monitoringReleaseNotesTitle()}{/title}
     {#content}
     <div class="app-page-container py-4 px-3 px-md-4">
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
@@ -13,11 +13,11 @@
             </ol>
         </nav>
 
-        <h1 class="mb-4 fs-4 fw-semibold">{msg:releaseNotesHeading()}</h1>
+        <h1 class="mb-4 fs-4 fw-semibold">{monitoring:monitoringReleaseNotesTitle()}</h1>
 
         {#if groups.isEmpty}
         <div class="card app-card p-4">
-            <p class="mb-0" data-testid="release-notes-empty">{msg:releaseNotesEmptyMessage()}</p>
+            <p class="mb-0" data-testid="release-notes-empty">{monitoring:monitoringReleaseNotesEmptyMessage()}</p>
         </div>
         {#else}
         <div class="accordion" id="releaseNotesAccordion">
@@ -40,17 +40,17 @@
                                 {entry.version} <span class="app-section-label fw-normal">({entry.date})</span>
                             </h3>
                             {#if !entry.breakingChanges.isEmpty}
-                            <div class="app-section-header mb-1">{msg:releaseNotesBreakingChangesHeading()}</div>
+                            <div class="app-section-header mb-1">{monitoring:monitoringReleaseNotesBreakingChangesHeading()}</div>
                             <div class="docs-content release-notes-rendered mb-3" id="rn-{group_index}-{entry_index}-breaking" data-testid="release-notes-breaking-changes"></div>
                             <textarea class="d-none release-notes-raw" data-target="rn-{group_index}-{entry_index}-breaking">{entry.breakingChangesMarkdown}</textarea>
                             {/if}
                             {#if !entry.newFeatures.isEmpty}
-                            <div class="app-section-header mb-1">{msg:releaseNotesNewFeaturesHeading()}</div>
+                            <div class="app-section-header mb-1">{monitoring:monitoringReleaseNotesNewFeaturesHeading()}</div>
                             <div class="docs-content release-notes-rendered mb-3" id="rn-{group_index}-{entry_index}-features" data-testid="release-notes-new-features"></div>
                             <textarea class="d-none release-notes-raw" data-target="rn-{group_index}-{entry_index}-features">{entry.newFeaturesMarkdown}</textarea>
                             {/if}
                             {#if !entry.bugfixes.isEmpty}
-                            <div class="app-section-header mb-1">{msg:releaseNotesBugfixesHeading()}</div>
+                            <div class="app-section-header mb-1">{monitoring:monitoringReleaseNotesBugfixesHeading()}</div>
                             <div class="docs-content release-notes-rendered mb-3" id="rn-{group_index}-{entry_index}-bugfixes" data-testid="release-notes-bugfixes"></div>
                             <textarea class="d-none release-notes-raw" data-target="rn-{group_index}-{entry_index}-bugfixes">{entry.bugfixesMarkdown}</textarea>
                             {/if}

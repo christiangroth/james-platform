@@ -45,7 +45,8 @@ dedicated view model class inside `adapter-in-web`.
   - **Base** (`msg:`) – `AppMessages` / `messages/msg_de.properties`: login, common (`commonCancel`, `commonSave`, …), property types, `layout.html`/navigation, `error.html`, profile, and anything shared across areas
   - **Developer** (`developer:`) – `DeveloperMessages` / `messages/developer_de.properties`: everything under `ui/developer/**` plus `DeveloperAppResource`
   - **User** (`user:`) – `UserMessages` / `messages/user_de.properties`: everything under `ui/user/**` (dashboard, app store, app data) plus the backing resource classes
-  - **Admin** (`admin:`) – `AdminMessages` / `messages/admin_de.properties`: `ui/admin/**`, `health.html`, `logs.html`, `config.html`, `mongodb-viewer.html` plus `AdminUserManagementResource`
+  - **Admin** (`admin:`) – `AdminMessages` / `messages/admin_de.properties`: `ui/admin/**` plus `AdminUserManagementResource`
+  - **Monitoring** (`monitoring:`) – `MonitoringMessages` / `messages/monitoring_de.properties`: the technical/ops pages reachable by any authenticated user regardless of role – `health.html`, `logs.html`, `config.html`, `mongodb-viewer.html`, `release-notes.html`
   - A page never mixes prefixes for its own area's keys, but may still reference `msg:` for shared/common keys (e.g. `msg:commonCancel()` inside a developer-area template)
 - Message keys are declared as methods on the relevant `*Messages` interface (`adapter-in-web/src/main/kotlin/.../adapter/in/web/i18n/`), annotated `@Message` with no value; each
   interface other than the base `AppMessages` is annotated `@MessageBundle("<qualifier>")` (e.g. `@MessageBundle("developer")`), which also determines its properties file name
