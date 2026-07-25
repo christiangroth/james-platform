@@ -3,11 +3,6 @@ package de.chrgroth.james.platform.domain.model.imports
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 
-enum class MappingType {
-  FIND,
-  FIND_OR_CREATE,
-}
-
 /** Simple, lossless-intent conversions that may be applied to a mapped field to resolve small type mismatches between source and target. */
 enum class FieldMappingConversion {
   NONE,
@@ -58,7 +53,6 @@ data class FieldMapping(
 
 data class Mapping(
   val name: String,
-  val type: MappingType,
   val targetEntityDefinitionId: EntityDefinitionId,
   val fieldMappings: List<FieldMapping> = emptyList(),
 )

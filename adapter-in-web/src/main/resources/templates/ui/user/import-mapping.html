@@ -46,13 +46,6 @@
                         <label for="mappingName" class="form-label">{user:userImportMappingNameLabel()}</label>
                         <input type="text" class="form-control app-form-control" id="mappingName" name="name" value="{mappingName}" required autocomplete="off" data-testid="mapping-name-input">
                     </div>
-                    <div class="col-md-6">
-                        <label for="mappingType" class="form-label">{user:userImportMappingTypeLabel()}</label>
-                        <select id="mappingType" name="type" class="form-select app-form-control" data-testid="mapping-type-select">
-                            <option value="FIND" {#if mappingType == 'FIND'}selected{/if}>{user:userImportMappingTypeFindLabel()}</option>
-                            <option value="FIND_OR_CREATE" {#if mappingType == 'FIND_OR_CREATE'}selected{/if}>{user:userImportMappingTypeFindOrCreateLabel()}</option>
-                        </select>
-                    </div>
                 </div>
             </div>
 
@@ -251,7 +244,6 @@
 
                     var payload = {
                         name: mappingForm.querySelector('#mappingName').value,
-                        type: mappingForm.querySelector('#mappingType').value,
                         targetEntityDefinitionId: document.getElementById('entityDefinitionId').value,
                         fieldMappings: fieldMappings
                     };

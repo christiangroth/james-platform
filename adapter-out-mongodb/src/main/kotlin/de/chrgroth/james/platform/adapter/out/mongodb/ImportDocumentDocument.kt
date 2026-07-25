@@ -25,7 +25,6 @@ class ImportDocumentDocument {
 
 class MappingDocument {
   lateinit var name: String
-  lateinit var type: String
   lateinit var targetEntityDefinitionId: String
   var fieldMappings: List<FieldMappingDocument> = emptyList()
 }

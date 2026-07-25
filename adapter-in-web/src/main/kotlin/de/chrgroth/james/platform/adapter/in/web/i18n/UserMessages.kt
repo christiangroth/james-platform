@@ -260,15 +260,6 @@ interface UserMessages {
   fun userImportMappingNameLabel(): String
 
   @Message
-  fun userImportMappingTypeLabel(): String
-
-  @Message
-  fun userImportMappingTypeFindLabel(): String
-
-  @Message
-  fun userImportMappingTypeFindOrCreateLabel(): String
-
-  @Message
   fun userImportMappingColProperty(): String
 
   @Message

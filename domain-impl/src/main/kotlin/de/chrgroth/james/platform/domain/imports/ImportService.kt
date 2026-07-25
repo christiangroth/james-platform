@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
@@ -20,7 +21,6 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
@@ -172,7 +172,6 @@ class ImportService(
     installedAppId: String,
     importDocumentId: String,
     name: String,
-    type: MappingType,
     targetEntityDefinitionId: String,
     fieldMappings: List<FieldMapping>,
   ): Either<DomainError, MappingView> {
@@ -208,7 +207,6 @@ class ImportService(
 
     val mapping = Mapping(
       name = name.trim(),
-      type = type,
       targetEntityDefinitionId = entityDefinition.id,
       fieldMappings = fieldMappings,
     )
@@ -294,10 +292,12 @@ class ImportService(
 
   private fun executeDryRun(existing: ImportDocument, mapping: Mapping, entityDefinition: EntityDefinition, installedApp: InstalledApp): List<DryRunObject> {
     val entityDefinitions = entityDefinitionsOf(installedApp)
-    val referencedEntityIds = mapping.fieldMappings.mapNotNull { fieldMapping ->
-      fieldMapping.referenceLookup ?: return@mapNotNull null
-      entityDefinition.properties.find { it.id == fieldMapping.targetPropertyId }?.targetEntityId
-    }.toSet()
+    // Loaded for every REF property (not just lookup-configured ones) so DryRunExecutor can also verify existence
+    // of directly mapped or fallback reference values, not only lookup-resolved ones.
+    val referencedEntityIds = entityDefinition.properties
+      .filter { it.type == PropertyType.REF }
+      .mapNotNull { it.targetEntityId }
+      .toSet()
 
     return DryRunExecutor.execute(
       records = recordsAt(existing),

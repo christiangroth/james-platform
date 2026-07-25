@@ -22,7 +22,6 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
@@ -148,7 +147,6 @@ data class FieldMappingRequest @JsonCreator constructor(
 
 data class MappingSaveRequest @JsonCreator constructor(
   @param:JsonProperty("name") val name: String,
-  @param:JsonProperty("type") val type: String,
   @param:JsonProperty("targetEntityDefinitionId") val targetEntityDefinitionId: String,
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
 )
@@ -283,8 +281,6 @@ class UserImportResource {
         .data("hasEntitySelected", selectedEntity != null)
         .data("entityOptions", view.entityDefinitions.map { EntityOptionRow(it.id.value, it.name, it.id.value == selectedEntity?.id?.value) })
         .data("mappingName", currentMapping?.name ?: selectedEntity?.name.orEmpty())
-        .data("mappingType", (currentMapping?.type ?: MappingType.FIND).name)
-        .data("mappingTypes", listOf(MappingType.FIND.name, MappingType.FIND_OR_CREATE.name))
         .data("propertyRows", selectedEntity?.let { buildPropertyRows(it, currentMapping, view) }.orEmpty())
         .data("schemaFieldOptions", view.importDocument.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) }),
@@ -303,9 +299,6 @@ class UserImportResource {
     val userId = securityIdentity.principal.name
     if (request.name.isBlank()) {
       return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankMappingNameError())).build()
-    }
-    val type = runCatching { MappingType.valueOf(request.type) }.getOrElse {
-      return Response.ok(DeveloperApiResult(false, msg.commonUnexpectedError())).build()
     }
     val fieldMappings = request.fieldMappings.mapNotNull { field ->
       if (field.targetPropertyId.isBlank()) return@mapNotNull null
@@ -329,7 +322,7 @@ class UserImportResource {
       )
     }
 
-    return importPort.updateMapping(userId, installedAppId, importDocumentId, request.name, type, request.targetEntityDefinitionId, fieldMappings).fold(
+    return importPort.updateMapping(userId, installedAppId, importDocumentId, request.name, request.targetEntityDefinitionId, fieldMappings).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()

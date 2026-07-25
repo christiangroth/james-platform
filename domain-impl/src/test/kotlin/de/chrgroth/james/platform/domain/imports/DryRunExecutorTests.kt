@@ -16,7 +16,6 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.Mapping
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import org.assertj.core.api.Assertions.assertThat
@@ -32,7 +31,7 @@ class DryRunExecutorTests {
   private fun records(json: String) = objectMapper.readTree(json).toList()
 
   private fun mapping(vararg fieldMappings: FieldMapping) =
-    Mapping(name = "Contact", type = MappingType.FIND, targetEntityDefinitionId = EntityDefinitionId("entity-1"), fieldMappings = fieldMappings.toList())
+    Mapping(name = "Contact", targetEntityDefinitionId = EntityDefinitionId("entity-1"), fieldMappings = fieldMappings.toList())
 
   private fun entityDefinition(vararg properties: Property) = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Contact", properties = properties.toList())
 
@@ -238,5 +237,83 @@ class DryRunExecutorTests {
     )
 
     assertThat(result.single().issues).contains(DryRunIssue.MissingMandatoryValue(propertyId))
+  }
+
+  @Test
+  fun `directly mapped REF value pointing to an existing instance is valid`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "companyId"))
+    val existingCompany = appData(referencedEntityId, emptyMap(), id = "company-1")
+
+    val result = execute(
+      records("""[{"companyId":"company-1"}]"""),
+      mapping,
+      entity,
+      referencedAppDataByEntityId = mapOf(referencedEntityId to listOf(existingCompany)),
+    )
+
+    assertThat(result.single().isValid).isTrue()
+  }
+
+  @Test
+  fun `directly mapped REF value that does not point to an existing instance is reported as not statically checked`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "companyId"))
+
+    val result = execute(
+      records("""[{"companyId":"unknown-company"}]"""),
+      mapping,
+      entity,
+      referencedAppDataByEntityId = mapOf(referencedEntityId to emptyList()),
+    )
+
+    val issue = result.single().issues.single() as DryRunIssue.ConstraintViolated
+    assertThat(issue.violation).isEqualTo(PropertyConstraintViolation.InvalidReferenceViolation)
+    assertThat(issue.staticallyChecked).isFalse()
+  }
+
+  @Test
+  fun `REF fallback value used without a lookup is checked for existence`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, fallbackValue = "unknown-company"))
+
+    val result = execute(
+      records("""[{}]"""),
+      mapping,
+      entity,
+      referencedAppDataByEntityId = mapOf(referencedEntityId to emptyList()),
+    )
+
+    val issue = result.single().issues.single() as DryRunIssue.ConstraintViolated
+    assertThat(issue.violation).isEqualTo(PropertyConstraintViolation.InvalidReferenceViolation)
+  }
+
+  @Test
+  fun `reference lookup fallback value is exempt from the direct-mapping existence check`() {
+    val referencedEntityId = EntityDefinitionId("entity-2")
+    val codePropertyId = PropertyId("code-prop")
+    val referencedEntity = EntityDefinition(id = referencedEntityId, name = "Company", properties = listOf(Property(id = codePropertyId, name = "Code", type = PropertyType.STRING, nullable = false)))
+    val entity = entityDefinition(Property(id = propertyId, name = "Company", type = PropertyType.REF, nullable = false, targetEntityId = referencedEntityId))
+    val mapping = mapping(
+      FieldMapping(
+        targetPropertyId = propertyId,
+        referenceLookup = ReferenceLookup(listOf(ReferenceLookupCriterion(codePropertyId, "companyCode"))),
+        fallbackValue = "default-company",
+      ),
+    )
+
+    val result = execute(
+      records("""[{"companyCode":"UNKNOWN"}]"""),
+      mapping,
+      entity,
+      entityDefinitionsById = mapOf(entity.id to entity, referencedEntityId to referencedEntity),
+      referencedAppDataByEntityId = mapOf(referencedEntityId to emptyList()),
+    )
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "default-company"))
   }
 }

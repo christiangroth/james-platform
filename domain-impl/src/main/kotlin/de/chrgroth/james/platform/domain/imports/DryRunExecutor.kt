@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
@@ -24,7 +25,11 @@ import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
  * [de.chrgroth.james.platform.domain.model.imports.MappingIssue.NotStaticallyValidated] already deferred to here) is new.
  * A REF property with a [ReferenceLookup] resolves its value by matching the lookup criteria's source values
  * against [referencedAppDataByEntityId] for the referenced entity (a `find`, never creating anything), falling back
- * to [FieldMapping.fallbackValue] when no match is found.
+ * to [FieldMapping.fallbackValue] when no match is found. A REF property mapped directly (no lookup, via
+ * [FieldMapping.sourcePath] and/or [FieldMapping.fallbackValue]) has its resolved value checked against
+ * [referencedAppDataByEntityId] as well, reporting [PropertyConstraintViolation.InvalidReferenceViolation] when it
+ * does not point to an existing instance of the referenced entity — a lookup-resolved value is inherently
+ * existence-safe and skips this check.
  */
 object DryRunExecutor {
 
@@ -67,6 +72,10 @@ object DryRunExecutor {
           issues += DryRunIssue.MissingMandatoryValue(property.id)
         }
 
+        if (property.type == PropertyType.REF && fieldMapping?.referenceLookup == null) {
+          referenceExistenceIssue(property, rawValue, referencedAppDataByEntityId)?.let { issues += it }
+        }
+
         val parsedValue = parseScalarValue(property.type, rawValue)
         val violations = propertyConstraint.checkValue(property, parsedValue, seenValues[property.id].orEmpty())
         issues += violations.map { DryRunIssue.ConstraintViolated(property.id, it, it.javaClass in STATICALLY_CHECKED_VIOLATION_TYPES) }
@@ -78,6 +87,19 @@ object DryRunExecutor {
 
       DryRunObject(index, record.toString(), targetData, issues)
     }
+  }
+
+  /** For a directly mapped REF property (no lookup), reports [PropertyConstraintViolation.InvalidReferenceViolation] if the resolved value does not point to an existing instance of the referenced entity. */
+  private fun referenceExistenceIssue(
+    property: Property,
+    rawValue: String?,
+    referencedAppDataByEntityId: Map<EntityDefinitionId, List<AppData>>,
+  ): DryRunIssue.ConstraintViolated? {
+    if (rawValue.isNullOrBlank()) return null
+    val targetEntityId = property.targetEntityId
+      ?: return DryRunIssue.ConstraintViolated(property.id, PropertyConstraintViolation.InvalidReferenceViolation, staticallyChecked = false)
+    val existingIds = referencedAppDataByEntityId[targetEntityId].orEmpty().map { it.id.value }
+    return if (rawValue in existingIds) null else DryRunIssue.ConstraintViolated(property.id, PropertyConstraintViolation.InvalidReferenceViolation, staticallyChecked = false)
   }
 
   private fun resolveRawValue(

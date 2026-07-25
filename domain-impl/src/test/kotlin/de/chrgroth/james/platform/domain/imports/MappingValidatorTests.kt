@@ -12,7 +12,6 @@ import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
@@ -259,7 +258,6 @@ class MappingValidatorTests {
 
   private fun mapping(vararg fieldMappings: FieldMapping) = Mapping(
     name = "Contact",
-    type = MappingType.FIND,
     targetEntityDefinitionId = EntityDefinitionId("entity-1"),
     fieldMappings = fieldMappings.toList(),
   )
