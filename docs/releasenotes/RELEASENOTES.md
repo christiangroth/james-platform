@@ -1,3 +1,17 @@
+# 0.74.0 (2026.07.25)
+
+## New Features
+* Added a dedicated Release Notes page grouping all changes by minor version in a collapsible accordion, instead of one long markdown file.
+* The version number shown in the top navbar now links to this new Release Notes page.
+
+## Bugfixes / Chore
+* Added Docker `HEALTHCHECK` instructions to the JVM, legacy-jar and native container images so orchestrators can detect and restart unhealthy application instances automatically.
+* Fixed the Quarkus Grafana dashboards permanently showing "No Data": the log explorer link now matches the actual log selector, log events per level are now exported correctly, and the broken app version panel was removed.
+
+
+
+---
+
 # 0.73.2 (2026.07.25)
 
 ## Bugfixes / Chore

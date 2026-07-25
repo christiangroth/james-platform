@@ -1,1 +1,0 @@
-* Fixed the Quarkus Grafana dashboards permanently showing "No Data": the log explorer link now matches the actual log selector, log events per level are now exported correctly, and the broken app version panel was removed.
