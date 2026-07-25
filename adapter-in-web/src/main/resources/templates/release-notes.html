@@ -24,14 +24,14 @@
             {#for group in groups}
             <div class="accordion-item app-accordion-item mb-3" data-testid="release-notes-group">
                 <h2 class="accordion-header" id="rn-group-{group_index}-heading">
-                    <button class="accordion-button {#if group_index > 0}collapsed{/if}" type="button"
+                    <button class="accordion-button {#if group_index > 2}collapsed{/if}" type="button"
                             data-bs-toggle="collapse" data-bs-target="#rn-group-{group_index}-collapse"
-                            aria-expanded="{#if group_index == 0}true{#else}false{/if}" aria-controls="rn-group-{group_index}-collapse"
+                            aria-expanded="{#if group_index < 3}true{#else}false{/if}" aria-controls="rn-group-{group_index}-collapse"
                             data-testid="release-notes-group-toggle">
                         {group.minorVersion}.x
                     </button>
                 </h2>
-                <div id="rn-group-{group_index}-collapse" class="accordion-collapse collapse {#if group_index == 0}show{/if}"
+                <div id="rn-group-{group_index}-collapse" class="accordion-collapse collapse {#if group_index < 3}show{/if}"
                      aria-labelledby="rn-group-{group_index}-heading" data-bs-parent="#releaseNotesAccordion">
                     <div class="accordion-body">
                         {#for entry in group.entries}

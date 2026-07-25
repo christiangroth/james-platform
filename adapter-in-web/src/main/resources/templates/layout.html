@@ -453,6 +453,13 @@
             background-color: var(--color-bg-card);
             border-color: var(--color-border);
         }
+        /* Items are visually separated (mb-3 gap) rather than stacked flush against each other, so
+           Bootstrap's default "no top border except on the first item" rule (meant for a flush stack)
+           leaves every item after the first looking visually cut open at the top; restore it. */
+        .app-accordion-item:not(:first-of-type) {
+            border-top-width: var(--bs-accordion-border-width);
+            border-top-style: solid;
+        }
         .app-accordion-item .accordion-button {
             background-color: var(--color-bg-card);
             color: var(--color-text-primary);
@@ -461,6 +468,12 @@
         .app-accordion-item .accordion-button:not(.collapsed) {
             background-color: var(--color-bg-card);
             color: var(--color-text-primary);
+            box-shadow: none;
+        }
+        /* Bootstrap's default blue focus ring stays applied after a click as long as the button keeps
+           focus, including once a section is collapsed again - suppress it to match the app's neutral,
+           borderless accordion styling instead of leaving a stray blue glow behind. */
+        .app-accordion-item .accordion-button:focus {
             box-shadow: none;
         }
         /* Bootstrap uses a dark chevron icon by default; invert to make it visible on dark backgrounds */
