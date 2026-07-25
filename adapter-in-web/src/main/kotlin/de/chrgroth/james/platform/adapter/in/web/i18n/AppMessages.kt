@@ -233,7 +233,26 @@ interface AppMessages {
   fun layoutNavDocsLabel(): String
 
   @Message
+  fun layoutNavReleaseNotesLabel(): String
+
+  @Message
   fun layoutNavGithubLabel(): String
+
+  // release notes page
+  @Message
+  fun releaseNotesHeading(): String
+
+  @Message
+  fun releaseNotesBreakingChangesHeading(): String
+
+  @Message
+  fun releaseNotesNewFeaturesHeading(): String
+
+  @Message
+  fun releaseNotesBugfixesHeading(): String
+
+  @Message
+  fun releaseNotesEmptyMessage(): String
 
   // error page
   @Message

@@ -602,7 +602,7 @@
         <a href="/" class="d-flex align-items-center text-decoration-none me-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32" aria-label="{msg:commonAppName()} {msg:layoutLogoLabel()}"><use href="#icon-nav-app"/></svg>
         </a>
-        {#insert appVersion}<a href="/docs/releasenotes/RELEASENOTES.md" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
+        {#insert appVersion}<a href="/release-notes" class="app-version me-2 text-decoration-none" data-testid="version-link">{appBuildVersion}</a>{/insert}
         {#insert leftNavLinks}
         <a href="/ui/profile" class="nav-link text-white me-3" data-testid="profile-link" title="{msg:layoutNavProfileTitle()}" aria-label="{msg:layoutNavProfileAriaLabel()}"><i class="bi bi-person-circle" style="font-size:18px;" aria-hidden="true"></i></a>
         <button type="button" id="language-toggle" class="nav-link text-white me-3 bg-transparent border-0 p-0 fw-bold" data-testid="language-toggle-button" title="{msg:layoutLanguageToggleLabel()}" aria-label="{msg:layoutLanguageToggleLabel()}"{#if !isMonitoring} disabled{/if}>
@@ -631,6 +631,7 @@
                 <li><a href="/mongodb-viewer" class="dropdown-item" data-testid="mongodb-viewer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbViewerLabel()}</a></li>
                 <li><a href="https://cloud.mongodb.com/v2/69d66ace6a6c9a904f96cdd5#/explorer/69d66c21f8472632259bde5d" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="mongodb-atlas-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16"><use href="#icon-nav-mongodb"/></svg>{msg:layoutNavMongodbAtlasLabel()}</a></li>
                 <li><a href="/docs/arc42/arc42.md" class="dropdown-item" data-testid="docs-link"><i class="bi bi-book me-2"></i>{msg:layoutNavDocsLabel()}</a></li>
+                <li><a href="/release-notes" class="dropdown-item" data-testid="release-notes-link"><i class="bi bi-clock-history me-2"></i>{msg:layoutNavReleaseNotesLabel()}</a></li>
                 <li><a href="https://github.com/christiangroth/james-platform" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-testid="github-link"><i class="bi bi-github me-2"></i>{msg:layoutNavGithubLabel()}</a></li>
             </ul>
         </div>

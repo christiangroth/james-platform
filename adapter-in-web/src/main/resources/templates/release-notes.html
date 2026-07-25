@@ -1,0 +1,83 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {msg:releaseNotesHeading()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#if isAdmin}
+                {#breadcrumb-home homeUrl="/ui/admin/dashboard" homeLabel=admin:adminDashboardTitle() /}
+                {#else}
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                {/if}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-release-notes">{msg:layoutNavReleaseNotesLabel()}</li>
+            </ol>
+        </nav>
+
+        <h1 class="mb-4 fs-4 fw-semibold">{msg:releaseNotesHeading()}</h1>
+
+        {#if groups.isEmpty}
+        <div class="card app-card p-4">
+            <p class="mb-0" data-testid="release-notes-empty">{msg:releaseNotesEmptyMessage()}</p>
+        </div>
+        {#else}
+        <div class="accordion" id="releaseNotesAccordion">
+            {#for group in groups}
+            <div class="accordion-item app-accordion-item mb-3" data-testid="release-notes-group">
+                <h2 class="accordion-header" id="rn-group-{group_index}-heading">
+                    <button class="accordion-button {#if group_index > 0}collapsed{/if}" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#rn-group-{group_index}-collapse"
+                            aria-expanded="{#if group_index == 0}true{#else}false{/if}" aria-controls="rn-group-{group_index}-collapse"
+                            data-testid="release-notes-group-toggle">
+                        {group.minorVersion}.x
+                    </button>
+                </h2>
+                <div id="rn-group-{group_index}-collapse" class="accordion-collapse collapse {#if group_index == 0}show{/if}"
+                     aria-labelledby="rn-group-{group_index}-heading" data-bs-parent="#releaseNotesAccordion">
+                    <div class="accordion-body">
+                        {#for entry in group.entries}
+                        <div class="{#if entry_hasNext}mb-4 pb-4 release-notes-entry-divider{#else}mb-2{/if}" data-testid="release-notes-entry">
+                            <h3 class="fs-6 fw-semibold mb-2">
+                                {entry.version} <span class="app-section-label fw-normal">({entry.date})</span>
+                            </h3>
+                            {#if !entry.breakingChanges.isEmpty}
+                            <div class="app-section-header mb-1">{msg:releaseNotesBreakingChangesHeading()}</div>
+                            <div class="docs-content release-notes-rendered mb-3" id="rn-{group_index}-{entry_index}-breaking" data-testid="release-notes-breaking-changes"></div>
+                            <textarea class="d-none release-notes-raw" data-target="rn-{group_index}-{entry_index}-breaking">{entry.breakingChangesMarkdown}</textarea>
+                            {/if}
+                            {#if !entry.newFeatures.isEmpty}
+                            <div class="app-section-header mb-1">{msg:releaseNotesNewFeaturesHeading()}</div>
+                            <div class="docs-content release-notes-rendered mb-3" id="rn-{group_index}-{entry_index}-features" data-testid="release-notes-new-features"></div>
+                            <textarea class="d-none release-notes-raw" data-target="rn-{group_index}-{entry_index}-features">{entry.newFeaturesMarkdown}</textarea>
+                            {/if}
+                            {#if !entry.bugfixes.isEmpty}
+                            <div class="app-section-header mb-1">{msg:releaseNotesBugfixesHeading()}</div>
+                            <div class="docs-content release-notes-rendered mb-3" id="rn-{group_index}-{entry_index}-bugfixes" data-testid="release-notes-bugfixes"></div>
+                            <textarea class="d-none release-notes-raw" data-target="rn-{group_index}-{entry_index}-bugfixes">{entry.bugfixesMarkdown}</textarea>
+                            {/if}
+                        </div>
+                        {/for}
+                    </div>
+                </div>
+            </div>
+            {/for}
+        </div>
+        {/if}
+    </div>
+    <style>
+        .release-notes-entry-divider {
+            border-bottom: 1px solid var(--color-border);
+        }
+    </style>
+    <script>
+        // Each section's bullets were re-assembled into a small markdown list by ReleaseNotesEntry (see
+        // ReleaseNotesParser.kt) and stashed in a hidden textarea; render every one of them via marked.js here,
+        // the same client-side rendering approach docs.html uses for whole markdown files.
+        document.querySelectorAll('.release-notes-raw').forEach(function (textarea) {
+            var target = document.getElementById(textarea.getAttribute('data-target'));
+            if (target) {
+                target.innerHTML = marked.parse(textarea.value);
+            }
+        });
+    </script>
+    {/content}
+{/include}
