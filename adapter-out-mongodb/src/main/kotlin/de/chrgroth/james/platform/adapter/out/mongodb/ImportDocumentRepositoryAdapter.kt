@@ -14,6 +14,8 @@ import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
+import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
+import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
@@ -104,6 +106,16 @@ class ImportDocumentRepositoryAdapter(
     sourcePath = sourcePath,
     conversion = FieldMappingConversion.valueOf(conversion),
     fallbackValue = fallbackValue,
+    referenceLookup = referenceLookup?.toDomain(),
+  )
+
+  private fun ReferenceLookupDocument.toDomain() = ReferenceLookup(
+    criteria = criteria.map { it.toDomain() },
+  )
+
+  private fun ReferenceLookupCriterionDocument.toDomain() = ReferenceLookupCriterion(
+    targetPropertyId = PropertyId(targetPropertyId),
+    sourcePath = sourcePath,
   )
 
   private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
@@ -152,6 +164,16 @@ class ImportDocumentRepositoryAdapter(
     doc.sourcePath = sourcePath
     doc.conversion = conversion.name
     doc.fallbackValue = fallbackValue
+    doc.referenceLookup = referenceLookup?.toDocument()
+  }
+
+  private fun ReferenceLookup.toDocument() = ReferenceLookupDocument().also { doc ->
+    doc.criteria = criteria.map { it.toDocument() }
+  }
+
+  private fun ReferenceLookupCriterion.toDocument() = ReferenceLookupCriterionDocument().also { doc ->
+    doc.targetPropertyId = targetPropertyId.value
+    doc.sourcePath = sourcePath
   }
 
   companion object {

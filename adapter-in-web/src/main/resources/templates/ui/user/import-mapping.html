@@ -82,12 +82,70 @@
                                     {/for}
                                 </td>
                                 <td>
-                                    <select class="form-select form-select-sm app-form-control source-path-select" data-testid="source-path-select">
+                                    {#if property.isReference}
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input reference-lookup-toggle" type="checkbox" {#if property.useReferenceLookup}checked{/if} data-testid="reference-lookup-toggle">
+                                        <label class="form-check-label small">{user:userImportMappingUseLookupLabel()}</label>
+                                    </div>
+                                    {/if}
+                                    <select class="form-select form-select-sm app-form-control source-path-select {#if property.isReference && property.useReferenceLookup}d-none{/if}" data-testid="source-path-select">
                                         <option value="" {#if property.sourcePath == ''}selected{/if}>{user:userImportMappingNoSourceFieldOption()}</option>
                                         {#for field in schemaFieldOptions}
                                         <option value="{field.path}" {#if field.path == property.sourcePath}selected{/if}>{field.label}</option>
                                         {/for}
                                     </select>
+                                    {#if property.isReference}
+                                    <div class="reference-lookup-builder {#if !property.useReferenceLookup}d-none{/if}" data-testid="reference-lookup-builder">
+                                        <div class="form-text mb-1">{user:userImportMappingLookupHint()}</div>
+                                        <table class="table table-sm mb-1 reference-lookup-criteria-table" data-testid="reference-lookup-criteria-table">
+                                            <tbody>
+                                                {#for criterion in property.referenceLookupCriteria}
+                                                <tr class="reference-lookup-criterion-row" data-testid="reference-lookup-criterion-row">
+                                                    <td>
+                                                        <select class="form-select form-select-sm app-form-control criterion-target-property-select" data-testid="criterion-target-property-select">
+                                                            <option value="">{user:userImportMappingNoSourceFieldOption()}</option>
+                                                            {#for option in property.referencedEntityPropertyOptions}
+                                                            <option value="{option.id}" {#if option.id == criterion.targetPropertyId}selected{/if}>{option.name}</option>
+                                                            {/for}
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <select class="form-select form-select-sm app-form-control criterion-source-path-select" data-testid="criterion-source-path-select">
+                                                            <option value="">{user:userImportMappingNoSourceFieldOption()}</option>
+                                                            {#for field in schemaFieldOptions}
+                                                            <option value="{field.path}" {#if field.path == criterion.sourcePath}selected{/if}>{field.label}</option>
+                                                            {/for}
+                                                        </select>
+                                                    </td>
+                                                    <td><button type="button" class="btn btn-sm btn-app-secondary remove-criterion-button" data-testid="remove-criterion-button">{user:userImportMappingRemoveCriterionButton()}</button></td>
+                                                </tr>
+                                                {/for}
+                                            </tbody>
+                                        </table>
+                                        <button type="button" class="btn btn-sm btn-app-secondary add-criterion-button" data-testid="add-criterion-button">{user:userImportMappingAddCriterionButton()}</button>
+                                        <template class="criterion-row-template">
+                                            <tr class="reference-lookup-criterion-row" data-testid="reference-lookup-criterion-row">
+                                                <td>
+                                                    <select class="form-select form-select-sm app-form-control criterion-target-property-select" data-testid="criterion-target-property-select">
+                                                        <option value="">{user:userImportMappingNoSourceFieldOption()}</option>
+                                                        {#for option in property.referencedEntityPropertyOptions}
+                                                        <option value="{option.id}">{option.name}</option>
+                                                        {/for}
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <select class="form-select form-select-sm app-form-control criterion-source-path-select" data-testid="criterion-source-path-select">
+                                                        <option value="">{user:userImportMappingNoSourceFieldOption()}</option>
+                                                        {#for field in schemaFieldOptions}
+                                                        <option value="{field.path}">{field.label}</option>
+                                                        {/for}
+                                                    </select>
+                                                </td>
+                                                <td><button type="button" class="btn btn-sm btn-app-secondary remove-criterion-button" data-testid="remove-criterion-button">{user:userImportMappingRemoveCriterionButton()}</button></td>
+                                            </tr>
+                                        </template>
+                                    </div>
+                                    {/if}
                                 </td>
                                 <td>
                                     <select class="form-select form-select-sm app-form-control conversion-select" data-testid="conversion-select">
@@ -132,17 +190,63 @@
 
             var mappingForm = document.getElementById('mappingForm');
             if (mappingForm) {
+                mappingForm.addEventListener('change', function (e) {
+                    if (!e.target.classList.contains('reference-lookup-toggle')) return;
+                    var cell = e.target.closest('td');
+                    var sourceSelect = cell.querySelector('.source-path-select');
+                    var builder = cell.querySelector('.reference-lookup-builder');
+                    if (e.target.checked) {
+                        sourceSelect.classList.add('d-none');
+                        builder.classList.remove('d-none');
+                        var tbody = builder.querySelector('table tbody');
+                        if (tbody && tbody.children.length === 0) {
+                            tbody.appendChild(builder.querySelector('.criterion-row-template').content.cloneNode(true));
+                        }
+                    } else {
+                        sourceSelect.classList.remove('d-none');
+                        builder.classList.add('d-none');
+                    }
+                });
+
+                mappingForm.addEventListener('click', function (e) {
+                    var addButton = e.target.closest('.add-criterion-button');
+                    if (addButton) {
+                        var builder = addButton.closest('.reference-lookup-builder');
+                        builder.querySelector('table tbody').appendChild(builder.querySelector('.criterion-row-template').content.cloneNode(true));
+                        return;
+                    }
+                    var removeButton = e.target.closest('.remove-criterion-button');
+                    if (removeButton) {
+                        removeButton.closest('.reference-lookup-criterion-row').remove();
+                    }
+                });
+
                 mappingForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
 
                     var fieldMappings = [];
                     mappingForm.querySelectorAll('[data-testid="mapping-property-row"]').forEach(function (row) {
-                        fieldMappings.push({
+                        var lookupToggle = row.querySelector('.reference-lookup-toggle');
+                        var useLookup = !!(lookupToggle && lookupToggle.checked);
+                        var fieldMapping = {
                             targetPropertyId: row.getAttribute('data-property-id'),
-                            sourcePath: row.querySelector('.source-path-select').value,
+                            sourcePath: useLookup ? '' : row.querySelector('.source-path-select').value,
                             conversion: row.querySelector('.conversion-select').value,
-                            fallbackValue: row.querySelector('.fallback-value-input').value
-                        });
+                            fallbackValue: row.querySelector('.fallback-value-input').value,
+                            referenceLookup: null
+                        };
+                        if (useLookup) {
+                            var criteria = [];
+                            row.querySelectorAll('.reference-lookup-criterion-row').forEach(function (criterionRow) {
+                                var targetPropertyId = criterionRow.querySelector('.criterion-target-property-select').value;
+                                var sourcePath = criterionRow.querySelector('.criterion-source-path-select').value;
+                                if (targetPropertyId && sourcePath) {
+                                    criteria.push({ targetPropertyId: targetPropertyId, sourcePath: sourcePath });
+                                }
+                            });
+                            fieldMapping.referenceLookup = { criteria: criteria };
+                        }
+                        fieldMappings.push(fieldMapping);
                     });
 
                     var payload = {

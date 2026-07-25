@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.domain.model.imports
 
+import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -38,6 +39,23 @@ sealed interface MappingIssue {
 
   /** The target property has a Pattern constraint that cannot be statically checked against the detected schema; it is only validated during dry-run. */
   data class NotStaticallyValidated(override val targetPropertyId: PropertyId, val regex: String) : MappingIssue
+
+  /** A [ReferenceLookup] is configured for the target property but has no criteria, so it can never resolve to a value. */
+  data class ReferenceLookupMissingCriteria(override val targetPropertyId: PropertyId) : MappingIssue
+
+  /** A lookup criterion's [ReferenceLookupCriterion.targetPropertyId] does not identify a property of the referenced entity definition. */
+  data class ReferenceLookupInvalidCriterion(override val targetPropertyId: PropertyId, val criterionPropertyId: PropertyId) : MappingIssue
+
+  /** At least one value type observed in the source data for a lookup criterion's mapped field is not compatible with the referenced entity property's type. */
+  data class ReferenceLookupIncompatibleType(
+    override val targetPropertyId: PropertyId,
+    val criterionPropertyId: PropertyId,
+    val sourceType: SchemaPropertyType,
+    val targetType: PropertyType,
+  ) : MappingIssue
+
+  /** The configured static [FieldMapping.fallbackValue] violates a constraint of the target property. */
+  data class FallbackValueViolatesConstraint(override val targetPropertyId: PropertyId, val violation: PropertyConstraintViolation) : MappingIssue
 }
 
 data class MappingValidationResult(

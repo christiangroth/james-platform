@@ -23,15 +23,37 @@ enum class FieldMappingConversion {
 }
 
 /**
+ * Maps a single source property (identified by [sourcePath], a path into the referenced entity's detected schema)
+ * to a search criterion field ([targetPropertyId]) of the entity referenced by a REF target property.
+ */
+data class ReferenceLookupCriterion(
+  val targetPropertyId: PropertyId,
+  val sourcePath: String,
+)
+
+/**
+ * Configures a `find` lookup against the entity definition referenced by a REF target property: every criterion's
+ * source value must equal the referenced entity's corresponding property value for a record to match. Deliberately
+ * has no `findOrCreate` equivalent, so a lookup never creates a referenced entity as a side effect. Lookups are
+ * independent per target property: they cannot access values produced by other field mappings or lookups, so no
+ * cycle detection is needed.
+ */
+data class ReferenceLookup(
+  val criteria: List<ReferenceLookupCriterion> = emptyList(),
+)
+
+/**
  * Maps a single target property of an [de.chrgroth.james.platform.domain.model.app.EntityDefinition] to a source
  * schema field. Either [sourcePath] (a path into the detected schema), [fallbackValue] (a static value used for
- * every record), or both may be set; a property with neither is considered unmapped.
+ * every record), [referenceLookup] (only for REF properties; takes priority over [sourcePath] when set), or any
+ * combination may be set; a property with none of them is considered unmapped.
  */
 data class FieldMapping(
   val targetPropertyId: PropertyId,
   val sourcePath: String? = null,
   val conversion: FieldMappingConversion = FieldMappingConversion.NONE,
   val fallbackValue: String? = null,
+  val referenceLookup: ReferenceLookup? = null,
 )
 
 data class Mapping(

@@ -317,6 +317,27 @@ interface UserMessages {
   fun userImportMappingIssueNotStaticallyValidated(regex: String): String
 
   @Message
+  fun userImportMappingIssueReferenceLookupMissingCriteria(): String
+
+  @Message
+  fun userImportMappingIssueReferenceLookupInvalidCriterion(): String
+
+  @Message
+  fun userImportMappingIssueFallbackValueViolatesConstraint(violation: String): String
+
+  @Message
+  fun userImportMappingUseLookupLabel(): String
+
+  @Message
+  fun userImportMappingLookupHint(): String
+
+  @Message
+  fun userImportMappingAddCriterionButton(): String
+
+  @Message
+  fun userImportMappingRemoveCriterionButton(): String
+
+  @Message
   fun userImportMappingConversionNone(): String
 
   @Message

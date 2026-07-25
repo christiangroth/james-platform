@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.error.ImportInvalidUrlError
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
@@ -23,6 +24,8 @@ import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
 import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.MappingView
+import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
+import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
@@ -75,9 +78,19 @@ data class SchemaFieldOptionRow(
   val label: String,
 )
 
+data class PropertyOptionRow(
+  val id: String,
+  val name: String,
+)
+
 data class ConversionOptionRow(
   val value: String,
   val label: String,
+)
+
+data class ReferenceLookupCriterionRow(
+  val targetPropertyId: String,
+  val sourcePath: String,
 )
 
 data class MappingPropertyRow(
@@ -87,6 +100,10 @@ data class MappingPropertyRow(
   val mandatory: Boolean,
   val constraintHint: String,
   val hasPattern: Boolean,
+  val isReference: Boolean,
+  val useReferenceLookup: Boolean,
+  val referencedEntityPropertyOptions: List<PropertyOptionRow>,
+  val referenceLookupCriteria: List<ReferenceLookupCriterionRow>,
   val sourcePath: String,
   val conversion: String,
   val fallbackValue: String,
@@ -112,11 +129,21 @@ data class DryRunObjectRow(
   val properties: List<DryRunPropertyRow>,
 )
 
+data class ReferenceLookupCriterionRequest @JsonCreator constructor(
+  @param:JsonProperty("targetPropertyId") val targetPropertyId: String?,
+  @param:JsonProperty("sourcePath") val sourcePath: String?,
+)
+
+data class ReferenceLookupRequest @JsonCreator constructor(
+  @param:JsonProperty("criteria") val criteria: List<ReferenceLookupCriterionRequest>?,
+)
+
 data class FieldMappingRequest @JsonCreator constructor(
   @param:JsonProperty("targetPropertyId") val targetPropertyId: String,
   @param:JsonProperty("sourcePath") val sourcePath: String?,
   @param:JsonProperty("conversion") val conversion: String?,
   @param:JsonProperty("fallbackValue") val fallbackValue: String?,
+  @param:JsonProperty("referenceLookup") val referenceLookup: ReferenceLookupRequest? = null,
 )
 
 data class MappingSaveRequest @JsonCreator constructor(
@@ -284,12 +311,21 @@ class UserImportResource {
       if (field.targetPropertyId.isBlank()) return@mapNotNull null
       val sourcePath = field.sourcePath?.takeIf { it.isNotBlank() }
       val fallbackValue = field.fallbackValue?.takeIf { it.isNotBlank() }
-      if (sourcePath == null && fallbackValue == null) return@mapNotNull null
+      val referenceLookup = field.referenceLookup?.criteria.orEmpty()
+        .mapNotNull { criterion ->
+          val criterionTargetPropertyId = criterion.targetPropertyId?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+          val criterionSourcePath = criterion.sourcePath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+          ReferenceLookupCriterion(PropertyId(criterionTargetPropertyId), criterionSourcePath)
+        }
+        .takeIf { it.isNotEmpty() }
+        ?.let { ReferenceLookup(it) }
+      if (sourcePath == null && fallbackValue == null && referenceLookup == null) return@mapNotNull null
       FieldMapping(
         targetPropertyId = PropertyId(field.targetPropertyId),
         sourcePath = sourcePath,
         conversion = runCatching { FieldMappingConversion.valueOf(field.conversion ?: FieldMappingConversion.NONE.name) }.getOrDefault(FieldMappingConversion.NONE),
         fallbackValue = fallbackValue,
+        referenceLookup = referenceLookup,
       )
     }
 
@@ -412,9 +448,11 @@ class UserImportResource {
   private fun buildPropertyRows(entityDefinition: EntityDefinition, mapping: Mapping?, view: MappingView): List<MappingPropertyRow> {
     val fieldMappingsByProperty = mapping?.fieldMappings?.associateBy { it.targetPropertyId }.orEmpty()
     val issuesByProperty = view.validation?.issues?.groupBy { it.targetPropertyId }.orEmpty()
+    val entityDefinitionsById = view.entityDefinitions.associateBy { it.id }
     return entityDefinition.properties.map { property ->
       val fieldMapping = fieldMappingsByProperty[property.id]
       val issues = issuesByProperty[property.id].orEmpty()
+      val referencedEntity = property.targetEntityId?.let { entityDefinitionsById[it] }
       MappingPropertyRow(
         id = property.id.value,
         name = property.name,
@@ -422,6 +460,14 @@ class UserImportResource {
         mandatory = !property.nullable,
         constraintHint = PropertyLabelTemplateExtensions.constraintHint(property),
         hasPattern = property.constraints.any { it is PropertyConstraint.Pattern },
+        isReference = property.type == PropertyType.REF,
+        useReferenceLookup = fieldMapping?.referenceLookup != null,
+        referencedEntityPropertyOptions = referencedEntity?.properties
+          ?.filterNot { it.type == PropertyType.LIST || it.type == PropertyType.OBJECT }
+          ?.map { PropertyOptionRow(it.id.value, it.name) }
+          .orEmpty(),
+        referenceLookupCriteria = fieldMapping?.referenceLookup?.criteria.orEmpty()
+          .map { ReferenceLookupCriterionRow(it.targetPropertyId.value, it.sourcePath) },
         sourcePath = fieldMapping?.sourcePath.orEmpty(),
         conversion = (fieldMapping?.conversion ?: FieldMappingConversion.NONE).name,
         fallbackValue = fieldMapping?.fallbackValue.orEmpty(),
@@ -436,6 +482,13 @@ class UserImportResource {
     is MappingIssue.NumericRangeViolation -> userMsg.userImportMappingIssueNumericRange(formatNumber(issue.observedMin), formatNumber(issue.observedMax))
     is MappingIssue.StringLengthViolation -> userMsg.userImportMappingIssueStringLength(issue.observedMinLength, issue.observedMaxLength)
     is MappingIssue.NotStaticallyValidated -> userMsg.userImportMappingIssueNotStaticallyValidated(issue.regex)
+    is MappingIssue.ReferenceLookupMissingCriteria -> userMsg.userImportMappingIssueReferenceLookupMissingCriteria()
+    is MappingIssue.ReferenceLookupInvalidCriterion -> userMsg.userImportMappingIssueReferenceLookupInvalidCriterion()
+    is MappingIssue.ReferenceLookupIncompatibleType ->
+      userMsg.userImportMappingIssueIncompatibleType(schemaTypeLabel(issue.sourceType), PropertyLabelTemplateExtensions.propertyTypeLabel(issue.targetType))
+    is MappingIssue.FallbackValueViolatesConstraint -> userMsg.userImportMappingIssueFallbackValueViolatesConstraint(
+      PropertyLabelTemplateExtensions.constraintViolationMessage(issue.violation),
+    )
   }
 
   private fun formatNumber(value: Double): String = if (value == Math.floor(value) && !value.isInfinite()) value.toLong().toString() else value.toString()
