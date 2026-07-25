@@ -219,4 +219,20 @@ interface MonitoringMessages {
 
   @Message
   fun monitoringColValue(): String
+
+  // release notes page
+  @Message
+  fun monitoringReleaseNotesTitle(): String
+
+  @Message
+  fun monitoringReleaseNotesBreakingChangesHeading(): String
+
+  @Message
+  fun monitoringReleaseNotesNewFeaturesHeading(): String
+
+  @Message
+  fun monitoringReleaseNotesBugfixesHeading(): String
+
+  @Message
+  fun monitoringReleaseNotesEmptyMessage(): String
 }
