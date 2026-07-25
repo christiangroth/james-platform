@@ -1,3 +1,13 @@
+# 0.73.1 (2026.07.25)
+
+## Bugfixes / Chore
+* Removed the unused "Find" / "Find or Create" selector from the import mapping screen, since it had no effect on how imports run.
+* The import dry-run now also checks directly mapped reference fields (without a lookup) for whether they actually point to an existing record, instead of only checking this for lookup-based reference fields.
+
+
+
+---
+
 # 0.73.0 (2026.07.25)
 
 ## New Features
