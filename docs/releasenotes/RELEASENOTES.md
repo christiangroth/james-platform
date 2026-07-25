@@ -1,3 +1,12 @@
+# 0.73.2 (2026.07.25)
+
+## Bugfixes / Chore
+* Documented the Data Import (ETL) feature and its security design in the architecture docs.
+
+
+
+---
+
 # 0.73.1 (2026.07.25)
 
 ## Bugfixes / Chore
