@@ -14,6 +14,7 @@ James Platform is a personal Low Code system for building and running data-centr
 | Developer  | Creates and maintains Apps. Defines entities, properties, and reports.                              |
 | User       | Installs and uses App Versions. Enters, edits, deletes, and views data through the generic UI.     |
 | Monitoring | Access to the Tools menu (health, config, logs, metrics, MongoDB viewer). Can be combined with other roles. |
+| Data Import | Grants access to the per-app Data Import (ETL) feature. Assignable only by an Admin; typically combined with the User role. |
 
 ### User Management
 
@@ -102,6 +103,18 @@ The shared installation is treated as a separate installation. Supported sharing
 - A Report may only access data from its own App installation (sandbox boundary).
 - The platform must prevent Developers from embedding malicious code in Reports (concept to be finalised — see the sandboxing trade-off already accepted for computed properties in ADR [0008](../adr/0008-computed-property-script-execution.md), which Reports will likely need to revisit given Reports execute in the browser, not backend-side).
 
+### Data Import (ETL)
+
+A User with the `DATA_IMPORT` role (assignable only by an Admin) can import external JSON data into an installed App as new data objects of a chosen Entity, through a guided fetch → detect → map → dry-run → accept flow:
+
+- **Fetch** – the User supplies a source URL and a Bearer token; the server fetches the URL server-side and stores the raw response as an `ImportDocument` (MongoDB collection `import_document`). Because the URL and token are User-supplied, the fetch is hardened against SSRF (scheme allow-list, blocked address ranges, no redirects, size cap) – see ADR [0010](../adr/0010-import-fetch-ssrf-protection.md). The Bearer token is stored encrypted, never in plain text. The response must be a JSON object; oversized responses are rejected.
+- **Data-path detection** – the document is scanned for every JSON path pointing to a non-empty array of objects (a candidate "data path", e.g. `results.items`). If exactly one candidate is found it is selected automatically; otherwise the User picks one manually.
+- **Schema detection** – for the objects at the selected data path, the platform infers a per-field schema (type, mandatory-ness, numeric range, string length, date/datetime detection) used to validate the mapping.
+- **Mapping** – the User maps each source field to a target Entity property, optionally applying a lossless type conversion (e.g. string-to-long) or a static fallback value. REF properties may instead be resolved via a `find`-only reference lookup against existing data of the referenced Entity – there is deliberately no `findOrCreate` equivalent, so a lookup never creates a referenced object as a side effect (see ADR [0011](../adr/0011-import-single-mapping-scope.md)). An import document holds a single Mapping. The mapping becomes valid once mandatory-field coverage, type compatibility, and constraint pre-checks pass; pattern/regex constraints are deferred to the dry run.
+- **Dry run** – builds every target object from the source data without persisting anything, surfacing per-object validation issues (including pattern constraints and reference-existence checks).
+- **Accept** – re-runs the dry run, persists every valid object as data of the target Entity, discards invalid ones, and deletes the `ImportDocument` (including the raw payload) regardless of how many objects were saved or discarded.
+- **Cleanup** – a daily cronjob deletes import documents older than a configurable retention period, including any left in an incomplete state (see [Configuration](#configuration)).
+
 ## Quality Goals
 
 | Priority | Quality Goal     | Motivation                                                                                    |
@@ -187,7 +200,7 @@ flowchart TB
     subgraph Inbound["Inbound Adapters"]
         AIW["adapter-in-web"]
         AIS["adapter-in-starter"]
-        AISC["adapter-in-scheduler (unused)"]
+        AISC["adapter-in-scheduler"]
     end
 
     DA["domain-api<br/>ports + domain model"]
@@ -227,6 +240,12 @@ Base package: `de.chrgroth.james.platform`
 Note: a `core` module also exists in the repository (`Errors.kt`, `Utils.kt`, pre-dating the
 current hexagonal structure) but is **not** included in `settings.gradle.kts` and is not part
 of the build — dead weight left over from an earlier project iteration, not a real module.
+
+Note: `ImportFetchAdapter`, which performs the outbound HTTP fetch for the Data Import (ETL)
+feature (see ADR [0010](../adr/0010-import-fetch-ssrf-protection.md)), is packaged inside the
+inbound `adapter-in-web` module rather than a dedicated outbound adapter module — there is no
+`adapter-out-http`-style module to host it in. This is the one exception to the otherwise
+strict inbound/outbound module split described above; see [Technical Debts](#technical-debts).
 
 ### External Dependencies
 
@@ -478,6 +497,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0007](../adr/0007-local-cookie-based-authentication.md)    | Authentication: Local Cookie-Based Sessions         |
 | [0008](../adr/0008-computed-property-script-execution.md)   | Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard |
 | [0009](../adr/0009-diagram-rendering-mermaid.md)             | Diagram Rendering: Mermaid                          |
+| [0010](../adr/0010-import-fetch-ssrf-protection.md)          | Data Import Fetch: SSRF Protection                  |
+| [0011](../adr/0011-import-single-mapping-scope.md)           | Data Import Mapping: Single Mapping, Find-Only Reference Lookups |
 
 # Risks and Technical Debts
 
@@ -504,6 +525,10 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 - **Reports are domain-model-only** (see [Reports](#reports)) — `Report`/`Page` types exist
   but there is no adapter, endpoint, or UI; the corresponding sandboxing story is also still
   unresolved (see Risks above).
+- **`ImportFetchAdapter` lives in the inbound `adapter-in-web` module** even though it performs
+  an outbound HTTP call (see [Module Overview](#module-overview)) — there is no dedicated
+  outbound HTTP adapter module to host it in instead. Not a correctness issue, but breaks the
+  otherwise strict inbound/outbound module split.
 
 # Glossary
 
@@ -530,3 +555,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Smart default     | A Property's default value computed by a Kotlin script when the create form opens; the User may still overwrite it, unlike a computed property. |
 | Value proposals   | A Developer-configured list of suggested values offered as autocomplete options for a Property in the create/edit form. |
 | Display text      | A per-Entity template string that interpolates Property values into a human-readable label, shown in list views and `ref` pickers instead of a raw ID. |
+| Import document   | A stored record of one Data Import (ETL) run: the raw fetched payload, detected data path/schema, and configured Mapping. Deleted once its data is accepted or discarded. |
+| Data path         | The JSON path within an import document's payload pointing to the array of objects to be imported (e.g. `results.items`). |
+| Mapping           | The configuration, held by a single import document, of which target Entity to import into and how each source field maps to a target Property. |
+| Reference lookup   | A `find`-only rule, configured per REF Property in a Mapping, that resolves a source value to an existing object of the referenced Entity. Never creates a referenced object as a side effect. |
+| Dry run           | A non-persisting preview of an import's Accept step, surfacing per-object validation issues before any data is written. |
