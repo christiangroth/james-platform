@@ -483,7 +483,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "type": "FIND",
           "targetEntityDefinitionId": "${app.entityId}",
           "fieldMappings": [
             { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
@@ -516,7 +515,7 @@ class UserImportResourceTests {
     given()
       .contentType("application/json")
       .body(
-        """{"name": "Contact Mapping", "type": "FIND", "targetEntityDefinitionId": "${app.entityId}", "fieldMappings": []}""",
+        """{"name": "Contact Mapping", "targetEntityDefinitionId": "${app.entityId}", "fieldMappings": []}""",
       )
       .`when`()
       .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
@@ -543,7 +542,7 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/json")
-      .body("""{"name": "Contact Mapping", "type": "FIND", "targetEntityDefinitionId": "unknown-entity", "fieldMappings": []}""")
+      .body("""{"name": "Contact Mapping", "targetEntityDefinitionId": "unknown-entity", "fieldMappings": []}""")
       .`when`()
       .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
       .then()
@@ -572,7 +571,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "type": "FIND",
           "targetEntityDefinitionId": "${app.entityId}",
           "fieldMappings": [
             { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
@@ -674,7 +672,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "type": "FIND",
           "targetEntityDefinitionId": "$contactEntityId",
           "fieldMappings": [
             { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
@@ -709,5 +706,75 @@ class UserImportResourceTests {
 
     val savedContact = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId)).single()
     assertTrue(savedContact.data[companyPropertyId] == companyAppDataId.value, "Expected the Contact's Company reference to resolve to the seeded Company's id")
+  }
+
+  @Test
+  fun `directly mapped REF property pointing to a non-existing instance is reported invalid and discarded on accept`() {
+    val appName = "Import Direct Ref App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val companyEntityId = addEntity(appId, versionId, "Company")
+    val contactEntityId = addEntity(appId, versionId, "Contact")
+    val namePropertyId = addProperty(appId, versionId, contactEntityId, "Name", "STRING", nullable = false)
+    val companyPropertyId = addReferenceProperty(appId, versionId, contactEntityId, "Company", companyEntityId)
+    val installedAppId = publishAndInstall(appId, appName)
+
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("sourceUrl", "https://example.com/data")
+      .formParam("bearerToken", "secret-token")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body(
+        """
+        {
+          "name": "Contact Mapping",
+          "targetEntityDefinitionId": "$contactEntityId",
+          "fieldMappings": [
+            { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
+            { "targetPropertyId": "$companyPropertyId", "sourcePath": null, "conversion": "NONE", "fallbackValue": "not-a-real-company-id" }
+          ]
+        }
+        """.trimIndent(),
+      )
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val mappingHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/imports/$importId/mapping?entityDefinitionId=$contactEntityId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import document to be READY: the static fallback check does not know the referenced entity's persisted data")
+
+    val dryRunHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(dryRunHtml.contains("data-testid=\"invalid-count\">1<"), "Expected the fallback value to be reported invalid: it does not point to an existing Company instance")
+
+    given()
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/imports/$importId/dry-run/accept")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val savedContacts = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId))
+    assertTrue(savedContacts.isEmpty(), "Expected the invalid Contact record to be discarded rather than saved with a dangling Company reference")
   }
 }

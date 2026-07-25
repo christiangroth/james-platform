@@ -28,7 +28,6 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
@@ -354,7 +353,6 @@ class ImportServiceTests {
       "installed-1",
       doc.id.value,
       "Contact",
-      MappingType.FIND,
       "entity-1",
       listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
     )
@@ -375,7 +373,7 @@ class ImportServiceTests {
     val saved = slot<ImportDocument>()
     justRun { importDocumentRepository.save(capture(saved)) }
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", MappingType.FIND, "entity-1", emptyList())
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", "entity-1", emptyList())
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
@@ -389,7 +387,7 @@ class ImportServiceTests {
     val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
     every { importDocumentRepository.findById(doc.id) } returns doc
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", MappingType.FIND, "unknown-entity", emptyList())
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", "unknown-entity", emptyList())
 
     assertThat(result).isEqualTo(ImportError.ENTITY_DEFINITION_NOT_FOUND.left())
   }
@@ -406,7 +404,6 @@ class ImportServiceTests {
       "installed-1",
       doc.id.value,
       "Contact",
-      MappingType.FIND,
       "entity-1",
       listOf(FieldMapping(targetPropertyId = PropertyId("unknown-prop"), sourcePath = "name")),
     )
@@ -420,7 +417,7 @@ class ImportServiceTests {
     val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
     every { importDocumentRepository.findById(doc.id) } returns doc
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, " ", MappingType.FIND, "entity-1", emptyList())
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, " ", "entity-1", emptyList())
 
     assertThat(result).isEqualTo(ImportError.BLANK_MAPPING_NAME.left())
   }
@@ -431,7 +428,7 @@ class ImportServiceTests {
     val doc = importDocument(status = ImportStatus.DOWNLOADED)
     every { importDocumentRepository.findById(doc.id) } returns doc
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", MappingType.FIND, "entity-1", emptyList())
+    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", "entity-1", emptyList())
 
     assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_MAPPABLE.left())
   }
@@ -534,7 +531,6 @@ class ImportServiceTests {
 
   private val readyMapping = Mapping(
     name = "Contact",
-    type = MappingType.FIND,
     targetEntityDefinitionId = EntityDefinitionId("entity-1"),
     fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
   )

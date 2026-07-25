@@ -6,7 +6,6 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.ImportDocument
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 
 interface ImportPort {
@@ -20,7 +19,6 @@ interface ImportPort {
     installedAppId: String,
     importDocumentId: String,
     name: String,
-    type: MappingType,
     targetEntityDefinitionId: String,
     fieldMappings: List<FieldMapping>,
   ): Either<DomainError, MappingView>

@@ -12,7 +12,6 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDocument
 import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
-import de.chrgroth.james.platform.domain.model.imports.MappingType
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
@@ -96,7 +95,6 @@ class ImportDocumentRepositoryAdapter(
 
   private fun MappingDocument.toDomain() = Mapping(
     name = name,
-    type = MappingType.valueOf(type),
     targetEntityDefinitionId = EntityDefinitionId(targetEntityDefinitionId),
     fieldMappings = fieldMappings.map { it.toDomain() },
   )
@@ -154,7 +152,6 @@ class ImportDocumentRepositoryAdapter(
 
   private fun Mapping.toDocument() = MappingDocument().also { doc ->
     doc.name = name
-    doc.type = type.name
     doc.targetEntityDefinitionId = targetEntityDefinitionId.value
     doc.fieldMappings = fieldMappings.map { it.toDocument() }
   }
