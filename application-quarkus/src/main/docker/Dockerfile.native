@@ -24,4 +24,8 @@ COPY --chown=1001:root build/*-runner /work/application
 EXPOSE 8080
 USER 1001
 
+# The ubi8/ubi-minimal base image ships curl (curl-minimal) by default, so we use it to
+# probe the Quarkus readiness endpoint (requires the quarkus-smallrye-health extension).
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8080/q/health/ready || exit 1
+
 ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

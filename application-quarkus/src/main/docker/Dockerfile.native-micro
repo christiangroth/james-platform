@@ -27,4 +27,12 @@ COPY --chown=1001:root build/*-runner /work/application
 EXPOSE 8080
 USER 1001
 
+# Intentionally no HEALTHCHECK here: quarkus-micro-image is built on ubi-micro, a
+# distroless-style image with no package manager and no shell utilities (no curl, no
+# wget, not even a shell). A HEALTHCHECK CMD referencing a missing binary would fail to
+# execute at all, and Docker would report the container as permanently "unhealthy" (or
+# the check would just hang), which is worse than having no healthcheck. If a healthcheck
+# is needed for this variant in the future, it would require either switching to a base
+# image that ships an HTTP client, or adding a tiny statically linked probe binary
+# alongside the native executable.
 ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
