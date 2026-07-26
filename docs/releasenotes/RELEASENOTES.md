@@ -1,3 +1,12 @@
+# 0.74.3 (2026.07.26)
+
+## Bugfixes / Chore
+* Fixed the Release Notes page so expanding one minor version group no longer collapses the others; each group now expands and collapses independently.
+
+
+
+---
+
 # 0.74.0 (2026.07.25)
 
 ## New Features
