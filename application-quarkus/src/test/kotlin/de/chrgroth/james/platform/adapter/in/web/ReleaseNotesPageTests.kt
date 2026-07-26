@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.CoreMatchers.not
 import org.junit.jupiter.api.Test
 
 @QuarkusTest
@@ -31,6 +32,16 @@ class ReleaseNotesPageTests {
       .body(containsString("""data-testid="release-notes-group""""))
       .body(containsString("""data-testid="release-notes-entry""""))
       .body(containsString("0.66.x"))
+  }
+
+  @Test
+  fun `release notes accordion groups expand and collapse independently`() {
+    given()
+      .`when`()
+      .get("/release-notes")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("data-bs-parent")))
   }
 
   @Test
