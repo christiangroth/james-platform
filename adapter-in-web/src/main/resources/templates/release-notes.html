@@ -32,7 +32,7 @@
                     </button>
                 </h2>
                 <div id="rn-group-{group_index}-collapse" class="accordion-collapse collapse {#if group_index < 3}show{/if}"
-                     aria-labelledby="rn-group-{group_index}-heading" data-bs-parent="#releaseNotesAccordion">
+                     aria-labelledby="rn-group-{group_index}-heading">
                     <div class="accordion-body">
                         {#for entry in group.entries}
                         <div class="{#if entry_hasNext}mb-4 pb-4 release-notes-entry-divider{#else}mb-2{/if}" data-testid="release-notes-entry">
