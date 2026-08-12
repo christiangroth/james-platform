@@ -121,10 +121,13 @@ class DeveloperAppResource {
   @Inject
   private lateinit var devMsg: DeveloperMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Path("/dashboard")
   @Produces(MediaType.TEXT_HTML)
-  fun developerDashboard(): Any {
+  fun developerDashboard(): Any = httpResponseMetrics.timed("page.developer.dashboard") {
     val username = securityIdentity.principal.name
     val developerId = currentDeveloperUserIdValue()
     val apps = if (developerId != null) appManagement.listApps(developerId) else emptyList()
@@ -141,7 +144,7 @@ class DeveloperAppResource {
         latestVersionPublishedAt = latestPublished?.createdAt,
       )
     }
-    return developerDashboardTemplate
+    developerDashboardTemplate
       .data("username", username)
       .data("apps", appInfos)
   }
@@ -153,13 +156,13 @@ class DeveloperAppResource {
   fun createApp(
     @FormParam("name") name: String,
     @FormParam("description") description: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.app-create") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerAppNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerAppNameRequiredError())).build()
     }
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
-    return appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    appManagement.createApp(name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
       ifRight = { app -> Response.ok(DeveloperApiResult(true, devMsg.developerAppCreatedMessage(), "/ui/developer/apps/${app.id.value}")).build() },
     )
@@ -173,13 +176,13 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @FormParam("name") name: String,
     @FormParam("description") description: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.app-update") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerAppNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerAppNameRequiredError())).build()
     }
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
-    return appManagement.updateApp(appId, name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    appManagement.updateApp(appId, name.trim(), description?.trim()?.takeIf { it.isNotBlank() }, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAppUpdatedMessage())).build() },
     )
@@ -188,10 +191,10 @@ class DeveloperAppResource {
   @GET
   @Path("/apps/{appId}")
   @Produces(MediaType.TEXT_HTML)
-  fun appOverview(@PathParam("appId") appId: String): Response {
+  fun appOverview(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("page.developer.app-overview") {
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
-    return appManagement.getApp(appId, developerId).fold(
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    appManagement.getApp(appId, developerId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/dashboard")).build() },
       ifRight = { app ->
         val versions = appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()
@@ -214,8 +217,8 @@ class DeveloperAppResource {
   @POST
   @Path("/apps/{appId}/versions")
   @Produces(MediaType.APPLICATION_JSON)
-  fun createVersion(@PathParam("appId") appId: String): Response {
-    return appVersionManagement.createVersion(appId).fold(
+  fun createVersion(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("rest.developer.version-create") {
+    appVersionManagement.createVersion(appId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { version ->
         Response.ok(DeveloperApiResult(true, devMsg.developerVersionCreatedMessage(), "/ui/developer/apps/$appId/versions/${version.id.value}")).build()
@@ -229,15 +232,15 @@ class DeveloperAppResource {
   fun versionEditor(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.developer.version-editor") {
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
-      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
     val app = appResult.getOrNull()!!
-    return appVersionManagement.getVersion(appId, versionId).fold(
+    appVersionManagement.getVersion(appId, versionId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
@@ -269,15 +272,15 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     @QueryParam("path") pathParam: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.developer.version-entity-editor") {
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
-      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
     val app = appResult.getOrNull()!!
-    return appVersionManagement.getVersion(appId, versionId).fold(
+    appVersionManagement.getVersion(appId, versionId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
@@ -317,7 +320,7 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     @QueryParam("path") pathParam: String?,
-  ): Response = editPropertyPage(appId, versionId, entityId, null, pathParam)
+  ): Response = httpResponseMetrics.timed("page.developer.property-new") { editPropertyPage(appId, versionId, entityId, null, pathParam) }
 
   @GET
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/edit")
@@ -328,7 +331,7 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     @QueryParam("path") pathParam: String?,
-  ): Response = editPropertyPage(appId, versionId, entityId, propertyId, pathParam)
+  ): Response = httpResponseMetrics.timed("page.developer.property-edit") { editPropertyPage(appId, versionId, entityId, propertyId, pathParam) }
 
   private fun editPropertyPage(
     appId: String,
@@ -384,15 +387,15 @@ class DeveloperAppResource {
   fun publishVersionPage(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.developer.publish-version") {
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
-      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
     val app = appResult.getOrNull()!!
-    return appVersionManagement.getVersion(appId, versionId).fold(
+    appVersionManagement.getVersion(appId, versionId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         Response.ok(
@@ -411,15 +414,15 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @PathParam("reportId") reportId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.developer.report-editor") {
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
-      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
     val app = appResult.getOrNull()!!
-    return appVersionManagement.getVersion(appId, versionId).fold(
+    appVersionManagement.getVersion(appId, versionId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
@@ -450,15 +453,15 @@ class DeveloperAppResource {
   fun versionDiff(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.developer.version-diff") {
     val developerId = currentDeveloperUserIdValue()
-      ?: return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     val appResult = appManagement.getApp(appId, developerId)
     if (appResult.isLeft()) {
-      return Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+      return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
     }
     val app = appResult.getOrNull()!!
-    return appVersionManagement.getVersionDiff(appId, versionId).fold(
+    appVersionManagement.getVersionDiff(appId, versionId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { diff ->
         Response.ok(
@@ -476,8 +479,8 @@ class DeveloperAppResource {
   fun getVersionBump(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
-  ): Response {
-    return appVersionManagement.computeVersionBump(appId, versionId).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.version-bump") {
+    appVersionManagement.computeVersionBump(appId, versionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { bump ->
         Response.ok(
@@ -501,8 +504,8 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @FormParam("bumpType") bumpType: String?,
     @FormParam("releaseNotes") releaseNotes: String?,
-  ): Response {
-    return appVersionManagement.publishVersion(appId, bumpType, releaseNotes.orEmpty()).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.version-publish") {
+    appVersionManagement.publishVersion(appId, bumpType, releaseNotes.orEmpty()).fold(
       ifLeft = { error ->
         when (error) {
           is DisplayTextInvalidError -> {
@@ -528,8 +531,8 @@ class DeveloperAppResource {
   fun deleteDraftVersion(
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
-  ): Response {
-    return appVersionManagement.deleteDraftVersion(appId, versionId).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.version-delete-draft") {
+    appVersionManagement.deleteDraftVersion(appId, versionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDraftVersionDeletedMessage(), "/ui/developer/apps/$appId")).build() },
     )
@@ -543,11 +546,11 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @FormParam("name") name: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.entity-add") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerEntityNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerEntityNameRequiredError())).build()
     }
-    return appVersionManagement.addEntity(appId, versionId, name.trim()).fold(
+    appVersionManagement.addEntity(appId, versionId, name.trim()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { version ->
         val entityId = version.entityDefinitions.find { it.name.equals(name.trim(), ignoreCase = true) }?.id?.value ?: ""
@@ -563,8 +566,8 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
-  ): Response {
-    return appVersionManagement.deleteEntity(appId, versionId, entityId).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.entity-delete") {
+    appVersionManagement.deleteEntity(appId, versionId, entityId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerEntityDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
     )
@@ -578,8 +581,8 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     entityIds: List<String>,
-  ): Response {
-    return appVersionManagement.reorderEntities(appId, versionId, entityIds).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.entities-reorder") {
+    appVersionManagement.reorderEntities(appId, versionId, entityIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerEntitiesReorderedMessage())).build() },
     )
@@ -594,9 +597,9 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     sortBy: List<SortCriteriaRequest>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.entity-sort-criteria-update") {
     val domainSortBy = sortBy.map { req -> SortCriteria(propertyId = req.propertyId, direction = req.direction) }
-    return appVersionManagement.updateEntitySortCriteria(appId, versionId, entityId, domainSortBy).fold(
+    appVersionManagement.updateEntitySortCriteria(appId, versionId, entityId, domainSortBy).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerSortCriteriaSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -611,8 +614,8 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     @FormParam("displayText") displayText: String?,
-  ): Response {
-    return appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.entity-display-text-update") {
+    appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -632,15 +635,15 @@ class DeveloperAppResource {
     @FormParam("targetEntityId") targetEntityId: String?,
     @FormParam("listItemType") listItemType: String?,
     @FormParam("path") path: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.property-add") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerPropertyNameRequiredError())).build()
     }
     if (type.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyTypeRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerPropertyTypeRequiredError())).build()
     }
     val pathIds = parsePath(path)
-    return appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType, pathIds).fold(
+    appVersionManagement.addProperty(appId, versionId, entityId, name.trim(), type.trim(), nullable ?: true, targetEntityId, listItemType, pathIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { version ->
         val newPropertyId = propertiesAtPathOf(version, entityId, pathIds)?.find { it.name == name.trim() }?.id?.value
@@ -664,14 +667,14 @@ class DeveloperAppResource {
     @FormParam("type") type: String,
     @FormParam("nullable") nullable: Boolean?,
     @FormParam("path") path: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.property-update") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerPropertyNameRequiredError())).build()
     }
     if (type.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerPropertyTypeRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerPropertyTypeRequiredError())).build()
     }
-    return appVersionManagement.updateProperty(appId, versionId, entityId, propertyId, name.trim(), type.trim(), nullable ?: true, parsePath(path)).fold(
+    appVersionManagement.updateProperty(appId, versionId, entityId, propertyId, name.trim(), type.trim(), nullable ?: true, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerPropertyUpdatedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -708,7 +711,7 @@ class DeveloperAppResource {
     @FormParam("minDuration") minDuration: String?,
     @FormParam("maxDuration") maxDuration: String?,
     @FormParam("path") path: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.property-constraints-set") {
     val constraints = mutableSetOf<PropertyConstraint>()
     if (uniqueKey == true) constraints += PropertyConstraint.UniqueKey
     if (minLong != null) constraints += PropertyConstraint.MinLong(minLong)
@@ -730,7 +733,7 @@ class DeveloperAppResource {
     parseLocalDateTime(maxDatetime)?.let { constraints += PropertyConstraint.MaxDatetime(it) }
     parseDuration(minDuration)?.let { constraints += PropertyConstraint.MinDuration(it) }
     parseDuration(maxDuration)?.let { constraints += PropertyConstraint.MaxDuration(it) }
-    return appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints, parsePath(path)).fold(
+    appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -747,8 +750,8 @@ class DeveloperAppResource {
     @PathParam("propertyId") propertyId: String,
     @FormParam("default") default: String?,
     @FormParam("path") path: String?,
-  ): Response {
-    return appVersionManagement.setPropertyDefault(appId, versionId, entityId, propertyId, default, parsePath(path)).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.property-default-set") {
+    appVersionManagement.setPropertyDefault(appId, versionId, entityId, propertyId, default, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDefaultValueSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -765,8 +768,8 @@ class DeveloperAppResource {
     @PathParam("propertyId") propertyId: String,
     @FormParam("smartDefault") smartDefault: String?,
     @FormParam("path") path: String?,
-  ): Response {
-    return appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault, parsePath(path)).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.property-smart-default-set") {
+    appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerSmartDefaultSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -782,10 +785,10 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     form: MultivaluedMap<String, String>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.property-value-proposals-set") {
     val valueProposals = form["valueProposal"] ?: emptyList()
     val path = form["path"]?.firstOrNull()
-    return appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals, parsePath(path)).fold(
+    appVersionManagement.setPropertyValueProposals(appId, versionId, entityId, propertyId, valueProposals, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerValueProposalsSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -802,8 +805,8 @@ class DeveloperAppResource {
     @PathParam("propertyId") propertyId: String,
     @FormParam("targetEntityId") targetEntityId: String?,
     @FormParam("path") path: String?,
-  ): Response {
-    return appVersionManagement.setPropertyTargetEntity(appId, versionId, entityId, propertyId, targetEntityId, parsePath(path)).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.property-target-entity-set") {
+    appVersionManagement.setPropertyTargetEntity(appId, versionId, entityId, propertyId, targetEntityId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerTargetEntitySavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -820,8 +823,8 @@ class DeveloperAppResource {
     @PathParam("propertyId") propertyId: String,
     @FormParam("listItemType") listItemType: String?,
     @FormParam("path") path: String?,
-  ): Response {
-    return appVersionManagement.setPropertyListItemType(appId, versionId, entityId, propertyId, listItemType, parsePath(path)).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.property-list-item-type-set") {
+    appVersionManagement.setPropertyListItemType(appId, versionId, entityId, propertyId, listItemType, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerListItemTypeSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -854,7 +857,7 @@ class DeveloperAppResource {
     @FormParam("itemMinDuration") itemMinDuration: String?,
     @FormParam("itemMaxDuration") itemMaxDuration: String?,
     @FormParam("path") path: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.property-item-constraints-set") {
     val itemConstraints = mutableSetOf<PropertyConstraint>()
     if (itemMinLong != null) itemConstraints += PropertyConstraint.MinLong(itemMinLong)
     if (itemMaxLong != null) itemConstraints += PropertyConstraint.MaxLong(itemMaxLong)
@@ -873,7 +876,7 @@ class DeveloperAppResource {
     parseLocalDateTime(itemMaxDatetime)?.let { itemConstraints += PropertyConstraint.MaxDatetime(it) }
     parseDuration(itemMinDuration)?.let { itemConstraints += PropertyConstraint.MinDuration(it) }
     parseDuration(itemMaxDuration)?.let { itemConstraints += PropertyConstraint.MaxDuration(it) }
-    return appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints, parsePath(path)).fold(
+    appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerItemConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -888,10 +891,10 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     form: MultivaluedMap<String, String>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.properties-reorder") {
     val propertyIds = form["propertyId"] ?: emptyList()
     val path = form["path"]?.firstOrNull()
-    return appVersionManagement.reorderProperties(appId, versionId, entityId, propertyIds, parsePath(path)).fold(
+    appVersionManagement.reorderProperties(appId, versionId, entityId, propertyIds, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerPropertiesReorderedMessage())).build() },
     )
@@ -907,8 +910,8 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("propertyId") propertyId: String,
     @FormParam("path") path: String?,
-  ): Response {
-    return appVersionManagement.deleteProperty(appId, versionId, entityId, propertyId, parsePath(path)).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.property-delete") {
+    appVersionManagement.deleteProperty(appId, versionId, entityId, propertyId, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerPropertyDeletedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -924,11 +927,11 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @FormParam("name") name: String,
     @FormParam("type") type: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.computed-property-add") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
-    return appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type).fold(
+    appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -945,11 +948,11 @@ class DeveloperAppResource {
     @PathParam("computedPropertyId") computedPropertyId: String,
     @FormParam("name") name: String,
     @FormParam("type") type: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.computed-property-update") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
-    return appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type).fold(
+    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -965,8 +968,8 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @PathParam("computedPropertyId") computedPropertyId: String,
     @FormParam("script") script: String?,
-  ): Response {
-    return appVersionManagement.setComputedPropertyScript(appId, versionId, entityId, computedPropertyId, script).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.computed-property-script-set") {
+    appVersionManagement.setComputedPropertyScript(appId, versionId, entityId, computedPropertyId, script).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyScriptSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -981,9 +984,9 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     form: MultivaluedMap<String, String>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.computed-properties-reorder") {
     val computedPropertyIds = form["computedPropertyId"] ?: emptyList()
-    return appVersionManagement.reorderComputedProperties(appId, versionId, entityId, computedPropertyIds).fold(
+    appVersionManagement.reorderComputedProperties(appId, versionId, entityId, computedPropertyIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertiesReorderedMessage())).build() },
     )
@@ -997,8 +1000,8 @@ class DeveloperAppResource {
     @PathParam("versionId") versionId: String,
     @PathParam("entityId") entityId: String,
     @PathParam("computedPropertyId") computedPropertyId: String,
-  ): Response {
-    return appVersionManagement.deleteComputedProperty(appId, versionId, entityId, computedPropertyId).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.computed-property-delete") {
+    appVersionManagement.deleteComputedProperty(appId, versionId, entityId, computedPropertyId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -1012,11 +1015,11 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @FormParam("name") name: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.developer.report-add") {
     if (name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, devMsg.developerReportNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerReportNameRequiredError())).build()
     }
-    return appVersionManagement.addReport(appId, versionId, name.trim()).fold(
+    appVersionManagement.addReport(appId, versionId, name.trim()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
       ifRight = { version ->
         val reportId = version.reports.find { it.name.equals(name.trim(), ignoreCase = true) }?.id?.value ?: ""
@@ -1035,8 +1038,8 @@ class DeveloperAppResource {
     @PathParam("reportId") reportId: String,
     @FormParam("html") html: String?,
     @FormParam("script") script: String?,
-  ): Response {
-    return appVersionManagement.updateReport(appId, versionId, reportId, html ?: "", script ?: "").fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.report-update") {
+    appVersionManagement.updateReport(appId, versionId, reportId, html ?: "", script ?: "").fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerReportSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
     )
@@ -1049,8 +1052,8 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @PathParam("reportId") reportId: String,
-  ): Response {
-    return appVersionManagement.deleteReport(appId, versionId, reportId).fold(
+  ): Response = httpResponseMetrics.timed("rest.developer.report-delete") {
+    appVersionManagement.deleteReport(appId, versionId, reportId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerReportDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
     )

@@ -26,15 +26,16 @@ class LogsResource(
   @param:Location("logs.html")
   private val logsTemplate: Template,
   private val logBuffer: UiLogBuffer,
+  private val httpResponseMetrics: HttpResponseMetrics,
 ) {
 
   @GET
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
-  fun logs(@QueryParam("view") view: String?): TemplateInstance {
+  fun logs(@QueryParam("view") view: String?): TemplateInstance = httpResponseMetrics.timed("page.logs.view") {
     val entries = logBuffer.getRecent()
     val isGroupedView = view == "grouped"
-    return logsTemplate
+    logsTemplate
       .data("entries", entries)
       .data("isGroupedView", isGroupedView)
       .data("groups", entries.toGroupedView())

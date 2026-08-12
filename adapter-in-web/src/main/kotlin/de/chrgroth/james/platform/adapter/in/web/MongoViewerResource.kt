@@ -29,6 +29,9 @@ class MongoViewerResource {
   @Inject
   private lateinit var mongoViewer: MongoViewerPort
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
@@ -39,7 +42,7 @@ class MongoViewerResource {
     @QueryParam("page") page: Int?,
     @QueryParam("pageSize") pageSize: Int?,
     @Context uriInfo: UriInfo,
-  ): TemplateInstance {
+  ): TemplateInstance = httpResponseMetrics.timed("page.mongodb-viewer.view") {
     val effectivePage = page?.takeIf { it > 0 } ?: 1
     val effectivePageSize = pageSize?.takeIf { it in PAGE_SIZES } ?: DEFAULT_PAGE_SIZE
     val effectiveSortDesc = sortDir?.equals("desc", ignoreCase = true) ?: false
@@ -77,7 +80,7 @@ class MongoViewerResource {
       pageSize = effectivePageSize,
     )
 
-    return viewerTemplate
+    viewerTemplate
       .data("result", result)
       .data("pageSizes", PAGE_SIZES)
   }

@@ -185,15 +185,18 @@ class UserImportResource {
   @Inject
   private lateinit var userMsg: UserMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Produces(MediaType.TEXT_HTML)
-  fun imports(@PathParam("installedAppId") installedAppId: String): Response {
+  fun imports(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("page.user-import.list") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    return Response.ok(
+    Response.ok(
       importsTemplate
         .data("info", info)
         .data("documents", loadRows(userId, installedAppId)),
@@ -203,9 +206,9 @@ class UserImportResource {
   @GET
   @Path("/table")
   @Produces(MediaType.TEXT_HTML)
-  fun importsTable(@PathParam("installedAppId") installedAppId: String): Any {
+  fun importsTable(@PathParam("installedAppId") installedAppId: String): Any = httpResponseMetrics.timed("fragment.user-import.imports-table") {
     val userId = securityIdentity.principal.name
-    return importsTemplate.getFragment("imports_table")
+    importsTemplate.getFragment("imports_table")
       .data("documents", loadRows(userId, installedAppId))
   }
 
@@ -216,15 +219,15 @@ class UserImportResource {
     @PathParam("installedAppId") installedAppId: String,
     @FormParam("sourceUrl") sourceUrl: String?,
     @FormParam("bearerToken") bearerToken: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.trigger") {
     val userId = securityIdentity.principal.name
     if (sourceUrl.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
     if (bearerToken.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportTokenRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportTokenRequiredError())).build()
     }
-    return importPort.triggerImport(userId, installedAppId, sourceUrl, bearerToken).fold(
+    importPort.triggerImport(userId, installedAppId, sourceUrl, bearerToken).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
     )
@@ -238,12 +241,12 @@ class UserImportResource {
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("importDocumentId") importDocumentId: String,
     @FormParam("dataPath") dataPath: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.select-path") {
     val userId = securityIdentity.principal.name
     if (dataPath.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
     }
-    return importPort.selectDataPath(userId, installedAppId, importDocumentId, dataPath).fold(
+    importPort.selectDataPath(userId, installedAppId, importDocumentId, dataPath).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDataPathSelectedMessage())).build() },
     )
@@ -256,14 +259,14 @@ class UserImportResource {
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("importDocumentId") importDocumentId: String,
     @QueryParam("entityDefinitionId") entityDefinitionIdParam: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.user-import.mapping") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val view = importPort.getMappingView(userId, installedAppId, importDocumentId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
       ifRight = { it },
     )
 
@@ -272,7 +275,7 @@ class UserImportResource {
     val selectedEntity = view.entityDefinitions.find { it.id.value == selectedEntityId }
     val currentMapping = existingMapping?.takeIf { selectedEntity != null && it.targetEntityDefinitionId == selectedEntity.id }
 
-    return Response.ok(
+    Response.ok(
       mappingTemplate
         .data("info", info)
         .data("importDocumentId", importDocumentId)
@@ -295,10 +298,10 @@ class UserImportResource {
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("importDocumentId") importDocumentId: String,
     request: MappingSaveRequest,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.mapping-save") {
     val userId = securityIdentity.principal.name
     if (request.name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankMappingNameError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportBlankMappingNameError())).build()
     }
     val fieldMappings = request.fieldMappings.mapNotNull { field ->
       if (field.targetPropertyId.isBlank()) return@mapNotNull null
@@ -322,7 +325,7 @@ class UserImportResource {
       )
     }
 
-    return importPort.updateMapping(userId, installedAppId, importDocumentId, request.name, request.targetEntityDefinitionId, fieldMappings).fold(
+    importPort.updateMapping(userId, installedAppId, importDocumentId, request.name, request.targetEntityDefinitionId, fieldMappings).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()
@@ -337,23 +340,23 @@ class UserImportResource {
   fun dryRun(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("importDocumentId") importDocumentId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.user-import.dry-run") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val view = importPort.getMappingView(userId, installedAppId, importDocumentId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
       ifRight = { it },
     )
     val entityDefinition = view.importDocument.mapping?.let { mapping -> view.entityDefinitions.find { it.id == mapping.targetEntityDefinitionId } }
     val report = importPort.dryRun(userId, installedAppId, importDocumentId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports/$importDocumentId/mapping")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports/$importDocumentId/mapping")).build() },
       ifRight = { it },
     )
 
-    return Response.ok(
+    Response.ok(
       dryRunTemplate
         .data("info", info)
         .data("importDocumentId", importDocumentId)
@@ -370,9 +373,9 @@ class UserImportResource {
   fun acceptDryRun(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("importDocumentId") importDocumentId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.dry-run-accept") {
     val userId = securityIdentity.principal.name
-    return importPort.acceptDryRun(userId, installedAppId, importDocumentId).fold(
+    importPort.acceptDryRun(userId, installedAppId, importDocumentId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
@@ -387,9 +390,9 @@ class UserImportResource {
   fun deleteImport(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("importDocumentId") importDocumentId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.delete") {
     val userId = securityIdentity.principal.name
-    return importPort.deleteImportDocument(userId, installedAppId, importDocumentId).fold(
+    importPort.deleteImportDocument(userId, installedAppId, importDocumentId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDeletedMessage())).build() },
     )

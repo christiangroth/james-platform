@@ -56,6 +56,15 @@ interface MonitoringMessages {
   fun monitoringColExecutions(): String
 
   @Message
+  fun monitoringHttpHeading(): String
+
+  @Message
+  fun monitoringResponsesSectionLabel(): String
+
+  @Message
+  fun monitoringColOperation(): String
+
+  @Message
   fun monitoringScriptingHeading(): String
 
   @Message

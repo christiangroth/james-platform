@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.port.`in`.infra.HealthPort
 import de.chrgroth.james.platform.domain.port.out.infra.ConfigurationInfoPort
 import de.chrgroth.james.platform.domain.port.out.infra.CronjobInfoPort
 import de.chrgroth.james.platform.domain.port.out.infra.MongoStatsPort
+import de.chrgroth.james.platform.domain.port.out.infra.WebMetricsPort
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ThreadContextElement
@@ -18,6 +19,7 @@ import kotlin.coroutines.CoroutineContext
 @Suppress("Unused")
 class HealthService(
   private val mongoStats: MongoStatsPort,
+  private val webMetrics: WebMetricsPort,
   private val cronjobInfo: CronjobInfoPort,
   private val configurationInfo: ConfigurationInfoPort,
   private val scriptMetrics: ScriptMetrics,
@@ -28,11 +30,13 @@ class HealthService(
     val dispatcher = Dispatchers.IO + tcclContext()
     val mongoCollectionStatsAsync = async(dispatcher) { mongoStats.getCollectionStats() }
     val mongoQueryStatsAsync = async(dispatcher) { mongoStats.getQueryStats() }
+    val httpResponseStatsAsync = async(dispatcher) { webMetrics.getResponseStats() }
     val cronjobStatsAsync = async(dispatcher) { cronjobInfo.getCronjobStats() }
     val configurationStatsAsync = async(dispatcher) { configurationInfo.getConfigurationStats() }
     HealthStats(
       mongoCollectionStats = mongoCollectionStatsAsync.await(),
       mongoQueryStats = mongoQueryStatsAsync.await(),
+      httpResponseStats = httpResponseStatsAsync.await(),
       cronjobStats = cronjobStatsAsync.await(),
       configurationStats = configurationStatsAsync.await(),
       scriptStats = scriptMetrics.getStats(),

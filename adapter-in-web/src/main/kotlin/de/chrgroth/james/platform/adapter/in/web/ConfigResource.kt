@@ -24,8 +24,13 @@ class ConfigResource {
   @Inject
   private lateinit var configurationInfo: ConfigurationInfoPort
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
-  fun config(): TemplateInstance = configTemplate.data("stats", configurationInfo.getConfigurationStats())
+  fun config(): TemplateInstance = httpResponseMetrics.timed("page.config.view") {
+    configTemplate.data("stats", configurationInfo.getConfigurationStats())
+  }
 }

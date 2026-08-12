@@ -28,11 +28,14 @@ class ReleaseNotesResource {
   @Location("release-notes.html")
   private lateinit var releaseNotesTemplate: Template
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
-  fun releaseNotes(): TemplateInstance {
+  fun releaseNotes(): TemplateInstance = httpResponseMetrics.timed("page.docs.release-notes") {
     val content = DocsUtils.readMarkdown(RELEASE_NOTES_CLASSPATH_RESOURCE).orEmpty()
-    return releaseNotesTemplate.data("groups", ReleaseNotesParser.parse(content))
+    releaseNotesTemplate.data("groups", ReleaseNotesParser.parse(content))
   }
 }

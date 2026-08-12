@@ -44,14 +44,17 @@ class LoginResource {
   @Inject
   private lateinit var messages: AppMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @PermitAll
   @Produces(MediaType.TEXT_HTML)
-  fun index(@QueryParam("error") error: String?): Response {
+  fun index(@QueryParam("error") error: String?): Response = httpResponseMetrics.timed("page.user.login") {
     if (!securityIdentity.isAnonymous) {
-      return Response.temporaryRedirect(URI.create(dashboardUri(securityIdentity))).build()
+      return@timed Response.temporaryRedirect(URI.create(dashboardUri(securityIdentity))).build()
     }
-    return Response.ok(loginTemplate.data("errorMessage", error?.let { errorMessage(it) })).build()
+    Response.ok(loginTemplate.data("errorMessage", error?.let { errorMessage(it) })).build()
   }
 
   @POST
@@ -61,16 +64,16 @@ class LoginResource {
   fun login(
     @FormParam("username") username: String?,
     @FormParam("password") password: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user.login-submit") {
     if (username.isNullOrBlank() || password.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build()
+      return@timed Response.seeOther(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build()
     }
     val result = loginService.login(username, password)
-    return result.fold(
+    result.fold(
       ifLeft = { Response.seeOther(URI.create("/?error=${LoginError.INVALID_CREDENTIALS.code}")).build() },
       ifRight = { user ->
         val encrypted = tokenEncryption.encrypt(CookieAuthMechanism.buildPayload(user.username.value)).getOrNull()
-          ?: return Response.seeOther(URI.create("/?error=session")).build()
+          ?: return@timed Response.seeOther(URI.create("/?error=session")).build()
         val cookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
           .value(encrypted)
           .path("/")
@@ -91,14 +94,14 @@ class LoginResource {
   @GET
   @Path("/logout")
   @PermitAll
-  fun logout(): Response {
+  fun logout(): Response = httpResponseMetrics.timed("rest.user.logout") {
     val expiredCookie = NewCookie.Builder(CookieAuthMechanism.COOKIE_NAME)
       .value("")
       .path("/")
       .httpOnly(true)
       .maxAge(0)
       .build()
-    return Response.temporaryRedirect(URI.create("/"))
+    Response.temporaryRedirect(URI.create("/"))
       .cookie(expiredCookie)
       .build()
   }

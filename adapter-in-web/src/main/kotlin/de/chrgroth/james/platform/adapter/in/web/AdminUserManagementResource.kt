@@ -47,14 +47,17 @@ class AdminUserManagementResource {
   @Inject
   private lateinit var adminMsg: AdminMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Produces(MediaType.TEXT_HTML)
-  fun users(): Any = renderUsers()
+  fun users(): Any = httpResponseMetrics.timed("page.admin.users") { renderUsers() }
 
   @GET
   @Path("/table")
   @Produces(MediaType.TEXT_HTML)
-  fun usersTable(): Any = renderUsersTable()
+  fun usersTable(): Any = httpResponseMetrics.timed("fragment.admin.users-table") { renderUsersTable() }
 
   @PUT
   @Path("/{username}")
@@ -63,12 +66,12 @@ class AdminUserManagementResource {
   fun createUser(
     @PathParam("username") username: String,
     @FormParam("password") password: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.admin.user-create") {
     if (password.isNullOrBlank()) {
-      return Response.ok(ApiResult(false, errorMessage(UserAdminError.BLANK_INPUT.code))).build()
+      return@timed Response.ok(ApiResult(false, errorMessage(UserAdminError.BLANK_INPUT.code))).build()
     }
     val callingUsername = securityIdentity.principal.name
-    return adminUserManagement.createUser(username, password, callingUsername).fold(
+    adminUserManagement.createUser(username, password, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
       ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserCreatedMessage())).build() },
     )
@@ -77,18 +80,19 @@ class AdminUserManagementResource {
   @POST
   @Path("/{username}/activation")
   @Produces(MediaType.APPLICATION_JSON)
-  fun activateUser(@PathParam("username") username: String): Response =
+  fun activateUser(@PathParam("username") username: String): Response = httpResponseMetrics.timed("rest.admin.user-activate") {
     adminUserManagement.activateUser(username).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
       ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserActivatedMessage())).build() },
     )
+  }
 
   @DELETE
   @Path("/{username}/activation")
   @Produces(MediaType.APPLICATION_JSON)
-  fun deactivateUser(@PathParam("username") username: String): Response {
+  fun deactivateUser(@PathParam("username") username: String): Response = httpResponseMetrics.timed("rest.admin.user-deactivate") {
     val callingUsername = securityIdentity.principal.name
-    return adminUserManagement.deactivateUser(username, callingUsername).fold(
+    adminUserManagement.deactivateUser(username, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
       ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserDeactivatedMessage())).build() },
     )
@@ -101,11 +105,11 @@ class AdminUserManagementResource {
   fun setPassword(
     @PathParam("username") username: String,
     @FormParam("newPassword") newPassword: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.admin.user-set-password") {
     if (newPassword.isNullOrBlank()) {
-      return Response.ok(ApiResult(false, errorMessage("password-blank"))).build()
+      return@timed Response.ok(ApiResult(false, errorMessage("password-blank"))).build()
     }
-    return adminUserManagement.setPassword(username, newPassword).fold(
+    adminUserManagement.setPassword(username, newPassword).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
       ifRight = { Response.ok(ApiResult(true, adminMsg.adminPasswordSetMessage())).build() },
     )
@@ -118,13 +122,13 @@ class AdminUserManagementResource {
   fun setRoles(
     @PathParam("username") username: String,
     @FormParam("roles") roleNames: List<String>?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.admin.user-set-roles") {
     val roles = roleNames
       ?.mapNotNull { runCatching { UserRole.valueOf(it) }.getOrNull() }
       ?.toSet()
       ?: emptySet()
     val callingUsername = securityIdentity.principal.name
-    return adminUserManagement.setRoles(username, roles, callingUsername).fold(
+    adminUserManagement.setRoles(username, roles, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
       ifRight = { Response.ok(ApiResult(true, adminMsg.adminRolesUpdatedMessage())).build() },
     )
@@ -133,9 +137,9 @@ class AdminUserManagementResource {
   @DELETE
   @Path("/{username}")
   @Produces(MediaType.APPLICATION_JSON)
-  fun deleteUser(@PathParam("username") username: String): Response {
+  fun deleteUser(@PathParam("username") username: String): Response = httpResponseMetrics.timed("rest.admin.user-delete") {
     val callingUsername = securityIdentity.principal.name
-    return adminUserManagement.deleteUser(username, callingUsername).fold(
+    adminUserManagement.deleteUser(username, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
       ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserDeletedMessage())).build() },
     )

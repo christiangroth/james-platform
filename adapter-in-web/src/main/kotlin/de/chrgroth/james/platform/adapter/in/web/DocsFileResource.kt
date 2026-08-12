@@ -24,6 +24,9 @@ class DocsFileResource {
   @Location("docs.html")
   private lateinit var docsTemplate: Template
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   private val allowedSubdirs = setOf("arc42", "adr", "coding-guidelines", "releasenotes")
 
   @GET
@@ -32,14 +35,14 @@ class DocsFileResource {
   fun docs(
     @PathParam("subdir") subdir: String,
     @PathParam("filename") filename: String,
-  ): TemplateInstance {
+  ): TemplateInstance = httpResponseMetrics.timed("page.docs.view") {
     val decodedFilename = URLDecoder.decode(filename, StandardCharsets.UTF_8)
     if (subdir !in allowedSubdirs || isInvalidFilename(decodedFilename)) {
       throw NotFoundException("Doc not found: $subdir/$filename")
     }
     val content = DocsUtils.readMarkdown("docs/$subdir/$decodedFilename")
       ?: throw NotFoundException("Doc not found: $subdir/$filename")
-    return docsTemplate.instance()
+    docsTemplate.instance()
       .data("title", DocsUtils.extractTitle(content, decodedFilename))
       .data("markdownContent", content)
   }
