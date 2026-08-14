@@ -155,7 +155,7 @@ data class MappingSaveRequest @JsonCreator constructor(
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
 )
 
-@Path("/ui/user/apps/{installedAppId}/imports")
+@Path("/ui/user/imports/{installedAppId}")
 @ApplicationScoped
 @BlockAdminAccess
 @RolesAllowed("DATA_IMPORT")
@@ -275,7 +275,7 @@ class UserImportResource {
       ifRight = { it },
     )
     val view = importPort.getMappingView(userId, installedAppId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$installedAppId")).build() },
       ifRight = { it },
     )
 
@@ -350,11 +350,11 @@ class UserImportResource {
       ifRight = { it },
     )
     val view = importPort.getMappingView(userId, installedAppId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$installedAppId")).build() },
       ifRight = { it },
     )
     val report = importPort.dryRun(userId, installedAppId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports/$importJobId/mapping")).build() },
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$installedAppId/$importJobId/mapping")).build() },
       ifRight = { it },
     )
 
@@ -381,7 +381,7 @@ class UserImportResource {
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
-        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/apps/$installedAppId/imports")).build()
+        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/imports/$installedAppId")).build()
       },
     )
   }

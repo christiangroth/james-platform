@@ -70,10 +70,10 @@
                                 </td>
                                 <td class="text-end">
                                     {#if job.readyForDryRun}
-                                    <a href="/ui/user/apps/{job.installedAppId}/imports/{job.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+                                    <a href="/ui/user/imports/{job.installedAppId}/{job.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
                                     {/if}
                                     {#if job.mappable}
-                                    <a href="/ui/user/apps/{job.installedAppId}/imports/{job.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
+                                    <a href="/ui/user/imports/{job.installedAppId}/{job.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
                                     {/if}
                                     <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
                                         <i class="bi bi-trash" aria-hidden="true"></i>
@@ -157,7 +157,7 @@
     <script>
         (function () {
             var installedAppId = '{info.installedAppId}';
-            var basePath = '/ui/user/apps/' + encodeURIComponent(installedAppId) + '/imports';
+            var basePath = '/ui/user/imports/' + encodeURIComponent(installedAppId);
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             var messagePanel = document.getElementById('imports-message');

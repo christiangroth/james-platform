@@ -10,8 +10,8 @@ Technical Story: [issue #514](https://github.com/christiangroth/james-platform/i
 
 The original Data Import (ETL) design (ADR [0011](0011-import-single-mapping-scope.md)) stored a
 source URL and an encrypted Bearer token directly on the `ImportDocument` created for one fetch,
-and implicitly scoped every import to the App installation whose nested route
-(`/ui/user/apps/{installedAppId}/imports`) it was triggered from. Re-importing from the same
+and implicitly scoped every import to the App installation whose route
+(`/ui/user/imports/{installedAppId}`) it was triggered from. Re-importing from the same
 source (e.g. a nightly refresh) meant re-entering the URL and token every time, and credentials
 were only ever reachable through the specific job that first captured them. How should credential
 reuse and the job's target be modeled so that credentials survive independently of any one fetch?
