@@ -6,7 +6,7 @@
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
-                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/user/imports/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-mapping">{user:userImportMappingTitle()}</li>
             </ol>
         </nav>
@@ -15,30 +15,18 @@
             <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{user:userImportMappingTitle()}</h1>
             <span class="badge border-0 app-badge-processing" data-testid="mapping-status">{statusLabel}</span>
             {#if isReady}
-            <a href="/ui/user/apps/{info.installedAppId}/imports/{importDocumentId}/dry-run" class="btn btn-app-primary btn-sm ms-auto" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+            <a href="/ui/user/imports/{importJobId}/dry-run" class="btn btn-app-primary btn-sm ms-auto" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
             {/if}
-            <a href="/ui/user/apps/{info.installedAppId}/imports" class="btn btn-app-secondary btn-sm {#if !isReady}ms-auto{/if}" data-testid="back-to-imports-link">{user:userImportMappingBackToImportsLabel()}</a>
+            <a href="/ui/user/imports/{info.installedAppId}" class="btn btn-app-secondary btn-sm {#if !isReady}ms-auto{/if}" data-testid="back-to-imports-link">{user:userImportMappingBackToImportsLabel()}</a>
         </div>
 
         <div id="mapping-message" class="d-none mb-4" role="alert"></div>
 
         <div class="card app-card p-3 p-md-4 mb-4">
-            <form method="get" id="entitySelectForm" class="row g-2 align-items-end">
-                <div class="col-auto">
-                    <label for="entityDefinitionId" class="form-label">{user:userImportMappingSelectEntityLabel()}</label>
-                    <select id="entityDefinitionId" name="entityDefinitionId" class="form-select app-form-control" onchange="this.form.submit()" data-testid="entity-select">
-                        <option value="" {#if !hasEntitySelected}selected{/if}>{user:userImportMappingSelectEntityPlaceholder()}</option>
-                        {#for entity in entityOptions}
-                        <option value="{entity.id}" {#if entity.selected}selected{/if}>{entity.name}</option>
-                        {/for}
-                    </select>
-                    <div class="form-text">{user:userImportMappingSelectEntityHint()}</div>
-                </div>
-                <noscript><div class="col-auto"><button type="submit" class="btn btn-app-secondary btn-sm">{msg:commonCancel()}</button></div></noscript>
-            </form>
+            <span class="app-section-label">{user:userImportMappingTargetEntityLabel()}</span>
+            <div class="fw-semibold" data-testid="target-entity-name">{targetEntityName}</div>
         </div>
 
-        {#if hasEntitySelected}
         <form id="mappingForm">
             <div class="card app-card p-3 p-md-4 mb-4">
                 <div class="row g-3">
@@ -161,15 +149,13 @@
                 <button type="submit" class="btn btn-app-primary ms-auto" data-testid="save-mapping-button">{user:userImportMappingSaveButton()}</button>
             </div>
         </form>
-        {/if}
     </div>
     {/content}
     {#scripts}
     <script>
         (function () {
-            var installedAppId = '{info.installedAppId}';
-            var importDocumentId = '{importDocumentId}';
-            var basePath = '/ui/user/apps/' + encodeURIComponent(installedAppId) + '/imports/' + encodeURIComponent(importDocumentId) + '/mapping';
+            var importJobId = '{importJobId}';
+            var basePath = '/ui/user/imports/' + encodeURIComponent(importJobId) + '/mapping';
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             var messagePanel = document.getElementById('mapping-message');
@@ -244,7 +230,6 @@
 
                     var payload = {
                         name: mappingForm.querySelector('#mappingName').value,
-                        targetEntityDefinitionId: document.getElementById('entityDefinitionId').value,
                         fieldMappings: fieldMappings
                     };
 

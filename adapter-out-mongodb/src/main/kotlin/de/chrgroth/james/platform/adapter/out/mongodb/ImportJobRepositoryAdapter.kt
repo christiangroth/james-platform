@@ -8,8 +8,9 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
-import de.chrgroth.james.platform.domain.model.imports.ImportDocument
-import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
+import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
+import de.chrgroth.james.platform.domain.model.imports.ImportJob
+import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
@@ -17,54 +18,54 @@ import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
-import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import java.time.Instant
 
 @ApplicationScoped
-class ImportDocumentRepositoryAdapter(
-  private val importDocumentDocumentRepository: ImportDocumentDocumentRepository,
+class ImportJobRepositoryAdapter(
+  private val importJobDocumentRepository: ImportJobDocumentRepository,
   private val mongoQueryMetrics: MongoQueryMetrics,
-) : ImportDocumentRepositoryPort {
+) : ImportJobRepositoryPort {
 
-  override fun findAllByInstalledAppId(installedAppId: InstalledAppId): List<ImportDocument> =
-    mongoQueryMetrics.timed("import_document.findAllByInstalledAppId") {
-      importDocumentDocumentRepository.find(INSTALLED_APP_ID_FIELD, installedAppId.value).list().map { it.toDomain() }
+  override fun findAllByInstalledAppId(installedAppId: InstalledAppId): List<ImportJob> =
+    mongoQueryMetrics.timed("import_job.findAllByInstalledAppId") {
+      importJobDocumentRepository.find(INSTALLED_APP_ID_FIELD, installedAppId.value).list().map { it.toDomain() }
     }
 
-  override fun findById(id: ImportDocumentId): ImportDocument? =
-    mongoQueryMetrics.timed("import_document.findById") {
-      importDocumentDocumentRepository.findById(id.value)?.toDomain()
+  override fun findById(id: ImportJobId): ImportJob? =
+    mongoQueryMetrics.timed("import_job.findById") {
+      importJobDocumentRepository.findById(id.value)?.toDomain()
     }
 
-  override fun save(importDocument: ImportDocument) {
-    mongoQueryMetrics.timed("import_document.save") {
-      val doc = importDocument.toDocument()
-      importDocumentDocumentRepository.mongoCollection().replaceOne(
-        Filters.eq(ID_FIELD, importDocument.id.value),
+  override fun save(importJob: ImportJob) {
+    mongoQueryMetrics.timed("import_job.save") {
+      val doc = importJob.toDocument()
+      importJobDocumentRepository.mongoCollection().replaceOne(
+        Filters.eq(ID_FIELD, importJob.id.value),
         doc,
         ReplaceOptions().upsert(true),
       )
     }
   }
 
-  override fun delete(id: ImportDocumentId) {
-    mongoQueryMetrics.timed("import_document.delete") {
-      importDocumentDocumentRepository.deleteById(id.value)
+  override fun delete(id: ImportJobId) {
+    mongoQueryMetrics.timed("import_job.delete") {
+      importJobDocumentRepository.deleteById(id.value)
     }
   }
 
   override fun deleteAllLastChangedBefore(cutoff: Instant): Long =
-    mongoQueryMetrics.timed("import_document.deleteAllLastChangedBefore") {
-      importDocumentDocumentRepository.mongoCollection().deleteMany(Filters.lt(LAST_CHANGED_AT_FIELD, cutoff)).deletedCount
+    mongoQueryMetrics.timed("import_job.deleteAllLastChangedBefore") {
+      importJobDocumentRepository.mongoCollection().deleteMany(Filters.lt(LAST_CHANGED_AT_FIELD, cutoff)).deletedCount
     }
 
-  private fun ImportDocumentDocument.toDomain() = ImportDocument(
-    id = ImportDocumentId(id),
+  private fun ImportJobDocument.toDomain() = ImportJob(
+    id = ImportJobId(id),
     userId = userId,
     installedAppId = InstalledAppId(installedAppId),
-    sourceUrl = sourceUrl,
-    encryptedBearerToken = encryptedBearerToken,
+    connectionId = ImportConnectionId(connectionId),
+    targetEntityDefinitionId = EntityDefinitionId(targetEntityDefinitionId),
     status = ImportStatus.valueOf(status),
     payload = payload,
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
@@ -95,7 +96,6 @@ class ImportDocumentRepositoryAdapter(
 
   private fun MappingDocument.toDomain() = Mapping(
     name = name,
-    targetEntityDefinitionId = EntityDefinitionId(targetEntityDefinitionId),
     fieldMappings = fieldMappings.map { it.toDomain() },
   )
 
@@ -116,12 +116,12 @@ class ImportDocumentRepositoryAdapter(
     sourcePath = sourcePath,
   )
 
-  private fun ImportDocument.toDocument() = ImportDocumentDocument().also { doc ->
+  private fun ImportJob.toDocument() = ImportJobDocument().also { doc ->
     doc.id = id.value
     doc.userId = userId
     doc.installedAppId = installedAppId.value
-    doc.sourceUrl = sourceUrl
-    doc.encryptedBearerToken = encryptedBearerToken
+    doc.connectionId = connectionId.value
+    doc.targetEntityDefinitionId = targetEntityDefinitionId.value
     doc.status = status.name
     doc.payload = payload
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
@@ -152,7 +152,6 @@ class ImportDocumentRepositoryAdapter(
 
   private fun Mapping.toDocument() = MappingDocument().also { doc ->
     doc.name = name
-    doc.targetEntityDefinitionId = targetEntityDefinitionId.value
     doc.fieldMappings = fieldMappings.map { it.toDocument() }
   }
 

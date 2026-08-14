@@ -118,7 +118,7 @@ class UserAppImportsPageTests {
       .extract().body().asString()
 
     assertTrue(html.contains("data-testid=\"import-button\""), "Expected the import button to be rendered for a DATA_IMPORT user")
-    assertTrue(html.contains("/ui/user/apps/$installedAppId/imports"), "Expected the import button to link to the imports page")
+    assertTrue(html.contains("/ui/user/imports/$installedAppId"), "Expected the import button to link to the imports page")
   }
 
   @Test
@@ -148,7 +148,7 @@ class UserAppImportsPageTests {
 
     val html = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports")
+      .get("/ui/user/imports/$installedAppId")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -166,7 +166,7 @@ class UserAppImportsPageTests {
 
     given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports")
+      .get("/ui/user/imports/$installedAppId")
       .then()
       .statusCode(403)
   }

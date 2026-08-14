@@ -6,11 +6,11 @@
 
 ## Context and Problem Statement
 
-An import document holds the detected schema of one fetched data source and needs to be turned
+An import job holds the detected schema of one fetched data source and needs to be turned
 into objects of one target Entity. Two related design questions came up while building the
 mapping step of the Data Import (ETL) feature:
 
-1. Should one import document be able to hold more than one mapping (e.g. to fan the same
+1. Should one import job be able to hold more than one mapping (e.g. to fan the same
    source data out into several target Entities, or to chain a mapping's output into another
    mapping's input)?
 2. When a target property is a `ref` to another Entity, should the mapping be able to *create*
@@ -39,18 +39,21 @@ was conclusively settled.
 
 ## Considered Options
 
-1. **Single mapping per import document; reference properties resolved via `find`-only lookup**
+1. **Single mapping per import job; reference properties resolved via `find`-only lookup**
    (shipped)
-2. **Single mapping per import document; reference properties resolved via `find` or
+2. **Single mapping per import job; reference properties resolved via `find` or
    `findOrCreate`**
-3. **Multiple, possibly chained mappings per import document** (fan-out to several target
+3. **Multiple, possibly chained mappings per import job** (fan-out to several target
    Entities, or one mapping's output feeding another)
 
 ## Decision Outcome
 
-Chosen option: **"Single mapping per import document; `find`-only reference lookups"**. An
-`ImportDocument` holds at most one `Mapping` (`targetEntityDefinitionId` +
-`List<FieldMapping>`); there is no list-of-mappings or chaining concept. A `FieldMapping` for a
+Chosen option: **"Single mapping per import job; `find`-only reference lookups"**. An
+`ImportJob` (named `ImportDocument` until the Import/ETL concept was split into a reusable
+`ImportConnection` and a per-run `ImportJob`, see [issue
+#514](https://github.com/christiangroth/james-platform/issues/514)) holds at most one `Mapping`
+(`List<FieldMapping>`) against its own fixed target Entity; there is no list-of-mappings or
+chaining concept. A `FieldMapping` for a
 `ref` property may configure a `ReferenceLookup`: every configured criterion's source value must
 equal the referenced Entity's corresponding property value for a record to match; on no match,
 an optional static `fallbackValue` is used instead. There is deliberately no `findOrCreate`
@@ -68,7 +71,7 @@ differently from `find`).
   Constraints](../arc42/arc42.md#architecture-constraints), without adding a second cycle
   concern specific to imports).
 * Smaller, easier-to-reason-about domain model and UI: one target Entity, one mapping, per
-  import document.
+  import job.
 
 ### Negative Consequences
 
@@ -77,17 +80,17 @@ differently from `find`).
   User compared to a hypothetical one-shot `findOrCreate` import.
 * Importing into several target Entities from a single fetched payload requires triggering the
   import multiple times (once per target Entity), re-fetching or re-using the same source URL
-  each time, rather than one import document fanning out to all of them.
+  each time, rather than one import job fanning out to all of them.
 
 ## Pros and Cons of the Options
 
-### Single mapping per import document; `find`-only reference lookups
+### Single mapping per import job; `find`-only reference lookups
 
 * Good, because no import can create unreviewed data as a side effect.
 * Good, because it needs no cycle- or ordering-safety handling between mappings or lookups.
 * Bad, because multi-entity imports from one payload require multiple import runs.
 
-### Single mapping per import document; `find` or `findOrCreate`
+### Single mapping per import job; `find` or `findOrCreate`
 
 * Good, because it would let one import fully materialize referenced data that doesn't exist
   yet, in one step.
@@ -98,18 +101,18 @@ differently from `find`).
   different behavior from `find`, and the selector was removed once that was confirmed
   (`docs/releasenotes/RELEASENOTES.md`, v0.73.1).
 
-### Multiple, possibly chained mappings per import document
+### Multiple, possibly chained mappings per import job
 
 * Good, because it would let one fetched payload populate several target Entities without
   re-fetching.
 * Bad, because chaining introduces an ordering/cycle-safety problem not present anywhere else in
   the mapping model.
 * Bad, because it was not pursued — no such implementation exists; the shipped domain model
-  (`ImportDocument.mapping: Mapping?`) only ever holds a single mapping.
+  (`ImportJob.mapping: Mapping?`) only ever holds a single mapping.
 
 ## Links
 
 * [`Mapping.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/imports/Mapping.kt)
-* [`ImportDocument.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/imports/ImportDocument.kt)
+* [`ImportJob.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/imports/ImportJob.kt)
 * [`DryRunExecutor.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/DryRunExecutor.kt)
 * [arc42: Data Import (ETL)](../arc42/arc42.md#data-import-etl)

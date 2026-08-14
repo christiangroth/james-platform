@@ -4,15 +4,15 @@ import io.quarkus.mongodb.panache.common.MongoEntity
 import org.bson.codecs.pojo.annotations.BsonId
 import java.time.Instant
 
-@MongoEntity(collection = "import_document")
-class ImportDocumentDocument {
+@MongoEntity(collection = "import_job")
+class ImportJobDocument {
 
   @BsonId
   lateinit var id: String
   lateinit var userId: String
   lateinit var installedAppId: String
-  lateinit var sourceUrl: String
-  lateinit var encryptedBearerToken: String
+  lateinit var connectionId: String
+  lateinit var targetEntityDefinitionId: String
   lateinit var status: String
   lateinit var payload: String
   var detectedDataPaths: List<DataPathDocument> = emptyList()
@@ -25,7 +25,6 @@ class ImportDocumentDocument {
 
 class MappingDocument {
   lateinit var name: String
-  lateinit var targetEntityDefinitionId: String
   var fieldMappings: List<FieldMappingDocument> = emptyList()
 }
 
