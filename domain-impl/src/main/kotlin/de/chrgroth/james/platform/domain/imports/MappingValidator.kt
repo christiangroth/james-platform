@@ -23,7 +23,11 @@ import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
  * configured conversion), and for numeric/string-length constrained target properties the source schema statistics
  * (min/max, string lengths) must not violate those constraints. A configured fallback value is checked against the
  * target property's constraints via [PropertyConstraintPort]. Pattern constraints cannot be statically checked here
- * and are reported separately as [MappingIssue.NotStaticallyValidated].
+ * and are reported separately as [MappingIssue.NotStaticallyValidated]. Exception: a `UniqueKey` target property
+ * mapped to a source field that is not present on every record is not required to resolve to a value on every
+ * record (a static fallback would violate uniqueness for every such record anyway) — records without a value for it
+ * are simply skipped during dry-run/accept, which supports "fan-in" mappings where many source records collapse
+ * into few target objects identified by that unique value.
  */
 object MappingValidator {
 
@@ -107,7 +111,11 @@ object MappingValidator {
       return issues
     }
 
-    if (!property.nullable && !sourceProperty.mandatory && !hasFallback) {
+    // A UniqueKey property cannot sensibly use a static fallback (every record lacking a source value would collide
+    // on that fallback), so a source field that is not present on every record is not reported here: such records
+    // simply produce no value for this property and are skipped, individually, by the dry-run/accept flow instead.
+    val isUniqueKey = property.constraints.contains(PropertyConstraint.UniqueKey)
+    if (!property.nullable && !sourceProperty.mandatory && !hasFallback && !isUniqueKey) {
       issues += MappingIssue.MissingMandatoryField(property.id)
     }
 

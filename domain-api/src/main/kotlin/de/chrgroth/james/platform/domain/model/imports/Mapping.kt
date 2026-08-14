@@ -51,6 +51,5 @@ data class FieldMapping(
 )
 
 data class Mapping(
-  val name: String,
   val fieldMappings: List<FieldMapping> = emptyList(),
 )

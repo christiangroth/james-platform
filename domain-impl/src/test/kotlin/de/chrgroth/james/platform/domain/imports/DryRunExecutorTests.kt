@@ -31,7 +31,7 @@ class DryRunExecutorTests {
   private fun records(json: String) = objectMapper.readTree(json).toList()
 
   private fun mapping(vararg fieldMappings: FieldMapping) =
-    Mapping(name = "Contact", fieldMappings = fieldMappings.toList())
+    Mapping(fieldMappings = fieldMappings.toList())
 
   private fun entityDefinition(vararg properties: Property) = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Contact", properties = properties.toList())
 
@@ -171,6 +171,21 @@ class DryRunExecutorTests {
 
     assertThat(result[0].isValid).isTrue()
     assertThat(result[1].issues.single()).isEqualTo(DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, false))
+  }
+
+  @Test
+  fun `fan-in mapping keeps only the first record per unique value and reports records without a value as invalid`() {
+    val entity = entityDefinition(
+      Property(id = propertyId, name = "Code", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+    )
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "code"))
+
+    val result = execute(records("""[{"code":"A"},{},{"code":"A"},{"code":"B"}]"""), mapping, entity)
+
+    assertThat(result[0].isValid).isTrue()
+    assertThat(result[1].issues.single()).isEqualTo(DryRunIssue.MissingMandatoryValue(propertyId))
+    assertThat(result[2].issues.single()).isEqualTo(DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, false))
+    assertThat(result[3].isValid).isTrue()
   }
 
   @Test

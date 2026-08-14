@@ -66,6 +66,20 @@ class MappingValidatorTests {
   }
 
   @Test
+  fun `unique mandatory property mapped to an optional source field without a fallback is not reported, enabling fan-in mappings`() {
+    val entityDefinition = entityDefinition(
+      Property(id = propertyId, name = "Name", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+    )
+    val schema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = false))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "name"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+    assertThat(result.isReady).isTrue()
+  }
+
+  @Test
   fun `directly compatible types produce no issues`() {
     val entityDefinition = entityDefinition(stringProperty(nullable = true))
     val schema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 3), mandatory = true))
@@ -257,7 +271,6 @@ class MappingValidatorTests {
   )
 
   private fun mapping(vararg fieldMappings: FieldMapping) = Mapping(
-    name = "Contact",
     fieldMappings = fieldMappings.toList(),
   )
 }
