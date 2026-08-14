@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.domain.model.imports
 
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 
 /**
@@ -46,6 +47,7 @@ data class DryRunReport(
 }
 
 data class DryRunAcceptResult(
+  val installedAppId: InstalledAppId,
   val savedCount: Int,
   val discardedCount: Int,
 )

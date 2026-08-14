@@ -16,6 +16,12 @@ source (e.g. a nightly refresh) meant re-entering the URL and token every time, 
 were only ever reachable through the specific job that first captured them. How should credential
 reuse and the job's target be modeled so that credentials survive independently of any one fetch?
 
+Once a job exists, its id (`ImportJobId`) is already globally unique, so its own
+lifecycle routes (`select-path`, `mapping`, `dry-run`, `delete`) key purely off that id
+(`/ui/user/imports/{importJobId}/...`) rather than also carrying `installedAppId` — only the
+job-listing/trigger routes, which precede any job id, stay scoped under
+`/ui/user/imports/{installedAppId}`.
+
 ## Decision Drivers
 
 * Users regularly re-import from the same source; re-typing a URL and Bearer token for every run

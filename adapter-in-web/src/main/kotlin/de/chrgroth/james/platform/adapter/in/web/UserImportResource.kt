@@ -55,7 +55,6 @@ data class DataPathRow(
 
 data class ImportJobRow(
   val id: String,
-  val installedAppId: String,
   val targetEntityName: String,
   val statusLabel: String,
   val awaitingDataPathSelection: Boolean,
@@ -155,7 +154,7 @@ data class MappingSaveRequest @JsonCreator constructor(
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
 )
 
-@Path("/ui/user/imports/{installedAppId}")
+@Path("/ui/user/imports")
 @ApplicationScoped
 @BlockAdminAccess
 @RolesAllowed("DATA_IMPORT")
@@ -193,6 +192,7 @@ class UserImportResource {
   private lateinit var userMsg: UserMessages
 
   @GET
+  @Path("/{installedAppId}")
   @Produces(MediaType.TEXT_HTML)
   fun imports(@PathParam("installedAppId") installedAppId: String): Response {
     val userId = securityIdentity.principal.name
@@ -213,7 +213,7 @@ class UserImportResource {
   }
 
   @GET
-  @Path("/table")
+  @Path("/{installedAppId}/table")
   @Produces(MediaType.TEXT_HTML)
   fun importsTable(@PathParam("installedAppId") installedAppId: String): Any {
     val userId = securityIdentity.principal.name
@@ -223,6 +223,7 @@ class UserImportResource {
   }
 
   @POST
+  @Path("/{installedAppId}")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun triggerImport(
@@ -248,7 +249,6 @@ class UserImportResource {
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun selectDataPath(
-    @PathParam("installedAppId") installedAppId: String,
     @PathParam("importJobId") importJobId: String,
     @FormParam("dataPath") dataPath: String?,
   ): Response {
@@ -256,7 +256,7 @@ class UserImportResource {
     if (dataPath.isNullOrBlank()) {
       return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
     }
-    return importPort.selectDataPath(userId, installedAppId, importJobId, dataPath).fold(
+    return importPort.selectDataPath(userId, importJobId, dataPath).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDataPathSelectedMessage())).build() },
     )
@@ -265,17 +265,14 @@ class UserImportResource {
   @GET
   @Path("/{importJobId}/mapping")
   @Produces(MediaType.TEXT_HTML)
-  fun mapping(
-    @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importJobId") importJobId: String,
-  ): Response {
+  fun mapping(@PathParam("importJobId") importJobId: String): Response {
     val userId = securityIdentity.principal.name
-    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+    val view = importPort.getMappingView(userId, importJobId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val view = importPort.getMappingView(userId, installedAppId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$installedAppId")).build() },
+    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
 
@@ -298,7 +295,6 @@ class UserImportResource {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   fun saveMapping(
-    @PathParam("installedAppId") installedAppId: String,
     @PathParam("importJobId") importJobId: String,
     request: MappingSaveRequest,
   ): Response {
@@ -328,7 +324,7 @@ class UserImportResource {
       )
     }
 
-    return importPort.updateMapping(userId, installedAppId, importJobId, request.name, fieldMappings).fold(
+    return importPort.updateMapping(userId, importJobId, request.name, fieldMappings).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()
@@ -340,21 +336,18 @@ class UserImportResource {
   @GET
   @Path("/{importJobId}/dry-run")
   @Produces(MediaType.TEXT_HTML)
-  fun dryRun(
-    @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importJobId") importJobId: String,
-  ): Response {
+  fun dryRun(@PathParam("importJobId") importJobId: String): Response {
     val userId = securityIdentity.principal.name
-    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+    val view = importPort.getMappingView(userId, importJobId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val view = importPort.getMappingView(userId, installedAppId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$installedAppId")).build() },
+    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val report = importPort.dryRun(userId, installedAppId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$installedAppId/$importJobId/mapping")).build() },
+    val report = importPort.dryRun(userId, importJobId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$importJobId/mapping")).build() },
       ifRight = { it },
     )
 
@@ -372,16 +365,13 @@ class UserImportResource {
   @POST
   @Path("/{importJobId}/dry-run/accept")
   @Produces(MediaType.APPLICATION_JSON)
-  fun acceptDryRun(
-    @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importJobId") importJobId: String,
-  ): Response {
+  fun acceptDryRun(@PathParam("importJobId") importJobId: String): Response {
     val userId = securityIdentity.principal.name
-    return importPort.acceptDryRun(userId, installedAppId, importJobId).fold(
+    return importPort.acceptDryRun(userId, importJobId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
-        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/imports/$installedAppId")).build()
+        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/imports/${result.installedAppId.value}")).build()
       },
     )
   }
@@ -389,12 +379,9 @@ class UserImportResource {
   @POST
   @Path("/{importJobId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
-  fun deleteImport(
-    @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importJobId") importJobId: String,
-  ): Response {
+  fun deleteImport(@PathParam("importJobId") importJobId: String): Response {
     val userId = securityIdentity.principal.name
-    return importPort.deleteImportJob(userId, installedAppId, importJobId).fold(
+    return importPort.deleteImportJob(userId, importJobId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDeletedMessage())).build() },
     )
@@ -407,7 +394,6 @@ class UserImportResource {
 
   private fun ImportJob.toRow(entityNamesById: Map<String, String>) = ImportJobRow(
     id = id.value,
-    installedAppId = installedAppId.value,
     targetEntityName = entityNamesById[targetEntityDefinitionId.value].orEmpty(),
     statusLabel = statusLabel(status),
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,

@@ -15,7 +15,7 @@
             <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{user:userImportMappingTitle()}</h1>
             <span class="badge border-0 app-badge-processing" data-testid="mapping-status">{statusLabel}</span>
             {#if isReady}
-            <a href="/ui/user/imports/{info.installedAppId}/{importJobId}/dry-run" class="btn btn-app-primary btn-sm ms-auto" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+            <a href="/ui/user/imports/{importJobId}/dry-run" class="btn btn-app-primary btn-sm ms-auto" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
             {/if}
             <a href="/ui/user/imports/{info.installedAppId}" class="btn btn-app-secondary btn-sm {#if !isReady}ms-auto{/if}" data-testid="back-to-imports-link">{user:userImportMappingBackToImportsLabel()}</a>
         </div>
@@ -154,9 +154,8 @@
     {#scripts}
     <script>
         (function () {
-            var installedAppId = '{info.installedAppId}';
             var importJobId = '{importJobId}';
-            var basePath = '/ui/user/imports/' + encodeURIComponent(installedAppId) + '/' + encodeURIComponent(importJobId) + '/mapping';
+            var basePath = '/ui/user/imports/' + encodeURIComponent(importJobId) + '/mapping';
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             var messagePanel = document.getElementById('mapping-message');

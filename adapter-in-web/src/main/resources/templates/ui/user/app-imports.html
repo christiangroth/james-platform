@@ -70,10 +70,10 @@
                                 </td>
                                 <td class="text-end">
                                     {#if job.readyForDryRun}
-                                    <a href="/ui/user/imports/{job.installedAppId}/{job.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+                                    <a href="/ui/user/imports/{job.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
                                     {/if}
                                     {#if job.mappable}
-                                    <a href="/ui/user/imports/{job.installedAppId}/{job.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
+                                    <a href="/ui/user/imports/{job.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
                                     {/if}
                                     <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
                                         <i class="bi bi-trash" aria-hidden="true"></i>
@@ -158,6 +158,7 @@
         (function () {
             var installedAppId = '{info.installedAppId}';
             var basePath = '/ui/user/imports/' + encodeURIComponent(installedAppId);
+            var jobsBasePath = '/ui/user/imports';
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             var messagePanel = document.getElementById('imports-message');
@@ -266,7 +267,7 @@
                     if (!form) { return; }
                     e.preventDefault();
                     var importId = form.getAttribute('data-import-id');
-                    var result = await fetchForm('POST', basePath + '/' + encodeURIComponent(importId) + '/select-path', new FormData(form));
+                    var result = await fetchForm('POST', jobsBasePath + '/' + encodeURIComponent(importId) + '/select-path', new FormData(form));
                     showMessage(result.ok, result.message);
                     if (result.ok) { await refreshTable(); }
                 });
@@ -287,7 +288,7 @@
             if (confirmDeleteImportButton) {
                 confirmDeleteImportButton.addEventListener('click', async function () {
                     var importId = deleteImportModal.getAttribute('data-import-id') || '';
-                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(importId) + '/delete');
+                    var result = await fetchAction('POST', jobsBasePath + '/' + encodeURIComponent(importId) + '/delete');
                     bootstrap.Modal.getInstance(deleteImportModal).hide();
                     showMessage(result.ok, result.message);
                     if (result.ok) { await refreshTable(); }
