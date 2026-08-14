@@ -31,7 +31,7 @@ class DryRunExecutorTests {
   private fun records(json: String) = objectMapper.readTree(json).toList()
 
   private fun mapping(vararg fieldMappings: FieldMapping) =
-    Mapping(name = "Contact", targetEntityDefinitionId = EntityDefinitionId("entity-1"), fieldMappings = fieldMappings.toList())
+    Mapping(name = "Contact", fieldMappings = fieldMappings.toList())
 
   private fun entityDefinition(vararg properties: Property) = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Contact", properties = properties.toList())
 

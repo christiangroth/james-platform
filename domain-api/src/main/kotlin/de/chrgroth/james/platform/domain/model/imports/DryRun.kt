@@ -36,7 +36,7 @@ data class DryRunObject(
 }
 
 data class DryRunReport(
-  val importDocumentId: ImportDocumentId,
+  val importJobId: ImportJobId,
   val objects: List<DryRunObject>,
 ) {
   val totalCount: Int get() = objects.size

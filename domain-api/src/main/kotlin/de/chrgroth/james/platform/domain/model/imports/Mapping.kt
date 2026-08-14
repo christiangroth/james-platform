@@ -1,6 +1,5 @@
 package de.chrgroth.james.platform.domain.model.imports
 
-import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 
 /** Simple, lossless-intent conversions that may be applied to a mapped field to resolve small type mismatches between source and target. */
@@ -53,6 +52,5 @@ data class FieldMapping(
 
 data class Mapping(
   val name: String,
-  val targetEntityDefinitionId: EntityDefinitionId,
   val fieldMappings: List<FieldMapping> = emptyList(),
 )

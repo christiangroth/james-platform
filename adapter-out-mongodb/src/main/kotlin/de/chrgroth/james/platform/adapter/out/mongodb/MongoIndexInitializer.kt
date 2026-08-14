@@ -14,7 +14,8 @@ class MongoIndexInitializer(
   private val appVersionDocumentRepository: AppVersionDocumentRepository,
   private val installedAppDocumentRepository: InstalledAppDocumentRepository,
   private val userDocumentRepository: UserDocumentRepository,
-  private val importDocumentDocumentRepository: ImportDocumentDocumentRepository,
+  private val importJobDocumentRepository: ImportJobDocumentRepository,
+  private val importConnectionDocumentRepository: ImportConnectionDocumentRepository,
 ) {
 
   fun onStartup(@Observes event: StartupEvent) {
@@ -50,13 +51,17 @@ class MongoIndexInitializer(
     userDocumentRepository.mongoCollection().createIndex(
       Indexes.ascending(UserRepositoryAdapter.USERNAME_FIELD),
     )
-    // import_document: speed up findAllByInstalledAppId
-    importDocumentDocumentRepository.mongoCollection().createIndex(
-      Indexes.ascending(ImportDocumentRepositoryAdapter.INSTALLED_APP_ID_FIELD),
+    // import_job: speed up findAllByInstalledAppId
+    importJobDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ImportJobRepositoryAdapter.INSTALLED_APP_ID_FIELD),
     )
-    // import_document: speed up deleteAllLastChangedBefore
-    importDocumentDocumentRepository.mongoCollection().createIndex(
-      Indexes.ascending(ImportDocumentRepositoryAdapter.LAST_CHANGED_AT_FIELD),
+    // import_job: speed up deleteAllLastChangedBefore
+    importJobDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ImportJobRepositoryAdapter.LAST_CHANGED_AT_FIELD),
+    )
+    // import_connection: speed up findAllByUserId
+    importConnectionDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ImportConnectionRepositoryAdapter.USER_ID_FIELD),
     )
     logger.info { "MongoDB indexes ready." }
   }
