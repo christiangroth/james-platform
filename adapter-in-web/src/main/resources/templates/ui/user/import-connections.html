@@ -1,0 +1,290 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {user:userImportConnectionsTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-connections">{user:userImportConnectionsTitle()}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="connections-title">{user:userImportConnectionsTitle()}</h1>
+            <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#connectionModal" data-testid="new-connection-button" data-mode="create">
+                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+                {user:userNewConnectionButtonLabel()}
+            </button>
+        </div>
+
+        <div id="connections-message" class="d-none mb-4" role="alert"></div>
+
+        <div id="connections-table-container">
+            {#fragment id="connections_table"}
+            {#if connections.isEmpty}
+            <div class="card app-card p-4">
+                <p class="mb-0 app-section-label" data-testid="no-connections-message">{user:userNoConnectionsMessage()}</p>
+            </div>
+            {#else}
+            <div class="card app-card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0 app-table" data-testid="connections-table">
+                        <thead>
+                            <tr>
+                                <th>{user:userImportConnectionColName()}</th>
+                                <th>{user:userImportConnectionColUrl()}</th>
+                                <th>{user:userImportConnectionColToken()}</th>
+                                <th class="text-end">{user:userImportConnectionColActions()}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for connection in connections}
+                            <tr data-testid="connection-row"
+                                data-connection-id="{connection.id}"
+                                data-connection-name="{connection.name}"
+                                data-connection-url="{connection.url}">
+                                <td data-testid="connection-name">{connection.name}</td>
+                                <td data-testid="connection-url">{connection.url}</td>
+                                <td data-testid="connection-token-status">
+                                    {#if connection.hasBearerToken}
+                                    <span class="badge border-0 app-badge-processing">{user:userImportConnectionTokenSetLabel()}</span>
+                                    {#else}
+                                    <span class="badge border-0 app-badge-muted">{user:userImportConnectionTokenNotSetLabel()}</span>
+                                    {/if}
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-app-secondary btn-sm me-1 test-connection-button" data-connection-id="{connection.id}" data-testid="test-connection-button">{user:userImportConnectionTestButton()}</button>
+                                    <button type="button" class="btn btn-app-secondary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#connectionModal" data-testid="edit-connection-button" data-mode="edit">
+                                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteConnectionModal" data-connection-id="{connection.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-connection-button">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {/if}
+            {/fragment}
+        </div>
+    </div>
+
+    <!-- Create/Edit Connection Modal -->
+    <div class="modal fade" id="connectionModal" tabindex="-1" aria-labelledby="connectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="connectionModalLabel">{user:userNewConnectionButtonLabel()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="connectionForm">
+                    <div class="modal-body">
+                        <div id="connection-modal-message" class="d-none mb-3" role="alert"></div>
+                        <div class="mb-3">
+                            <label for="connectionName" class="form-label">{user:userImportConnectionNameLabel()}</label>
+                            <input type="text" class="form-control app-form-control" id="connectionName" name="name" required autocomplete="off" data-testid="connection-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label for="connectionUrl" class="form-label">{user:userImportUrlLabel()}</label>
+                            <input type="url" class="form-control app-form-control" id="connectionUrl" name="url" required autocomplete="off" data-testid="connection-url-input">
+                        </div>
+                        <div class="mb-2">
+                            <label for="connectionBearerToken" class="form-label">{user:userImportBearerTokenLabel()}</label>
+                            <input type="password" class="form-control app-form-control" id="connectionBearerToken" name="bearerToken" autocomplete="off" data-testid="connection-token-input">
+                            <div class="form-text" id="connectionTokenHint">{user:userImportConnectionTokenHint()}</div>
+                        </div>
+                        <div class="form-check d-none" id="clearTokenContainer">
+                            <input class="form-check-input" type="checkbox" id="connectionClearToken" name="clearBearerToken" data-testid="connection-clear-token-checkbox">
+                            <label class="form-check-label" for="connectionClearToken">{user:userImportConnectionClearTokenLabel()}</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="connection-submit-button">{msg:commonSave()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Connection Modal -->
+    <div class="modal fade" id="deleteConnectionModal" tabindex="-1" aria-labelledby="deleteConnectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteConnectionModalLabel">{user:userDeleteConnectionModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="delete-connection-modal-body">{user:userDeleteConnectionConfirm()}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteConnectionButton" data-testid="confirm-delete-connection-button">{msg:commonDelete()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var basePath = '/ui/user/import-connections';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('connections-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            var connectionModalMessage = document.getElementById('connection-modal-message');
+
+            function showConnectionModalMessage(message, errorDetails) {
+                connectionModalMessage.className = 'alert alert-danger mb-3';
+                connectionModalMessage.setAttribute('data-testid', 'error-message');
+                connectionModalMessage.innerHTML = message;
+                if (errorDetails && errorDetails.length) {
+                    var list = document.createElement('ul');
+                    list.className = 'mb-0 mt-2 ps-3';
+                    list.setAttribute('data-testid', 'error-details');
+                    errorDetails.forEach(function (detail) {
+                        var item = document.createElement('li');
+                        item.textContent = detail;
+                        list.appendChild(item);
+                    });
+                    connectionModalMessage.appendChild(list);
+                }
+            }
+
+            function clearConnectionModalMessage() {
+                connectionModalMessage.className = 'd-none mb-3';
+                connectionModalMessage.innerHTML = '';
+                connectionModalMessage.removeAttribute('data-testid');
+            }
+
+            async function refreshTable() {
+                try {
+                    var response = await fetch(basePath + '/table', { cache: 'no-store' });
+                    var html = await response.text();
+                    document.getElementById('connections-table-container').innerHTML = html;
+                } catch (e) {
+                    showMessage(false, networkErrorMessage);
+                }
+            }
+
+            async function fetchForm(method, url, formData) {
+                try {
+                    var response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(formData).toString()
+                    });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            async function fetchAction(method, url) {
+                try {
+                    var response = await fetch(url, { method: method });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            var connectionForm = document.getElementById('connectionForm');
+            var connectionModal = document.getElementById('connectionModal');
+            var connectionModalLabel = document.getElementById('connectionModalLabel');
+            var clearTokenContainer = document.getElementById('clearTokenContainer');
+            var connectionTokenHint = document.getElementById('connectionTokenHint');
+
+            connectionModal.addEventListener('show.bs.modal', function (event) {
+                var trigger = event.relatedTarget;
+                var mode = trigger ? trigger.getAttribute('data-mode') : 'create';
+                var row = trigger ? trigger.closest('[data-connection-id]') : null;
+
+                if (mode === 'edit' && row) {
+                    connectionModal.setAttribute('data-connection-id', row.getAttribute('data-connection-id'));
+                    connectionModalLabel.textContent = '{user:userImportConnectionEditModalTitle()}';
+                    connectionForm.querySelector('#connectionName').value = row.getAttribute('data-connection-name') || '';
+                    connectionForm.querySelector('#connectionUrl').value = row.getAttribute('data-connection-url') || '';
+                    clearTokenContainer.classList.remove('d-none');
+                    connectionTokenHint.classList.remove('d-none');
+                } else {
+                    connectionModal.removeAttribute('data-connection-id');
+                    connectionModalLabel.textContent = '{user:userNewConnectionButtonLabel()}';
+                    connectionForm.reset();
+                    clearTokenContainer.classList.add('d-none');
+                    connectionTokenHint.classList.add('d-none');
+                }
+            });
+
+            connectionModal.addEventListener('hidden.bs.modal', function () {
+                clearConnectionModalMessage();
+                connectionForm.reset();
+            });
+
+            connectionForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                clearConnectionModalMessage();
+                var connectionId = connectionModal.getAttribute('data-connection-id');
+                var url = connectionId ? (basePath + '/' + encodeURIComponent(connectionId)) : basePath;
+                var result = await fetchForm('POST', url, new FormData(this));
+                if (result.ok) {
+                    bootstrap.Modal.getInstance(connectionModal).hide();
+                    await refreshTable();
+                    showMessage(true, result.message);
+                } else {
+                    showConnectionModalMessage(result.message, result.errorDetails);
+                }
+            });
+
+            var connectionsTableContainer = document.getElementById('connections-table-container');
+            if (connectionsTableContainer) {
+                connectionsTableContainer.addEventListener('click', async function (e) {
+                    var testButton = e.target.closest('.test-connection-button');
+                    if (!testButton) { return; }
+                    var connectionId = testButton.getAttribute('data-connection-id');
+                    testButton.disabled = true;
+                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(connectionId) + '/test');
+                    testButton.disabled = false;
+                    showMessage(result.ok, result.message);
+                });
+            }
+
+            var deleteConnectionModal = document.getElementById('deleteConnectionModal');
+            if (deleteConnectionModal) {
+                deleteConnectionModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var connectionId = trigger ? trigger.getAttribute('data-connection-id') : '';
+                    deleteConnectionModal.setAttribute('data-connection-id', connectionId);
+                });
+            }
+
+            var confirmDeleteConnectionButton = document.getElementById('confirmDeleteConnectionButton');
+            if (confirmDeleteConnectionButton) {
+                confirmDeleteConnectionButton.addEventListener('click', async function () {
+                    var connectionId = deleteConnectionModal.getAttribute('data-connection-id') || '';
+                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(connectionId) + '/delete');
+                    bootstrap.Modal.getInstance(deleteConnectionModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}

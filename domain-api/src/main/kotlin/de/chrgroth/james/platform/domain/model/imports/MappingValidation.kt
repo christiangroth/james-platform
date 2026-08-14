@@ -66,9 +66,14 @@ data class MappingValidationResult(
   val isReady: Boolean get() = blockingIssues.isEmpty()
 }
 
-/** Bundles everything the mapping UI needs to render: the import job, its fixed target entity definition, and the current mapping's validation result (null if no mapping has been configured yet). */
+/**
+ * Bundles everything the mapping UI needs to render: the import job, its fixed target entity definition, all entity
+ * definitions of the app (needed to resolve REF properties that point at an entity other than the target one), and
+ * the current mapping's validation result (null if no mapping has been configured yet).
+ */
 data class MappingView(
   val importJob: ImportJob,
   val targetEntityDefinition: EntityDefinition,
+  val entityDefinitions: List<EntityDefinition>,
   val validation: MappingValidationResult?,
 )

@@ -22,7 +22,7 @@
 
         <div id="imports-table-container">
             {#fragment id="imports_table"}
-            {#if documents.isEmpty}
+            {#if jobs.isEmpty}
             <div class="card app-card p-4">
                 <p class="mb-0 app-section-label" data-testid="no-imports-message">{user:userNoImportsMessage()}</p>
             </div>
@@ -32,6 +32,7 @@
                     <table class="table table-sm table-striped mb-0 app-table" data-testid="imports-table">
                         <thead>
                             <tr>
+                                <th>{user:userImportColTargetEntity()}</th>
                                 <th>{user:userImportColCreatedAt()}</th>
                                 <th>{user:userImportColLastActivity()}</th>
                                 <th>{user:userImportColStatus()}</th>
@@ -40,22 +41,23 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {#for doc in documents}
+                            {#for job in jobs}
                             <tr data-testid="import-row">
-                                <td data-testid="import-created-at">{doc.createdAt.formatted}</td>
-                                <td data-testid="import-last-changed-at">{doc.lastChangedAt.formatted}</td>
-                                <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{doc.statusLabel}</span></td>
+                                <td data-testid="import-target-entity">{job.targetEntityName}</td>
+                                <td data-testid="import-created-at">{job.createdAt.formatted}</td>
+                                <td data-testid="import-last-changed-at">{job.lastChangedAt.formatted}</td>
+                                <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
                                 <td data-testid="import-data-path">
-                                    {#if doc.awaitingDataPathSelection}
-                                    <form class="d-flex gap-2 align-items-start data-path-form" data-import-id="{doc.id}">
-                                        {#if doc.detectedDataPaths.isEmpty}
+                                    {#if job.awaitingDataPathSelection}
+                                    <form class="d-flex gap-2 align-items-start data-path-form" data-import-id="{job.id}">
+                                        {#if job.detectedDataPaths.isEmpty}
                                         <div>
                                             <input type="text" class="form-control form-control-sm app-form-control" name="dataPath" placeholder="{user:userImportDataPathManualLabel()}" required autocomplete="off" data-testid="data-path-input">
                                             <div class="form-text">{user:userImportDataPathManualHint()}</div>
                                         </div>
                                         {#else}
                                         <select class="form-select form-select-sm app-form-control" name="dataPath" required data-testid="data-path-select">
-                                            {#for candidate in doc.detectedDataPaths}
+                                            {#for candidate in job.detectedDataPaths}
                                             <option value="{candidate.path}">{candidate.path} ({user:userImportDataPathSizeLabel(candidate.size)})</option>
                                             {/for}
                                         </select>
@@ -63,17 +65,17 @@
                                         <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="data-path-submit">{user:userImportDataPathSelectButton()}</button>
                                     </form>
                                     {#else}
-                                    <span data-testid="selected-data-path">{doc.selectedDataPath}</span>
+                                    <span data-testid="selected-data-path">{job.selectedDataPath}</span>
                                     {/if}
                                 </td>
                                 <td class="text-end">
-                                    {#if doc.readyForDryRun}
-                                    <a href="/ui/user/apps/{doc.installedAppId}/imports/{doc.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
+                                    {#if job.readyForDryRun}
+                                    <a href="/ui/user/apps/{job.installedAppId}/imports/{job.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
                                     {/if}
-                                    {#if doc.mappable}
-                                    <a href="/ui/user/apps/{doc.installedAppId}/imports/{doc.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
+                                    {#if job.mappable}
+                                    <a href="/ui/user/apps/{job.installedAppId}/imports/{job.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
                                     {/if}
-                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{doc.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
+                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
                                         <i class="bi bi-trash" aria-hidden="true"></i>
                                     </button>
                                 </td>
@@ -99,18 +101,35 @@
                 <form id="newImportForm">
                     <div class="modal-body">
                         <div id="import-modal-message" class="d-none mb-3" role="alert"></div>
+                        {#if hasConnections}
                         <div class="mb-3">
-                            <label for="importSourceUrl" class="form-label">{user:userImportUrlLabel()}</label>
-                            <input type="url" class="form-control app-form-control" id="importSourceUrl" name="sourceUrl" required autocomplete="off" data-testid="import-url-input">
+                            <label for="importConnectionId" class="form-label">{user:userImportConnectionLabel()}</label>
+                            <select class="form-select app-form-control" id="importConnectionId" name="connectionId" required data-testid="import-connection-select">
+                                {#for connection in connectionOptions}
+                                <option value="{connection.id}">{connection.name}</option>
+                                {/for}
+                            </select>
                         </div>
                         <div class="mb-3">
-                            <label for="importBearerToken" class="form-label">{user:userImportBearerTokenLabel()}</label>
-                            <input type="password" class="form-control app-form-control" id="importBearerToken" name="bearerToken" required autocomplete="off" data-testid="import-token-input">
+                            <label for="importTargetEntityDefinitionId" class="form-label">{user:userImportTargetEntityLabel()}</label>
+                            <select class="form-select app-form-control" id="importTargetEntityDefinitionId" name="targetEntityDefinitionId" required data-testid="import-target-entity-select">
+                                {#for entity in entityOptions}
+                                <option value="{entity.id}">{entity.name}</option>
+                                {/for}
+                            </select>
                         </div>
+                        {#else}
+                        <p class="mb-0" data-testid="no-connections-hint">
+                            {user:userImportNoConnectionsHint()}
+                            <a href="/ui/user/import-connections">{user:userImportManageConnectionsLinkLabel()}</a>
+                        </p>
+                        {/if}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        {#if hasConnections}
                         <button type="submit" class="btn btn-app-primary" data-testid="import-submit-button">{user:userImportSubmitButton()}</button>
+                        {/if}
                     </div>
                 </form>
             </div>
@@ -253,7 +272,7 @@
                 });
             }
 
-            // Delete import modal – remember which document to delete
+            // Delete import modal – remember which job to delete
             var deleteImportModal = document.getElementById('deleteImportModal');
             if (deleteImportModal) {
                 deleteImportModal.addEventListener('show.bs.modal', function (event) {

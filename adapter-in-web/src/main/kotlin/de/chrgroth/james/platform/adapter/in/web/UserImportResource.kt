@@ -18,7 +18,7 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
-import de.chrgroth.james.platform.domain.model.imports.ImportDocument
+import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
@@ -28,6 +28,7 @@ import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
+import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import io.quarkus.qute.Location
 import io.quarkus.qute.Template
@@ -42,7 +43,6 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
-import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.net.URI
@@ -53,9 +53,10 @@ data class DataPathRow(
   val size: Int,
 )
 
-data class ImportDocumentRow(
+data class ImportJobRow(
   val id: String,
   val installedAppId: String,
+  val targetEntityName: String,
   val statusLabel: String,
   val awaitingDataPathSelection: Boolean,
   val mappable: Boolean,
@@ -69,7 +70,11 @@ data class ImportDocumentRow(
 data class EntityOptionRow(
   val id: String,
   val name: String,
-  val selected: Boolean,
+)
+
+data class ConnectionOptionRow(
+  val id: String,
+  val name: String,
 )
 
 data class SchemaFieldOptionRow(
@@ -147,7 +152,6 @@ data class FieldMappingRequest @JsonCreator constructor(
 
 data class MappingSaveRequest @JsonCreator constructor(
   @param:JsonProperty("name") val name: String,
-  @param:JsonProperty("targetEntityDefinitionId") val targetEntityDefinitionId: String,
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
 )
 
@@ -180,6 +184,9 @@ class UserImportResource {
   private lateinit var importPort: ImportPort
 
   @Inject
+  private lateinit var importConnectionPort: ImportConnectionPort
+
+  @Inject
   private lateinit var msg: AppMessages
 
   @Inject
@@ -193,10 +200,15 @@ class UserImportResource {
       ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
+    val entityDefinitions = info.installedVersion.entityDefinitions
+    val connections = importConnectionPort.listConnections(userId).getOrNull().orEmpty()
     return Response.ok(
       importsTemplate
         .data("info", info)
-        .data("documents", loadRows(userId, installedAppId)),
+        .data("jobs", loadRows(userId, installedAppId, entityDefinitions))
+        .data("entityOptions", entityDefinitions.map { EntityOptionRow(it.id.value, it.name) })
+        .data("connectionOptions", connections.map { ConnectionOptionRow(it.id.value, it.name) })
+        .data("hasConnections", connections.isNotEmpty()),
     ).build()
   }
 
@@ -205,8 +217,9 @@ class UserImportResource {
   @Produces(MediaType.TEXT_HTML)
   fun importsTable(@PathParam("installedAppId") installedAppId: String): Any {
     val userId = securityIdentity.principal.name
+    val entityDefinitions = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions.orEmpty()
     return importsTemplate.getFragment("imports_table")
-      .data("documents", loadRows(userId, installedAppId))
+      .data("jobs", loadRows(userId, installedAppId, entityDefinitions))
   }
 
   @POST
@@ -214,86 +227,79 @@ class UserImportResource {
   @Produces(MediaType.APPLICATION_JSON)
   fun triggerImport(
     @PathParam("installedAppId") installedAppId: String,
-    @FormParam("sourceUrl") sourceUrl: String?,
-    @FormParam("bearerToken") bearerToken: String?,
+    @FormParam("connectionId") connectionId: String?,
+    @FormParam("targetEntityDefinitionId") targetEntityDefinitionId: String?,
   ): Response {
     val userId = securityIdentity.principal.name
-    if (sourceUrl.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
+    if (connectionId.isNullOrBlank()) {
+      return Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionRequiredError())).build()
     }
-    if (bearerToken.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportTokenRequiredError())).build()
+    if (targetEntityDefinitionId.isNullOrBlank()) {
+      return Response.ok(DeveloperApiResult(false, userMsg.userImportEntityRequiredError())).build()
     }
-    return importPort.triggerImport(userId, installedAppId, sourceUrl, bearerToken).fold(
+    return importPort.triggerImport(userId, installedAppId, connectionId, targetEntityDefinitionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
     )
   }
 
   @POST
-  @Path("/{importDocumentId}/select-path")
+  @Path("/{importJobId}/select-path")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun selectDataPath(
     @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importDocumentId") importDocumentId: String,
+    @PathParam("importJobId") importJobId: String,
     @FormParam("dataPath") dataPath: String?,
   ): Response {
     val userId = securityIdentity.principal.name
     if (dataPath.isNullOrBlank()) {
       return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
     }
-    return importPort.selectDataPath(userId, installedAppId, importDocumentId, dataPath).fold(
+    return importPort.selectDataPath(userId, installedAppId, importJobId, dataPath).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDataPathSelectedMessage())).build() },
     )
   }
 
   @GET
-  @Path("/{importDocumentId}/mapping")
+  @Path("/{importJobId}/mapping")
   @Produces(MediaType.TEXT_HTML)
   fun mapping(
     @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importDocumentId") importDocumentId: String,
-    @QueryParam("entityDefinitionId") entityDefinitionIdParam: String?,
+    @PathParam("importJobId") importJobId: String,
   ): Response {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val view = importPort.getMappingView(userId, installedAppId, importDocumentId).fold(
+    val view = importPort.getMappingView(userId, installedAppId, importJobId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
       ifRight = { it },
     )
 
-    val existingMapping = view.importDocument.mapping
-    val selectedEntityId = entityDefinitionIdParam?.takeIf { it.isNotBlank() } ?: existingMapping?.targetEntityDefinitionId?.value
-    val selectedEntity = view.entityDefinitions.find { it.id.value == selectedEntityId }
-    val currentMapping = existingMapping?.takeIf { selectedEntity != null && it.targetEntityDefinitionId == selectedEntity.id }
-
     return Response.ok(
       mappingTemplate
         .data("info", info)
-        .data("importDocumentId", importDocumentId)
-        .data("statusLabel", statusLabel(view.importDocument.status))
-        .data("isReady", view.importDocument.status == ImportStatus.READY)
-        .data("hasEntitySelected", selectedEntity != null)
-        .data("entityOptions", view.entityDefinitions.map { EntityOptionRow(it.id.value, it.name, it.id.value == selectedEntity?.id?.value) })
-        .data("mappingName", currentMapping?.name ?: selectedEntity?.name.orEmpty())
-        .data("propertyRows", selectedEntity?.let { buildPropertyRows(it, currentMapping, view) }.orEmpty())
-        .data("schemaFieldOptions", view.importDocument.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
+        .data("importJobId", importJobId)
+        .data("statusLabel", statusLabel(view.importJob.status))
+        .data("isReady", view.importJob.status == ImportStatus.READY)
+        .data("targetEntityName", view.targetEntityDefinition.name)
+        .data("mappingName", view.importJob.mapping?.name ?: view.targetEntityDefinition.name)
+        .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
+        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) }),
     ).build()
   }
 
   @POST
-  @Path("/{importDocumentId}/mapping")
+  @Path("/{importJobId}/mapping")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   fun saveMapping(
     @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importDocumentId") importDocumentId: String,
+    @PathParam("importJobId") importJobId: String,
     request: MappingSaveRequest,
   ): Response {
     val userId = securityIdentity.principal.name
@@ -322,7 +328,7 @@ class UserImportResource {
       )
     }
 
-    return importPort.updateMapping(userId, installedAppId, importDocumentId, request.name, request.targetEntityDefinitionId, fieldMappings).fold(
+    return importPort.updateMapping(userId, installedAppId, importJobId, request.name, fieldMappings).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()
@@ -332,47 +338,46 @@ class UserImportResource {
   }
 
   @GET
-  @Path("/{importDocumentId}/dry-run")
+  @Path("/{importJobId}/dry-run")
   @Produces(MediaType.TEXT_HTML)
   fun dryRun(
     @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importDocumentId") importDocumentId: String,
+    @PathParam("importJobId") importJobId: String,
   ): Response {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val view = importPort.getMappingView(userId, installedAppId, importDocumentId).fold(
+    val view = importPort.getMappingView(userId, installedAppId, importJobId).fold(
       ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports")).build() },
       ifRight = { it },
     )
-    val entityDefinition = view.importDocument.mapping?.let { mapping -> view.entityDefinitions.find { it.id == mapping.targetEntityDefinitionId } }
-    val report = importPort.dryRun(userId, installedAppId, importDocumentId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports/$importDocumentId/mapping")).build() },
+    val report = importPort.dryRun(userId, installedAppId, importJobId).fold(
+      ifLeft = { return Response.seeOther(URI.create("/ui/user/apps/$installedAppId/imports/$importJobId/mapping")).build() },
       ifRight = { it },
     )
 
     return Response.ok(
       dryRunTemplate
         .data("info", info)
-        .data("importDocumentId", importDocumentId)
+        .data("importJobId", importJobId)
         .data("totalCount", report.totalCount)
         .data("validCount", report.validCount)
         .data("invalidCount", report.invalidCount)
-        .data("invalidObjects", entityDefinition?.let { entity -> report.invalidObjects.map { it.toRow(entity) } }.orEmpty()),
+        .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) }),
     ).build()
   }
 
   @POST
-  @Path("/{importDocumentId}/dry-run/accept")
+  @Path("/{importJobId}/dry-run/accept")
   @Produces(MediaType.APPLICATION_JSON)
   fun acceptDryRun(
     @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importDocumentId") importDocumentId: String,
+    @PathParam("importJobId") importJobId: String,
   ): Response {
     val userId = securityIdentity.principal.name
-    return importPort.acceptDryRun(userId, installedAppId, importDocumentId).fold(
+    return importPort.acceptDryRun(userId, installedAppId, importJobId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
@@ -382,25 +387,28 @@ class UserImportResource {
   }
 
   @POST
-  @Path("/{importDocumentId}/delete")
+  @Path("/{importJobId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun deleteImport(
     @PathParam("installedAppId") installedAppId: String,
-    @PathParam("importDocumentId") importDocumentId: String,
+    @PathParam("importJobId") importJobId: String,
   ): Response {
     val userId = securityIdentity.principal.name
-    return importPort.deleteImportDocument(userId, installedAppId, importDocumentId).fold(
+    return importPort.deleteImportJob(userId, installedAppId, importJobId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDeletedMessage())).build() },
     )
   }
 
-  private fun loadRows(userId: String, installedAppId: String): List<ImportDocumentRow> =
-    importPort.listImportDocuments(userId, installedAppId).getOrNull().orEmpty().map { it.toRow() }
+  private fun loadRows(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>): List<ImportJobRow> {
+    val entityNamesById = entityDefinitions.associate { it.id.value to it.name }
+    return importPort.listImportJobs(userId, installedAppId).getOrNull().orEmpty().map { it.toRow(entityNamesById) }
+  }
 
-  private fun ImportDocument.toRow() = ImportDocumentRow(
+  private fun ImportJob.toRow(entityNamesById: Map<String, String>) = ImportJobRow(
     id = id.value,
     installedAppId = installedAppId.value,
+    targetEntityName = entityNamesById[targetEntityDefinitionId.value].orEmpty(),
     statusLabel = statusLabel(status),
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
     mappable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
@@ -525,22 +533,21 @@ class UserImportResource {
 
   private fun importErrorMessage(code: String): String = when (code) {
     ImportError.INSTALLED_APP_NOT_FOUND.code -> userMsg.userInstalledAppNotFoundError()
-    ImportError.BLANK_URL.code -> userMsg.userImportUrlRequiredError()
-    ImportError.BLANK_BEARER_TOKEN.code -> userMsg.userImportTokenRequiredError()
     ImportError.INVALID_URL.code -> userMsg.userImportInvalidUrlError()
     ImportError.FETCH_FAILED.code -> userMsg.userImportFetchFailedError()
     ImportError.INVALID_JSON_RESPONSE.code -> userMsg.userImportInvalidJsonError()
     ImportError.NOT_A_JSON_OBJECT.code -> userMsg.userImportNotJsonObjectError()
     ImportError.RESPONSE_TOO_LARGE.code -> userMsg.userImportResponseTooLargeError()
-    ImportError.IMPORT_DOCUMENT_NOT_FOUND.code -> userMsg.userImportDocumentNotFoundError()
-    ImportError.IMPORT_DOCUMENT_NOT_DOWNLOADED.code -> userMsg.userImportDocumentNotDownloadedError()
+    ImportError.IMPORT_JOB_NOT_FOUND.code -> userMsg.userImportJobNotFoundError()
+    ImportError.IMPORT_JOB_NOT_DOWNLOADED.code -> userMsg.userImportJobNotDownloadedError()
     ImportError.BLANK_DATA_PATH.code -> userMsg.userImportBlankDataPathError()
     ImportError.INVALID_DATA_PATH.code -> userMsg.userImportInvalidDataPathError()
-    ImportError.IMPORT_DOCUMENT_NOT_MAPPABLE.code -> userMsg.userImportDocumentNotMappableError()
+    ImportError.IMPORT_JOB_NOT_MAPPABLE.code -> userMsg.userImportJobNotMappableError()
     ImportError.BLANK_MAPPING_NAME.code -> userMsg.userImportBlankMappingNameError()
     ImportError.ENTITY_DEFINITION_NOT_FOUND.code -> userMsg.userImportEntityDefinitionNotFoundError()
     ImportError.MAPPING_PROPERTY_NOT_FOUND.code -> userMsg.userImportMappingPropertyNotFoundError()
-    ImportError.IMPORT_DOCUMENT_NOT_READY.code -> userMsg.userImportDocumentNotReadyError()
+    ImportError.IMPORT_JOB_NOT_READY.code -> userMsg.userImportJobNotReadyError()
+    ImportError.CONNECTION_NOT_FOUND.code -> userMsg.userImportConnectionNotFoundError()
     else -> msg.commonUnexpectedError()
   }
 

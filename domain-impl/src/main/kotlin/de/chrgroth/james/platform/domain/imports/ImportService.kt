@@ -165,7 +165,7 @@ class ImportService(
     val validation = existing.mapping?.let { mapping ->
       MappingValidator.validate(mapping, targetEntityDefinition, existing.detectedSchema, entityDefinitions, propertyConstraint)
     }
-    return MappingView(existing, targetEntityDefinition, validation).right()
+    return MappingView(existing, targetEntityDefinition, entityDefinitions, validation).right()
   }
 
   override fun updateMapping(
@@ -216,7 +216,7 @@ class ImportService(
     )
     importJobRepository.save(updated)
     logger.info { "Mapping updated: importJobId=$importJobId status=${updated.status}" }
-    return MappingView(updated, targetEntityDefinition, validation).right()
+    return MappingView(updated, targetEntityDefinition, entityDefinitions, validation).right()
   }
 
   override fun dryRun(userId: String, installedAppId: String, importJobId: String): Either<DomainError, DryRunReport> {
