@@ -24,7 +24,6 @@ class ImportJobDocument {
 }
 
 class MappingDocument {
-  lateinit var name: String
   var fieldMappings: List<FieldMappingDocument> = emptyList()
 }
 

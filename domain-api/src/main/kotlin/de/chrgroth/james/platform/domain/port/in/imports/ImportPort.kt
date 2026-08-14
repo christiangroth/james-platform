@@ -19,7 +19,6 @@ interface ImportPort {
   fun updateMapping(
     userId: String,
     importJobId: String,
-    name: String,
     fieldMappings: List<FieldMapping>,
   ): Either<DomainError, MappingView>
 

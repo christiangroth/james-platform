@@ -140,6 +140,17 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().jsonPath().getString("propertyId")
 
+  private fun addUniqueKeyConstraint(appId: String, versionId: String, entityId: String, propertyId: String) {
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("uniqueKey", true)
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties/$propertyId/constraints")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+  }
+
   private fun addReferenceProperty(appId: String, versionId: String, entityId: String, name: String, targetEntityId: String): String =
     given()
       .contentType("application/x-www-form-urlencoded")
@@ -484,7 +495,6 @@ class UserImportResourceTests {
       .body(
         """
         {
-          "name": "Contact Mapping",
           "fieldMappings": [
             { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
           ]
@@ -515,7 +525,7 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/json")
-      .body("""{"name": "Contact Mapping", "fieldMappings": []}""")
+      .body("""{"fieldMappings": []}""")
       .`when`()
       .post("/ui/user/imports/$importId/mapping")
       .then()
@@ -545,7 +555,6 @@ class UserImportResourceTests {
       .body(
         """
         {
-          "name": "Contact Mapping",
           "fieldMappings": [
             { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
           ]
@@ -637,7 +646,6 @@ class UserImportResourceTests {
       .body(
         """
         {
-          "name": "Contact Mapping",
           "fieldMappings": [
             { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
             {
@@ -693,7 +701,6 @@ class UserImportResourceTests {
       .body(
         """
         {
-          "name": "Contact Mapping",
           "fieldMappings": [
             { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
             { "targetPropertyId": "$companyPropertyId", "sourcePath": null, "conversion": "NONE", "fallbackValue": "not-a-real-company-id" }
@@ -732,5 +739,61 @@ class UserImportResourceTests {
 
     val savedContacts = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId))
     assertTrue(savedContacts.isEmpty(), "Expected the invalid Contact record to be discarded rather than saved with a dangling Company reference")
+  }
+
+  @Test
+  fun `fan-in mapping into a unique mandatory property is ready without a fallback and discards records without or with an already used value`() {
+    val appName = "Import Fan-In App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Company")
+    val propertyId = addProperty(appId, versionId, entityId, "Code", "STRING", nullable = false)
+    addUniqueKeyConstraint(appId, versionId, entityId, propertyId)
+    val installedAppId = publishAndInstall(appId, appName)
+
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn("""{"items":[{"code":"ACME"},{"other":"no code here"},{"code":"ACME"},{"code":"GLOBEX"}]}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body(
+        """
+        {
+          "fieldMappings": [
+            { "targetPropertyId": "$propertyId", "sourcePath": "code", "conversion": "NONE", "fallbackValue": null }
+          ]
+        }
+        """.trimIndent(),
+      )
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val mappingHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(
+      mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"),
+      "Expected the mapping to be READY without a fallback: a static fallback would collide with the unique constraint",
+    )
+
+    given()
+      .`when`()
+      .post("/ui/user/imports/$importId/dry-run/accept")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val savedCompanies = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId))
+    assertTrue(
+      savedCompanies.map { it.data[propertyId] }.toSet() == setOf("ACME", "GLOBEX"),
+      "Expected only the first record per unique value to be saved, records without a value or with an already used value discarded",
+    )
   }
 }

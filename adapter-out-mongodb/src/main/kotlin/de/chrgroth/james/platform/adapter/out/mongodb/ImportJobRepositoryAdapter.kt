@@ -95,7 +95,6 @@ class ImportJobRepositoryAdapter(
   )
 
   private fun MappingDocument.toDomain() = Mapping(
-    name = name,
     fieldMappings = fieldMappings.map { it.toDomain() },
   )
 
@@ -151,7 +150,6 @@ class ImportJobRepositoryAdapter(
   }
 
   private fun Mapping.toDocument() = MappingDocument().also { doc ->
-    doc.name = name
     doc.fieldMappings = fieldMappings.map { it.toDocument() }
   }
 

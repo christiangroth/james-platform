@@ -165,7 +165,6 @@ class ImportService(
   override fun updateMapping(
     userId: String,
     importJobId: String,
-    name: String,
     fieldMappings: List<FieldMapping>,
   ): Either<DomainError, MappingView> {
     val existing = requireOwnedImportJob(userId, importJobId) ?: run {
@@ -180,10 +179,6 @@ class ImportService(
       logger.warn { "Update mapping failed: import job not mappable: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_MAPPABLE.left()
     }
-    if (name.isBlank()) {
-      logger.warn { "Update mapping failed: blank mapping name for importJobId: $importJobId" }
-      return ImportError.BLANK_MAPPING_NAME.left()
-    }
 
     val entityDefinitions = entityDefinitionsOf(installedApp)
     val targetEntityDefinition = entityDefinitions.find { it.id == existing.targetEntityDefinitionId } ?: run {
@@ -197,7 +192,6 @@ class ImportService(
     }
 
     val mapping = Mapping(
-      name = name.trim(),
       fieldMappings = fieldMappings,
     )
     val validation = MappingValidator.validate(mapping, targetEntityDefinition, existing.detectedSchema, entityDefinitions, propertyConstraint)

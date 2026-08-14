@@ -391,13 +391,11 @@ class ImportServiceTests {
     val result = service.updateMapping(
       "user-1",
       job.id.value,
-      "Contact",
       listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
     )
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.READY)
-    assertThat(saved.captured.mapping?.name).isEqualTo("Contact")
     val view = result.getOrNull()!!
     assertThat(view.validation?.isReady).isTrue()
   }
@@ -411,7 +409,7 @@ class ImportServiceTests {
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
 
-    val result = service.updateMapping("user-1", job.id.value, "Contact", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, emptyList())
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
@@ -425,7 +423,7 @@ class ImportServiceTests {
     val job = importJob(status = ImportStatus.DATA_IDENTIFIED, targetEntityDefinitionId = EntityDefinitionId("deleted-entity"))
     every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.updateMapping("user-1", job.id.value, "Contact", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, emptyList())
 
     assertThat(result).isEqualTo(ImportError.ENTITY_DEFINITION_NOT_FOUND.left())
   }
@@ -440,22 +438,10 @@ class ImportServiceTests {
     val result = service.updateMapping(
       "user-1",
       job.id.value,
-      "Contact",
       listOf(FieldMapping(targetPropertyId = PropertyId("unknown-prop"), sourcePath = "name")),
     )
 
     assertThat(result).isEqualTo(ImportError.MAPPING_PROPERTY_NOT_FOUND.left())
-  }
-
-  @Test
-  fun `update mapping fails with a blank name`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
-    every { importJobRepository.findById(job.id) } returns job
-
-    val result = service.updateMapping("user-1", job.id.value, " ", emptyList())
-
-    assertThat(result).isEqualTo(ImportError.BLANK_MAPPING_NAME.left())
   }
 
   @Test
@@ -464,7 +450,7 @@ class ImportServiceTests {
     val job = importJob(status = ImportStatus.DOWNLOADED)
     every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.updateMapping("user-1", job.id.value, "Contact", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, emptyList())
 
     assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_MAPPABLE.left())
   }
@@ -577,7 +563,6 @@ class ImportServiceTests {
   )
 
   private val readyMapping = Mapping(
-    name = "Contact",
     fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
   )
 

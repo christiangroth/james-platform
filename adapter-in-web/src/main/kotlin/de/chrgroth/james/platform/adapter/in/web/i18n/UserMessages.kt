@@ -250,9 +250,6 @@ interface UserMessages {
   fun userImportJobNotMappableError(): String
 
   @Message
-  fun userImportBlankMappingNameError(): String
-
-  @Message
   fun userImportEntityDefinitionNotFoundError(): String
 
   @Message
@@ -337,9 +334,6 @@ interface UserMessages {
 
   @Message
   fun userImportMappingTargetEntityLabel(): String
-
-  @Message
-  fun userImportMappingNameLabel(): String
 
   @Message
   fun userImportMappingColProperty(): String

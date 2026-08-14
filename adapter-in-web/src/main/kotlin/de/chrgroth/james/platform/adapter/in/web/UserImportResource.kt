@@ -150,7 +150,6 @@ data class FieldMappingRequest @JsonCreator constructor(
 )
 
 data class MappingSaveRequest @JsonCreator constructor(
-  @param:JsonProperty("name") val name: String,
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
 )
 
@@ -286,7 +285,6 @@ class UserImportResource {
         .data("statusLabel", statusLabel(view.importJob.status))
         .data("isReady", view.importJob.status == ImportStatus.READY)
         .data("targetEntityName", view.targetEntityDefinition.name)
-        .data("mappingName", view.importJob.mapping?.name ?: view.targetEntityDefinition.name)
         .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) }),
@@ -302,9 +300,6 @@ class UserImportResource {
     request: MappingSaveRequest,
   ): Response = httpResponseMetrics.timed("rest.user-import.mapping-save") {
     val userId = securityIdentity.principal.name
-    if (request.name.isBlank()) {
-      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportBlankMappingNameError())).build()
-    }
     val fieldMappings = request.fieldMappings.mapNotNull { field ->
       if (field.targetPropertyId.isBlank()) return@mapNotNull null
       val sourcePath = field.sourcePath?.takeIf { it.isNotBlank() }
@@ -327,7 +322,7 @@ class UserImportResource {
       )
     }
 
-    importPort.updateMapping(userId, importJobId, request.name, fieldMappings).fold(
+    importPort.updateMapping(userId, importJobId, fieldMappings).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()
@@ -532,7 +527,6 @@ class UserImportResource {
     ImportError.BLANK_DATA_PATH.code -> userMsg.userImportBlankDataPathError()
     ImportError.INVALID_DATA_PATH.code -> userMsg.userImportInvalidDataPathError()
     ImportError.IMPORT_JOB_NOT_MAPPABLE.code -> userMsg.userImportJobNotMappableError()
-    ImportError.BLANK_MAPPING_NAME.code -> userMsg.userImportBlankMappingNameError()
     ImportError.ENTITY_DEFINITION_NOT_FOUND.code -> userMsg.userImportEntityDefinitionNotFoundError()
     ImportError.MAPPING_PROPERTY_NOT_FOUND.code -> userMsg.userImportMappingPropertyNotFoundError()
     ImportError.IMPORT_JOB_NOT_READY.code -> userMsg.userImportJobNotReadyError()
