@@ -191,18 +191,21 @@ class UserImportResource {
   @Inject
   private lateinit var userMsg: UserMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Path("/{installedAppId}")
   @Produces(MediaType.TEXT_HTML)
-  fun imports(@PathParam("installedAppId") installedAppId: String): Response {
+  fun imports(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("page.user-import.list") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val entityDefinitions = info.installedVersion.entityDefinitions
     val connections = importConnectionPort.listConnections(userId).getOrNull().orEmpty()
-    return Response.ok(
+    Response.ok(
       importsTemplate
         .data("info", info)
         .data("jobs", loadRows(userId, installedAppId, entityDefinitions))
@@ -215,10 +218,10 @@ class UserImportResource {
   @GET
   @Path("/{installedAppId}/table")
   @Produces(MediaType.TEXT_HTML)
-  fun importsTable(@PathParam("installedAppId") installedAppId: String): Any {
+  fun importsTable(@PathParam("installedAppId") installedAppId: String): Any = httpResponseMetrics.timed("fragment.user-import.imports-table") {
     val userId = securityIdentity.principal.name
     val entityDefinitions = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions.orEmpty()
-    return importsTemplate.getFragment("imports_table")
+    importsTemplate.getFragment("imports_table")
       .data("jobs", loadRows(userId, installedAppId, entityDefinitions))
   }
 
@@ -230,15 +233,15 @@ class UserImportResource {
     @PathParam("installedAppId") installedAppId: String,
     @FormParam("connectionId") connectionId: String?,
     @FormParam("targetEntityDefinitionId") targetEntityDefinitionId: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.trigger") {
     val userId = securityIdentity.principal.name
     if (connectionId.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionRequiredError())).build()
     }
     if (targetEntityDefinitionId.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportEntityRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportEntityRequiredError())).build()
     }
-    return importPort.triggerImport(userId, installedAppId, connectionId, targetEntityDefinitionId).fold(
+    importPort.triggerImport(userId, installedAppId, connectionId, targetEntityDefinitionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
     )
@@ -251,12 +254,12 @@ class UserImportResource {
   fun selectDataPath(
     @PathParam("importJobId") importJobId: String,
     @FormParam("dataPath") dataPath: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.select-path") {
     val userId = securityIdentity.principal.name
     if (dataPath.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
     }
-    return importPort.selectDataPath(userId, importJobId, dataPath).fold(
+    importPort.selectDataPath(userId, importJobId, dataPath).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDataPathSelectedMessage())).build() },
     )
@@ -265,18 +268,18 @@ class UserImportResource {
   @GET
   @Path("/{importJobId}/mapping")
   @Produces(MediaType.TEXT_HTML)
-  fun mapping(@PathParam("importJobId") importJobId: String): Response {
+  fun mapping(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("page.user-import.mapping") {
     val userId = securityIdentity.principal.name
     val view = importPort.getMappingView(userId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
 
-    return Response.ok(
+    Response.ok(
       mappingTemplate
         .data("info", info)
         .data("importJobId", importJobId)
@@ -297,10 +300,10 @@ class UserImportResource {
   fun saveMapping(
     @PathParam("importJobId") importJobId: String,
     request: MappingSaveRequest,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import.mapping-save") {
     val userId = securityIdentity.principal.name
     if (request.name.isBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportBlankMappingNameError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportBlankMappingNameError())).build()
     }
     val fieldMappings = request.fieldMappings.mapNotNull { field ->
       if (field.targetPropertyId.isBlank()) return@mapNotNull null
@@ -324,7 +327,7 @@ class UserImportResource {
       )
     }
 
-    return importPort.updateMapping(userId, importJobId, request.name, fieldMappings).fold(
+    importPort.updateMapping(userId, importJobId, request.name, fieldMappings).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()
@@ -336,22 +339,22 @@ class UserImportResource {
   @GET
   @Path("/{importJobId}/dry-run")
   @Produces(MediaType.TEXT_HTML)
-  fun dryRun(@PathParam("importJobId") importJobId: String): Response {
+  fun dryRun(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("page.user-import.dry-run") {
     val userId = securityIdentity.principal.name
     val view = importPort.getMappingView(userId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val report = importPort.dryRun(userId, importJobId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/imports/$importJobId/mapping")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/imports/$importJobId/mapping")).build() },
       ifRight = { it },
     )
 
-    return Response.ok(
+    Response.ok(
       dryRunTemplate
         .data("info", info)
         .data("importJobId", importJobId)
@@ -365,9 +368,9 @@ class UserImportResource {
   @POST
   @Path("/{importJobId}/dry-run/accept")
   @Produces(MediaType.APPLICATION_JSON)
-  fun acceptDryRun(@PathParam("importJobId") importJobId: String): Response {
+  fun acceptDryRun(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("rest.user-import.dry-run-accept") {
     val userId = securityIdentity.principal.name
-    return importPort.acceptDryRun(userId, importJobId).fold(
+    importPort.acceptDryRun(userId, importJobId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
@@ -379,9 +382,9 @@ class UserImportResource {
   @POST
   @Path("/{importJobId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
-  fun deleteImport(@PathParam("importJobId") importJobId: String): Response {
+  fun deleteImport(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("rest.user-import.delete") {
     val userId = securityIdentity.principal.name
-    return importPort.deleteImportJob(userId, importJobId).fold(
+    importPort.deleteImportJob(userId, importJobId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDeletedMessage())).build() },
     )

@@ -38,31 +38,36 @@ class ProfileResource {
   @Inject
   private lateinit var msg: AppMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Produces(MediaType.TEXT_HTML)
-  fun profile(): Any = renderProfile()
+  fun profile(): Any = httpResponseMetrics.timed("page.profile.view") { renderProfile() }
 
   @GET
   @Produces(MediaType.TEXT_HTML)
   @Path("/success")
-  fun profileSuccess(@jakarta.ws.rs.QueryParam("msg") msg: String?): Any =
+  fun profileSuccess(@jakarta.ws.rs.QueryParam("msg") msg: String?): Any = httpResponseMetrics.timed("page.profile.success") {
     renderProfile(successMsg = msg?.let { successMessage(it) })
+  }
 
   @GET
   @Produces(MediaType.TEXT_HTML)
   @Path("/error")
-  fun profileError(@jakarta.ws.rs.QueryParam("error") error: String?): Any =
+  fun profileError(@jakarta.ws.rs.QueryParam("error") error: String?): Any = httpResponseMetrics.timed("page.profile.error") {
     renderProfile(errorMsg = error?.let { errorMessage(it) })
+  }
 
   @POST
   @Path("/username")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-  fun changeUsername(@FormParam("newUsername") newUsername: String?): Response {
+  fun changeUsername(@FormParam("newUsername") newUsername: String?): Response = httpResponseMetrics.timed("rest.profile.change-username") {
     val currentUsername = securityIdentity.principal.name
     if (newUsername.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
+      return@timed Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
     }
-    return userProfileService.changeUsername(currentUsername, newUsername).fold(
+    userProfileService.changeUsername(currentUsername, newUsername).fold(
       ifLeft = { error -> Response.seeOther(URI.create("/ui/profile/error?error=${error.code}")).build() },
       ifRight = { Response.seeOther(URI.create("/ui/profile/success?msg=username-changed")).build() },
     )
@@ -75,15 +80,15 @@ class ProfileResource {
     @FormParam("currentPassword") currentPassword: String?,
     @FormParam("newPassword") newPassword: String?,
     @FormParam("confirmPassword") confirmPassword: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.profile.change-password") {
     val username = securityIdentity.principal.name
     if (currentPassword.isNullOrBlank() || newPassword.isNullOrBlank() || confirmPassword.isNullOrBlank()) {
-      return Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
+      return@timed Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.BLANK_INPUT.code}")).build()
     }
     if (newPassword != confirmPassword) {
-      return Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.PASSWORDS_DO_NOT_MATCH.code}")).build()
+      return@timed Response.seeOther(URI.create("/ui/profile/error?error=${UserProfileError.PASSWORDS_DO_NOT_MATCH.code}")).build()
     }
-    return userProfileService.changePassword(username, currentPassword, newPassword).fold(
+    userProfileService.changePassword(username, currentPassword, newPassword).fold(
       ifLeft = { error -> Response.seeOther(URI.create("/ui/profile/error?error=${error.code}")).build() },
       ifRight = { Response.seeOther(URI.create("/ui/profile/success?msg=password-changed")).build() },
     )

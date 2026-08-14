@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.model.infra
 data class HealthStats(
   val mongoCollectionStats: List<MongoCollectionStats>,
   val mongoQueryStats: List<MongoQueryStats>,
+  val httpResponseStats: List<HttpResponseStats>,
   val cronjobStats: List<CronjobStats>,
   val configurationStats: ConfigurationStats,
   val scriptStats: List<ScriptExecutionStats>,

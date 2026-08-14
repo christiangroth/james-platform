@@ -126,6 +126,44 @@
                 </div>
             </div>
 
+            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringHttpHeading()}</h2>
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div id="snippet-http-responses" class="card h-100 app-card">
+                        {#fragment id="snippet_http_responses"}
+                        <div class="card-body">
+                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringResponsesSectionLabel()}</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 app-table" data-testid="http-responses-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{monitoring:monitoringColOperation()}</th>
+                                            <th class="text-end">{monitoring:monitoringColExecutions()}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#for r in stats.httpResponseStats}
+                                        <tr>
+                                            <td>{r.name}</td>
+                                            <td class="text-end">
+                                                {#if r.slowResponseCount > 0}
+                                                <span style="color:var(--color-warning-text);">{r.slowResponseCount.formatted}</span>
+                                                {#else}
+                                                <span style="color:var(--color-text-primary);">{r.slowResponseCount.formatted}</span>
+                                                {/if}
+                                                <span style="color:var(--color-text-primary);"> / {r.executionCountLast24h.formatted}</span>
+                                            </td>
+                                        </tr>
+                                        {/for}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {/fragment}
+                    </div>
+                </div>
+            </div>
+
             <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringScriptingHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12">

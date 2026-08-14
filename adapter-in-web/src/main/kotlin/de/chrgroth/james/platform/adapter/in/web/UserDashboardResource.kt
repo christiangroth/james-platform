@@ -54,12 +54,15 @@ class UserDashboardResource {
   @Inject
   private lateinit var appData: AppDataPort
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Path("/user/dashboard")
   @Authenticated
   @BlockAdminAccess
   @Produces(MediaType.TEXT_HTML)
-  fun userDashboard(): Any {
+  fun userDashboard(): Any = httpResponseMetrics.timed("page.dashboard.user") {
     val userId = securityIdentity.principal.name
     val installedApps = userAppStore.getInstalledApps(userId)
     val dashboardApps = installedApps.map { info ->
@@ -79,7 +82,7 @@ class UserDashboardResource {
         entityCounts = entityCounts,
       )
     }
-    return userDashboardTemplate
+    userDashboardTemplate
       .data("username", userId)
       .data("installedApps", dashboardApps)
   }
@@ -88,6 +91,8 @@ class UserDashboardResource {
   @Path("/admin/dashboard")
   @RolesAllowed("ADMIN")
   @Produces(MediaType.TEXT_HTML)
-  fun adminDashboard() = adminDashboardTemplate.data("userCount", userRepository.findAll().size)
+  fun adminDashboard() = httpResponseMetrics.timed("page.dashboard.admin") {
+    adminDashboardTemplate.data("userCount", userRepository.findAll().size)
+  }
 }
 

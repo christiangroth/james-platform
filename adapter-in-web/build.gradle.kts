@@ -21,6 +21,7 @@ dependencies {
   api("io.quarkus:quarkus-rest-qute")
   api("io.quarkus:quarkus-security")
   api("io.quarkus:quarkus-web-dependency-locator")
+  implementation("io.quarkus:quarkus-micrometer")
 
   implementation(libs.bootstrap)
   implementation(libs.bootstrapIcons)

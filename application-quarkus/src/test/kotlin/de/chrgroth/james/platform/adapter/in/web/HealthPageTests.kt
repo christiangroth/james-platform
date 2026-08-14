@@ -37,6 +37,42 @@ class HealthPageTests {
   }
 
   @Test
+  fun `health page displays http sub-heading and snippet`() {
+    given()
+      .`when`()
+      .get("/health")
+      .then()
+      .statusCode(200)
+      .body(containsString("HTTP"))
+      .body(containsString("Antworten (letzte 24h)"))
+      .body(containsString("""id="snippet-http-responses""""))
+  }
+
+  @Test
+  fun `health snippet endpoint for http responses is available`() {
+    given()
+      .`when`()
+      .get("/health/snippets/http-responses")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("text/html"))
+      .body(containsString("Antworten (letzte 24h)"))
+      .body(containsString("""data-testid="http-responses-table""""))
+  }
+
+  @Test
+  fun `health page http responses table lists the health page view operation itself`() {
+    given().`when`().get("/health").then().statusCode(200)
+
+    given()
+      .`when`()
+      .get("/health/snippets/http-responses")
+      .then()
+      .statusCode(200)
+      .body(containsString("page.health.view"))
+  }
+
+  @Test
   fun `health page displays scripting sub-heading and snippet`() {
     given()
       .`when`()

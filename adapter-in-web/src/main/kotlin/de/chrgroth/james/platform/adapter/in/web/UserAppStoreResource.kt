@@ -156,14 +156,17 @@ class UserAppStoreResource {
   @Inject
   private lateinit var userMsg: UserMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Path("/user/app-store")
   @Produces(MediaType.TEXT_HTML)
-  fun appStore(): Response {
+  fun appStore(): Response = httpResponseMetrics.timed("page.user-app-store.store") {
     val userId = securityIdentity.principal.name
     val allApps = userAppStore.listAllPublishedApps()
     val installedAppIds = userAppStore.getInstalledApps(userId).map { it.installedApp.appId.value }.toSet()
-    return Response.ok(
+    Response.ok(
       appStoreTemplate
         .data("apps", allApps)
         .data("installedAppIds", installedAppIds),
@@ -173,9 +176,9 @@ class UserAppStoreResource {
   @GET
   @Path("/user/app-store/apps/{appId}")
   @Produces(MediaType.TEXT_HTML)
-  fun appStoreDetail(@PathParam("appId") appId: String): Response {
+  fun appStoreDetail(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("page.user-app-store.store-detail") {
     val userId = securityIdentity.principal.name
-    return userAppStore.getPublishedApp(appId).fold(
+    userAppStore.getPublishedApp(appId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/user/app-store")).build() },
       ifRight = { detail ->
         val installedApps = userAppStore.getInstalledApps(userId)
@@ -192,9 +195,9 @@ class UserAppStoreResource {
   @POST
   @Path("/user/app-store/apps/{appId}/install")
   @Produces(MediaType.APPLICATION_JSON)
-  fun installApp(@PathParam("appId") appId: String): Response {
+  fun installApp(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("rest.user-app-store.app-install") {
     val userId = securityIdentity.principal.name
-    return userAppStore.installApp(userId, appId).fold(
+    userAppStore.installApp(userId, appId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppInstalledMessage(), "/ui/user/dashboard")).build() },
     )
@@ -203,9 +206,9 @@ class UserAppStoreResource {
   @POST
   @Path("/user/apps/{installedAppId}/upgrade")
   @Produces(MediaType.APPLICATION_JSON)
-  fun upgradeApp(@PathParam("installedAppId") installedAppId: String): Response {
+  fun upgradeApp(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("rest.user-app-store.app-upgrade") {
     val userId = securityIdentity.principal.name
-    return userAppStore.upgradeApp(userId, installedAppId).fold(
+    userAppStore.upgradeApp(userId, installedAppId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppUpgradedMessage(), "/ui/user/dashboard")).build() },
     )
@@ -214,10 +217,10 @@ class UserAppStoreResource {
   @GET
   @Path("/user/apps/{installedAppId}")
   @Produces(MediaType.TEXT_HTML)
-  fun installedAppDetail(@PathParam("installedAppId") installedAppId: String): Response {
+  fun installedAppDetail(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("page.user-app-store.app-detail") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
@@ -225,7 +228,7 @@ class UserAppStoreResource {
 
     val entityTabs = info.installedVersion.entityDefinitions.map { entityDef -> buildEntityTab(entityDef, entityById, allAppData) }
 
-    return Response.ok(
+    Response.ok(
       appDetailTemplate
         .data("info", info)
         .data("entityTabs", entityTabs)
@@ -239,19 +242,19 @@ class UserAppStoreResource {
   fun installedAppEntityDetail(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("entityTypeId") entityTypeId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.user-app-store.app-entity-detail") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityTypeId }
-      ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
     val entityTab = buildEntityTab(entityDef, entityById, allAppData)
 
-    return Response.ok(
+    Response.ok(
       appEntityDetailTemplate
         .data("info", info)
         .data("entity", entityTab)
@@ -262,9 +265,9 @@ class UserAppStoreResource {
   @POST
   @Path("/user/apps/{installedAppId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
-  fun deleteInstalledApp(@PathParam("installedAppId") installedAppId: String): Response {
+  fun deleteInstalledApp(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("rest.user-app-store.app-delete") {
     val userId = securityIdentity.principal.name
-    return userAppStore.uninstallApp(userId, installedAppId).fold(
+    userAppStore.uninstallApp(userId, installedAppId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppUninstalledMessage(), "/ui/user/dashboard")).build() },
     )
@@ -276,17 +279,17 @@ class UserAppStoreResource {
   fun newAppDataForm(
     @PathParam("installedAppId") installedAppId: String,
     @QueryParam("entityId") entityId: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.user-app-store.data-new") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
-      ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+      ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
     val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
-    return Response.ok(
+    Response.ok(
       appDataNewTemplate
         .data("info", info)
         .data("entity", entityDef)
@@ -304,20 +307,20 @@ class UserAppStoreResource {
   fun newAppDataDefaults(
     @PathParam("installedAppId") installedAppId: String,
     @QueryParam("entityId") entityId: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-app-store.data-defaults") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.ok(emptyMap<String, String>()).build() },
+      ifLeft = { return@timed Response.ok(emptyMap<String, String>()).build() },
       ifRight = { it },
     )
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
-      ?: return Response.ok(emptyMap<String, String>()).build()
+      ?: return@timed Response.ok(emptyMap<String, String>()).build()
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
     val defaults = entityDef.properties
       .filter { it.type.supportsDefault() }
       .mapNotNull { property -> (property.default ?: computedSmartDefaults[property.id.value])?.let { property.id.value to it } }
       .toMap()
-    return Response.ok(defaults).build()
+    Response.ok(defaults).build()
   }
 
   @POST
@@ -327,13 +330,13 @@ class UserAppStoreResource {
   fun createAppData(
     @PathParam("installedAppId") installedAppId: String,
     form: MultivaluedMap<String, String>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-app-store.data-create") {
     val userId = securityIdentity.principal.name
-    val entityTypeId = form.getFirst("entityTypeId") ?: return Response.ok(DeveloperApiResult(false, userMsg.userEntityTypeRequiredError())).build()
+    val entityTypeId = form.getFirst("entityTypeId") ?: return@timed Response.ok(DeveloperApiResult(false, userMsg.userEntityTypeRequiredError())).build()
     val data = form.entries
       .filter { it.key.startsWith("prop_") }
       .associate { it.key to it.value }
-    return appData.createAppData(userId, installedAppId, entityTypeId, data).fold(
+    appData.createAppData(userId, installedAppId, entityTypeId, data).fold(
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
           val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
@@ -358,17 +361,17 @@ class UserAppStoreResource {
   fun appDataEdit(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("dataId") dataId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("page.user-app-store.data-edit") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    return appData.getAppData(userId, installedAppId, dataId).fold(
+    appData.getAppData(userId, installedAppId, dataId).fold(
       ifLeft = { Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build() },
       ifRight = { appDataItem ->
         val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == appDataItem.entityType.value }
-          ?: return Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+          ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
         val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
         val detail = AppDataDetail(
           id = appDataItem.id.value,
@@ -435,12 +438,12 @@ class UserAppStoreResource {
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("dataId") dataId: String,
     form: MultivaluedMap<String, String>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-app-store.data-update") {
     val userId = securityIdentity.principal.name
     val data = form.entries
       .filter { it.key.startsWith("prop_") }
       .associate { it.key to it.value }
-    return appData.updateAppData(userId, installedAppId, dataId, data).fold(
+    appData.updateAppData(userId, installedAppId, dataId, data).fold(
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
           val fieldErrors = error.propertyViolations.mapValues { (_, violations) ->
@@ -467,14 +470,14 @@ class UserAppStoreResource {
     @QueryParam("entityTypeId") entityTypeId: String,
     @QueryParam("propertyId") propertyId: String,
     @QueryParam("filter") filters: List<String>,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-app-store.data-value-proposals") {
     val userId = securityIdentity.principal.name
     val currentData = filters.associate { entry ->
       val idx = entry.indexOf('=')
       if (idx > 0) entry.substring(0, idx) to entry.substring(idx + 1)
       else entry to ""
     }
-    return appData.getValueProposals(userId, installedAppId, entityTypeId, propertyId, currentData).fold(
+    appData.getValueProposals(userId, installedAppId, entityTypeId, propertyId, currentData).fold(
       ifLeft = { Response.ok(emptyList<String>()).build() },
       ifRight = { proposals -> Response.ok(proposals).build() },
     )
@@ -486,10 +489,10 @@ class UserAppStoreResource {
   fun deleteAppData(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("dataId") dataId: String,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-app-store.data-delete") {
     val userId = securityIdentity.principal.name
     val entityTypeId = appData.getAppData(userId, installedAppId, dataId).getOrNull()?.entityType?.value
-    return appData.deleteAppData(userId, installedAppId, dataId).fold(
+    appData.deleteAppData(userId, installedAppId, dataId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
       ifRight = { count ->
         val message = if (count > 0) userMsg.userDataDeletedWithReferencesMessage(count) else userMsg.userDataDeletedMessage()
