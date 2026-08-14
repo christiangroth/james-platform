@@ -1,3 +1,12 @@
+# 0.76.0 (2026.08.14)
+
+## New Features
+* Health page now shows HTTP response times per page/fragment/endpoint over the last 24 hours, with slow responses flagged, mirroring the existing MongoDB query stats.
+
+
+
+---
+
 # 0.75.0 (2026.08.14)
 
 ## New Features
