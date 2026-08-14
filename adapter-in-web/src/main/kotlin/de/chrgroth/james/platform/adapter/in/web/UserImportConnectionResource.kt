@@ -58,11 +58,14 @@ class UserImportConnectionResource {
   @Inject
   private lateinit var userMsg: UserMessages
 
+  @Inject
+  private lateinit var httpResponseMetrics: HttpResponseMetrics
+
   @GET
   @Produces(MediaType.TEXT_HTML)
-  fun connections(): Response {
+  fun connections(): Response = httpResponseMetrics.timed("page.user-import-connection.list") {
     val userId = securityIdentity.principal.name
-    return Response.ok(
+    Response.ok(
       connectionsTemplate.data("connections", loadRows(userId)),
     ).build()
   }
@@ -70,9 +73,9 @@ class UserImportConnectionResource {
   @GET
   @Path("/table")
   @Produces(MediaType.TEXT_HTML)
-  fun connectionsTable(): Any {
+  fun connectionsTable(): Any = httpResponseMetrics.timed("fragment.user-import-connection.table") {
     val userId = securityIdentity.principal.name
-    return connectionsTemplate.getFragment("connections_table")
+    connectionsTemplate.getFragment("connections_table")
       .data("connections", loadRows(userId))
   }
 
@@ -83,15 +86,15 @@ class UserImportConnectionResource {
     @FormParam("name") name: String?,
     @FormParam("url") url: String?,
     @FormParam("bearerToken") bearerToken: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import-connection.create") {
     val userId = securityIdentity.principal.name
     if (name.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionNameRequiredError())).build()
     }
     if (url.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
-    return importConnectionPort.createConnection(userId, name, url, bearerToken).fold(
+    importConnectionPort.createConnection(userId, name, url, bearerToken).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionCreatedMessage())).build() },
     )
@@ -107,15 +110,15 @@ class UserImportConnectionResource {
     @FormParam("url") url: String?,
     @FormParam("bearerToken") bearerToken: String?,
     @FormParam("clearBearerToken") clearBearerToken: String?,
-  ): Response {
+  ): Response = httpResponseMetrics.timed("rest.user-import-connection.update") {
     val userId = securityIdentity.principal.name
     if (name.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionNameRequiredError())).build()
     }
     if (url.isNullOrBlank()) {
-      return Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
-    return importConnectionPort.updateConnection(userId, connectionId, name, url, bearerToken, clearBearerToken = !clearBearerToken.isNullOrBlank()).fold(
+    importConnectionPort.updateConnection(userId, connectionId, name, url, bearerToken, clearBearerToken = !clearBearerToken.isNullOrBlank()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionUpdatedMessage())).build() },
     )
@@ -124,9 +127,9 @@ class UserImportConnectionResource {
   @POST
   @Path("/{connectionId}/test")
   @Produces(MediaType.APPLICATION_JSON)
-  fun testConnection(@PathParam("connectionId") connectionId: String): Response {
+  fun testConnection(@PathParam("connectionId") connectionId: String): Response = httpResponseMetrics.timed("rest.user-import-connection.test") {
     val userId = securityIdentity.principal.name
-    return importConnectionPort.testConnection(userId, connectionId).fold(
+    importConnectionPort.testConnection(userId, connectionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionTestSucceededMessage())).build() },
     )
@@ -135,9 +138,9 @@ class UserImportConnectionResource {
   @POST
   @Path("/{connectionId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
-  fun deleteConnection(@PathParam("connectionId") connectionId: String): Response {
+  fun deleteConnection(@PathParam("connectionId") connectionId: String): Response = httpResponseMetrics.timed("rest.user-import-connection.delete") {
     val userId = securityIdentity.principal.name
-    return importConnectionPort.deleteConnection(userId, connectionId).fold(
+    importConnectionPort.deleteConnection(userId, connectionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionDeletedMessage())).build() },
     )
