@@ -1,10 +1,11 @@
 package de.chrgroth.james.platform.domain.model.imports
 
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import java.time.Instant
 
 @JvmInline
-value class ImportDocumentId(val value: String)
+value class ImportJobId(val value: String)
 
 enum class ImportStatus {
   DOWNLOADED,
@@ -42,12 +43,17 @@ data class SchemaProperty(
   val stringLengthCounts: Map<Int, Int> = emptyMap(),
 )
 
-data class ImportDocument(
-  val id: ImportDocumentId,
+/**
+ * A single fetch-to-mapping-to-import run, targeting a fixed [installedAppId] and [targetEntityDefinitionId] and
+ * fetched through a reusable [ImportConnection] (referenced by [connectionId]). Unlike the connection, a job only
+ * holds the data snapshot for one point in time and is cleaned up automatically when it stays inactive too long.
+ */
+data class ImportJob(
+  val id: ImportJobId,
   val userId: String,
   val installedAppId: InstalledAppId,
-  val sourceUrl: String,
-  val encryptedBearerToken: String,
+  val connectionId: ImportConnectionId,
+  val targetEntityDefinitionId: EntityDefinitionId,
   val status: ImportStatus,
   val payload: String,
   val detectedDataPaths: List<DataPath> = emptyList(),

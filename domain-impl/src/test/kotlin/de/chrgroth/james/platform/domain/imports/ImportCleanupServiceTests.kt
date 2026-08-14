@@ -1,6 +1,6 @@
 package de.chrgroth.james.platform.domain.imports
 
-import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk
@@ -14,17 +14,17 @@ import java.time.temporal.ChronoUnit
 
 class ImportCleanupServiceTests {
 
-  private val importDocumentRepository = mockk<ImportDocumentRepositoryPort>()
+  private val importJobRepository = mockk<ImportJobRepositoryPort>()
   private val importCleanupMetrics = ImportCleanupMetrics(SimpleMeterRegistry())
 
-  private val service = ImportCleanupService(importDocumentRepository, importCleanupMetrics, retentionDays = 14L)
+  private val service = ImportCleanupService(importJobRepository, importCleanupMetrics, retentionDays = 14L)
 
   @Test
-  fun `cleanup deletes documents older than the configured retention period`() {
+  fun `cleanup deletes jobs older than the configured retention period`() {
     val cutoffSlot = slot<Instant>()
-    every { importDocumentRepository.deleteAllLastChangedBefore(capture(cutoffSlot)) } returns 3L
+    every { importJobRepository.deleteAllLastChangedBefore(capture(cutoffSlot)) } returns 3L
 
-    val deleted = service.cleanupStaleImportDocuments()
+    val deleted = service.cleanupStaleImportJobs()
 
     assertThat(deleted).isEqualTo(3)
     val expectedCutoff = Instant.now().minus(14, ChronoUnit.DAYS)
@@ -33,9 +33,9 @@ class ImportCleanupServiceTests {
 
   @Test
   fun `cleanup records metrics on success`() {
-    every { importDocumentRepository.deleteAllLastChangedBefore(any()) } returns 7L
+    every { importJobRepository.deleteAllLastChangedBefore(any()) } returns 7L
 
-    service.cleanupStaleImportDocuments()
+    service.cleanupStaleImportJobs()
 
     val stats = importCleanupMetrics.getStats()
     assertThat(stats.executionCount).isEqualTo(1L)
@@ -45,9 +45,9 @@ class ImportCleanupServiceTests {
 
   @Test
   fun `cleanup records error metrics and rethrows when repository fails`() {
-    every { importDocumentRepository.deleteAllLastChangedBefore(any()) } throws IllegalStateException("boom")
+    every { importJobRepository.deleteAllLastChangedBefore(any()) } throws IllegalStateException("boom")
 
-    assertThat(catchThrowable { service.cleanupStaleImportDocuments() }).isInstanceOf(IllegalStateException::class.java)
+    assertThat(catchThrowable { service.cleanupStaleImportJobs() }).isInstanceOf(IllegalStateException::class.java)
 
     val stats = importCleanupMetrics.getStats()
     assertThat(stats.executionCount).isEqualTo(1L)

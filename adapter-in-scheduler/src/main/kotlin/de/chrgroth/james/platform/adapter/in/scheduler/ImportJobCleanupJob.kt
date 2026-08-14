@@ -6,12 +6,12 @@ import jakarta.enterprise.context.ApplicationScoped
 
 @ApplicationScoped
 @Suppress("Unused")
-class ImportDocumentCleanupJob(
+class ImportJobCleanupJob(
   private val importCleanup: ImportCleanupPort,
 ) {
 
   @Scheduled(cron = "{app.imports.cleanup.cron}")
-  fun cleanupStaleImportDocuments() {
-    importCleanup.cleanupStaleImportDocuments()
+  fun cleanupStaleImportJobs() {
+    importCleanup.cleanupStaleImportJobs()
   }
 }

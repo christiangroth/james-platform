@@ -136,6 +136,18 @@ interface UserMessages {
   fun userImportSubmitButton(): String
 
   @Message
+  fun userImportConnectionLabel(): String
+
+  @Message
+  fun userImportTargetEntityLabel(): String
+
+  @Message
+  fun userImportNoConnectionsHint(): String
+
+  @Message
+  fun userImportManageConnectionsLinkLabel(): String
+
+  @Message
   fun userImportColCreatedAt(): String
 
   @Message
@@ -143,6 +155,9 @@ interface UserMessages {
 
   @Message
   fun userImportColStatus(): String
+
+  @Message
+  fun userImportColTargetEntity(): String
 
   @Message
   fun userImportColActions(): String
@@ -196,7 +211,13 @@ interface UserMessages {
   fun userImportUrlRequiredError(): String
 
   @Message
-  fun userImportTokenRequiredError(): String
+  fun userImportConnectionRequiredError(): String
+
+  @Message
+  fun userImportEntityRequiredError(): String
+
+  @Message
+  fun userImportConnectionNotFoundError(): String
 
   @Message
   fun userImportInvalidUrlError(): String
@@ -214,10 +235,10 @@ interface UserMessages {
   fun userImportResponseTooLargeError(): String
 
   @Message
-  fun userImportDocumentNotFoundError(): String
+  fun userImportJobNotFoundError(): String
 
   @Message
-  fun userImportDocumentNotDownloadedError(): String
+  fun userImportJobNotDownloadedError(): String
 
   @Message
   fun userImportBlankDataPathError(): String
@@ -226,7 +247,7 @@ interface UserMessages {
   fun userImportInvalidDataPathError(): String
 
   @Message
-  fun userImportDocumentNotMappableError(): String
+  fun userImportJobNotMappableError(): String
 
   @Message
   fun userImportBlankMappingNameError(): String
@@ -238,7 +259,74 @@ interface UserMessages {
   fun userImportMappingPropertyNotFoundError(): String
 
   @Message
-  fun userImportDocumentNotReadyError(): String
+  fun userImportJobNotReadyError(): String
+
+  // import connections page
+  @Message
+  fun userImportConnectionsNavLabel(): String
+
+  @Message
+  fun userImportConnectionsTitle(): String
+
+  @Message
+  fun userNoConnectionsMessage(): String
+
+  @Message
+  fun userNewConnectionButtonLabel(): String
+
+  @Message
+  fun userImportConnectionNameLabel(): String
+
+  @Message
+  fun userImportConnectionTokenHint(): String
+
+  @Message
+  fun userImportConnectionClearTokenLabel(): String
+
+  @Message
+  fun userImportConnectionColName(): String
+
+  @Message
+  fun userImportConnectionColUrl(): String
+
+  @Message
+  fun userImportConnectionColToken(): String
+
+  @Message
+  fun userImportConnectionColActions(): String
+
+  @Message
+  fun userImportConnectionTokenSetLabel(): String
+
+  @Message
+  fun userImportConnectionTokenNotSetLabel(): String
+
+  @Message
+  fun userImportConnectionTestButton(): String
+
+  @Message
+  fun userImportConnectionEditModalTitle(): String
+
+  @Message
+  fun userDeleteConnectionModalTitle(): String
+
+  @Message
+  fun userDeleteConnectionConfirm(): String
+
+  @Message
+  fun userImportConnectionNameRequiredError(): String
+
+  @Message
+  fun userImportConnectionCreatedMessage(): String
+
+  @Message
+  fun userImportConnectionUpdatedMessage(): String
+
+  @Message
+  fun userImportConnectionDeletedMessage(): String
+
+  @Message
+  fun userImportConnectionTestSucceededMessage(): String
 
   // import mapping page
   @Message
@@ -248,13 +336,7 @@ interface UserMessages {
   fun userImportMappingBackToImportsLabel(): String
 
   @Message
-  fun userImportMappingSelectEntityLabel(): String
-
-  @Message
-  fun userImportMappingSelectEntityPlaceholder(): String
-
-  @Message
-  fun userImportMappingSelectEntityHint(): String
+  fun userImportMappingTargetEntityLabel(): String
 
   @Message
   fun userImportMappingNameLabel(): String

@@ -4,14 +4,23 @@
     <div class="app-page-container py-4 px-3 px-md-4">
         <div class="d-flex align-items-center mb-4">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="welcome-message">{user:userMyAppsHeading()}</h1>
-            {#if isDeveloper}
-            <a href="/ui/developer/dashboard"
-               class="btn btn-app-secondary btn-sm ms-auto"
-               data-testid="developer-dashboard-link"
-               aria-label="{user:userDeveloperDashboardAriaLabel()}">
-                <i class="bi bi-code-slash me-1" aria-hidden="true"></i>{user:userDevelopmentLinkLabel()}
-            </a>
-            {/if}
+            <div class="d-flex gap-2 ms-auto">
+                {#if isDataImport}
+                <a href="/ui/user/import-connections"
+                   class="btn btn-app-secondary btn-sm"
+                   data-testid="import-connections-link">
+                    <i class="bi bi-plug me-1" aria-hidden="true"></i>{user:userImportConnectionsNavLabel()}
+                </a>
+                {/if}
+                {#if isDeveloper}
+                <a href="/ui/developer/dashboard"
+                   class="btn btn-app-secondary btn-sm"
+                   data-testid="developer-dashboard-link"
+                   aria-label="{user:userDeveloperDashboardAriaLabel()}">
+                    <i class="bi bi-code-slash me-1" aria-hidden="true"></i>{user:userDevelopmentLinkLabel()}
+                </a>
+                {/if}
+            </div>
         </div>
 
         <div id="dashboard-message" class="d-none mb-4" role="alert"></div>

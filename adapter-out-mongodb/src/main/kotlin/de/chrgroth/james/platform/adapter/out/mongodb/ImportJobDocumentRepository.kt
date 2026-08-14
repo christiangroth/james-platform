@@ -4,4 +4,4 @@ import io.quarkus.mongodb.panache.kotlin.PanacheMongoRepositoryBase
 import jakarta.enterprise.context.ApplicationScoped
 
 @ApplicationScoped
-class ImportDocumentDocumentRepository : PanacheMongoRepositoryBase<ImportDocumentDocument, String>
+class ImportJobDocumentRepository : PanacheMongoRepositoryBase<ImportJobDocument, String>

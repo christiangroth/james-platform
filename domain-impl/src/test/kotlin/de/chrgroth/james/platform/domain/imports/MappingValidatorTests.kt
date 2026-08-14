@@ -258,7 +258,6 @@ class MappingValidatorTests {
 
   private fun mapping(vararg fieldMappings: FieldMapping) = Mapping(
     name = "Contact",
-    targetEntityDefinitionId = EntityDefinitionId("entity-1"),
     fieldMappings = fieldMappings.toList(),
   )
 }

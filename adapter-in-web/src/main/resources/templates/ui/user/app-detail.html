@@ -12,7 +12,7 @@
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="app-title">{info.appName}</h1>
             {#if isDataImport}
-            <a href="/ui/user/apps/{info.installedAppId}/imports" class="btn btn-app-secondary btn-sm ms-auto" data-testid="import-button" title="{user:userImportButtonLabel()}" aria-label="{user:userImportButtonLabel()}">
+            <a href="/ui/user/imports/{info.installedAppId}" class="btn btn-app-secondary btn-sm ms-auto" data-testid="import-button" title="{user:userImportButtonLabel()}" aria-label="{user:userImportButtonLabel()}">
                 <i class="bi bi-cloud-upload" aria-hidden="true"></i>
                 <span class="d-none d-sm-inline ms-1">{user:userImportButtonLabel()}</span>
             </a>

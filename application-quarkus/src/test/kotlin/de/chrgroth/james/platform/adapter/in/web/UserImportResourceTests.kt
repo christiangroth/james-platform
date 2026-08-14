@@ -117,11 +117,15 @@ class UserImportResourceTests {
       .find(dashboardHtml)?.groupValues?.get(1) ?: ""
   }
 
-  private fun installApp(): String {
+  private data class InstalledAppWithEntity(val installedAppId: String, val entityId: String, val propertyId: String)
+
+  /** Installs an app with a single entity ("Entity One") that has no properties, returning (installedAppId, entityId). */
+  private fun installApp(): Pair<String, String> {
     val appName = "Import Resource App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
-    addEntity(appId, versionId, "Entity One")
-    return publishAndInstall(appId, appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+    return installedAppId to entityId
   }
 
   private fun addProperty(appId: String, versionId: String, entityId: String, name: String, type: String, nullable: Boolean): String =
@@ -149,8 +153,6 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().jsonPath().getString("propertyId")
 
-  private data class InstalledAppWithEntity(val installedAppId: String, val entityId: String, val propertyId: String)
-
   private fun installAppWithMandatoryStringProperty(): InstalledAppWithEntity {
     val appName = "Import Mapping App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
@@ -160,71 +162,111 @@ class UserImportResourceTests {
     return InstalledAppWithEntity(installedAppId, entityId, propertyId)
   }
 
-  private fun triggerImportWithSingleDataPath(installedAppId: String) {
-    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"},{"name":"Bob"}]}""".right())
-    given()
+  /** Creates a connection with a unique [name] and returns its id, resolved from the rendered connections table. */
+  private fun createConnection(
+    name: String = "Test Connection ${System.nanoTime()}",
+    url: String = "https://example.com/data",
+    bearerToken: String? = "secret-token",
+  ): String {
+    val request = given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
+      .formParam("name", name)
+      .formParam("url", url)
+    (if (bearerToken != null) request.formParam("bearerToken", bearerToken) else request)
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(true))
-  }
-
-  @Test
-  fun `trigger import creates a downloaded document and appears in the table`() {
-    val installedAppId = installApp()
-    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
-
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
+      .post("/ui/user/import-connections")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/table")
+      .get("/ui/user/import-connections/table")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    return Regex("""data-connection-id="([^"]+)"\s+data-connection-name="${Regex.escape(name)}"""")
+      .find(tableHtml)?.groupValues?.get(1)
+      ?: error("Expected connection '$name' in the rendered connections table")
+  }
+
+  private fun triggerImport(installedAppId: String, connectionId: String, entityId: String) {
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("connectionId", connectionId)
+      .formParam("targetEntityDefinitionId", entityId)
+      .`when`()
+      .post("/ui/user/imports/$installedAppId")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+  }
+
+  private fun triggerImportWithSingleDataPath(installedAppId: String, entityId: String) {
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"},{"name":"Bob"}]}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+  }
+
+  @Test
+  fun `trigger import creates a downloaded job and appears in the table`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+
+    triggerImport(installedAppId, createConnection(), entityId)
+
+    val tableHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$installedAppId/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
     assertTrue(tableHtml.contains("data-testid=\"imports-table\""), "Expected the imports table to be rendered")
-    assertTrue(tableHtml.contains("data-testid=\"import-status\""), "Expected a status cell for the created import document")
+    assertTrue(tableHtml.contains("data-testid=\"import-status\""), "Expected a status cell for the created import job")
   }
 
   @Test
   fun `trigger import reports an error when the response is not a JSON object`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("[1,2,3]".right())
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
+      .formParam("connectionId", createConnection())
+      .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
+      .post("/ui/user/imports/$installedAppId")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
   }
 
   @Test
-  fun `trigger import reports an error when the source url is blank`() {
-    val installedAppId = installApp()
+  fun `trigger import reports an error when no connection is selected`() {
+    val (installedAppId, entityId) = installApp()
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "")
-      .formParam("bearerToken", "secret-token")
+      .formParam("connectionId", "")
+      .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
+      .post("/ui/user/imports/$installedAppId")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+  }
+
+  @Test
+  fun `trigger import reports an error when the connection does not exist`() {
+    val (installedAppId, entityId) = installApp()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("connectionId", "unknown-connection")
+      .formParam("targetEntityDefinitionId", entityId)
+      .`when`()
+      .post("/ui/user/imports/$installedAppId")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -232,15 +274,15 @@ class UserImportResourceTests {
 
   @Test
   fun `trigger import reports an error when the fetch fails`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn(ImportError.FETCH_FAILED.left())
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
+      .formParam("connectionId", createConnection())
+      .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
+      .post("/ui/user/imports/$installedAppId")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -248,16 +290,16 @@ class UserImportResourceTests {
 
   @Test
   fun `trigger import reports the technical fetch failure detail`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
       .thenReturn(ImportFetchFailedError("Server responded with HTTP status 503.").left())
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
+      .formParam("connectionId", createConnection())
+      .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
+      .post("/ui/user/imports/$installedAppId")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -265,23 +307,15 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `delete import document removes it from the table`() {
-    val installedAppId = installApp()
+  fun `delete import job removes it from the table`() {
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
 
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(true))
+    triggerImport(installedAppId, createConnection(), entityId)
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/table")
+      .get("/ui/user/imports/$installedAppId/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -290,28 +324,28 @@ class UserImportResourceTests {
 
     given()
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/delete")
+      .post("/ui/user/imports/$importId/delete")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val afterDeleteHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/table")
+      .get("/ui/user/imports/$installedAppId/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(afterDeleteHtml.contains("data-testid=\"no-imports-message\""), "Expected the empty-state message after deleting the only import document")
+    assertTrue(afterDeleteHtml.contains("data-testid=\"no-imports-message\""), "Expected the empty-state message after deleting the only import job")
   }
 
   @Test
-  fun `delete import document reports an error for an unknown document id`() {
-    val installedAppId = installApp()
+  fun `delete import job reports an error for an unknown job id`() {
+    val (installedAppId, _) = installApp()
 
     given()
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/unknown-id/delete")
+      .post("/ui/user/imports/unknown-id/delete")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -320,7 +354,7 @@ class UserImportResourceTests {
   private fun triggerImportAndGetId(installedAppId: String): String {
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/table")
+      .get("/ui/user/imports/$installedAppId/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -330,22 +364,14 @@ class UserImportResourceTests {
 
   @Test
   fun `trigger import auto-selects the single detected data path`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"a":1},{"a":2}]}""".right())
 
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(true))
+    triggerImport(installedAppId, createConnection(), entityId)
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/table")
+      .get("/ui/user/imports/$installedAppId/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -355,25 +381,17 @@ class UserImportResourceTests {
 
   @Test
   fun `select data path reports an error for a path that is not an array of objects`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
 
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-
+    triggerImport(installedAppId, createConnection(), entityId)
     val importId = triggerImportAndGetId(installedAppId)
 
     given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("dataPath", "foo")
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/select-path")
+      .post("/ui/user/imports/$importId/select-path")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -381,32 +399,24 @@ class UserImportResourceTests {
 
   @Test
   fun `select data path succeeds and updates the table`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"a":[{"x":1}],"b":[{"y":1},{"y":2}]}""".right())
 
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-
+    triggerImport(installedAppId, createConnection(), entityId)
     val importId = triggerImportAndGetId(installedAppId)
 
     given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("dataPath", "b")
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/select-path")
+      .post("/ui/user/imports/$importId/select-path")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/table")
+      .get("/ui/user/imports/$installedAppId/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -416,53 +426,45 @@ class UserImportResourceTests {
 
   @Test
   fun `select data path reports an error for a blank path`() {
-    val installedAppId = installApp()
+    val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
 
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-
+    triggerImport(installedAppId, createConnection(), entityId)
     val importId = triggerImportAndGetId(installedAppId)
 
     given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("dataPath", "")
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/select-path")
+      .post("/ui/user/imports/$importId/select-path")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
   }
 
   @Test
-  fun `select data path reports an error for an unknown document id`() {
-    val installedAppId = installApp()
+  fun `select data path reports an error for an unknown job id`() {
+    val (installedAppId, _) = installApp()
 
     given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("dataPath", "items")
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/unknown-id/select-path")
+      .post("/ui/user/imports/unknown-id/select-path")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
   }
 
   @Test
-  fun `mapping page renders the target entity's properties once selected`() {
+  fun `mapping page renders the fixed target entity's properties`() {
     val app = installAppWithMandatoryStringProperty()
-    triggerImportWithSingleDataPath(app.installedAppId)
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
     val importId = triggerImportAndGetId(app.installedAppId)
 
     val html = given()
       .`when`()
-      .get("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping?entityDefinitionId=${app.entityId}")
+      .get("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -472,9 +474,9 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `saving a complete and valid mapping transitions the import document to READY`() {
+  fun `saving a complete and valid mapping transitions the import job to READY`() {
     val app = installAppWithMandatoryStringProperty()
-    triggerImportWithSingleDataPath(app.installedAppId)
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
     val importId = triggerImportAndGetId(app.installedAppId)
 
     given()
@@ -483,7 +485,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "targetEntityDefinitionId": "${app.entityId}",
           "fieldMappings": [
             { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
           ]
@@ -491,78 +492,52 @@ class UserImportResourceTests {
         """.trimIndent(),
       )
       .`when`()
-      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
+      .post("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val html = given()
       .`when`()
-      .get("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping?entityDefinitionId=${app.entityId}")
+      .get("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import document status to be READY after a valid, complete mapping")
+    assertTrue(html.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import job status to be READY after a valid, complete mapping")
   }
 
   @Test
-  fun `saving an incomplete mapping keeps the import document at DATA_IDENTIFIED and reports the missing mandatory field`() {
+  fun `saving an incomplete mapping keeps the import job at DATA_IDENTIFIED and reports the missing mandatory field`() {
     val app = installAppWithMandatoryStringProperty()
-    triggerImportWithSingleDataPath(app.installedAppId)
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
     val importId = triggerImportAndGetId(app.installedAppId)
 
     given()
       .contentType("application/json")
-      .body(
-        """{"name": "Contact Mapping", "targetEntityDefinitionId": "${app.entityId}", "fieldMappings": []}""",
-      )
+      .body("""{"name": "Contact Mapping", "fieldMappings": []}""")
       .`when`()
-      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
+      .post("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val html = given()
       .`when`()
-      .get("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping?entityDefinitionId=${app.entityId}")
+      .get("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"mapping-status\">Datenpfad identifiziert<"), "Expected the import document to remain DATA_IDENTIFIED with an incomplete mapping")
+    assertTrue(html.contains("data-testid=\"mapping-status\">Datenpfad identifiziert<"), "Expected the import job to remain DATA_IDENTIFIED with an incomplete mapping")
     assertTrue(html.contains("data-testid=\"mapping-issue\""), "Expected a validation issue to be rendered for the unmapped mandatory field")
-  }
-
-  @Test
-  fun `saving a mapping reports an error for an unknown entity definition`() {
-    val app = installAppWithMandatoryStringProperty()
-    triggerImportWithSingleDataPath(app.installedAppId)
-    val importId = triggerImportAndGetId(app.installedAppId)
-
-    given()
-      .contentType("application/json")
-      .body("""{"name": "Contact Mapping", "targetEntityDefinitionId": "unknown-entity", "fieldMappings": []}""")
-      .`when`()
-      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(false))
   }
 
   private fun readyImportWithOneValidAndOneInvalidRecord(): Pair<InstalledAppWithEntity, String> {
     val app = installAppWithMandatoryStringProperty()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
       .thenReturn("""{"items":[{"name":"Alice"},{"name":null}]}""".right())
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/${app.installedAppId}/imports")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(true))
+    triggerImport(app.installedAppId, createConnection(), app.entityId)
     val importId = triggerImportAndGetId(app.installedAppId)
 
     given()
@@ -571,7 +546,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "targetEntityDefinitionId": "${app.entityId}",
           "fieldMappings": [
             { "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }
           ]
@@ -579,7 +553,7 @@ class UserImportResourceTests {
         """.trimIndent(),
       )
       .`when`()
-      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/mapping")
+      .post("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
@@ -593,7 +567,7 @@ class UserImportResourceTests {
 
     val html = given()
       .`when`()
-      .get("/ui/user/apps/${app.installedAppId}/imports/$importId/dry-run")
+      .get("/ui/user/imports/$importId/dry-run")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -606,25 +580,25 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `accepting a dry run saves the valid object, discards the invalid one and deletes the import document`() {
+  fun `accepting a dry run saves the valid object, discards the invalid one and deletes the import job`() {
     val (app, importId) = readyImportWithOneValidAndOneInvalidRecord()
 
     given()
       .`when`()
-      .post("/ui/user/apps/${app.installedAppId}/imports/$importId/dry-run/accept")
+      .post("/ui/user/imports/$importId/dry-run/accept")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
-      .body("redirectUrl", equalTo("/ui/user/apps/${app.installedAppId}/imports"))
+      .body("redirectUrl", equalTo("/ui/user/imports/${app.installedAppId}"))
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/apps/${app.installedAppId}/imports/table")
+      .get("/ui/user/imports/${app.installedAppId}/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(tableHtml.contains("data-testid=\"no-imports-message\""), "Expected the import document to have been deleted after accepting the dry run")
+    assertTrue(tableHtml.contains("data-testid=\"no-imports-message\""), "Expected the import job to have been deleted after accepting the dry run")
   }
 
   @Test
@@ -655,15 +629,7 @@ class UserImportResourceTests {
 
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
       .thenReturn("""{"items":[{"name":"Alice","companyCode":"ACME"}]}""".right())
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(true))
+    triggerImport(installedAppId, createConnection(), contactEntityId)
     val importId = triggerImportAndGetId(installedAppId)
 
     given()
@@ -672,7 +638,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "targetEntityDefinitionId": "$contactEntityId",
           "fieldMappings": [
             { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
             {
@@ -684,22 +649,22 @@ class UserImportResourceTests {
         """.trimIndent(),
       )
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/mapping")
+      .post("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val mappingHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/$importId/mapping?entityDefinitionId=$contactEntityId")
+      .get("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .extract().body().asString()
-    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import document to be READY once the reference lookup is fully configured")
+    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import job to be READY once the reference lookup is fully configured")
 
     given()
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/dry-run/accept")
+      .post("/ui/user/imports/$importId/dry-run/accept")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
@@ -720,15 +685,7 @@ class UserImportResourceTests {
 
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
       .thenReturn("""{"items":[{"name":"Alice"}]}""".right())
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("sourceUrl", "https://example.com/data")
-      .formParam("bearerToken", "secret-token")
-      .`when`()
-      .post("/ui/user/apps/$installedAppId/imports")
-      .then()
-      .statusCode(200)
-      .body("ok", equalTo(true))
+    triggerImport(installedAppId, createConnection(), contactEntityId)
     val importId = triggerImportAndGetId(installedAppId)
 
     given()
@@ -737,7 +694,6 @@ class UserImportResourceTests {
         """
         {
           "name": "Contact Mapping",
-          "targetEntityDefinitionId": "$contactEntityId",
           "fieldMappings": [
             { "targetPropertyId": "$namePropertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null },
             { "targetPropertyId": "$companyPropertyId", "sourcePath": null, "conversion": "NONE", "fallbackValue": "not-a-real-company-id" }
@@ -746,22 +702,22 @@ class UserImportResourceTests {
         """.trimIndent(),
       )
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/mapping")
+      .post("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val mappingHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/$importId/mapping?entityDefinitionId=$contactEntityId")
+      .get("/ui/user/imports/$importId/mapping")
       .then()
       .statusCode(200)
       .extract().body().asString()
-    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import document to be READY: the static fallback check does not know the referenced entity's persisted data")
+    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import job to be READY: the static fallback check does not know the referenced entity's persisted data")
 
     val dryRunHtml = given()
       .`when`()
-      .get("/ui/user/apps/$installedAppId/imports/$importId/dry-run")
+      .get("/ui/user/imports/$importId/dry-run")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -769,7 +725,7 @@ class UserImportResourceTests {
 
     given()
       .`when`()
-      .post("/ui/user/apps/$installedAppId/imports/$importId/dry-run/accept")
+      .post("/ui/user/imports/$importId/dry-run/accept")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))

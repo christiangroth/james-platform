@@ -23,8 +23,10 @@ import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
-import de.chrgroth.james.platform.domain.model.imports.ImportDocument
-import de.chrgroth.james.platform.domain.model.imports.ImportDocumentId
+import de.chrgroth.james.platform.domain.model.imports.ImportConnection
+import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
+import de.chrgroth.james.platform.domain.model.imports.ImportJob
+import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
@@ -34,8 +36,9 @@ import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
-import de.chrgroth.james.platform.domain.port.out.imports.ImportDocumentRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
+import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import io.mockk.every
 import io.mockk.justRun
@@ -49,7 +52,8 @@ import java.time.Instant
 class ImportServiceTests {
 
   private val installedAppRepository = mockk<InstalledAppRepositoryPort>()
-  private val importDocumentRepository = mockk<ImportDocumentRepositoryPort>()
+  private val importJobRepository = mockk<ImportJobRepositoryPort>()
+  private val importConnectionRepository = mockk<ImportConnectionRepositoryPort>()
   private val importFetch = mockk<ImportFetchPort>()
   private val tokenEncryption = mockk<TokenEncryptionPort>()
   private val appVersionRepository = mockk<AppVersionRepositoryPort>()
@@ -58,7 +62,8 @@ class ImportServiceTests {
 
   private val service = ImportService(
     installedAppRepository,
-    importDocumentRepository,
+    importJobRepository,
+    importConnectionRepository,
     importFetch,
     tokenEncryption,
     appVersionRepository,
@@ -75,36 +80,54 @@ class ImportServiceTests {
   )
 
   @Test
-  fun `trigger import succeeds and stores encrypted token and raw payload`() {
+  fun `trigger import succeeds and stores connection reference and raw payload`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"foo":"bar"}""".right()
-    every { tokenEncryption.encrypt("secret-token") } returns "encrypted-token".right()
-    val saved = slot<ImportDocument>()
-    justRun { importDocumentRepository.save(capture(saved)) }
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.installedAppId).isEqualTo(InstalledAppId("installed-1"))
     assertThat(saved.captured.userId).isEqualTo("user-1")
-    assertThat(saved.captured.sourceUrl).isEqualTo("https://example.com/data")
-    assertThat(saved.captured.encryptedBearerToken).isEqualTo("encrypted-token")
+    assertThat(saved.captured.connectionId).isEqualTo(ImportConnectionId("conn-1"))
+    assertThat(saved.captured.targetEntityDefinitionId).isEqualTo(EntityDefinitionId("entity-1"))
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
     assertThat(saved.captured.payload).isEqualTo("""{"foo":"bar"}""")
     assertThat(saved.captured.detectedDataPaths).isEmpty()
     assertThat(saved.captured.selectedDataPath).isNull()
-    verify(exactly = 1) { importDocumentRepository.save(any()) }
+    verify(exactly = 1) { importJobRepository.save(any()) }
+  }
+
+  @Test
+  fun `trigger import fetches with an empty token when the connection has none`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection.copy(encryptedBearerToken = null)
+    every { importFetch.fetch("https://example.com/data", "") } returns """{"foo":"bar"}""".right()
+    justRun { importJobRepository.save(any()) }
+
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { tokenEncryption.decrypt(any()) }
   }
 
   @Test
   fun `trigger import auto-selects the single detected data path`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"a":1},{"a":2}]}""".right()
-    every { tokenEncryption.encrypt("secret-token") } returns "encrypted-token".right()
-    val saved = slot<ImportDocument>()
-    justRun { importDocumentRepository.save(capture(saved)) }
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
@@ -118,12 +141,14 @@ class ImportServiceTests {
   @Test
   fun `trigger import stays downloaded and stores all candidates when multiple data paths are detected`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"a":[{"x":1}],"b":[{"y":1},{"y":2}]}""".right()
-    every { tokenEncryption.encrypt("secret-token") } returns "encrypted-token".right()
-    val saved = slot<ImportDocument>()
-    justRun { importDocumentRepository.save(capture(saved)) }
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
@@ -136,7 +161,7 @@ class ImportServiceTests {
   fun `trigger import fails when installed app is not found`() {
     every { installedAppRepository.findById(InstalledAppId("unknown")) } returns null
 
-    val result = service.triggerImport("user-1", "unknown", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "unknown", "conn-1", "entity-1")
 
     assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
   }
@@ -145,35 +170,52 @@ class ImportServiceTests {
   fun `trigger import fails when installed app belongs to another user`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
 
-    val result = service.triggerImport("someone-else", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("someone-else", "installed-1", "conn-1", "entity-1")
 
     assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
   }
 
   @Test
-  fun `trigger import fails with blank url`() {
+  fun `trigger import fails when target entity definition is not found`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
 
-    val result = service.triggerImport("user-1", "installed-1", "  ", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "unknown-entity")
 
-    assertThat(result).isEqualTo(ImportError.BLANK_URL.left())
+    assertThat(result).isEqualTo(ImportError.ENTITY_DEFINITION_NOT_FOUND.left())
   }
 
   @Test
-  fun `trigger import fails with blank bearer token`() {
+  fun `trigger import fails when connection is not found`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns null
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", " ")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
-    assertThat(result).isEqualTo(ImportError.BLANK_BEARER_TOKEN.left())
+    assertThat(result).isEqualTo(ImportError.CONNECTION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `trigger import fails when connection belongs to another user`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection.copy(userId = "someone-else")
+
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
+
+    assertThat(result).isEqualTo(ImportError.CONNECTION_NOT_FOUND.left())
   }
 
   @Test
   fun `trigger import propagates fetch failure`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns ImportError.FETCH_FAILED.left()
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result).isEqualTo(ImportError.FETCH_FAILED.left())
   }
@@ -181,9 +223,12 @@ class ImportServiceTests {
   @Test
   fun `trigger import fails when response is not valid JSON`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns "not json".right()
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result).isEqualTo(ImportError.INVALID_JSON_RESPONSE.left())
   }
@@ -191,88 +236,88 @@ class ImportServiceTests {
   @Test
   fun `trigger import fails when response is a JSON array instead of an object`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """[1,2,3]""".right()
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result).isEqualTo(ImportError.NOT_A_JSON_OBJECT.left())
   }
 
   @Test
-  fun `trigger import propagates token encryption failure`() {
+  fun `trigger import propagates token decryption failure`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"foo":"bar"}""".right()
-    every { tokenEncryption.encrypt("secret-token") } returns TokenError.ENCRYPTION_FAILED.left()
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns TokenError.DECRYPTION_FAILED.left()
 
-    val result = service.triggerImport("user-1", "installed-1", "https://example.com/data", "secret-token")
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
-    assertThat(result).isEqualTo(TokenError.ENCRYPTION_FAILED.left())
+    assertThat(result).isEqualTo(TokenError.DECRYPTION_FAILED.left())
   }
 
   @Test
-  fun `list import documents returns documents sorted by newest first`() {
+  fun `list import jobs returns jobs sorted by newest first`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val older = importDocument(createdAt = Instant.now().minusSeconds(60))
-    val newer = importDocument(createdAt = Instant.now())
-    every { importDocumentRepository.findAllByInstalledAppId(InstalledAppId("installed-1")) } returns listOf(older, newer)
+    val older = importJob(createdAt = Instant.now().minusSeconds(60))
+    val newer = importJob(createdAt = Instant.now())
+    every { importJobRepository.findAllByInstalledAppId(InstalledAppId("installed-1")) } returns listOf(older, newer)
 
-    val result = service.listImportDocuments("user-1", "installed-1")
+    val result = service.listImportJobs("user-1", "installed-1")
 
     assertThat(result.getOrNull()).containsExactly(newer, older)
   }
 
   @Test
-  fun `list import documents fails for unowned installed app`() {
+  fun `list import jobs fails for unowned installed app`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
 
-    val result = service.listImportDocuments("someone-else", "installed-1")
+    val result = service.listImportJobs("someone-else", "installed-1")
 
     assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
   }
 
   @Test
-  fun `delete import document succeeds for owned document`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument()
-    every { importDocumentRepository.findById(doc.id) } returns doc
-    justRun { importDocumentRepository.delete(doc.id) }
+  fun `delete import job succeeds for owned job`() {
+    val job = importJob()
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { importJobRepository.delete(job.id) }
 
-    val result = service.deleteImportDocument("user-1", "installed-1", doc.id.value)
+    val result = service.deleteImportJob("user-1", job.id.value)
 
     assertThat(result.isRight()).isTrue()
-    verify(exactly = 1) { importDocumentRepository.delete(doc.id) }
+    verify(exactly = 1) { importJobRepository.delete(job.id) }
   }
 
   @Test
-  fun `delete import document fails when document does not exist`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    every { importDocumentRepository.findById(ImportDocumentId("missing")) } returns null
+  fun `delete import job fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
 
-    val result = service.deleteImportDocument("user-1", "installed-1", "missing")
+    val result = service.deleteImportJob("user-1", "missing")
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }
 
   @Test
-  fun `delete import document fails when document belongs to another installed app`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(installedAppId = InstalledAppId("other-installed-app"))
-    every { importDocumentRepository.findById(doc.id) } returns doc
+  fun `delete import job fails when job belongs to another user`() {
+    val job = importJob(userId = "someone-else")
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.deleteImportDocument("user-1", "installed-1", doc.id.value)
+    val result = service.deleteImportJob("user-1", job.id.value)
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }
 
   @Test
   fun `select data path succeeds for a valid path and identifies the data`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(payload = """{"items":[{"a":1},{"a":2}]}""")
-    every { importDocumentRepository.findById(doc.id) } returns doc
-    val saved = slot<ImportDocument>()
-    justRun { importDocumentRepository.save(capture(saved)) }
+    val job = importJob(payload = """{"items":[{"a":1},{"a":2}]}""")
+    every { importJobRepository.findById(job.id) } returns job
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
 
-    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "items")
+    val result = service.selectDataPath("user-1", job.id.value, "items")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
@@ -284,76 +329,69 @@ class ImportServiceTests {
 
   @Test
   fun `select data path fails for a blank path`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument()
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob()
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, " ")
+    val result = service.selectDataPath("user-1", job.id.value, " ")
 
     assertThat(result).isEqualTo(ImportError.BLANK_DATA_PATH.left())
   }
 
   @Test
   fun `select data path fails for a path that does not resolve to an array of objects`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(payload = """{"foo":"bar"}""")
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(payload = """{"foo":"bar"}""")
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "foo")
+    val result = service.selectDataPath("user-1", job.id.value, "foo")
 
     assertThat(result).isEqualTo(ImportError.INVALID_DATA_PATH.left())
   }
 
   @Test
-  fun `select data path fails when document is not in DOWNLOADED status`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+  fun `select data path fails when job is not in DOWNLOADED status`() {
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "items")
+    val result = service.selectDataPath("user-1", job.id.value, "items")
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_DOWNLOADED.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_DOWNLOADED.left())
   }
 
   @Test
-  fun `select data path fails when document does not exist`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    every { importDocumentRepository.findById(ImportDocumentId("missing")) } returns null
+  fun `select data path fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
 
-    val result = service.selectDataPath("user-1", "installed-1", "missing", "items")
+    val result = service.selectDataPath("user-1", "missing", "items")
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }
 
   @Test
-  fun `select data path fails when document belongs to another installed app`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(installedAppId = InstalledAppId("other-installed-app"))
-    every { importDocumentRepository.findById(doc.id) } returns doc
+  fun `select data path fails when job belongs to another user`() {
+    val job = importJob(userId = "someone-else")
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.selectDataPath("user-1", "installed-1", doc.id.value, "items")
+    val result = service.selectDataPath("user-1", job.id.value, "items")
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_FOUND.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }
 
   @Test
   fun `update mapping succeeds and transitions to READY when mapping is complete and valid`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
-    val doc = importDocument(
+    val job = importJob(
       status = ImportStatus.DATA_IDENTIFIED,
       detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true)),
     )
-    every { importDocumentRepository.findById(doc.id) } returns doc
-    val saved = slot<ImportDocument>()
-    justRun { importDocumentRepository.save(capture(saved)) }
+    every { importJobRepository.findById(job.id) } returns job
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
 
     val result = service.updateMapping(
       "user-1",
-      "installed-1",
-      doc.id.value,
+      job.id.value,
       "Contact",
-      "entity-1",
       listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
     )
 
@@ -368,12 +406,12 @@ class ImportServiceTests {
   fun `update mapping stays DATA_IDENTIFIED and reports a missing mandatory field`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
-    val saved = slot<ImportDocument>()
-    justRun { importDocumentRepository.save(capture(saved)) }
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", "entity-1", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, "Contact", emptyList())
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
@@ -381,13 +419,13 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `update mapping fails when entity definition is not found`() {
+  fun `update mapping fails when the job's target entity definition no longer exists`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED, targetEntityDefinitionId = EntityDefinitionId("deleted-entity"))
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", "unknown-entity", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, "Contact", emptyList())
 
     assertThat(result).isEqualTo(ImportError.ENTITY_DEFINITION_NOT_FOUND.left())
   }
@@ -396,15 +434,13 @@ class ImportServiceTests {
   fun `update mapping fails when a field mapping targets an unknown property`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
 
     val result = service.updateMapping(
       "user-1",
-      "installed-1",
-      doc.id.value,
+      job.id.value,
       "Contact",
-      "entity-1",
       listOf(FieldMapping(targetPropertyId = PropertyId("unknown-prop"), sourcePath = "name")),
     )
 
@@ -414,49 +450,49 @@ class ImportServiceTests {
   @Test
   fun `update mapping fails with a blank name`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, " ", "entity-1", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, " ", emptyList())
 
     assertThat(result).isEqualTo(ImportError.BLANK_MAPPING_NAME.left())
   }
 
   @Test
-  fun `update mapping fails when document has no data path selected yet`() {
+  fun `update mapping fails when job has no data path selected yet`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(status = ImportStatus.DOWNLOADED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DOWNLOADED)
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.updateMapping("user-1", "installed-1", doc.id.value, "Contact", "entity-1", emptyList())
+    val result = service.updateMapping("user-1", job.id.value, "Contact", emptyList())
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_MAPPABLE.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_MAPPABLE.left())
   }
 
   @Test
-  fun `get mapping view returns entity definitions and no validation when nothing is mapped yet`() {
+  fun `get mapping view returns the target entity definition and no validation when nothing is mapped yet`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.getMappingView("user-1", "installed-1", doc.id.value)
+    val result = service.getMappingView("user-1", job.id.value)
 
     assertThat(result.isRight()).isTrue()
     val view = result.getOrNull()!!
-    assertThat(view.entityDefinitions).containsExactly(entityDefinition)
+    assertThat(view.targetEntityDefinition).isEqualTo(entityDefinition)
     assertThat(view.validation).isNull()
   }
 
   @Test
-  fun `dry run fails when import document is not ready`() {
+  fun `dry run fails when import job is not ready`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.dryRun("user-1", "installed-1", doc.id.value)
+    val result = service.dryRun("user-1", job.id.value)
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_READY.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_READY.left())
   }
 
   @Test
@@ -464,15 +500,15 @@ class ImportServiceTests {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
-    val doc = importDocument(
+    val job = importJob(
       status = ImportStatus.READY,
       payload = """{"items":[{"name":"Alice"},{"name":null}]}""",
       selectedDataPath = "items",
       mapping = readyMapping,
     )
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.dryRun("user-1", "installed-1", doc.id.value)
+    val result = service.dryRun("user-1", job.id.value)
 
     assertThat(result.isRight()).isTrue()
     val report = result.getOrNull()!!
@@ -483,55 +519,65 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `dry run fails when installed app is not owned by the user`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+  fun `dry run fails when import job belongs to another user`() {
+    val job = importJob(userId = "someone-else")
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.dryRun("someone-else", "installed-1", "doc-1")
+    val result = service.dryRun("user-1", job.id.value)
 
-    assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }
 
   @Test
-  fun `accept dry run saves valid objects, discards invalid ones and deletes the import document`() {
+  fun `accept dry run saves valid objects, discards invalid ones and deletes the import job`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
-    val doc = importDocument(
+    val job = importJob(
       status = ImportStatus.READY,
       payload = """{"items":[{"name":"Alice"},{"name":null}]}""",
       selectedDataPath = "items",
       mapping = readyMapping,
     )
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    every { importJobRepository.findById(job.id) } returns job
     val savedAppData = slot<AppData>()
     justRun { appDataRepository.save(capture(savedAppData)) }
-    justRun { importDocumentRepository.delete(doc.id) }
+    justRun { importJobRepository.delete(job.id) }
 
-    val result = service.acceptDryRun("user-1", "installed-1", doc.id.value)
+    val result = service.acceptDryRun("user-1", job.id.value)
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()).isEqualTo(DryRunAcceptResult(savedCount = 1, discardedCount = 1))
+    assertThat(result.getOrNull()).isEqualTo(DryRunAcceptResult(installedAppId = InstalledAppId("installed-1"), savedCount = 1, discardedCount = 1))
     assertThat(savedAppData.captured.data).isEqualTo(mapOf("prop-1" to "Alice"))
     assertThat(savedAppData.captured.installedAppId).isEqualTo(InstalledAppId("installed-1"))
     assertThat(savedAppData.captured.entityType).isEqualTo(EntityDefinitionId("entity-1"))
     verify(exactly = 1) { appDataRepository.save(any()) }
-    verify(exactly = 1) { importDocumentRepository.delete(doc.id) }
+    verify(exactly = 1) { importJobRepository.delete(job.id) }
   }
 
   @Test
-  fun `accept dry run fails when import document is not ready`() {
+  fun `accept dry run fails when import job is not ready`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-    val doc = importDocument(status = ImportStatus.DATA_IDENTIFIED)
-    every { importDocumentRepository.findById(doc.id) } returns doc
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
+    every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.acceptDryRun("user-1", "installed-1", doc.id.value)
+    val result = service.acceptDryRun("user-1", job.id.value)
 
-    assertThat(result).isEqualTo(ImportError.IMPORT_DOCUMENT_NOT_READY.left())
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_READY.left())
   }
+
+  private val connection = ImportConnection(
+    id = ImportConnectionId("conn-1"),
+    userId = "user-1",
+    name = "My API",
+    url = "https://example.com/data",
+    encryptedBearerToken = "encrypted-token",
+    createdAt = Instant.now(),
+    lastChangedAt = Instant.now(),
+  )
 
   private val readyMapping = Mapping(
     name = "Contact",
-    targetEntityDefinitionId = EntityDefinitionId("entity-1"),
     fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
   )
 
@@ -554,20 +600,22 @@ class ImportServiceTests {
     createdAt = Instant.now(),
   )
 
-  private fun importDocument(
+  private fun importJob(
     installedAppId: InstalledAppId = InstalledAppId("installed-1"),
+    userId: String = "user-1",
     createdAt: Instant = Instant.now(),
     status: ImportStatus = ImportStatus.DOWNLOADED,
     payload: String = """{"foo":"bar"}""",
     detectedSchema: List<SchemaProperty> = emptyList(),
     selectedDataPath: String? = null,
     mapping: Mapping? = null,
-  ) = ImportDocument(
-    id = ImportDocumentId("doc-${System.nanoTime()}"),
-    userId = "user-1",
+    targetEntityDefinitionId: EntityDefinitionId = EntityDefinitionId("entity-1"),
+  ) = ImportJob(
+    id = ImportJobId("job-${System.nanoTime()}"),
+    userId = userId,
     installedAppId = installedAppId,
-    sourceUrl = "https://example.com/data",
-    encryptedBearerToken = "encrypted-token",
+    connectionId = ImportConnectionId("conn-1"),
+    targetEntityDefinitionId = targetEntityDefinitionId,
     selectedDataPath = selectedDataPath,
     mapping = mapping,
     status = status,
