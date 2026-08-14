@@ -116,6 +116,7 @@ data class MappingPropertyRow(
 data class DryRunIssueRow(
   val message: String,
   val staticallyChecked: Boolean,
+  val expected: Boolean,
 )
 
 data class DryRunPropertyRow(
@@ -355,8 +356,10 @@ class UserImportResource {
         .data("importJobId", importJobId)
         .data("totalCount", report.totalCount)
         .data("validCount", report.validCount)
+        .data("skippedCount", report.skippedCount)
         .data("invalidCount", report.invalidCount)
-        .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) }),
+        .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
+        .data("skippedObjects", report.skippedObjects.map { it.toRow(view.targetEntityDefinition) }),
     ).build()
   }
 
@@ -417,7 +420,7 @@ class UserImportResource {
         typeLabel = PropertyLabelTemplateExtensions.propertyTypeLabel(property.type),
         value = targetData[property.id].orEmpty(),
         hasIssue = propertyIssues.isNotEmpty(),
-        issues = propertyIssues.map { DryRunIssueRow(dryRunIssueMessage(it), it.staticallyChecked) },
+        issues = propertyIssues.map { DryRunIssueRow(dryRunIssueMessage(it), it.staticallyChecked, it.expected) },
       )
     }
     return DryRunObjectRow(index + 1, prettyPrintedSourceData(sourceDataJson), properties)

@@ -170,11 +170,13 @@ class DryRunExecutorTests {
     val result = execute(records("""[{"code":"DUP"},{"code":"DUP"}]"""), mapping, entity)
 
     assertThat(result[0].isValid).isTrue()
-    assertThat(result[1].issues.single()).isEqualTo(DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, false))
+    assertThat(result[1].issues.single()).isEqualTo(
+      DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, staticallyChecked = false, expected = true),
+    )
   }
 
   @Test
-  fun `fan-in mapping keeps only the first record per unique value and reports records without a value as invalid`() {
+  fun `fan-in mapping keeps only the first record per unique value and reports records without or with an already used value as expected skips, not invalid`() {
     val entity = entityDefinition(
       Property(id = propertyId, name = "Code", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
     )
@@ -183,8 +185,14 @@ class DryRunExecutorTests {
     val result = execute(records("""[{"code":"A"},{},{"code":"A"},{"code":"B"}]"""), mapping, entity)
 
     assertThat(result[0].isValid).isTrue()
-    assertThat(result[1].issues.single()).isEqualTo(DryRunIssue.MissingMandatoryValue(propertyId))
-    assertThat(result[2].issues.single()).isEqualTo(DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, false))
+    assertThat(result[1].issues.single()).isEqualTo(DryRunIssue.MissingMandatoryValue(propertyId, expected = true))
+    assertThat(result[1].isSkipped).isTrue()
+    assertThat(result[1].isInvalid).isFalse()
+    assertThat(result[2].issues.single()).isEqualTo(
+      DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, staticallyChecked = false, expected = true),
+    )
+    assertThat(result[2].isSkipped).isTrue()
+    assertThat(result[2].isInvalid).isFalse()
     assertThat(result[3].isValid).isTrue()
   }
 

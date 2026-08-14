@@ -481,10 +481,19 @@ interface UserMessages {
   fun userImportDryRunInvalidLabel(): String
 
   @Message
+  fun userImportDryRunSkippedLabel(): String
+
+  @Message
   fun userImportDryRunAllValidMessage(): String
 
   @Message
   fun userImportDryRunInvalidObjectsHeading(): String
+
+  @Message
+  fun userImportDryRunSkippedObjectsHeading(): String
+
+  @Message
+  fun userImportDryRunSkippedBadge(): String
 
   @Message
   fun userImportDryRunObjectLabel(index: Int): String
@@ -508,7 +517,7 @@ interface UserMessages {
   fun userImportDryRunAcceptModalTitle(): String
 
   @Message
-  fun userImportDryRunAcceptConfirm(validCount: Int, invalidCount: Int): String
+  fun userImportDryRunAcceptConfirm(validCount: Int, skippedCount: Int, invalidCount: Int): String
 
   @Message
   fun userImportDryRunAcceptedMessage(savedCount: Int, discardedCount: Int): String

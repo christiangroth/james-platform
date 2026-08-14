@@ -67,9 +67,10 @@ object DryRunExecutor {
         val fieldMapping = fieldMappingsByTarget[property.id]
         val rawValue = resolveRawValue(record, property, fieldMapping, entityDefinitionsById, referencedAppDataByEntityId)
         targetData[property.id] = rawValue
+        val isUniqueKey = property.constraints.contains(PropertyConstraint.UniqueKey)
 
         if (!property.nullable && rawValue.isNullOrBlank()) {
-          issues += DryRunIssue.MissingMandatoryValue(property.id)
+          issues += DryRunIssue.MissingMandatoryValue(property.id, expected = isUniqueKey)
         }
 
         if (property.type == PropertyType.REF && fieldMapping?.referenceLookup == null) {
@@ -78,7 +79,14 @@ object DryRunExecutor {
 
         val parsedValue = parseScalarValue(property.type, rawValue)
         val violations = propertyConstraint.checkValue(property, parsedValue, seenValues[property.id].orEmpty())
-        issues += violations.map { DryRunIssue.ConstraintViolated(property.id, it, it.javaClass in STATICALLY_CHECKED_VIOLATION_TYPES) }
+        issues += violations.map {
+          DryRunIssue.ConstraintViolated(
+            property.id,
+            it,
+            staticallyChecked = it.javaClass in STATICALLY_CHECKED_VIOLATION_TYPES,
+            expected = it is PropertyConstraintViolation.UniqueKeyViolation,
+          )
+        }
 
         if (parsedValue != null) {
           seenValues[property.id]?.add(parsedValue)

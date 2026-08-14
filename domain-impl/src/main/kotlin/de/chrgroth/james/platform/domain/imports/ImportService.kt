@@ -220,7 +220,7 @@ class ImportService(
     }
 
     val objects = executeDryRun(existing, mapping, entityDefinition, installedApp)
-    logger.info { "Dry run executed: importJobId=$importJobId total=${objects.size} invalid=${objects.count { !it.isValid }}" }
+    logger.info { "Dry run executed: importJobId=$importJobId total=${objects.size} invalid=${objects.count { it.isInvalid }} skipped=${objects.count { it.isSkipped }}" }
     return DryRunReport(existing.id, objects).right()
   }
 
