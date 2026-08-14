@@ -105,15 +105,20 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Data Import (ETL)
 
-A User with the `DATA_IMPORT` role (assignable only by an Admin) can import external JSON data into an installed App as new data objects of a chosen Entity, through a guided fetch → detect → map → dry-run → accept flow:
+A User with the `DATA_IMPORT` role (assignable only by an Admin) can import external JSON data into an installed App as new data objects of a chosen Entity. The concept is split into two independent entities:
 
-- **Fetch** – the User supplies a source URL and a Bearer token; the server fetches the URL server-side and stores the raw response as an `ImportDocument` (MongoDB collection `import_document`). Because the URL and token are User-supplied, the fetch is hardened against SSRF (scheme allow-list, blocked address ranges, no redirects, size cap) – see ADR [0010](../adr/0010-import-fetch-ssrf-protection.md). The Bearer token is stored encrypted, never in plain text. The response must be a JSON object; oversized responses are rejected.
-- **Data-path detection** – the document is scanned for every JSON path pointing to a non-empty array of objects (a candidate "data path", e.g. `results.items`). If exactly one candidate is found it is selected automatically; otherwise the User picks one manually.
+- An **`ImportConnection`** (MongoDB collection `import_connection`) holds a name, a source URL, and an optional Bearer token. It is created, tested, and deleted independently of any import, and stays available for reuse until the User deletes it manually. The Bearer token is stored encrypted, never in plain text; "testing" a connection performs a real fetch against its URL/token without persisting anything.
+- An **`ImportJob`** (MongoDB collection `import_job`) references an `ImportConnection` and fixes its target (the installed App and the target Entity) at creation time, then runs through a guided fetch → detect → map → dry-run → accept flow. Unlike a connection, a job only holds the data snapshot fetched at one point in time and is cleaned up automatically once it has been inactive for too long.
+
+The flow:
+
+- **Fetch** – the User picks an existing `ImportConnection` and a target Entity; the server fetches the connection's URL server-side (using its stored, decrypted Bearer token, if any) and stores the raw response on the `ImportJob`. Because the URL and token are User-supplied at connection creation time, the fetch is hardened against SSRF (scheme allow-list, blocked address ranges, no redirects, size cap) – see ADR [0010](../adr/0010-import-fetch-ssrf-protection.md). The response must be a JSON object; oversized responses are rejected.
+- **Data-path detection** – the payload is scanned for every JSON path pointing to a non-empty array of objects (a candidate "data path", e.g. `results.items`). If exactly one candidate is found it is selected automatically; otherwise the User picks one manually.
 - **Schema detection** – for the objects at the selected data path, the platform infers a per-field schema (type, mandatory-ness, numeric range, string length, date/datetime detection) used to validate the mapping.
-- **Mapping** – the User maps each source field to a target Entity property, optionally applying a lossless type conversion (e.g. string-to-long) or a static fallback value. REF properties may instead be resolved via a `find`-only reference lookup against existing data of the referenced Entity – there is deliberately no `findOrCreate` equivalent, so a lookup never creates a referenced object as a side effect (see ADR [0011](../adr/0011-import-single-mapping-scope.md)). An import document holds a single Mapping. The mapping becomes valid once mandatory-field coverage, type compatibility, and constraint pre-checks pass; pattern/regex constraints are deferred to the dry run.
+- **Mapping** – the User maps each source field to a property of the job's fixed target Entity, optionally applying a lossless type conversion (e.g. string-to-long) or a static fallback value. REF properties may instead be resolved via a `find`-only reference lookup against existing data of the referenced Entity – there is deliberately no `findOrCreate` equivalent, so a lookup never creates a referenced object as a side effect (see ADR [0011](../adr/0011-import-single-mapping-scope.md)). A job holds a single Mapping. The mapping becomes valid once mandatory-field coverage, type compatibility, and constraint pre-checks pass; pattern/regex constraints are deferred to the dry run.
 - **Dry run** – builds every target object from the source data without persisting anything, surfacing per-object validation issues (including pattern constraints and reference-existence checks).
-- **Accept** – re-runs the dry run, persists every valid object as data of the target Entity, discards invalid ones, and deletes the `ImportDocument` (including the raw payload) regardless of how many objects were saved or discarded.
-- **Cleanup** – a daily cronjob deletes import documents older than a configurable retention period, including any left in an incomplete state (see [Configuration](#configuration)).
+- **Accept** – re-runs the dry run, persists every valid object as data of the target Entity, discards invalid ones, and deletes the `ImportJob` (including the raw payload) regardless of how many objects were saved or discarded. The referenced `ImportConnection` is left untouched and stays available for future jobs.
+- **Cleanup** – a daily cronjob deletes import jobs older than a configurable retention period, including any left in an incomplete state (see [Configuration](#configuration)). `ImportConnection`s are never deleted automatically.
 
 ## Quality Goals
 
@@ -230,7 +235,7 @@ Base package: `de.chrgroth.james.platform`
 | `domain-impl`         | –          | Business logic implementing the inbound port interfaces                               |
 | `adapter-in-web`      | inbound    | HTTP endpoints, Qute SSR templates, SSE adapters, cookie auth mechanism               |
 | `adapter-in-starter`  | inbound    | One-time startup beans (starters) for data migrations and one-time bugfixes           |
-| `adapter-in-scheduler` | inbound   | Wired with the Quarkus scheduler extension; runs the `@Scheduled` import document cleanup cronjob |
+| `adapter-in-scheduler` | inbound   | Wired with the Quarkus scheduler extension; runs the `@Scheduled` import job cleanup cronjob |
 | `adapter-out-config`  | outbound   | Reads Quarkus/MicroProfile config and environment variables for health/config display |
 | `adapter-out-mongodb` | outbound   | MongoDB persistence: user repository, MongoDB viewer, stats adapter                  |
 | `adapter-out-scheduler` | outbound | Reads Quarkus scheduler metadata for health/cronjob display                          |
@@ -480,7 +485,7 @@ this has been missed twice historically (see `docs/backport.md` section 3).
 
 **Other notable non-secret config:** `app.script.timeout-ms` (computed-property/smart-default
 script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
-`app.imports.cleanup.retention-days` (import document cleanup cronjob, default 14 days),
+`app.imports.cleanup.retention-days` (import job cleanup cronjob, default 14 days),
 `app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
 `quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`).
 
@@ -555,8 +560,9 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Smart default     | A Property's default value computed by a Kotlin script when the create form opens; the User may still overwrite it, unlike a computed property. |
 | Value proposals   | A Developer-configured list of suggested values offered as autocomplete options for a Property in the create/edit form. |
 | Display text      | A per-Entity template string that interpolates Property values into a human-readable label, shown in list views and `ref` pickers instead of a raw ID. |
-| Import document   | A stored record of one Data Import (ETL) run: the raw fetched payload, detected data path/schema, and configured Mapping. Deleted once its data is accepted or discarded. |
-| Data path         | The JSON path within an import document's payload pointing to the array of objects to be imported (e.g. `results.items`). |
-| Mapping           | The configuration, held by a single import document, of which target Entity to import into and how each source field maps to a target Property. |
+| Import connection | A reusable, User-owned source configuration for imports: a name, a URL, and an optional encrypted Bearer token. Independent of any import job; kept until deleted manually. |
+| Import job        | A stored record of one Data Import (ETL) run against a fixed target App/Entity: the referenced Import connection, the raw fetched payload, detected data path/schema, and configured Mapping. Deleted once its data is accepted or discarded, or once it has been inactive for too long. |
+| Data path         | The JSON path within an import job's payload pointing to the array of objects to be imported (e.g. `results.items`). |
+| Mapping           | The configuration, held by a single import job, of how each source field maps to a Property of the job's target Entity. |
 | Reference lookup   | A `find`-only rule, configured per REF Property in a Mapping, that resolves a source value to an existing object of the referenced Entity. Never creates a referenced object as a side effect. |
 | Dry run           | A non-persisting preview of an import's Accept step, surfacing per-object validation issues before any data is written. |
