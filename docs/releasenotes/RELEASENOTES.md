@@ -1,3 +1,12 @@
+# 0.88.0 (2026.08.15)
+
+## New Features
+* Developers can now reactivate a deactivated app from its overview page, so it appears in the store again for new installations.
+
+
+
+---
+
 # 0.87.0 (2026.08.15)
 
 ## New Features
