@@ -590,6 +590,73 @@
             margin-top: 0.15rem;
             color: var(--color-text-muted);
         }
+        /* Import job step wizard - full-width segmented progress control replacing separate step buttons */
+        .app-wizard {
+            display: flex;
+            width: 100%;
+            border: 1px solid var(--color-border-muted);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .app-wizard-step {
+            flex: 1 1 0;
+        }
+        .app-wizard-step:not(:last-child) {
+            border-right: 1px solid var(--color-border-muted);
+        }
+        .app-wizard-link,
+        .app-wizard-step-disabled {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            text-decoration: none;
+            color: var(--color-text-muted);
+            background-color: transparent;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .app-wizard-link:hover {
+            background-color: var(--color-bg-card);
+            color: var(--color-text-primary);
+        }
+        .app-wizard-step-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .app-wizard-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            border: 1px solid currentColor;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+        .app-wizard-step.active .app-wizard-link {
+            background-color: var(--color-action);
+            color: #ffffff;
+        }
+        .app-wizard-step.completed .app-wizard-link {
+            color: var(--color-action);
+        }
+        .app-wizard-step.completed .app-wizard-index {
+            background-color: var(--color-action);
+            color: #ffffff;
+            border-color: var(--color-action);
+        }
+        /* Chevron toggle for the inline data path structure panel */
+        .structure-toggle-icon {
+            display: inline-block;
+            transition: transform 0.15s ease-in-out;
+        }
+        .structure-toggle-icon.rotated {
+            transform: rotate(90deg);
+        }
     </style>
 </head>
 <body>

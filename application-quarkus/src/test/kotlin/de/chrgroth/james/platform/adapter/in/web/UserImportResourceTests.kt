@@ -527,7 +527,7 @@ class UserImportResourceTests {
       .extract().body().asString()
     assertTrue(htmlBeforeMapping.contains("data-testid=\"import-steps\""), "Expected the step navigator to be rendered on the job overview page")
     assertTrue(
-      htmlBeforeMapping.contains("btn-app-secondary disabled\" aria-disabled=\"true\" data-testid=\"import-step-dry-run\""),
+      htmlBeforeMapping.contains("app-wizard-step-disabled\" aria-disabled=\"true\" data-testid=\"import-step-dry-run\""),
       "Expected the Dry-Run step to be disabled before the mapping is complete",
     )
 
@@ -971,9 +971,75 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-bs-target=\"#dataPathSchemaModal\""), "Expected clicking the data path to open the JSON structure modal")
-    assertTrue(html.contains("data-testid=\"data-path-schema-table\""), "Expected the JSON structure table to be rendered")
-    assertTrue(html.contains("data-testid=\"data-path-schema-row\""), "Expected a schema row per detected field")
+    assertTrue(html.contains("data-bs-target=\"#dataPathStructure\""), "Expected clicking the data path to expand the inline JSON structure panel, not open a modal")
+    assertTrue(html.contains("data-testid=\"data-path-structure-table\""), "Expected the JSON structure table to be rendered")
+    assertTrue(html.contains("data-testid=\"data-path-structure-row\""), "Expected a structure row per detected field")
+    assertTrue(html.contains("data-testid=\"data-path-structure-selected-badge\""), "Expected the row matching the selected data path to be marked")
+    assertTrue(html.contains("data-testid=\"data-path-schema-mandatory-badge\""), "Expected mandatory fields inside the selected data path to be flagged")
+  }
+
+  @Test
+  fun `import job overview page has an explicit Quelle breadcrumb item, the wizard step nav, and no delete button`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/overview")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"breadcrumb-source\">Quelle<"), "Expected an explicit, non-implicit Quelle breadcrumb item")
+    assertTrue(html.contains("href=\"/ui/user/imports/$importId\" class=\"breadcrumb-link\" data-testid=\"breadcrumb-import-name\""), "Expected the job breadcrumb item to link to the job root, separately from the Quelle item")
+    assertTrue(html.contains("app-wizard"), "Expected the step navigator to render as the full-width wizard progress control")
+    assertTrue(!html.contains("data-testid=\"delete-import-button\""), "Expected the delete action to no longer be offered on the job page, only in the imports table")
+  }
+
+  @Test
+  fun `mapping and dry-run pages carry the explicit Quelle breadcrumb item between the job and the current step`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    val mappingHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(mappingHtml.contains("data-testid=\"breadcrumb-source\">Quelle<"), "Expected the mapping page breadcrumb to carry an explicit Quelle item")
+
+    val dryRunHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(dryRunHtml.contains("data-testid=\"breadcrumb-source\">Quelle<"), "Expected the dry-run page breadcrumb to carry an explicit Quelle item")
+  }
+
+  @Test
+  fun `dry run page offers Ersetzen and Hinzufügen right-aligned with icons, and a single-open accordion for the count details`() {
+    val (app, importId) = readyImportWithOneValidAndOneInvalidRecord()
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("justify-content-end"), "Expected the Ersetzen/Hinzufügen buttons to be right-aligned")
+    assertTrue(html.contains("bi-upload"), "Expected the Ersetzen/Hinzufügen buttons to carry an icon in addition to their text")
+    assertTrue(
+      html.contains("id=\"valid-details\" data-bs-parent=\"#dryRunDetailsAccordion\"") &&
+        html.contains("id=\"invalid-details\" data-bs-parent=\"#dryRunDetailsAccordion\"") &&
+        html.contains("id=\"skipped-details\" data-bs-parent=\"#dryRunDetailsAccordion\""),
+      "Expected the valid/invalid/skipped detail panels to share one Bootstrap collapse parent so opening one closes the others",
+    )
   }
 
   @Test
