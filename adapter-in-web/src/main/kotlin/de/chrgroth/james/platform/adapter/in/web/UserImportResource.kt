@@ -374,7 +374,8 @@ class UserImportResource {
         .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("sourceUrl", connection?.let { resolveImportUrl(it.baseUrl, view.importJob.urlPostfix) }.orEmpty())
-        .data("structureRows", buildJsonStructureRows(view.importJob)),
+        .data("structureRows", buildJsonStructureRows(view.importJob))
+        .data("appActive", info.appActive),
     ).build()
   }
 
@@ -435,7 +436,8 @@ class UserImportResource {
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importJob.mapping != null),
+        .data("readyForDryRun", view.importJob.mapping != null)
+        .data("appActive", info.appActive),
     ).build()
   }
 
@@ -542,7 +544,8 @@ class UserImportResource {
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importJob.mapping != null),
+        .data("readyForDryRun", view.importJob.mapping != null)
+        .data("appActive", info.appActive),
     ).build()
   }
 
@@ -621,7 +624,8 @@ class UserImportResource {
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importJob.mapping != null),
+        .data("readyForDryRun", view.importJob.mapping != null)
+        .data("appActive", info.appActive),
     ).build()
   }
 
