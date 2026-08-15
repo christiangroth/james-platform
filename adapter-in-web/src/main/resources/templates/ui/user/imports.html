@@ -54,9 +54,7 @@
                                 <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
                                 <td data-testid="import-connection-name">{job.connectionName}</td>
                                 <td data-testid="import-installed-app-name">{job.installedAppName}</td>
-                                <td data-testid="import-target-entity">
-                                    <a href="/ui/user/imports/{job.id}" class="breadcrumb-link" data-testid="import-target-entity-link">{job.targetEntityName}</a>
-                                </td>
+                                <td data-testid="import-target-entity">{job.targetEntityName}</td>
                                 <td data-testid="import-created-at">{job.createdAt.formatted}</td>
                                 <td data-testid="import-last-changed-at">{job.lastChangedAt.formatted}</td>
                                 <td class="text-end">

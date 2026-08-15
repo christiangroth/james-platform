@@ -12,8 +12,7 @@
         </nav>
 
         <div class="d-flex align-items-center mb-4 gap-2">
-            <h1 class="fs-4 fw-semibold mb-0" data-testid="import-job-title">{targetEntityName}</h1>
-            <span class="badge border-0 app-badge-processing" data-testid="import-job-status">{job.statusLabel}</span>
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="import-job-title">{pageHeading}</h1>
         </div>
 
         {#import-steps importJobId=job.id mappable=job.mappable readyForDryRun=job.readyForDryRun activeStep="overview" /}

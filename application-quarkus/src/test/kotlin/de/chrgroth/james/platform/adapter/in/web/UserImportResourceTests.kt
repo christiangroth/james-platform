@@ -508,7 +508,10 @@ class UserImportResourceTests {
     assertTrue(html.contains("data-testid=\"breadcrumb-imports\""), "Expected a top-level, non-app-scoped Imports breadcrumb")
     assertTrue(!html.contains("data-testid=\"breadcrumb-app\""), "Expected the imports list to no longer be scoped under a single app in the breadcrumbs")
     assertTrue(html.contains("data-testid=\"import-installed-app-name\""), "Expected the target app installation column to be rendered")
-    assertTrue(html.contains("href=\"/ui/user/imports/$importId\""), "Expected the target entity to link to the new job overview page")
+    assertTrue(
+      html.contains("class=\"import-row\" data-testid=\"import-row\" data-import-id=\"$importId\""),
+      "Expected the whole row to be clickable and open the new job overview page, without a separate entity link",
+    )
     assertTrue(html.contains("data-testid=\"import-app-select\""), "Expected the New Import modal to offer an installed app selector now that the list is cross-app")
     assertTrue(html.contains("data-testid=\"import-target-entity-select\""), "Expected the New Import modal to offer a target entity selector for the chosen app")
   }
@@ -607,7 +610,10 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import job status to be READY after a valid, complete mapping")
+    assertTrue(
+      html.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
+      "Expected the import job to be READY (Dry-Run step reachable) after a valid, complete mapping",
+    )
   }
 
   @Test
@@ -632,7 +638,10 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"mapping-status\">Datenpfad identifiziert<"), "Expected the import job to remain DATA_IDENTIFIED with an incomplete mapping")
+    assertTrue(
+      !html.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
+      "Expected the import job to remain DATA_IDENTIFIED (Dry-Run step not yet reachable) with an incomplete mapping",
+    )
     assertTrue(html.contains("data-testid=\"mapping-issue\""), "Expected a validation issue to be rendered for the unmapped mandatory field")
   }
 
@@ -780,7 +789,10 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .extract().body().asString()
-    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import job to be READY once the reference lookup is fully configured")
+    assertTrue(
+      mappingHtml.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
+      "Expected the import job to be READY once the reference lookup is fully configured",
+    )
 
     given()
       .`when`()
@@ -832,7 +844,10 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .extract().body().asString()
-    assertTrue(mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"), "Expected the import job to be READY: the static fallback check does not know the referenced entity's persisted data")
+    assertTrue(
+      mappingHtml.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
+      "Expected the import job to be READY: the static fallback check does not know the referenced entity's persisted data",
+    )
 
     val dryRunHtml = given()
       .`when`()
@@ -891,7 +906,7 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
     assertTrue(
-      mappingHtml.contains("data-testid=\"mapping-status\">Bereit<"),
+      mappingHtml.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
       "Expected the mapping to be READY without a fallback: a static fallback would collide with the unique constraint",
     )
 
@@ -1082,6 +1097,59 @@ class UserImportResourceTests {
         html.contains("id=\"invalid-details\" data-bs-parent=\"#dryRunDetailsAccordion\"") &&
         html.contains("id=\"skipped-details\" data-bs-parent=\"#dryRunDetailsAccordion\""),
       "Expected the valid/invalid/skipped detail panels to share one Bootstrap collapse parent so opening one closes the others",
+    )
+  }
+
+  @Test
+  fun `Quelle, Mapping and Dry-Run pages share a constant connection-app-entity heading with no separate status badge`() {
+    val appName = "Import Heading App ${System.nanoTime()}"
+    val connectionName = "Import Heading Connection ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Contact")
+    val propertyId = addProperty(appId, versionId, entityId, "Name", "STRING", nullable = false)
+    val installedAppId = publishAndInstall(appId, appName)
+
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    triggerImport(installedAppId, createConnection(name = connectionName), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val expectedHeading = "$connectionName: $appName Contact"
+
+    val overviewHtml = given().`when`().get("/ui/user/imports/$importId/overview").then().statusCode(200).extract().body().asString()
+    assertTrue(overviewHtml.contains("data-testid=\"import-job-title\">$expectedHeading<"), "Expected the constant connection/app/entity heading on the Quelle page")
+    assertTrue(!overviewHtml.contains("data-testid=\"import-job-status\""), "Expected the status badge to no longer be rendered next to the heading")
+
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": [{ "targetPropertyId": "$propertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val mappingHtml = given().`when`().get("/ui/user/imports/$importId/mapping").then().statusCode(200).extract().body().asString()
+    assertTrue(mappingHtml.contains("data-testid=\"mapping-title\">$expectedHeading<"), "Expected the same constant heading on the Mapping page")
+    assertTrue(!mappingHtml.contains("data-testid=\"mapping-status\""), "Expected the status badge to no longer be rendered next to the Mapping heading")
+
+    val dryRunHtml = given().`when`().get("/ui/user/imports/$importId/dry-run").then().statusCode(200).extract().body().asString()
+    assertTrue(dryRunHtml.contains("data-testid=\"dry-run-title\">$expectedHeading<"), "Expected the same constant heading on the Dry-Run page")
+
+    assertTrue(dryRunHtml.contains("app-section-label small\">Imports<"), "Expected the valid counter to be relabeled to Imports")
+    assertTrue(dryRunHtml.contains("app-section-label small\">Fehler<"), "Expected the invalid counter to be relabeled to Fehler")
+    assertTrue(dryRunHtml.contains("app-section-label small\">Ignoriert<"), "Expected the skipped counter to be relabeled to Ignoriert")
+
+    assertTrue(dryRunHtml.contains("data-testid=\"valid-objects-heading\">Details<"), "Expected the valid detail heading to use the constant Details heading")
+    assertTrue(dryRunHtml.contains("data-testid=\"invalid-objects-heading\">Details<"), "Expected the invalid detail heading to use the constant Details heading")
+    assertTrue(dryRunHtml.contains("data-testid=\"skipped-reasons-heading\">Details<"), "Expected the skipped detail heading to use the constant Details heading")
+
+    assertTrue(
+      dryRunHtml.contains("class=\"collapse show mb-4\" id=\"valid-details\""),
+      "Expected the valid objects' details to be opened automatically since there are no errors",
+    )
+    assertTrue(
+      dryRunHtml.contains("dry-run-count-toggle active\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"collapse\" data-bs-target=\"#valid-details\""),
+      "Expected a subtle active highlight on the valid count card matching the auto-opened details section",
     )
   }
 

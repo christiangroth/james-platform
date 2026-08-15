@@ -121,6 +121,9 @@ interface UserMessages {
   fun userImportsTitle(): String
 
   @Message
+  fun userImportPageHeading(connectionName: String, installedAppName: String, targetEntityName: String): String
+
+  @Message
   fun userNoImportsMessage(): String
 
   @Message
@@ -520,13 +523,7 @@ interface UserMessages {
   fun userImportDryRunNoObjectsMessage(): String
 
   @Message
-  fun userImportDryRunValidObjectsHeading(): String
-
-  @Message
-  fun userImportDryRunInvalidObjectsHeading(): String
-
-  @Message
-  fun userImportDryRunSkippedReasonsHeading(): String
+  fun userImportDryRunDetailsHeading(): String
 
   @Message
   fun userImportDryRunSkippedReasonsColProperty(): String

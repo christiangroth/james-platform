@@ -19,6 +19,7 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
+import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
@@ -315,6 +316,7 @@ class UserImportResource {
         )
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
+        .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("structureRows", buildJsonStructureRows(view.importJob)),
     ).build()
   }
@@ -322,6 +324,12 @@ class UserImportResource {
   /** The entity's data list: the app detail page itself when it is the only entity type, otherwise its dedicated entity page. */
   private fun entityListUrl(installedAppId: String, entityTypeId: String, entityCount: Int): String =
     if (entityCount <= 1) "/ui/user/apps/$installedAppId" else "/ui/user/apps/$installedAppId/entities/$entityTypeId"
+
+  /** Constant heading shown on the Quelle/Mapping/Dry-Run pages of an import job: "$connection: $app $entity". */
+  private fun pageHeading(userId: String, connectionId: ImportConnectionId, installedAppName: String, targetEntityName: String): String {
+    val connectionName = importConnectionPort.listConnections(userId).getOrNull().orEmpty().firstOrNull { it.id == connectionId }?.name.orEmpty()
+    return userMsg.userImportPageHeading(connectionName, installedAppName, targetEntityName)
+  }
 
   @POST
   @Path("/{importJobId}/select-path")
@@ -350,13 +358,17 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
+    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
 
     Response.ok(
       mappingTemplate
         .data("importJobId", importJobId)
-        .data("statusLabel", statusLabel(view.importJob.status))
         .data("isReady", view.importJob.status == ImportStatus.READY)
         .data("targetEntityName", view.targetEntityDefinition.name)
+        .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
@@ -415,6 +427,10 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
+    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
     val report = importPort.dryRun(userId, importJobId).fold(
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/imports/$importJobId/mapping")).build() },
       ifRight = { it },
@@ -424,6 +440,7 @@ class UserImportResource {
       dryRunTemplate
         .data("importJobId", importJobId)
         .data("targetEntityName", view.targetEntityDefinition.name)
+        .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("totalCount", report.totalCount)
         .data("validCount", report.validCount)
         .data("skippedCount", report.skippedCount)
