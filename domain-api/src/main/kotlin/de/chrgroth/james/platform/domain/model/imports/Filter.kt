@@ -11,6 +11,32 @@ enum class FilterOperator {
   EQUALS,
   NOT_EQUALS,
   CONTAINS,
+  MATCHES,
+  NOT_MATCHES,
+  GREATER_THAN,
+  GREATER_THAN_OR_EQUAL,
+  LESS_THAN,
+  LESS_THAN_OR_EQUAL,
+}
+
+private val TEXT_ONLY_OPERATORS = setOf(FilterOperator.MATCHES, FilterOperator.NOT_MATCHES)
+private val COMPARISON_OPERATORS = setOf(
+  FilterOperator.GREATER_THAN,
+  FilterOperator.GREATER_THAN_OR_EQUAL,
+  FilterOperator.LESS_THAN,
+  FilterOperator.LESS_THAN_OR_EQUAL,
+)
+private val COMPARABLE_SCHEMA_TYPES = setOf(SchemaPropertyType.LONG, SchemaPropertyType.DOUBLE, SchemaPropertyType.DATE, SchemaPropertyType.DATETIME)
+
+/**
+ * The schema property types this operator is offered for in the filter UI. An empty set means the operator applies
+ * to every type (e.g. [FilterOperator.EQUALS]). This is a UI-only restriction - [FilterEvaluator] itself does not
+ * enforce it.
+ */
+fun FilterOperator.applicableSchemaTypes(): Set<SchemaPropertyType> = when (this) {
+  in TEXT_ONLY_OPERATORS -> setOf(SchemaPropertyType.STRING)
+  in COMPARISON_OPERATORS -> COMPARABLE_SCHEMA_TYPES
+  else -> emptySet()
 }
 
 /**

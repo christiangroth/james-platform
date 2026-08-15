@@ -23,6 +23,7 @@ import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.model.imports.applicableSchemaTypes
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
@@ -109,6 +110,7 @@ data class ConnectionOptionRow(
 data class SchemaFieldOptionRow(
   val path: String,
   val label: String,
+  val dominantType: String,
 )
 
 data class FilterRuleRow(
@@ -128,6 +130,7 @@ data class FilterOperatorOptionRow(
   val value: String,
   val label: String,
   val requiresValue: Boolean,
+  val applicableTypes: String,
 )
 
 data class PropertyOptionRow(
@@ -420,9 +423,9 @@ class UserImportResource {
         .data("targetEntityName", targetEntityName)
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, targetEntityName))
         .data("filterRuleRows", view.importJob.filterRules.map { it.toRow() })
-        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
+        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) })
         .data("modeOptions", FilterMode.entries.map { FilterModeOptionRow(it.name, filterModeLabel(it)) })
-        .data("operatorOptions", FilterOperator.entries.map { FilterOperatorOptionRow(it.name, filterOperatorLabel(it), it.requiresValue) })
+        .data("operatorOptions", FilterOperator.entries.map { FilterOperatorOptionRow(it.name, filterOperatorLabel(it), it.requiresValue, it.applicableSchemaTypes().joinToString(",") { type -> type.name }) })
         .data("totalRecordCount", view.totalRecordCount)
         .data("matchingRecordCount", view.matchingRecordCount)
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
@@ -446,6 +449,23 @@ class UserImportResource {
     importPort.updateFilter(userId, importJobId, filterRules).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view -> Response.ok(DeveloperApiResult(true, userMsg.userImportFilterSavedMessage(view.matchingRecordCount, view.totalRecordCount))).build() },
+    )
+  }
+
+  @GET
+  @Path("/{importJobId}/filter/values")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun filterFieldValues(
+    @PathParam("importJobId") importJobId: String,
+    @QueryParam("sourcePath") sourcePath: String?,
+  ): Response = httpResponseMetrics.timed("rest.user-import.filter-values") {
+    val userId = securityIdentity.principal.name
+    if (sourcePath.isNullOrBlank()) {
+      return@timed Response.ok(emptyList<String>()).build()
+    }
+    importPort.resolveFilterFieldValues(userId, importJobId, sourcePath).fold(
+      ifLeft = { Response.ok(emptyList<String>()).build() },
+      ifRight = { values -> Response.ok(values).build() },
     )
   }
 
@@ -483,6 +503,12 @@ class UserImportResource {
     FilterOperator.EQUALS -> userMsg.userImportFilterOperatorEquals()
     FilterOperator.NOT_EQUALS -> userMsg.userImportFilterOperatorNotEquals()
     FilterOperator.CONTAINS -> userMsg.userImportFilterOperatorContains()
+    FilterOperator.MATCHES -> userMsg.userImportFilterOperatorMatches()
+    FilterOperator.NOT_MATCHES -> userMsg.userImportFilterOperatorNotMatches()
+    FilterOperator.GREATER_THAN -> userMsg.userImportFilterOperatorGreaterThan()
+    FilterOperator.GREATER_THAN_OR_EQUAL -> userMsg.userImportFilterOperatorGreaterThanOrEqual()
+    FilterOperator.LESS_THAN -> userMsg.userImportFilterOperatorLessThan()
+    FilterOperator.LESS_THAN_OR_EQUAL -> userMsg.userImportFilterOperatorLessThanOrEqual()
   }
 
   @GET
@@ -506,7 +532,7 @@ class UserImportResource {
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
-        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
+        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
         .data("conversionUnitOptions", DurationConversionUnit.entries.map { ConversionUnitOptionRow(it.name, conversionUnitLabel(it)) })
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
@@ -801,10 +827,13 @@ class UserImportResource {
   private fun formatNumber(value: Double): String = if (value == Math.floor(value) && !value.isInfinite()) value.toLong().toString() else value.toString()
 
   private fun schemaFieldLabel(property: SchemaProperty): String {
-    val dominantType = property.typeCounts.filterKeys { it != SchemaPropertyType.NULL }.maxByOrNull { it.value }?.key
+    val dominantType = dominantSchemaType(property)
     val typeLabel = dominantType?.let { schemaTypeLabel(it) }
     return if (typeLabel != null) "${property.path} ($typeLabel)" else property.path
   }
+
+  private fun dominantSchemaType(property: SchemaProperty): SchemaPropertyType? =
+    property.typeCounts.filterKeys { it != SchemaPropertyType.NULL }.maxByOrNull { it.value }?.key
 
   private fun schemaTypeLabel(type: SchemaPropertyType): String = when (type) {
     SchemaPropertyType.STRING -> userMsg.userImportSchemaTypeString()

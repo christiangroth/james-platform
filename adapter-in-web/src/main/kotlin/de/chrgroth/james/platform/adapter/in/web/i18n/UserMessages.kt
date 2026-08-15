@@ -367,6 +367,24 @@ interface UserMessages {
   @Message
   fun userImportFilterOperatorContains(): String
 
+  @Message
+  fun userImportFilterOperatorMatches(): String
+
+  @Message
+  fun userImportFilterOperatorNotMatches(): String
+
+  @Message
+  fun userImportFilterOperatorGreaterThan(): String
+
+  @Message
+  fun userImportFilterOperatorGreaterThanOrEqual(): String
+
+  @Message
+  fun userImportFilterOperatorLessThan(): String
+
+  @Message
+  fun userImportFilterOperatorLessThanOrEqual(): String
+
   // import connections page
   @Message
   fun userImportConnectionsNavLabel(): String

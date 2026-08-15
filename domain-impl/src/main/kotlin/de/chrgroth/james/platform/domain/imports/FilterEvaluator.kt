@@ -18,9 +18,15 @@ object FilterEvaluator {
       }
     }
 
+  /** Distinct textual values found at [sourcePath] across [records], sorted - used to let the filter UI offer known values instead of free text input for [FilterOperator.EQUALS]/[FilterOperator.NOT_EQUALS]. */
+  fun distinctValues(records: List<JsonNode>, sourcePath: String): List<String> =
+    records.mapNotNull { resolve(it, sourcePath)?.takeIf { value -> !value.isNull }?.asText() }
+      .distinct()
+      .sorted()
+
   private fun matches(record: JsonNode, rule: FilterRule): Boolean {
     val value = resolve(record, rule.sourcePath)?.takeIf { !it.isNull }
-      ?: return rule.operator == FilterOperator.IS_NULL || rule.operator == FilterOperator.NOT_EQUALS
+      ?: return rule.operator == FilterOperator.IS_NULL || rule.operator == FilterOperator.NOT_EQUALS || rule.operator == FilterOperator.NOT_MATCHES
 
     val text = value.asText()
     return when (rule.operator) {
@@ -29,6 +35,25 @@ object FilterEvaluator {
       FilterOperator.EQUALS -> text == rule.value
       FilterOperator.NOT_EQUALS -> text != rule.value
       FilterOperator.CONTAINS -> text.contains(rule.value.orEmpty())
+      FilterOperator.MATCHES -> matchesRegex(text, rule.value)
+      FilterOperator.NOT_MATCHES -> !matchesRegex(text, rule.value)
+      FilterOperator.GREATER_THAN -> compare(value, rule.value) > 0
+      FilterOperator.GREATER_THAN_OR_EQUAL -> compare(value, rule.value) >= 0
+      FilterOperator.LESS_THAN -> compare(value, rule.value) < 0
+      FilterOperator.LESS_THAN_OR_EQUAL -> compare(value, rule.value) <= 0
+    }
+  }
+
+  private fun matchesRegex(text: String, pattern: String?): Boolean =
+    pattern?.let { runCatching { Regex(it).containsMatchIn(text) }.getOrDefault(false) } ?: false
+
+  /** Compares numerically when both sides parse as numbers, lexicographically otherwise - which also covers the zero-padded ISO date/datetime strings [SchemaDetector] recognizes, since those sort correctly as plain text. */
+  private fun compare(value: JsonNode, ruleValue: String?): Int {
+    val ruleNumber = ruleValue?.toDoubleOrNull()
+    return if (value.isNumber && ruleNumber != null) {
+      value.asDouble().compareTo(ruleNumber)
+    } else {
+      value.asText().compareTo(ruleValue.orEmpty())
     }
   }
 
