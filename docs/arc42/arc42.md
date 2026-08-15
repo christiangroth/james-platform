@@ -506,6 +506,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0011](../adr/0011-import-single-mapping-scope.md)           | Data Import Mapping: Single Mapping, Find-Only Reference Lookups |
 | [0012](../adr/0012-import-connection-job-split.md)           | Data Import: Separate Reusable Connection from Per-Run Job |
 | [0013](../adr/0013-precomputed-read-models-per-ui-page.md)   | Precomputed Read Models per UI Page (Scoped CQRS Exception) |
+| [0014](../adr/0014-app-lifecycle.md)                          | App Lifecycle: Non-Blocking Deactivation, Blocking Hard Delete |
 
 # Risks and Technical Debts
 
@@ -552,6 +553,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Report            | A named view within an App. Contains one or more Pages; may load filtered entity data.                            |
 | Page              | A single HTML + JavaScript unit within a Report.                                                                  |
 | Installation      | A User's personal instance of an App Version, containing that User's data objects.                                |
+| App status        | Lifecycle state of an App: `ACTIVE` (visible in the User app store, installable) or `INACTIVE` (hidden from the store; existing Installations keep working unchanged, and their Users see an informational badge/banner). A Developer can toggle between the two at any time — deactivation blocks nothing. See ADR [0014](../adr/0014-app-lifecycle.md). |
+| Hard delete       | Permanent removal of an App and its Versions. Blocked while any Installation of the App exists, regardless of App status. Not to be confused with the not-yet-implemented Force Delete (see ADR [0014](../adr/0014-app-lifecycle.md)), which would also cascade to active Installations/AppData. |
 | Data sharing      | A feature allowing a User to invite another User to share data within a shared installation.                      |
 | Semver            | Semantic versioning (Major.Minor.Patch). Version numbers in James Platform are derived automatically.              |
 | Breaking change   | A schema change that is incompatible with existing data (e.g. removing an Entity or renaming an immutable ID).    |
