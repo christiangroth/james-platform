@@ -72,12 +72,17 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
 
 **Allowed (domain-justified):**
 
-(none currently)
+- Precomputed read model per UI page, but only once a specific page is demonstrably slow from composing
+  several queries across write-shaped collections – not pre-emptively. Rebuilt inline in the owning domain
+  service for single-source writes, or via a CDI event for multi-source/fan-out writes; backfilled via the
+  existing `Starter` mechanism. Ports live in `domain-api/port/out/readmodel`. See
+  [ADR-0013](../adr/0013-precomputed-read-models-per-ui-page.md).
 
 **Not allowed:**
 
-- No CQRS, no event sourcing
-- No message brokers (Kafka, RabbitMQ) – CDI events are sufficient
+- No general CQRS or event sourcing beyond the precomputed read models above
+- No message brokers (Kafka, RabbitMQ), no persistent outbox – CDI events are sufficient (outbox was
+  deliberately removed, see [#215](https://github.com/christiangroth/james-platform/pull/215))
 - No separate frontend deployment – Qute SSR in the same Quarkus process
 
 ## Testing Strategy
