@@ -188,6 +188,20 @@ class DeveloperAppResource {
     )
   }
 
+  @POST
+  @Path("/apps/{appId}/deactivate")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deactivateApp(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("rest.developer.app-deactivate") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    appManagement.deactivateApp(appId, developerId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
+      ifRight = { result ->
+        Response.ok(DeveloperApiResult(true, devMsg.developerAppDeactivatedMessage(result.activeInstallationCount))).build()
+      },
+    )
+  }
+
   @GET
   @Path("/apps/{appId}")
   @Produces(MediaType.TEXT_HTML)
@@ -1065,6 +1079,7 @@ class DeveloperAppResource {
   private fun appErrorMessage(code: String): String = when (code) {
     AppError.BLANK_INPUT.code -> devMsg.developerAppNameRequiredError()
     AppError.APP_NAME_ALREADY_EXISTS.code -> devMsg.developerAppNameExistsError()
+    AppError.ALREADY_INACTIVE.code -> devMsg.developerAppAlreadyInactiveError()
     else -> msg.commonUnexpectedError()
   }
 

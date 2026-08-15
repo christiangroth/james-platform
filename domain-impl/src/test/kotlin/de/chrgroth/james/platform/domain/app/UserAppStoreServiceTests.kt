@@ -187,6 +187,21 @@ class UserAppStoreServiceTests {
   }
 
   @Test
+  fun `getInstalledApp reports appActive false when the underlying app is deactivated`() {
+    val deactivatedApp = app1.copy(status = AppStatus.INACTIVE)
+    val installed = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installed
+    every { appRepository.findById(AppId("app-1")) } returns deactivatedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns v1
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
+
+    val result = service.getInstalledApp("user-1", "inst-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.appActive).isFalse()
+  }
+
+  @Test
   fun `getInstalledApp fails when installed app not found`() {
     every { installedAppRepository.findById(InstalledAppId("unknown")) } returns null
 

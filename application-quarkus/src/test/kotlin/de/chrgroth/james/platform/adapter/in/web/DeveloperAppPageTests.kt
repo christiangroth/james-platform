@@ -409,6 +409,75 @@ class DeveloperAppPageTests {
   }
 
   @Test
+  fun `app overview shows active status badge and deactivate button for active app`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Status Badge App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="app-status-badge""""))
+      .body(containsString("""data-testid="deactivate-app-button""""))
+  }
+
+  @Test
+  fun `deactivate app succeeds and reports it is not blocking`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Deactivate App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":true"))
+  }
+
+  @Test
+  fun `deactivating an already inactive app returns an error`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Already Inactive App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
   fun `nested OBJECT property properties can be added and shown when descending via path`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")
