@@ -19,6 +19,9 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
+import de.chrgroth.james.platform.domain.model.imports.FilterMode
+import de.chrgroth.james.platform.domain.model.imports.FilterOperator
+import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
@@ -75,6 +78,7 @@ data class ImportJobRow(
   val connectionName: String,
   val statusLabel: String,
   val awaitingDataPathSelection: Boolean,
+  val filterable: Boolean,
   val mappable: Boolean,
   val readyForDryRun: Boolean,
   val detectedDataPaths: List<DataPathRow>,
@@ -103,6 +107,25 @@ data class ConnectionOptionRow(
 data class SchemaFieldOptionRow(
   val path: String,
   val label: String,
+)
+
+data class FilterRuleRow(
+  val mode: String,
+  val sourcePath: String,
+  val operator: String,
+  val value: String,
+  val requiresValue: Boolean,
+)
+
+data class FilterModeOptionRow(
+  val value: String,
+  val label: String,
+)
+
+data class FilterOperatorOptionRow(
+  val value: String,
+  val label: String,
+  val requiresValue: Boolean,
 )
 
 data class PropertyOptionRow(
@@ -184,6 +207,17 @@ data class MappingSaveRequest @JsonCreator constructor(
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
 )
 
+data class FilterRuleRequest @JsonCreator constructor(
+  @param:JsonProperty("mode") val mode: String?,
+  @param:JsonProperty("sourcePath") val sourcePath: String?,
+  @param:JsonProperty("operator") val operator: String?,
+  @param:JsonProperty("value") val value: String?,
+)
+
+data class FilterSaveRequest @JsonCreator constructor(
+  @param:JsonProperty("rules") val rules: List<FilterRuleRequest>,
+)
+
 @Path("/ui/user/imports")
 @ApplicationScoped
 @BlockAdminAccess
@@ -198,6 +232,10 @@ class UserImportResource {
   @Inject
   @Location("ui/user/import-job.html")
   private lateinit var importJobTemplate: Template
+
+  @Inject
+  @Location("ui/user/import-filter.html")
+  private lateinit var filterTemplate: Template
 
   @Inject
   @Location("ui/user/import-mapping.html")
@@ -350,6 +388,92 @@ class UserImportResource {
   }
 
   @GET
+  @Path("/{importJobId}/filter")
+  @Produces(MediaType.TEXT_HTML)
+  fun filter(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("page.user-import.filter") {
+    val userId = securityIdentity.principal.name
+    val view = importPort.getFilterView(userId, importJobId).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    val targetEntityName = installedTargetEntityName(info, view.importJob.targetEntityDefinitionId.value)
+
+    Response.ok(
+      filterTemplate
+        .data("importJobId", importJobId)
+        .data("targetEntityName", targetEntityName)
+        .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, targetEntityName))
+        .data("filterRuleRows", view.importJob.filterRules.map { it.toRow() })
+        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
+        .data("modeOptions", FilterMode.entries.map { FilterModeOptionRow(it.name, filterModeLabel(it)) })
+        .data("operatorOptions", FilterOperator.entries.map { FilterOperatorOptionRow(it.name, filterOperatorLabel(it), it.requiresValue) })
+        .data("totalRecordCount", view.totalRecordCount)
+        .data("matchingRecordCount", view.matchingRecordCount)
+        .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
+        .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
+        .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
+        .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
+    ).build()
+  }
+
+  @POST
+  @Path("/{importJobId}/filter")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun saveFilter(
+    @PathParam("importJobId") importJobId: String,
+    request: FilterSaveRequest,
+  ): Response = httpResponseMetrics.timed("rest.user-import.filter-save") {
+    val userId = securityIdentity.principal.name
+    val filterRules = request.rules.mapNotNull { it.toDomainOrNull() }
+
+    importPort.updateFilter(userId, importJobId, filterRules).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
+      ifRight = { view -> Response.ok(DeveloperApiResult(true, userMsg.userImportFilterSavedMessage(view.matchingRecordCount, view.totalRecordCount))).build() },
+    )
+  }
+
+  private fun installedTargetEntityName(info: InstalledAppInfo, entityDefinitionId: String): String =
+    info.installedVersion.entityDefinitions.find { it.id.value == entityDefinitionId }?.name.orEmpty()
+
+  private fun FilterRuleRequest.toDomainOrNull(): FilterRule? {
+    val ruleMode = mode?.let { runCatching { FilterMode.valueOf(it) }.getOrNull() } ?: return null
+    val ruleSourcePath = sourcePath?.takeIf { it.isNotBlank() } ?: return null
+    val ruleOperator = operator?.let { runCatching { FilterOperator.valueOf(it) }.getOrNull() } ?: return null
+    val ruleValue = value?.takeIf { it.isNotBlank() }
+    if (ruleOperator.requiresValue && ruleValue == null) return null
+    return FilterRule(ruleMode, ruleSourcePath, ruleOperator, ruleValue)
+  }
+
+  private fun FilterRule.toRow() = FilterRuleRow(
+    mode = mode.name,
+    sourcePath = sourcePath,
+    operator = operator.name,
+    value = value.orEmpty(),
+    requiresValue = operator.requiresValue,
+  )
+
+  private val FilterOperator.requiresValue: Boolean
+    get() = this != FilterOperator.IS_NULL && this != FilterOperator.IS_NOT_NULL
+
+  private fun filterModeLabel(mode: FilterMode): String = when (mode) {
+    FilterMode.INCLUDE -> userMsg.userImportFilterModeInclude()
+    FilterMode.EXCLUDE -> userMsg.userImportFilterModeExclude()
+  }
+
+  private fun filterOperatorLabel(operator: FilterOperator): String = when (operator) {
+    FilterOperator.IS_NULL -> userMsg.userImportFilterOperatorIsNull()
+    FilterOperator.IS_NOT_NULL -> userMsg.userImportFilterOperatorIsNotNull()
+    FilterOperator.EQUALS -> userMsg.userImportFilterOperatorEquals()
+    FilterOperator.NOT_EQUALS -> userMsg.userImportFilterOperatorNotEquals()
+    FilterOperator.CONTAINS -> userMsg.userImportFilterOperatorContains()
+  }
+
+  @GET
   @Path("/{importJobId}/mapping")
   @Produces(MediaType.TEXT_HTML)
   fun mapping(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("page.user-import.mapping") {
@@ -373,6 +497,7 @@ class UserImportResource {
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
+        .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
     ).build()
@@ -450,6 +575,7 @@ class UserImportResource {
         .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
         .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition))
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
+        .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
     ).build()
@@ -505,6 +631,7 @@ class UserImportResource {
     connectionName = connectionNamesById[connectionId.value].orEmpty(),
     statusLabel = statusLabel(status),
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
+    filterable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
     mappable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
     readyForDryRun = status == ImportStatus.READY,
     detectedDataPaths = detectedDataPaths.map { it.toRow() },
@@ -711,6 +838,7 @@ class UserImportResource {
     ImportError.MAPPING_PROPERTY_NOT_FOUND.code -> userMsg.userImportMappingPropertyNotFoundError()
     ImportError.IMPORT_JOB_NOT_READY.code -> userMsg.userImportJobNotReadyError()
     ImportError.CONNECTION_NOT_FOUND.code -> userMsg.userImportConnectionNotFoundError()
+    ImportError.IMPORT_JOB_NOT_FILTERABLE.code -> userMsg.userImportJobNotFilterableError()
     else -> msg.commonUnexpectedError()
   }
 

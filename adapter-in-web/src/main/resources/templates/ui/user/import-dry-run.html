@@ -15,7 +15,7 @@
             <h1 class="fs-4 fw-semibold mb-0" data-testid="dry-run-title">{pageHeading}</h1>
         </div>
 
-        {#import-steps importJobId=importJobId mappable=mappable readyForDryRun=readyForDryRun activeStep="dry-run" /}
+        {#import-steps importJobId=importJobId filterable=filterable mappable=mappable readyForDryRun=readyForDryRun activeStep="dry-run" /}
 
         <div id="dry-run-message" class="d-none mb-4" role="alert"></div>
 

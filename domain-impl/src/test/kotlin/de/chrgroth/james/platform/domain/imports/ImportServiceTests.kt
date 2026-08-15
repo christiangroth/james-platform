@@ -23,6 +23,9 @@ import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
+import de.chrgroth.james.platform.domain.model.imports.FilterMode
+import de.chrgroth.james.platform.domain.model.imports.FilterOperator
+import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
@@ -367,6 +370,95 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `get filter view reports total and matching record counts against the configured filter`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"country":"DE"},{"country":"US"},{"country":"DE"}]}""",
+      selectedDataPath = "items",
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE")),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.getFilterView("user-1", job.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    val view = result.getOrNull()!!
+    assertThat(view.totalRecordCount).isEqualTo(3)
+    assertThat(view.matchingRecordCount).isEqualTo(2)
+  }
+
+  @Test
+  fun `get filter view fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
+
+    val result = service.getFilterView("user-1", "missing")
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `update filter replaces the job's filter rules and reports the re-evaluated matching count`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"country":"DE"},{"country":"US"}]}""",
+      selectedDataPath = "items",
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+
+    val rules = listOf(FilterRule(FilterMode.EXCLUDE, "country", FilterOperator.EQUALS, "US"))
+    val result = service.updateFilter("user-1", job.id.value, rules)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.filterRules).isEqualTo(rules)
+    val view = result.getOrNull()!!
+    assertThat(view.totalRecordCount).isEqualTo(2)
+    assertThat(view.matchingRecordCount).isEqualTo(1)
+  }
+
+  @Test
+  fun `update filter fails when job has no data path selected yet`() {
+    val job = importJob(status = ImportStatus.DOWNLOADED)
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.updateFilter("user-1", job.id.value, emptyList())
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FILTERABLE.left())
+  }
+
+  @Test
+  fun `update filter fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
+
+    val result = service.updateFilter("user-1", "missing", emptyList())
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `dry run only evaluates records that pass the configured filter`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val job = importJob(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice","country":"DE"},{"name":"Bob","country":"US"}]}""",
+      selectedDataPath = "items",
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE")),
+      mapping = readyMapping,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.dryRun("user-1", job.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    val report = result.getOrNull()!!
+    assertThat(report.totalCount).isEqualTo(1)
+    assertThat(report.validObjects.single().targetData[PropertyId("prop-1")]).isEqualTo("Alice")
+  }
+
+  @Test
   fun `update mapping succeeds and transitions to READY when mapping is complete and valid`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
@@ -622,6 +714,7 @@ class ImportServiceTests {
     payload: String = """{"foo":"bar"}""",
     detectedSchema: List<SchemaProperty> = emptyList(),
     selectedDataPath: String? = null,
+    filterRules: List<FilterRule> = emptyList(),
     mapping: Mapping? = null,
     targetEntityDefinitionId: EntityDefinitionId = EntityDefinitionId("entity-1"),
   ) = ImportJob(
@@ -631,6 +724,7 @@ class ImportServiceTests {
     connectionId = ImportConnectionId("conn-1"),
     targetEntityDefinitionId = targetEntityDefinitionId,
     selectedDataPath = selectedDataPath,
+    filterRules = filterRules,
     mapping = mapping,
     status = status,
     payload = payload,

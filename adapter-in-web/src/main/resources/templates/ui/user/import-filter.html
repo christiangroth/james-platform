@@ -1,0 +1,193 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {targetEntityName} – {user:userImportFilterTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/user/imports/{importJobId}" class="breadcrumb-link" data-testid="breadcrumb-import-name">{targetEntityName}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-filter">{user:userImportFilterTitle()}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="filter-title">{pageHeading}</h1>
+        </div>
+
+        {#import-steps importJobId=importJobId filterable=filterable mappable=mappable readyForDryRun=readyForDryRun activeStep="filter" /}
+
+        <div id="filter-message" class="d-none mb-4" role="alert"></div>
+
+        <div class="card app-card p-3 p-md-4 mb-4">
+            <span class="app-section-label">{user:userImportFilterPreviewLabel(matchingRecordCount, totalRecordCount)}</span>
+        </div>
+
+        <form id="filterForm">
+            <div class="card app-card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0 app-table filter-rules-table" data-testid="filter-rules-table">
+                        <thead>
+                            <tr>
+                                <th>{user:userImportFilterColMode()}</th>
+                                <th>{user:userImportFilterColSourceField()}</th>
+                                <th>{user:userImportFilterColOperator()}</th>
+                                <th>{user:userImportFilterColValue()}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for rule in filterRuleRows}
+                            <tr class="filter-rule-row" data-testid="filter-rule-row">
+                                <td>
+                                    <select class="form-select form-select-sm app-form-control rule-mode-select" data-testid="rule-mode-select">
+                                        {#for option in modeOptions}
+                                        <option value="{option.value}" {#if option.value == rule.mode}selected{/if}>{option.label}</option>
+                                        {/for}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm app-form-control rule-source-path-select" data-testid="rule-source-path-select">
+                                        {#for field in schemaFieldOptions}
+                                        <option value="{field.path}" {#if field.path == rule.sourcePath}selected{/if}>{field.label}</option>
+                                        {/for}
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm app-form-control rule-operator-select" data-testid="rule-operator-select">
+                                        {#for option in operatorOptions}
+                                        <option value="{option.value}" data-requires-value="{option.requiresValue}" {#if option.value == rule.operator}selected{/if}>{option.label}</option>
+                                        {/for}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm app-form-control rule-value-input {#if !rule.requiresValue}d-none{/if}" value="{rule.value}" placeholder="{user:userImportFilterValuePlaceholder()}" autocomplete="off" data-testid="rule-value-input">
+                                </td>
+                                <td><button type="button" class="btn btn-sm btn-app-secondary remove-rule-button" data-testid="remove-rule-button">{user:userImportFilterRemoveRuleButton()}</button></td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+                {#if filterRuleRows.isEmpty}
+                <div class="p-3 form-text" data-testid="filter-no-rules-hint">{user:userImportFilterNoRulesHint()}</div>
+                {/if}
+            </div>
+
+            <template class="filter-rule-row-template">
+                <tr class="filter-rule-row" data-testid="filter-rule-row">
+                    <td>
+                        <select class="form-select form-select-sm app-form-control rule-mode-select" data-testid="rule-mode-select">
+                            {#for option in modeOptions}
+                            <option value="{option.value}">{option.label}</option>
+                            {/for}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm app-form-control rule-source-path-select" data-testid="rule-source-path-select">
+                            {#for field in schemaFieldOptions}
+                            <option value="{field.path}">{field.label}</option>
+                            {/for}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm app-form-control rule-operator-select" data-testid="rule-operator-select">
+                            {#for option in operatorOptions}
+                            <option value="{option.value}" data-requires-value="{option.requiresValue}">{option.label}</option>
+                            {/for}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm app-form-control rule-value-input" value="" placeholder="{user:userImportFilterValuePlaceholder()}" autocomplete="off" data-testid="rule-value-input">
+                    </td>
+                    <td><button type="button" class="btn btn-sm btn-app-secondary remove-rule-button" data-testid="remove-rule-button">{user:userImportFilterRemoveRuleButton()}</button></td>
+                </tr>
+            </template>
+
+            <div class="d-flex mt-4 gap-2">
+                <button type="button" class="btn btn-app-secondary add-rule-button" data-testid="add-rule-button">{user:userImportFilterAddRuleButton()}</button>
+                <button type="submit" class="btn btn-app-primary ms-auto" data-testid="save-filter-button">{user:userImportFilterSaveButton()}</button>
+            </div>
+        </form>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var importJobId = '{importJobId}';
+            var basePath = '/ui/user/imports/' + encodeURIComponent(importJobId) + '/filter';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('filter-message');
+
+            function showMessage(ok, message) {
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+            }
+
+            function syncValueVisibility(row) {
+                var operatorSelect = row.querySelector('.rule-operator-select');
+                var valueInput = row.querySelector('.rule-value-input');
+                var requiresValue = operatorSelect.selectedOptions[0].getAttribute('data-requires-value') === 'true';
+                valueInput.classList.toggle('d-none', !requiresValue);
+            }
+
+            var filterForm = document.getElementById('filterForm');
+            if (filterForm) {
+                filterForm.addEventListener('change', function (e) {
+                    if (!e.target.classList.contains('rule-operator-select')) return;
+                    syncValueVisibility(e.target.closest('.filter-rule-row'));
+                });
+
+                filterForm.addEventListener('click', function (e) {
+                    var addButton = e.target.closest('.add-rule-button');
+                    if (addButton) {
+                        var tbody = filterForm.querySelector('.filter-rules-table tbody');
+                        var row = filterForm.querySelector('.filter-rule-row-template').content.cloneNode(true);
+                        tbody.appendChild(row);
+                        syncValueVisibility(tbody.lastElementChild);
+                        var hint = filterForm.parentElement.querySelector('[data-testid="filter-no-rules-hint"]');
+                        if (hint) hint.remove();
+                        return;
+                    }
+                    var removeButton = e.target.closest('.remove-rule-button');
+                    if (removeButton) {
+                        removeButton.closest('.filter-rule-row').remove();
+                    }
+                });
+
+                filterForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+
+                    var rules = [];
+                    filterForm.querySelectorAll('.filter-rule-row').forEach(function (row) {
+                        rules.push({
+                            mode: row.querySelector('.rule-mode-select').value,
+                            sourcePath: row.querySelector('.rule-source-path-select').value,
+                            operator: row.querySelector('.rule-operator-select').value,
+                            value: row.querySelector('.rule-value-input').value
+                        });
+                    });
+
+                    try {
+                        var response = await fetch(basePath, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            body: JSON.stringify({ rules: rules })
+                        });
+                        var result = await response.json();
+                        showMessage(result.ok, result.message);
+                        if (result.ok) {
+                            setTimeout(function () { window.location.reload(); }, 600);
+                        }
+                    } catch (e) {
+                        showMessage(false, networkErrorMessage);
+                    }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}

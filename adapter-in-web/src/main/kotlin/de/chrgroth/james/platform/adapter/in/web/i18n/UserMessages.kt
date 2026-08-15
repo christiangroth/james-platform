@@ -196,6 +196,9 @@ interface UserMessages {
   fun userImportStatusReady(): String
 
   @Message
+  fun userImportFilterLinkLabel(): String
+
+  @Message
   fun userImportMappingLinkLabel(): String
 
   @Message
@@ -296,6 +299,67 @@ interface UserMessages {
 
   @Message
   fun userImportJobNotReadyError(): String
+
+  @Message
+  fun userImportJobNotFilterableError(): String
+
+  // import filter page
+  @Message
+  fun userImportFilterTitle(): String
+
+  @Message
+  fun userImportFilterColMode(): String
+
+  @Message
+  fun userImportFilterColSourceField(): String
+
+  @Message
+  fun userImportFilterColOperator(): String
+
+  @Message
+  fun userImportFilterColValue(): String
+
+  @Message
+  fun userImportFilterValuePlaceholder(): String
+
+  @Message
+  fun userImportFilterAddRuleButton(): String
+
+  @Message
+  fun userImportFilterRemoveRuleButton(): String
+
+  @Message
+  fun userImportFilterSaveButton(): String
+
+  @Message
+  fun userImportFilterNoRulesHint(): String
+
+  @Message
+  fun userImportFilterPreviewLabel(matchingRecordCount: Int, totalRecordCount: Int): String
+
+  @Message
+  fun userImportFilterSavedMessage(matchingRecordCount: Int, totalRecordCount: Int): String
+
+  @Message
+  fun userImportFilterModeInclude(): String
+
+  @Message
+  fun userImportFilterModeExclude(): String
+
+  @Message
+  fun userImportFilterOperatorIsNull(): String
+
+  @Message
+  fun userImportFilterOperatorIsNotNull(): String
+
+  @Message
+  fun userImportFilterOperatorEquals(): String
+
+  @Message
+  fun userImportFilterOperatorNotEquals(): String
+
+  @Message
+  fun userImportFilterOperatorContains(): String
 
   // import connections page
   @Message
