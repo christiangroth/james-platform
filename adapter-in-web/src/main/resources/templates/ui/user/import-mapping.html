@@ -7,6 +7,7 @@
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/user/imports/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item" data-testid="breadcrumb-import-name">{targetEntityName}</li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-mapping">{user:userImportMappingTitle()}</li>
             </ol>
         </nav>

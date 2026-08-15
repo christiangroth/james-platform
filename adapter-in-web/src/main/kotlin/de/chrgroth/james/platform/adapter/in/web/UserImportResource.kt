@@ -133,6 +133,12 @@ data class DryRunObjectRow(
   val properties: List<DryRunPropertyRow>,
 )
 
+data class DryRunSkippedReasonRow(
+  val propertyName: String,
+  val message: String,
+  val count: Int,
+)
+
 data class ReferenceLookupCriterionRequest @JsonCreator constructor(
   @param:JsonProperty("targetPropertyId") val targetPropertyId: String?,
   @param:JsonProperty("sourcePath") val sourcePath: String?,
@@ -354,12 +360,13 @@ class UserImportResource {
       dryRunTemplate
         .data("info", info)
         .data("importJobId", importJobId)
+        .data("targetEntityName", view.targetEntityDefinition.name)
         .data("totalCount", report.totalCount)
         .data("validCount", report.validCount)
         .data("skippedCount", report.skippedCount)
         .data("invalidCount", report.invalidCount)
         .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
-        .data("skippedObjects", report.skippedObjects.map { it.toRow(view.targetEntityDefinition) }),
+        .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition)),
     ).build()
   }
 
@@ -424,6 +431,16 @@ class UserImportResource {
       )
     }
     return DryRunObjectRow(index + 1, prettyPrintedSourceData(sourceDataJson), properties)
+  }
+
+  /** Groups a fan-in mapping's skipped objects by (property, reason) instead of listing every individual object, which would otherwise flood the report with noise. */
+  private fun buildSkippedReasonRows(skippedObjects: List<DryRunObject>, entityDefinition: EntityDefinition): List<DryRunSkippedReasonRow> {
+    val propertyNamesById = entityDefinition.properties.associate { it.id to it.name }
+    return skippedObjects
+      .flatMap { it.issues }
+      .groupBy { it.targetPropertyId to dryRunIssueMessage(it) }
+      .map { (propertyIdAndMessage, issues) -> DryRunSkippedReasonRow(propertyNamesById[propertyIdAndMessage.first].orEmpty(), propertyIdAndMessage.second, issues.size) }
+      .sortedByDescending { it.count }
   }
 
   private fun dryRunIssueMessage(issue: DryRunIssue): String = when (issue) {

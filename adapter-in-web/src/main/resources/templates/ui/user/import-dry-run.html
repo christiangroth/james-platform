@@ -7,6 +7,7 @@
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
                 <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
                 <li class="breadcrumb-item"><a href="/ui/user/imports/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item" data-testid="breadcrumb-import-name">{targetEntityName}</li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-dry-run">{user:userImportDryRunTitle()}</li>
             </ol>
         </nav>
@@ -17,33 +18,6 @@
         </div>
 
         <div id="dry-run-message" class="d-none mb-4" role="alert"></div>
-
-        <div class="row g-3 mb-4">
-            <div class="col-auto">
-                <div class="card app-card p-3 text-center">
-                    <div class="fs-4 fw-semibold" data-testid="total-count">{totalCount}</div>
-                    <div class="app-section-label small">{user:userImportDryRunTotalLabel()}</div>
-                </div>
-            </div>
-            <div class="col-auto">
-                <div class="card app-card p-3 text-center">
-                    <div class="fs-4 fw-semibold text-success" data-testid="valid-count">{validCount}</div>
-                    <div class="app-section-label small">{user:userImportDryRunValidLabel()}</div>
-                </div>
-            </div>
-            <div class="col-auto">
-                <div class="card app-card p-3 text-center">
-                    <div class="fs-4 fw-semibold text-secondary" data-testid="skipped-count">{skippedCount}</div>
-                    <div class="app-section-label small">{user:userImportDryRunSkippedLabel()}</div>
-                </div>
-            </div>
-            <div class="col-auto">
-                <div class="card app-card p-3 text-center">
-                    <div class="fs-4 fw-semibold text-danger" data-testid="invalid-count">{invalidCount}</div>
-                    <div class="app-section-label small">{user:userImportDryRunInvalidLabel()}</div>
-                </div>
-            </div>
-        </div>
 
         {#if invalidObjects.isEmpty}
         <div class="card app-card p-4 mb-4">
@@ -99,55 +73,62 @@
         </div>
         {/if}
 
-        {#if !skippedObjects.isEmpty}
-        <h2 class="fs-6 fw-semibold" data-testid="skipped-objects-heading">{user:userImportDryRunSkippedObjectsHeading()}</h2>
-        <div class="accordion mb-4" id="skippedObjectsAccordion">
-            {#for object in skippedObjects}
-            <div class="accordion-item" data-testid="dry-run-skipped-object">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#skipped-object-{object_index}" data-testid="dry-run-skipped-object-toggle">
-                        {user:userImportDryRunObjectLabel(object.index)}
-                    </button>
-                </h2>
-                <div id="skipped-object-{object_index}" class="accordion-collapse collapse" data-bs-parent="#skippedObjectsAccordion">
-                    <div class="accordion-body">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="app-section-label small mb-1">{user:userImportDryRunColSourceData()}</div>
-                                <pre class="mb-0 small" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;overflow-x:auto;color:var(--color-code-text);max-height:300px;" data-testid="dry-run-source-data">{object.sourceDataJson}</pre>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="app-section-label small mb-1">{user:userImportDryRunColTargetObject()}</div>
-                                <table class="table table-sm mb-0" data-testid="dry-run-target-object">
-                                    <tbody>
-                                        {#for property in object.properties}
-                                        <tr data-testid="dry-run-property-row">
-                                            <td class="fw-semibold">{property.name}<div class="app-section-label small">{property.typeLabel}</div></td>
-                                            <td data-testid="dry-run-property-value">{property.value}</td>
-                                        </tr>
-                                        {#for issue in property.issues}
-                                        <tr>
-                                            <td colspan="2" class="small text-secondary" data-testid="dry-run-issue">
-                                                {issue.message}
-                                                <span class="badge border-0 app-badge-muted ms-1" data-testid="expected-skip-badge">{user:userImportDryRunSkippedBadge()}</span>
-                                            </td>
-                                        </tr>
-                                        {/for}
-                                        {/for}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {/for}
-        </div>
-        {/if}
-
-        <div class="d-flex">
+        <div class="d-flex mb-4">
             <button type="button" class="btn btn-app-primary ms-auto" data-bs-toggle="modal" data-bs-target="#acceptDryRunModal" data-testid="accept-dry-run-button">{user:userImportDryRunAcceptButton()}</button>
         </div>
+
+        <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+            <div class="col">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold" data-testid="total-count">{totalCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunTotalLabel()}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold text-success" data-testid="valid-count">{validCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunValidLabel()}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold text-danger" data-testid="invalid-count">{invalidCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunInvalidLabel()}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card app-card p-3 text-center">
+                    <div class="fs-4 fw-semibold text-secondary" data-testid="skipped-count">{skippedCount}</div>
+                    <div class="app-section-label small">{user:userImportDryRunSkippedLabel()}</div>
+                </div>
+            </div>
+        </div>
+
+        {#if !skippedReasons.isEmpty}
+        <h2 class="fs-6 fw-semibold" data-testid="skipped-reasons-heading">{user:userImportDryRunSkippedReasonsHeading()}</h2>
+        <div class="card app-card mb-4">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" data-testid="skipped-reasons-table">
+                    <thead>
+                        <tr>
+                            <th>{user:userImportDryRunSkippedReasonsColProperty()}</th>
+                            <th>{user:userImportDryRunSkippedReasonsColReason()}</th>
+                            <th class="text-end">{user:userImportDryRunSkippedReasonsColCount()}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#for reason in skippedReasons}
+                        <tr data-testid="skipped-reason-row">
+                            <td class="fw-semibold">{reason.propertyName}</td>
+                            <td>{reason.message} <span class="badge border-0 app-badge-muted ms-1" data-testid="skipped-reason-badge">{user:userImportDryRunSkippedBadge()}</span></td>
+                            <td class="text-end" data-testid="skipped-reason-count">{reason.count}</td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {/if}
     </div>
 
     <!-- Accept Dry-Run Modal -->

@@ -490,7 +490,16 @@ interface UserMessages {
   fun userImportDryRunInvalidObjectsHeading(): String
 
   @Message
-  fun userImportDryRunSkippedObjectsHeading(): String
+  fun userImportDryRunSkippedReasonsHeading(): String
+
+  @Message
+  fun userImportDryRunSkippedReasonsColProperty(): String
+
+  @Message
+  fun userImportDryRunSkippedReasonsColReason(): String
+
+  @Message
+  fun userImportDryRunSkippedReasonsColCount(): String
 
   @Message
   fun userImportDryRunSkippedBadge(): String

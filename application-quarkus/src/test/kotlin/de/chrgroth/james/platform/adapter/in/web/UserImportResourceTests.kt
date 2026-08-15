@@ -482,6 +482,7 @@ class UserImportResourceTests {
 
     assertTrue(html.contains("data-testid=\"mapping-property-row\""), "Expected the target entity's property row to be rendered")
     assertTrue(html.contains("data-property-id=\"${app.propertyId}\""), "Expected the property row to reference the created property")
+    assertTrue(html.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the target entity's name to be part of the breadcrumbs")
   }
 
   @Test
@@ -586,6 +587,12 @@ class UserImportResourceTests {
     assertTrue(html.contains("data-testid=\"dry-run-object\""), "Expected the invalid object to be rendered")
     assertTrue(html.contains("data-testid=\"dry-run-issue\""), "Expected the missing mandatory value issue to be rendered")
     assertTrue(html.contains("data-testid=\"statically-checked-badge\""), "Expected the missing mandatory value issue to be flagged as already checked statically")
+    assertTrue(html.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the target entity's name to be part of the breadcrumbs")
+    assertTrue(
+      html.indexOf("data-testid=\"invalid-objects-heading\"") < html.indexOf("data-testid=\"accept-dry-run-button\"") &&
+        html.indexOf("data-testid=\"accept-dry-run-button\"") < html.indexOf("data-testid=\"total-count\""),
+      "Expected the accept button to be rendered between the problem list and the count cards, so it is reachable without scrolling past the fan-in noise",
+    )
   }
 
   @Test
@@ -792,8 +799,8 @@ class UserImportResourceTests {
     assertTrue(dryRunHtml.contains("data-testid=\"valid-count\">2<"), "Expected the two first-occurrence records (ACME, GLOBEX) to be valid")
     assertTrue(dryRunHtml.contains("data-testid=\"skipped-count\">2<"), "Expected the missing-value and duplicate-value records to be reported as expected fan-in skips")
     assertTrue(dryRunHtml.contains("data-testid=\"invalid-count\">0<"), "Expected no record to be reported as invalid: fan-in skips are not defects")
-    assertTrue(dryRunHtml.contains("data-testid=\"dry-run-skipped-object\""), "Expected the skipped records to be rendered in their own accordion")
-    assertTrue(dryRunHtml.contains("data-testid=\"expected-skip-badge\""), "Expected the skipped records' issues to carry the expected/fan-in badge, not the invalid styling")
+    assertTrue(dryRunHtml.contains("data-testid=\"skipped-reason-row\""), "Expected the skipped records to be aggregated into a reasons table instead of listing every object")
+    assertTrue(dryRunHtml.contains("data-testid=\"skipped-reason-badge\""), "Expected the skipped reasons to carry the expected/fan-in badge, not the invalid styling")
 
     given()
       .`when`()
