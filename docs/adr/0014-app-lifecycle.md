@@ -7,6 +7,7 @@
 Technical Story: [#516 App-Lifecycle plan](https://github.com/christiangroth/james-platform/issues/516),
 [#540 Deactivate app](https://github.com/christiangroth/james-platform/issues/540),
 [#541 Delete app](https://github.com/christiangroth/james-platform/issues/541),
+[#547 Reactivate app](https://github.com/christiangroth/james-platform/issues/547),
 [#542 Document app lifecycle](https://github.com/christiangroth/james-platform/issues/542)
 
 ## Context and Problem Statement
@@ -117,7 +118,8 @@ notification infrastructure being built first — not on this ADR.
 
 * Refs [#516](https://github.com/christiangroth/james-platform/issues/516),
   [#540](https://github.com/christiangroth/james-platform/issues/540),
-  [#541](https://github.com/christiangroth/james-platform/issues/541)
+  [#541](https://github.com/christiangroth/james-platform/issues/541),
+  [#547](https://github.com/christiangroth/james-platform/issues/547)
 * [`App.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/App.kt)
 * [`AppManagementService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppManagementService.kt)
 * [`UserAppStoreService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/UserAppStoreService.kt)
