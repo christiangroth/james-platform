@@ -26,6 +26,12 @@ interface UserMessages {
   @Message
   fun userUpgradeToVersionButton(version: String): String
 
+  @Message
+  fun userAppDeactivatedBadge(): String
+
+  @Message
+  fun userAppDeactivatedBanner(): String
+
   // app store
   @Message
   fun userAppStoreTitle(): String

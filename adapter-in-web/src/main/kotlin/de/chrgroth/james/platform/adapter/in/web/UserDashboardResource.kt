@@ -24,6 +24,7 @@ data class EntityDataCount(
 data class DashboardInstalledApp(
   val installedAppId: String,
   val appName: String,
+  val appActive: Boolean,
   val installedVersion: AppVersion,
   val latestVersion: AppVersion,
   val entityCounts: List<EntityDataCount>,
@@ -77,6 +78,7 @@ class UserDashboardResource {
       DashboardInstalledApp(
         installedAppId = info.installedAppId,
         appName = info.appName,
+        appActive = info.appActive,
         installedVersion = info.installedVersion,
         latestVersion = info.latestVersion,
         entityCounts = entityCounts,

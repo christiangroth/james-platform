@@ -322,6 +322,37 @@ class UserAppDetailPageTests {
   }
 
   @Test
+  fun `app detail page and dashboard show deactivated info when the app is deactivated`() {
+    val appName = "Deactivated Banner App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val detailHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(detailHtml.contains("data-testid=\"app-deactivated-banner\""), "Expected the deactivated banner on the app detail page")
+
+    val dashboardHtml = given()
+      .`when`()
+      .get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(dashboardHtml.contains("data-testid=\"installed-app-deactivated-info\""), "Expected the deactivated info on the dashboard tile")
+  }
+
+  @Test
   fun `deleting an installed app removes it and redirects to the dashboard`() {
     val appName = "Uninstall App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)

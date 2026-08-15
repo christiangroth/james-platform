@@ -87,6 +87,7 @@ class UserAppStoreService(
         installedApp = installedApp,
         installedAppId = installedApp.id.value,
         appName = app.name.value,
+        appActive = app.status == AppStatus.ACTIVE,
         installedVersion = installedVersion,
         latestVersion = latestVersion,
       )
@@ -112,6 +113,7 @@ class UserAppStoreService(
       installedApp = installedApp,
       installedAppId = installedApp.id.value,
       appName = app.name.value,
+      appActive = app.status == AppStatus.ACTIVE,
       installedVersion = installedVersion,
       latestVersion = latestVersion,
     ).right()

@@ -8,8 +8,11 @@ import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.InstalledApp
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -21,7 +24,8 @@ import java.time.Instant
 class AppManagementServiceTests {
 
   private val appRepository: AppRepositoryPort = mockk()
-  private val service: AppManagementService = AppManagementService(appRepository)
+  private val installedAppRepository: InstalledAppRepositoryPort = mockk()
+  private val service: AppManagementService = AppManagementService(appRepository, installedAppRepository)
 
   private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 
@@ -251,12 +255,30 @@ class AppManagementServiceTests {
   fun `deactivateApp succeeds for active app`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     justRun { appRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
 
     val result = service.deactivateApp("app-1", "dev-1")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.status).isEqualTo(AppStatus.INACTIVE)
+    assertThat(result.getOrNull()?.app?.status).isEqualTo(AppStatus.INACTIVE)
+    assertThat(result.getOrNull()?.activeInstallationCount).isZero()
     verify { appRepository.save(match { it.status == AppStatus.INACTIVE }) }
+  }
+
+  @Test
+  fun `deactivateApp returns active installation count without blocking deactivation`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    justRun { appRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(
+      installedApp(id = "installed-1"),
+      installedApp(id = "installed-2"),
+    )
+
+    val result = service.deactivateApp("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.app?.status).isEqualTo(AppStatus.INACTIVE)
+    assertThat(result.getOrNull()?.activeInstallationCount).isEqualTo(2)
   }
 
   @Test
@@ -318,6 +340,14 @@ class AppManagementServiceTests {
       reports = emptyList(),
       status = status,
       createdAt = Instant.now(),
+    )
+
+    fun installedApp(id: String = "installed-1", userId: String = "user-1", appId: String = "app-1") = InstalledApp(
+      id = InstalledAppId(id),
+      userId = userId,
+      appId = AppId(appId),
+      installedVersionNumber = VersionNumber("1.0.0"),
+      installedAt = Instant.now(),
     )
   }
 }

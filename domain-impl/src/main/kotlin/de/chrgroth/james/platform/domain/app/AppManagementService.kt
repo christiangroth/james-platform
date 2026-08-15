@@ -9,8 +9,10 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppName
 import de.chrgroth.james.platform.domain.model.app.AppStatus
+import de.chrgroth.james.platform.domain.port.`in`.app.AppDeactivationResult
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -20,6 +22,7 @@ import java.util.UUID
 @Suppress("Unused")
 class AppManagementService(
   private val appRepository: AppRepositoryPort,
+  private val installedAppRepository: InstalledAppRepositoryPort,
 ) : AppManagementPort {
 
   override fun listApps(developerId: String): List<App> = appRepository.findAllByDeveloperId(developerId)
@@ -88,7 +91,7 @@ class AppManagementService(
     return updatedApp.right()
   }
 
-  override fun deactivateApp(appId: String, developerId: String): Either<DomainError, App> {
+  override fun deactivateApp(appId: String, developerId: String): Either<DomainError, AppDeactivationResult> {
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Deactivate app failed: not found: $appId" }
       return AppError.APP_NOT_FOUND.left()
@@ -103,8 +106,9 @@ class AppManagementService(
     }
     val updatedApp = app.copy(status = AppStatus.INACTIVE, updatedAt = Instant.now())
     appRepository.save(updatedApp)
-    logger.info { "App deactivated: $appId" }
-    return updatedApp.right()
+    val activeInstallationCount = installedAppRepository.findAllByAppId(updatedApp.id).size
+    logger.info { "App deactivated: $appId, active installations unaffected: $activeInstallationCount" }
+    return AppDeactivationResult(app = updatedApp, activeInstallationCount = activeInstallationCount).right()
   }
 
   companion object : KLogging()

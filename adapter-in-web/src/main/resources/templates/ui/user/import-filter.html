@@ -11,6 +11,13 @@
             </ol>
         </nav>
 
+        {#if !appActive}
+        <div class="alert app-readonly-banner mb-4 py-2 px-3 d-flex align-items-center gap-2" role="alert" data-testid="app-deactivated-banner">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <span>{user:userAppDeactivatedBanner()}</span>
+        </div>
+        {/if}
+
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="filter-title">{pageHeading}</h1>
         </div>

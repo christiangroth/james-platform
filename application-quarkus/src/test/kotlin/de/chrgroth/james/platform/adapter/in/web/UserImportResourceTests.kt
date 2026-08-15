@@ -1278,6 +1278,45 @@ class UserImportResourceTests {
   }
 
   @Test
+  fun `all import job pages show the deactivated app banner once the app has been deactivated`() {
+    val appName = "Deactivated Import Banner App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Contact")
+    val propertyId = addProperty(appId, versionId, entityId, "Name", "STRING", nullable = false)
+    val installedAppId = publishAndInstall(appId, appName)
+    triggerImportWithSingleDataPath(installedAppId, entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": [{ "targetPropertyId": "$propertyId", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val overviewHtml = given().`when`().get("/ui/user/imports/$importId/overview").then().statusCode(200).extract().body().asString()
+    assertTrue(overviewHtml.contains("data-testid=\"app-deactivated-banner\""), "Expected the deactivated banner on the Quelle/overview page")
+
+    val filterHtml = given().`when`().get("/ui/user/imports/$importId/filter").then().statusCode(200).extract().body().asString()
+    assertTrue(filterHtml.contains("data-testid=\"app-deactivated-banner\""), "Expected the deactivated banner on the filter page")
+
+    val mappingHtml = given().`when`().get("/ui/user/imports/$importId/mapping").then().statusCode(200).extract().body().asString()
+    assertTrue(mappingHtml.contains("data-testid=\"app-deactivated-banner\""), "Expected the deactivated banner on the mapping page")
+
+    val dryRunHtml = given().`when`().get("/ui/user/imports/$importId/dry-run").then().statusCode(200).extract().body().asString()
+    assertTrue(dryRunHtml.contains("data-testid=\"app-deactivated-banner\""), "Expected the deactivated banner on the dry-run page")
+  }
+
+  @Test
   fun `replacing a dry run clears existing data for the target entity first, so a record that only collided with it gets saved`() {
     val appName = "Import Replace App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
