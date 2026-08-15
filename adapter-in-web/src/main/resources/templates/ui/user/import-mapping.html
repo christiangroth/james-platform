@@ -12,8 +12,7 @@
         </nav>
 
         <div class="d-flex align-items-center mb-4 gap-2">
-            <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{user:userImportMappingTitle()}</h1>
-            <span class="badge border-0 app-badge-processing" data-testid="mapping-status">{statusLabel}</span>
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{pageHeading}</h1>
         </div>
 
         {#import-steps importJobId=importJobId mappable=mappable readyForDryRun=readyForDryRun activeStep="mapping" /}
