@@ -122,6 +122,11 @@
                                         <option value="{option.value}" {#if option.value == property.conversion}selected{/if}>{option.label}</option>
                                         {/for}
                                     </select>
+                                    <select class="form-select form-select-sm app-form-control conversion-unit-select mt-1 {#if property.conversion != 'LONG_TO_DURATION'}d-none{/if}" data-testid="conversion-unit-select">
+                                        {#for option in conversionUnitOptions}
+                                        <option value="{option.value}" {#if option.value == property.conversionUnit}selected{/if}>{option.label}</option>
+                                        {/for}
+                                    </select>
                                 </td>
                                 <td>
                                     <input type="text" class="form-control form-control-sm app-form-control fallback-value-input" value="{property.fallbackValue}" placeholder="{user:userImportMappingFallbackValuePlaceholder()}" autocomplete="off" data-testid="fallback-value-input">
@@ -158,6 +163,11 @@
             var mappingForm = document.getElementById('mappingForm');
             if (mappingForm) {
                 mappingForm.addEventListener('change', function (e) {
+                    if (e.target.classList.contains('conversion-select')) {
+                        var unitSelect = e.target.closest('td').querySelector('.conversion-unit-select');
+                        unitSelect.classList.toggle('d-none', e.target.value !== 'LONG_TO_DURATION');
+                        return;
+                    }
                     if (!e.target.classList.contains('reference-lookup-toggle')) return;
                     var cell = e.target.closest('td');
                     var sourceSelect = cell.querySelector('.source-path-select');
@@ -199,6 +209,7 @@
                             targetPropertyId: row.getAttribute('data-property-id'),
                             sourcePath: useLookup ? '' : row.querySelector('.source-path-select').value,
                             conversion: row.querySelector('.conversion-select').value,
+                            conversionUnit: row.querySelector('.conversion-unit-select').value,
                             fallbackValue: row.querySelector('.fallback-value-input').value,
                             referenceLookup: null
                         };

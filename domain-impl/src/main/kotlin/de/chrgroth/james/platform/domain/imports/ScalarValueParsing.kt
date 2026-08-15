@@ -1,7 +1,11 @@
 package de.chrgroth.james.platform.domain.imports
 
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.formatDurationValue
 import de.chrgroth.james.platform.domain.model.app.parseDurationValue
+import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
+import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
+import java.time.Duration
 
 /** Converts a raw string value (from a source record or a static fallback/lookup value) into the type [de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort] expects for the given target property type. Returns null for blank input. */
 internal fun parseScalarValue(type: PropertyType, rawValue: String?): Any? {
@@ -14,3 +18,29 @@ internal fun parseScalarValue(type: PropertyType, rawValue: String?): Any? {
     else -> rawValue
   }
 }
+
+/**
+ * Applies a [FieldMappingConversion] to a raw source value before it is interpreted as the target property type by
+ * [parseScalarValue]. Most conversions (e.g. STRING_TO_LONG) only relax type-compatibility checks and do not need
+ * any actual value transformation, since [parseScalarValue] already parses purely based on the target property
+ * type; DATETIME_TO_DATE and LONG_TO_DURATION are the exception, as their target's expected textual format differs
+ * from the raw source value. Returns [rawValue] unchanged for every other conversion (including NONE).
+ */
+internal fun applyConversion(conversion: FieldMappingConversion, conversionUnit: DurationConversionUnit?, rawValue: String?): String? {
+  if (rawValue == null) return null
+  return when (conversion) {
+    FieldMappingConversion.DATETIME_TO_DATE -> rawValue.substringBefore('T').substringBefore(' ')
+    FieldMappingConversion.LONG_TO_DURATION -> rawValue.toLongOrNull()?.let { amount ->
+      formatDurationValue(Duration.ofSeconds(amount * (conversionUnit ?: DurationConversionUnit.SECONDS).secondsPerUnit))
+    } ?: rawValue
+    else -> rawValue
+  }
+}
+
+private val DurationConversionUnit.secondsPerUnit: Long
+  get() = when (this) {
+    DurationConversionUnit.SECONDS -> 1L
+    DurationConversionUnit.MINUTES -> 60L
+    DurationConversionUnit.HOURS -> 3_600L
+    DurationConversionUnit.DAYS -> 86_400L
+  }

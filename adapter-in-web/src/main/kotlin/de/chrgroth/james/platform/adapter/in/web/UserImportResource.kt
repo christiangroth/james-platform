@@ -17,6 +17,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
+import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
@@ -115,6 +116,11 @@ data class ConversionOptionRow(
   val label: String,
 )
 
+data class ConversionUnitOptionRow(
+  val value: String,
+  val label: String,
+)
+
 data class ReferenceLookupCriterionRow(
   val targetPropertyId: String,
   val sourcePath: String,
@@ -133,6 +139,7 @@ data class MappingPropertyRow(
   val referenceLookupCriteria: List<ReferenceLookupCriterionRow>,
   val sourcePath: String,
   val conversion: String,
+  val conversionUnit: String,
   val fallbackValue: String,
   val issueMessages: List<String>,
 )
@@ -176,6 +183,7 @@ data class FieldMappingRequest @JsonCreator constructor(
   @param:JsonProperty("targetPropertyId") val targetPropertyId: String,
   @param:JsonProperty("sourcePath") val sourcePath: String?,
   @param:JsonProperty("conversion") val conversion: String?,
+  @param:JsonProperty("conversionUnit") val conversionUnit: String?,
   @param:JsonProperty("fallbackValue") val fallbackValue: String?,
   @param:JsonProperty("referenceLookup") val referenceLookup: ReferenceLookupRequest? = null,
 )
@@ -372,6 +380,7 @@ class UserImportResource {
         .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
+        .data("conversionUnitOptions", DurationConversionUnit.entries.map { ConversionUnitOptionRow(it.name, conversionUnitLabel(it)) })
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
@@ -404,6 +413,7 @@ class UserImportResource {
         targetPropertyId = PropertyId(field.targetPropertyId),
         sourcePath = sourcePath,
         conversion = runCatching { FieldMappingConversion.valueOf(field.conversion ?: FieldMappingConversion.NONE.name) }.getOrDefault(FieldMappingConversion.NONE),
+        conversionUnit = field.conversionUnit?.let { runCatching { DurationConversionUnit.valueOf(it) }.getOrNull() },
         fallbackValue = fallbackValue,
         referenceLookup = referenceLookup,
       )
@@ -635,6 +645,7 @@ class UserImportResource {
           .map { ReferenceLookupCriterionRow(it.targetPropertyId.value, it.sourcePath) },
         sourcePath = fieldMapping?.sourcePath.orEmpty(),
         conversion = (fieldMapping?.conversion ?: FieldMappingConversion.NONE).name,
+        conversionUnit = fieldMapping?.conversionUnit?.name.orEmpty(),
         fallbackValue = fieldMapping?.fallbackValue.orEmpty(),
         issueMessages = issues.filterNot { it is MappingIssue.NotStaticallyValidated }.map { issueMessage(it) },
       )
@@ -687,6 +698,15 @@ class UserImportResource {
     FieldMappingConversion.BOOLEAN_TO_STRING -> userMsg.userImportMappingConversionBooleanToString()
     FieldMappingConversion.STRING_TO_DATE -> userMsg.userImportMappingConversionStringToDate()
     FieldMappingConversion.STRING_TO_DATETIME -> userMsg.userImportMappingConversionStringToDatetime()
+    FieldMappingConversion.DATETIME_TO_DATE -> userMsg.userImportMappingConversionDatetimeToDate()
+    FieldMappingConversion.LONG_TO_DURATION -> userMsg.userImportMappingConversionLongToDuration()
+  }
+
+  private fun conversionUnitLabel(unit: DurationConversionUnit): String = when (unit) {
+    DurationConversionUnit.SECONDS -> userMsg.userImportMappingConversionUnitSeconds()
+    DurationConversionUnit.MINUTES -> userMsg.userImportMappingConversionUnitMinutes()
+    DurationConversionUnit.HOURS -> userMsg.userImportMappingConversionUnitHours()
+    DurationConversionUnit.DAYS -> userMsg.userImportMappingConversionUnitDays()
   }
 
   private fun statusLabel(status: ImportStatus): String = when (status) {

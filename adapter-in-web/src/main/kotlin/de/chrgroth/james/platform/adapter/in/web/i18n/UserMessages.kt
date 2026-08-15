@@ -471,6 +471,24 @@ interface UserMessages {
   fun userImportMappingConversionStringToDatetime(): String
 
   @Message
+  fun userImportMappingConversionDatetimeToDate(): String
+
+  @Message
+  fun userImportMappingConversionLongToDuration(): String
+
+  @Message
+  fun userImportMappingConversionUnitSeconds(): String
+
+  @Message
+  fun userImportMappingConversionUnitMinutes(): String
+
+  @Message
+  fun userImportMappingConversionUnitHours(): String
+
+  @Message
+  fun userImportMappingConversionUnitDays(): String
+
+  @Message
   fun userImportSchemaTypeString(): String
 
   @Message
