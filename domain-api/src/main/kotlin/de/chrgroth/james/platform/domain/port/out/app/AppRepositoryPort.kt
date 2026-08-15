@@ -11,6 +11,7 @@ interface AppRepositoryPort {
   fun findAllByDeveloperId(developerId: String): List<App>
   fun deleteAllWithoutDeveloperId()
   fun deleteAll()
+  fun delete(appId: AppId)
   fun save(app: App)
   fun renameToNewCollection()
 }

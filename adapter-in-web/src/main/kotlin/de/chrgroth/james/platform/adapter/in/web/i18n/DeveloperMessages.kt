@@ -123,6 +123,15 @@ interface DeveloperMessages {
   @Message
   fun developerDeactivateAppConfirm(): String
 
+  @Message
+  fun developerDeleteAppAriaLabel(): String
+
+  @Message
+  fun developerDeleteAppModalTitle(): String
+
+  @Message
+  fun developerDeleteAppConfirm(): String
+
   // developer version editor
   @Message
   fun developerBreakingChangesBadge(): String
@@ -502,6 +511,12 @@ interface DeveloperMessages {
 
   @Message
   fun developerAppAlreadyInactiveError(): String
+
+  @Message
+  fun developerAppDeletedMessage(): String
+
+  @Message
+  fun developerAppHasActiveInstallationsError(): String
 
   @Message
   fun developerVersionCreatedMessage(): String
