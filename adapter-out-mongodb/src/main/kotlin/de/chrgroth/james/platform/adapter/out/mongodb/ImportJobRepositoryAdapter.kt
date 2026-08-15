@@ -28,9 +28,9 @@ class ImportJobRepositoryAdapter(
   private val mongoQueryMetrics: MongoQueryMetrics,
 ) : ImportJobRepositoryPort {
 
-  override fun findAllByInstalledAppId(installedAppId: InstalledAppId): List<ImportJob> =
-    mongoQueryMetrics.timed("import_job.findAllByInstalledAppId") {
-      importJobDocumentRepository.find(INSTALLED_APP_ID_FIELD, installedAppId.value).list().map { it.toDomain() }
+  override fun findAllByUserId(userId: String): List<ImportJob> =
+    mongoQueryMetrics.timed("import_job.findAllByUserId") {
+      importJobDocumentRepository.find(USER_ID_FIELD, userId).list().map { it.toDomain() }
     }
 
   override fun findById(id: ImportJobId): ImportJob? =
@@ -172,7 +172,7 @@ class ImportJobRepositoryAdapter(
 
   companion object {
     internal const val ID_FIELD = "_id"
-    internal const val INSTALLED_APP_ID_FIELD = "installedAppId"
+    internal const val USER_ID_FIELD = "userId"
     internal const val LAST_CHANGED_AT_FIELD = "lastChangedAt"
   }
 }

@@ -205,10 +205,11 @@ class UserImportResourceTests {
   private fun triggerImport(installedAppId: String, connectionId: String, entityId: String) {
     given()
       .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
       .formParam("connectionId", connectionId)
       .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/imports/$installedAppId")
+      .post("/ui/user/imports")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
@@ -228,7 +229,7 @@ class UserImportResourceTests {
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId/table")
+      .get("/ui/user/imports/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -244,10 +245,11 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
       .formParam("connectionId", createConnection())
       .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/imports/$installedAppId")
+      .post("/ui/user/imports")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -259,10 +261,11 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
       .formParam("connectionId", "")
       .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/imports/$installedAppId")
+      .post("/ui/user/imports")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -274,10 +277,11 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
       .formParam("connectionId", "unknown-connection")
       .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/imports/$installedAppId")
+      .post("/ui/user/imports")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -290,10 +294,11 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
       .formParam("connectionId", createConnection())
       .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/imports/$installedAppId")
+      .post("/ui/user/imports")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -307,10 +312,11 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
       .formParam("connectionId", createConnection())
       .formParam("targetEntityDefinitionId", entityId)
       .`when`()
-      .post("/ui/user/imports/$installedAppId")
+      .post("/ui/user/imports")
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
@@ -318,20 +324,12 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `delete import job removes it from the table`() {
+  fun `delete import job removes it from the table and the job overview redirects away`() {
     val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
 
     triggerImport(installedAppId, createConnection(), entityId)
-
-    val tableHtml = given()
-      .`when`()
-      .get("/ui/user/imports/$installedAppId/table")
-      .then()
-      .statusCode(200)
-      .extract().body().asString()
-    val importId = Regex("""data-import-id="([^"]+)"""").find(tableHtml)?.groupValues?.get(1)
-      ?: error("Expected an import id in the rendered table")
+    val importId = triggerImportAndGetId(installedAppId)
 
     given()
       .`when`()
@@ -342,12 +340,18 @@ class UserImportResourceTests {
 
     val afterDeleteHtml = given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId/table")
+      .get("/ui/user/imports/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
+    assertTrue(!afterDeleteHtml.contains("data-import-id=\"$importId\""), "Expected the deleted import job to no longer appear in the table")
 
-    assertTrue(afterDeleteHtml.contains("data-testid=\"no-imports-message\""), "Expected the empty-state message after deleting the only import job")
+    given()
+      .redirects().follow(false)
+      .`when`()
+      .get("/ui/user/imports/$importId")
+      .then()
+      .statusCode(303)
   }
 
   @Test
@@ -365,7 +369,7 @@ class UserImportResourceTests {
   private fun triggerImportAndGetId(installedAppId: String): String {
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId/table")
+      .get("/ui/user/imports/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -379,15 +383,16 @@ class UserImportResourceTests {
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"a":1},{"a":2}]}""".right())
 
     triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
 
-    val tableHtml = given()
+    val jobHtml = given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId/table")
+      .get("/ui/user/imports/$importId")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(tableHtml.contains("data-testid=\"selected-data-path\">items<"), "Expected the auto-selected data path to be rendered")
+    assertTrue(jobHtml.contains("data-testid=\"selected-data-path\">items<"), "Expected the auto-selected data path to be rendered")
   }
 
   @Test
@@ -409,7 +414,7 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `select data path succeeds and updates the table`() {
+  fun `select data path succeeds and updates the job overview`() {
     val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"a":[{"x":1}],"b":[{"y":1},{"y":2}]}""".right())
 
@@ -425,14 +430,14 @@ class UserImportResourceTests {
       .statusCode(200)
       .body("ok", equalTo(true))
 
-    val tableHtml = given()
+    val jobHtml = given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId/table")
+      .get("/ui/user/imports/$importId")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(tableHtml.contains("data-testid=\"selected-data-path\">b<"), "Expected the manually selected data path to be rendered")
+    assertTrue(jobHtml.contains("data-testid=\"selected-data-path\">b<"), "Expected the manually selected data path to be rendered")
   }
 
   @Test
@@ -483,6 +488,69 @@ class UserImportResourceTests {
     assertTrue(html.contains("data-testid=\"mapping-property-row\""), "Expected the target entity's property row to be rendered")
     assertTrue(html.contains("data-property-id=\"${app.propertyId}\""), "Expected the property row to reference the created property")
     assertTrue(html.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the target entity's name to be part of the breadcrumbs")
+  }
+
+  @Test
+  fun `imports list page is top-level, lists the target app installation and links to the job overview page`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"breadcrumb-imports\""), "Expected a top-level, non-app-scoped Imports breadcrumb")
+    assertTrue(!html.contains("data-testid=\"breadcrumb-app\""), "Expected the imports list to no longer be scoped under a single app in the breadcrumbs")
+    assertTrue(html.contains("data-testid=\"import-installed-app-name\""), "Expected the target app installation column to be rendered")
+    assertTrue(html.contains("href=\"/ui/user/imports/$importId\""), "Expected the target entity to link to the new job overview page")
+    assertTrue(html.contains("data-testid=\"import-app-select\""), "Expected the New Import modal to offer an installed app selector now that the list is cross-app")
+    assertTrue(html.contains("data-testid=\"import-target-entity-select\""), "Expected the New Import modal to offer a target entity selector for the chosen app")
+  }
+
+  @Test
+  fun `import job overview page shows a step navigator that unlocks mapping and dry-run as the job progresses`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    val htmlBeforeMapping = given()
+      .`when`()
+      .get("/ui/user/imports/$importId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(htmlBeforeMapping.contains("data-testid=\"import-steps\""), "Expected the step navigator to be rendered on the job overview page")
+    assertTrue(
+      htmlBeforeMapping.contains("btn-app-secondary disabled\" aria-disabled=\"true\" data-testid=\"import-step-dry-run\""),
+      "Expected the Dry-Run step to be disabled before the mapping is complete",
+    )
+
+    given()
+      .contentType("application/json")
+      .body(
+        """{"fieldMappings": [{ "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""",
+      )
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val htmlAfterMapping = given()
+      .`when`()
+      .get("/ui/user/imports/$importId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(
+      htmlAfterMapping.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
+      "Expected the Dry-Run step to become a navigable link once the import job is READY",
+    )
   }
 
   @Test
@@ -597,7 +665,7 @@ class UserImportResourceTests {
 
   @Test
   fun `accepting a dry run saves the valid object, discards the invalid one and deletes the import job`() {
-    val (app, importId) = readyImportWithOneValidAndOneInvalidRecord()
+    val (_, importId) = readyImportWithOneValidAndOneInvalidRecord()
 
     given()
       .`when`()
@@ -605,16 +673,16 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
-      .body("redirectUrl", equalTo("/ui/user/imports/${app.installedAppId}"))
+      .body("redirectUrl", equalTo("/ui/user/imports"))
 
     val tableHtml = given()
       .`when`()
-      .get("/ui/user/imports/${app.installedAppId}/table")
+      .get("/ui/user/imports/table")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(tableHtml.contains("data-testid=\"no-imports-message\""), "Expected the import job to have been deleted after accepting the dry run")
+    assertTrue(!tableHtml.contains("data-import-id=\"$importId\""), "Expected the import job to have been deleted after accepting the dry run")
   }
 
   @Test

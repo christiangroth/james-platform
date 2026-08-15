@@ -50,13 +50,8 @@ class ImportService(
   private val propertyConstraint: PropertyConstraintPort,
 ) : ImportPort {
 
-  override fun listImportJobs(userId: String, installedAppId: String): Either<DomainError, List<ImportJob>> {
-    val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
-      logger.warn { "List import jobs failed: installed app not found: $installedAppId for user: $userId" }
-      return ImportError.INSTALLED_APP_NOT_FOUND.left()
-    }
-    return importJobRepository.findAllByInstalledAppId(installedApp.id).sortedByDescending { it.createdAt }.right()
-  }
+  override fun listAllImportJobs(userId: String): List<ImportJob> =
+    importJobRepository.findAllByUserId(userId).sortedByDescending { it.createdAt }
 
   override fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String): Either<DomainError, ImportJob> {
     val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {

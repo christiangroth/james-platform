@@ -51,9 +51,9 @@ class MongoIndexInitializer(
     userDocumentRepository.mongoCollection().createIndex(
       Indexes.ascending(UserRepositoryAdapter.USERNAME_FIELD),
     )
-    // import_job: speed up findAllByInstalledAppId
+    // import_job: speed up findAllByUserId
     importJobDocumentRepository.mongoCollection().createIndex(
-      Indexes.ascending(ImportJobRepositoryAdapter.INSTALLED_APP_ID_FIELD),
+      Indexes.ascending(ImportJobRepositoryAdapter.USER_ID_FIELD),
     )
     // import_job: speed up deleteAllLastChangedBefore
     importJobDocumentRepository.mongoCollection().createIndex(

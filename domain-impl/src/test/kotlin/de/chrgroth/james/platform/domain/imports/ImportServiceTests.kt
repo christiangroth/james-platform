@@ -259,24 +259,14 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `list import jobs returns jobs sorted by newest first`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+  fun `list all import jobs returns jobs sorted by newest first`() {
     val older = importJob(createdAt = Instant.now().minusSeconds(60))
     val newer = importJob(createdAt = Instant.now())
-    every { importJobRepository.findAllByInstalledAppId(InstalledAppId("installed-1")) } returns listOf(older, newer)
+    every { importJobRepository.findAllByUserId("user-1") } returns listOf(older, newer)
 
-    val result = service.listImportJobs("user-1", "installed-1")
+    val result = service.listAllImportJobs("user-1")
 
-    assertThat(result.getOrNull()).containsExactly(newer, older)
-  }
-
-  @Test
-  fun `list import jobs fails for unowned installed app`() {
-    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
-
-    val result = service.listImportJobs("someone-else", "installed-1")
-
-    assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
+    assertThat(result).containsExactly(newer, older)
   }
 
   @Test

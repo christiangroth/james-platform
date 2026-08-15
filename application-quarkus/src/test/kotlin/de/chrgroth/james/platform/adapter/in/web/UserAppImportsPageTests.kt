@@ -118,7 +118,7 @@ class UserAppImportsPageTests {
       .extract().body().asString()
 
     assertTrue(html.contains("data-testid=\"import-button\""), "Expected the import button to be rendered for a DATA_IMPORT user")
-    assertTrue(html.contains("/ui/user/imports/$installedAppId"), "Expected the import button to link to the imports page")
+    assertTrue(html.contains("href=\"/ui/user/imports\""), "Expected the import button to link to the top-level imports page")
   }
 
   @Test
@@ -140,15 +140,10 @@ class UserAppImportsPageTests {
   }
 
   @Test
-  fun `imports page renders empty placeholder for an installed app`() {
-    val appName = "Imports Page App ${System.nanoTime()}"
-    val (appId, versionId) = createApp(appName)
-    addEntity(appId, versionId, "Entity One")
-    val installedAppId = publishAndInstall(appId, appName)
-
+  fun `imports page renders empty placeholder when the user has no import jobs`() {
     val html = given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId")
+      .get("/ui/user/imports")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -159,14 +154,9 @@ class UserAppImportsPageTests {
   @Test
   @TestSecurity(user = "test-no-import-user", roles = ["DEVELOPER"])
   fun `imports page is forbidden for users without DATA_IMPORT role`() {
-    val appName = "Forbidden Imports App ${System.nanoTime()}"
-    val (appId, versionId) = createApp(appName)
-    addEntity(appId, versionId, "Entity One")
-    val installedAppId = publishAndInstall(appId, appName)
-
     given()
       .`when`()
-      .get("/ui/user/imports/$installedAppId")
+      .get("/ui/user/imports")
       .then()
       .statusCode(403)
   }

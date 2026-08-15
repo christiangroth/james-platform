@@ -27,6 +27,7 @@ import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
+import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
@@ -55,6 +56,8 @@ data class DataPathRow(
 
 data class ImportJobRow(
   val id: String,
+  val installedAppId: String,
+  val installedAppName: String,
   val targetEntityName: String,
   val statusLabel: String,
   val awaitingDataPathSelection: Boolean,
@@ -69,6 +72,12 @@ data class ImportJobRow(
 data class EntityOptionRow(
   val id: String,
   val name: String,
+)
+
+data class AppOptionRow(
+  val id: String,
+  val name: String,
+  val entityOptions: List<EntityOptionRow>,
 )
 
 data class ConnectionOptionRow(
@@ -168,8 +177,12 @@ data class MappingSaveRequest @JsonCreator constructor(
 class UserImportResource {
 
   @Inject
-  @Location("ui/user/app-imports.html")
+  @Location("ui/user/imports.html")
   private lateinit var importsTemplate: Template
+
+  @Inject
+  @Location("ui/user/import-job.html")
+  private lateinit var importJobTemplate: Template
 
   @Inject
   @Location("ui/user/import-mapping.html")
@@ -201,46 +214,41 @@ class UserImportResource {
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   @GET
-  @Path("/{installedAppId}")
   @Produces(MediaType.TEXT_HTML)
-  fun imports(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("page.user-import.list") {
+  fun imports(): Response = httpResponseMetrics.timed("page.user-import.list") {
     val userId = securityIdentity.principal.name
-    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
-      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
-      ifRight = { it },
-    )
-    val entityDefinitions = info.installedVersion.entityDefinitions
+    val apps = userAppStore.getInstalledApps(userId)
     val connections = importConnectionPort.listConnections(userId).getOrNull().orEmpty()
     Response.ok(
       importsTemplate
-        .data("info", info)
-        .data("jobs", loadRows(userId, installedAppId, entityDefinitions))
-        .data("entityOptions", entityDefinitions.map { EntityOptionRow(it.id.value, it.name) })
+        .data("jobs", loadAllRows(userId, apps))
+        .data("appOptions", apps.map { it.toOptionRow() })
         .data("connectionOptions", connections.map { ConnectionOptionRow(it.id.value, it.name) })
         .data("hasConnections", connections.isNotEmpty()),
     ).build()
   }
 
   @GET
-  @Path("/{installedAppId}/table")
+  @Path("/table")
   @Produces(MediaType.TEXT_HTML)
-  fun importsTable(@PathParam("installedAppId") installedAppId: String): Any = httpResponseMetrics.timed("fragment.user-import.imports-table") {
+  fun importsTable(): Any = httpResponseMetrics.timed("fragment.user-import.imports-table") {
     val userId = securityIdentity.principal.name
-    val entityDefinitions = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions.orEmpty()
     importsTemplate.getFragment("imports_table")
-      .data("jobs", loadRows(userId, installedAppId, entityDefinitions))
+      .data("jobs", loadAllRows(userId, userAppStore.getInstalledApps(userId)))
   }
 
   @POST
-  @Path("/{installedAppId}")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
   fun triggerImport(
-    @PathParam("installedAppId") installedAppId: String,
+    @FormParam("installedAppId") installedAppId: String?,
     @FormParam("connectionId") connectionId: String?,
     @FormParam("targetEntityDefinitionId") targetEntityDefinitionId: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import.trigger") {
     val userId = securityIdentity.principal.name
+    if (installedAppId.isNullOrBlank()) {
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userInstalledAppNotFoundError())).build()
+    }
     if (connectionId.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionRequiredError())).build()
     }
@@ -251,6 +259,26 @@ class UserImportResource {
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
     )
+  }
+
+  @GET
+  @Path("/{importJobId}")
+  @Produces(MediaType.TEXT_HTML)
+  fun importJob(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("page.user-import.job") {
+    val userId = securityIdentity.principal.name
+    val view = importPort.getMappingView(userId, importJobId).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
+    Response.ok(
+      importJobTemplate
+        .data("job", view.importJob.toRow(mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name), mapOf(info.installedAppId to info.appName)))
+        .data("targetEntityName", view.targetEntityDefinition.name),
+    ).build()
   }
 
   @POST
@@ -280,21 +308,19 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
-      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
-      ifRight = { it },
-    )
 
     Response.ok(
       mappingTemplate
-        .data("info", info)
         .data("importJobId", importJobId)
         .data("statusLabel", statusLabel(view.importJob.status))
         .data("isReady", view.importJob.status == ImportStatus.READY)
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it)) })
-        .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) }),
+        .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
+        .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
+        .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
+        .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
     ).build()
   }
 
@@ -347,10 +373,6 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
-      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
-      ifRight = { it },
-    )
     val report = importPort.dryRun(userId, importJobId).fold(
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/imports/$importJobId/mapping")).build() },
       ifRight = { it },
@@ -358,7 +380,6 @@ class UserImportResource {
 
     Response.ok(
       dryRunTemplate
-        .data("info", info)
         .data("importJobId", importJobId)
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("totalCount", report.totalCount)
@@ -366,7 +387,10 @@ class UserImportResource {
         .data("skippedCount", report.skippedCount)
         .data("invalidCount", report.invalidCount)
         .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
-        .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition)),
+        .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition))
+        .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
+        .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
+        .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
     ).build()
   }
 
@@ -379,7 +403,7 @@ class UserImportResource {
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
-        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/imports/${result.installedAppId.value}")).build()
+        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/imports")).build()
       },
     )
   }
@@ -395,13 +419,22 @@ class UserImportResource {
     )
   }
 
-  private fun loadRows(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>): List<ImportJobRow> {
-    val entityNamesById = entityDefinitions.associate { it.id.value to it.name }
-    return importPort.listImportJobs(userId, installedAppId).getOrNull().orEmpty().map { it.toRow(entityNamesById) }
+  private fun loadAllRows(userId: String, apps: List<InstalledAppInfo>): List<ImportJobRow> {
+    val appNamesById = apps.associate { it.installedAppId to it.appName }
+    val entityNamesById = apps.flatMap { it.installedVersion.entityDefinitions }.associate { it.id.value to it.name }
+    return importPort.listAllImportJobs(userId).map { it.toRow(entityNamesById, appNamesById) }
   }
 
-  private fun ImportJob.toRow(entityNamesById: Map<String, String>) = ImportJobRow(
+  private fun InstalledAppInfo.toOptionRow() = AppOptionRow(
+    id = installedAppId,
+    name = appName,
+    entityOptions = installedVersion.entityDefinitions.map { EntityOptionRow(it.id.value, it.name) },
+  )
+
+  private fun ImportJob.toRow(entityNamesById: Map<String, String>, appNamesById: Map<String, String>) = ImportJobRow(
     id = id.value,
+    installedAppId = installedAppId.value,
+    installedAppName = appNamesById[installedAppId.value].orEmpty(),
     targetEntityName = entityNamesById[targetEntityDefinitionId.value].orEmpty(),
     statusLabel = statusLabel(status),
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,

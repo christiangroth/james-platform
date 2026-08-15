@@ -151,7 +151,7 @@ interface UserMessages {
   fun userImportColCreatedAt(): String
 
   @Message
-  fun userImportColLastActivity(): String
+  fun userImportColLastAction(): String
 
   @Message
   fun userImportColStatus(): String
@@ -160,7 +160,13 @@ interface UserMessages {
   fun userImportColTargetEntity(): String
 
   @Message
-  fun userImportColActions(): String
+  fun userImportColTargetAppInstallation(): String
+
+  @Message
+  fun userImportStepDataPathLabel(): String
+
+  @Message
+  fun userImportStepsAriaLabel(): String
 
   @Message
   fun userImportStatusDownloaded(): String
@@ -330,9 +336,6 @@ interface UserMessages {
   fun userImportMappingTitle(): String
 
   @Message
-  fun userImportMappingBackToImportsLabel(): String
-
-  @Message
   fun userImportMappingTargetEntityLabel(): String
 
   @Message
@@ -467,9 +470,6 @@ interface UserMessages {
 
   @Message
   fun userImportDryRunLinkLabel(): String
-
-  @Message
-  fun userImportDryRunBackToMappingLabel(): String
 
   @Message
   fun userImportDryRunTotalLabel(): String

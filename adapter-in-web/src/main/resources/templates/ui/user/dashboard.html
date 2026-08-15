@@ -6,6 +6,11 @@
             <h1 class="fs-4 fw-semibold mb-0" data-testid="welcome-message">{user:userMyAppsHeading()}</h1>
             <div class="d-flex gap-2 ms-auto">
                 {#if isDataImport}
+                <a href="/ui/user/imports"
+                   class="btn btn-app-secondary btn-sm"
+                   data-testid="imports-nav-link">
+                    <i class="bi bi-cloud-upload me-1" aria-hidden="true"></i>{user:userImportsTitle()}
+                </a>
                 <a href="/ui/user/import-connections"
                    class="btn btn-app-secondary btn-sm"
                    data-testid="import-connections-link">
