@@ -1,1 +1,0 @@
-* Import filter rules can now optionally include records with a missing/empty source value, so "field is empty or equals X" can be expressed in a single filter rule instead of two separate import jobs.
