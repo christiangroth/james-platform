@@ -1,3 +1,12 @@
+# 0.87.0 (2026.08.15)
+
+## New Features
+* Developers can now permanently delete an app from its overview page. This is blocked while active installations of the app still exist.
+
+
+
+---
+
 # 0.86.0 (2026.08.15)
 
 ## New Features
