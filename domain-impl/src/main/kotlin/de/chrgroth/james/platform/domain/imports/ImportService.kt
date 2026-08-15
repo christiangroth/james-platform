@@ -176,6 +176,14 @@ class ImportService(
     return FilterView(existing, allRecords.size, FilterEvaluator.apply(allRecords, existing.filterRules).size)
   }
 
+  override fun resolveFilterFieldValues(userId: String, importJobId: String, sourcePath: String): Either<DomainError, List<String>> {
+    val existing = requireOwnedImportJob(userId, importJobId) ?: run {
+      logger.warn { "Resolve filter field values failed: import job not found: $importJobId for user: $userId" }
+      return ImportError.IMPORT_JOB_NOT_FOUND.left()
+    }
+    return FilterEvaluator.distinctValues(rawRecordsAt(existing), sourcePath).right()
+  }
+
   override fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView> {
     val existing = requireOwnedImportJob(userId, importJobId) ?: run {
       logger.warn { "Get mapping view failed: import job not found: $importJobId for user: $userId" }

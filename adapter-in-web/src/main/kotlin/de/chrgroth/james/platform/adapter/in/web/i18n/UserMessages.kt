@@ -346,26 +346,7 @@ interface UserMessages {
   @Message
   fun userImportFilterSavedMessage(matchingRecordCount: Int, totalRecordCount: Int): String
 
-  @Message
-  fun userImportFilterModeInclude(): String
-
-  @Message
-  fun userImportFilterModeExclude(): String
-
-  @Message
-  fun userImportFilterOperatorIsNull(): String
-
-  @Message
-  fun userImportFilterOperatorIsNotNull(): String
-
-  @Message
-  fun userImportFilterOperatorEquals(): String
-
-  @Message
-  fun userImportFilterOperatorNotEquals(): String
-
-  @Message
-  fun userImportFilterOperatorContains(): String
+  // Filter mode/operator labels live in UserImportFilterMessages instead - see its KDoc for why.
 
   // import connections page
   @Message

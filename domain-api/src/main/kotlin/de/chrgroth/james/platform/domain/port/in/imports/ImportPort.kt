@@ -26,6 +26,9 @@ interface ImportPort {
 
   /** Replaces the job's filter rules, applied in order before mapping/dry-run ever see a source record (see [FilterRule]). */
   fun updateFilter(userId: String, importJobId: String, filterRules: List<FilterRule>): Either<DomainError, FilterView>
+
+  /** Distinct textual values found in the job's source records at [sourcePath], for the filter UI to offer as picks instead of free text (see [de.chrgroth.james.platform.domain.imports.FilterEvaluator.distinctValues]). */
+  fun resolveFilterFieldValues(userId: String, importJobId: String, sourcePath: String): Either<DomainError, List<String>>
   fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView>
   fun updateMapping(
     userId: String,
