@@ -514,6 +514,29 @@ class UserImportResourceTests {
   }
 
   @Test
+  fun `imports table is compact, shows the connection name and leaves the status and actions column headers blank`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+    val connectionName = "Compact Table Connection ${System.nanoTime()}"
+    triggerImport(installedAppId, createConnection(name = connectionName), entityId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"import-connection-name\">$connectionName<"), "Expected the connection's name to be rendered in its own column")
+    assertTrue(html.contains(">App<"), "Expected the target app installation column header to be shortened to 'App'")
+    assertTrue(html.contains(">Entität<"), "Expected the target entity column header to be shortened to 'Entität'")
+    assertTrue(html.contains(">Angelegt<"), "Expected the created-at column header to be shortened to 'Angelegt'")
+    assertTrue(html.contains(">Aktualisiert<"), "Expected the last-action column header to be renamed to 'Aktualisiert'")
+    assertTrue(html.contains("<th></th>"), "Expected the status column header to be blank")
+    assertTrue(html.contains("<th class=\"text-end\"></th>"), "Expected the actions column header to be blank")
+  }
+
+  @Test
   fun `import job overview page shows a step navigator that unlocks mapping and dry-run as the job progresses`() {
     val app = installAppWithMandatoryStringProperty()
     triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
@@ -653,7 +676,12 @@ class UserImportResourceTests {
 
     assertTrue(html.contains("data-testid=\"valid-count\">1<"), "Expected exactly one valid object")
     assertTrue(html.contains("data-testid=\"invalid-count\">1<"), "Expected exactly one invalid object")
-    assertTrue(html.contains("data-testid=\"dry-run-object\""), "Expected the invalid object to be rendered (collapsed by default, revealed by clicking the invalid count)")
+    assertTrue(html.contains("data-testid=\"dry-run-object\""), "Expected the invalid object to be rendered")
+    assertTrue(html.contains("id=\"invalid-details\" data-bs-parent=\"#dryRunDetailsAccordion\" data-testid=\"invalid-details\""), "Expected the invalid-details panel markup")
+    assertTrue(
+      html.contains("class=\"collapse show mb-4\" id=\"invalid-details\""),
+      "Expected the invalid objects' details to be opened automatically, without needing to click the invalid count first",
+    )
     assertTrue(html.contains("data-testid=\"dry-run-issue\""), "Expected the missing mandatory value issue to be rendered")
     assertTrue(html.contains("data-testid=\"statically-checked-badge\""), "Expected the missing mandatory value issue to be flagged as already checked statically")
     assertTrue(html.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the target entity's name to be part of the breadcrumbs")
@@ -665,8 +693,11 @@ class UserImportResourceTests {
     )
     assertTrue(
       html.indexOf("data-testid=\"total-count\"") < html.indexOf("data-testid=\"invalid-objects-heading\""),
-      "Expected the problem list to be collapsed below the counts, not shown open by default",
+      "Expected the problem list to be rendered below the counts in the markup, even though it is now expanded by default",
     )
+    assertTrue(html.contains("data-testid=\"valid-objects-table\""), "Expected valid objects to be shown as a reviewable table of target objects instead of a per-object accordion")
+    assertTrue(html.contains("data-testid=\"dry-run-valid-object-row\""), "Expected one row per valid object in the valid objects table")
+    assertTrue(html.contains("data-testid=\"dry-run-valid-property-value\">Alice<"), "Expected the valid object's target property value to be shown for review")
   }
 
   @Test
@@ -999,7 +1030,7 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `mapping and dry-run pages carry the explicit Quelle breadcrumb item between the job and the current step`() {
+  fun `mapping and dry-run pages no longer nest under a Quelle breadcrumb item, since Quelle is a sibling step, not their parent`() {
     val app = installAppWithMandatoryStringProperty()
     triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
     val importId = triggerImportAndGetId(app.installedAppId)
@@ -1010,7 +1041,19 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .extract().body().asString()
-    assertTrue(mappingHtml.contains("data-testid=\"breadcrumb-source\">Quelle<"), "Expected the mapping page breadcrumb to carry an explicit Quelle item")
+    assertTrue(!mappingHtml.contains("data-testid=\"breadcrumb-source\""), "Expected the mapping page breadcrumb to go directly from the job to Mapping, without an intermediate Quelle item")
+    assertTrue(mappingHtml.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the job breadcrumb item to be present")
+
+    given()
+      .contentType("application/json")
+      .body(
+        """{"fieldMappings": [{ "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""",
+      )
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
 
     val dryRunHtml = given()
       .`when`()
@@ -1018,7 +1061,7 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .extract().body().asString()
-    assertTrue(dryRunHtml.contains("data-testid=\"breadcrumb-source\">Quelle<"), "Expected the dry-run page breadcrumb to carry an explicit Quelle item")
+    assertTrue(!dryRunHtml.contains("data-testid=\"breadcrumb-source\""), "Expected the dry-run page breadcrumb to go directly from the job to Dry-Run, without an intermediate Quelle item")
   }
 
   @Test

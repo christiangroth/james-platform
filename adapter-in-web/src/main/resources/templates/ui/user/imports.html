@@ -39,18 +39,20 @@
                     <table class="table table-sm table-striped mb-0 app-table" data-testid="imports-table">
                         <thead>
                             <tr>
-                                <th>{user:userImportColStatus()}</th>
-                                <th>{user:userImportColTargetAppInstallation()}</th>
-                                <th>{user:userImportColTargetEntity()}</th>
-                                <th>{user:userImportColCreatedAt()}</th>
-                                <th>{user:userImportColLastAction()}</th>
-                                <th class="text-end">{user:userImportColActions()}</th>
+                                <th></th>
+                                <th>{user:userImportConnectionLabel()}</th>
+                                <th>{user:userImportTableColApp()}</th>
+                                <th>{user:userImportTableColEntity()}</th>
+                                <th>{user:userImportTableColCreated()}</th>
+                                <th>{user:userImportTableColUpdated()}</th>
+                                <th class="text-end"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {#for job in jobs}
                             <tr class="import-row" data-testid="import-row" data-import-id="{job.id}" style="cursor:pointer;">
                                 <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
+                                <td data-testid="import-connection-name">{job.connectionName}</td>
                                 <td data-testid="import-installed-app-name">{job.installedAppName}</td>
                                 <td data-testid="import-target-entity">
                                     <a href="/ui/user/imports/{job.id}" class="breadcrumb-link" data-testid="import-target-entity-link">{job.targetEntityName}</a>
