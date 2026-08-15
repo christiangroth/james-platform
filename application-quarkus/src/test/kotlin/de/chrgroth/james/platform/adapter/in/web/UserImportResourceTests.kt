@@ -387,12 +387,13 @@ class UserImportResourceTests {
 
     val jobHtml = given()
       .`when`()
-      .get("/ui/user/imports/$importId")
+      .get("/ui/user/imports/$importId/overview")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(jobHtml.contains("data-testid=\"selected-data-path\">items<"), "Expected the auto-selected data path to be rendered")
+    assertTrue(jobHtml.contains("data-testid=\"selected-data-path\">"), "Expected the auto-selected data path to be rendered")
+    assertTrue(jobHtml.contains("/items"), "Expected the data path to be rendered in leading-slash form")
   }
 
   @Test
@@ -423,7 +424,7 @@ class UserImportResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("dataPath", "b")
+      .formParam("dataPath", "/b")
       .`when`()
       .post("/ui/user/imports/$importId/select-path")
       .then()
@@ -432,12 +433,12 @@ class UserImportResourceTests {
 
     val jobHtml = given()
       .`when`()
-      .get("/ui/user/imports/$importId")
+      .get("/ui/user/imports/$importId/overview")
       .then()
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(jobHtml.contains("data-testid=\"selected-data-path\">b<"), "Expected the manually selected data path to be rendered")
+    assertTrue(jobHtml.contains("/b"), "Expected the manually selected data path (submitted in leading-slash form) to be rendered the same way")
   }
 
   @Test
@@ -520,7 +521,7 @@ class UserImportResourceTests {
 
     val htmlBeforeMapping = given()
       .`when`()
-      .get("/ui/user/imports/$importId")
+      .get("/ui/user/imports/$importId/overview")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -543,7 +544,7 @@ class UserImportResourceTests {
 
     val htmlAfterMapping = given()
       .`when`()
-      .get("/ui/user/imports/$importId")
+      .get("/ui/user/imports/$importId/overview")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -652,14 +653,19 @@ class UserImportResourceTests {
 
     assertTrue(html.contains("data-testid=\"valid-count\">1<"), "Expected exactly one valid object")
     assertTrue(html.contains("data-testid=\"invalid-count\">1<"), "Expected exactly one invalid object")
-    assertTrue(html.contains("data-testid=\"dry-run-object\""), "Expected the invalid object to be rendered")
+    assertTrue(html.contains("data-testid=\"dry-run-object\""), "Expected the invalid object to be rendered (collapsed by default, revealed by clicking the invalid count)")
     assertTrue(html.contains("data-testid=\"dry-run-issue\""), "Expected the missing mandatory value issue to be rendered")
     assertTrue(html.contains("data-testid=\"statically-checked-badge\""), "Expected the missing mandatory value issue to be flagged as already checked statically")
     assertTrue(html.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the target entity's name to be part of the breadcrumbs")
+    assertTrue(html.contains("data-testid=\"invalid-count-toggle\""), "Expected the invalid count card to be a clickable toggle for its details")
     assertTrue(
-      html.indexOf("data-testid=\"invalid-objects-heading\"") < html.indexOf("data-testid=\"accept-dry-run-button\"") &&
-        html.indexOf("data-testid=\"accept-dry-run-button\"") < html.indexOf("data-testid=\"total-count\""),
-      "Expected the accept button to be rendered between the problem list and the count cards, so it is reachable without scrolling past the fan-in noise",
+      html.indexOf("data-testid=\"replace-dry-run-button\"") < html.indexOf("data-testid=\"total-count\"") &&
+        html.indexOf("data-testid=\"add-dry-run-button\"") < html.indexOf("data-testid=\"total-count\""),
+      "Expected both accept actions to be rendered above the count cards, reachable without scrolling past the fan-in noise",
+    )
+    assertTrue(
+      html.indexOf("data-testid=\"total-count\"") < html.indexOf("data-testid=\"invalid-objects-heading\""),
+      "Expected the problem list to be collapsed below the counts, not shown open by default",
     )
   }
 
@@ -882,5 +888,150 @@ class UserImportResourceTests {
       savedCompanies.map { it.data[propertyId] }.toSet() == setOf("ACME", "GLOBEX"),
       "Expected only the first record per unique value to be saved, records without a value or with an already used value discarded",
     )
+  }
+
+  @Test
+  fun `opening an import always shows the furthest step it has reached, not the overview`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    val htmlAtDataIdentified = given()
+      .`when`()
+      .get("/ui/user/imports/$importId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(htmlAtDataIdentified.contains("data-testid=\"mapping-title\""), "Expected opening the import to land on the Mapping step, its furthest reached step")
+
+    given()
+      .contentType("application/json")
+      .body(
+        """{"fieldMappings": [{ "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""",
+      )
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val htmlAtReady = given()
+      .`when`()
+      .get("/ui/user/imports/$importId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(htmlAtReady.contains("data-testid=\"dry-run-title\""), "Expected opening the import to land on the Dry-Run step once it's READY")
+
+    val overviewHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/overview")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(overviewHtml.contains("data-testid=\"import-job-title\""), "Expected the overview/metadata page to remain reachable through its own explicit URL")
+  }
+
+  @Test
+  fun `import job overview page links the target entity to its dedicated page within the app installation`() {
+    val appName = "Import Entity Link App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    addEntity(appId, versionId, "Other")
+    val targetEntityId = addEntity(appId, versionId, "Target")
+    val installedAppId = publishAndInstall(appId, appName)
+
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+    triggerImport(installedAppId, createConnection(), targetEntityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/overview")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(
+      html.contains("href=\"/ui/user/apps/$installedAppId/entities/$targetEntityId\""),
+      "Expected the target entity to link to its dedicated page within the app installation (the app has more than one entity type)",
+    )
+  }
+
+  @Test
+  fun `import job overview page shows the auto-detected JSON structure for the selected data path`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice","age":30}]}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/overview")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-bs-target=\"#dataPathSchemaModal\""), "Expected clicking the data path to open the JSON structure modal")
+    assertTrue(html.contains("data-testid=\"data-path-schema-table\""), "Expected the JSON structure table to be rendered")
+    assertTrue(html.contains("data-testid=\"data-path-schema-row\""), "Expected a schema row per detected field")
+  }
+
+  @Test
+  fun `replacing a dry run clears existing data for the target entity first, so a record that only collided with it gets saved`() {
+    val appName = "Import Replace App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Company")
+    val propertyId = addProperty(appId, versionId, entityId, "Code", "STRING", nullable = false)
+    addUniqueKeyConstraint(appId, versionId, entityId, propertyId)
+    val installedAppId = publishAndInstall(appId, appName)
+
+    val existingId = AppDataId(UUID.randomUUID().toString())
+    appDataRepository.save(
+      AppData(
+        id = existingId,
+        userId = "test-import-trigger-user",
+        installedAppId = InstalledAppId(installedAppId),
+        appVersion = VersionNumber("1.0.0"),
+        entityType = EntityDefinitionId(entityId),
+        objectVersion = 1,
+        createdAt = Instant.now(),
+        lastChangedAt = Instant.now(),
+        data = mapOf(propertyId to "ACME"),
+      ),
+    )
+
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn("""{"items":[{"code":"ACME"}]}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": [{ "targetPropertyId": "$propertyId", "sourcePath": "code", "conversion": "NONE", "fallbackValue": null }]}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val dryRunHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(dryRunHtml.contains("data-testid=\"skipped-count\">1<"), "Expected the record to be skipped: it collides with the pre-existing Company (add semantics)")
+
+    given()
+      .`when`()
+      .post("/ui/user/imports/$importId/dry-run/accept?mode=REPLACE")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val savedCompanies = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId))
+    assertTrue(savedCompanies.size == 1, "Expected exactly one Company to remain after replace")
+    assertTrue(savedCompanies.single().id != existingId, "Expected the pre-existing Company to have been deleted and replaced by the newly imported one")
+    assertTrue(savedCompanies.single().data[propertyId] == "ACME", "Expected the record that only collided with the now-deleted existing data to be saved")
   }
 }

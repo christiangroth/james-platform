@@ -59,6 +59,17 @@ class AppDataRepositoryAdapter(
     }
   }
 
+  override fun deleteAllByInstalledAppIdAndEntityType(installedAppId: InstalledAppId, entityType: EntityDefinitionId) {
+    mongoQueryMetrics.timed("app_data.deleteAllByInstalledAppIdAndEntityType") {
+      appDataDocumentRepository.mongoCollection().deleteMany(
+        Filters.and(
+          Filters.eq(INSTALLED_APP_ID_FIELD, installedAppId.value),
+          Filters.eq(ENTITY_TYPE_FIELD, entityType.value),
+        ),
+      )
+    }
+  }
+
   private fun AppDataDocument.toDomain() = AppData(
     id = AppDataId(id),
     userId = userId,

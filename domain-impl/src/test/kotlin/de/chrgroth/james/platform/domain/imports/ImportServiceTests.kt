@@ -520,7 +520,7 @@ class ImportServiceTests {
     justRun { appDataRepository.save(capture(savedAppData)) }
     justRun { importJobRepository.delete(job.id) }
 
-    val result = service.acceptDryRun("user-1", job.id.value)
+    val result = service.acceptDryRun("user-1", job.id.value, replaceExisting = false)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()).isEqualTo(DryRunAcceptResult(installedAppId = InstalledAppId("installed-1"), savedCount = 1, discardedCount = 1))
@@ -529,6 +529,7 @@ class ImportServiceTests {
     assertThat(savedAppData.captured.entityType).isEqualTo(EntityDefinitionId("entity-1"))
     verify(exactly = 1) { appDataRepository.save(any()) }
     verify(exactly = 1) { importJobRepository.delete(job.id) }
+    verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
   }
 
   @Test
@@ -537,9 +538,47 @@ class ImportServiceTests {
     val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
     every { importJobRepository.findById(job.id) } returns job
 
-    val result = service.acceptDryRun("user-1", job.id.value)
+    val result = service.acceptDryRun("user-1", job.id.value, replaceExisting = false)
 
     assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_READY.left())
+  }
+
+  @Test
+  fun `accept dry run with replaceExisting clears existing data first and re-evaluates the dry run against the now-empty state`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val existingAppData = AppData(
+      id = AppDataId("existing-1"),
+      userId = "user-1",
+      installedAppId = InstalledAppId("installed-1"),
+      appVersion = VersionNumber("1.0.0"),
+      entityType = EntityDefinitionId("entity-1"),
+      objectVersion = 1,
+      createdAt = Instant.now(),
+      lastChangedAt = Instant.now(),
+      data = mapOf("prop-1" to "Alice"),
+    )
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returnsMany
+      listOf(listOf(existingAppData), emptyList())
+    justRun { appDataRepository.deleteAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) }
+    val job = importJob(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    val savedAppData = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedAppData)) }
+    justRun { importJobRepository.delete(job.id) }
+
+    val result = service.acceptDryRun("user-1", job.id.value, replaceExisting = true)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(DryRunAcceptResult(installedAppId = InstalledAppId("installed-1"), savedCount = 1, discardedCount = 0))
+    assertThat(savedAppData.captured.data).isEqualTo(mapOf("prop-1" to "Alice"))
+    verify(exactly = 1) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) }
+    verify(exactly = 1) { appDataRepository.save(any()) }
   }
 
   private val connection = ImportConnection(

@@ -219,7 +219,7 @@ class ImportService(
     return DryRunReport(existing.id, objects).right()
   }
 
-  override fun acceptDryRun(userId: String, importJobId: String): Either<DomainError, DryRunAcceptResult> {
+  override fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, DryRunAcceptResult> {
     val existing = requireOwnedImportJob(userId, importJobId) ?: run {
       logger.warn { "Accept dry run failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
@@ -231,6 +231,11 @@ class ImportService(
     val (mapping, entityDefinition) = readyMappingAndEntity(existing, installedApp) ?: run {
       logger.warn { "Accept dry run failed: import job not ready: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
+    }
+
+    if (replaceExisting) {
+      appDataRepository.deleteAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id)
+      logger.info { "Accept dry run: cleared existing data before replace import: installedAppId=${installedApp.id} entityType=${entityDefinition.id}" }
     }
 
     val objects = executeDryRun(existing, mapping, entityDefinition, installedApp)

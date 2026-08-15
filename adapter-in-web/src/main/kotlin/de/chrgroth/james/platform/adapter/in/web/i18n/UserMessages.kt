@@ -202,6 +202,18 @@ interface UserMessages {
   fun userImportSelectedDataPathLabel(): String
 
   @Message
+  fun userImportDataPathSchemaModalTitle(): String
+
+  @Message
+  fun userImportDataPathSchemaColField(): String
+
+  @Message
+  fun userImportDataPathSchemaColType(): String
+
+  @Message
+  fun userImportDataPathSchemaColMandatory(): String
+
+  @Message
   fun userDeleteImportModalTitle(): String
 
   @Message
@@ -490,6 +502,12 @@ interface UserMessages {
   fun userImportDryRunAllValidMessage(): String
 
   @Message
+  fun userImportDryRunNoObjectsMessage(): String
+
+  @Message
+  fun userImportDryRunValidObjectsHeading(): String
+
+  @Message
   fun userImportDryRunInvalidObjectsHeading(): String
 
   @Message
@@ -523,13 +541,22 @@ interface UserMessages {
   fun userImportDryRunNewCheckBadge(): String
 
   @Message
-  fun userImportDryRunAcceptButton(): String
+  fun userImportDryRunAddButton(): String
 
   @Message
-  fun userImportDryRunAcceptModalTitle(): String
+  fun userImportDryRunReplaceButton(): String
 
   @Message
-  fun userImportDryRunAcceptConfirm(validCount: Int, skippedCount: Int, invalidCount: Int): String
+  fun userImportDryRunAddModalTitle(): String
+
+  @Message
+  fun userImportDryRunReplaceModalTitle(): String
+
+  @Message
+  fun userImportDryRunAddConfirm(validCount: Int, skippedCount: Int, invalidCount: Int): String
+
+  @Message
+  fun userImportDryRunReplaceConfirm(targetEntityName: String, validCount: Int, skippedCount: Int, invalidCount: Int): String
 
   @Message
   fun userImportDryRunAcceptedMessage(savedCount: Int, discardedCount: Int): String
