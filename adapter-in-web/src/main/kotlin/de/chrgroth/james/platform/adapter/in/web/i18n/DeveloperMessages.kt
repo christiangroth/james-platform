@@ -112,6 +112,9 @@ interface DeveloperMessages {
   fun developerDeactivateAppAriaLabel(): String
 
   @Message
+  fun developerActivateAppAriaLabel(): String
+
+  @Message
   fun developerAppStatusActiveLabel(): String
 
   @Message
@@ -511,6 +514,12 @@ interface DeveloperMessages {
 
   @Message
   fun developerAppAlreadyInactiveError(): String
+
+  @Message
+  fun developerAppActivatedMessage(): String
+
+  @Message
+  fun developerAppAlreadyActiveError(): String
 
   @Message
   fun developerAppDeletedMessage(): String

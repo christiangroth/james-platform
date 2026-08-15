@@ -30,6 +30,12 @@
                         data-testid="deactivate-app-button">
                     <i class="bi bi-slash-circle" aria-hidden="true"></i>
                 </button>
+                {#else}
+                <button type="button" class="btn btn-app-secondary btn-sm" id="activateAppButton"
+                        title="{developer:developerActivateAppAriaLabel()}" aria-label="{developer:developerActivateAppAriaLabel()}"
+                        data-testid="activate-app-button">
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>
+                </button>
                 {/if}
                 <button type="button" class="btn btn-app-secondary btn-sm"
                         data-bs-toggle="modal" data-bs-target="#editAppModal"
@@ -255,6 +261,31 @@
                         btn.disabled = false;
                     } catch (ex) {
                         if (modal) { modal.hide(); }
+                        showMessage(false, networkErrorMessage);
+                        btn.disabled = false;
+                    }
+                });
+            }
+
+            // Activate App
+            var activateAppButton = document.getElementById('activateAppButton');
+            if (activateAppButton) {
+                activateAppButton.addEventListener('click', async function () {
+                    var btn = this;
+                    btn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/activate', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        var result = await response.json();
+                        if (result.ok) {
+                            window.location.reload();
+                        } else {
+                            showMessage(false, result.message);
+                            btn.disabled = false;
+                        }
+                    } catch (ex) {
                         showMessage(false, networkErrorMessage);
                         btn.disabled = false;
                     }

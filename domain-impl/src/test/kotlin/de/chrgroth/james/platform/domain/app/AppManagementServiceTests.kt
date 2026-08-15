@@ -317,6 +317,54 @@ class AppManagementServiceTests {
 
   // endregion
 
+  // region activateApp
+
+  @Test
+  fun `activateApp succeeds for inactive app`() {
+    val inactiveApp = existingApp.copy(status = AppStatus.INACTIVE)
+    every { appRepository.findById(AppId("app-1")) } returns inactiveApp
+    justRun { appRepository.save(any()) }
+
+    val result = service.activateApp("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(AppStatus.ACTIVE)
+    verify { appRepository.save(match { it.status == AppStatus.ACTIVE }) }
+  }
+
+  @Test
+  fun `activateApp fails when app not found`() {
+    every { appRepository.findById(AppId("unknown")) } returns null
+
+    val result = service.activateApp("unknown", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `activateApp fails when app belongs to another developer`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2", status = AppStatus.INACTIVE)
+    every { appRepository.findById(AppId("app-2")) } returns otherApp
+
+    val result = service.activateApp("app-2", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `activateApp fails when app is already active`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+
+    val result = service.activateApp("app-1", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.ALREADY_ACTIVE)
+  }
+
+  // endregion
+
   // region deleteApp
 
   @Test

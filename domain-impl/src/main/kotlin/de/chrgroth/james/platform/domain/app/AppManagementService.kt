@@ -113,6 +113,25 @@ class AppManagementService(
     return AppDeactivationResult(app = updatedApp, activeInstallationCount = activeInstallationCount).right()
   }
 
+  override fun activateApp(appId: String, developerId: String): Either<DomainError, App> {
+    val app = appRepository.findById(AppId(appId)) ?: run {
+      logger.warn { "Activate app failed: not found: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.developerId != developerId) {
+      logger.warn { "Activate app failed: not owned by developer: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.status == AppStatus.ACTIVE) {
+      logger.warn { "Activate app failed: already active: $appId" }
+      return AppError.ALREADY_ACTIVE.left()
+    }
+    val updatedApp = app.copy(status = AppStatus.ACTIVE, updatedAt = Instant.now())
+    appRepository.save(updatedApp)
+    logger.info { "App activated: $appId" }
+    return updatedApp.right()
+  }
+
   override fun deleteApp(appId: String, developerId: String): Either<DomainError, Unit> {
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Delete app failed: not found: $appId" }
