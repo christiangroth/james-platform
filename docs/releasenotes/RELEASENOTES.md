@@ -1,3 +1,13 @@
+# 0.77.0 (2026.08.15)
+
+## New Features
+* Import dry-run now distinguishes records that are skipped by design (fan-in mappings: no value, or a value already used by an earlier record for a unique property) from genuinely invalid records.
+* The dry-run report shows a separate "Skipped" count and section for these expected fan-in skips, so real validation problems are no longer buried in noise.
+
+
+
+---
+
 # 0.76.1 (2026.08.14)
 
 ## Bugfixes / Chore
