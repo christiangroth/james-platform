@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportFilterMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportError
@@ -276,6 +277,9 @@ class UserImportResource {
   private lateinit var userMsg: UserMessages
 
   @Inject
+  private lateinit var userImportFilterMsg: UserImportFilterMessages
+
+  @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   @GET
@@ -493,22 +497,22 @@ class UserImportResource {
     get() = this != FilterOperator.IS_NULL && this != FilterOperator.IS_NOT_NULL
 
   private fun filterModeLabel(mode: FilterMode): String = when (mode) {
-    FilterMode.INCLUDE -> userMsg.userImportFilterModeInclude()
-    FilterMode.EXCLUDE -> userMsg.userImportFilterModeExclude()
+    FilterMode.INCLUDE -> userImportFilterMsg.userImportFilterModeInclude()
+    FilterMode.EXCLUDE -> userImportFilterMsg.userImportFilterModeExclude()
   }
 
   private fun filterOperatorLabel(operator: FilterOperator): String = when (operator) {
-    FilterOperator.IS_NULL -> userMsg.userImportFilterOperatorIsNull()
-    FilterOperator.IS_NOT_NULL -> userMsg.userImportFilterOperatorIsNotNull()
-    FilterOperator.EQUALS -> userMsg.userImportFilterOperatorEquals()
-    FilterOperator.NOT_EQUALS -> userMsg.userImportFilterOperatorNotEquals()
-    FilterOperator.CONTAINS -> userMsg.userImportFilterOperatorContains()
-    FilterOperator.MATCHES -> userMsg.userImportFilterOperatorMatches()
-    FilterOperator.NOT_MATCHES -> userMsg.userImportFilterOperatorNotMatches()
-    FilterOperator.GREATER_THAN -> userMsg.userImportFilterOperatorGreaterThan()
-    FilterOperator.GREATER_THAN_OR_EQUAL -> userMsg.userImportFilterOperatorGreaterThanOrEqual()
-    FilterOperator.LESS_THAN -> userMsg.userImportFilterOperatorLessThan()
-    FilterOperator.LESS_THAN_OR_EQUAL -> userMsg.userImportFilterOperatorLessThanOrEqual()
+    FilterOperator.IS_NULL -> userImportFilterMsg.userImportFilterOperatorIsNull()
+    FilterOperator.IS_NOT_NULL -> userImportFilterMsg.userImportFilterOperatorIsNotNull()
+    FilterOperator.EQUALS -> userImportFilterMsg.userImportFilterOperatorEquals()
+    FilterOperator.NOT_EQUALS -> userImportFilterMsg.userImportFilterOperatorNotEquals()
+    FilterOperator.CONTAINS -> userImportFilterMsg.userImportFilterOperatorContains()
+    FilterOperator.MATCHES -> userImportFilterMsg.userImportFilterOperatorMatches()
+    FilterOperator.NOT_MATCHES -> userImportFilterMsg.userImportFilterOperatorNotMatches()
+    FilterOperator.GREATER_THAN -> userImportFilterMsg.userImportFilterOperatorGreaterThan()
+    FilterOperator.GREATER_THAN_OR_EQUAL -> userImportFilterMsg.userImportFilterOperatorGreaterThanOrEqual()
+    FilterOperator.LESS_THAN -> userImportFilterMsg.userImportFilterOperatorLessThan()
+    FilterOperator.LESS_THAN_OR_EQUAL -> userImportFilterMsg.userImportFilterOperatorLessThanOrEqual()
   }
 
   @GET

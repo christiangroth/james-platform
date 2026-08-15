@@ -470,6 +470,30 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `resolve filter field values returns the distinct values seen in the raw source records`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"country":"DE"},{"country":"US"},{"country":"DE"}]}""",
+      selectedDataPath = "items",
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE")),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveFilterFieldValues("user-1", job.id.value, "country")
+
+    assertThat(result).isEqualTo(listOf("DE", "US").right())
+  }
+
+  @Test
+  fun `resolve filter field values fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
+
+    val result = service.resolveFilterFieldValues("user-1", "missing", "country")
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
+  }
+
+  @Test
   fun `dry run only evaluates records that pass the configured filter`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion

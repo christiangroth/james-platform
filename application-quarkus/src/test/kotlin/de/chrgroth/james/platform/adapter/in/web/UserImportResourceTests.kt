@@ -527,6 +527,27 @@ class UserImportResourceTests {
     assertTrue(html.contains("data-testid=\"filter-no-rules-hint\""), "Expected the empty-state hint when no filter rules are configured yet")
     assertTrue(html.contains("2 von 2 Datensätzen"), "Expected the preview to report both records matching with no filter configured")
     assertTrue(html.contains("data-testid=\"import-step-filter\""), "Expected the step navigator to include the Filter step")
+    assertTrue(html.contains("data-type=\"STRING\""), "Expected the detected string field option to carry its schema type for the operator-filtering script")
+    assertTrue(html.contains("value=\"GREATER_THAN\" "), "Expected the numeric comparison operator to be offered")
+    assertTrue(html.contains("value=\"MATCHES\" "), "Expected the regex operator to be offered")
+    assertTrue(
+      html.contains("value=\"GREATER_THAN\" data-requires-value=\"true\" data-applicable-types=\"LONG,DOUBLE,DATE,DATETIME\""),
+      "Expected the comparison operator to be restricted to the schema types it applies to",
+    )
+  }
+
+  @Test
+  fun `filter values endpoint resolves the distinct values seen for a source field`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .`when`()
+      .get("/ui/user/imports/$importId/filter/values?sourcePath=name")
+      .then()
+      .statusCode(200)
+      .body("", equalTo(listOf("Alice", "Bob")))
   }
 
   @Test

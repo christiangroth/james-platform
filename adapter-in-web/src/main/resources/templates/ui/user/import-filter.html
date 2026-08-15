@@ -49,14 +49,14 @@
                                 <td>
                                     <select class="form-select form-select-sm app-form-control rule-source-path-select" data-testid="rule-source-path-select">
                                         {#for field in schemaFieldOptions}
-                                        <option value="{field.path}" {#if field.path == rule.sourcePath}selected{/if}>{field.label}</option>
+                                        <option value="{field.path}" data-type="{field.dominantType}" {#if field.path == rule.sourcePath}selected{/if}>{field.label}</option>
                                         {/for}
                                     </select>
                                 </td>
                                 <td>
                                     <select class="form-select form-select-sm app-form-control rule-operator-select" data-testid="rule-operator-select">
                                         {#for option in operatorOptions}
-                                        <option value="{option.value}" data-requires-value="{option.requiresValue}" {#if option.value == rule.operator}selected{/if}>{option.label}</option>
+                                        <option value="{option.value}" data-requires-value="{option.requiresValue}" data-applicable-types="{option.applicableTypes}" {#if option.value == rule.operator}selected{/if}>{option.label}</option>
                                         {/for}
                                     </select>
                                 </td>
@@ -86,14 +86,14 @@
                     <td>
                         <select class="form-select form-select-sm app-form-control rule-source-path-select" data-testid="rule-source-path-select">
                             {#for field in schemaFieldOptions}
-                            <option value="{field.path}">{field.label}</option>
+                            <option value="{field.path}" data-type="{field.dominantType}">{field.label}</option>
                             {/for}
                         </select>
                     </td>
                     <td>
                         <select class="form-select form-select-sm app-form-control rule-operator-select" data-testid="rule-operator-select">
                             {#for option in operatorOptions}
-                            <option value="{option.value}" data-requires-value="{option.requiresValue}">{option.label}</option>
+                            <option value="{option.value}" data-requires-value="{option.requiresValue}" data-applicable-types="{option.applicableTypes}">{option.label}</option>
                             {/for}
                         </select>
                     </td>
@@ -134,12 +134,92 @@
                 valueInput.classList.toggle('d-none', !requiresValue);
             }
 
+            /** Hides operator options that don't apply to the row's currently selected field's type. An empty data-applicable-types means "always applies". Only forces the selection away from a now-hidden operator when resetIfInvalid is set - on initial render we keep whatever was already persisted, even if it now falls outside the type restriction. */
+            function syncOperatorOptionsForField(row, resetIfInvalid) {
+                var fieldSelect = row.querySelector('.rule-source-path-select');
+                var operatorSelect = row.querySelector('.rule-operator-select');
+                var selectedField = fieldSelect.selectedOptions[0];
+                var fieldType = selectedField ? selectedField.getAttribute('data-type') : '';
+                var firstApplicableValue = null;
+                Array.prototype.forEach.call(operatorSelect.options, function (option) {
+                    var applicableTypes = (option.getAttribute('data-applicable-types') || '').split(',').filter(Boolean);
+                    var applicable = applicableTypes.length === 0 || applicableTypes.indexOf(fieldType) !== -1;
+                    var isCurrent = option.value === operatorSelect.value;
+                    option.hidden = !applicable && !isCurrent;
+                    if (applicable && firstApplicableValue === null) firstApplicableValue = option.value;
+                });
+                if (resetIfInvalid && operatorSelect.selectedOptions[0].hidden && firstApplicableValue) {
+                    operatorSelect.value = firstApplicableValue;
+                }
+            }
+
+            var valuesCache = {};
+
+            function loadFieldValues(sourcePath) {
+                if (Object.prototype.hasOwnProperty.call(valuesCache, sourcePath)) return Promise.resolve(valuesCache[sourcePath]);
+                return fetch(basePath + '/values?sourcePath=' + encodeURIComponent(sourcePath), { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) { return response.ok ? response.json() : []; })
+                    .catch(function () { return []; })
+                    .then(function (values) {
+                        valuesCache[sourcePath] = values;
+                        return values;
+                    });
+            }
+
+            /** For EQUALS/NOT_EQUALS on a text field, populates a datalist with the values seen in the source data - lets the user pick a known value instead of typing it, avoiding typos when the field is used as an enum-like key. */
+            function syncValueProposals(row) {
+                var fieldSelect = row.querySelector('.rule-source-path-select');
+                var operatorSelect = row.querySelector('.rule-operator-select');
+                var valueInput = row.querySelector('.rule-value-input');
+                var selectedField = fieldSelect.selectedOptions[0];
+                var fieldType = selectedField ? selectedField.getAttribute('data-type') : '';
+                var isResolvable = fieldType === 'STRING' && (operatorSelect.value === 'EQUALS' || operatorSelect.value === 'NOT_EQUALS');
+                if (!isResolvable) return;
+
+                var datalist = row.querySelector('datalist');
+                if (!datalist) {
+                    datalist = document.createElement('datalist');
+                    datalist.id = 'filter-value-datalist-' + Math.random().toString(36).slice(2);
+                    valueInput.parentElement.appendChild(datalist);
+                    valueInput.setAttribute('list', datalist.id);
+                }
+                loadFieldValues(fieldSelect.value).then(function (values) {
+                    datalist.innerHTML = '';
+                    values.forEach(function (value) {
+                        var option = document.createElement('option');
+                        option.value = value;
+                        datalist.appendChild(option);
+                    });
+                });
+            }
+
+            function syncRow(row, resetOperatorIfInvalid) {
+                syncOperatorOptionsForField(row, resetOperatorIfInvalid);
+                syncValueVisibility(row);
+                syncValueProposals(row);
+            }
+
             var filterForm = document.getElementById('filterForm');
             if (filterForm) {
-                filterForm.addEventListener('change', function (e) {
-                    if (!e.target.classList.contains('rule-operator-select')) return;
-                    syncValueVisibility(e.target.closest('.filter-rule-row'));
+                filterForm.querySelectorAll('.filter-rules-table tbody .filter-rule-row').forEach(function (row) {
+                    syncRow(row, false);
                 });
+
+                filterForm.addEventListener('change', function (e) {
+                    var row = e.target.closest('.filter-rule-row');
+                    if (!row) return;
+                    if (e.target.classList.contains('rule-source-path-select')) {
+                        syncRow(row, true);
+                    } else if (e.target.classList.contains('rule-operator-select')) {
+                        syncValueVisibility(row);
+                        syncValueProposals(row);
+                    }
+                });
+
+                filterForm.addEventListener('focus', function (e) {
+                    if (!e.target.classList.contains('rule-value-input')) return;
+                    syncValueProposals(e.target.closest('.filter-rule-row'));
+                }, true);
 
                 filterForm.addEventListener('click', function (e) {
                     var addButton = e.target.closest('.add-rule-button');
@@ -147,7 +227,7 @@
                         var tbody = filterForm.querySelector('.filter-rules-table tbody');
                         var row = filterForm.querySelector('.filter-rule-row-template').content.cloneNode(true);
                         tbody.appendChild(row);
-                        syncValueVisibility(tbody.lastElementChild);
+                        syncRow(tbody.lastElementChild, false);
                         var hint = filterForm.parentElement.querySelector('[data-testid="filter-no-rules-hint"]');
                         if (hint) hint.remove();
                         return;
