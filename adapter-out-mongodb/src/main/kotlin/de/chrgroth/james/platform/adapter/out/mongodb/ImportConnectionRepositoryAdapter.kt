@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
+import com.mongodb.client.model.Updates
 import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionRepositoryPort
@@ -40,11 +41,18 @@ class ImportConnectionRepositoryAdapter(
     }
   }
 
+  override fun renameUrlFieldToBaseUrl() {
+    mongoQueryMetrics.timed("import_connection.renameUrlFieldToBaseUrl") {
+      val collection = importConnectionDocumentRepository.mongoCollection()
+      collection.updateMany(Filters.exists(OLD_URL_FIELD), Updates.rename(OLD_URL_FIELD, BASE_URL_FIELD))
+    }
+  }
+
   private fun ImportConnectionDocument.toDomain() = ImportConnection(
     id = ImportConnectionId(id),
     userId = userId,
     name = name,
-    baseUrl = url,
+    baseUrl = baseUrl,
     encryptedBearerToken = encryptedBearerToken,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
@@ -54,7 +62,7 @@ class ImportConnectionRepositoryAdapter(
     doc.id = id.value
     doc.userId = userId
     doc.name = name
-    doc.url = baseUrl
+    doc.baseUrl = baseUrl
     doc.encryptedBearerToken = encryptedBearerToken
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
@@ -63,5 +71,7 @@ class ImportConnectionRepositoryAdapter(
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val USER_ID_FIELD = "userId"
+    internal const val OLD_URL_FIELD = "url"
+    internal const val BASE_URL_FIELD = "baseUrl"
   }
 }
