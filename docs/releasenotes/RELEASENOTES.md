@@ -1,3 +1,19 @@
+# 0.81.0 (2026.08.15)
+
+## New Features
+* The dry-run page now offers two ways to accept an import: "Hinzufügen" adds the imported data to what's already there, and "Ersetzen" first deletes all existing data of the target entity and then imports, so records that only conflicted with data being replaced are no longer discarded.
+
+## Bugfixes / Chore
+* Opening an import now always shows the furthest step it has reached (Datenpfad, Mapping or Dry-Run) instead of always landing on the data path step.
+* The target entity on the import overview page now links directly to the entity's own page within the app installation.
+* The detected data path is now displayed and entered in a leading-slash form (e.g. `/data/items`) instead of the internal dot-notation.
+* Clicking the selected data path now shows the automatically detected JSON structure (fields, types, mandatory flag).
+* The dry-run page no longer shows the invalid-objects list open by default; the valid/invalid/discarded counts are now clickable to reveal their details, and the accept actions moved above the counts so they are reachable without scrolling past large fan-in reports.
+
+
+
+---
+
 # 0.80.0 (2026.08.15)
 
 ## New Features
