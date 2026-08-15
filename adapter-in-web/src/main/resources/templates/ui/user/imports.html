@@ -1,21 +1,22 @@
 {#include layout.html}
-    {#title}{msg:commonAppName()} – {info.appName} – {user:userImportsTitle()}{/title}
+    {#title}{msg:commonAppName()} – {user:userImportsTitle()}{/title}
     {#content}
     <div class="app-page-container py-4 px-3 px-md-4">
         <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
-                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app">{info.appName}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-imports">{user:userImportsTitle()}</li>
             </ol>
         </nav>
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="imports-title">{user:userImportsTitle()}</h1>
+            {#if !appOptions.isEmpty}
             <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#newImportModal" data-testid="new-import-button">
                 <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
                 {user:userNewImportButtonLabel()}
             </button>
+            {/if}
         </div>
 
         <div id="imports-message" class="d-none mb-4" role="alert"></div>
@@ -32,53 +33,23 @@
                     <table class="table table-sm table-striped mb-0 app-table" data-testid="imports-table">
                         <thead>
                             <tr>
+                                <th>{user:userImportColStatus()}</th>
+                                <th>{user:userImportColTargetAppInstallation()}</th>
                                 <th>{user:userImportColTargetEntity()}</th>
                                 <th>{user:userImportColCreatedAt()}</th>
-                                <th>{user:userImportColLastActivity()}</th>
-                                <th>{user:userImportColStatus()}</th>
-                                <th>{user:userImportDataPathLabel()}</th>
-                                <th class="text-end">{user:userImportColActions()}</th>
+                                <th>{user:userImportColLastAction()}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {#for job in jobs}
-                            <tr data-testid="import-row">
-                                <td data-testid="import-target-entity">{job.targetEntityName}</td>
+                            <tr data-testid="import-row" data-import-id="{job.id}">
+                                <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
+                                <td data-testid="import-installed-app-name">{job.installedAppName}</td>
+                                <td data-testid="import-target-entity">
+                                    <a href="/ui/user/imports/{job.id}" class="breadcrumb-link" data-testid="import-target-entity-link">{job.targetEntityName}</a>
+                                </td>
                                 <td data-testid="import-created-at">{job.createdAt.formatted}</td>
                                 <td data-testid="import-last-changed-at">{job.lastChangedAt.formatted}</td>
-                                <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
-                                <td data-testid="import-data-path">
-                                    {#if job.awaitingDataPathSelection}
-                                    <form class="d-flex gap-2 align-items-start data-path-form" data-import-id="{job.id}">
-                                        {#if job.detectedDataPaths.isEmpty}
-                                        <div>
-                                            <input type="text" class="form-control form-control-sm app-form-control" name="dataPath" placeholder="{user:userImportDataPathManualLabel()}" required autocomplete="off" data-testid="data-path-input">
-                                            <div class="form-text">{user:userImportDataPathManualHint()}</div>
-                                        </div>
-                                        {#else}
-                                        <select class="form-select form-select-sm app-form-control" name="dataPath" required data-testid="data-path-select">
-                                            {#for candidate in job.detectedDataPaths}
-                                            <option value="{candidate.path}">{candidate.path} ({user:userImportDataPathSizeLabel(candidate.size)})</option>
-                                            {/for}
-                                        </select>
-                                        {/if}
-                                        <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="data-path-submit">{user:userImportDataPathSelectButton()}</button>
-                                    </form>
-                                    {#else}
-                                    <span data-testid="selected-data-path">{job.selectedDataPath}</span>
-                                    {/if}
-                                </td>
-                                <td class="text-end">
-                                    {#if job.readyForDryRun}
-                                    <a href="/ui/user/imports/{job.id}/dry-run" class="btn btn-app-primary btn-sm me-1" data-testid="dry-run-link">{user:userImportDryRunLinkLabel()}</a>
-                                    {/if}
-                                    {#if job.mappable}
-                                    <a href="/ui/user/imports/{job.id}/mapping" class="btn btn-app-secondary btn-sm me-1" data-testid="mapping-link">{user:userImportMappingLinkLabel()}</a>
-                                    {/if}
-                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
-                                        <i class="bi bi-trash" aria-hidden="true"></i>
-                                    </button>
-                                </td>
                             </tr>
                             {/for}
                         </tbody>
@@ -103,6 +74,14 @@
                         <div id="import-modal-message" class="d-none mb-3" role="alert"></div>
                         {#if hasConnections}
                         <div class="mb-3">
+                            <label for="importInstalledAppId" class="form-label">{user:userImportColTargetAppInstallation()}</label>
+                            <select class="form-select app-form-control" id="importInstalledAppId" name="installedAppId" required data-testid="import-app-select">
+                                {#for app in appOptions}
+                                <option value="{app.id}">{app.name}</option>
+                                {/for}
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label for="importConnectionId" class="form-label">{user:userImportConnectionLabel()}</label>
                             <select class="form-select app-form-control" id="importConnectionId" name="connectionId" required data-testid="import-connection-select">
                                 {#for connection in connectionOptions}
@@ -112,11 +91,13 @@
                         </div>
                         <div class="mb-3">
                             <label for="importTargetEntityDefinitionId" class="form-label">{user:userImportTargetEntityLabel()}</label>
-                            <select class="form-select app-form-control" id="importTargetEntityDefinitionId" name="targetEntityDefinitionId" required data-testid="import-target-entity-select">
-                                {#for entity in entityOptions}
+                            {#for app in appOptions}
+                            <select class="form-select app-form-control import-target-entity-group" data-app-id="{app.id}" name="targetEntityDefinitionId" style="display:none" data-testid="import-target-entity-select">
+                                {#for entity in app.entityOptions}
                                 <option value="{entity.id}">{entity.name}</option>
                                 {/for}
                             </select>
+                            {/for}
                         </div>
                         {#else}
                         <p class="mb-0" data-testid="no-connections-hint">
@@ -135,30 +116,11 @@
             </div>
         </div>
     </div>
-
-    <!-- Delete Import Modal -->
-    <div class="modal fade" id="deleteImportModal" tabindex="-1" aria-labelledby="deleteImportModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content app-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteImportModalLabel">{user:userDeleteImportModalTitle()}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
-                </div>
-                <div class="modal-body" data-testid="delete-import-modal-body">{user:userDeleteImportConfirm()}</div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
-                    <button type="button" class="btn btn-app-danger" id="confirmDeleteImportButton" data-testid="confirm-delete-import-button">{msg:commonDelete()}</button>
-                </div>
-            </div>
-        </div>
-    </div>
     {/content}
     {#scripts}
     <script>
         (function () {
-            var installedAppId = '{info.installedAppId}';
-            var basePath = '/ui/user/imports/' + encodeURIComponent(installedAppId);
-            var jobsBasePath = '/ui/user/imports';
+            var basePath = '/ui/user/imports';
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             var messagePanel = document.getElementById('imports-message');
@@ -226,13 +188,22 @@
                 }
             }
 
-            async function fetchAction(method, url) {
-                try {
-                    var response = await fetch(url, { method: method });
-                    return await response.json();
-                } catch (e) {
-                    return { ok: false, message: networkErrorMessage };
-                }
+            // Target entity depends on the selected installed app: only the matching, enabled <select>
+            // is submitted with the form; the others are hidden and disabled so FormData skips them.
+            var appSelect = document.getElementById('importInstalledAppId');
+            var targetEntityGroups = document.querySelectorAll('.import-target-entity-group');
+
+            function syncTargetEntityGroup() {
+                if (!appSelect) { return; }
+                targetEntityGroups.forEach(function (group) {
+                    var active = group.getAttribute('data-app-id') === appSelect.value;
+                    group.style.display = active ? '' : 'none';
+                    group.disabled = !active;
+                });
+            }
+            if (appSelect) {
+                appSelect.addEventListener('change', syncTargetEntityGroup);
+                syncTargetEntityGroup();
             }
 
             // New import form submit
@@ -246,6 +217,7 @@
                     if (result.ok) {
                         bootstrap.Modal.getInstance(newImportModal).hide();
                         this.reset();
+                        syncTargetEntityGroup();
                         await refreshTable();
                         showMessage(true, result.message);
                     } else {
@@ -256,42 +228,6 @@
             if (newImportModal) {
                 newImportModal.addEventListener('hidden.bs.modal', function () {
                     clearImportModalMessage();
-                });
-            }
-
-            // Data path selection form submit (delegated, since rows are re-rendered after each refresh)
-            var importsTableContainer = document.getElementById('imports-table-container');
-            if (importsTableContainer) {
-                importsTableContainer.addEventListener('submit', async function (e) {
-                    var form = e.target.closest('.data-path-form');
-                    if (!form) { return; }
-                    e.preventDefault();
-                    var importId = form.getAttribute('data-import-id');
-                    var result = await fetchForm('POST', jobsBasePath + '/' + encodeURIComponent(importId) + '/select-path', new FormData(form));
-                    showMessage(result.ok, result.message);
-                    if (result.ok) { await refreshTable(); }
-                });
-            }
-
-            // Delete import modal – remember which job to delete
-            var deleteImportModal = document.getElementById('deleteImportModal');
-            if (deleteImportModal) {
-                deleteImportModal.addEventListener('show.bs.modal', function (event) {
-                    var trigger = event.relatedTarget;
-                    var importId = trigger ? trigger.getAttribute('data-import-id') : '';
-                    deleteImportModal.setAttribute('data-import-id', importId);
-                });
-            }
-
-            // Delete import modal – confirm button submit
-            var confirmDeleteImportButton = document.getElementById('confirmDeleteImportButton');
-            if (confirmDeleteImportButton) {
-                confirmDeleteImportButton.addEventListener('click', async function () {
-                    var importId = deleteImportModal.getAttribute('data-import-id') || '';
-                    var result = await fetchAction('POST', jobsBasePath + '/' + encodeURIComponent(importId) + '/delete');
-                    bootstrap.Modal.getInstance(deleteImportModal).hide();
-                    showMessage(result.ok, result.message);
-                    if (result.ok) { await refreshTable(); }
                 });
             }
         }());

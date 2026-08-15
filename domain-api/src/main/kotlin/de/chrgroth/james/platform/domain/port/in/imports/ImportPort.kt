@@ -9,7 +9,8 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 
 interface ImportPort {
-  fun listImportJobs(userId: String, installedAppId: String): Either<DomainError, List<ImportJob>>
+  /** Lists all of [userId]'s import jobs across every installed app, newest first. */
+  fun listAllImportJobs(userId: String): List<ImportJob>
 
   /** Fetches the connection's URL through the connection's stored credentials and creates a new job targeting [targetEntityDefinitionId] within [installedAppId]. */
   fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String): Either<DomainError, ImportJob>

@@ -1,0 +1,145 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {targetEntityName} – {user:userImportsTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-import-name">{targetEntityName}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="import-job-title">{targetEntityName}</h1>
+            <span class="badge border-0 app-badge-processing" data-testid="import-job-status">{job.statusLabel}</span>
+            {#btn-icon-delete testId="delete-import-button" title=msg:commonDelete() extraClass="ms-auto" bsTarget="#deleteImportModal" action="" entityId="" propertyId="" reportId="" username="" /}
+        </div>
+
+        {#import-steps importJobId=job.id mappable=job.mappable readyForDryRun=job.readyForDryRun activeStep="overview" /}
+
+        <div id="import-job-message" class="d-none mb-4" role="alert"></div>
+
+        <div class="card app-card p-3 p-md-4 mb-4">
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3">
+                    <span class="app-section-label">{user:userImportColTargetAppInstallation()}</span>
+                    <div class="fw-semibold"><a href="/ui/user/apps/{job.installedAppId}" class="breadcrumb-link" data-testid="import-job-installed-app">{job.installedAppName}</a></div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <span class="app-section-label">{user:userImportColTargetEntity()}</span>
+                    <div class="fw-semibold" data-testid="import-job-target-entity">{targetEntityName}</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <span class="app-section-label">{user:userImportColCreatedAt()}</span>
+                    <div class="fw-semibold" data-testid="import-job-created-at">{job.createdAt.formatted}</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <span class="app-section-label">{user:userImportColLastAction()}</span>
+                    <div class="fw-semibold" data-testid="import-job-last-changed-at">{job.lastChangedAt.formatted}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card app-card p-3 p-md-4 mb-4">
+            <span class="app-section-label mb-1">{user:userImportDataPathLabel()}</span>
+            {#if job.awaitingDataPathSelection}
+            <form id="dataPathForm" class="d-flex gap-2 align-items-start">
+                {#if job.detectedDataPaths.isEmpty}
+                <div>
+                    <input type="text" class="form-control form-control-sm app-form-control" name="dataPath" placeholder="{user:userImportDataPathManualLabel()}" required autocomplete="off" data-testid="data-path-input">
+                    <div class="form-text">{user:userImportDataPathManualHint()}</div>
+                </div>
+                {#else}
+                <select class="form-select form-select-sm app-form-control" name="dataPath" required data-testid="data-path-select">
+                    {#for candidate in job.detectedDataPaths}
+                    <option value="{candidate.path}">{candidate.path} ({user:userImportDataPathSizeLabel(candidate.size)})</option>
+                    {/for}
+                </select>
+                {/if}
+                <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="data-path-submit">{user:userImportDataPathSelectButton()}</button>
+            </form>
+            {#else}
+            <div class="fw-semibold" data-testid="selected-data-path">{job.selectedDataPath}</div>
+            {/if}
+        </div>
+    </div>
+
+    <!-- Delete Import Modal -->
+    <div class="modal fade" id="deleteImportModal" tabindex="-1" aria-labelledby="deleteImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteImportModalLabel">{user:userDeleteImportModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="delete-import-modal-body">{user:userDeleteImportConfirm()}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteImportButton" data-testid="confirm-delete-import-button">{msg:commonDelete()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var importJobId = '{job.id}';
+            var basePath = '/ui/user/imports/' + encodeURIComponent(importJobId);
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('import-job-message');
+
+            function showMessage(ok, message) {
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+            }
+
+            async function fetchForm(method, url, formData) {
+                try {
+                    var response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(formData).toString()
+                    });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            async function fetchAction(method, url) {
+                try {
+                    var response = await fetch(url, { method: method });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            var dataPathForm = document.getElementById('dataPathForm');
+            if (dataPathForm) {
+                dataPathForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var result = await fetchForm('POST', basePath + '/select-path', new FormData(dataPathForm));
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { setTimeout(function () { window.location.reload(); }, 600); }
+                });
+            }
+
+            var confirmDeleteImportButton = document.getElementById('confirmDeleteImportButton');
+            if (confirmDeleteImportButton) {
+                confirmDeleteImportButton.addEventListener('click', async function () {
+                    var result = await fetchAction('POST', basePath + '/delete');
+                    bootstrap.Modal.getInstance(document.getElementById('deleteImportModal')).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { setTimeout(function () { window.location.href = '/ui/user/imports'; }, 600); }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}
