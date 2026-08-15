@@ -6,7 +6,7 @@
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
                 <li class="breadcrumb-item"><a href="/ui/user/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
-                <li class="breadcrumb-item"><a href="/ui/user/imports/{importJobId}" class="breadcrumb-link" data-testid="breadcrumb-import-name">{targetEntityName}</a></li>
+                <li class="breadcrumb-item"><a href="/ui/user/imports/{importJobId}/overview" class="breadcrumb-link" data-testid="breadcrumb-import-name">{targetEntityName}</a></li>
                 <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-mapping">{user:userImportMappingTitle()}</li>
             </ol>
         </nav>

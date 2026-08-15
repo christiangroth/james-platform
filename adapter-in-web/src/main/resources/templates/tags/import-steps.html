@@ -1,7 +1,7 @@
 <nav class="app-step-nav mb-4" aria-label="{user:userImportStepsAriaLabel()}" data-testid="import-steps">
     <ol class="d-flex flex-wrap gap-2 list-unstyled mb-0">
         <li>
-            <a href="/ui/user/imports/{importJobId}"
+            <a href="/ui/user/imports/{importJobId}/overview"
                class="btn btn-sm {#if activeStep == 'overview'}btn-app-primary{#else}btn-app-secondary{/if}"
                aria-current="{#if activeStep == 'overview'}step{/if}"
                data-testid="import-step-overview">{user:userImportStepDataPathLabel()}</a>

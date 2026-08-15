@@ -55,6 +55,7 @@ data class DryRunReport(
   val validCount: Int get() = objects.count { it.isValid }
   val skippedCount: Int get() = objects.count { it.isSkipped }
   val invalidCount: Int get() = objects.count { it.isInvalid }
+  val validObjects: List<DryRunObject> get() = objects.filter { it.isValid }
   val invalidObjects: List<DryRunObject> get() = objects.filter { it.isInvalid }
   val skippedObjects: List<DryRunObject> get() = objects.filter { it.isSkipped }
 }

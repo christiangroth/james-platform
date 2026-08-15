@@ -28,7 +28,7 @@
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <span class="app-section-label">{user:userImportColTargetEntity()}</span>
-                    <div class="fw-semibold" data-testid="import-job-target-entity">{targetEntityName}</div>
+                    <div class="fw-semibold"><a href="{targetEntityUrl}" class="breadcrumb-link" data-testid="import-job-target-entity">{targetEntityName}</a></div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <span class="app-section-label">{user:userImportColCreatedAt()}</span>
@@ -53,15 +53,63 @@
                 {#else}
                 <select class="form-select form-select-sm app-form-control" name="dataPath" required data-testid="data-path-select">
                     {#for candidate in job.detectedDataPaths}
-                    <option value="{candidate.path}">{candidate.path} ({user:userImportDataPathSizeLabel(candidate.size)})</option>
+                    <option value="{candidate.path}">{candidate.displayPath} ({user:userImportDataPathSizeLabel(candidate.size)})</option>
                     {/for}
                 </select>
                 {/if}
                 <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="data-path-submit">{user:userImportDataPathSelectButton()}</button>
             </form>
             {#else}
-            <div class="fw-semibold" data-testid="selected-data-path">{job.selectedDataPath}</div>
+            {#if schemaFields.isEmpty}
+            <div class="fw-semibold" data-testid="selected-data-path">{job.selectedDataPathDisplay}</div>
+            {#else}
+            <button type="button" class="btn btn-link p-0 fw-semibold text-start" data-bs-toggle="modal" data-bs-target="#dataPathSchemaModal" data-testid="selected-data-path">
+                {job.selectedDataPathDisplay}
+                <i class="bi bi-braces ms-1" aria-hidden="true"></i>
+            </button>
             {/if}
+            {/if}
+        </div>
+    </div>
+
+    <!-- Data Path Schema Modal -->
+    <div class="modal fade" id="dataPathSchemaModal" tabindex="-1" aria-labelledby="dataPathSchemaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="dataPathSchemaModalLabel">{user:userImportDataPathSchemaModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" data-testid="data-path-schema-table">
+                            <thead>
+                                <tr>
+                                    <th>{user:userImportDataPathSchemaColField()}</th>
+                                    <th>{user:userImportDataPathSchemaColType()}</th>
+                                    <th>{user:userImportDataPathSchemaColMandatory()}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#for field in schemaFields}
+                                <tr data-testid="data-path-schema-row">
+                                    <td class="fw-semibold">{field.path}</td>
+                                    <td>{field.typeLabel}</td>
+                                    <td>
+                                        {#if field.mandatory}
+                                        <span class="badge border-0 app-badge-processing" data-testid="data-path-schema-mandatory-badge">{user:userImportMappingMandatoryBadge()}</span>
+                                        {/if}
+                                    </td>
+                                </tr>
+                                {/for}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonClose()}</button>
+                </div>
+            </div>
         </div>
     </div>
 

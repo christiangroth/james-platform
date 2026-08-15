@@ -12,4 +12,5 @@ interface AppDataRepositoryPort {
   fun save(appData: AppData)
   fun delete(id: AppDataId)
   fun deleteAllByInstalledAppId(installedAppId: InstalledAppId)
+  fun deleteAllByInstalledAppIdAndEntityType(installedAppId: InstalledAppId, entityType: EntityDefinitionId)
 }

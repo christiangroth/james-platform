@@ -44,6 +44,7 @@ import jakarta.ws.rs.POST
 import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
+import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.net.URI
@@ -51,7 +52,14 @@ import java.time.Instant
 
 data class DataPathRow(
   val path: String,
+  val displayPath: String,
   val size: Int,
+)
+
+data class SchemaFieldRow(
+  val path: String,
+  val typeLabel: String,
+  val mandatory: Boolean,
 )
 
 data class ImportJobRow(
@@ -65,6 +73,7 @@ data class ImportJobRow(
   val readyForDryRun: Boolean,
   val detectedDataPaths: List<DataPathRow>,
   val selectedDataPath: String?,
+  val selectedDataPathDisplay: String?,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )
@@ -261,6 +270,7 @@ class UserImportResource {
     )
   }
 
+  /** Always opens the furthest step the job has reached, so navigating to an import (e.g. from the imports list) never lands on an earlier, already-completed step. */
   @GET
   @Path("/{importJobId}")
   @Produces(MediaType.TEXT_HTML)
@@ -270,16 +280,40 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
+    val step = when (view.importJob.status) {
+      ImportStatus.READY -> "dry-run"
+      ImportStatus.DATA_IDENTIFIED -> "mapping"
+      ImportStatus.DOWNLOADED -> "overview"
+    }
+    Response.seeOther(URI.create("/ui/user/imports/$importJobId/$step")).build()
+  }
+
+  @GET
+  @Path("/{importJobId}/overview")
+  @Produces(MediaType.TEXT_HTML)
+  fun importJobOverview(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("page.user-import.job-overview") {
+    val userId = securityIdentity.principal.name
+    val view = importPort.getMappingView(userId, importJobId).fold(
+      ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
+      ifRight = { it },
+    )
     val info = userAppStore.getInstalledApp(userId, view.importJob.installedAppId.value).fold(
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
+    val entityCount = info.installedVersion.entityDefinitions.size
     Response.ok(
       importJobTemplate
         .data("job", view.importJob.toRow(mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name), mapOf(info.installedAppId to info.appName)))
-        .data("targetEntityName", view.targetEntityDefinition.name),
+        .data("targetEntityName", view.targetEntityDefinition.name)
+        .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
+        .data("schemaFields", view.importJob.detectedSchema.map { it.toRow() }),
     ).build()
   }
+
+  /** The entity's data list: the app detail page itself when it is the only entity type, otherwise its dedicated entity page. */
+  private fun entityListUrl(installedAppId: String, entityTypeId: String, entityCount: Int): String =
+    if (entityCount <= 1) "/ui/user/apps/$installedAppId" else "/ui/user/apps/$installedAppId/entities/$entityTypeId"
 
   @POST
   @Path("/{importJobId}/select-path")
@@ -293,7 +327,7 @@ class UserImportResource {
     if (dataPath.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportBlankDataPathError())).build()
     }
-    importPort.selectDataPath(userId, importJobId, dataPath).fold(
+    importPort.selectDataPath(userId, importJobId, normalizeDataPathInput(dataPath)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDataPathSelectedMessage())).build() },
     )
@@ -386,6 +420,7 @@ class UserImportResource {
         .data("validCount", report.validCount)
         .data("skippedCount", report.skippedCount)
         .data("invalidCount", report.invalidCount)
+        .data("validObjects", report.validObjects.map { it.toRow(view.targetEntityDefinition) })
         .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
         .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition))
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
@@ -397,9 +432,13 @@ class UserImportResource {
   @POST
   @Path("/{importJobId}/dry-run/accept")
   @Produces(MediaType.APPLICATION_JSON)
-  fun acceptDryRun(@PathParam("importJobId") importJobId: String): Response = httpResponseMetrics.timed("rest.user-import.dry-run-accept") {
+  fun acceptDryRun(
+    @PathParam("importJobId") importJobId: String,
+    @QueryParam("mode") mode: String?,
+  ): Response = httpResponseMetrics.timed("rest.user-import.dry-run-accept") {
     val userId = securityIdentity.principal.name
-    importPort.acceptDryRun(userId, importJobId).fold(
+    val replaceExisting = mode == "REPLACE"
+    importPort.acceptDryRun(userId, importJobId, replaceExisting).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { result ->
         val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
@@ -442,14 +481,31 @@ class UserImportResource {
     readyForDryRun = status == ImportStatus.READY,
     detectedDataPaths = detectedDataPaths.map { it.toRow() },
     selectedDataPath = selectedDataPath,
+    selectedDataPathDisplay = selectedDataPath?.let { formatDataPath(it) },
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
 
   private fun DataPath.toRow() = DataPathRow(
     path = path,
+    displayPath = formatDataPath(path),
     size = size,
   )
+
+  private fun SchemaProperty.toRow(): SchemaFieldRow {
+    val dominantType = typeCounts.filterKeys { it != SchemaPropertyType.NULL }.maxByOrNull { it.value }?.key
+    return SchemaFieldRow(
+      path = path,
+      typeLabel = dominantType?.let { schemaTypeLabel(it) }.orEmpty(),
+      mandatory = mandatory,
+    )
+  }
+
+  /** Displays a dot-separated internal data path (e.g. `data.items`) in the leading-slash form users expect (`/data/items`). */
+  private fun formatDataPath(path: String): String = "/" + path.replace(".", "/")
+
+  /** Accepts both the leading-slash display form and the raw dot-separated internal form for manually entered data paths. */
+  private fun normalizeDataPathInput(raw: String): String = raw.trim().removePrefix("/").replace("/", ".")
 
   private fun DryRunObject.toRow(entityDefinition: EntityDefinition): DryRunObjectRow {
     val issuesByProperty = issues.groupBy { it.targetPropertyId }

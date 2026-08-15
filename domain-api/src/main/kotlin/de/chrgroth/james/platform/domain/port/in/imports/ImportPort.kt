@@ -26,6 +26,10 @@ interface ImportPort {
   /** Builds all target objects for the mapping (without saving them) and validates each against the target entity definition's constraints. */
   fun dryRun(userId: String, importJobId: String): Either<DomainError, DryRunReport>
 
-  /** Saves every valid object from the current dry-run, discards invalid ones, and deletes the [ImportJob] (including its raw payload). */
-  fun acceptDryRun(userId: String, importJobId: String): Either<DomainError, DryRunAcceptResult>
+  /**
+   * Saves every valid object from the current dry-run, discards invalid ones, and deletes the [ImportJob] (including its raw payload).
+   * When [replaceExisting] is set, every existing instance of the target entity is deleted first, and the dry-run is re-evaluated
+   * against that now-empty state — so a record only skipped because it collided with data that is about to be deleted ends up saved instead.
+   */
+  fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, DryRunAcceptResult>
 }
