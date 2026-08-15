@@ -12,8 +12,12 @@ interface ImportPort {
   /** Lists all of [userId]'s import jobs across every installed app, newest first. */
   fun listAllImportJobs(userId: String): List<ImportJob>
 
-  /** Fetches the connection's URL through the connection's stored credentials and creates a new job targeting [targetEntityDefinitionId] within [installedAppId]. */
-  fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String): Either<DomainError, ImportJob>
+  /**
+   * Fetches from the connection's base URL - or, when [urlPostfix] is given, from the base URL with it appended -
+   * through the connection's stored credentials, and creates a new job targeting [targetEntityDefinitionId]
+   * within [installedAppId].
+   */
+  fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String, urlPostfix: String? = null): Either<DomainError, ImportJob>
   fun deleteImportJob(userId: String, importJobId: String): Either<DomainError, Unit>
   fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob>
   fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView>

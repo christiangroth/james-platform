@@ -182,7 +182,7 @@ class UserImportResourceTests {
     val request = given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", name)
-      .formParam("url", url)
+      .formParam("baseUrl", url)
     (if (bearerToken != null) request.formParam("bearerToken", bearerToken) else request)
       .`when`()
       .post("/ui/user/imports/connections")
@@ -202,12 +202,13 @@ class UserImportResourceTests {
       ?: error("Expected connection '$name' in the rendered connections table")
   }
 
-  private fun triggerImport(installedAppId: String, connectionId: String, entityId: String) {
-    given()
+  private fun triggerImport(installedAppId: String, connectionId: String, entityId: String, urlPostfix: String? = null) {
+    val request = given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("installedAppId", installedAppId)
       .formParam("connectionId", connectionId)
       .formParam("targetEntityDefinitionId", entityId)
+    (if (urlPostfix != null) request.formParam("urlPostfix", urlPostfix) else request)
       .`when`()
       .post("/ui/user/imports")
       .then()
@@ -236,6 +237,24 @@ class UserImportResourceTests {
 
     assertTrue(tableHtml.contains("data-testid=\"imports-table\""), "Expected the imports table to be rendered")
     assertTrue(tableHtml.contains("data-testid=\"import-status\""), "Expected a status cell for the created import job")
+  }
+
+  @Test
+  fun `trigger import with a url postfix fetches from the connection's base URL with it appended and shows the resolved URL on the job overview`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+
+    triggerImport(installedAppId, createConnection(url = "https://example.com/data"), entityId, urlPostfix = "/latest")
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/overview")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"import-job-source-url\">https://example.com/data/latest<"), "Expected the resolved base URL + postfix to be rendered on the job overview")
   }
 
   @Test

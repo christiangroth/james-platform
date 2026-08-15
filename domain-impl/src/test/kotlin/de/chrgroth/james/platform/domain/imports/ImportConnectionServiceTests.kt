@@ -31,7 +31,7 @@ class ImportConnectionServiceTests {
     id = ImportConnectionId("conn-1"),
     userId = "user-1",
     name = "My API",
-    url = "https://example.com/data",
+    baseUrl = "https://example.com/data",
     encryptedBearerToken = "encrypted-token",
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
@@ -59,7 +59,7 @@ class ImportConnectionServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.userId).isEqualTo("user-1")
     assertThat(saved.captured.name).isEqualTo("My API")
-    assertThat(saved.captured.url).isEqualTo("https://example.com/data")
+    assertThat(saved.captured.baseUrl).isEqualTo("https://example.com/data")
     assertThat(saved.captured.encryptedBearerToken).isEqualTo("encrypted-token")
   }
 
@@ -86,7 +86,7 @@ class ImportConnectionServiceTests {
   fun `create connection fails with a blank url`() {
     val result = service.createConnection("user-1", "My API", " ", null)
 
-    assertThat(result).isEqualTo(ImportConnectionError.BLANK_URL.left())
+    assertThat(result).isEqualTo(ImportConnectionError.BLANK_BASE_URL.left())
   }
 
   @Test
@@ -109,7 +109,7 @@ class ImportConnectionServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.name).isEqualTo("Renamed")
-    assertThat(saved.captured.url).isEqualTo("https://example.com/v2")
+    assertThat(saved.captured.baseUrl).isEqualTo("https://example.com/v2")
     assertThat(saved.captured.encryptedBearerToken).isEqualTo("encrypted-new-token")
   }
 

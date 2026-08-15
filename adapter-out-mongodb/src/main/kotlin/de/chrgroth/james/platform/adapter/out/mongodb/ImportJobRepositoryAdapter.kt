@@ -65,6 +65,7 @@ class ImportJobRepositoryAdapter(
     userId = userId,
     installedAppId = InstalledAppId(installedAppId),
     connectionId = ImportConnectionId(connectionId),
+    urlPostfix = urlPostfix,
     targetEntityDefinitionId = EntityDefinitionId(targetEntityDefinitionId),
     status = ImportStatus.valueOf(status),
     payload = payload,
@@ -120,6 +121,7 @@ class ImportJobRepositoryAdapter(
     doc.userId = userId
     doc.installedAppId = installedAppId.value
     doc.connectionId = connectionId.value
+    doc.urlPostfix = urlPostfix
     doc.targetEntityDefinitionId = targetEntityDefinitionId.value
     doc.status = status.name
     doc.payload = payload

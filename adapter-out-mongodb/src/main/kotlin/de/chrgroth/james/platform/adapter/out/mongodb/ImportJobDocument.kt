@@ -12,6 +12,7 @@ class ImportJobDocument {
   lateinit var userId: String
   lateinit var installedAppId: String
   lateinit var connectionId: String
+  var urlPostfix: String? = null
   lateinit var targetEntityDefinitionId: String
   lateinit var status: String
   lateinit var payload: String

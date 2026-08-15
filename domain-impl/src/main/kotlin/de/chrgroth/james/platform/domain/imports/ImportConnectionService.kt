@@ -27,14 +27,14 @@ class ImportConnectionService(
   override fun listConnections(userId: String): Either<DomainError, List<ImportConnection>> =
     importConnectionRepository.findAllByUserId(userId).sortedBy { it.name.lowercase() }.right()
 
-  override fun createConnection(userId: String, name: String, url: String, bearerToken: String?): Either<DomainError, ImportConnection> {
+  override fun createConnection(userId: String, name: String, baseUrl: String, bearerToken: String?): Either<DomainError, ImportConnection> {
     if (name.isBlank()) {
       logger.warn { "Create connection failed: blank name for user: $userId" }
       return ImportConnectionError.BLANK_NAME.left()
     }
-    if (url.isBlank()) {
-      logger.warn { "Create connection failed: blank url for user: $userId" }
-      return ImportConnectionError.BLANK_URL.left()
+    if (baseUrl.isBlank()) {
+      logger.warn { "Create connection failed: blank base url for user: $userId" }
+      return ImportConnectionError.BLANK_BASE_URL.left()
     }
 
     val encryptedBearerToken = bearerToken?.trim()?.takeIf { it.isNotBlank() }
@@ -45,7 +45,7 @@ class ImportConnectionService(
       id = ImportConnectionId(UUID.randomUUID().toString()),
       userId = userId,
       name = name.trim(),
-      url = url.trim(),
+      baseUrl = baseUrl.trim(),
       encryptedBearerToken = encryptedBearerToken,
       createdAt = now,
       lastChangedAt = now,
@@ -59,7 +59,7 @@ class ImportConnectionService(
     userId: String,
     connectionId: String,
     name: String,
-    url: String,
+    baseUrl: String,
     bearerToken: String?,
     clearBearerToken: Boolean,
   ): Either<DomainError, ImportConnection> {
@@ -71,9 +71,9 @@ class ImportConnectionService(
       logger.warn { "Update connection failed: blank name for connectionId: $connectionId" }
       return ImportConnectionError.BLANK_NAME.left()
     }
-    if (url.isBlank()) {
-      logger.warn { "Update connection failed: blank url for connectionId: $connectionId" }
-      return ImportConnectionError.BLANK_URL.left()
+    if (baseUrl.isBlank()) {
+      logger.warn { "Update connection failed: blank base url for connectionId: $connectionId" }
+      return ImportConnectionError.BLANK_BASE_URL.left()
     }
 
     val trimmedToken = bearerToken?.trim()?.takeIf { it.isNotBlank() }
@@ -85,7 +85,7 @@ class ImportConnectionService(
 
     val updated = existing.copy(
       name = name.trim(),
-      url = url.trim(),
+      baseUrl = baseUrl.trim(),
       encryptedBearerToken = encryptedBearerToken,
       lastChangedAt = Instant.now(),
     )
@@ -110,7 +110,7 @@ class ImportConnectionService(
       return ImportConnectionError.CONNECTION_NOT_FOUND.left()
     }
     val bearerToken = existing.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
-    return importFetch.fetch(existing.url, bearerToken).fold(
+    return importFetch.fetch(existing.baseUrl, bearerToken).fold(
       ifLeft = {
         logger.warn { "Test connection failed: fetch failed for connectionId: $connectionId" }
         it.left()

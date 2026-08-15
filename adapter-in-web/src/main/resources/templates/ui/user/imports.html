@@ -102,6 +102,11 @@
                             </select>
                         </div>
                         <div class="mb-3">
+                            <label for="importUrlPostfix" class="form-label">{user:userImportUrlPostfixLabel()}</label>
+                            <input type="text" class="form-control app-form-control" id="importUrlPostfix" name="urlPostfix" autocomplete="off" data-testid="import-url-postfix-input">
+                            <div class="form-text">{user:userImportUrlPostfixHint()}</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="importTargetEntityDefinitionId" class="form-label">{user:userImportTargetEntityLabel()}</label>
                             {#for app in appOptions}
                             <select class="form-select app-form-control import-target-entity-group" data-app-id="{app.id}" name="targetEntityDefinitionId" style="display:none" data-testid="import-target-entity-select">
