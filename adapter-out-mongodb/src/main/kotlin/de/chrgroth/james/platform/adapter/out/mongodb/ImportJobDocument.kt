@@ -30,6 +30,7 @@ class FilterRuleDocument {
   lateinit var sourcePath: String
   lateinit var operator: String
   var value: String? = null
+  var includeAbsent: Boolean = false
 }
 
 class MappingDocument {

@@ -120,6 +120,7 @@ data class FilterRuleRow(
   val operator: String,
   val value: String,
   val requiresValue: Boolean,
+  val includeAbsent: Boolean,
 )
 
 data class FilterModeOptionRow(
@@ -225,6 +226,7 @@ data class FilterRuleRequest @JsonCreator constructor(
   @param:JsonProperty("sourcePath") val sourcePath: String?,
   @param:JsonProperty("operator") val operator: String?,
   @param:JsonProperty("value") val value: String?,
+  @param:JsonProperty("includeAbsent") val includeAbsent: Boolean = false,
 )
 
 data class FilterSaveRequest @JsonCreator constructor(
@@ -484,7 +486,7 @@ class UserImportResource {
     val ruleOperator = operator?.let { runCatching { FilterOperator.valueOf(it) }.getOrNull() } ?: return null
     val ruleValue = value?.takeIf { it.isNotBlank() }
     if (ruleOperator.requiresValue && ruleValue == null) return null
-    return FilterRule(ruleMode, ruleSourcePath, ruleOperator, ruleValue)
+    return FilterRule(ruleMode, ruleSourcePath, ruleOperator, ruleValue, includeAbsent)
   }
 
   private fun FilterRule.toRow() = FilterRuleRow(
@@ -493,6 +495,7 @@ class UserImportResource {
     operator = operator.name,
     value = value.orEmpty(),
     requiresValue = operator.requiresValue,
+    includeAbsent = includeAbsent,
   )
 
   private val FilterOperator.requiresValue: Boolean

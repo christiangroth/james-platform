@@ -105,6 +105,7 @@ class ImportJobRepositoryAdapter(
     sourcePath = sourcePath,
     operator = FilterOperator.valueOf(operator),
     value = value,
+    includeAbsent = includeAbsent,
   )
 
   private fun MappingDocument.toDomain() = Mapping(
@@ -170,6 +171,7 @@ class ImportJobRepositoryAdapter(
     doc.sourcePath = sourcePath
     doc.operator = operator.name
     doc.value = value
+    doc.includeAbsent = includeAbsent
   }
 
   private fun Mapping.toDocument() = MappingDocument().also { doc ->
