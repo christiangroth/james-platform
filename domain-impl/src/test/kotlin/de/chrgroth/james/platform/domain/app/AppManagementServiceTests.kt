@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
@@ -24,8 +25,9 @@ import java.time.Instant
 class AppManagementServiceTests {
 
   private val appRepository: AppRepositoryPort = mockk()
+  private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
-  private val service: AppManagementService = AppManagementService(appRepository, installedAppRepository)
+  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository)
 
   private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 
@@ -311,6 +313,87 @@ class AppManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.ALREADY_INACTIVE)
+  }
+
+  // endregion
+
+  // region deleteApp
+
+  @Test
+  fun `deleteApp succeeds and cascades version deletion when no installations exist`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(
+      version(id = "ver-1"),
+      version(id = "ver-2"),
+    )
+    justRun { appVersionRepository.delete(any()) }
+    justRun { appRepository.delete(any()) }
+
+    val result = service.deleteApp("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify { appVersionRepository.delete(AppVersionId("ver-1")) }
+    verify { appVersionRepository.delete(AppVersionId("ver-2")) }
+    verify { appRepository.delete(AppId("app-1")) }
+  }
+
+  @Test
+  fun `deleteApp succeeds when app has no versions`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    justRun { appRepository.delete(any()) }
+
+    val result = service.deleteApp("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify { appRepository.delete(AppId("app-1")) }
+  }
+
+  @Test
+  fun `deleteApp fails when app not found`() {
+    every { appRepository.findById(AppId("unknown")) } returns null
+
+    val result = service.deleteApp("unknown", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteApp fails when app belongs to another developer`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
+    every { appRepository.findById(AppId("app-2")) } returns otherApp
+
+    val result = service.deleteApp("app-2", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteApp is blocked when active installations exist`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(installedApp(id = "installed-1"))
+
+    val result = service.deleteApp("app-1", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.HAS_ACTIVE_INSTALLATIONS)
+    verify(exactly = 0) { appRepository.delete(any()) }
+  }
+
+  @Test
+  fun `deleteApp is blocked when installation exists regardless of app status`() {
+    val inactiveApp = existingApp.copy(status = AppStatus.INACTIVE)
+    every { appRepository.findById(AppId("app-1")) } returns inactiveApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(installedApp(id = "installed-1"))
+
+    val result = service.deleteApp("app-1", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.HAS_ACTIVE_INSTALLATIONS)
   }
 
   // endregion

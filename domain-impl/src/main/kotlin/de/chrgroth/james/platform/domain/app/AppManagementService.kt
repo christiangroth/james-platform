@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDeactivationResult
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -22,6 +23,7 @@ import java.util.UUID
 @Suppress("Unused")
 class AppManagementService(
   private val appRepository: AppRepositoryPort,
+  private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
 ) : AppManagementPort {
 
@@ -109,6 +111,25 @@ class AppManagementService(
     val activeInstallationCount = installedAppRepository.findAllByAppId(updatedApp.id).size
     logger.info { "App deactivated: $appId, active installations unaffected: $activeInstallationCount" }
     return AppDeactivationResult(app = updatedApp, activeInstallationCount = activeInstallationCount).right()
+  }
+
+  override fun deleteApp(appId: String, developerId: String): Either<DomainError, Unit> {
+    val app = appRepository.findById(AppId(appId)) ?: run {
+      logger.warn { "Delete app failed: not found: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.developerId != developerId) {
+      logger.warn { "Delete app failed: not owned by developer: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (installedAppRepository.findAllByAppId(app.id).isNotEmpty()) {
+      logger.warn { "Delete app failed: has active installations: $appId" }
+      return AppError.HAS_ACTIVE_INSTALLATIONS.left()
+    }
+    appVersionRepository.findAllByAppId(app.id).forEach { version -> appVersionRepository.delete(version.id) }
+    appRepository.delete(app.id)
+    logger.info { "App deleted: $appId" }
+    return Unit.right()
   }
 
   companion object : KLogging()

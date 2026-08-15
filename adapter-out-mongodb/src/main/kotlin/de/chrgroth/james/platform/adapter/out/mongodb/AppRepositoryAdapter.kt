@@ -55,6 +55,12 @@ class AppRepositoryAdapter(
     }
   }
 
+  override fun delete(appId: AppId) {
+    mongoQueryMetrics.timed("app.delete") {
+      appDocumentRepository.mongoCollection().deleteOne(Filters.eq(ID_FIELD, appId.value))
+    }
+  }
+
   override fun renameToNewCollection() {
     mongoQueryMetrics.timed("app.renameToNewCollection") {
       val db = mongoClient.getDatabase(databaseName)

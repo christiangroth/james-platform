@@ -1,9 +1,14 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.InstalledApp
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
@@ -23,6 +28,9 @@ class DeveloperAppPageTests {
 
   @Inject
   lateinit var userRepository: UserRepositoryPort
+
+  @Inject
+  lateinit var installedAppRepository: InstalledAppRepositoryPort
 
   @BeforeEach
   fun setup() {
@@ -475,6 +483,92 @@ class DeveloperAppPageTests {
       .then()
       .statusCode(200)
       .body(containsString("\"ok\":false"))
+  }
+
+  @Test
+  fun `app overview shows delete button`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Delete Button App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="delete-app-button""""))
+  }
+
+  @Test
+  fun `delete app succeeds and redirects to dashboard when no installations exist`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Delete App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/delete")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":true"))
+      .body(containsString("\"redirectUrl\":\"/ui/developer/dashboard\""))
+
+    given()
+      .redirects().follow(false)
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(303)
+      .header("Location", containsString("/ui/developer/dashboard"))
+  }
+
+  @Test
+  fun `delete app is blocked while an active installation exists`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Delete Blocked App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    installedAppRepository.save(
+      InstalledApp(
+        id = InstalledAppId(UUID.randomUUID().toString()),
+        userId = "some-user",
+        appId = AppId(appId),
+        installedVersionNumber = VersionNumber("1.0.0"),
+        installedAt = Instant.now(),
+      ),
+    )
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/delete")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
   }
 
   @Test

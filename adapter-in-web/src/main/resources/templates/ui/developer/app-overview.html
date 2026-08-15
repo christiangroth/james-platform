@@ -38,6 +38,12 @@
                         data-testid="edit-app-button">
                     <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
+                <button type="button" class="btn btn-app-secondary btn-sm" id="deleteAppButton"
+                        data-bs-toggle="modal" data-bs-target="#deleteAppModal"
+                        title="{developer:developerDeleteAppAriaLabel()}" aria-label="{developer:developerDeleteAppAriaLabel()}"
+                        data-testid="delete-app-button">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
             </div>
         </div>
 
@@ -139,6 +145,27 @@
         </div>
     </div>
 
+    <!-- Delete App Modal -->
+    <div class="modal fade" id="deleteAppModal" tabindex="-1" aria-labelledby="deleteAppModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="deleteAppModalLabel">{developer:developerDeleteAppModalTitle()}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body">
+                    {developer:developerDeleteAppConfirm()}
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-app-secondary btn-sm" data-bs-dismiss="modal" data-testid="cancel-delete-app-button">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger btn-sm" data-testid="confirm-delete-app-button" id="confirmDeleteAppButton">
+                        {developer:developerDeleteAppAriaLabel()}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {/content}
     {#scripts}
     <script>
@@ -226,6 +253,34 @@
                         }
                         showMessage(result.ok, result.message);
                         btn.disabled = false;
+                    } catch (ex) {
+                        if (modal) { modal.hide(); }
+                        showMessage(false, networkErrorMessage);
+                        btn.disabled = false;
+                    }
+                });
+            }
+
+            // Delete App confirmation
+            var confirmDeleteAppButton = document.getElementById('confirmDeleteAppButton');
+            if (confirmDeleteAppButton) {
+                confirmDeleteAppButton.addEventListener('click', async function () {
+                    var btn = this;
+                    btn.disabled = true;
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('deleteAppModal'));
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/delete', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        var result = await response.json();
+                        if (modal) { modal.hide(); }
+                        if (result.ok && result.redirectUrl) {
+                            window.location.href = result.redirectUrl;
+                        } else {
+                            showMessage(result.ok, result.message);
+                            btn.disabled = false;
+                        }
                     } catch (ex) {
                         if (modal) { modal.hide(); }
                         showMessage(false, networkErrorMessage);
