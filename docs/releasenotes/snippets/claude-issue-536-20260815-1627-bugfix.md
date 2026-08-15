@@ -1,1 +1,0 @@
-* Import: the Dry-Run step is now reachable as soon as a mapping is saved, even if it still has open validation issues, so those issues can be debugged against the actual source records instead of being blocked until the mapping is fully valid. Accepting an import still requires a fully valid mapping.
