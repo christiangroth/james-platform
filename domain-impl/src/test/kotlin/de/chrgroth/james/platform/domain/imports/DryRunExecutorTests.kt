@@ -14,7 +14,9 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
+import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
+import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
@@ -89,6 +91,40 @@ class DryRunExecutorTests {
 
     assertThat(result.single().isValid).isTrue()
     assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "n/a"))
+  }
+
+  @Test
+  fun `datetime to date conversion truncates the raw value to its date part`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Birthday", type = PropertyType.DATE, nullable = false))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "createdAt", conversion = FieldMappingConversion.DATETIME_TO_DATE))
+
+    val result = execute(records("""[{"createdAt":"2024-01-15T10:30:00Z"}]"""), mapping, entity)
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "2024-01-15"))
+  }
+
+  @Test
+  fun `long to duration conversion formats a raw integer as a duration in the configured unit`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Runtime", type = PropertyType.DURATION, nullable = false))
+    val mapping = mapping(
+      FieldMapping(targetPropertyId = propertyId, sourcePath = "minutes", conversion = FieldMappingConversion.LONG_TO_DURATION, conversionUnit = DurationConversionUnit.MINUTES),
+    )
+
+    val result = execute(records("""[{"minutes":90}]"""), mapping, entity)
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "1:30:00"))
+  }
+
+  @Test
+  fun `long to duration conversion without a configured unit defaults to seconds`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Runtime", type = PropertyType.DURATION, nullable = false))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "seconds", conversion = FieldMappingConversion.LONG_TO_DURATION))
+
+    val result = execute(records("""[{"seconds":90}]"""), mapping, entity)
+
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "0:01:30"))
   }
 
   @Test

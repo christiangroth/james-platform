@@ -124,7 +124,8 @@ object DryRunExecutor {
     }
     val sourceNode = fieldMapping?.sourcePath?.let { resolvePath(record, it) }
     return when {
-      sourceNode != null && !sourceNode.isNull && !sourceNode.isMissingNode -> sourceNode.asText()
+      sourceNode != null && !sourceNode.isNull && !sourceNode.isMissingNode ->
+        applyConversion(fieldMapping.conversion, fieldMapping.conversionUnit, sourceNode.asText())
       !fieldMapping?.fallbackValue.isNullOrBlank() -> fieldMapping.fallbackValue
       else -> null
     }

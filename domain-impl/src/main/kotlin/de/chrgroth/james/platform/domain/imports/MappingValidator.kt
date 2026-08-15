@@ -52,6 +52,8 @@ object MappingValidator {
     FieldMappingConversion.BOOLEAN_TO_STRING to (SchemaPropertyType.BOOLEAN to PropertyType.STRING),
     FieldMappingConversion.STRING_TO_DATE to (SchemaPropertyType.STRING to PropertyType.DATE),
     FieldMappingConversion.STRING_TO_DATETIME to (SchemaPropertyType.STRING to PropertyType.DATETIME),
+    FieldMappingConversion.DATETIME_TO_DATE to (SchemaPropertyType.DATETIME to PropertyType.DATE),
+    FieldMappingConversion.LONG_TO_DURATION to (SchemaPropertyType.LONG to PropertyType.DURATION),
   )
 
   fun validate(

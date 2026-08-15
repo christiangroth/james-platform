@@ -31,6 +31,7 @@ class FieldMappingDocument {
   lateinit var targetPropertyId: String
   var sourcePath: String? = null
   lateinit var conversion: String
+  var conversionUnit: String? = null
   var fallbackValue: String? = null
   var referenceLookup: ReferenceLookupDocument? = null
 }

@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.Mapping
@@ -106,6 +107,30 @@ class MappingValidatorTests {
     val entityDefinition = entityDefinition(Property(id = propertyId, name = "Age", type = PropertyType.LONG, nullable = true))
     val schema = listOf(SchemaProperty("age", mapOf(SchemaPropertyType.STRING to 1), mandatory = true))
     val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "age", conversion = FieldMappingConversion.STRING_TO_LONG))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
+  fun `datetime to date conversion resolves an otherwise incompatible type mismatch`() {
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Birthday", type = PropertyType.DATE, nullable = true))
+    val schema = listOf(SchemaProperty("createdAt", mapOf(SchemaPropertyType.DATETIME to 1), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "createdAt", conversion = FieldMappingConversion.DATETIME_TO_DATE))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
+  fun `long to duration conversion resolves an otherwise incompatible type mismatch`() {
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Runtime", type = PropertyType.DURATION, nullable = true))
+    val schema = listOf(SchemaProperty("minutes", mapOf(SchemaPropertyType.LONG to 1), mandatory = true))
+    val mapping = mapping(
+      FieldMapping(targetPropertyId = propertyId, sourcePath = "minutes", conversion = FieldMappingConversion.LONG_TO_DURATION, conversionUnit = DurationConversionUnit.MINUTES),
+    )
 
     val result = validate(mapping, entityDefinition, schema)
 

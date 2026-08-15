@@ -14,6 +14,16 @@ enum class FieldMappingConversion {
   BOOLEAN_TO_STRING,
   STRING_TO_DATE,
   STRING_TO_DATETIME,
+  DATETIME_TO_DATE,
+  LONG_TO_DURATION,
+}
+
+/** Unit a raw integer value is interpreted in when applying [FieldMappingConversion.LONG_TO_DURATION]. */
+enum class DurationConversionUnit {
+  SECONDS,
+  MINUTES,
+  HOURS,
+  DAYS,
 }
 
 /**
@@ -40,12 +50,14 @@ data class ReferenceLookup(
  * Maps a single target property of an [de.chrgroth.james.platform.domain.model.app.EntityDefinition] to a source
  * schema field. Either [sourcePath] (a path into the detected schema), [fallbackValue] (a static value used for
  * every record), [referenceLookup] (only for REF properties; takes priority over [sourcePath] when set), or any
- * combination may be set; a property with none of them is considered unmapped.
+ * combination may be set; a property with none of them is considered unmapped. [conversionUnit] only applies to
+ * [FieldMappingConversion.LONG_TO_DURATION] and is ignored otherwise.
  */
 data class FieldMapping(
   val targetPropertyId: PropertyId,
   val sourcePath: String? = null,
   val conversion: FieldMappingConversion = FieldMappingConversion.NONE,
+  val conversionUnit: DurationConversionUnit? = null,
   val fallbackValue: String? = null,
   val referenceLookup: ReferenceLookup? = null,
 )
