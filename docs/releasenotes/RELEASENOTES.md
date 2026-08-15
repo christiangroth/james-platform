@@ -1,3 +1,15 @@
+# 0.83.0 (2026.08.15)
+
+## New Features
+* Import mapping now offers two additional conversions: Datum/Uhrzeit → Datum, and Ganzzahl → Dauer (mit wählbarer Einheit: Sekunden, Minuten, Stunden, Tage).
+
+## Bugfixes / Chore
+* New Import Job modal: fields are now ordered Connection, App, Entität, and the App/Entität fields are labeled to match the imports table's column headers.
+
+
+
+---
+
 # 0.82.2 (2026.08.15)
 
 ## Bugfixes / Chore
