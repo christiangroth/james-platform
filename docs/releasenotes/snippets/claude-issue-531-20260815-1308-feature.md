@@ -1,1 +1,0 @@
-* Import: added a new "Filter" wizard step between Quelle and Mapping, letting you define an ordered list of include/exclude rules (e.g. equals, contains, is empty/not empty) against the detected source fields, so only matching records reach mapping and dry-run.

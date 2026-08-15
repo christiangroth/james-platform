@@ -1,3 +1,14 @@
+# 0.84.0 (2026.08.15)
+
+## New Features
+* Import connections now hold a base URL. An import job can either use it unchanged or add a URL postfix to build its final import URL.
+* The resolved import URL is shown on the import job's overview page.
+* Import: added a new "Filter" wizard step between Quelle and Mapping, letting you define an ordered list of include/exclude rules (e.g. equals, contains, is empty/not empty) against the detected source fields, so only matching records reach mapping and dry-run.
+
+
+
+---
+
 # 0.83.0 (2026.08.15)
 
 ## New Features
