@@ -249,8 +249,8 @@ class ImportService(
       logger.warn { "Dry run failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val (mapping, entityDefinition) = readyMappingAndEntity(existing, installedApp) ?: run {
-      logger.warn { "Dry run failed: import job not ready: $importJobId" }
+    val (mapping, entityDefinition) = mappingAndEntity(existing, installedApp) ?: run {
+      logger.warn { "Dry run failed: import job has no mapping: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
 
@@ -307,6 +307,16 @@ class ImportService(
 
   private fun readyMappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
     if (existing.status != ImportStatus.READY) return null
+    return mappingAndEntity(existing, installedApp)
+  }
+
+  /**
+   * Mapping and target entity definition for a job that merely has a mapping configured, regardless of whether
+   * it is free of blocking [de.chrgroth.james.platform.domain.model.imports.MappingIssue]s. Used for [dryRun],
+   * which is read-only and should surface mapping issues per record rather than refuse to run - unlike
+   * [acceptDryRun], which still requires [ImportStatus.READY] via [readyMappingAndEntity].
+   */
+  private fun mappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
     val mapping = existing.mapping ?: return null
     val entityDefinition = entityDefinitionsOf(installedApp).find { it.id == existing.targetEntityDefinitionId } ?: return null
     return mapping to entityDefinition

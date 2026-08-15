@@ -334,10 +334,10 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val step = when (view.importJob.status) {
-      ImportStatus.READY -> "dry-run"
-      ImportStatus.DATA_IDENTIFIED -> "mapping"
-      ImportStatus.DOWNLOADED -> "overview"
+    val step = when {
+      view.importJob.mapping != null -> "dry-run"
+      view.importJob.status == ImportStatus.DATA_IDENTIFIED -> "mapping"
+      else -> "overview"
     }
     Response.seeOther(URI.create("/ui/user/imports/$importJobId/$step")).build()
   }
@@ -428,7 +428,7 @@ class UserImportResource {
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
+        .data("readyForDryRun", view.importJob.mapping != null),
     ).build()
   }
 
@@ -512,7 +512,7 @@ class UserImportResource {
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
+        .data("readyForDryRun", view.importJob.mapping != null),
     ).build()
   }
 
@@ -591,7 +591,7 @@ class UserImportResource {
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
         .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
         .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importJob.status == ImportStatus.READY),
+        .data("readyForDryRun", view.importJob.mapping != null),
     ).build()
   }
 
@@ -647,7 +647,7 @@ class UserImportResource {
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
     filterable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
     mappable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
-    readyForDryRun = status == ImportStatus.READY,
+    readyForDryRun = mapping != null,
     detectedDataPaths = detectedDataPaths.map { it.toRow() },
     selectedDataPath = selectedDataPath,
     selectedDataPathDisplay = selectedDataPath?.let { formatDataPath(it) },

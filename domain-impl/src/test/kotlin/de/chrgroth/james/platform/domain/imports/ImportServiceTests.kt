@@ -586,7 +586,7 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `dry run fails when import job is not ready`() {
+  fun `dry run fails when import job has no mapping yet`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     val job = importJob(status = ImportStatus.DATA_IDENTIFIED)
     every { importJobRepository.findById(job.id) } returns job
@@ -594,6 +594,27 @@ class ImportServiceTests {
     val result = service.dryRun("user-1", job.id.value)
 
     assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_READY.left())
+  }
+
+  @Test
+  fun `dry run runs and reports issues even when the mapping still has blocking validation issues`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+      mapping = Mapping(fieldMappings = emptyList()),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.dryRun("user-1", job.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    val report = result.getOrNull()!!
+    assertThat(report.totalCount).isEqualTo(1)
+    assertThat(report.invalidObjects.single().issues).containsExactly(DryRunIssue.MissingMandatoryValue(PropertyId("prop-1")))
   }
 
   @Test
