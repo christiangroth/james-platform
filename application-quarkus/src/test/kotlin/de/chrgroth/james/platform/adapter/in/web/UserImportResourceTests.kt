@@ -710,7 +710,7 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `saving an incomplete mapping keeps the import job at DATA_IDENTIFIED and reports the missing mandatory field`() {
+  fun `saving an incomplete mapping keeps the import job at DATA_IDENTIFIED but still unlocks the Dry-Run step`() {
     val app = installAppWithMandatoryStringProperty()
     triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
     val importId = triggerImportAndGetId(app.installedAppId)
@@ -724,7 +724,7 @@ class UserImportResourceTests {
       .statusCode(200)
       .body("ok", equalTo(true))
 
-    val html = given()
+    val mappingHtml = given()
       .`when`()
       .get("/ui/user/imports/$importId/mapping")
       .then()
@@ -732,10 +732,20 @@ class UserImportResourceTests {
       .extract().body().asString()
 
     assertTrue(
-      !html.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
-      "Expected the import job to remain DATA_IDENTIFIED (Dry-Run step not yet reachable) with an incomplete mapping",
+      mappingHtml.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
+      "Expected the Dry-Run step to be reachable so mapping issues can be debugged against the actual source records, even with an incomplete mapping",
     )
-    assertTrue(html.contains("data-testid=\"mapping-issue\""), "Expected a validation issue to be rendered for the unmapped mandatory field")
+    assertTrue(mappingHtml.contains("data-testid=\"mapping-issue\""), "Expected a validation issue to be rendered for the unmapped mandatory field")
+
+    val dryRunHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(dryRunHtml.contains("data-testid=\"invalid-count\">2<"), "Expected both records to be reported as invalid since the mandatory field is unmapped")
+    assertTrue(dryRunHtml.contains("data-testid=\"dry-run-source-data\""), "Expected the invalid records' source data to be shown alongside the issue for debugging")
   }
 
   private fun readyImportWithOneValidAndOneInvalidRecord(): Pair<InstalledAppWithEntity, String> {
