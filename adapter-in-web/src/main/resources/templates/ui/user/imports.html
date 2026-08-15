@@ -11,12 +11,18 @@
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="imports-title">{user:userImportsTitle()}</h1>
-            {#if !appOptions.isEmpty}
-            <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#newImportModal" data-testid="new-import-button">
-                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
-                {user:userNewImportButtonLabel()}
-            </button>
-            {/if}
+            <div class="d-flex gap-2 ms-auto">
+                <a href="/ui/user/imports/connections"
+                   class="btn btn-app-secondary btn-sm"
+                   data-testid="import-connections-link">
+                    <i class="bi bi-plug me-1" aria-hidden="true"></i>{user:userImportConnectionsNavLabel()}
+                </a>
+                {#if !appOptions.isEmpty}
+                <button type="button" class="btn btn-app-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newImportModal" title="{user:userNewImportButtonLabel()}" aria-label="{user:userNewImportButtonLabel()}" data-testid="new-import-button">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                </button>
+                {/if}
+            </div>
         </div>
 
         <div id="imports-message" class="d-none mb-4" role="alert"></div>
@@ -38,11 +44,12 @@
                                 <th>{user:userImportColTargetEntity()}</th>
                                 <th>{user:userImportColCreatedAt()}</th>
                                 <th>{user:userImportColLastAction()}</th>
+                                <th class="text-end">{user:userImportColActions()}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {#for job in jobs}
-                            <tr data-testid="import-row" data-import-id="{job.id}">
+                            <tr class="import-row" data-testid="import-row" data-import-id="{job.id}" style="cursor:pointer;">
                                 <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
                                 <td data-testid="import-installed-app-name">{job.installedAppName}</td>
                                 <td data-testid="import-target-entity">
@@ -50,6 +57,11 @@
                                 </td>
                                 <td data-testid="import-created-at">{job.createdAt.formatted}</td>
                                 <td data-testid="import-last-changed-at">{job.lastChangedAt.formatted}</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {/for}
                         </tbody>
@@ -102,7 +114,7 @@
                         {#else}
                         <p class="mb-0" data-testid="no-connections-hint">
                             {user:userImportNoConnectionsHint()}
-                            <a href="/ui/user/import-connections">{user:userImportManageConnectionsLinkLabel()}</a>
+                            <a href="/ui/user/imports/connections">{user:userImportManageConnectionsLinkLabel()}</a>
                         </p>
                         {/if}
                     </div>
@@ -113,6 +125,23 @@
                         {/if}
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Import Modal -->
+    <div class="modal fade" id="deleteImportModal" tabindex="-1" aria-labelledby="deleteImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteImportModalLabel">{user:userDeleteImportModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="delete-import-modal-body">{user:userDeleteImportConfirm()}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteImportButton" data-testid="confirm-delete-import-button">{msg:commonDelete()}</button>
+                </div>
             </div>
         </div>
     </div>
@@ -186,6 +215,49 @@
                 } catch (e) {
                     return { ok: false, message: networkErrorMessage };
                 }
+            }
+
+            async function fetchAction(method, url) {
+                try {
+                    var response = await fetch(url, { method: method });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            // Clicking anywhere on a row opens the import job, except when the click targets an
+            // interactive element (the target-entity link or the row's delete button) which already
+            // has its own behavior.
+            var importsTableContainer = document.getElementById('imports-table-container');
+            if (importsTableContainer) {
+                importsTableContainer.addEventListener('click', function (e) {
+                    if (e.target.closest('a, button')) { return; }
+                    var row = e.target.closest('.import-row');
+                    if (!row) { return; }
+                    window.location.href = basePath + '/' + encodeURIComponent(row.getAttribute('data-import-id'));
+                });
+            }
+
+            // Delete import modal – capture the id and confirm
+            var deleteImportModal = document.getElementById('deleteImportModal');
+            if (deleteImportModal) {
+                deleteImportModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var importId = trigger ? trigger.getAttribute('data-import-id') : '';
+                    deleteImportModal.setAttribute('data-import-id', importId);
+                });
+            }
+
+            var confirmDeleteImportButton = document.getElementById('confirmDeleteImportButton');
+            if (confirmDeleteImportButton) {
+                confirmDeleteImportButton.addEventListener('click', async function () {
+                    var importId = deleteImportModal.getAttribute('data-import-id') || '';
+                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(importId) + '/delete');
+                    bootstrap.Modal.getInstance(deleteImportModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
             }
 
             // Target entity depends on the selected installed app: only the matching, enabled <select>
