@@ -8,6 +8,9 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
+import de.chrgroth.james.platform.domain.model.imports.FilterMode
+import de.chrgroth.james.platform.domain.model.imports.FilterOperator
+import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
@@ -71,6 +74,7 @@ class ImportJobRepositoryAdapter(
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
     selectedDataPath = selectedDataPath,
     detectedSchema = detectedSchema.map { it.toDomain() },
+    filterRules = filterRules.map { it.toDomain() },
     mapping = mapping?.toDomain(),
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
@@ -92,6 +96,13 @@ class ImportJobRepositoryAdapter(
   private fun NumericRangeDocument.toDomain() = NumericRange(
     min = min,
     max = max,
+  )
+
+  private fun FilterRuleDocument.toDomain() = FilterRule(
+    mode = FilterMode.valueOf(mode),
+    sourcePath = sourcePath,
+    operator = FilterOperator.valueOf(operator),
+    value = value,
   )
 
   private fun MappingDocument.toDomain() = Mapping(
@@ -126,6 +137,7 @@ class ImportJobRepositoryAdapter(
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
     doc.selectedDataPath = selectedDataPath
     doc.detectedSchema = detectedSchema.map { it.toDocument() }
+    doc.filterRules = filterRules.map { it.toDocument() }
     doc.mapping = mapping?.toDocument()
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
@@ -147,6 +159,13 @@ class ImportJobRepositoryAdapter(
   private fun NumericRange.toDocument() = NumericRangeDocument().also { doc ->
     doc.min = min
     doc.max = max
+  }
+
+  private fun FilterRule.toDocument() = FilterRuleDocument().also { doc ->
+    doc.mode = mode.name
+    doc.sourcePath = sourcePath
+    doc.operator = operator.name
+    doc.value = value
   }
 
   private fun Mapping.toDocument() = MappingDocument().also { doc ->

@@ -18,9 +18,17 @@ class ImportJobDocument {
   var detectedDataPaths: List<DataPathDocument> = emptyList()
   var selectedDataPath: String? = null
   var detectedSchema: List<SchemaPropertyDocument> = emptyList()
+  var filterRules: List<FilterRuleDocument> = emptyList()
   var mapping: MappingDocument? = null
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
+}
+
+class FilterRuleDocument {
+  lateinit var mode: String
+  lateinit var sourcePath: String
+  lateinit var operator: String
+  var value: String? = null
 }
 
 class MappingDocument {

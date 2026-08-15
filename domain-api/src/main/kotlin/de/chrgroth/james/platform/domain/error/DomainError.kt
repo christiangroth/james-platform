@@ -124,6 +124,7 @@ enum class ImportError(override val code: String) : DomainError {
   MAPPING_PROPERTY_NOT_FOUND("IMPORT-016"),
   IMPORT_JOB_NOT_READY("IMPORT-017"),
   CONNECTION_NOT_FOUND("IMPORT-018"),
+  IMPORT_JOB_NOT_FILTERABLE("IMPORT-019"),
   ;
 }
 

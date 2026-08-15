@@ -59,6 +59,7 @@ data class ImportJob(
   val detectedDataPaths: List<DataPath> = emptyList(),
   val selectedDataPath: String? = null,
   val detectedSchema: List<SchemaProperty> = emptyList(),
+  val filterRules: List<FilterRule> = emptyList(),
   val mapping: Mapping? = null,
   val createdAt: Instant,
   val lastChangedAt: Instant,
