@@ -21,5 +21,4 @@ data class App(
 enum class AppStatus {
   ACTIVE,
   INACTIVE,
-  DEPRECATED,
 }
