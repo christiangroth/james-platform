@@ -783,6 +783,18 @@ class UserImportResourceTests {
       "Expected the mapping to be READY without a fallback: a static fallback would collide with the unique constraint",
     )
 
+    val dryRunHtml = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(dryRunHtml.contains("data-testid=\"valid-count\">2<"), "Expected the two first-occurrence records (ACME, GLOBEX) to be valid")
+    assertTrue(dryRunHtml.contains("data-testid=\"skipped-count\">2<"), "Expected the missing-value and duplicate-value records to be reported as expected fan-in skips")
+    assertTrue(dryRunHtml.contains("data-testid=\"invalid-count\">0<"), "Expected no record to be reported as invalid: fan-in skips are not defects")
+    assertTrue(dryRunHtml.contains("data-testid=\"dry-run-skipped-object\""), "Expected the skipped records to be rendered in their own accordion")
+    assertTrue(dryRunHtml.contains("data-testid=\"expected-skip-badge\""), "Expected the skipped records' issues to carry the expected/fan-in badge, not the invalid styling")
+
     given()
       .`when`()
       .post("/ui/user/imports/$importId/dry-run/accept")
