@@ -17,6 +17,8 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
+import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
@@ -134,6 +136,35 @@ class ImportService(
     importJobRepository.save(updated)
     logger.info { "Data path selected: importJobId=$importJobId path=${resolved.path}" }
     return updated.right()
+  }
+
+  override fun getFilterView(userId: String, importJobId: String): Either<DomainError, FilterView> {
+    val existing = requireOwnedImportJob(userId, importJobId) ?: run {
+      logger.warn { "Get filter view failed: import job not found: $importJobId for user: $userId" }
+      return ImportError.IMPORT_JOB_NOT_FOUND.left()
+    }
+    return filterView(existing).right()
+  }
+
+  override fun updateFilter(userId: String, importJobId: String, filterRules: List<FilterRule>): Either<DomainError, FilterView> {
+    val existing = requireOwnedImportJob(userId, importJobId) ?: run {
+      logger.warn { "Update filter failed: import job not found: $importJobId for user: $userId" }
+      return ImportError.IMPORT_JOB_NOT_FOUND.left()
+    }
+    if (existing.status != ImportStatus.DATA_IDENTIFIED && existing.status != ImportStatus.READY) {
+      logger.warn { "Update filter failed: import job not filterable: $importJobId" }
+      return ImportError.IMPORT_JOB_NOT_FILTERABLE.left()
+    }
+
+    val updated = existing.copy(filterRules = filterRules, lastChangedAt = Instant.now())
+    importJobRepository.save(updated)
+    logger.info { "Filter updated: importJobId=$importJobId rules=${filterRules.size}" }
+    return filterView(updated).right()
+  }
+
+  private fun filterView(existing: ImportJob): FilterView {
+    val allRecords = rawRecordsAt(existing)
+    return FilterView(existing, allRecords.size, FilterEvaluator.apply(allRecords, existing.filterRules).size)
   }
 
   override fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView> {
@@ -292,7 +323,10 @@ class ImportService(
     )
   }
 
-  private fun recordsAt(existing: ImportJob): List<JsonNode> {
+  /** Records at the job's selected data path, with [ImportJob.filterRules] applied - this is what mapping and dry-run operate on. */
+  private fun recordsAt(existing: ImportJob): List<JsonNode> = FilterEvaluator.apply(rawRecordsAt(existing), existing.filterRules)
+
+  private fun rawRecordsAt(existing: ImportJob): List<JsonNode> {
     val path = existing.selectedDataPath ?: return emptyList()
     var current = objectMapper.readTree(existing.payload)
     for (segment in path.split(".")) {

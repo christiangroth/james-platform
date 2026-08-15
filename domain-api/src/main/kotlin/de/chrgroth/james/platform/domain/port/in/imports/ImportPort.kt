@@ -5,6 +5,8 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
+import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 
@@ -16,6 +18,10 @@ interface ImportPort {
   fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String): Either<DomainError, ImportJob>
   fun deleteImportJob(userId: String, importJobId: String): Either<DomainError, Unit>
   fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob>
+  fun getFilterView(userId: String, importJobId: String): Either<DomainError, FilterView>
+
+  /** Replaces the job's filter rules, applied in order before mapping/dry-run ever see a source record (see [FilterRule]). */
+  fun updateFilter(userId: String, importJobId: String, filterRules: List<FilterRule>): Either<DomainError, FilterView>
   fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView>
   fun updateMapping(
     userId: String,

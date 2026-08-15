@@ -492,6 +492,80 @@ class UserImportResourceTests {
   }
 
   @Test
+  fun `filter page lists the detected schema fields and shows the unfiltered record count when no rules are configured yet`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/filter")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"filter-rules-table\""), "Expected the filter rules table to be rendered")
+    assertTrue(html.contains("data-testid=\"filter-no-rules-hint\""), "Expected the empty-state hint when no filter rules are configured yet")
+    assertTrue(html.contains("2 von 2 Datensätzen"), "Expected the preview to report both records matching with no filter configured")
+    assertTrue(html.contains("data-testid=\"import-step-filter\""), "Expected the step navigator to include the Filter step")
+  }
+
+  @Test
+  fun `saving a filter rule narrows the records that reach mapping and dry-run`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body("""{"rules": [{"mode": "INCLUDE", "sourcePath": "name", "operator": "EQUALS", "value": "Alice"}]}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/filter")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    given()
+      .contentType("application/json")
+      .body(
+        """{"fieldMappings": [{ "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""",
+      )
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/dry-run")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"total-count\">1<"), "Expected only the filtered-in record to reach the dry-run")
+  }
+
+  @Test
+  fun `filter step becomes reachable once a data path is selected, before the mapping is configured`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/$importId/overview")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(
+      html.contains("<a href=\"/ui/user/imports/$importId/filter\""),
+      "Expected the Filter step to already be a navigable link once the data path is identified",
+    )
+  }
+
+  @Test
   fun `imports list page is top-level, lists the target app installation and links to the job overview page`() {
     val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())

@@ -9,18 +9,34 @@
                 <span>{user:userImportStepDataPathLabel()}</span>
             </a>
         </li>
+        <li class="app-wizard-step {#if activeStep == 'filter'}active{/if}">
+            {#if filterable}
+            <a href="/ui/user/imports/{importJobId}/filter"
+               class="app-wizard-link"
+               aria-current="{#if activeStep == 'filter'}step{/if}"
+               data-testid="import-step-filter">
+                <span class="app-wizard-index">{#if activeStep == 'mapping' || activeStep == 'dry-run'}<i class="bi bi-check-lg" aria-hidden="true"></i>{#else}2{/if}</span>
+                <span>{user:userImportFilterLinkLabel()}</span>
+            </a>
+            {#else}
+            <span class="app-wizard-link app-wizard-step-disabled" aria-disabled="true" data-testid="import-step-filter">
+                <span class="app-wizard-index">2</span>
+                <span>{user:userImportFilterLinkLabel()}</span>
+            </span>
+            {/if}
+        </li>
         <li class="app-wizard-step {#if activeStep == 'mapping'}active{/if}">
             {#if mappable}
             <a href="/ui/user/imports/{importJobId}/mapping"
                class="app-wizard-link"
                aria-current="{#if activeStep == 'mapping'}step{/if}"
                data-testid="import-step-mapping">
-                <span class="app-wizard-index">{#if activeStep == 'dry-run'}<i class="bi bi-check-lg" aria-hidden="true"></i>{#else}2{/if}</span>
+                <span class="app-wizard-index">{#if activeStep == 'dry-run'}<i class="bi bi-check-lg" aria-hidden="true"></i>{#else}3{/if}</span>
                 <span>{user:userImportMappingLinkLabel()}</span>
             </a>
             {#else}
             <span class="app-wizard-link app-wizard-step-disabled" aria-disabled="true" data-testid="import-step-mapping">
-                <span class="app-wizard-index">2</span>
+                <span class="app-wizard-index">3</span>
                 <span>{user:userImportMappingLinkLabel()}</span>
             </span>
             {/if}
@@ -31,12 +47,12 @@
                class="app-wizard-link"
                aria-current="{#if activeStep == 'dry-run'}step{/if}"
                data-testid="import-step-dry-run">
-                <span class="app-wizard-index">3</span>
+                <span class="app-wizard-index">4</span>
                 <span>{user:userImportDryRunLinkLabel()}</span>
             </a>
             {#else}
             <span class="app-wizard-link app-wizard-step-disabled" aria-disabled="true" data-testid="import-step-dry-run">
-                <span class="app-wizard-index">3</span>
+                <span class="app-wizard-index">4</span>
                 <span>{user:userImportDryRunLinkLabel()}</span>
             </span>
             {/if}
