@@ -486,6 +486,68 @@ class DeveloperAppPageTests {
   }
 
   @Test
+  fun `activate app succeeds and shows active status again`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Activate App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="activate-app-button""""))
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/activate")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="deactivate-app-button""""))
+  }
+
+  @Test
+  fun `activating an already active app returns an error`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Already Active App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/activate")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
   fun `app overview shows delete button`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")
