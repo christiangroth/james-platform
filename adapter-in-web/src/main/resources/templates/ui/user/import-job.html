@@ -6,14 +6,14 @@
             <ol class="breadcrumb mb-0">
                 {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
                 <li class="breadcrumb-item"><a href="/ui/user/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
-                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-import-name">{targetEntityName}</li>
+                <li class="breadcrumb-item"><a href="/ui/user/imports/{job.id}" class="breadcrumb-link" data-testid="breadcrumb-import-name">{targetEntityName}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-source">{user:userImportStepDataPathLabel()}</li>
             </ol>
         </nav>
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="import-job-title">{targetEntityName}</h1>
             <span class="badge border-0 app-badge-processing" data-testid="import-job-status">{job.statusLabel}</span>
-            {#btn-icon-delete testId="delete-import-button" title=msg:commonDelete() extraClass="ms-auto" bsTarget="#deleteImportModal" action="" entityId="" propertyId="" reportId="" username="" /}
         </div>
 
         {#import-steps importJobId=job.id mappable=job.mappable readyForDryRun=job.readyForDryRun activeStep="overview" /}
@@ -60,73 +60,44 @@
                 <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="data-path-submit">{user:userImportDataPathSelectButton()}</button>
             </form>
             {#else}
-            {#if schemaFields.isEmpty}
+            {#if structureRows.isEmpty}
             <div class="fw-semibold" data-testid="selected-data-path">{job.selectedDataPathDisplay}</div>
             {#else}
-            <button type="button" class="btn btn-link p-0 fw-semibold text-start" data-bs-toggle="modal" data-bs-target="#dataPathSchemaModal" data-testid="selected-data-path">
-                {job.selectedDataPathDisplay}
-                <i class="bi bi-braces ms-1" aria-hidden="true"></i>
+            <button type="button" class="btn btn-link p-0 fw-semibold text-start" data-bs-toggle="collapse" data-bs-target="#dataPathStructure" aria-expanded="false" aria-controls="dataPathStructure" data-testid="selected-data-path">
+                <i class="bi bi-chevron-right structure-toggle-icon me-1" aria-hidden="true"></i>{job.selectedDataPathDisplay}
             </button>
-            {/if}
-            {/if}
-        </div>
-    </div>
-
-    <!-- Data Path Schema Modal -->
-    <div class="modal fade" id="dataPathSchemaModal" tabindex="-1" aria-labelledby="dataPathSchemaModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content app-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="dataPathSchemaModalLabel">{user:userImportDataPathSchemaModalTitle()}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0" data-testid="data-path-schema-table">
-                            <thead>
-                                <tr>
-                                    <th>{user:userImportDataPathSchemaColField()}</th>
-                                    <th>{user:userImportDataPathSchemaColType()}</th>
-                                    <th>{user:userImportDataPathSchemaColMandatory()}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#for field in schemaFields}
-                                <tr data-testid="data-path-schema-row">
-                                    <td class="fw-semibold">{field.path}</td>
-                                    <td>{field.typeLabel}</td>
-                                    <td>
-                                        {#if field.mandatory}
-                                        <span class="badge border-0 app-badge-processing" data-testid="data-path-schema-mandatory-badge">{user:userImportMappingMandatoryBadge()}</span>
-                                        {/if}
-                                    </td>
-                                </tr>
-                                {/for}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonClose()}</button>
+            <div class="collapse mt-3" id="dataPathStructure" data-testid="data-path-structure">
+                <div class="app-section-label small mb-2">{user:userImportDataPathStructureHeading()}</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" data-testid="data-path-structure-table">
+                        <thead>
+                            <tr>
+                                <th>{user:userImportDataPathSchemaColField()}</th>
+                                <th>{user:userImportDataPathSchemaColType()}</th>
+                                <th>{user:userImportDataPathSchemaColMandatory()}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for row in structureRows}
+                            <tr data-testid="data-path-structure-row" class="{#if row.isSelectedPath}table-active{/if}">
+                                <td class="fw-semibold" style="padding-left:{row.depthPadding}px" data-testid="data-path-structure-field">
+                                    {row.displayName}
+                                    {#if row.isSelectedPath}<span class="badge border-0 app-badge-processing ms-1" data-testid="data-path-structure-selected-badge">{user:userImportDataPathStructureSelectedBadge()}</span>{/if}
+                                </td>
+                                <td>{row.typeLabel}</td>
+                                <td>
+                                    {#if row.mandatory}
+                                    <span class="badge border-0 app-badge-processing" data-testid="data-path-schema-mandatory-badge">{user:userImportMappingMandatoryBadge()}</span>
+                                    {/if}
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Delete Import Modal -->
-    <div class="modal fade" id="deleteImportModal" tabindex="-1" aria-labelledby="deleteImportModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content app-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteImportModalLabel">{user:userDeleteImportModalTitle()}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
-                </div>
-                <div class="modal-body" data-testid="delete-import-modal-body">{user:userDeleteImportConfirm()}</div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
-                    <button type="button" class="btn btn-app-danger" id="confirmDeleteImportButton" data-testid="confirm-delete-import-button">{msg:commonDelete()}</button>
-                </div>
-            </div>
+            {/if}
+            {/if}
         </div>
     </div>
     {/content}
@@ -159,15 +130,6 @@
                 }
             }
 
-            async function fetchAction(method, url) {
-                try {
-                    var response = await fetch(url, { method: method });
-                    return await response.json();
-                } catch (e) {
-                    return { ok: false, message: networkErrorMessage };
-                }
-            }
-
             var dataPathForm = document.getElementById('dataPathForm');
             if (dataPathForm) {
                 dataPathForm.addEventListener('submit', async function (e) {
@@ -178,14 +140,12 @@
                 });
             }
 
-            var confirmDeleteImportButton = document.getElementById('confirmDeleteImportButton');
-            if (confirmDeleteImportButton) {
-                confirmDeleteImportButton.addEventListener('click', async function () {
-                    var result = await fetchAction('POST', basePath + '/delete');
-                    bootstrap.Modal.getInstance(document.getElementById('deleteImportModal')).hide();
-                    showMessage(result.ok, result.message);
-                    if (result.ok) { setTimeout(function () { window.location.href = '/ui/user/imports'; }, 600); }
-                });
+            // Rotate the chevron on the data path toggle in sync with the inline structure panel's expanded state.
+            var dataPathStructure = document.getElementById('dataPathStructure');
+            if (dataPathStructure) {
+                var structureToggleIcon = document.querySelector('.structure-toggle-icon');
+                dataPathStructure.addEventListener('show.bs.collapse', function () { structureToggleIcon.classList.add('rotated'); });
+                dataPathStructure.addEventListener('hide.bs.collapse', function () { structureToggleIcon.classList.remove('rotated'); });
             }
         }());
     </script>

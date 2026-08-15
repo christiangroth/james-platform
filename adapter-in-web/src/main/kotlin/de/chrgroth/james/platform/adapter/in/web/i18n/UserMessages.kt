@@ -202,7 +202,10 @@ interface UserMessages {
   fun userImportSelectedDataPathLabel(): String
 
   @Message
-  fun userImportDataPathSchemaModalTitle(): String
+  fun userImportDataPathStructureHeading(): String
+
+  @Message
+  fun userImportDataPathStructureSelectedBadge(): String
 
   @Message
   fun userImportDataPathSchemaColField(): String

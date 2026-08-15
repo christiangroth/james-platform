@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
@@ -56,10 +57,13 @@ data class DataPathRow(
   val size: Int,
 )
 
-data class SchemaFieldRow(
+data class JsonStructureRow(
   val path: String,
+  val displayName: String,
   val typeLabel: String,
+  val depthPadding: Int,
   val mandatory: Boolean,
+  val isSelectedPath: Boolean,
 )
 
 data class ImportJobRow(
@@ -307,7 +311,7 @@ class UserImportResource {
         .data("job", view.importJob.toRow(mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name), mapOf(info.installedAppId to info.appName)))
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
-        .data("schemaFields", view.importJob.detectedSchema.map { it.toRow() }),
+        .data("structureRows", buildJsonStructureRows(view.importJob)),
     ).build()
   }
 
@@ -492,13 +496,56 @@ class UserImportResource {
     size = size,
   )
 
-  private fun SchemaProperty.toRow(): SchemaFieldRow {
-    val dominantType = typeCounts.filterKeys { it != SchemaPropertyType.NULL }.maxByOrNull { it.value }?.key
-    return SchemaFieldRow(
-      path = path,
-      typeLabel = dominantType?.let { schemaTypeLabel(it) }.orEmpty(),
-      mandatory = mandatory,
-    )
+  /**
+   * Walks the whole downloaded JSON document (not just the objects at the selected data path) so users can see
+   * why other candidate paths weren't picked. Fields inside the selected array get their mandatory flag and
+   * aggregated type from [ImportJob.detectedSchema] (computed across all array elements); everything else is
+   * typed from a single sample, since no other part of the document has multiple elements to aggregate over.
+   */
+  private fun buildJsonStructureRows(job: ImportJob): List<JsonStructureRow> {
+    val root = runCatching { objectMapper.readTree(job.payload) }.getOrNull() ?: return emptyList()
+    val mandatoryByPath = job.selectedDataPath
+      ?.let { selected -> job.detectedSchema.associate { "$selected.${it.path}" to it.mandatory } }
+      .orEmpty()
+    val rows = mutableListOf<JsonStructureRow>()
+    appendJsonStructureRows(root, path = "", depth = 0, selectedDataPath = job.selectedDataPath, mandatoryByPath = mandatoryByPath, rows = rows)
+    return rows
+  }
+
+  private fun appendJsonStructureRows(
+    node: JsonNode,
+    path: String,
+    depth: Int,
+    selectedDataPath: String?,
+    mandatoryByPath: Map<String, Boolean>,
+    rows: MutableList<JsonStructureRow>,
+  ) {
+    if (!node.isObject) return
+    node.properties().forEach { (name, child) ->
+      val childPath = if (path.isEmpty()) name else "$path.$name"
+      val typeLabel = if (child.isArray) "${userMsg.userImportSchemaTypeArray()} (${userMsg.userImportDataPathSizeLabel(child.size())})" else jsonStructureTypeLabel(child)
+      rows += JsonStructureRow(
+        path = childPath,
+        displayName = name,
+        typeLabel = typeLabel,
+        depthPadding = depth * 20,
+        mandatory = mandatoryByPath[childPath] == true,
+        isSelectedPath = childPath == selectedDataPath,
+      )
+      when {
+        child.isObject -> appendJsonStructureRows(child, childPath, depth + 1, selectedDataPath, mandatoryByPath, rows)
+        child.isArray && child.size() > 0 && child[0].isObject -> appendJsonStructureRows(child[0], childPath, depth + 1, selectedDataPath, mandatoryByPath, rows)
+      }
+    }
+  }
+
+  private fun jsonStructureTypeLabel(node: com.fasterxml.jackson.databind.JsonNode): String = when {
+    node.isTextual -> userMsg.userImportSchemaTypeString()
+    node.isIntegralNumber -> userMsg.userImportSchemaTypeLong()
+    node.isFloatingPointNumber -> userMsg.userImportSchemaTypeDouble()
+    node.isBoolean -> userMsg.userImportSchemaTypeBoolean()
+    node.isObject -> userMsg.userImportSchemaTypeObject()
+    else -> userMsg.userImportSchemaTypeNull()
   }
 
   /** Displays a dot-separated internal data path (e.g. `data.items`) in the leading-slash form users expect (`/data/items`). */
