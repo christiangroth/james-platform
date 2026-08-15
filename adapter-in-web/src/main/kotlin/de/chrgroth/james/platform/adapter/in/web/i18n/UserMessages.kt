@@ -166,6 +166,18 @@ interface UserMessages {
   fun userImportColActions(): String
 
   @Message
+  fun userImportTableColApp(): String
+
+  @Message
+  fun userImportTableColEntity(): String
+
+  @Message
+  fun userImportTableColCreated(): String
+
+  @Message
+  fun userImportTableColUpdated(): String
+
+  @Message
   fun userImportStepDataPathLabel(): String
 
   @Message

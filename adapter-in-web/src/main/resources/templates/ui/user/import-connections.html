@@ -12,9 +12,8 @@
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="connections-title">{user:userImportConnectionsTitle()}</h1>
-            <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#connectionModal" data-testid="new-connection-button" data-mode="create">
-                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
-                {user:userNewConnectionButtonLabel()}
+            <button type="button" class="btn btn-app-primary btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#connectionModal" title="{user:userNewConnectionButtonLabel()}" aria-label="{user:userNewConnectionButtonLabel()}" data-testid="new-connection-button" data-mode="create">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
             </button>
         </div>
 
@@ -54,8 +53,10 @@
                                     {/if}
                                 </td>
                                 <td class="text-end">
-                                    <button type="button" class="btn btn-app-secondary btn-sm me-1 test-connection-button" data-connection-id="{connection.id}" data-testid="test-connection-button">{user:userImportConnectionTestButton()}</button>
-                                    <button type="button" class="btn btn-app-secondary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#connectionModal" data-testid="edit-connection-button" data-mode="edit">
+                                    <button type="button" class="btn btn-app-primary btn-sm me-1 test-connection-button" data-connection-id="{connection.id}" title="{user:userImportConnectionTestButton()}" aria-label="{user:userImportConnectionTestButton()}" data-testid="test-connection-button">
+                                        <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-app-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#connectionModal" title="{msg:commonEdit()}" aria-label="{msg:commonEdit()}" data-testid="edit-connection-button" data-mode="edit">
                                         <i class="bi bi-pencil" aria-hidden="true"></i>
                                     </button>
                                     <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteConnectionModal" data-connection-id="{connection.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-connection-button">

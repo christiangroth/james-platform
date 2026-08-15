@@ -310,4 +310,27 @@ class UserImportConnectionResourceTests {
       .statusCode(200)
       .body("ok", equalTo(false))
   }
+
+  @Test
+  fun `connections page renames the URL and token column headers and shows the test and edit buttons as blue icon-only buttons`() {
+    createConnection()
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/connections")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains(">Base URL<"), "Expected the URL column header to be renamed to 'Base URL'")
+    assertTrue(html.contains(">Auth<"), "Expected the Bearer-Token column header to be renamed to 'Auth'")
+    assertTrue(html.contains("btn-app-primary btn-sm me-1 test-connection-button"), "Expected the test button to use the blue primary button style")
+    assertTrue(!html.contains(">Testen<"), "Expected the test button to no longer show text, only an icon")
+    assertTrue(html.contains("data-testid=\"edit-connection-button\""), "Expected the edit button to still be present")
+    assertTrue(html.contains("btn-app-primary btn-sm me-1\" data-bs-toggle=\"modal\" data-bs-target=\"#connectionModal\""), "Expected the edit button to use the blue primary button style")
+    assertTrue(
+      html.contains("data-testid=\"new-connection-button\" data-mode=\"create\">\n                <i class=\"bi bi-plus-lg\" aria-hidden=\"true\"></i>\n            </button>\n        </div>"),
+      "Expected the new-connection button to show only an icon, no text",
+    )
+  }
 }

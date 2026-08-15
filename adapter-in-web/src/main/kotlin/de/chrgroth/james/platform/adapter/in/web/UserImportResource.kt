@@ -71,6 +71,7 @@ data class ImportJobRow(
   val installedAppId: String,
   val installedAppName: String,
   val targetEntityName: String,
+  val connectionName: String,
   val statusLabel: String,
   val awaitingDataPathSelection: Boolean,
   val mappable: Boolean,
@@ -308,7 +309,10 @@ class UserImportResource {
     val entityCount = info.installedVersion.entityDefinitions.size
     Response.ok(
       importJobTemplate
-        .data("job", view.importJob.toRow(mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name), mapOf(info.installedAppId to info.appName)))
+        .data(
+          "job",
+          view.importJob.toRow(mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name), mapOf(info.installedAppId to info.appName), emptyMap()),
+        )
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
         .data("structureRows", buildJsonStructureRows(view.importJob)),
@@ -424,6 +428,7 @@ class UserImportResource {
         .data("validCount", report.validCount)
         .data("skippedCount", report.skippedCount)
         .data("invalidCount", report.invalidCount)
+        .data("validObjectsColumns", view.targetEntityDefinition.properties.map { it.name })
         .data("validObjects", report.validObjects.map { it.toRow(view.targetEntityDefinition) })
         .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
         .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition))
@@ -465,7 +470,8 @@ class UserImportResource {
   private fun loadAllRows(userId: String, apps: List<InstalledAppInfo>): List<ImportJobRow> {
     val appNamesById = apps.associate { it.installedAppId to it.appName }
     val entityNamesById = apps.flatMap { it.installedVersion.entityDefinitions }.associate { it.id.value to it.name }
-    return importPort.listAllImportJobs(userId).map { it.toRow(entityNamesById, appNamesById) }
+    val connectionNamesById = importConnectionPort.listConnections(userId).getOrNull().orEmpty().associate { it.id.value to it.name }
+    return importPort.listAllImportJobs(userId).map { it.toRow(entityNamesById, appNamesById, connectionNamesById) }
   }
 
   private fun InstalledAppInfo.toOptionRow() = AppOptionRow(
@@ -474,11 +480,12 @@ class UserImportResource {
     entityOptions = installedVersion.entityDefinitions.map { EntityOptionRow(it.id.value, it.name) },
   )
 
-  private fun ImportJob.toRow(entityNamesById: Map<String, String>, appNamesById: Map<String, String>) = ImportJobRow(
+  private fun ImportJob.toRow(entityNamesById: Map<String, String>, appNamesById: Map<String, String>, connectionNamesById: Map<String, String>) = ImportJobRow(
     id = id.value,
     installedAppId = installedAppId.value,
     installedAppName = appNamesById[installedAppId.value].orEmpty(),
     targetEntityName = entityNamesById[targetEntityDefinitionId.value].orEmpty(),
+    connectionName = connectionNamesById[connectionId.value].orEmpty(),
     statusLabel = statusLabel(status),
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
     mappable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
