@@ -86,14 +86,6 @@
                         <div id="import-modal-message" class="d-none mb-3" role="alert"></div>
                         {#if hasConnections}
                         <div class="mb-3">
-                            <label for="importInstalledAppId" class="form-label">{user:userImportColTargetAppInstallation()}</label>
-                            <select class="form-select app-form-control" id="importInstalledAppId" name="installedAppId" required data-testid="import-app-select">
-                                {#for app in appOptions}
-                                <option value="{app.id}">{app.name}</option>
-                                {/for}
-                            </select>
-                        </div>
-                        <div class="mb-3">
                             <label for="importConnectionId" class="form-label">{user:userImportConnectionLabel()}</label>
                             <select class="form-select app-form-control" id="importConnectionId" name="connectionId" required data-testid="import-connection-select">
                                 {#for connection in connectionOptions}
@@ -107,7 +99,15 @@
                             <div class="form-text">{user:userImportUrlPostfixHint()}</div>
                         </div>
                         <div class="mb-3">
-                            <label for="importTargetEntityDefinitionId" class="form-label">{user:userImportTargetEntityLabel()}</label>
+                            <label for="importInstalledAppId" class="form-label">{user:userImportTableColApp()}</label>
+                            <select class="form-select app-form-control" id="importInstalledAppId" name="installedAppId" required data-testid="import-app-select">
+                                {#for app in appOptions}
+                                <option value="{app.id}">{app.name}</option>
+                                {/for}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="importTargetEntityDefinitionId" class="form-label">{user:userImportTableColEntity()}</label>
                             {#for app in appOptions}
                             <select class="form-select app-form-control import-target-entity-group" data-app-id="{app.id}" name="targetEntityDefinitionId" style="display:none" data-testid="import-target-entity-select">
                                 {#for entity in app.entityOptions}

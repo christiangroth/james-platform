@@ -151,9 +151,6 @@ interface UserMessages {
   fun userImportConnectionLabel(): String
 
   @Message
-  fun userImportTargetEntityLabel(): String
-
-  @Message
   fun userImportNoConnectionsHint(): String
 
   @Message
