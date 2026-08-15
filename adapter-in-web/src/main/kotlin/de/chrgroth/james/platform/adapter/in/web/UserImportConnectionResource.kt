@@ -35,7 +35,7 @@ data class ImportConnectionRow(
   val lastChangedAt: Instant,
 )
 
-@Path("/ui/user/import-connections")
+@Path("/ui/user/imports/connections")
 @ApplicationScoped
 @BlockAdminAccess
 @RolesAllowed("DATA_IMPORT")

@@ -163,6 +163,9 @@ interface UserMessages {
   fun userImportColTargetAppInstallation(): String
 
   @Message
+  fun userImportColActions(): String
+
+  @Message
   fun userImportStepDataPathLabel(): String
 
   @Message
