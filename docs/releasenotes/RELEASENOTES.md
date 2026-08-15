@@ -1,3 +1,16 @@
+# 0.82.2 (2026.08.15)
+
+## Bugfixes / Chore
+* Imports table: the target app and target entity are no longer links, since clicking the row already opens the import.
+* Quelle, Mapping and Dry-Run pages now share one constant heading (`Connection: App Entity`) instead of separate titles, and no longer show a separate status badge.
+* Dry-run detail sections (valid/invalid/skipped) now share the constant heading "Details" and the currently shown section is subtly highlighted on its count card.
+* Dry-run page now always shows a detail section right away: invalid objects if there are any, otherwise the valid objects.
+* Dry-run counter panels renamed: Valide → Imports, Invalide → Fehler, Verworfen → Ignoriert.
+
+
+
+---
+
 # 0.82.1 (2026.08.15)
 
 ## Bugfixes / Chore
