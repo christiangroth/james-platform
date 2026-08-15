@@ -168,6 +168,24 @@ class FilterEvaluatorTests {
   }
 
   @Test
+  fun `include absent flag additionally matches missing and explicit null values regardless of operator`() {
+    val rules = listOf(FilterRule(FilterMode.INCLUDE, "status", FilterOperator.EQUALS, "active", includeAbsent = true))
+
+    val result = FilterEvaluator.apply(records("""[{"status":"active"},{"status":"archived"},{"status":null},{}]"""), rules)
+
+    assertThat(result.map { it.get("status")?.takeIf { value -> !value.isNull }?.asText() }).containsExactly("active", null, null)
+  }
+
+  @Test
+  fun `include absent flag has no effect when a value is present and does not match`() {
+    val rules = listOf(FilterRule(FilterMode.INCLUDE, "status", FilterOperator.EQUALS, "active", includeAbsent = true))
+
+    val result = FilterEvaluator.apply(records("""[{"status":"archived"}]"""), rules)
+
+    assertThat(result).isEmpty()
+  }
+
+  @Test
   fun `distinctValues returns the sorted distinct non-null values found at the given path`() {
     val result = FilterEvaluator.distinctValues(records("""[{"country":"DE"},{"country":"US"},{"country":"DE"},{"country":null},{}]"""), "country")
 

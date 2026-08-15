@@ -50,4 +50,10 @@ interface UserImportFilterMessages {
 
   @Message
   fun userImportFilterOperatorLessThanOrEqual(): String
+
+  @Message
+  fun userImportFilterColIncludeAbsent(): String
+
+  @Message
+  fun userImportFilterIncludeAbsentHint(): String
 }

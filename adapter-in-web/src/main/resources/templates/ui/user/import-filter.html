@@ -40,6 +40,7 @@
                                 <th>{user:userImportFilterColSourceField()}</th>
                                 <th>{user:userImportFilterColOperator()}</th>
                                 <th>{user:userImportFilterColValue()}</th>
+                                <th title="{userImportFilter:userImportFilterIncludeAbsentHint()}">{userImportFilter:userImportFilterColIncludeAbsent()}</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -69,6 +70,9 @@
                                 </td>
                                 <td>
                                     <input type="text" class="form-control form-control-sm app-form-control rule-value-input {#if !rule.requiresValue}d-none{/if}" value="{rule.value}" placeholder="{user:userImportFilterValuePlaceholder()}" autocomplete="off" data-testid="rule-value-input">
+                                </td>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input rule-include-absent-checkbox" {#if rule.includeAbsent}checked{/if} data-testid="rule-include-absent-checkbox">
                                 </td>
                                 <td><button type="button" class="btn btn-sm btn-app-secondary remove-rule-button" data-testid="remove-rule-button">{user:userImportFilterRemoveRuleButton()}</button></td>
                             </tr>
@@ -106,6 +110,9 @@
                     </td>
                     <td>
                         <input type="text" class="form-control form-control-sm app-form-control rule-value-input" value="" placeholder="{user:userImportFilterValuePlaceholder()}" autocomplete="off" data-testid="rule-value-input">
+                    </td>
+                    <td class="text-center">
+                        <input type="checkbox" class="form-check-input rule-include-absent-checkbox" data-testid="rule-include-absent-checkbox">
                     </td>
                     <td><button type="button" class="btn btn-sm btn-app-secondary remove-rule-button" data-testid="remove-rule-button">{user:userImportFilterRemoveRuleButton()}</button></td>
                 </tr>
@@ -254,7 +261,8 @@
                             mode: row.querySelector('.rule-mode-select').value,
                             sourcePath: row.querySelector('.rule-source-path-select').value,
                             operator: row.querySelector('.rule-operator-select').value,
-                            value: row.querySelector('.rule-value-input').value
+                            value: row.querySelector('.rule-value-input').value,
+                            includeAbsent: row.querySelector('.rule-include-absent-checkbox').checked
                         });
                     });
 

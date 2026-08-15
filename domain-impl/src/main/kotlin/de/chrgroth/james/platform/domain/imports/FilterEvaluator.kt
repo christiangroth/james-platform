@@ -26,7 +26,8 @@ object FilterEvaluator {
 
   private fun matches(record: JsonNode, rule: FilterRule): Boolean {
     val value = resolve(record, rule.sourcePath)?.takeIf { !it.isNull }
-      ?: return rule.operator == FilterOperator.IS_NULL || rule.operator == FilterOperator.NOT_EQUALS || rule.operator == FilterOperator.NOT_MATCHES
+      ?: return rule.includeAbsent ||
+      rule.operator == FilterOperator.IS_NULL || rule.operator == FilterOperator.NOT_EQUALS || rule.operator == FilterOperator.NOT_MATCHES
 
     val text = value.asText()
     return when (rule.operator) {
