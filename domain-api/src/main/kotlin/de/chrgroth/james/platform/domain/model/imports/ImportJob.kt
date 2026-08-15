@@ -47,12 +47,16 @@ data class SchemaProperty(
  * A single fetch-to-mapping-to-import run, targeting a fixed [installedAppId] and [targetEntityDefinitionId] and
  * fetched through a reusable [ImportConnection] (referenced by [connectionId]). Unlike the connection, a job only
  * holds the data snapshot for one point in time and is cleaned up automatically when it stays inactive too long.
+ *
+ * [urlPostfix], when set, is appended to the connection's base URL to form this job's actual fetch URL (see
+ * [resolveImportUrl]); left `null`, the job fetches from the connection's base URL unchanged.
  */
 data class ImportJob(
   val id: ImportJobId,
   val userId: String,
   val installedAppId: InstalledAppId,
   val connectionId: ImportConnectionId,
+  val urlPostfix: String? = null,
   val targetEntityDefinitionId: EntityDefinitionId,
   val status: ImportStatus,
   val payload: String,

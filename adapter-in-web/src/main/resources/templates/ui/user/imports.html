@@ -94,6 +94,11 @@
                             </select>
                         </div>
                         <div class="mb-3">
+                            <label for="importUrlPostfix" class="form-label">{user:userImportUrlPostfixLabel()}</label>
+                            <input type="text" class="form-control app-form-control" id="importUrlPostfix" name="urlPostfix" autocomplete="off" data-testid="import-url-postfix-input">
+                            <div class="form-text">{user:userImportUrlPostfixHint()}</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="importInstalledAppId" class="form-label">{user:userImportTableColApp()}</label>
                             <select class="form-select app-form-control" id="importInstalledAppId" name="installedAppId" required data-testid="import-app-select">
                                 {#for app in appOptions}

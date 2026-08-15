@@ -133,6 +133,15 @@ interface UserMessages {
   fun userImportUrlLabel(): String
 
   @Message
+  fun userImportUrlPostfixLabel(): String
+
+  @Message
+  fun userImportUrlPostfixHint(): String
+
+  @Message
+  fun userImportSourceUrlLabel(): String
+
+  @Message
   fun userImportBearerTokenLabel(): String
 
   @Message

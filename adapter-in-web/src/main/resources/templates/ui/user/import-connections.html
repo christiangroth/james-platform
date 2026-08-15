@@ -42,9 +42,9 @@
                             <tr data-testid="connection-row"
                                 data-connection-id="{connection.id}"
                                 data-connection-name="{connection.name}"
-                                data-connection-url="{connection.url}">
+                                data-connection-base-url="{connection.baseUrl}">
                                 <td data-testid="connection-name">{connection.name}</td>
-                                <td data-testid="connection-url">{connection.url}</td>
+                                <td data-testid="connection-url">{connection.baseUrl}</td>
                                 <td data-testid="connection-token-status">
                                     {#if connection.hasBearerToken}
                                     <span class="badge border-0 app-badge-processing">{user:userImportConnectionTokenSetLabel()}</span>
@@ -91,7 +91,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="connectionUrl" class="form-label">{user:userImportUrlLabel()}</label>
-                            <input type="url" class="form-control app-form-control" id="connectionUrl" name="url" required autocomplete="off" data-testid="connection-url-input">
+                            <input type="url" class="form-control app-form-control" id="connectionUrl" name="baseUrl" required autocomplete="off" data-testid="connection-url-input">
                         </div>
                         <div class="mb-2">
                             <label for="connectionBearerToken" class="form-label">{user:userImportBearerTokenLabel()}</label>
@@ -222,7 +222,7 @@
                     connectionModal.setAttribute('data-connection-id', row.getAttribute('data-connection-id'));
                     connectionModalLabel.textContent = '{user:userImportConnectionEditModalTitle()}';
                     connectionForm.querySelector('#connectionName').value = row.getAttribute('data-connection-name') || '';
-                    connectionForm.querySelector('#connectionUrl').value = row.getAttribute('data-connection-url') || '';
+                    connectionForm.querySelector('#connectionUrl').value = row.getAttribute('data-connection-base-url') || '';
                     clearTokenContainer.classList.remove('d-none');
                     connectionTokenHint.classList.remove('d-none');
                 } else {

@@ -131,7 +131,7 @@ enum class ImportError(override val code: String) : DomainError {
 enum class ImportConnectionError(override val code: String) : DomainError {
   CONNECTION_NOT_FOUND("IMPORTCONN-001"),
   BLANK_NAME("IMPORTCONN-002"),
-  BLANK_URL("IMPORTCONN-003"),
+  BLANK_BASE_URL("IMPORTCONN-003"),
   ;
 }
 

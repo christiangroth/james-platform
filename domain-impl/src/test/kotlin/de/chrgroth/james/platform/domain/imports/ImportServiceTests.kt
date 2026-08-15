@@ -107,6 +107,39 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `trigger import fetches from the connection's base URL with the given postfix appended and stores the postfix`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data/latest", "secret-token") } returns """{"foo":"bar"}""".right()
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1", "/latest")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.urlPostfix).isEqualTo("/latest")
+    verify(exactly = 1) { importFetch.fetch("https://example.com/data/latest", "secret-token") }
+  }
+
+  @Test
+  fun `trigger import treats a blank url postfix as unset and fetches the connection's base URL unchanged`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"foo":"bar"}""".right()
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+
+    val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1", "   ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.urlPostfix).isNull()
+  }
+
+  @Test
   fun `trigger import fetches with an empty token when the connection has none`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
@@ -677,7 +710,7 @@ class ImportServiceTests {
     id = ImportConnectionId("conn-1"),
     userId = "user-1",
     name = "My API",
-    url = "https://example.com/data",
+    baseUrl = "https://example.com/data",
     encryptedBearerToken = "encrypted-token",
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),

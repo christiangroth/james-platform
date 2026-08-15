@@ -29,7 +29,7 @@ import java.time.Instant
 data class ImportConnectionRow(
   val id: String,
   val name: String,
-  val url: String,
+  val baseUrl: String,
   val hasBearerToken: Boolean,
   val createdAt: Instant,
   val lastChangedAt: Instant,
@@ -84,17 +84,17 @@ class UserImportConnectionResource {
   @Produces(MediaType.APPLICATION_JSON)
   fun createConnection(
     @FormParam("name") name: String?,
-    @FormParam("url") url: String?,
+    @FormParam("baseUrl") baseUrl: String?,
     @FormParam("bearerToken") bearerToken: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import-connection.create") {
     val userId = securityIdentity.principal.name
     if (name.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionNameRequiredError())).build()
     }
-    if (url.isNullOrBlank()) {
+    if (baseUrl.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
-    importConnectionPort.createConnection(userId, name, url, bearerToken).fold(
+    importConnectionPort.createConnection(userId, name, baseUrl, bearerToken).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionCreatedMessage())).build() },
     )
@@ -107,7 +107,7 @@ class UserImportConnectionResource {
   fun updateConnection(
     @PathParam("connectionId") connectionId: String,
     @FormParam("name") name: String?,
-    @FormParam("url") url: String?,
+    @FormParam("baseUrl") baseUrl: String?,
     @FormParam("bearerToken") bearerToken: String?,
     @FormParam("clearBearerToken") clearBearerToken: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import-connection.update") {
@@ -115,10 +115,10 @@ class UserImportConnectionResource {
     if (name.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionNameRequiredError())).build()
     }
-    if (url.isNullOrBlank()) {
+    if (baseUrl.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
-    importConnectionPort.updateConnection(userId, connectionId, name, url, bearerToken, clearBearerToken = !clearBearerToken.isNullOrBlank()).fold(
+    importConnectionPort.updateConnection(userId, connectionId, name, baseUrl, bearerToken, clearBearerToken = !clearBearerToken.isNullOrBlank()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionUpdatedMessage())).build() },
     )
@@ -152,7 +152,7 @@ class UserImportConnectionResource {
   private fun ImportConnection.toRow() = ImportConnectionRow(
     id = id.value,
     name = name,
-    url = url,
+    baseUrl = baseUrl,
     hasBearerToken = encryptedBearerToken != null,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
@@ -161,7 +161,7 @@ class UserImportConnectionResource {
   private fun connectionErrorMessage(code: String): String = when (code) {
     ImportConnectionError.CONNECTION_NOT_FOUND.code -> userMsg.userImportConnectionNotFoundError()
     ImportConnectionError.BLANK_NAME.code -> userMsg.userImportConnectionNameRequiredError()
-    ImportConnectionError.BLANK_URL.code -> userMsg.userImportUrlRequiredError()
+    ImportConnectionError.BLANK_BASE_URL.code -> userMsg.userImportUrlRequiredError()
     ImportError.INVALID_URL.code -> userMsg.userImportInvalidUrlError()
     ImportError.FETCH_FAILED.code -> userMsg.userImportFetchFailedError()
     ImportError.RESPONSE_TOO_LARGE.code -> userMsg.userImportResponseTooLargeError()

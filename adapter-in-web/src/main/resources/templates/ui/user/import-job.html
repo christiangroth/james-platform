@@ -37,6 +37,12 @@
                     <span class="app-section-label">{user:userImportColLastAction()}</span>
                     <div class="fw-semibold" data-testid="import-job-last-changed-at">{job.lastChangedAt.formatted}</div>
                 </div>
+                {#if sourceUrl}
+                <div class="col-12">
+                    <span class="app-section-label">{user:userImportSourceUrlLabel()}</span>
+                    <div class="fw-semibold text-break" data-testid="import-job-source-url">{sourceUrl}</div>
+                </div>
+                {/if}
             </div>
         </div>
 

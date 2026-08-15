@@ -25,6 +25,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingView
+import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -55,7 +56,13 @@ class ImportService(
   override fun listAllImportJobs(userId: String): List<ImportJob> =
     importJobRepository.findAllByUserId(userId).sortedByDescending { it.createdAt }
 
-  override fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String): Either<DomainError, ImportJob> {
+  override fun triggerImport(
+    userId: String,
+    installedAppId: String,
+    connectionId: String,
+    targetEntityDefinitionId: String,
+    urlPostfix: String?,
+  ): Either<DomainError, ImportJob> {
     val installedApp = requireOwnedInstalledApp(userId, installedAppId) ?: run {
       logger.warn { "Trigger import failed: installed app not found: $installedAppId for user: $userId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
@@ -68,9 +75,10 @@ class ImportService(
       logger.warn { "Trigger import failed: connection not found: $connectionId for user: $userId" }
       return ImportError.CONNECTION_NOT_FOUND.left()
     }
+    val trimmedUrlPostfix = urlPostfix?.trim()?.takeIf { it.isNotBlank() }
 
     val bearerToken = connection.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
-    val rawPayload = importFetch.fetch(connection.url, bearerToken).fold({ return it.left() }, { it })
+    val rawPayload = importFetch.fetch(resolveImportUrl(connection.baseUrl, trimmedUrlPostfix), bearerToken).fold({ return it.left() }, { it })
 
     val parsed = try {
       objectMapper.readTree(rawPayload)
@@ -92,6 +100,7 @@ class ImportService(
       userId = userId,
       installedAppId = installedApp.id,
       connectionId = connection.id,
+      urlPostfix = trimmedUrlPostfix,
       targetEntityDefinitionId = entityDefinition.id,
       status = if (singleMatch != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
       payload = rawPayload,

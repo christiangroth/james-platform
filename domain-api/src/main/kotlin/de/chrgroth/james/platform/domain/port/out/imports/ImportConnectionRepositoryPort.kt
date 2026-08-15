@@ -8,4 +8,5 @@ interface ImportConnectionRepositoryPort {
   fun findById(id: ImportConnectionId): ImportConnection?
   fun save(importConnection: ImportConnection)
   fun delete(id: ImportConnectionId)
+  fun renameUrlFieldToBaseUrl()
 }

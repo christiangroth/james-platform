@@ -33,6 +33,7 @@ import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
+import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
@@ -305,6 +306,7 @@ class UserImportResource {
     @FormParam("installedAppId") installedAppId: String?,
     @FormParam("connectionId") connectionId: String?,
     @FormParam("targetEntityDefinitionId") targetEntityDefinitionId: String?,
+    @FormParam("urlPostfix") urlPostfix: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import.trigger") {
     val userId = securityIdentity.principal.name
     if (installedAppId.isNullOrBlank()) {
@@ -316,7 +318,7 @@ class UserImportResource {
     if (targetEntityDefinitionId.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportEntityRequiredError())).build()
     }
-    importPort.triggerImport(userId, installedAppId, connectionId, targetEntityDefinitionId).fold(
+    importPort.triggerImport(userId, installedAppId, connectionId, targetEntityDefinitionId, urlPostfix).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
     )
@@ -354,6 +356,7 @@ class UserImportResource {
       ifRight = { it },
     )
     val entityCount = info.installedVersion.entityDefinitions.size
+    val connection = importConnectionPort.listConnections(userId).getOrNull().orEmpty().firstOrNull { it.id == view.importJob.connectionId }
     Response.ok(
       importJobTemplate
         .data(
@@ -363,6 +366,7 @@ class UserImportResource {
         .data("targetEntityName", view.targetEntityDefinition.name)
         .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
+        .data("sourceUrl", connection?.let { resolveImportUrl(it.baseUrl, view.importJob.urlPostfix) }.orEmpty())
         .data("structureRows", buildJsonStructureRows(view.importJob)),
     ).build()
   }
