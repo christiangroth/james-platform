@@ -133,7 +133,13 @@ interface DeveloperMessages {
   fun developerDeleteAppModalTitle(): String
 
   @Message
-  fun developerDeleteAppConfirm(): String
+  fun developerDeleteAppConfirm(installationCount: Int): String
+
+  @Message
+  fun developerAppInactiveError(): String
+
+  @Message
+  fun developerAppInactiveEditingNotice(): String
 
   // developer version editor
   @Message

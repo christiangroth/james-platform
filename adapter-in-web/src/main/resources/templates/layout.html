@@ -286,6 +286,11 @@
             background-color: var(--color-badge-muted-bg);
             color: #ffffff;
         }
+        /* Disables an editing surface (buttons, links, form controls) while keeping it visible, e.g. drafts of an inactive app. */
+        .app-editor-disabled {
+            opacity: 0.55;
+            pointer-events: none;
+        }
         /* Shared page-content wrapper: full width on small/medium screens, capped and centered
            on large screens so lines/tables don't stretch edge-to-edge on wide monitors. Used
            by every page instead of Bootstrap's `.container-fluid` directly. */

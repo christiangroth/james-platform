@@ -151,5 +151,17 @@ class AppManagementService(
     return Unit.right()
   }
 
+  override fun getActiveInstallationCount(appId: String, developerId: String): Either<DomainError, Int> {
+    val app = appRepository.findById(AppId(appId)) ?: run {
+      logger.warn { "Get active installation count failed: not found: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    if (app.developerId != developerId) {
+      logger.warn { "Get active installation count failed: not owned by developer: $appId" }
+      return AppError.APP_NOT_FOUND.left()
+    }
+    return installedAppRepository.findAllByAppId(app.id).size.right()
+  }
+
   companion object : KLogging()
 }

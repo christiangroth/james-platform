@@ -10,11 +10,18 @@
             </ol>
         </nav>
 
+        {#if app.status.name != 'ACTIVE'}
+        <div class="alert app-readonly-banner mb-4 py-2 px-3 d-flex align-items-center gap-2" role="alert" data-testid="app-inactive-notice">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <span>{developer:developerAppInactiveEditingNotice()}</span>
+        </div>
+        {/if}
+
         <div class="d-flex align-items-start mb-4 gap-3">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-1">
                     <h1 class="fs-4 fw-semibold mb-0" data-testid="app-name">{app.name}</h1>
-                    <span class="badge {#if app.status.name == 'ACTIVE'}app-badge-muted{#else}app-badge-processing{/if}" data-testid="app-status-badge">
+                    <span class="badge {#if app.status.name == 'ACTIVE'}app-badge-processing{#else}app-badge-muted{/if}" data-testid="app-status-badge">
                         {#if app.status.name == 'ACTIVE'}{developer:developerAppStatusActiveLabel()}{#else}{developer:developerAppStatusInactiveLabel()}{/if}
                     </span>
                 </div>
@@ -60,11 +67,13 @@
             <!-- New Version tile (shown only when no draft exists) -->
             {#if !hasDraft}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <div class="card app-card p-3 h-100 d-flex flex-column align-items-center justify-content-center text-center"
+                <div class="card app-card p-3 h-100 d-flex flex-column align-items-center justify-content-center text-center {#if app.status.name != 'ACTIVE'}app-editor-disabled{/if}"
                      style="cursor:pointer; border-style:dashed !important;"
                      id="newVersionTile"
                      data-testid="new-version-tile"
                      role="button"
+                     aria-disabled="{#if app.status.name != 'ACTIVE'}true{#else}false{/if}"
+                     title="{#if app.status.name != 'ACTIVE'}{developer:developerAppInactiveEditingNotice()}{/if}"
                      aria-label="{developer:developerNewVersionAriaLabel()}">
                     <i class="bi bi-plus-lg mb-2" style="color:var(--color-text-muted);font-size:32px;" aria-hidden="true"></i>
                     <div class="fw-semibold fs-6">{developer:developerNewVersionTile()}</div>
@@ -160,7 +169,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    {developer:developerDeleteAppConfirm()}
+                    {developer:developerDeleteAppConfirm(installationCount)}
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-app-secondary btn-sm" data-bs-dismiss="modal" data-testid="cancel-delete-app-button">{msg:commonCancel()}</button>
@@ -251,11 +260,17 @@
                             var statusBadge = document.querySelector('[data-testid="app-status-badge"]');
                             if (statusBadge) {
                                 statusBadge.textContent = '{developer:developerAppStatusInactiveLabel()}';
-                                statusBadge.classList.remove('app-badge-muted');
-                                statusBadge.classList.add('app-badge-processing');
+                                statusBadge.classList.remove('app-badge-processing');
+                                statusBadge.classList.add('app-badge-muted');
                             }
                             var deactivateAppButton = document.getElementById('deactivateAppButton');
                             if (deactivateAppButton) { deactivateAppButton.remove(); }
+                            var newVersionTile = document.getElementById('newVersionTile');
+                            if (newVersionTile) {
+                                newVersionTile.classList.add('app-editor-disabled');
+                                newVersionTile.setAttribute('aria-disabled', 'true');
+                                newVersionTile.setAttribute('title', '{developer:developerAppInactiveEditingNotice()}');
+                            }
                         }
                         showMessage(result.ok, result.message);
                         btn.disabled = false;

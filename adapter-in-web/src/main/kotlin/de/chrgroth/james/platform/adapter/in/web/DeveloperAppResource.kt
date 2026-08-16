@@ -241,12 +241,14 @@ class DeveloperAppResource {
         val publishedIdsWithPredecessor = if (publishedByDate.size > 1) publishedByDate.drop(1).map { it.id.value }.toSet() else emptySet<String>()
         val draftIdWithDiff = if (hasDraft && publishedByDate.isNotEmpty()) setOf(versions.first { it.status == AppVersionStatus.DRAFT }.id.value) else emptySet<String>()
         val versionIdsWithPredecessor = publishedIdsWithPredecessor + draftIdWithDiff
+        val installationCount = appManagement.getActiveInstallationCount(appId, developerId).getOrNull() ?: 0
         Response.ok(
           appOverviewTemplate
             .data("app", app)
             .data("versions", versions)
             .data("hasDraft", hasDraft)
-            .data("versionsWithDiff", versionIdsWithPredecessor),
+            .data("versionsWithDiff", versionIdsWithPredecessor)
+            .data("installationCount", installationCount),
         ).build()
       },
     )
@@ -1119,6 +1121,7 @@ class DeveloperAppResource {
     AppVersionError.BLANK_RELEASE_NOTES.code -> devMsg.developerReleaseNotesRequiredError()
     AppVersionError.NO_CHANGES.code -> devMsg.developerNoChangesWarning()
     AppVersionError.INVALID_OBJECT_STRUCTURE.code -> devMsg.developerInvalidObjectStructureGenericError()
+    AppVersionError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
     else -> msg.commonUnexpectedError()
   }
 
@@ -1148,6 +1151,7 @@ class DeveloperAppResource {
     AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> devMsg.developerListItemTypeNotSupportedError()
     AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> devMsg.developerListItemTypeRequiredError()
     AppVersionError.LIST_ITEM_TYPE_INVALID.code -> devMsg.developerListItemTypeInvalidError()
+    AppVersionError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
     else -> msg.commonUnexpectedError()
   }
 
@@ -1166,6 +1170,7 @@ class DeveloperAppResource {
     AppVersionError.REPORT_NAME_ALREADY_EXISTS.code -> devMsg.developerReportNameExistsError()
     AppVersionError.REPORT_NOT_FOUND.code -> devMsg.developerReportNotFoundError()
     AppVersionError.VERSION_NOT_IN_DRAFT.code -> devMsg.developerVersionNotInDraftError()
+    AppVersionError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
     else -> msg.commonUnexpectedError()
   }
 

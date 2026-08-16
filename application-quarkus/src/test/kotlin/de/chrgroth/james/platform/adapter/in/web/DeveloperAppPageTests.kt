@@ -634,6 +634,196 @@ class DeveloperAppPageTests {
   }
 
   @Test
+  fun `dashboard shows inactive badge for inactive app`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive Badge App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get("/ui/developer/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="app-inactive-badge""""))
+  }
+
+  @Test
+  fun `app overview disables new version tile for inactive app`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive New Version App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("app-editor-disabled"))
+      .body(containsString("""aria-disabled="true""""))
+      .body(containsString("""data-testid="app-inactive-notice""""))
+  }
+
+  @Test
+  fun `creating a draft version fails for inactive app`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive Create Version App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
+  fun `deleting and publishing a draft version fail once the app is deactivated`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive Draft Actions App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("bumpType", "FEATURE")
+      .formParam("releaseNotes", "Notes")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/publish")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/delete")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
+  fun `version editor shows inactive notice for a draft version once the app is deactivated`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive Version Editor App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="app-inactive-notice""""))
+      .body(containsString("app-editor-disabled"))
+  }
+
+  @Test
+  fun `delete app modal shows current installation count up front`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Delete Modal Count App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    installedAppRepository.save(
+      InstalledApp(
+        id = InstalledAppId(UUID.randomUUID().toString()),
+        userId = "some-user",
+        appId = AppId(appId),
+        installedVersionNumber = VersionNumber("1.0.0"),
+        installedAt = Instant.now(),
+      ),
+    )
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("Aktuell bestehen 1 aktive Installation(en)"))
+  }
+
+  @Test
   fun `nested OBJECT property properties can be added and shown when descending via path`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")
