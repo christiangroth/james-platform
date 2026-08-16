@@ -288,7 +288,7 @@ class UserImportConnectionResourceTests {
   }
 
   @Test
-  fun `connections page renames the URL and token column headers and shows the test button as a blue icon-only button`() {
+  fun `connections page renames the URL and token column headers and shows the test button as a gray icon-only button`() {
     createConnection()
 
     val html = given()
@@ -300,7 +300,7 @@ class UserImportConnectionResourceTests {
 
     assertTrue(html.contains(">Base URL<"), "Expected the URL column header to be renamed to 'Base URL'")
     assertTrue(html.contains(">Auth<"), "Expected the Bearer-Token column header to be renamed to 'Auth'")
-    assertTrue(html.contains("btn-app-primary btn-sm test-connection-button"), "Expected the test button to use the blue primary button style")
+    assertTrue(html.contains("btn-app-secondary btn-sm test-connection-button"), "Expected the test button to use the gray secondary button style")
     assertTrue(!html.contains(">Testen<"), "Expected the test button to no longer show text, only an icon")
     assertTrue(!html.contains("data-testid=\"edit-connection-button\""), "Expected the explicit edit button to no longer be present")
     assertTrue(html.contains("data-testid=\"connection-row\""), "Expected the connection row to still be rendered")
