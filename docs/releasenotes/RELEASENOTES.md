@@ -1,3 +1,12 @@
+# 0.92.2 (2026.08.16)
+
+## Bugfixes / Chore
+* Added internal domain model and persistence support for attaching a measurement unit (e.g. time or distance) to numeric properties. Not yet reachable through any UI or API.
+
+
+
+---
+
 # 0.92.1 (2026.08.16)
 
 ## Bugfixes / Chore
