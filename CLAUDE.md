@@ -63,6 +63,15 @@ Always format new and edited files according to `.editorconfig` before committin
 - **Frontend developer role guidelines:** [docs/coding-guidelines/role-frontend-developer.md](docs/coding-guidelines/role-frontend-developer.md)
 - **Test engineer role guidelines:** [docs/coding-guidelines/role-test-engineer.md](docs/coding-guidelines/role-test-engineer.md)
 
+## Creating GitHub Issues
+
+When creating GitHub issues (e.g. when breaking down work or filing follow-ups):
+
+- **Milestone:** Assign an existing milestone if one fits. If none fits, explicitly state in the issue that no matching milestone exists — do not leave it unassigned without comment.
+- **Splitting larger work:** When a larger piece of work is broken down into multiple smaller, individually releasable issues, give all of them a shared title prefix and a counter suffix, e.g. `Import UI Redesign (1/4)`, `Import UI Redesign (2/4)`.
+- **Releasable in isolation:** Every issue must be releasable on its own — it must not depend on other open issues being merged first to be safely shippable.
+- **No labels:** Do not add labels to issues. This repository does not use GitHub labels.
+
 ## Release Note Snippets
 
 **Snippet filename:** `docs/releasenotes/snippets/{branch-last-segment}-{type}.md` where `{type}` is one of `bugfix` or `feature`.
