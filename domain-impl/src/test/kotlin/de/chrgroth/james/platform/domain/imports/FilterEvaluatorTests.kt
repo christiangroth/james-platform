@@ -191,4 +191,29 @@ class FilterEvaluatorTests {
 
     assertThat(result).containsExactly("DE", "US")
   }
+
+  @Test
+  fun `excluded returns the records that did not survive the filter pipeline, in original order`() {
+    val rules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE"))
+
+    val result = FilterEvaluator.excluded(records("""[{"country":"DE"},{"country":"US"},{"country":"FR"}]"""), rules)
+
+    assertThat(result.map { it.get("country").asText() }).containsExactly("US", "FR")
+  }
+
+  @Test
+  fun `excluded is empty when every record matches`() {
+    val result = FilterEvaluator.excluded(records("""[{"country":"DE"}]"""), emptyList())
+
+    assertThat(result).isEmpty()
+  }
+
+  @Test
+  fun `excluded tells apart records with identical content by identity, not just by value`() {
+    val rules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE"))
+
+    val result = FilterEvaluator.excluded(records("""[{"country":"DE"},{"country":"US"},{"country":"DE"}]"""), rules)
+
+    assertThat(result.map { it.get("country").asText() }).containsExactly("US")
+  }
 }

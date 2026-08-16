@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /** Applies a job's filter rules to its source records, in order, as a narrowing/removing pipeline (see [FilterRule]). */
 object FilterEvaluator {
@@ -17,6 +19,17 @@ object FilterEvaluator {
         FilterMode.EXCLUDE -> current.filterNot { matches(it, rule) }
       }
     }
+
+  /**
+   * The complement of [apply]: every record from [records] that did NOT survive the [rules] pipeline, in original
+   * order - for the filter step's "view excluded records" preview. Told apart from the matched records by identity
+   * (not equality), so records with identical content are still counted correctly.
+   */
+  fun excluded(records: List<JsonNode>, rules: List<FilterRule>): List<JsonNode> {
+    val matched = Collections.newSetFromMap(IdentityHashMap<JsonNode, Boolean>())
+    matched.addAll(apply(records, rules))
+    return records.filterNot { matched.contains(it) }
+  }
 
   /** Distinct textual values found at [sourcePath] across [records], sorted - used to let the filter UI offer known values instead of free text input for [FilterOperator.EQUALS]/[FilterOperator.NOT_EQUALS]. */
   fun distinctValues(records: List<JsonNode>, sourcePath: String): List<String> =

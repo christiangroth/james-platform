@@ -18,6 +18,7 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
@@ -182,6 +183,16 @@ class ImportService(
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
     return FilterEvaluator.distinctValues(rawRecordsAt(existing), sourcePath).right()
+  }
+
+  override fun resolveFilterSample(userId: String, importJobId: String, matched: Boolean, index: Int): Either<DomainError, FilterSample> {
+    val existing = requireOwnedImportJob(userId, importJobId) ?: run {
+      logger.warn { "Resolve filter sample failed: import job not found: $importJobId for user: $userId" }
+      return ImportError.IMPORT_JOB_NOT_FOUND.left()
+    }
+    val allRecords = rawRecordsAt(existing)
+    val records = if (matched) FilterEvaluator.apply(allRecords, existing.filterRules) else FilterEvaluator.excluded(allRecords, existing.filterRules)
+    return FilterSample(records.size, records.getOrNull(index)?.toString()).right()
   }
 
   override fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView> {

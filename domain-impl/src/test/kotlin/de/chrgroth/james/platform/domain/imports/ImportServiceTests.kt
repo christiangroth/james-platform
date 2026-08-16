@@ -26,6 +26,7 @@ import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
@@ -489,6 +490,62 @@ class ImportServiceTests {
     every { importJobRepository.findById(ImportJobId("missing")) } returns null
 
     val result = service.resolveFilterFieldValues("user-1", "missing", "country")
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `resolve filter sample returns the matched record at the given index and the total matched count`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"country":"DE"},{"country":"US"},{"country":"DE"}]}""",
+      selectedDataPath = "items",
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE")),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveFilterSample("user-1", job.id.value, matched = true, index = 1)
+
+    assertThat(result).isEqualTo(FilterSample(2, """{"country":"DE"}""").right())
+  }
+
+  @Test
+  fun `resolve filter sample returns the excluded record at the given index and the total excluded count`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"country":"DE"},{"country":"US"},{"country":"DE"}]}""",
+      selectedDataPath = "items",
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE")),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveFilterSample("user-1", job.id.value, matched = false, index = 0)
+
+    assertThat(result).isEqualTo(FilterSample(1, """{"country":"US"}""").right())
+  }
+
+  @Test
+  fun `resolve filter sample reports a null record when the index is out of range, including when there are no matches at all`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"country":"US"}]}""",
+      selectedDataPath = "items",
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "country", FilterOperator.EQUALS, "DE")),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val emptySide = service.resolveFilterSample("user-1", job.id.value, matched = true, index = 0)
+    val outOfRange = service.resolveFilterSample("user-1", job.id.value, matched = false, index = 5)
+
+    assertThat(emptySide).isEqualTo(FilterSample(0, null).right())
+    assertThat(outOfRange).isEqualTo(FilterSample(1, null).right())
+  }
+
+  @Test
+  fun `resolve filter sample fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
+
+    val result = service.resolveFilterSample("user-1", "missing", matched = true, index = 0)
 
     assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }

@@ -127,6 +127,30 @@
                 <button type="submit" class="btn btn-app-primary ms-auto" data-testid="save-filter-button">{user:userImportFilterSaveButton()}</button>
             </div>
         </form>
+
+        <div class="mt-4">
+            <button type="button" class="btn btn-app-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#filterSamplePanel" aria-expanded="false" aria-controls="filterSamplePanel" data-testid="filter-sample-trigger">
+                <i class="bi bi-eye me-1" aria-hidden="true"></i>{userImportFilter:userImportFilterSampleTriggerLabel()}
+            </button>
+            <div class="collapse mt-3" id="filterSamplePanel" data-testid="filter-sample-panel">
+                <div class="card app-card p-3 p-md-4">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div class="btn-group" role="group" aria-label="{userImportFilter:userImportFilterSampleSideAriaLabel()}">
+                            <input type="radio" class="btn-check" name="filterSampleSide" id="filterSampleSideMatched" autocomplete="off" checked data-testid="filter-sample-side-matched">
+                            <label class="btn btn-app-secondary btn-sm" for="filterSampleSideMatched">{userImportFilter:userImportFilterSampleMatchedLabel()}</label>
+                            <input type="radio" class="btn-check" name="filterSampleSide" id="filterSampleSideExcluded" autocomplete="off" data-testid="filter-sample-side-excluded">
+                            <label class="btn btn-app-secondary btn-sm" for="filterSampleSideExcluded">{userImportFilter:userImportFilterSampleExcludedLabel()}</label>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-app-secondary btn-sm" id="filterSamplePrevButton" disabled data-testid="filter-sample-prev-button">{user:userPreviousLabel()}</button>
+                            <span class="app-section-label small" id="filterSamplePosition" data-testid="filter-sample-position"></span>
+                            <button type="button" class="btn btn-app-secondary btn-sm" id="filterSampleNextButton" disabled data-testid="filter-sample-next-button">{user:userNextLabel()}</button>
+                        </div>
+                    </div>
+                    <pre class="mb-0 small" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;overflow-x:auto;color:var(--color-code-text);max-height:300px;" id="filterSampleRecord" data-testid="filter-sample-record"></pre>
+                </div>
+            </div>
+        </div>
     </div>
     {/content}
     {#scripts}
@@ -284,6 +308,71 @@
                     } catch (e) {
                         showMessage(false, networkErrorMessage);
                     }
+                });
+            }
+
+            var samplePanel = document.getElementById('filterSamplePanel');
+            if (samplePanel) {
+                var sampleRecord = document.getElementById('filterSampleRecord');
+                var samplePosition = document.getElementById('filterSamplePosition');
+                var samplePrevButton = document.getElementById('filterSamplePrevButton');
+                var sampleNextButton = document.getElementById('filterSampleNextButton');
+                var sampleSideMatched = document.getElementById('filterSampleSideMatched');
+                var sampleSideExcluded = document.getElementById('filterSampleSideExcluded');
+                var samplePositionTemplate = '{userImportFilter:userImportFilterSamplePositionLabel("__POSITION__","__TOTAL__")}';
+                var sampleEmptyMatchedMessage = '{userImportFilter:userImportFilterSampleEmptyMatchedMessage()}';
+                var sampleEmptyExcludedMessage = '{userImportFilter:userImportFilterSampleEmptyExcludedMessage()}';
+
+                // Kept out of the shared filter-rules-table state: this panel lazily loads one record at a time from
+                // /filter/sample (see UserImportResource#filterSample) instead of the full record set, so the preview
+                // payload stays small even for large imports.
+                var sampleState = { matched: true, index: 0, loaded: false };
+
+                function loadSample() {
+                    samplePrevButton.disabled = true;
+                    sampleNextButton.disabled = true;
+                    fetch(basePath + '/sample?matched=' + sampleState.matched + '&index=' + sampleState.index, { headers: { 'Accept': 'application/json' } })
+                        .then(function (response) { return response.json(); })
+                        .then(function (result) {
+                            if (!result.record) {
+                                sampleRecord.textContent = sampleState.matched ? sampleEmptyMatchedMessage : sampleEmptyExcludedMessage;
+                                samplePosition.textContent = '';
+                                return;
+                            }
+                            sampleRecord.textContent = JSON.stringify(result.record, null, 2);
+                            samplePosition.textContent = samplePositionTemplate
+                                .replace('__POSITION__', String(sampleState.index + 1))
+                                .replace('__TOTAL__', String(result.total));
+                            samplePrevButton.disabled = sampleState.index <= 0;
+                            sampleNextButton.disabled = sampleState.index >= result.total - 1;
+                        })
+                        .catch(function () { sampleRecord.textContent = networkErrorMessage; });
+                }
+
+                samplePanel.addEventListener('show.bs.collapse', function () {
+                    if (sampleState.loaded) return;
+                    sampleState.loaded = true;
+                    loadSample();
+                });
+
+                samplePrevButton.addEventListener('click', function () {
+                    if (samplePrevButton.disabled) return;
+                    sampleState.index -= 1;
+                    loadSample();
+                });
+
+                sampleNextButton.addEventListener('click', function () {
+                    if (sampleNextButton.disabled) return;
+                    sampleState.index += 1;
+                    loadSample();
+                });
+
+                [sampleSideMatched, sampleSideExcluded].forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        sampleState.matched = sampleSideMatched.checked;
+                        sampleState.index = 0;
+                        loadSample();
+                    });
                 });
             }
         }());
