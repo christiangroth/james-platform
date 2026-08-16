@@ -676,6 +676,54 @@
         .structure-toggle-icon.rotated {
             transform: rotate(90deg);
         }
+        /* Source/target comparison panels (dry-run, mapping preview): below md, only the active
+           tab's pane is shown; at md and up, the nav-tabs are hidden (d-md-none) and both panes
+           are forced visible so they render side by side via the surrounding row/col-md-6 grid. */
+        .app-compare-tabs .tab-pane {
+            display: none;
+        }
+        .app-compare-tabs .tab-pane.active {
+            display: block;
+        }
+        @media (min-width: 768px) {
+            .app-compare-tabs .tab-pane {
+                display: block !important;
+            }
+        }
+        /* Filter rule table: below md, rows become bordered cards with each cell's column label
+           shown via data-label, instead of a table that needs horizontal scrolling. */
+        @media (max-width: 767.98px) {
+            .filter-rules-table thead {
+                display: none;
+            }
+            .filter-rules-table,
+            .filter-rules-table tbody,
+            .filter-rules-table tr,
+            .filter-rules-table td {
+                display: block;
+                width: 100%;
+            }
+            .filter-rules-table tbody tr.filter-rule-row {
+                border: 1px solid var(--color-border-muted);
+                border-radius: 4px;
+                padding: .75rem;
+                margin-bottom: .75rem;
+            }
+            .filter-rules-table tbody tr.filter-rule-row:last-child {
+                margin-bottom: 0;
+            }
+            .filter-rules-table td {
+                border: none !important;
+                padding: .35rem 0;
+            }
+            .filter-rules-table td::before {
+                content: attr(data-label);
+                display: block;
+                font-size: .75rem;
+                color: var(--color-text-muted);
+                margin-bottom: .15rem;
+            }
+        }
     </style>
 </head>
 <body>

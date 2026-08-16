@@ -166,6 +166,7 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 | `.app-badge-high` | Red priority badge (`HIGH`) – add alongside Bootstrap `.badge` |
 | `.app-badge-muted` | Grey status/label badge – add alongside Bootstrap `.badge` |
 | `.docs-content` | Markdown-rendered documentation pages |
+| `.app-compare-tabs` | Wraps a two-column source/target comparison (`row` + `col-md-6`) so it renders as Bootstrap `nav-tabs` below `md` and side-by-side columns at `md` and up |
 
 ## Button Placement Rules
 
@@ -249,6 +250,40 @@ The primary target device is a small smartphone (e.g. iPhone SE) – screen widt
 - Every button affected by this rule must always have a visible icon and a `title`/`aria-label` so icon-only mode stays accessible.
 - Apply this pattern when touching a page for other reasons, or when a button's label is causing wrapping/overflow on narrow screens; it does not need to be retrofitted everywhere in one pass.
 
+### Responsive Comparison Panels
+
+A source/target comparison (e.g. raw import data vs. the mapped result) uses `row` + `col-md-6` columns, which already stack on narrow screens by default – but stacking still
+forces a long scroll to compare the two sides. Use the `.app-compare-tabs` wrapper instead so it becomes Bootstrap `nav-tabs` below the `md` breakpoint and stays side-by-side
+columns at `md` and up:
+
+```html
+<div class="app-compare-tabs">
+    <ul class="nav nav-tabs d-md-none mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="foo-source-tab" data-bs-toggle="tab" data-bs-target="#foo-source-pane" type="button" role="tab" aria-controls="foo-source-pane" aria-selected="true">Source</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="foo-target-tab" data-bs-toggle="tab" data-bs-target="#foo-target-pane" type="button" role="tab" aria-controls="foo-target-pane" aria-selected="false">Target</button>
+        </li>
+    </ul>
+    <div class="row g-3">
+        <div class="col-md-6 tab-pane active" id="foo-source-pane" role="tabpanel" aria-labelledby="foo-source-tab" tabindex="0">
+            <div class="app-section-label small mb-1 d-none d-md-block">Source</div>
+            ...
+        </div>
+        <div class="col-md-6 tab-pane" id="foo-target-pane" role="tabpanel" aria-labelledby="foo-target-tab" tabindex="0">
+            <div class="app-section-label small mb-1 d-none d-md-block">Target</div>
+            ...
+        </div>
+    </div>
+</div>
+```
+
+- The `nav-tabs` are `d-md-none` (mobile-only); the `.app-section-label` heading repeats the same text so it is `d-none d-md-block` (desktop-only) to avoid showing the label twice.
+- IDs must be unique per usage – suffix them (e.g. with a loop index) when the pattern repeats inside a `{#for}` loop.
+- No extra JS is needed: Bootstrap's bundled `Tab` plugin (already loaded site-wide) handles the `data-bs-toggle="tab"` switching; `.app-compare-tabs` CSS in `layout.html` forces
+  both panes visible at `md` and up regardless of which one is `.active`.
+
 ## Navigation Concept
 
 The platform uses a **breadcrumb trail** to show the user's location within the hierarchy and to enable backward navigation.
@@ -329,6 +364,29 @@ All data tables must follow this structure. See also the CSS classes table above
 - Use `{#btn-icon-key}` instead of `{#btn-icon-edit}` for actions that only change a password/secret, so it isn't mistaken for editing the whole entity.
 - Add `ms-1` via `extraClass` on every icon button after the first to maintain consistent spacing.
 - Clickable rows (where clicking the row navigates or opens a modal) use class `app-clickable-row` and a `data-href` attribute; the JS handler is applied in the page `<script>` block.
+
+### Wide / Interactive Tables (card layout below `md`)
+
+For tables with many columns of form controls (e.g. the import filter rule table), `table-responsive` alone still forces horizontal scrolling on narrow screens. Give the
+`<table>` a dedicated class (e.g. `filter-rules-table`) and add a matching `@media (max-width: 767.98px)` block in `layout.html` that turns each `<tr>` into a bordered card and
+each `<td>` into a stacked field, labelled via a `data-label` attribute that mirrors the column's `<th>` text:
+
+```html
+<table class="table table-sm mb-0 app-table filter-rules-table" data-testid="...">
+    <thead>
+        <tr><th>Field</th>...</tr>
+    </thead>
+    <tbody>
+        <tr class="filter-rule-row" data-testid="...">
+            <td data-label="Field">...</td>
+            ...
+        </tr>
+    </tbody>
+</table>
+```
+
+This keeps the DOM structure (and any JS that queries cells by class within a row) unchanged – only the CSS `display` changes below `md`. Add `data-label` to every generated
+row template used by JS to clone new rows, too, not just the server-rendered rows.
 
 ## Modals vs. Navigation
 
