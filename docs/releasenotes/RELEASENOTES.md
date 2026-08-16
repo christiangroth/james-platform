@@ -1,3 +1,12 @@
+# 0.91.0 (2026.08.16)
+
+## New Features
+* Added a "Treffer ansehen" preview to the Filter step of the Data Import wizard: browse the actual matching or excluded source records one at a time (Prev/Next) directly below the rule table, without leaving the step.
+
+
+
+---
+
 # 0.90.0 (2026.08.16)
 
 ## New Features

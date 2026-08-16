@@ -1,1 +1,0 @@
-* Added a "Treffer ansehen" preview to the Filter step of the Data Import wizard: browse the actual matching or excluded source records one at a time (Prev/Next) directly below the rule table, without leaving the step.
