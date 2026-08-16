@@ -1,0 +1,48 @@
+{#if !rows.isEmpty}
+<button type="button" class="btn btn-app-secondary btn-sm"
+        data-bs-toggle="offcanvas" data-bs-target="#schemaPanelOffcanvas" aria-controls="schemaPanelOffcanvas"
+        data-testid="schema-panel-trigger">
+    <i class="bi bi-table me-1" aria-hidden="true"></i>{user:userImportSchemaPanelTriggerLabel()}
+</button>
+
+<div class="offcanvas offcanvas-end schema-panel-offcanvas" tabindex="-1" id="schemaPanelOffcanvas" aria-labelledby="schemaPanelOffcanvasLabel" data-testid="schema-panel">
+    <div class="offcanvas-header">
+        <h2 class="offcanvas-title fs-5" id="schemaPanelOffcanvasLabel">{user:userImportSchemaPanelTitle()}</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{msg:commonClose()}"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0" data-testid="schema-panel-table">
+                <thead>
+                    <tr>
+                        <th>{user:userImportDataPathSchemaColField()}</th>
+                        <th>{user:userImportDataPathSchemaColType()}</th>
+                        <th>{user:userImportDataPathSchemaColMandatory()}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#for row in rows}
+                    <tr data-testid="schema-panel-row">
+                        <td class="fw-semibold">{row.path}</td>
+                        <td>
+                            {row.typeLabel}
+                            {#if !row.valueRangeLabel.isEmpty}
+                            <div class="app-section-label small" data-testid="schema-panel-value-range">{row.valueRangeLabel}</div>
+                            {/if}
+                            {#if !row.stringLengthLabel.isEmpty}
+                            <div class="app-section-label small" data-testid="schema-panel-string-length">{row.stringLengthLabel}</div>
+                            {/if}
+                        </td>
+                        <td>
+                            {#if row.mandatory}
+                            <span class="badge border-0 app-badge-processing" data-testid="schema-panel-mandatory-badge">{user:userImportMappingMandatoryBadge()}</span>
+                            {/if}
+                        </td>
+                    </tr>
+                    {/for}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{/if}

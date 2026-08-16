@@ -247,6 +247,18 @@ interface UserMessages {
   fun userImportDataPathSchemaColMandatory(): String
 
   @Message
+  fun userImportSchemaPanelTriggerLabel(): String
+
+  @Message
+  fun userImportSchemaPanelTitle(): String
+
+  @Message
+  fun userImportSchemaValueRangeLabel(min: String, max: String): String
+
+  @Message
+  fun userImportSchemaStringLengthLabel(min: Int, max: Int): String
+
+  @Message
   fun userDeleteImportModalTitle(): String
 
   @Message
