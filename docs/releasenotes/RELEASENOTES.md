@@ -1,3 +1,12 @@
+# 0.89.3 (2026.08.16)
+
+## Bugfixes / Chore
+* Fixed the dry-run detail panels so clicking the already-open section (e.g. "Fehler") no longer closes it and leaves nothing open; exactly one section always stays open, clicking a different section switches to it.
+
+
+
+---
+
 # 0.89.2 (2026.08.16)
 
 ## Bugfixes / Chore
