@@ -249,6 +249,17 @@ class AppManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NAME_ALREADY_EXISTS)
   }
 
+  @Test
+  fun `updateApp fails when app is inactive`() {
+    val inactiveApp = existingApp.copy(status = AppStatus.INACTIVE)
+    every { appRepository.findById(AppId("app-1")) } returns inactiveApp
+
+    val result = service.updateApp("app-1", "New Name", null, "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_INACTIVE)
+  }
+
   // endregion
 
   // region deactivateApp

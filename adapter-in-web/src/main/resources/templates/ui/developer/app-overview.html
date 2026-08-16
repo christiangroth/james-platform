@@ -44,10 +44,12 @@
                     <i class="bi bi-check-circle" aria-hidden="true"></i>
                 </button>
                 {/if}
-                <button type="button" class="btn btn-app-secondary btn-sm"
+                <button type="button" class="btn btn-app-secondary btn-sm {#if app.status.name != 'ACTIVE'}app-editor-disabled{/if}" id="editAppButton"
                         data-bs-toggle="modal" data-bs-target="#editAppModal"
                         data-app-name="{app.name}" data-app-description="{app.description}"
-                        title="{msg:commonEdit()}" aria-label="{developer:developerEditAppAriaLabel()}"
+                        title="{#if app.status.name != 'ACTIVE'}{developer:developerAppInactiveEditingNotice()}{#else}{msg:commonEdit()}{/if}"
+                        aria-label="{developer:developerEditAppAriaLabel()}"
+                        aria-disabled="{#if app.status.name != 'ACTIVE'}true{#else}false{/if}"
                         data-testid="edit-app-button">
                     <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
@@ -270,6 +272,12 @@
                                 newVersionTile.classList.add('app-editor-disabled');
                                 newVersionTile.setAttribute('aria-disabled', 'true');
                                 newVersionTile.setAttribute('title', '{developer:developerAppInactiveEditingNotice()}');
+                            }
+                            var editAppButton = document.getElementById('editAppButton');
+                            if (editAppButton) {
+                                editAppButton.classList.add('app-editor-disabled');
+                                editAppButton.setAttribute('aria-disabled', 'true');
+                                editAppButton.setAttribute('title', '{developer:developerAppInactiveEditingNotice()}');
                             }
                         }
                         showMessage(result.ok, result.message);

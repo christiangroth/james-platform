@@ -759,6 +759,61 @@ class DeveloperAppPageTests {
   }
 
   @Test
+  fun `updating an app fails once it is deactivated`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive Update App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "New Name")
+      .`when`()
+      .post("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
+  fun `app overview disables edit app button for inactive app`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Inactive Edit App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/deactivate")
+      .then()
+      .statusCode(200)
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""id="editAppButton""""))
+      .body(containsString("app-editor-disabled"))
+  }
+
+  @Test
   fun `version editor shows inactive notice for a draft version once the app is deactivated`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")

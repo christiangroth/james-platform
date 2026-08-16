@@ -1108,6 +1108,7 @@ class DeveloperAppResource {
     AppError.ALREADY_INACTIVE.code -> devMsg.developerAppAlreadyInactiveError()
     AppError.HAS_ACTIVE_INSTALLATIONS.code -> devMsg.developerAppHasActiveInstallationsError()
     AppError.ALREADY_ACTIVE.code -> devMsg.developerAppAlreadyActiveError()
+    AppError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
     else -> msg.commonUnexpectedError()
   }
 
