@@ -78,6 +78,10 @@ class AppManagementService(
       logger.warn { "Update app failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
+    if (app.status == AppStatus.INACTIVE) {
+      logger.warn { "Update app failed: app is inactive: $appId" }
+      return AppError.APP_INACTIVE.left()
+    }
     val existingWithName = appRepository.findByName(AppName(name))
     if (existingWithName != null && existingWithName.id != app.id) {
       logger.warn { "Update app failed: name already exists: $name" }

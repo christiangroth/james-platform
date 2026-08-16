@@ -44,6 +44,7 @@ enum class AppError(override val code: String) : DomainError {
   ALREADY_INACTIVE("APP-004"),
   HAS_ACTIVE_INSTALLATIONS("APP-005"),
   ALREADY_ACTIVE("APP-006"),
+  APP_INACTIVE("APP-007"),
   ;
 }
 
