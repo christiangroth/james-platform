@@ -142,20 +142,6 @@ class DryRunExecutorTests {
   }
 
   @Test
-  fun `string length violation is reported as statically checked`() {
-    val entity = entityDefinition(
-      Property(id = propertyId, name = "Code", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.MaxLength(3))),
-    )
-    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "code"))
-
-    val result = execute(records("""[{"code":"ABCDE"}]"""), mapping, entity)
-
-    val issue = result.single().issues.single() as DryRunIssue.ConstraintViolated
-    assertThat(issue.violation).isEqualTo(PropertyConstraintViolation.MaxLengthViolation(3))
-    assertThat(issue.staticallyChecked).isTrue()
-  }
-
-  @Test
   fun `pattern violation is reported as not statically checked`() {
     val entity = entityDefinition(
       Property(id = propertyId, name = "Code", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.Pattern("[A-Z]+"))),

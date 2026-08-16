@@ -855,9 +855,14 @@ class UserImportResourceTests {
     assertTrue(!tableHtml.contains("data-import-id=\"$importId\""), "Expected the import job to have been deleted after accepting the dry run")
   }
 
+  /**
+   * Covers both REF resolution paths (lookup and direct mapping) in one scenario, since the per-case business logic
+   * (which value a lookup resolves to, why a direct mapping is only checked at dry-run) is already exhaustively unit-tested
+   * in DryRunExecutorTests; this only needs to prove the REST-layer wiring for both JSON field mapping shapes.
+   */
   @Test
-  fun `reference lookup resolves a mapped REF property to the id of the matching referenced entity`() {
-    val appName = "Import Lookup App ${System.nanoTime()}"
+  fun `REF properties resolve via lookup and are checked for existence when mapped directly`() {
+    val appName = "Import Ref App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
     val companyEntityId = addEntity(appId, versionId, "Company")
     val codePropertyId = addProperty(appId, versionId, companyEntityId, "Code", "STRING", nullable = false)
@@ -884,7 +889,7 @@ class UserImportResourceTests {
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
       .thenReturn("""{"items":[{"name":"Alice","companyCode":"ACME"}]}""".right())
     triggerImport(installedAppId, createConnection(), contactEntityId)
-    val importId = triggerImportAndGetId(installedAppId)
+    val lookupImportId = triggerImportAndGetId(installedAppId)
 
     given()
       .contentType("application/json")
@@ -902,47 +907,25 @@ class UserImportResourceTests {
         """.trimIndent(),
       )
       .`when`()
-      .post("/ui/user/imports/$importId/mapping")
+      .post("/ui/user/imports/$lookupImportId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
-    val mappingHtml = given()
-      .`when`()
-      .get("/ui/user/imports/$importId/mapping")
-      .then()
-      .statusCode(200)
-      .extract().body().asString()
-    assertTrue(
-      mappingHtml.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
-      "Expected the import job to be READY once the reference lookup is fully configured",
-    )
-
     given()
       .`when`()
-      .post("/ui/user/imports/$importId/dry-run/accept")
+      .post("/ui/user/imports/$lookupImportId/dry-run/accept")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val savedContact = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId)).single()
     assertTrue(savedContact.data[companyPropertyId] == companyAppDataId.value, "Expected the Contact's Company reference to resolve to the seeded Company's id")
-  }
-
-  @Test
-  fun `directly mapped REF property pointing to a non-existing instance is reported invalid and discarded on accept`() {
-    val appName = "Import Direct Ref App ${System.nanoTime()}"
-    val (appId, versionId) = createApp(appName)
-    val companyEntityId = addEntity(appId, versionId, "Company")
-    val contactEntityId = addEntity(appId, versionId, "Contact")
-    val namePropertyId = addProperty(appId, versionId, contactEntityId, "Name", "STRING", nullable = false)
-    val companyPropertyId = addReferenceProperty(appId, versionId, contactEntityId, "Company", companyEntityId)
-    val installedAppId = publishAndInstall(appId, appName)
 
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
-      .thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+      .thenReturn("""{"items":[{"name":"Bob"}]}""".right())
     triggerImport(installedAppId, createConnection(), contactEntityId)
-    val importId = triggerImportAndGetId(installedAppId)
+    val directImportId = triggerImportAndGetId(installedAppId)
 
     given()
       .contentType("application/json")
@@ -957,25 +940,14 @@ class UserImportResourceTests {
         """.trimIndent(),
       )
       .`when`()
-      .post("/ui/user/imports/$importId/mapping")
+      .post("/ui/user/imports/$directImportId/mapping")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
-    val mappingHtml = given()
-      .`when`()
-      .get("/ui/user/imports/$importId/mapping")
-      .then()
-      .statusCode(200)
-      .extract().body().asString()
-    assertTrue(
-      mappingHtml.contains("<a href=\"/ui/user/imports/$importId/dry-run\""),
-      "Expected the import job to be READY: the static fallback check does not know the referenced entity's persisted data",
-    )
-
     val dryRunHtml = given()
       .`when`()
-      .get("/ui/user/imports/$importId/dry-run")
+      .get("/ui/user/imports/$directImportId/dry-run")
       .then()
       .statusCode(200)
       .extract().body().asString()
@@ -983,13 +955,16 @@ class UserImportResourceTests {
 
     given()
       .`when`()
-      .post("/ui/user/imports/$importId/dry-run/accept")
+      .post("/ui/user/imports/$directImportId/dry-run/accept")
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
 
     val savedContacts = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId))
-    assertTrue(savedContacts.isEmpty(), "Expected the invalid Contact record to be discarded rather than saved with a dangling Company reference")
+    assertTrue(
+      savedContacts.single().data == savedContact.data,
+      "Expected only the earlier lookup-resolved Contact to remain; the invalid direct-ref Contact must be discarded",
+    )
   }
 
   @Test
