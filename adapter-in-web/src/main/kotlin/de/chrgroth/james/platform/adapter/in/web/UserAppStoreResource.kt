@@ -61,6 +61,11 @@ data class AppDataPropertyView(
   val max: String = "",
   val constraintHint: String = "",
   val itemConstraintHint: String = "",
+  val hasUnit: Boolean = false,
+  val unitFamily: String = "",
+  val unitStorageGranularity: String = "",
+  val unitDefaultGranularity: String = "",
+  val unitFormatHint: String = "",
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 
@@ -401,6 +406,11 @@ class UserAppStoreResource {
               max = TemplateFormattingExtensions.constraintMax(prop),
               constraintHint = PropertyLabelTemplateExtensions.constraintHint(prop),
               itemConstraintHint = PropertyLabelTemplateExtensions.itemConstraintHint(prop),
+              hasUnit = TemplateFormattingExtensions.hasUnit(prop),
+              unitFamily = TemplateFormattingExtensions.unitFamily(prop),
+              unitStorageGranularity = TemplateFormattingExtensions.unitStorageGranularity(prop),
+              unitDefaultGranularity = TemplateFormattingExtensions.unitDefaultGranularity(prop),
+              unitFormatHint = TemplateFormattingExtensions.unitFormatHint(prop),
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -658,6 +668,11 @@ class UserAppStoreResource {
     "max" to TemplateFormattingExtensions.constraintMax(this),
     "constraintHint" to PropertyLabelTemplateExtensions.constraintHint(this),
     "itemConstraintHint" to PropertyLabelTemplateExtensions.itemConstraintHint(this),
+    "hasUnit" to TemplateFormattingExtensions.hasUnit(this),
+    "unitFamily" to TemplateFormattingExtensions.unitFamily(this),
+    "unitStorageGranularity" to TemplateFormattingExtensions.unitStorageGranularity(this),
+    "unitDefaultGranularity" to TemplateFormattingExtensions.unitDefaultGranularity(this),
+    "unitFormatHint" to TemplateFormattingExtensions.unitFormatHint(this),
     "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
   )
 

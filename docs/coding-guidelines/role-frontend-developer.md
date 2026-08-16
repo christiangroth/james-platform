@@ -595,6 +595,38 @@ Unlike the theme toggle, the language must be known server-side before rendering
 
 > **`showBanner` vs `showMessage`:** `showBanner` (from `settings-utils.js`) writes to a page-level `#status-banner` element and is suited to simple action feedback outside of modals. `showMessage` is a per-page JS function (defined inline in the page `<script>` block; see "Form Submissions and Action Results") that writes to `#page-message` and is used for form submissions and modal-based actions. Use whichever matches the page's existing feedback element.
 
+## Property Units Form Pattern
+
+`LONG`/`DOUBLE` properties can carry a `PropertyUnit` (family `TIME`/`DISTANCE`, a fixed `storageGranularity`, and a
+`defaultGranularity` used to pre-fill data entry). This spans two distinct surfaces, both following existing patterns:
+
+**Developer property editor** (`edit-property.html`): a `unitSection` block follows the same show/hide convention as
+`constraintGroup*`/`defaultGroup*` (see "Standard Qute Tags"/the `applyConstraintVisibility` JS), toggled via a
+`UNIT_SUPPORTED_TYPES = ['LONG', 'DOUBLE']` list. It holds three selects (family, storage granularity, default
+granularity) and is saved via its own `POST .../properties/{id}/unit` mutation endpoint, submitted in the same
+sequential `apiPost()` chain as `target-entity`/`list-item-type`. The storage granularity select is disabled once the
+property already has a unit configured (`hadUnitStorageGranularity`, read from the `data-unit-storage-granularity`
+initial-data attribute) - there is no migration mechanism for already-stored raw values if it changed later (see ADR
+0016), so the UI locks it rather than allowing a silent reinterpretation. It stays editable while a unit is first
+being added, including to a property that already exists.
+
+**User data entry** (`app-data-new.html`/`app-data-edit.html`, and nested OBJECT properties via
+`object-property-fields.js`): a `.unit-value-field` widget renders a number input + granularity `<select>`, plus a
+text-mode toggle (placeholder text from `unitFormatHint(family)`, e.g. `"15km 400m"`). A single hidden
+`<input name="prop_{id}">` inside the widget is the actual form-submission value and the source of truth for both
+modes: it always holds text the server's `parseUnitValue` already accepts (a bare number, or unit-suffixed text like
+`"15km 400m"`), so dropdown mode just composes `"<value><granularity symbol>"` into it and text mode copies its raw
+input verbatim - no separate submission protocol is needed. The visible number+dropdown/text controls are a *view*
+onto that hidden value and must be explicitly resynced (`resyncUnitFields(root)`) whenever something else sets the
+hidden value directly, e.g. `app-data-new.html`'s Multi/Snapshot mode replaying defaults or a captured snapshot.
+
+Both surfaces are backed by the shared, conditionally-included `/unit-value-fields.js` (loaded next to
+`object-property-fields.js` wherever unit fields might render). It mirrors domain-api's `PropertyUnit.kt` granularity
+catalog (symbols + conversion factors) and `UnitFormat.kt`'s `parseUnitValue`/`formatUnitValue` client-side, purely
+for immediate UX (recomputing the displayed value when the granularity dropdown changes, converting between dropdown
+and text mode). This client-side copy is a convenience layer only - the server always re-parses and re-validates the
+submitted raw text - but it must be kept manually in sync with `UnitFormat.kt` whenever that file's rules change.
+
 ## Error Code Mapping
 
 The backend passes domain error codes to the frontend as URL query parameters (e.g. `/?error=AUTH-001`). The frontend is responsible for mapping these stable codes to user-facing

@@ -52,6 +52,9 @@
                  data-value-proposals="{selectedProperty.valueProposals}"
                  data-target-entity-id="{selectedProperty.targetEntityId}"
                  data-list-item-type="{selectedProperty.listItemType}"
+                 data-unit-family="{selectedProperty.unitFamily}"
+                 data-unit-storage-granularity="{selectedProperty.unitStorageGranularity}"
+                 data-unit-default-granularity="{selectedProperty.unitDefaultGranularity}"
                  data-item-constraint-min-long="{selectedProperty.itemConstraintMinLong}"
                  data-item-constraint-max-long="{selectedProperty.itemConstraintMaxLong}"
                  data-item-constraint-min-double="{selectedProperty.itemConstraintMinDouble}"
@@ -403,6 +406,32 @@
                         <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="default-duration">
                     </div>
                 </div>
+                <div id="unitSection" class="d-none">
+                    <hr style="border-color:var(--color-border);">
+                    <div class="app-section-label mb-2" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerUnitLabel()}</div>
+                    <div class="mb-2">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerUnitFamilyLabel()}</label>
+                        <select class="form-select app-form-control form-select-sm" id="editPropertyUnitFamily" data-testid="edit-property-unit-family-select">
+                            <option value="">{msg:commonSelectPlaceholder()}</option>
+                            <option value="TIME">{developer:developerUnitFamilyTimeLabel()}</option>
+                            <option value="DISTANCE">{developer:developerUnitFamilyDistanceLabel()}</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerUnitStorageGranularityLabel()}</label>
+                            <select class="form-select app-form-control form-select-sm" id="editPropertyUnitStorageGranularity" data-testid="edit-property-unit-storage-granularity-select">
+                                <option value="">{msg:commonSelectPlaceholder()}</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerUnitDefaultGranularityLabel()}</label>
+                            <select class="form-select app-form-control form-select-sm" id="editPropertyUnitDefaultGranularity" data-testid="edit-property-unit-default-granularity-select">
+                                <option value="">{msg:commonSelectPlaceholder()}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <div id="smartDefaultSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
                     <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerSmartDefaultLabel()}</div>
@@ -475,6 +504,7 @@
     {#scripts}
     <script type="application/json" id="predefined-smart-defaults-data">{predefinedSmartDefaultsJson}</script>
     <script type="application/json" id="entity-properties-data">{currentPropertiesJson}</script>
+    <script src="/unit-value-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
             var appId = '{app.id}';
@@ -545,6 +575,39 @@
 
             var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
 
+            var UNIT_SUPPORTED_TYPES = ['LONG', 'DOUBLE'];
+            // The storage granularity can only be freely chosen while the property has no unit configured yet
+            // (fresh creation of the property, or first-time addition of a unit to an existing property): once
+            // a storage granularity is saved, changing it would silently reinterpret already-stored raw values,
+            // for which there is no data migration mechanism (see ADR 0016) - so the UI locks it from then on.
+            var hadUnitStorageGranularity = !!document.getElementById('editPropertyInitialData').getAttribute('data-unit-storage-granularity');
+
+            function populateUnitGranularityOptions(family, preserveValues) {
+                var storageSelect = document.getElementById('editPropertyUnitStorageGranularity');
+                var defaultSelect = document.getElementById('editPropertyUnitDefaultGranularity');
+                [storageSelect, defaultSelect].forEach(function (select) {
+                    var current = preserveValues ? select.value : '';
+                    select.innerHTML = '<option value="">{msg:commonSelectPlaceholder()}</option>';
+                    unitGranularitiesFor(family).forEach(function (g) {
+                        var option = document.createElement('option');
+                        option.value = g.value;
+                        option.textContent = g.symbol;
+                        select.appendChild(option);
+                    });
+                    select.value = current;
+                });
+            }
+
+            function applyUnitVisibility(propertyType) {
+                var supportsUnit = UNIT_SUPPORTED_TYPES.includes(propertyType);
+                document.getElementById('unitSection').classList.toggle('d-none', !supportsUnit);
+                document.getElementById('editPropertyUnitStorageGranularity').disabled = hadUnitStorageGranularity;
+            }
+
+            document.getElementById('editPropertyUnitFamily').addEventListener('change', function () {
+                populateUnitGranularityOptions(this.value, false);
+            });
+
             var ITEM_CONSTRAINT_TYPE_GROUPS = {
                 'LONG':   ['Long'],
                 'DOUBLE': ['Double'],
@@ -584,6 +647,7 @@
                 document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
 
                 applyListItemTypeVisibility(propertyType, document.getElementById('editPropertyListItemType').value);
+                applyUnitVisibility(propertyType);
 
                 var defaultGroup = DEFAULT_TYPE_GROUP[propertyType] || null;
                 ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
@@ -682,6 +746,11 @@
             document.getElementById('constraintMaxSize').value = initialData.getAttribute('data-constraint-max-size') || '';
             document.getElementById('editPropertyTargetEntity').value = initialData.getAttribute('data-target-entity-id') || '';
             document.getElementById('editPropertyListItemType').value = initialData.getAttribute('data-list-item-type') || '';
+            var initialUnitFamily = initialData.getAttribute('data-unit-family') || '';
+            document.getElementById('editPropertyUnitFamily').value = initialUnitFamily;
+            populateUnitGranularityOptions(initialUnitFamily, false);
+            document.getElementById('editPropertyUnitStorageGranularity').value = initialData.getAttribute('data-unit-storage-granularity') || '';
+            document.getElementById('editPropertyUnitDefaultGranularity').value = initialData.getAttribute('data-unit-default-granularity') || '';
             document.getElementById('itemConstraintMinLong').value = initialData.getAttribute('data-item-constraint-min-long') || '';
             document.getElementById('itemConstraintMaxLong').value = initialData.getAttribute('data-item-constraint-max-long') || '';
             document.getElementById('itemConstraintMinDouble').value = initialData.getAttribute('data-item-constraint-min-double') || '';
@@ -894,6 +963,27 @@
                     );
                     if (!targetEntityResult || !targetEntityResult.ok) {
                         showEditPropertyError(targetEntityResult ? targetEntityResult.message : networkErrorMessage);
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                if (UNIT_SUPPORTED_TYPES.includes(currentType)) {
+                    var unitFormData = new FormData();
+                    if (editPath !== '') unitFormData.set('path', editPath);
+                    var unitFamily = document.getElementById('editPropertyUnitFamily').value;
+                    if (unitFamily !== '') {
+                        unitFormData.set('family', unitFamily);
+                        var unitStorageGranularity = document.getElementById('editPropertyUnitStorageGranularity').value;
+                        var unitDefaultGranularity = document.getElementById('editPropertyUnitDefaultGranularity').value;
+                        if (unitStorageGranularity !== '') unitFormData.set('storageGranularity', unitStorageGranularity);
+                        if (unitDefaultGranularity !== '') unitFormData.set('defaultGranularity', unitDefaultGranularity);
+                    }
+                    var unitResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/unit',
+                        unitFormData, false
+                    );
+                    if (!unitResult || !unitResult.ok) {
+                        showEditPropertyError(unitResult ? unitResult.message : networkErrorMessage);
                         btn.disabled = false;
                         return;
                     }

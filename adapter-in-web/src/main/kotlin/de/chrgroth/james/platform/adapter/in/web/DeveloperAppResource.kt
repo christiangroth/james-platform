@@ -871,6 +871,26 @@ class DeveloperAppResource {
   }
 
   @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/unit")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyUnit(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("family") family: String?,
+    @FormParam("storageGranularity") storageGranularity: String?,
+    @FormParam("defaultGranularity") defaultGranularity: String?,
+    @FormParam("path") path: String?,
+  ): Response = httpResponseMetrics.timed("rest.developer.property-unit-set") {
+    appVersionManagement.setPropertyUnit(appId, versionId, entityId, propertyId, family, storageGranularity, defaultGranularity, parsePath(path)).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerUnitSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
+    )
+  }
+
+  @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/item-constraints")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
@@ -1152,6 +1172,9 @@ class DeveloperAppResource {
     AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> devMsg.developerListItemTypeNotSupportedError()
     AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> devMsg.developerListItemTypeRequiredError()
     AppVersionError.LIST_ITEM_TYPE_INVALID.code -> devMsg.developerListItemTypeInvalidError()
+    AppVersionError.UNIT_NOT_SUPPORTED.code -> devMsg.developerUnitNotSupportedError()
+    AppVersionError.UNIT_FAMILY_INVALID.code -> devMsg.developerUnitFamilyInvalidError()
+    AppVersionError.UNIT_GRANULARITY_INVALID.code -> devMsg.developerUnitGranularityInvalidError()
     AppVersionError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
     else -> msg.commonUnexpectedError()
   }

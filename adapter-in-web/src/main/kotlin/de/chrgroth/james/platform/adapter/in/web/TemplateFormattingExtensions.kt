@@ -10,6 +10,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.formatDurationValue
+import de.chrgroth.james.platform.domain.model.app.unitFormatHint as domainUnitFormatHint
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
 import java.time.ZoneId
@@ -289,6 +290,26 @@ object TemplateFormattingExtensions {
   /** Returns the target entity id of a Reference property, or empty string if not set. */
   @JvmStatic
   fun targetEntityId(property: Property): String = property.targetEntityId?.value ?: ""
+
+  /** Returns true if the property has a [de.chrgroth.james.platform.domain.model.app.PropertyUnit] configured. */
+  @JvmStatic
+  fun hasUnit(property: Property): Boolean = property.unit != null
+
+  /** Returns the unit family name (e.g. "TIME"), or empty string if the property has no unit configured. */
+  @JvmStatic
+  fun unitFamily(property: Property): String = property.unit?.family?.name ?: ""
+
+  /** Returns the unit's storage granularity name (e.g. "SECONDS"), or empty string if the property has no unit configured. */
+  @JvmStatic
+  fun unitStorageGranularity(property: Property): String = (property.unit?.storageGranularity as? Enum<*>)?.name ?: ""
+
+  /** Returns the unit's default granularity name (e.g. "MINUTES"), or empty string if the property has no unit configured. */
+  @JvmStatic
+  fun unitDefaultGranularity(property: Property): String = (property.unit?.defaultGranularity as? Enum<*>)?.name ?: ""
+
+  /** Returns the placeholder/hint text describing the accepted unit text format, or empty string if the property has no unit configured. */
+  @JvmStatic
+  fun unitFormatHint(property: Property): String = property.unit?.let { domainUnitFormatHint(it.family) } ?: ""
 
   /** Returns the comma-joined `path` query value for descending into this OBJECT property, appending its id to the current path. */
   @JvmStatic
