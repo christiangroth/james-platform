@@ -167,16 +167,26 @@
                             <button type="button" class="btn btn-app-secondary btn-sm" id="mappingSampleNextButton" disabled data-testid="mapping-sample-next-button">{user:userNextLabel()}</button>
                         </div>
                     </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="app-section-label small mb-1">{user:userImportDryRunColSourceData()}</div>
-                            <pre class="mb-0 small" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;overflow-x:auto;color:var(--color-code-text);max-height:300px;" id="mappingSampleSourceData" data-testid="mapping-sample-source-data"></pre>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="app-section-label small mb-1">{user:userImportDryRunColTargetObject()}</div>
-                            <table class="table table-sm mb-0" data-testid="mapping-sample-target-object">
-                                <tbody id="mappingSampleTargetBody"></tbody>
-                            </table>
+                    <div class="app-compare-tabs">
+                        <ul class="nav nav-tabs d-md-none mb-3" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="mapping-sample-source-tab" data-bs-toggle="tab" data-bs-target="#mapping-sample-source-pane" type="button" role="tab" aria-controls="mapping-sample-source-pane" aria-selected="true" data-testid="mapping-sample-source-tab">{user:userImportDryRunColSourceData()}</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="mapping-sample-target-tab" data-bs-toggle="tab" data-bs-target="#mapping-sample-target-pane" type="button" role="tab" aria-controls="mapping-sample-target-pane" aria-selected="false" data-testid="mapping-sample-target-tab">{user:userImportDryRunColTargetObject()}</button>
+                            </li>
+                        </ul>
+                        <div class="row g-3">
+                            <div class="col-md-6 tab-pane active" id="mapping-sample-source-pane" role="tabpanel" aria-labelledby="mapping-sample-source-tab" tabindex="0">
+                                <div class="app-section-label small mb-1 d-none d-md-block">{user:userImportDryRunColSourceData()}</div>
+                                <pre class="mb-0 small" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;overflow-x:auto;color:var(--color-code-text);max-height:300px;" id="mappingSampleSourceData" data-testid="mapping-sample-source-data"></pre>
+                            </div>
+                            <div class="col-md-6 tab-pane" id="mapping-sample-target-pane" role="tabpanel" aria-labelledby="mapping-sample-target-tab" tabindex="0">
+                                <div class="app-section-label small mb-1 d-none d-md-block">{user:userImportDryRunColTargetObject()}</div>
+                                <table class="table table-sm mb-0" data-testid="mapping-sample-target-object">
+                                    <tbody id="mappingSampleTargetBody"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

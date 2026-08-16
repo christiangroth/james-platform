@@ -51,31 +51,31 @@
                         <tbody>
                             {#for rule in filterRuleRows}
                             <tr class="filter-rule-row" data-testid="filter-rule-row">
-                                <td>
+                                <td data-label="{user:userImportFilterColMode()}">
                                     <select class="form-select form-select-sm app-form-control rule-mode-select" data-testid="rule-mode-select">
                                         {#for option in modeOptions}
                                         <option value="{option.value}" {#if option.value == rule.mode}selected{/if}>{option.label}</option>
                                         {/for}
                                     </select>
                                 </td>
-                                <td>
+                                <td data-label="{user:userImportFilterColSourceField()}">
                                     <select class="form-select form-select-sm app-form-control rule-source-path-select" data-testid="rule-source-path-select">
                                         {#for field in schemaFieldOptions}
                                         <option value="{field.path}" data-type="{field.dominantType}" {#if field.path == rule.sourcePath}selected{/if}>{field.label}</option>
                                         {/for}
                                     </select>
                                 </td>
-                                <td>
+                                <td data-label="{user:userImportFilterColOperator()}">
                                     <select class="form-select form-select-sm app-form-control rule-operator-select" data-testid="rule-operator-select">
                                         {#for option in operatorOptions}
                                         <option value="{option.value}" data-requires-value="{option.requiresValue}" data-applicable-types="{option.applicableTypes}" {#if option.value == rule.operator}selected{/if}>{option.label}</option>
                                         {/for}
                                     </select>
                                 </td>
-                                <td>
+                                <td data-label="{user:userImportFilterColValue()}">
                                     <input type="text" class="form-control form-control-sm app-form-control rule-value-input {#if !rule.requiresValue}d-none{/if}" value="{rule.value}" placeholder="{user:userImportFilterValuePlaceholder()}" autocomplete="off" data-testid="rule-value-input">
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center" data-label="{userImportFilter:userImportFilterColIncludeAbsent()}">
                                     <input type="checkbox" class="form-check-input rule-include-absent-checkbox" {#if rule.includeAbsent}checked{/if} data-testid="rule-include-absent-checkbox">
                                 </td>
                                 <td><button type="button" class="btn btn-sm btn-app-secondary remove-rule-button" data-testid="remove-rule-button">{user:userImportFilterRemoveRuleButton()}</button></td>
@@ -91,31 +91,31 @@
 
             <template class="filter-rule-row-template">
                 <tr class="filter-rule-row" data-testid="filter-rule-row">
-                    <td>
+                    <td data-label="{user:userImportFilterColMode()}">
                         <select class="form-select form-select-sm app-form-control rule-mode-select" data-testid="rule-mode-select">
                             {#for option in modeOptions}
                             <option value="{option.value}">{option.label}</option>
                             {/for}
                         </select>
                     </td>
-                    <td>
+                    <td data-label="{user:userImportFilterColSourceField()}">
                         <select class="form-select form-select-sm app-form-control rule-source-path-select" data-testid="rule-source-path-select">
                             {#for field in schemaFieldOptions}
                             <option value="{field.path}" data-type="{field.dominantType}">{field.label}</option>
                             {/for}
                         </select>
                     </td>
-                    <td>
+                    <td data-label="{user:userImportFilterColOperator()}">
                         <select class="form-select form-select-sm app-form-control rule-operator-select" data-testid="rule-operator-select">
                             {#for option in operatorOptions}
                             <option value="{option.value}" data-requires-value="{option.requiresValue}" data-applicable-types="{option.applicableTypes}">{option.label}</option>
                             {/for}
                         </select>
                     </td>
-                    <td>
+                    <td data-label="{user:userImportFilterColValue()}">
                         <input type="text" class="form-control form-control-sm app-form-control rule-value-input" value="" placeholder="{user:userImportFilterValuePlaceholder()}" autocomplete="off" data-testid="rule-value-input">
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="{userImportFilter:userImportFilterColIncludeAbsent()}">
                         <input type="checkbox" class="form-check-input rule-include-absent-checkbox" data-testid="rule-include-absent-checkbox">
                     </td>
                     <td><button type="button" class="btn btn-sm btn-app-secondary remove-rule-button" data-testid="remove-rule-button">{user:userImportFilterRemoveRuleButton()}</button></td>
