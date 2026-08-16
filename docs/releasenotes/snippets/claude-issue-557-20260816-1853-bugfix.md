@@ -1,0 +1,1 @@
+* Property Units (measurement unit on `long`/`Double` fields) are now shown in version diffs and correctly flagged as a breaking change when their unit family or storage granularity changes on an existing field. Not yet reachable through any UI or API.

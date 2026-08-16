@@ -23,8 +23,9 @@ previous Version. This raises two related needs (see the issue):
 - `AppVersion` (`domain-api/.../model/app/AppVersion.kt`) carries `entityDefinitions` (with `Property.default` / `Property.smartDefault`, but those only apply to *new* objects
   created through the UI — they are never applied retroactively to existing `AppData`).
 - `AppVersionManagementService.publishVersion()` (`domain-impl/.../app/AppVersionManagementService.kt`) computes whether a draft has **breaking changes**
-  (`hasBreakingChanges()`): a removed/renamed Entity or Property, a changed Property type, a Property becoming non-nullable, or a newly added restrictive constraint
-  (`isRestrictiveConstraint()`). If breaking, a Major bump is enforced; the Developer has no way to influence this.
+  (`hasBreakingChanges()`): a removed/renamed Entity or Property, a changed Property type, a Property becoming non-nullable, a newly added restrictive constraint
+  (`isRestrictiveConstraint()`), or a Property Unit added/removed/changed family/changed `storageGranularity` (`defaultGranularity` alone is not breaking — see
+  [Property Units](arc42/arc42.md#property-units)). If breaking, a Major bump is enforced; the Developer has no way to influence this.
 - On publish, `autoUpgradeInstallations()` bumps every installation's `installedVersionNumber` **only if the change is non-breaking**. No data is touched. If the change is
   breaking, installations stay on the old Version until the User calls `UserAppStorePort.upgradeApp()` — which *also* only bumps `installedVersionNumber` and never touches
   `AppData` (`UserAppStoreService.kt:145-166`).

@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
@@ -19,8 +20,11 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.TimeGranularity
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
@@ -612,6 +616,28 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
+  }
+
+  @Test
+  fun `computeVersionBump detects no breaking changes when only unit default granularity changes`() {
+    val prop = Property(
+      id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG,
+      unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS),
+    )
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(prop))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+    val draftProp = prop.copy(unit = prop.unit!!.copy(defaultGranularity = DistanceGranularity.KILOMETERS))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
+      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(draftProp))))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
+    assertThat(result.getOrNull()!!.hasChanges).isTrue()
   }
 
   @ParameterizedTest(name = "computeVersionBump detects breaking change when {0}")
@@ -2344,6 +2370,120 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region setPropertyUnit
+
+  @Test
+  fun `setPropertyUnit sets unit on LONG property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "DISTANCE", "METERS", "KILOMETERS")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.unit).isEqualTo(PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS))
+  }
+
+  @Test
+  fun `setPropertyUnit sets unit on DOUBLE property`() {
+    val property = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.DOUBLE)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "TIME", "SECONDS", "MINUTES")
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.unit).isEqualTo(PropertyUnit(UnitFamily.TIME, TimeGranularity.SECONDS, TimeGranularity.MINUTES))
+  }
+
+  @Test
+  fun `setPropertyUnit clears unit when family is blank`() {
+    val existingUnit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
+    val property = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG, unit = existingUnit)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", null, null, null)
+
+    assertThat(result.isRight()).isTrue()
+    val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
+    assertThat(updatedProp?.unit).isNull()
+  }
+
+  @Test
+  fun `setPropertyUnit fails for type that does not support units`() {
+    val property = Property(id = PropertyId("p-1"), name = "Name", type = PropertyType.STRING)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "DISTANCE", "METERS", "KILOMETERS")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.UNIT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyUnit fails for invalid family`() {
+    val property = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "WEIGHT", "METERS", "KILOMETERS")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.UNIT_FAMILY_INVALID)
+  }
+
+  @Test
+  fun `setPropertyUnit fails for invalid storage granularity`() {
+    val property = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "DISTANCE", "SECONDS", "KILOMETERS")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.UNIT_GRANULARITY_INVALID)
+  }
+
+  @Test
+  fun `setPropertyUnit fails for invalid default granularity`() {
+    val property = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(property))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "DISTANCE", "METERS", "SECONDS")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.UNIT_GRANULARITY_INVALID)
+  }
+
+  @Test
+  fun `setPropertyUnit fails when property not found`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "unknown-prop", "DISTANCE", "METERS", "KILOMETERS")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  // endregion
+
   // region addComputedProperty
 
   @Test
@@ -2604,12 +2744,37 @@ class AppVersionManagementServiceTests {
       val constraintPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(constraintPublishedProp))
       val constraintDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(constraintDraftProp))
 
+      val unitAddedPublishedProp = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+      val unitAddedDraftProp = unitAddedPublishedProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS))
+      val unitAddedPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitAddedPublishedProp))
+      val unitAddedDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitAddedDraftProp))
+
+      val unitWithUnitProp = Property(
+        id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG,
+        unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS),
+      )
+      val unitRemovedPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitWithUnitProp))
+      val unitRemovedDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitWithUnitProp.copy(unit = null)))
+
+      val unitFamilyChangedDraftProp = unitWithUnitProp.copy(unit = PropertyUnit(UnitFamily.TIME, TimeGranularity.SECONDS, TimeGranularity.MINUTES))
+      val unitFamilyChangedPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitWithUnitProp))
+      val unitFamilyChangedDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitFamilyChangedDraftProp))
+
+      val storageGranularityChangedDraftProp =
+        unitWithUnitProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.CENTIMETERS, DistanceGranularity.KILOMETERS))
+      val storageGranularityChangedPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitWithUnitProp))
+      val storageGranularityChangedDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(storageGranularityChangedDraftProp))
+
       return Stream.of(
         Arguments.of("entity definition removed", listOf(entityRemoved), emptyList<EntityDefinition>()),
         Arguments.of("property removed", listOf(propRemovedWith), listOf(propRemovedWithout)),
         Arguments.of("property type changed", listOf(typeChangedPublished), listOf(typeChangedDraft)),
         Arguments.of("property made non-nullable", listOf(nonNullablePublished), listOf(nonNullableDraft)),
         Arguments.of("type-specific constraint added to existing property", listOf(constraintPublished), listOf(constraintDraft)),
+        Arguments.of("unit added to existing property", listOf(unitAddedPublished), listOf(unitAddedDraft)),
+        Arguments.of("unit removed from existing property", listOf(unitRemovedPublished), listOf(unitRemovedDraft)),
+        Arguments.of("unit family changed", listOf(unitFamilyChangedPublished), listOf(unitFamilyChangedDraft)),
+        Arguments.of("unit storage granularity changed", listOf(storageGranularityChangedPublished), listOf(storageGranularityChangedDraft)),
       )
     }
 
@@ -2657,6 +2822,12 @@ class AppVersionManagementServiceTests {
         properties = listOf(nestedParentProp.copy(nestedProperties = listOf(nestedProp.copy(nullable = false)))),
       )
 
+      val unitProp = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+      val unitEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(unitProp))
+      val unitUpdatedEntity = unitEntity.copy(
+        properties = listOf(unitProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS))),
+      )
+
       return Stream.of(
         Arguments.of("default value", listOf(defaultEntity), listOf(defaultUpdatedEntity), listOf(listOf("default:"))),
         Arguments.of("value-proposals", listOf(valueProposalsEntity), listOf(valueProposalsUpdatedEntity), listOf(listOf("value-proposals:"))),
@@ -2683,6 +2854,10 @@ class AppVersionManagementServiceTests {
         Arguments.of(
           "nested properties", listOf(nestedEntity), listOf(nestedUpdatedEntity),
           listOf(listOf("Street: STRING!")),
+        ),
+        Arguments.of(
+          "property unit", listOf(unitEntity), listOf(unitUpdatedEntity),
+          listOf(listOf("unit: DISTANCE", "granularity: METERS", "default: KILOMETERS")),
         ),
       )
     }
