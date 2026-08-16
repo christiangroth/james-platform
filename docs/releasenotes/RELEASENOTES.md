@@ -1,3 +1,15 @@
+# 0.89.4 (2026.08.16)
+
+## Bugfixes / Chore
+* No user-facing changes; internal test-suite maintenance only.
+* Fixed the delete button on the app overview page showing the wrong (grey) color instead of red.
+* Die Lösch-Bestätigung für Import-Aufträge weist nun darauf hin, dass die Aktion nicht rückgängig gemacht werden kann.
+* Import connections: clicking a connection's table row now opens the edit dialog directly, instead of a separate edit button.
+
+
+
+---
+
 # 0.89.3 (2026.08.16)
 
 ## Bugfixes / Chore

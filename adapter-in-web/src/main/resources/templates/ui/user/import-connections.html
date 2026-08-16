@@ -56,12 +56,10 @@
                                     {/if}
                                 </td>
                                 <td class="text-end">
-                                    <button type="button" class="btn btn-app-secondary btn-sm me-1 test-connection-button" data-connection-id="{connection.id}" title="{user:userImportConnectionTestButton()}" aria-label="{user:userImportConnectionTestButton()}" data-testid="test-connection-button">
+                                    <button type="button" class="btn btn-app-secondary btn-sm test-connection-button" data-connection-id="{connection.id}" title="{user:userImportConnectionTestButton()}" aria-label="{user:userImportConnectionTestButton()}" data-testid="test-connection-button">
                                         <i class="bi bi-check2-circle" aria-hidden="true"></i>
                                     </button>
-                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteConnectionModal" data-connection-id="{connection.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-connection-button">
-                                        <i class="bi bi-trash" aria-hidden="true"></i>
-                                    </button>
+                                    {#btn-icon-delete testId="delete-connection-button" title=msg:commonDelete() extraClass="ms-1" bsTarget="#deleteConnectionModal" action="" entityId=connection.id propertyId="" reportId="" username="" /}
                                 </td>
                             </tr>
                             {/for}
@@ -280,7 +278,7 @@
             if (deleteConnectionModal) {
                 deleteConnectionModal.addEventListener('show.bs.modal', function (event) {
                     var trigger = event.relatedTarget;
-                    var connectionId = trigger ? trigger.getAttribute('data-connection-id') : '';
+                    var connectionId = trigger ? trigger.getAttribute('data-entity-id') : '';
                     deleteConnectionModal.setAttribute('data-connection-id', connectionId);
                 });
             }

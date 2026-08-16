@@ -300,7 +300,7 @@ class UserImportConnectionResourceTests {
 
     assertTrue(html.contains(">Base URL<"), "Expected the URL column header to be renamed to 'Base URL'")
     assertTrue(html.contains(">Auth<"), "Expected the Bearer-Token column header to be renamed to 'Auth'")
-    assertTrue(html.contains("btn-app-secondary btn-sm me-1 test-connection-button"), "Expected the test button to use the gray secondary button style")
+    assertTrue(html.contains("btn-app-secondary btn-sm test-connection-button"), "Expected the test button to use the gray secondary button style")
     assertTrue(!html.contains(">Testen<"), "Expected the test button to no longer show text, only an icon")
     assertTrue(!html.contains("data-testid=\"edit-connection-button\""), "Expected the explicit edit button to no longer be present")
     assertTrue(html.contains("data-testid=\"connection-row\""), "Expected the connection row to still be rendered")
