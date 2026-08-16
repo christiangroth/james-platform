@@ -1,3 +1,15 @@
+# 0.89.5 (2026.08.16)
+
+## Bugfixes / Chore
+* Fixed the test connection button on the import connections page to use the neutral gray style instead of blue, matching the button color rules for non-concluding actions.
+* Fixed poor visibility of the close button on some modal dialogs (deactivate app, delete app, delete app data, delete installed app) on their dark background.
+* Import and import connection tables: the delete icon buttons now use the standard button style, matching the rest of the app.
+* Fixed the two-button row alignment on the property editor (add mode) and the publish version page, where Cancel and Save/Publish were pushed apart instead of grouped together on the right.
+
+
+
+---
+
 # 0.89.4 (2026.08.16)
 
 ## Bugfixes / Chore
