@@ -423,7 +423,7 @@
                         <div id="valueProposalCheckboxes"></div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between mt-4">
+                <div class="d-flex mt-4{#if selectedProperty} justify-content-between{#else} justify-content-end gap-2{/if}">
                     {#if parentPropertyId}
                     <a href="/ui/developer/apps/{app.id}/versions/{version.id}/entities/{selectedEntity.id}/properties/{parentPropertyId}/edit{#if parentPath}?path={parentPath}{/if}" class="btn btn-app-secondary btn-sm" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}" data-testid="edit-property-cancel-button">
                         <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -433,16 +433,20 @@
                         <i class="bi bi-x-lg" aria-hidden="true"></i>
                     </a>
                     {/if}
+                    {#if selectedProperty}
                     <div class="d-flex gap-2">
-                        {#if selectedProperty}
                         <button type="button" class="btn btn-app-danger btn-sm" id="editPropertyDeleteBtn" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="edit-property-delete-button">
                             <i class="bi bi-trash" aria-hidden="true"></i>
                         </button>
-                        {/if}
                         <button type="submit" class="btn btn-app-primary btn-sm" title="{msg:commonSave()}" aria-label="{msg:commonSave()}" data-testid="edit-property-submit-button">
                             <i class="bi bi-check-lg" aria-hidden="true"></i>
                         </button>
                     </div>
+                    {#else}
+                    <button type="submit" class="btn btn-app-primary btn-sm" title="{msg:commonSave()}" aria-label="{msg:commonSave()}" data-testid="edit-property-submit-button">
+                        <i class="bi bi-check-lg" aria-hidden="true"></i>
+                    </button>
+                    {/if}
                 </div>
             </form>
         </div>
