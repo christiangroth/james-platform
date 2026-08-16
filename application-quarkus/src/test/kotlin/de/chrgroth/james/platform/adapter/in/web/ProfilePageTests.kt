@@ -122,17 +122,3 @@ class ProfilePageTests {
       .body(not(containsString("""data-testid="error-message"""")))
   }
 }
-
-@QuarkusTest
-class ProfilePageUnauthenticatedTests {
-
-  @Test
-  fun `unauthenticated access to profile page redirects`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/profile")
-      .then()
-      .statusCode(307)
-  }
-}

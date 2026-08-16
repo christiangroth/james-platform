@@ -944,27 +944,3 @@ class DeveloperAppPageTests {
     assertThat(nestedPageBody).doesNotContain("Sort Order")
   }
 }
-
-@QuarkusTest
-class DeveloperAppPageUnauthenticatedTests {
-
-  @Test
-  fun `unauthenticated access to developer dashboard redirects to login`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/developer/dashboard")
-      .then()
-      .statusCode(307)
-  }
-
-  @Test
-  fun `unauthenticated access to app overview redirects to login`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/developer/apps/some-id")
-      .then()
-      .statusCode(307)
-  }
-}

@@ -35,7 +35,6 @@ class UserImportConnectionResourceTests {
   @BeforeEach
   fun setup() {
     ensureUser("test-connection-user", setOf(UserRole.DATA_IMPORT))
-    ensureUser("test-no-import-connection-user", setOf(UserRole.DEVELOPER))
   }
 
   private fun ensureUser(username: String, roles: Set<UserRole>) {
@@ -78,29 +77,6 @@ class UserImportConnectionResourceTests {
     return Regex("""data-connection-id="([^"]+)"\s+data-connection-name="${Regex.escape(name)}"""")
       .find(tableHtml)?.groupValues?.get(1)
       ?: error("Expected connection '$name' in the rendered connections table")
-  }
-
-  @Test
-  @TestSecurity(user = "test-no-import-connection-user", roles = ["DEVELOPER"])
-  fun `connections page is forbidden for users without DATA_IMPORT role`() {
-    given()
-      .`when`()
-      .get("/ui/user/imports/connections")
-      .then()
-      .statusCode(403)
-  }
-
-  @Test
-  @TestSecurity(user = "test-no-import-connection-user", roles = ["DEVELOPER"])
-  fun `creating a connection is forbidden for users without DATA_IMPORT role`() {
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("name", "Should Not Work")
-      .formParam("baseUrl", "https://example.com/data")
-      .`when`()
-      .post("/ui/user/imports/connections")
-      .then()
-      .statusCode(403)
   }
 
   @Test

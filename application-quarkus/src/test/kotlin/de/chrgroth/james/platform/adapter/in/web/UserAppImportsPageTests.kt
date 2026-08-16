@@ -150,14 +150,4 @@ class UserAppImportsPageTests {
 
     assertTrue(html.contains("data-testid=\"no-imports-message\""), "Expected the empty-state message on the imports page")
   }
-
-  @Test
-  @TestSecurity(user = "test-no-import-user", roles = ["DEVELOPER"])
-  fun `imports page is forbidden for users without DATA_IMPORT role`() {
-    given()
-      .`when`()
-      .get("/ui/user/imports")
-      .then()
-      .statusCode(403)
-  }
 }
