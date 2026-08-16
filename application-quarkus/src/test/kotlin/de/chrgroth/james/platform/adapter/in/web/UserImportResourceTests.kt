@@ -1222,6 +1222,13 @@ class UserImportResourceTests {
         html.contains("id=\"skipped-details\" data-bs-parent=\"#dryRunDetailsAccordion\""),
       "Expected the valid/invalid/skipped detail panels to share one Bootstrap collapse parent so opening one closes the others",
     )
+    assertTrue(
+      !html.contains("data-bs-toggle=\"collapse\" data-bs-target=\"#valid-details\"") &&
+        !html.contains("data-bs-toggle=\"collapse\" data-bs-target=\"#invalid-details\"") &&
+        !html.contains("data-bs-toggle=\"collapse\" data-bs-target=\"#skipped-details\""),
+      "Expected the count cards to no longer use Bootstrap's declarative collapse toggle, since that always toggles " +
+        "(closing an already-open section); a JS click handler now calls show() so exactly one section always stays open",
+    )
   }
 
   @Test
@@ -1272,7 +1279,7 @@ class UserImportResourceTests {
       "Expected the valid objects' details to be opened automatically since there are no errors",
     )
     assertTrue(
-      dryRunHtml.contains("dry-run-count-toggle active\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"collapse\" data-bs-target=\"#valid-details\""),
+      dryRunHtml.contains("dry-run-count-toggle active\" role=\"button\" tabindex=\"0\" aria-expanded=\"true\" aria-controls=\"valid-details\""),
       "Expected a subtle active highlight on the valid count card matching the auto-opened details section",
     )
   }
