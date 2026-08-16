@@ -10,6 +10,7 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
@@ -18,6 +19,8 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
@@ -373,6 +376,86 @@ class AppDataServiceTests {
 
     assertThat(unitSuffixed.isRight()).isTrue()
     assertThat(colonSeparated.isRight()).isTrue()
+  }
+
+  // endregion
+
+  // region Property Unit
+
+  private val distanceUnit = PropertyUnit(
+    family = UnitFamily.DISTANCE,
+    storageGranularity = DistanceGranularity.METERS,
+    defaultGranularity = DistanceGranularity.KILOMETERS,
+  )
+  private val distanceEntityId = EntityDefinitionId("entity-4")
+  private val distancePropId = PropertyId("distance-prop")
+  private val distanceProp = Property(id = distancePropId, name = "DistanceField", type = PropertyType.LONG, nullable = true, unit = distanceUnit)
+  private val distanceEntityDef = EntityDefinition(id = distanceEntityId, name = "DistanceEntity", properties = listOf(distanceProp))
+  private val appVersionWithDistance = appVersion.copy(entityDefinitions = listOf(entityDef, distanceEntityDef))
+
+  @Test
+  fun `createAppData rejects a unit value that does not match the accepted format`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDistance
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, distanceEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(distanceProp, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(distanceProp, null, emptyList()) } returns emptyList()
+
+    val data = mapOf("prop_${distancePropId.value}" to listOf("not-a-unit-value"))
+    val result = service.createAppData(userId, installedAppId.value, distanceEntityId.value, data)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[distancePropId.value]).containsExactly(PropertyConstraintViolation.InvalidUnitFormatViolation)
+  }
+
+  @Test
+  fun `createAppData rejects a LONG unit value that does not convert to an integer in storage granularity`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDistance
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, distanceEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(distanceProp, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(distanceProp, null, emptyList()) } returns emptyList()
+
+    // 1cm converts to 0.01m, not an integer at storageGranularity = METERS
+    val data = mapOf("prop_${distancePropId.value}" to listOf("1cm"))
+    val result = service.createAppData(userId, installedAppId.value, distanceEntityId.value, data)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[distancePropId.value]).containsExactly(PropertyConstraintViolation.NonIntegerUnitValueViolation)
+  }
+
+  @Test
+  fun `createAppData converts a unit-suffixed text value into storage granularity before persisting`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDistance
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, distanceEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(distanceProp, 15400L, emptyList()) } returns emptyList()
+    val savedSlot = mutableListOf<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val data = mapOf("prop_${distancePropId.value}" to listOf("15km 400m"))
+    val result = service.createAppData(userId, installedAppId.value, distanceEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.first().data[distancePropId.value]).isEqualTo("15400")
+  }
+
+  @Test
+  fun `createAppData accepts a bare number already expressed in storage granularity`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithDistance
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, distanceEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(distanceProp, 15400L, emptyList()) } returns emptyList()
+    val savedSlot = mutableListOf<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val data = mapOf("prop_${distancePropId.value}" to listOf("15400"))
+    val result = service.createAppData(userId, installedAppId.value, distanceEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.first().data[distancePropId.value]).isEqualTo("15400")
   }
 
   // endregion

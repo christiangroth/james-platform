@@ -202,4 +202,6 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data class MaxDurationViolation(val max: java.time.Duration) : PropertyConstraintViolation("PROP-018")
   data class StepViolation(val step: Number) : PropertyConstraintViolation("PROP-019")
   data object InvalidDurationFormatViolation : PropertyConstraintViolation("PROP-020")
+  data object InvalidUnitFormatViolation : PropertyConstraintViolation("PROP-021")
+  data object NonIntegerUnitValueViolation : PropertyConstraintViolation("PROP-022")
 }

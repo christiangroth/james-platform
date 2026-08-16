@@ -45,6 +45,13 @@ class PropertyDocument {
   var listItemType: String? = null
   var itemConstraints: List<ConstraintDocument> = emptyList()
   var nestedProperties: List<PropertyDocument> = emptyList()
+  var unit: PropertyUnitDocument? = null
+}
+
+class PropertyUnitDocument {
+  lateinit var family: String
+  lateinit var storageGranularity: String
+  lateinit var defaultGranularity: String
 }
 
 class ConstraintDocument {
