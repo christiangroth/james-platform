@@ -1,3 +1,12 @@
+# 0.92.0 (2026.08.16)
+
+## New Features
+* Added a live before/after preview to the Mapping step of the Data Import wizard: browse a sample source record and see the mapped target object (including validation issues) recalculate immediately as a mapping rule is changed, without saving or leaving the step.
+
+
+
+---
+
 # 0.91.0 (2026.08.16)
 
 ## New Features

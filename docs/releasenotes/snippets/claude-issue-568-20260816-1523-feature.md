@@ -1,1 +1,0 @@
-* Added a live before/after preview to the Mapping step of the Data Import wizard: browse a sample source record and see the mapped target object (including validation issues) recalculate immediately as a mapping rule is changed, without saving or leaving the step.
