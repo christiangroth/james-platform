@@ -5,6 +5,7 @@
 * Date: 2026-08-16
 
 Technical Story: [#567 Import UX (2/4): Objekt-Vorschau im Filter-Schritt (Treffer/Ausschluss)](https://github.com/christiangroth/james-platform/issues/567),
+[#568 Import UX (3/4): Live-Vorschau im Mapping-Schritt](https://github.com/christiangroth/james-platform/issues/568),
 [#544 Importer User Experience verbessern](https://github.com/christiangroth/james-platform/issues/544)
 
 ## Context and Problem Statement
@@ -84,6 +85,41 @@ never depends on the import job's total record count.
   `resolveFilterFieldValues`. Consistent with those, and acceptable at this platform's personal-
   use scale.
 
+## Extension: Mapping Step Live Preview (#568)
+
+The Mapping step reuses the same `matched`/`index`-style building block (Prev/Next, position
+indicator, side-by-side card) the Decision Drivers above called out - but shows the mapped
+*target* object next to the source record, not just the raw source record, and the payload must
+reflect the *currently edited*, not yet saved, mapping form state.
+
+* `DryRunExecutor.executeSingle(record, mapping, ...)` is a thin wrapper that calls the existing
+  `DryRunExecutor.execute(listOf(record), mapping, ...)` and unwraps the single result
+  ([`DryRunExecutor.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/DryRunExecutor.kt)) -
+  no parallel mapping/validation implementation, consistent with how `resolveFilterSample` reuses
+  `FilterEvaluator` rather than re-implementing matching.
+* `ImportPort.resolveMappingSample(userId, importJobId, index, fieldMappings)` returns a
+  `MappingSample(total: Int, dryRunObject: DryRunObject?)`
+  ([`DryRun.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/imports/DryRun.kt)).
+  `fieldMappings` comes straight from the unsaved mapping form (the same request shape
+  `updateMapping` already accepts), not from the job's persisted `Mapping` - so editing a rule and
+  recalculating never requires saving first.
+* The REST endpoint (`UserImportResource.mappingSample`, `POST .../mapping/sample?index=`) is a
+  `POST` rather than `GET` because the current, unsaved field mappings have to travel in the
+  request body - the `matched` boolean toggle from the filter step has no equivalent here, since
+  there is only one "side" (the job's filtered record set) to preview against.
+* **Trade-off, called out explicitly**: `execute()`'s in-batch `UniqueKey` fan-in tracking
+  (`seenValues`) only ever sees the batch it's given. A batch of one record can therefore never
+  detect a collision with *another* record of the same import job - only a collision with data
+  already persisted (`existingAppData`) is caught. The full picture, across every record, is still
+  what the Dry-Run page shows via the unmodified `execute()` batch call. This is accepted: the
+  Mapping-step preview exists to give fast feedback on one record's mapping *shape* (missing
+  fields, type/constraint violations, reference resolution), not to be a substitute for a full
+  Dry-Run before accepting the import.
+* Recalculation stays O(1) per request regardless of import job size, same as the Filter step's
+  sample endpoint: only the one record at `index` is mapped and validated, never the whole
+  filtered set - the AJAX call triggered by a mapping rule change (debounced client-side) cannot
+  turn into a full dry-run by accident.
+
 ## Pros and Cons of the Options
 
 ### New dedicated sample endpoint (chosen)
@@ -116,9 +152,12 @@ never depends on the import job's total record count.
 ## Links
 
 * Refs [#567](https://github.com/christiangroth/james-platform/issues/567),
+  [#568](https://github.com/christiangroth/james-platform/issues/568),
   [#544](https://github.com/christiangroth/james-platform/issues/544)
 * [`FilterEvaluator.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/FilterEvaluator.kt)
+* [`DryRunExecutor.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/DryRunExecutor.kt)
 * [`ImportService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/ImportService.kt)
 * [`UserImportResource.kt`](../../adapter-in-web/src/main/kotlin/de/chrgroth/james/platform/adapter/in/web/UserImportResource.kt)
 * [`import-filter.html`](../../adapter-in-web/src/main/resources/templates/ui/user/import-filter.html)
+* [`import-mapping.html`](../../adapter-in-web/src/main/resources/templates/ui/user/import-mapping.html)
 * [arc42: Data Import (ETL)](../arc42/arc42.md#data-import-etl)

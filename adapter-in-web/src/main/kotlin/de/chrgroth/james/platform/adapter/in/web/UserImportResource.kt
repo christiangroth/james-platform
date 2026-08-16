@@ -30,6 +30,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
+import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
@@ -236,6 +237,12 @@ data class FieldMappingRequest @JsonCreator constructor(
 
 data class MappingSaveRequest @JsonCreator constructor(
   @param:JsonProperty("fieldMappings") val fieldMappings: List<FieldMappingRequest>,
+)
+
+/** [sample] is null when the requested index falls outside the job's filtered record set - see [MappingSample]. */
+data class MappingSampleResponse(
+  val total: Int,
+  val sample: DryRunObjectRow?,
 )
 
 data class FilterRuleRequest @JsonCreator constructor(
@@ -596,35 +603,59 @@ class UserImportResource {
     request: MappingSaveRequest,
   ): Response = httpResponseMetrics.timed("rest.user-import.mapping-save") {
     val userId = securityIdentity.principal.name
-    val fieldMappings = request.fieldMappings.mapNotNull { field ->
-      if (field.targetPropertyId.isBlank()) return@mapNotNull null
-      val sourcePath = field.sourcePath?.takeIf { it.isNotBlank() }
-      val fallbackValue = field.fallbackValue?.takeIf { it.isNotBlank() }
-      val referenceLookup = field.referenceLookup?.criteria.orEmpty()
-        .mapNotNull { criterion ->
-          val criterionTargetPropertyId = criterion.targetPropertyId?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-          val criterionSourcePath = criterion.sourcePath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-          ReferenceLookupCriterion(PropertyId(criterionTargetPropertyId), criterionSourcePath)
-        }
-        .takeIf { it.isNotEmpty() }
-        ?.let { ReferenceLookup(it) }
-      if (sourcePath == null && fallbackValue == null && referenceLookup == null) return@mapNotNull null
-      FieldMapping(
-        targetPropertyId = PropertyId(field.targetPropertyId),
-        sourcePath = sourcePath,
-        conversion = runCatching { FieldMappingConversion.valueOf(field.conversion ?: FieldMappingConversion.NONE.name) }.getOrDefault(FieldMappingConversion.NONE),
-        conversionUnit = field.conversionUnit?.let { runCatching { DurationConversionUnit.valueOf(it) }.getOrNull() },
-        fallbackValue = fallbackValue,
-        referenceLookup = referenceLookup,
-      )
-    }
-
-    importPort.updateMapping(userId, importJobId, fieldMappings).fold(
+    importPort.updateMapping(userId, importJobId, request.fieldMappings.toFieldMappings()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
       ifRight = { view ->
         val message = if (view.validation?.isReady == true) userMsg.userImportMappingStatusReadyMessage() else userMsg.userImportMappingStatusIncompleteMessage()
         Response.ok(DeveloperApiResult(true, message)).build()
       },
+    )
+  }
+
+  @POST
+  @Path("/{importJobId}/mapping/sample")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun mappingSample(
+    @PathParam("importJobId") importJobId: String,
+    @QueryParam("index") index: Int?,
+    request: MappingSaveRequest,
+  ): Response = httpResponseMetrics.timed("rest.user-import.mapping-sample") {
+    val userId = securityIdentity.principal.name
+    val view = importPort.getMappingView(userId, importJobId).fold(
+      ifLeft = { return@timed Response.ok(MappingSampleResponse(0, null)).build() },
+      ifRight = { it },
+    )
+    importPort.resolveMappingSample(userId, importJobId, index?.takeIf { it >= 0 } ?: 0, request.fieldMappings.toFieldMappings()).fold(
+      ifLeft = { Response.ok(MappingSampleResponse(0, null)).build() },
+      ifRight = { sample -> Response.ok(MappingSampleResponse(sample.total, sample.dryRunObject?.toRow(view.targetEntityDefinition))).build() },
+    )
+  }
+
+  /**
+   * Parses request fields into domain [FieldMapping]s, shared by saving the mapping and the live preview - a field
+   * with no source path, fallback value, or reference lookup is dropped rather than kept as an empty mapping.
+   */
+  private fun List<FieldMappingRequest>.toFieldMappings(): List<FieldMapping> = mapNotNull { field ->
+    if (field.targetPropertyId.isBlank()) return@mapNotNull null
+    val sourcePath = field.sourcePath?.takeIf { it.isNotBlank() }
+    val fallbackValue = field.fallbackValue?.takeIf { it.isNotBlank() }
+    val referenceLookup = field.referenceLookup?.criteria.orEmpty()
+      .mapNotNull { criterion ->
+        val criterionTargetPropertyId = criterion.targetPropertyId?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val criterionSourcePath = criterion.sourcePath?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        ReferenceLookupCriterion(PropertyId(criterionTargetPropertyId), criterionSourcePath)
+      }
+      .takeIf { it.isNotEmpty() }
+      ?.let { ReferenceLookup(it) }
+    if (sourcePath == null && fallbackValue == null && referenceLookup == null) return@mapNotNull null
+    FieldMapping(
+      targetPropertyId = PropertyId(field.targetPropertyId),
+      sourcePath = sourcePath,
+      conversion = runCatching { FieldMappingConversion.valueOf(field.conversion ?: FieldMappingConversion.NONE.name) }.getOrDefault(FieldMappingConversion.NONE),
+      conversionUnit = field.conversionUnit?.let { runCatching { DurationConversionUnit.valueOf(it) }.getOrNull() },
+      fallbackValue = fallbackValue,
+      referenceLookup = referenceLookup,
     )
   }
 

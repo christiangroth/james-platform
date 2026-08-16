@@ -65,3 +65,15 @@ data class DryRunAcceptResult(
   val savedCount: Int,
   val discardedCount: Int,
 )
+
+/**
+ * A single source record - at [index] within the Mapping step's filtered record set - together with the
+ * [DryRunObject] the *currently edited*, not yet saved, mapping would produce for it, for the Mapping step's live
+ * preview (see [de.chrgroth.james.platform.domain.imports.DryRunExecutor.executeSingle]). [total] is the size of
+ * the filtered record set, so the UI can render a "x of y" position without a separate count call. [dryRunObject]
+ * is null when [index] falls outside `0 until total`.
+ */
+data class MappingSample(
+  val total: Int,
+  val dryRunObject: DryRunObject?,
+)

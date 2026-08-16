@@ -21,6 +21,7 @@ import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import jakarta.inject.Inject
+import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.Matchers.equalTo
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -508,6 +509,72 @@ class UserImportResourceTests {
     assertTrue(html.contains("data-testid=\"mapping-property-row\""), "Expected the target entity's property row to be rendered")
     assertTrue(html.contains("data-property-id=\"${app.propertyId}\""), "Expected the property row to reference the created property")
     assertTrue(html.contains("data-testid=\"breadcrumb-import-name\">Contact<"), "Expected the target entity's name to be part of the breadcrumbs")
+  }
+
+  @Test
+  fun `mapping sample endpoint resolves the mapped preview for the record at the given index, computed from the request's not-yet-saved field mappings`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": [{ "targetPropertyId": "${app.propertyId}", "sourcePath": "name", "conversion": "NONE", "fallbackValue": null }]}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping/sample?index=1")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(2))
+      .body("sample.sourceDataJson", containsString("Bob"))
+      .body("sample.properties[0].value", equalTo("Bob"))
+      .body("sample.properties[0].hasIssue", equalTo(false))
+  }
+
+  @Test
+  fun `mapping sample endpoint reports a validation issue when the field mapping leaves a mandatory property unmapped`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": []}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping/sample?index=0")
+      .then()
+      .statusCode(200)
+      .body("sample.properties[0].hasIssue", equalTo(true))
+      .body("sample.properties[0].issues[0].message", containsString("Pflichtfeld"))
+  }
+
+  @Test
+  fun `mapping sample endpoint reports a null sample for an index beyond the record set's size`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": []}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/mapping/sample?index=5")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(2))
+      .body("sample", equalTo(null))
+  }
+
+  @Test
+  fun `mapping sample endpoint reports a zero total for an unknown import job id`() {
+    given()
+      .contentType("application/json")
+      .body("""{"fieldMappings": []}""")
+      .`when`()
+      .post("/ui/user/imports/unknown-id/mapping/sample?index=0")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(0))
+      .body("sample", equalTo(null))
   }
 
   @Test

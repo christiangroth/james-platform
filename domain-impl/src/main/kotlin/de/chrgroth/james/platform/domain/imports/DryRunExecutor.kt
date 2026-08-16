@@ -97,6 +97,24 @@ object DryRunExecutor {
     }
   }
 
+  /**
+   * Runs [execute] over a single [record] - the Mapping step's live preview of the *currently edited*, not yet
+   * saved, [mapping]. Since this is a batch of one, [execute]'s in-batch `UniqueKey` fan-in tracking (`seenValues`)
+   * has nothing else in the batch to compare against - only a collision with [existingAppData] can be detected
+   * here, not one with another record of the import job. That trade-off is accepted for a single-object preview;
+   * the full picture, across every record, is still what the Dry-Run page shows via [execute].
+   */
+  fun executeSingle(
+    record: JsonNode,
+    mapping: Mapping,
+    entityDefinition: EntityDefinition,
+    existingAppData: List<AppData>,
+    entityDefinitionsById: Map<EntityDefinitionId, EntityDefinition>,
+    referencedAppDataByEntityId: Map<EntityDefinitionId, List<AppData>>,
+    propertyConstraint: PropertyConstraintPort,
+  ): DryRunObject =
+    execute(listOf(record), mapping, entityDefinition, existingAppData, entityDefinitionsById, referencedAppDataByEntityId, propertyConstraint).single()
+
   /** For a directly mapped REF property (no lookup), reports [PropertyConstraintViolation.InvalidReferenceViolation] if the resolved value does not point to an existing instance of the referenced entity. */
   private fun referenceExistenceIssue(
     property: Property,

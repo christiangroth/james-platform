@@ -153,6 +153,35 @@
                 <button type="submit" class="btn btn-app-primary ms-auto" data-testid="save-mapping-button">{user:userImportMappingSaveButton()}</button>
             </div>
         </form>
+
+        <div class="mt-4">
+            <button type="button" class="btn btn-app-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#mappingSamplePanel" aria-expanded="false" aria-controls="mappingSamplePanel" data-testid="mapping-sample-trigger">
+                <i class="bi bi-eye me-1" aria-hidden="true"></i>{userImportMapping:userImportMappingSampleTriggerLabel()}
+            </button>
+            <div class="collapse mt-3" id="mappingSamplePanel" data-testid="mapping-sample-panel">
+                <div class="card app-card p-3 p-md-4">
+                    <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-app-secondary btn-sm" id="mappingSamplePrevButton" disabled data-testid="mapping-sample-prev-button">{user:userPreviousLabel()}</button>
+                            <span class="app-section-label small" id="mappingSamplePosition" data-testid="mapping-sample-position"></span>
+                            <button type="button" class="btn btn-app-secondary btn-sm" id="mappingSampleNextButton" disabled data-testid="mapping-sample-next-button">{user:userNextLabel()}</button>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="app-section-label small mb-1">{user:userImportDryRunColSourceData()}</div>
+                            <pre class="mb-0 small" style="background-color:var(--color-bg-nested);border:1px solid var(--color-border);border-radius:4px;padding:.75rem 1rem;overflow-x:auto;color:var(--color-code-text);max-height:300px;" id="mappingSampleSourceData" data-testid="mapping-sample-source-data"></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="app-section-label small mb-1">{user:userImportDryRunColTargetObject()}</div>
+                            <table class="table table-sm mb-0" data-testid="mapping-sample-target-object">
+                                <tbody id="mappingSampleTargetBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     {/content}
     {#scripts}
@@ -171,15 +200,142 @@
                     + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
             }
 
+            function collectFieldMappings() {
+                var fieldMappings = [];
+                mappingForm.querySelectorAll('[data-testid="mapping-property-row"]').forEach(function (row) {
+                    var lookupToggle = row.querySelector('.reference-lookup-toggle');
+                    var useLookup = !!(lookupToggle && lookupToggle.checked);
+                    var fieldMapping = {
+                        targetPropertyId: row.getAttribute('data-property-id'),
+                        sourcePath: useLookup ? '' : row.querySelector('.source-path-select').value,
+                        conversion: row.querySelector('.conversion-select').value,
+                        conversionUnit: row.querySelector('.conversion-unit-select').value,
+                        fallbackValue: row.querySelector('.fallback-value-input').value,
+                        referenceLookup: null
+                    };
+                    if (useLookup) {
+                        var criteria = [];
+                        row.querySelectorAll('.reference-lookup-criterion-row').forEach(function (criterionRow) {
+                            var targetPropertyId = criterionRow.querySelector('.criterion-target-property-select').value;
+                            var sourcePath = criterionRow.querySelector('.criterion-source-path-select').value;
+                            if (targetPropertyId && sourcePath) {
+                                criteria.push({ targetPropertyId: targetPropertyId, sourcePath: sourcePath });
+                            }
+                        });
+                        fieldMapping.referenceLookup = { criteria: criteria };
+                    }
+                    fieldMappings.push(fieldMapping);
+                });
+                return fieldMappings;
+            }
+
             var mappingForm = document.getElementById('mappingForm');
+
+            var samplePanel = document.getElementById('mappingSamplePanel');
+            var samplePrevButton = document.getElementById('mappingSamplePrevButton');
+            var sampleNextButton = document.getElementById('mappingSampleNextButton');
+            var samplePosition = document.getElementById('mappingSamplePosition');
+            var sampleSourceData = document.getElementById('mappingSampleSourceData');
+            var sampleTargetBody = document.getElementById('mappingSampleTargetBody');
+            var samplePositionTemplate = '{userImportMapping:userImportMappingSamplePositionLabel("__POSITION__","__TOTAL__")}';
+            var sampleEmptyMessage = '{userImportMapping:userImportMappingSampleEmptyMessage()}';
+            var staticallyCheckedBadgeLabel = '{user:userImportDryRunStaticallyCheckedBadge()}';
+            var newCheckBadgeLabel = '{user:userImportDryRunNewCheckBadge()}';
+
+            // Kept out of the mapping form's own state: this panel lazily loads one record's mapped preview at a
+            // time from /mapping/sample (see UserImportResource#mappingSample), recomputed from the *unsaved* form
+            // state on every rule change, instead of the full record set - so recalculation stays cheap regardless
+            // of import job size and never reflects stale, already-superseded edits.
+            var sampleState = { index: 0, loaded: false };
+            var sampleReloadTimer = null;
+
+            function renderSample(result) {
+                if (!result.sample) {
+                    sampleSourceData.textContent = sampleEmptyMessage;
+                    sampleTargetBody.innerHTML = '';
+                    samplePosition.textContent = '';
+                    samplePrevButton.disabled = true;
+                    sampleNextButton.disabled = true;
+                    return;
+                }
+
+                sampleSourceData.textContent = result.sample.sourceDataJson;
+
+                sampleTargetBody.innerHTML = '';
+                result.sample.properties.forEach(function (property) {
+                    var row = document.createElement('tr');
+                    if (property.hasIssue) row.className = 'table-danger';
+                    row.setAttribute('data-testid', 'mapping-sample-property-row');
+                    var nameCell = document.createElement('td');
+                    nameCell.className = 'fw-semibold';
+                    nameCell.textContent = property.name;
+                    var typeDiv = document.createElement('div');
+                    typeDiv.className = 'app-section-label small';
+                    typeDiv.textContent = property.typeLabel;
+                    nameCell.appendChild(typeDiv);
+                    var valueCell = document.createElement('td');
+                    valueCell.setAttribute('data-testid', 'mapping-sample-property-value');
+                    valueCell.textContent = property.value;
+                    row.appendChild(nameCell);
+                    row.appendChild(valueCell);
+                    sampleTargetBody.appendChild(row);
+
+                    property.issues.forEach(function (issue) {
+                        var issueRow = document.createElement('tr');
+                        var issueCell = document.createElement('td');
+                        issueCell.colSpan = 2;
+                        issueCell.className = 'small text-danger';
+                        issueCell.setAttribute('data-testid', 'mapping-sample-issue');
+                        issueCell.appendChild(document.createTextNode(issue.message + ' '));
+                        var badge = document.createElement('span');
+                        badge.className = 'badge border-0 ms-1 ' + (issue.staticallyChecked ? 'app-badge-processing' : 'app-badge-danger');
+                        badge.setAttribute('data-testid', issue.staticallyChecked ? 'statically-checked-badge' : 'new-check-badge');
+                        badge.textContent = issue.staticallyChecked ? staticallyCheckedBadgeLabel : newCheckBadgeLabel;
+                        issueCell.appendChild(badge);
+                        issueRow.appendChild(issueCell);
+                        sampleTargetBody.appendChild(issueRow);
+                    });
+                });
+
+                samplePosition.textContent = samplePositionTemplate
+                    .replace('__POSITION__', String(sampleState.index + 1))
+                    .replace('__TOTAL__', String(result.total));
+                samplePrevButton.disabled = sampleState.index <= 0;
+                sampleNextButton.disabled = sampleState.index >= result.total - 1;
+            }
+
+            function loadSample() {
+                if (!samplePanel) return;
+                samplePrevButton.disabled = true;
+                sampleNextButton.disabled = true;
+                fetch(basePath + '/sample?index=' + sampleState.index, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ fieldMappings: collectFieldMappings() })
+                })
+                    .then(function (response) { return response.json(); })
+                    .then(renderSample)
+                    .catch(function () { sampleSourceData.textContent = networkErrorMessage; });
+            }
+
+            function scheduleSampleReload() {
+                if (!samplePanel || !sampleState.loaded) return;
+                if (sampleReloadTimer) clearTimeout(sampleReloadTimer);
+                sampleReloadTimer = setTimeout(loadSample, 400);
+            }
+
             if (mappingForm) {
                 mappingForm.addEventListener('change', function (e) {
                     if (e.target.classList.contains('conversion-select')) {
                         var unitSelect = e.target.closest('td').querySelector('.conversion-unit-select');
                         unitSelect.classList.toggle('d-none', e.target.value !== 'LONG_TO_DURATION');
+                        scheduleSampleReload();
                         return;
                     }
-                    if (!e.target.classList.contains('reference-lookup-toggle')) return;
+                    if (!e.target.classList.contains('reference-lookup-toggle')) {
+                        scheduleSampleReload();
+                        return;
+                    }
                     var cell = e.target.closest('td');
                     var sourceSelect = cell.querySelector('.source-path-select');
                     var builder = cell.querySelector('.reference-lookup-builder');
@@ -194,6 +350,12 @@
                         sourceSelect.classList.remove('d-none');
                         builder.classList.add('d-none');
                     }
+                    scheduleSampleReload();
+                });
+
+                mappingForm.addEventListener('input', function (e) {
+                    if (!e.target.classList.contains('fallback-value-input')) return;
+                    scheduleSampleReload();
                 });
 
                 mappingForm.addEventListener('click', function (e) {
@@ -206,47 +368,18 @@
                     var removeButton = e.target.closest('.remove-criterion-button');
                     if (removeButton) {
                         removeButton.closest('.reference-lookup-criterion-row').remove();
+                        scheduleSampleReload();
                     }
                 });
 
                 mappingForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
 
-                    var fieldMappings = [];
-                    mappingForm.querySelectorAll('[data-testid="mapping-property-row"]').forEach(function (row) {
-                        var lookupToggle = row.querySelector('.reference-lookup-toggle');
-                        var useLookup = !!(lookupToggle && lookupToggle.checked);
-                        var fieldMapping = {
-                            targetPropertyId: row.getAttribute('data-property-id'),
-                            sourcePath: useLookup ? '' : row.querySelector('.source-path-select').value,
-                            conversion: row.querySelector('.conversion-select').value,
-                            conversionUnit: row.querySelector('.conversion-unit-select').value,
-                            fallbackValue: row.querySelector('.fallback-value-input').value,
-                            referenceLookup: null
-                        };
-                        if (useLookup) {
-                            var criteria = [];
-                            row.querySelectorAll('.reference-lookup-criterion-row').forEach(function (criterionRow) {
-                                var targetPropertyId = criterionRow.querySelector('.criterion-target-property-select').value;
-                                var sourcePath = criterionRow.querySelector('.criterion-source-path-select').value;
-                                if (targetPropertyId && sourcePath) {
-                                    criteria.push({ targetPropertyId: targetPropertyId, sourcePath: sourcePath });
-                                }
-                            });
-                            fieldMapping.referenceLookup = { criteria: criteria };
-                        }
-                        fieldMappings.push(fieldMapping);
-                    });
-
-                    var payload = {
-                        fieldMappings: fieldMappings
-                    };
-
                     try {
                         var response = await fetch(basePath, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                            body: JSON.stringify(payload)
+                            body: JSON.stringify({ fieldMappings: collectFieldMappings() })
                         });
                         var result = await response.json();
                         showMessage(result.ok, result.message);
@@ -256,6 +389,26 @@
                     } catch (e) {
                         showMessage(false, networkErrorMessage);
                     }
+                });
+            }
+
+            if (samplePanel) {
+                samplePanel.addEventListener('show.bs.collapse', function () {
+                    if (sampleState.loaded) return;
+                    sampleState.loaded = true;
+                    loadSample();
+                });
+
+                samplePrevButton.addEventListener('click', function () {
+                    if (samplePrevButton.disabled) return;
+                    sampleState.index -= 1;
+                    loadSample();
+                });
+
+                sampleNextButton.addEventListener('click', function () {
+                    if (sampleNextButton.disabled) return;
+                    sampleState.index += 1;
+                    loadSample();
                 });
             }
         }());

@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
+import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 
 interface ImportPort {
@@ -45,6 +46,14 @@ interface ImportPort {
 
   /** Builds all target objects for the mapping (without saving them) and validates each against the target entity definition's constraints. */
   fun dryRun(userId: String, importJobId: String): Either<DomainError, DryRunReport>
+
+  /**
+   * A single source record at [index] within the job's filtered record set, together with the [DryRunObject] the
+   * given, not yet saved, [fieldMappings] would produce for it - the Mapping step's live preview (see
+   * [MappingSample]). Runs the dry-run logic against a batch of one record only, so recalculating the preview after
+   * a mapping rule change stays cheap regardless of import job size.
+   */
+  fun resolveMappingSample(userId: String, importJobId: String, index: Int, fieldMappings: List<FieldMapping>): Either<DomainError, MappingSample>
 
   /**
    * Saves every valid object from the current dry-run, discards invalid ones, and deletes the [ImportJob] (including its raw payload).

@@ -34,6 +34,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
+import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
@@ -570,6 +571,97 @@ class ImportServiceTests {
     val report = result.getOrNull()!!
     assertThat(report.totalCount).isEqualTo(1)
     assertThat(report.validObjects.single().targetData[PropertyId("prop-1")]).isEqualTo("Alice")
+  }
+
+  @Test
+  fun `resolve mapping sample returns the mapped preview for the record at the given index, computed from the given not-yet-saved field mappings`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"name":"Alice"},{"name":"Bob"}]}""",
+      selectedDataPath = "items",
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveMappingSample(
+      "user-1",
+      job.id.value,
+      index = 1,
+      fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val sample = result.getOrNull()!!
+    assertThat(sample.total).isEqualTo(2)
+    assertThat(sample.dryRunObject?.isValid).isTrue()
+    assertThat(sample.dryRunObject?.targetData).isEqualTo(mapOf(PropertyId("prop-1") to "Bob"))
+  }
+
+  @Test
+  fun `resolve mapping sample reflects unsaved field mappings rather than the job's persisted mapping`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val job = importJob(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice","nickname":"Ally"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveMappingSample(
+      "user-1",
+      job.id.value,
+      index = 0,
+      fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "nickname")),
+    )
+
+    assertThat(result.getOrNull()?.dryRunObject?.targetData).isEqualTo(mapOf(PropertyId("prop-1") to "Ally"))
+  }
+
+  @Test
+  fun `resolve mapping sample reports a null dry-run object when the index is out of range`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveMappingSample("user-1", job.id.value, index = 5, fieldMappings = emptyList())
+
+    assertThat(result).isEqualTo(MappingSample(1, null).right())
+  }
+
+  @Test
+  fun `resolve mapping sample fails when a field mapping targets an unknown property`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val job = importJob(status = ImportStatus.DATA_IDENTIFIED, payload = """{"items":[{"name":"Alice"}]}""", selectedDataPath = "items")
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.resolveMappingSample(
+      "user-1",
+      job.id.value,
+      index = 0,
+      fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("unknown-prop"), sourcePath = "name")),
+    )
+
+    assertThat(result).isEqualTo(ImportError.MAPPING_PROPERTY_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `resolve mapping sample fails when job does not exist`() {
+    every { importJobRepository.findById(ImportJobId("missing")) } returns null
+
+    val result = service.resolveMappingSample("user-1", "missing", index = 0, fieldMappings = emptyList())
+
+    assertThat(result).isEqualTo(ImportError.IMPORT_JOB_NOT_FOUND.left())
   }
 
   @Test

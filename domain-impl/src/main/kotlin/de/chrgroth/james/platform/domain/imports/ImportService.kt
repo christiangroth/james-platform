@@ -10,6 +10,7 @@ import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -25,6 +26,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
+import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
@@ -278,6 +280,41 @@ class ImportService(
     return DryRunReport(existing.id, objects).right()
   }
 
+  override fun resolveMappingSample(userId: String, importJobId: String, index: Int, fieldMappings: List<FieldMapping>): Either<DomainError, MappingSample> {
+    val existing = requireOwnedImportJob(userId, importJobId) ?: run {
+      logger.warn { "Resolve mapping sample failed: import job not found: $importJobId for user: $userId" }
+      return ImportError.IMPORT_JOB_NOT_FOUND.left()
+    }
+    val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
+      logger.warn { "Resolve mapping sample failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val entityDefinitions = entityDefinitionsOf(installedApp)
+    val targetEntityDefinition = entityDefinitions.find { it.id == existing.targetEntityDefinitionId } ?: run {
+      logger.warn { "Resolve mapping sample failed: target entity definition not found for importJobId: $importJobId" }
+      return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
+    }
+    val propertyIds = targetEntityDefinition.properties.map { it.id }.toSet()
+    if (fieldMappings.any { it.targetPropertyId !in propertyIds }) {
+      logger.warn { "Resolve mapping sample failed: unknown target property for importJobId: $importJobId" }
+      return ImportError.MAPPING_PROPERTY_NOT_FOUND.left()
+    }
+
+    val records = recordsAt(existing)
+    val record = records.getOrNull(index) ?: return MappingSample(records.size, null).right()
+
+    val dryRunObject = DryRunExecutor.executeSingle(
+      record = record,
+      mapping = Mapping(fieldMappings),
+      entityDefinition = targetEntityDefinition,
+      existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, targetEntityDefinition.id),
+      entityDefinitionsById = entityDefinitions.associateBy { it.id },
+      referencedAppDataByEntityId = referencedAppData(targetEntityDefinition, installedApp),
+      propertyConstraint = propertyConstraint,
+    )
+    return MappingSample(records.size, dryRunObject).right()
+  }
+
   override fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, DryRunAcceptResult> {
     val existing = requireOwnedImportJob(userId, importJobId) ?: run {
       logger.warn { "Accept dry run failed: import job not found: $importJobId for user: $userId" }
@@ -341,24 +378,24 @@ class ImportService(
     return mapping to entityDefinition
   }
 
-  private fun executeDryRun(existing: ImportJob, mapping: Mapping, entityDefinition: EntityDefinition, installedApp: InstalledApp): List<DryRunObject> {
-    val entityDefinitions = entityDefinitionsOf(installedApp)
-    // Loaded for every REF property (not just lookup-configured ones) so DryRunExecutor can also verify existence
-    // of directly mapped or fallback reference values, not only lookup-resolved ones.
-    val referencedEntityIds = entityDefinition.properties
-      .filter { it.type == PropertyType.REF }
-      .mapNotNull { it.targetEntityId }
-      .toSet()
-
-    return DryRunExecutor.execute(
+  private fun executeDryRun(existing: ImportJob, mapping: Mapping, entityDefinition: EntityDefinition, installedApp: InstalledApp): List<DryRunObject> =
+    DryRunExecutor.execute(
       records = recordsAt(existing),
       mapping = mapping,
       entityDefinition = entityDefinition,
       existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id),
-      entityDefinitionsById = entityDefinitions.associateBy { it.id },
-      referencedAppDataByEntityId = referencedEntityIds.associateWith { appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, it) },
+      entityDefinitionsById = entityDefinitionsOf(installedApp).associateBy { it.id },
+      referencedAppDataByEntityId = referencedAppData(entityDefinition, installedApp),
       propertyConstraint = propertyConstraint,
     )
+
+  /** Loaded for every REF property (not just lookup-configured ones) so [DryRunExecutor] can also verify existence of directly mapped or fallback values. */
+  private fun referencedAppData(entityDefinition: EntityDefinition, installedApp: InstalledApp): Map<EntityDefinitionId, List<AppData>> {
+    val referencedEntityIds = entityDefinition.properties
+      .filter { it.type == PropertyType.REF }
+      .mapNotNull { it.targetEntityId }
+      .toSet()
+    return referencedEntityIds.associateWith { appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, it) }
   }
 
   /** Records at the job's selected data path, with [ImportJob.filterRules] applied - this is what mapping and dry-run operate on. */
