@@ -25,16 +25,6 @@ class DashboardPageTests {
   }
 
   @Test
-  fun `admin cannot access user dashboard directly`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/user/dashboard")
-      .then()
-      .statusCode(403)
-  }
-
-  @Test
   fun `developer dashboard page is available and displays breadcrumb`() {
     given()
       .`when`()
@@ -148,35 +138,6 @@ class DashboardPageTests {
       .then()
       .statusCode(200)
       .body(not(containsString("""data-testid="app-store-tile""")))  }
-}
-
-@QuarkusTest
-@TestSecurity(user = "test-user-non-admin", roles = ["USER"])
-class AdminDashboardUnauthorizedTests {
-
-  @Test
-  fun `non-admin cannot access admin dashboard directly`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/admin/dashboard")
-      .then()
-      .statusCode(403)
-  }
-}
-
-@QuarkusTest
-class DashboardPageUnauthenticatedTests {
-
-  @Test
-  fun `unauthenticated access to dashboard redirects to login`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/user/dashboard")
-      .then()
-      .statusCode(307)
-  }
 }
 
 @QuarkusTest

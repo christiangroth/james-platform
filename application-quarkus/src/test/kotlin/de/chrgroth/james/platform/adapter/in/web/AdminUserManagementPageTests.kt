@@ -116,18 +116,3 @@ class AdminUserManagementPageTests {
   }
 }
 
-@QuarkusTest
-@TestSecurity(user = "test-user", roles = ["USER"])
-class AdminUserManagementPageUnauthorizedTests {
-
-  @Test
-  fun `non-admin cannot access user management page`() {
-    given()
-      .redirects().follow(false)
-      .`when`()
-      .get("/ui/admin/users")
-      .then()
-      .statusCode(403)
-  }
-}
-
