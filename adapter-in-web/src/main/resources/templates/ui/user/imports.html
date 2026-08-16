@@ -58,9 +58,7 @@
                                 <td data-testid="import-created-at">{job.createdAt.formatted}</td>
                                 <td data-testid="import-last-changed-at">{job.lastChangedAt.formatted}</td>
                                 <td class="text-end">
-                                    <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-import-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-button">
-                                        <i class="bi bi-trash" aria-hidden="true"></i>
-                                    </button>
+                                    {#btn-icon-delete testId="delete-import-button" title=msg:commonDelete() extraClass="" bsTarget="#deleteImportModal" action="" entityId=job.id propertyId="" reportId="" username="" /}
                                 </td>
                             </tr>
                             {/for}
@@ -249,7 +247,7 @@
             if (deleteImportModal) {
                 deleteImportModal.addEventListener('show.bs.modal', function (event) {
                     var trigger = event.relatedTarget;
-                    var importId = trigger ? trigger.getAttribute('data-import-id') : '';
+                    var importId = trigger ? trigger.getAttribute('data-entity-id') : '';
                     deleteImportModal.setAttribute('data-import-id', importId);
                 });
             }
