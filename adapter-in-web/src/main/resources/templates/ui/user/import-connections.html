@@ -40,6 +40,9 @@
                         <tbody>
                             {#for connection in connections}
                             <tr data-testid="connection-row"
+                                class="app-clickable-row"
+                                style="cursor:pointer;"
+                                data-mode="edit"
                                 data-connection-id="{connection.id}"
                                 data-connection-name="{connection.name}"
                                 data-connection-base-url="{connection.baseUrl}">
@@ -55,9 +58,6 @@
                                 <td class="text-end">
                                     <button type="button" class="btn btn-app-primary btn-sm me-1 test-connection-button" data-connection-id="{connection.id}" title="{user:userImportConnectionTestButton()}" aria-label="{user:userImportConnectionTestButton()}" data-testid="test-connection-button">
                                         <i class="bi bi-check2-circle" aria-hidden="true"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-app-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#connectionModal" title="{msg:commonEdit()}" aria-label="{msg:commonEdit()}" data-testid="edit-connection-button" data-mode="edit">
-                                        <i class="bi bi-pencil" aria-hidden="true"></i>
                                     </button>
                                     <button type="button" class="btn btn-app-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteConnectionModal" data-connection-id="{connection.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-connection-button">
                                         <i class="bi bi-trash" aria-hidden="true"></i>
@@ -258,12 +258,21 @@
             if (connectionsTableContainer) {
                 connectionsTableContainer.addEventListener('click', async function (e) {
                     var testButton = e.target.closest('.test-connection-button');
-                    if (!testButton) { return; }
-                    var connectionId = testButton.getAttribute('data-connection-id');
-                    testButton.disabled = true;
-                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(connectionId) + '/test');
-                    testButton.disabled = false;
-                    showMessage(result.ok, result.message);
+                    if (testButton) {
+                        var connectionId = testButton.getAttribute('data-connection-id');
+                        testButton.disabled = true;
+                        var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(connectionId) + '/test');
+                        testButton.disabled = false;
+                        showMessage(result.ok, result.message);
+                        return;
+                    }
+
+                    if (e.target.closest('button')) { return; }
+
+                    var row = e.target.closest('.app-clickable-row');
+                    if (row) {
+                        bootstrap.Modal.getOrCreateInstance(connectionModal).show(row);
+                    }
                 });
             }
 
