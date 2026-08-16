@@ -131,6 +131,10 @@ object MappingValidator {
       checkStringLength(property, sourceProperty)?.let { issues += it }
     }
 
+    if (property.unit != null && fieldMapping.importGranularity.isNullOrBlank()) {
+      issues += MappingIssue.MissingImportGranularity(property.id)
+    }
+
     property.constraints.filterIsInstance<PropertyConstraint.Pattern>().forEach {
       issues += MappingIssue.NotStaticallyValidated(property.id, it.regex)
     }

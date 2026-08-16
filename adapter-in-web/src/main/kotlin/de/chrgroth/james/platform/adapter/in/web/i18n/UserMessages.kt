@@ -498,6 +498,9 @@ interface UserMessages {
   fun userImportMappingIssueFallbackValueViolatesConstraint(violation: String): String
 
   @Message
+  fun userImportMappingIssueMissingImportGranularity(): String
+
+  @Message
   fun userImportMappingUseLookupLabel(): String
 
   @Message

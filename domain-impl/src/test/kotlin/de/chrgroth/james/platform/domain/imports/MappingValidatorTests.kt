@@ -2,12 +2,15 @@ package de.chrgroth.james.platform.domain.imports
 
 import de.chrgroth.james.platform.domain.app.PropertyConstraintService
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
@@ -131,6 +134,30 @@ class MappingValidatorTests {
     val mapping = mapping(
       FieldMapping(targetPropertyId = propertyId, sourcePath = "minutes", conversion = FieldMappingConversion.LONG_TO_DURATION, conversionUnit = DurationConversionUnit.MINUTES),
     )
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
+  fun `unit property mapped without an import granularity is reported`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = true, unit = unit))
+    val schema = listOf(SchemaProperty("distance", mapOf(SchemaPropertyType.LONG to 1), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "distance"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.MissingImportGranularity(propertyId))
+  }
+
+  @Test
+  fun `unit property mapped with an import granularity produces no issue`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = true, unit = unit))
+    val schema = listOf(SchemaProperty("distance", mapOf(SchemaPropertyType.LONG to 1), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "distance", importGranularity = "KILOMETERS"))
 
     val result = validate(mapping, entityDefinition, schema)
 

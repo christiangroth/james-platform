@@ -138,6 +138,7 @@
                                         <option value="{option.value}" {#if option.value == property.conversionUnit}selected{/if}>{option.label}</option>
                                         {/for}
                                     </select>
+                                    <select class="form-select form-select-sm app-form-control granularity-select mt-1 {#if !property.hasUnit}d-none{/if}" data-testid="granularity-select" data-unit-family="{property.unitFamily}" data-import-granularity="{property.importGranularity}"></select>
                                 </td>
                                 <td>
                                     <input type="text" class="form-control form-control-sm app-form-control fallback-value-input" value="{property.fallbackValue}" placeholder="{user:userImportMappingFallbackValuePlaceholder()}" autocomplete="off" data-testid="fallback-value-input">
@@ -195,6 +196,7 @@
     </div>
     {/content}
     {#scripts}
+    <script src="/unit-value-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
             var importJobId = '{importJobId}';
@@ -220,6 +222,7 @@
                         sourcePath: useLookup ? '' : row.querySelector('.source-path-select').value,
                         conversion: row.querySelector('.conversion-select').value,
                         conversionUnit: row.querySelector('.conversion-unit-select').value,
+                        importGranularity: row.querySelector('.granularity-select').value,
                         fallbackValue: row.querySelector('.fallback-value-input').value,
                         referenceLookup: null
                     };
@@ -238,6 +241,23 @@
                 });
                 return fieldMappings;
             }
+
+            function initGranularitySelects() {
+                document.querySelectorAll('.granularity-select').forEach(function (select) {
+                    var family = select.getAttribute('data-unit-family');
+                    if (!family) return;
+                    var initial = select.getAttribute('data-import-granularity') || '';
+                    select.innerHTML = '<option value="">{msg:commonSelectPlaceholder()}</option>';
+                    unitGranularitiesFor(family).forEach(function (g) {
+                        var option = document.createElement('option');
+                        option.value = g.value;
+                        option.textContent = g.symbol;
+                        select.appendChild(option);
+                    });
+                    select.value = initial;
+                });
+            }
+            initGranularitySelects();
 
             var mappingForm = document.getElementById('mappingForm');
 

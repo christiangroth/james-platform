@@ -187,6 +187,9 @@ data class MappingPropertyRow(
   val sourcePath: String,
   val conversion: String,
   val conversionUnit: String,
+  val hasUnit: Boolean,
+  val unitFamily: String,
+  val importGranularity: String,
   val fallbackValue: String,
   val issueMessages: List<String>,
 )
@@ -231,6 +234,7 @@ data class FieldMappingRequest @JsonCreator constructor(
   @param:JsonProperty("sourcePath") val sourcePath: String?,
   @param:JsonProperty("conversion") val conversion: String?,
   @param:JsonProperty("conversionUnit") val conversionUnit: String?,
+  @param:JsonProperty("importGranularity") val importGranularity: String?,
   @param:JsonProperty("fallbackValue") val fallbackValue: String?,
   @param:JsonProperty("referenceLookup") val referenceLookup: ReferenceLookupRequest? = null,
 )
@@ -654,6 +658,7 @@ class UserImportResource {
       sourcePath = sourcePath,
       conversion = runCatching { FieldMappingConversion.valueOf(field.conversion ?: FieldMappingConversion.NONE.name) }.getOrDefault(FieldMappingConversion.NONE),
       conversionUnit = field.conversionUnit?.let { runCatching { DurationConversionUnit.valueOf(it) }.getOrNull() },
+      importGranularity = field.importGranularity?.takeIf { it.isNotBlank() },
       fallbackValue = fallbackValue,
       referenceLookup = referenceLookup,
     )
@@ -880,6 +885,9 @@ class UserImportResource {
         sourcePath = fieldMapping?.sourcePath.orEmpty(),
         conversion = (fieldMapping?.conversion ?: FieldMappingConversion.NONE).name,
         conversionUnit = fieldMapping?.conversionUnit?.name.orEmpty(),
+        hasUnit = property.unit != null,
+        unitFamily = property.unit?.family?.name.orEmpty(),
+        importGranularity = fieldMapping?.importGranularity.orEmpty(),
         fallbackValue = fieldMapping?.fallbackValue.orEmpty(),
         issueMessages = issues.filterNot { it is MappingIssue.NotStaticallyValidated }.map { issueMessage(it) },
       )
@@ -899,6 +907,7 @@ class UserImportResource {
     is MappingIssue.FallbackValueViolatesConstraint -> userMsg.userImportMappingIssueFallbackValueViolatesConstraint(
       PropertyLabelTemplateExtensions.constraintViolationMessage(issue.violation),
     )
+    is MappingIssue.MissingImportGranularity -> userMsg.userImportMappingIssueMissingImportGranularity()
   }
 
   private fun formatNumber(value: Double): String = if (value == Math.floor(value) && !value.isInfinite()) value.toLong().toString() else value.toString()

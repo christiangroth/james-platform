@@ -14,7 +14,6 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
-import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
@@ -23,8 +22,8 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
-import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
@@ -793,13 +792,7 @@ class AppVersionManagementService(
     return property.copy(unit = PropertyUnit(parsedFamily, parsedStorageGranularity, parsedDefaultGranularity)).right()
   }
 
-  private fun parseGranularity(family: UnitFamily, value: String?): Granularity? {
-    val trimmed = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
-    return when (family) {
-      UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
-      UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
-    }
-  }
+  private fun parseGranularity(family: UnitFamily, value: String?): Granularity? = granularityByName(family, value)
 
   private fun parseListItemType(listItemType: String?): Either<DomainError, PropertyType> {
     val trimmedListItemType = listItemType?.trim()?.takeIf { it.isNotBlank() } ?: run {
