@@ -136,6 +136,15 @@ data class FilterModeOptionRow(
   val label: String,
 )
 
+/**
+ * [total] is the size of the requested matched/excluded side, [record] is null when the requested index falls
+ * outside it - see [de.chrgroth.james.platform.domain.model.imports.FilterSample].
+ */
+data class FilterSampleResponse(
+  val total: Int,
+  val record: JsonNode?,
+)
+
 data class FilterOperatorOptionRow(
   val value: String,
   val label: String,
@@ -484,6 +493,21 @@ class UserImportResource {
     importPort.resolveFilterFieldValues(userId, importJobId, sourcePath).fold(
       ifLeft = { Response.ok(emptyList<String>()).build() },
       ifRight = { values -> Response.ok(values).build() },
+    )
+  }
+
+  @GET
+  @Path("/{importJobId}/filter/sample")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun filterSample(
+    @PathParam("importJobId") importJobId: String,
+    @QueryParam("matched") matched: Boolean?,
+    @QueryParam("index") index: Int?,
+  ): Response = httpResponseMetrics.timed("rest.user-import.filter-sample") {
+    val userId = securityIdentity.principal.name
+    importPort.resolveFilterSample(userId, importJobId, matched ?: true, index?.takeIf { it >= 0 } ?: 0).fold(
+      ifLeft = { Response.ok(FilterSampleResponse(0, null)).build() },
+      ifRight = { sample -> Response.ok(FilterSampleResponse(sample.total, sample.sourceDataJson?.let { objectMapper.readTree(it) })).build() },
     )
   }
 

@@ -56,4 +56,26 @@ interface UserImportFilterMessages {
 
   @Message
   fun userImportFilterIncludeAbsentHint(): String
+
+  @Message
+  fun userImportFilterSampleTriggerLabel(): String
+
+  @Message
+  fun userImportFilterSampleSideAriaLabel(): String
+
+  @Message
+  fun userImportFilterSampleMatchedLabel(): String
+
+  @Message
+  fun userImportFilterSampleExcludedLabel(): String
+
+  /** [position]/[total] are substituted client-side after an AJAX fetch, not by Qute - see the script block in import-filter.html for why this takes strings instead of ints. */
+  @Message
+  fun userImportFilterSamplePositionLabel(position: String, total: String): String
+
+  @Message
+  fun userImportFilterSampleEmptyMatchedMessage(): String
+
+  @Message
+  fun userImportFilterSampleEmptyExcludedMessage(): String
 }

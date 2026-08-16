@@ -6,6 +6,7 @@ import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingView
@@ -29,6 +30,12 @@ interface ImportPort {
 
   /** Distinct textual values found in the job's source records at [sourcePath], for the filter UI to offer as picks instead of free text (see [de.chrgroth.james.platform.domain.imports.FilterEvaluator.distinctValues]). */
   fun resolveFilterFieldValues(userId: String, importJobId: String, sourcePath: String): Either<DomainError, List<String>>
+
+  /**
+   * A single source record at [index] within the matched (or, with [matched] false, excluded) side of the job's
+   * filter pipeline, for the filter step's live preview (see [FilterSample]).
+   */
+  fun resolveFilterSample(userId: String, importJobId: String, matched: Boolean, index: Int): Either<DomainError, FilterSample>
   fun getMappingView(userId: String, importJobId: String): Either<DomainError, MappingView>
   fun updateMapping(
     userId: String,

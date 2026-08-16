@@ -62,3 +62,15 @@ data class FilterView(
   val totalRecordCount: Int,
   val matchingRecordCount: Int,
 )
+
+/**
+ * A single source record - at [index] within either the matched or the excluded side of the filter pipeline,
+ * depending on which one was asked for - for the filter step's "view matches/exclusions" preview. Kept to one
+ * record per response to keep the preview payload small. [total] is the size of the requested side, so the UI can
+ * render a "x of y" position without a separate count call. [sourceDataJson] is null when [index] falls outside
+ * `0 until total` (including when [total] is 0, i.e. no records on the requested side).
+ */
+data class FilterSample(
+  val total: Int,
+  val sourceDataJson: String?,
+)

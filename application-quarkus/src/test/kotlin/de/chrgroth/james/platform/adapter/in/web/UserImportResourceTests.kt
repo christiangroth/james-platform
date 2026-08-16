@@ -534,6 +534,94 @@ class UserImportResourceTests {
       html.contains("value=\"GREATER_THAN\" data-requires-value=\"true\" data-applicable-types=\"LONG,DOUBLE,DATE,DATETIME\""),
       "Expected the comparison operator to be restricted to the schema types it applies to",
     )
+    assertTrue(html.contains("data-testid=\"filter-sample-trigger\""), "Expected the 'view matches' accordion trigger to be rendered")
+    assertTrue(html.contains("data-testid=\"filter-sample-panel\""), "Expected the 'view matches' accordion panel to be rendered")
+  }
+
+  @Test
+  fun `filter sample endpoint resolves a matched record and the total matched count`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+    saveFilterRule(importId, """{"mode": "INCLUDE", "sourcePath": "name", "operator": "EQUALS", "value": "Alice"}""")
+
+    given()
+      .`when`()
+      .get("/ui/user/imports/$importId/filter/sample?matched=true&index=0")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(1))
+      .body("record.name", equalTo("Alice"))
+  }
+
+  @Test
+  fun `filter sample endpoint resolves an excluded record and the total excluded count`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+    saveFilterRule(importId, """{"mode": "INCLUDE", "sourcePath": "name", "operator": "EQUALS", "value": "Alice"}""")
+
+    given()
+      .`when`()
+      .get("/ui/user/imports/$importId/filter/sample?matched=false&index=0")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(1))
+      .body("record.name", equalTo("Bob"))
+  }
+
+  @Test
+  fun `filter sample endpoint reports a null record for an index beyond the matched side's size`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given()
+      .`when`()
+      .get("/ui/user/imports/$importId/filter/sample?matched=true&index=5")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(2))
+      .body("record", equalTo(null))
+  }
+
+  @Test
+  fun `filter sample endpoint reports a null record and a zero total when no records match`() {
+    val app = installAppWithMandatoryStringProperty()
+    triggerImportWithSingleDataPath(app.installedAppId, app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+    saveFilterRule(importId, """{"mode": "INCLUDE", "sourcePath": "name", "operator": "EQUALS", "value": "Charlie"}""")
+
+    given()
+      .`when`()
+      .get("/ui/user/imports/$importId/filter/sample?matched=true&index=0")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(0))
+      .body("record", equalTo(null))
+  }
+
+  @Test
+  fun `filter sample endpoint reports a zero total for an unknown import job id`() {
+    given()
+      .`when`()
+      .get("/ui/user/imports/unknown-id/filter/sample?matched=true&index=0")
+      .then()
+      .statusCode(200)
+      .body("total", equalTo(0))
+      .body("record", equalTo(null))
+  }
+
+  /** Saves a single filter [rule] (a JSON object literal, e.g. `{"mode": "INCLUDE", ...}`) for [importId]. */
+  private fun saveFilterRule(importId: String, rule: String) {
+    given()
+      .contentType("application/json")
+      .body("""{"rules": [$rule]}""")
+      .`when`()
+      .post("/ui/user/imports/$importId/filter")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
   }
 
   @Test
