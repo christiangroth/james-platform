@@ -1356,4 +1356,38 @@ class UserImportResourceTests {
     assertTrue(savedCompanies.single().id != existingId, "Expected the pre-existing Company to have been deleted and replaced by the newly imported one")
     assertTrue(savedCompanies.single().data[propertyId] == "ACME", "Expected the record that only collided with the now-deleted existing data to be saved")
   }
+
+  @Test
+  fun `schema panel offcanvas is rendered identically on the Quelle, Filter and Mapping pages, with value range and string length as secondary info`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString()))
+      .thenReturn("""{"items":[{"name":"Alice","age":30},{"name":"Bob","age":42}]}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val overviewHtml = given().`when`().get("/ui/user/imports/$importId/overview").then().statusCode(200).extract().body().asString()
+    assertTrue(overviewHtml.contains("data-testid=\"schema-panel-trigger\""), "Expected the schema panel trigger button on the Quelle page")
+    assertTrue(overviewHtml.contains("data-testid=\"schema-panel-table\""), "Expected the schema panel table on the Quelle page")
+    assertTrue(overviewHtml.contains("data-testid=\"schema-panel-value-range\""), "Expected the numeric value range to be shown for the age field")
+    assertTrue(overviewHtml.contains("data-testid=\"schema-panel-string-length\""), "Expected the string length hint to be shown for the name field")
+
+    val filterHtml = given().`when`().get("/ui/user/imports/$importId/filter").then().statusCode(200).extract().body().asString()
+    assertTrue(filterHtml.contains("data-testid=\"schema-panel-trigger\""), "Expected the schema panel trigger button on the Filter page")
+    assertTrue(filterHtml.contains("data-testid=\"schema-panel-value-range\""), "Expected the numeric value range to be shown on the Filter page")
+
+    val mappingHtml = given().`when`().get("/ui/user/imports/$importId/mapping").then().statusCode(200).extract().body().asString()
+    assertTrue(mappingHtml.contains("data-testid=\"schema-panel-trigger\""), "Expected the schema panel trigger button on the Mapping page")
+    assertTrue(mappingHtml.contains("data-testid=\"schema-panel-string-length\""), "Expected the string length hint to be shown on the Mapping page")
+  }
+
+  @Test
+  fun `import steps hide their labels below the sm breakpoint, showing only the icon and step number`() {
+    val (installedAppId, entityId) = installApp()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
+    triggerImport(installedAppId, createConnection(), entityId)
+    val importId = triggerImportAndGetId(installedAppId)
+
+    val html = given().`when`().get("/ui/user/imports/$importId/overview").then().statusCode(200).extract().body().asString()
+    assertTrue(html.contains("<span class=\"d-none d-sm-inline\">Quelle</span>"), "Expected the step labels to be hidden below the sm breakpoint")
+  }
 }

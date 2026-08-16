@@ -114,6 +114,14 @@ data class SchemaFieldOptionRow(
   val dominantType: String,
 )
 
+data class SchemaPanelRow(
+  val path: String,
+  val typeLabel: String,
+  val mandatory: Boolean,
+  val valueRangeLabel: String,
+  val stringLengthLabel: String,
+)
+
 data class FilterRuleRow(
   val mode: String,
   val sourcePath: String,
@@ -377,6 +385,7 @@ class UserImportResource {
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("sourceUrl", connection?.let { resolveImportUrl(it.baseUrl, view.importJob.urlPostfix) }.orEmpty())
         .data("structureRows", buildJsonStructureRows(view.importJob))
+        .data("schemaPanelRows", buildSchemaPanelRows(view.importJob.detectedSchema))
         .data("appActive", info.appActive),
     ).build()
   }
@@ -431,6 +440,7 @@ class UserImportResource {
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, targetEntityName))
         .data("filterRuleRows", view.importJob.filterRules.map { it.toRow() })
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) })
+        .data("schemaPanelRows", buildSchemaPanelRows(view.importJob.detectedSchema))
         .data("modeOptions", FilterMode.entries.map { FilterModeOptionRow(it.name, filterModeLabel(it)) })
         .data("operatorOptions", FilterOperator.entries.map { FilterOperatorOptionRow(it.name, filterOperatorLabel(it), it.requiresValue, it.applicableSchemaTypes().joinToString(",") { type -> type.name }) })
         .data("totalRecordCount", view.totalRecordCount)
@@ -542,6 +552,7 @@ class UserImportResource {
         .data("pageHeading", pageHeading(userId, view.importJob.connectionId, info.appName, view.targetEntityDefinition.name))
         .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importJob.mapping, view))
         .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) })
+        .data("schemaPanelRows", buildSchemaPanelRows(view.importJob.detectedSchema))
         .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
         .data("conversionUnitOptions", DurationConversionUnit.entries.map { ConversionUnitOptionRow(it.name, conversionUnitLabel(it)) })
         .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
@@ -845,6 +856,17 @@ class UserImportResource {
 
   private fun dominantSchemaType(property: SchemaProperty): SchemaPropertyType? =
     property.typeCounts.filterKeys { it != SchemaPropertyType.NULL }.maxByOrNull { it.value }?.key
+
+  /** Builds the rows for the schema panel offcanvas, shared identically across the Quelle, Filter and Mapping steps. */
+  private fun buildSchemaPanelRows(schema: List<SchemaProperty>): List<SchemaPanelRow> = schema.map { property ->
+    SchemaPanelRow(
+      path = property.path,
+      typeLabel = dominantSchemaType(property)?.let { schemaTypeLabel(it) }.orEmpty(),
+      mandatory = property.mandatory,
+      valueRangeLabel = property.numericRange?.let { userMsg.userImportSchemaValueRangeLabel(formatNumber(it.min), formatNumber(it.max)) }.orEmpty(),
+      stringLengthLabel = property.stringLengthCounts.keys.takeIf { it.isNotEmpty() }?.let { userMsg.userImportSchemaStringLengthLabel(it.min(), it.max()) }.orEmpty(),
+    )
+  }
 
   private fun schemaTypeLabel(type: SchemaPropertyType): String = when (type) {
     SchemaPropertyType.STRING -> userMsg.userImportSchemaTypeString()

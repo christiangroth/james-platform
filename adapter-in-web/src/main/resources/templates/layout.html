@@ -654,6 +654,15 @@
             color: #ffffff;
             border-color: var(--color-action);
         }
+        /* Schema panel offcanvas (Quelle/Filter/Mapping): fixed side panel on desktop, full width on mobile to avoid horizontal scrolling */
+        .schema-panel-offcanvas {
+            --bs-offcanvas-width: 420px;
+        }
+        @media (max-width: 575.98px) {
+            .schema-panel-offcanvas {
+                --bs-offcanvas-width: 100vw;
+            }
+        }
         /* Dry-run count cards: subtle highlight for whichever detail section is currently shown below */
         .dry-run-count-toggle.active {
             border-color: var(--color-action);

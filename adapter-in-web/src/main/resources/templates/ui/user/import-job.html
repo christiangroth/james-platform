@@ -24,6 +24,10 @@
 
         {#import-steps importJobId=job.id filterable=job.filterable mappable=job.mappable readyForDryRun=job.readyForDryRun activeStep="overview" /}
 
+        <div class="d-flex justify-content-end mb-3">
+            {#schema-panel rows=schemaPanelRows /}
+        </div>
+
         <div id="import-job-message" class="d-none mb-4" role="alert"></div>
 
         <div class="card app-card p-3 p-md-4 mb-4">
