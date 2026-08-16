@@ -76,6 +76,7 @@ class ImportJobRepositoryAdapter(
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
     selectedDataPath = selectedDataPath,
     detectedSchema = detectedSchema.map { it.toDomain() },
+    filteredSchema = filteredSchema.map { it.toDomain() },
     filterRules = filterRules.map { it.toDomain() },
     mapping = mapping?.toDomain(),
     createdAt = createdAt,
@@ -142,6 +143,7 @@ class ImportJobRepositoryAdapter(
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
     doc.selectedDataPath = selectedDataPath
     doc.detectedSchema = detectedSchema.map { it.toDocument() }
+    doc.filteredSchema = filteredSchema.map { it.toDocument() }
     doc.filterRules = filterRules.map { it.toDocument() }
     doc.mapping = mapping?.toDocument()
     doc.createdAt = createdAt

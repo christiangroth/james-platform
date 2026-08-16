@@ -28,7 +28,6 @@ import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
-import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
@@ -97,6 +96,7 @@ class ImportService(
 
     val detectedDataPaths = DataPathDetector.detect(parsed)
     val singleMatch = detectedDataPaths.singleOrNull()
+    val schema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty()
 
     val now = Instant.now()
     val importJob = ImportJob(
@@ -110,7 +110,8 @@ class ImportService(
       payload = rawPayload,
       detectedDataPaths = detectedDataPaths,
       selectedDataPath = singleMatch?.path,
-      detectedSchema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty(),
+      detectedSchema = schema,
+      filteredSchema = schema,
       createdAt = now,
       lastChangedAt = now,
     )
@@ -140,10 +141,12 @@ class ImportService(
       return ImportError.INVALID_DATA_PATH.left()
     }
 
+    val schema = SchemaDetector.detect(parsed, resolved.path)
     val updated = existing.copy(
       status = ImportStatus.DATA_IDENTIFIED,
       selectedDataPath = resolved.path,
-      detectedSchema = SchemaDetector.detect(parsed, resolved.path),
+      detectedSchema = schema,
+      filteredSchema = schema,
       lastChangedAt = Instant.now(),
     )
     importJobRepository.save(updated)
@@ -169,7 +172,12 @@ class ImportService(
       return ImportError.IMPORT_JOB_NOT_FILTERABLE.left()
     }
 
-    val updated = existing.copy(filterRules = filterRules, lastChangedAt = Instant.now())
+    val filteredRecords = FilterEvaluator.apply(rawRecordsAt(existing), filterRules)
+    val updated = existing.copy(
+      filterRules = filterRules,
+      filteredSchema = SchemaDetector.detect(filteredRecords),
+      lastChangedAt = Instant.now(),
+    )
     importJobRepository.save(updated)
     logger.info { "Filter updated: importJobId=$importJobId rules=${filterRules.size}" }
     return filterView(updated).right()
@@ -214,7 +222,7 @@ class ImportService(
 
     val entityDefinitions = entityDefinitionsOf(installedApp)
     val validation = existing.mapping?.let { mapping ->
-      MappingValidator.validate(mapping, targetEntityDefinition, filteredSchemaAt(existing), entityDefinitions, propertyConstraint)
+      MappingValidator.validate(mapping, targetEntityDefinition, existing.filteredSchema, entityDefinitions, propertyConstraint)
     }
     return MappingView(existing, targetEntityDefinition, entityDefinitions, validation).right()
   }
@@ -251,7 +259,7 @@ class ImportService(
     val mapping = Mapping(
       fieldMappings = fieldMappings,
     )
-    val validation = MappingValidator.validate(mapping, targetEntityDefinition, filteredSchemaAt(existing), entityDefinitions, propertyConstraint)
+    val validation = MappingValidator.validate(mapping, targetEntityDefinition, existing.filteredSchema, entityDefinitions, propertyConstraint)
     val updated = existing.copy(
       status = if (validation.isReady) ImportStatus.READY else ImportStatus.DATA_IDENTIFIED,
       mapping = mapping,
@@ -401,15 +409,6 @@ class ImportService(
 
   /** Records at the job's selected data path, with [ImportJob.filterRules] applied - this is what mapping and dry-run operate on. */
   private fun recordsAt(existing: ImportJob): List<JsonNode> = FilterEvaluator.apply(rawRecordsAt(existing), existing.filterRules)
-
-  /**
-   * Schema statistics (mandatory/optional, numeric ranges, string lengths) recomputed over the job's filtered
-   * records rather than [ImportJob.detectedSchema], which is derived once from the raw, unfiltered source and stays
-   * visible unchanged as a field reference panel across the Filter and Mapping steps. Filter rules can change which
-   * records survive and thus a property's value range or optionality, so [MappingValidator] must judge issues against
-   * this filtered schema - otherwise it would flag mandatory/range/length violations that a filter already removed.
-   */
-  private fun filteredSchemaAt(existing: ImportJob): List<SchemaProperty> = SchemaDetector.detect(recordsAt(existing))
 
   private fun rawRecordsAt(existing: ImportJob): List<JsonNode> {
     val path = existing.selectedDataPath ?: return emptyList()

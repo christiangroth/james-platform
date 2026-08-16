@@ -174,6 +174,7 @@ class ImportServiceTests {
     assertThat(saved.captured.detectedSchema).containsExactly(
       SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true, numericRange = NumericRange(min = 1.0, max = 2.0)),
     )
+    assertThat(saved.captured.filteredSchema).isEqualTo(saved.captured.detectedSchema)
   }
 
   @Test
@@ -353,6 +354,7 @@ class ImportServiceTests {
     assertThat(saved.captured.detectedSchema).containsExactly(
       SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true, numericRange = NumericRange(min = 1.0, max = 2.0)),
     )
+    assertThat(saved.captured.filteredSchema).isEqualTo(saved.captured.detectedSchema)
   }
 
   @Test
@@ -450,6 +452,28 @@ class ImportServiceTests {
     val view = result.getOrNull()!!
     assertThat(view.totalRecordCount).isEqualTo(2)
     assertThat(view.matchingRecordCount).isEqualTo(1)
+  }
+
+  @Test
+  fun `update filter recomputes and persists the filtered schema, leaving the detected schema untouched`() {
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"name":"Alice"},{"other":"x"}]}""",
+      selectedDataPath = "items",
+      detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = false)),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+
+    val rules = listOf(FilterRule(FilterMode.INCLUDE, "name", FilterOperator.IS_NOT_NULL))
+    val result = service.updateFilter("user-1", job.id.value, rules)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.detectedSchema).isEqualTo(job.detectedSchema)
+    assertThat(saved.captured.filteredSchema).containsExactly(
+      SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true, stringLengthCounts = mapOf(5 to 1)),
+    )
   }
 
   @Test
@@ -691,7 +715,7 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `update mapping validates against filtered records rather than the stale unfiltered detected schema`() {
+  fun `update mapping validates against the persisted filtered schema rather than the stale unfiltered detected schema`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     val job = importJob(
@@ -700,6 +724,8 @@ class ImportServiceTests {
       selectedDataPath = "items",
       // Stale: computed over the unfiltered records, where "name" is only present on one of two objects.
       detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = false)),
+      // Persisted by a prior updateFilter call: "name" is mandatory once the filter excludes the record without it.
+      filteredSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true)),
       filterRules = listOf(FilterRule(FilterMode.INCLUDE, "name", FilterOperator.IS_NOT_NULL)),
     )
     every { importJobRepository.findById(job.id) } returns job
@@ -788,7 +814,7 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `get mapping view validates against filtered records rather than the stale unfiltered detected schema`() {
+  fun `get mapping view validates against the persisted filtered schema rather than the stale unfiltered detected schema`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     val job = importJob(
@@ -797,6 +823,8 @@ class ImportServiceTests {
       selectedDataPath = "items",
       // Stale: computed over the unfiltered records, where "name" is only present on one of two objects.
       detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = false)),
+      // Persisted by a prior updateFilter call: "name" is mandatory once the filter excludes the record without it.
+      filteredSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true)),
       filterRules = listOf(FilterRule(FilterMode.INCLUDE, "name", FilterOperator.IS_NOT_NULL)),
       mapping = Mapping(fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name"))),
     )
@@ -990,6 +1018,7 @@ class ImportServiceTests {
     status: ImportStatus = ImportStatus.DOWNLOADED,
     payload: String = """{"foo":"bar"}""",
     detectedSchema: List<SchemaProperty> = emptyList(),
+    filteredSchema: List<SchemaProperty> = detectedSchema,
     selectedDataPath: String? = null,
     filterRules: List<FilterRule> = emptyList(),
     mapping: Mapping? = null,
@@ -1006,6 +1035,7 @@ class ImportServiceTests {
     status = status,
     payload = payload,
     detectedSchema = detectedSchema,
+    filteredSchema = filteredSchema,
     createdAt = createdAt,
     lastChangedAt = createdAt,
   )
