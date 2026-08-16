@@ -361,4 +361,40 @@ class DryRunExecutorTests {
     assertThat(result.single().isValid).isTrue()
     assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "default-company"))
   }
+
+  @Test
+  fun `executeSingle produces the same result as execute with a batch of one record`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Name", type = PropertyType.STRING, nullable = false))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "name"))
+    val record = records("""[{"name":"Alice"}]""").single()
+
+    val result = DryRunExecutor.executeSingle(record, mapping, entity, emptyList(), mapOf(entity.id to entity), emptyMap(), propertyConstraint)
+
+    assertThat(result.isValid).isTrue()
+    assertThat(result.targetData).isEqualTo(mapOf(propertyId to "Alice"))
+  }
+
+  @Test
+  fun `executeSingle cannot detect a unique key collision with another record of the same import job, only with already persisted data`() {
+    val entity = entityDefinition(
+      Property(id = propertyId, name = "Code", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+    )
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "code"))
+    val record = records("""[{"code":"DUP"}]""").single()
+
+    val withoutExistingCollision = DryRunExecutor.executeSingle(record, mapping, entity, emptyList(), mapOf(entity.id to entity), emptyMap(), propertyConstraint)
+    assertThat(withoutExistingCollision.isValid).isTrue()
+
+    val withExistingCollision = DryRunExecutor.executeSingle(
+      record,
+      mapping,
+      entity,
+      existingAppData = listOf(appData(entity.id, mapOf(propertyId.value to "DUP"))),
+      entityDefinitionsById = mapOf(entity.id to entity),
+      referencedAppDataByEntityId = emptyMap(),
+      propertyConstraint = propertyConstraint,
+    )
+    val issue = withExistingCollision.issues.single() as DryRunIssue.ConstraintViolated
+    assertThat(issue.violation).isEqualTo(PropertyConstraintViolation.UniqueKeyViolation)
+  }
 }
