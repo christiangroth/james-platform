@@ -1,0 +1,1 @@
+* Fixed the dry-run detail panels so clicking the already-open section (e.g. "Fehler") no longer closes it and leaves nothing open; exactly one section always stays open, clicking a different section switches to it.

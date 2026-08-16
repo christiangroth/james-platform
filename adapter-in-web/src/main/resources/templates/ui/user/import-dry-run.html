@@ -43,19 +43,19 @@
                 </div>
             </div>
             <div class="col">
-                <div class="card app-card p-3 text-center dry-run-count-toggle{#if invalidCount == 0} active{/if}" role="button" tabindex="0" data-bs-toggle="collapse" data-bs-target="#valid-details" aria-expanded="{#if invalidCount == 0}true{#else}false{/if}" aria-controls="valid-details" data-testid="valid-count-toggle">
+                <div class="card app-card p-3 text-center dry-run-count-toggle{#if invalidCount == 0} active{/if}" role="button" tabindex="0" aria-expanded="{#if invalidCount == 0}true{#else}false{/if}" aria-controls="valid-details" data-testid="valid-count-toggle">
                     <div class="fs-4 fw-semibold text-success" data-testid="valid-count">{validCount}</div>
                     <div class="app-section-label small">{user:userImportDryRunValidLabel()}</div>
                 </div>
             </div>
             <div class="col">
-                <div class="card app-card p-3 text-center dry-run-count-toggle{#if invalidCount > 0} active{/if}" role="button" tabindex="0" data-bs-toggle="collapse" data-bs-target="#invalid-details" aria-expanded="{#if invalidCount > 0}true{#else}false{/if}" aria-controls="invalid-details" data-testid="invalid-count-toggle">
+                <div class="card app-card p-3 text-center dry-run-count-toggle{#if invalidCount > 0} active{/if}" role="button" tabindex="0" aria-expanded="{#if invalidCount > 0}true{#else}false{/if}" aria-controls="invalid-details" data-testid="invalid-count-toggle">
                     <div class="fs-4 fw-semibold text-danger" data-testid="invalid-count">{invalidCount}</div>
                     <div class="app-section-label small">{user:userImportDryRunInvalidLabel()}</div>
                 </div>
             </div>
             <div class="col">
-                <div class="card app-card p-3 text-center dry-run-count-toggle" role="button" tabindex="0" data-bs-toggle="collapse" data-bs-target="#skipped-details" aria-expanded="false" aria-controls="skipped-details" data-testid="skipped-count-toggle">
+                <div class="card app-card p-3 text-center dry-run-count-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="skipped-details" data-testid="skipped-count-toggle">
                     <div class="fs-4 fw-semibold text-secondary" data-testid="skipped-count">{skippedCount}</div>
                     <div class="app-section-label small">{user:userImportDryRunSkippedLabel()}</div>
                 </div>
@@ -259,23 +259,41 @@
                 confirmReplaceDryRunButton.addEventListener('click', function () { accept('REPLACE', 'replaceDryRunModal'); });
             }
 
-            // The count cards are div-based collapse toggles (to preserve card styling); make them keyboard-operable too.
+            // The count cards are div-based collapse triggers (to preserve card styling). Unlike Bootstrap's
+            // declarative data-bs-toggle="collapse" (which always toggles), these call show() explicitly so
+            // clicking the already-open card is a no-op instead of closing it - exactly one detail section
+            // stays open at all times. data-bs-parent on the panels still makes show() close the other panels.
             document.querySelectorAll('.dry-run-count-toggle').forEach(function (toggle) {
+                var targetId = toggle.getAttribute('aria-controls');
+                var panel = document.getElementById(targetId);
+                if (!panel) { return; }
+
+                function openPanel() {
+                    bootstrap.Collapse.getOrCreateInstance(panel, { parent: '#dryRunDetailsAccordion' }).show();
+                }
+
+                toggle.addEventListener('click', openPanel);
                 toggle.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        toggle.click();
+                        openPanel();
                     }
                 });
             });
 
-            // Keep the toggle cards' subtle "active" highlight in sync with which detail section the accordion
-            // currently shows, since it is a true accordion (only one section open at a time).
+            // Keep the toggle cards' subtle "active" highlight and aria-expanded in sync with which detail
+            // section is currently shown (only one section open at a time).
             document.querySelectorAll('#dryRunDetailsAccordion .collapse').forEach(function (panel) {
                 var toggle = document.querySelector('.dry-run-count-toggle[aria-controls="' + panel.id + '"]');
                 if (!toggle) { return; }
-                panel.addEventListener('show.bs.collapse', function () { toggle.classList.add('active'); });
-                panel.addEventListener('hide.bs.collapse', function () { toggle.classList.remove('active'); });
+                panel.addEventListener('show.bs.collapse', function () {
+                    toggle.classList.add('active');
+                    toggle.setAttribute('aria-expanded', 'true');
+                });
+                panel.addEventListener('hide.bs.collapse', function () {
+                    toggle.classList.remove('active');
+                    toggle.setAttribute('aria-expanded', 'false');
+                });
             });
         }());
     </script>
