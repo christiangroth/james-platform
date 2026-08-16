@@ -446,6 +446,56 @@ class AppManagementServiceTests {
 
   // endregion
 
+  // region getActiveInstallationCount
+
+  @Test
+  fun `getActiveInstallationCount returns number of installations`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(
+      installedApp(id = "installed-1"),
+      installedApp(id = "installed-2"),
+    )
+
+    val result = service.getActiveInstallationCount("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(2)
+  }
+
+  @Test
+  fun `getActiveInstallationCount returns zero when no installations exist`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+
+    val result = service.getActiveInstallationCount("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isZero()
+  }
+
+  @Test
+  fun `getActiveInstallationCount fails when app not found`() {
+    every { appRepository.findById(AppId("unknown")) } returns null
+
+    val result = service.getActiveInstallationCount("unknown", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `getActiveInstallationCount fails when app belongs to another developer`() {
+    val otherApp = app(id = "app-2", name = "Other App", developerId = "dev-2")
+    every { appRepository.findById(AppId("app-2")) } returns otherApp
+
+    val result = service.getActiveInstallationCount("app-2", "dev-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppError.APP_NOT_FOUND)
+  }
+
+  // endregion
+
   companion object {
     fun app(id: String = "app-1", name: String = "Test App", status: AppStatus = AppStatus.ACTIVE, developerId: String = "dev-1") = App(
       id = AppId(id),

@@ -87,6 +87,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   LIST_ITEM_TYPE_REQUIRED("APPVER-038"),
   LIST_ITEM_TYPE_INVALID("APPVER-039"),
   INVALID_OBJECT_STRUCTURE("APPVER-041"),
+  APP_INACTIVE("APPVER-042"),
   ;
 }
 

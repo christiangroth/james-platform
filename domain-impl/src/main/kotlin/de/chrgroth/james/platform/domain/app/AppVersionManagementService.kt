@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
@@ -64,9 +65,13 @@ class AppVersionManagementService(
   }
 
   override fun createVersion(appId: String): Either<DomainError, AppVersion> {
-    appRepository.findById(AppId(appId)) ?: run {
+    val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Create version failed: app not found: $appId" }
       return AppVersionError.APP_NOT_FOUND.left()
+    }
+    if (app.status != AppStatus.ACTIVE) {
+      logger.warn { "Create version failed: app is not active: $appId" }
+      return AppVersionError.APP_INACTIVE.left()
     }
     val existingVersions = appVersionRepository.findAllByAppId(AppId(appId))
     if (existingVersions.any { it.status == AppVersionStatus.DRAFT }) {
@@ -114,6 +119,14 @@ class AppVersionManagementService(
   }
 
   override fun publishVersion(appId: String, bumpType: String?, releaseNotes: String): Either<DomainError, AppVersion> {
+    val app = appRepository.findById(AppId(appId)) ?: run {
+      logger.warn { "Publish version failed: app not found: $appId" }
+      return AppVersionError.APP_NOT_FOUND.left()
+    }
+    if (app.status != AppStatus.ACTIVE) {
+      logger.warn { "Publish version failed: app is not active: $appId" }
+      return AppVersionError.APP_INACTIVE.left()
+    }
     val trimmedReleaseNotes = releaseNotes.trim().takeIf { it.isNotBlank() } ?: run {
       logger.warn { "Publish version failed: blank release notes for app $appId" }
       return AppVersionError.BLANK_RELEASE_NOTES.left()
@@ -197,7 +210,7 @@ class AppVersionManagementService(
 
 
   override fun deleteDraftVersion(appId: String, versionId: String): Either<DomainError, Unit> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     appVersionRepository.delete(version.id)
     logger.info { "Draft version deleted: $versionId from app $appId" }
     return Unit.right()
@@ -256,7 +269,7 @@ class AppVersionManagementService(
       logger.warn { "Add entity failed: blank name" }
       return AppVersionError.BLANK_INPUT.left()
     }
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     if (version.entityDefinitions.any { it.name.equals(name.trim(), ignoreCase = true) }) {
       logger.warn { "Add entity failed: entity name already exists: $name in version $versionId" }
       return AppVersionError.ENTITY_NAME_ALREADY_EXISTS.left()
@@ -269,7 +282,7 @@ class AppVersionManagementService(
   }
 
   override fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     if (version.entityDefinitions.none { it.id.value == entityId }) {
       logger.warn { "Delete entity failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -284,7 +297,7 @@ class AppVersionManagementService(
   }
 
   override fun reorderEntities(appId: String, versionId: String, entityIds: List<String>): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val existingIds = version.entityDefinitions.map { it.id.value }.toSet()
     if (existingIds != entityIds.toSet() || entityIds.size != version.entityDefinitions.size) {
       logger.warn { "Reorder entities failed: entity IDs mismatch in version $versionId" }
@@ -304,7 +317,7 @@ class AppVersionManagementService(
     entityId: String,
     sortBy: List<SortCriteria>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Update entity sort criteria failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -324,7 +337,7 @@ class AppVersionManagementService(
     entityId: String,
     displayText: String?,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Update entity display text failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -365,7 +378,7 @@ class AppVersionManagementService(
       logger.warn { "Add property failed: invalid type: $type" }
       return AppVersionError.INVALID_PROPERTY_TYPE.left()
     }
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Add property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -421,7 +434,7 @@ class AppVersionManagementService(
       logger.warn { "Update property failed: invalid type: $type" }
       return AppVersionError.INVALID_PROPERTY_TYPE.left()
     }
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Update property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -473,7 +486,7 @@ class AppVersionManagementService(
     constraints: Set<PropertyConstraint>,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property constraints failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -498,7 +511,7 @@ class AppVersionManagementService(
     default: String?,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property default failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -556,7 +569,7 @@ class AppVersionManagementService(
     smartDefault: String?,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property smart default failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -591,7 +604,7 @@ class AppVersionManagementService(
     valueProposals: List<String>,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property value proposals failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -624,7 +637,7 @@ class AppVersionManagementService(
     targetEntityId: String?,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property target entity failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -660,7 +673,7 @@ class AppVersionManagementService(
     listItemType: String?,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property list item type failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -697,7 +710,7 @@ class AppVersionManagementService(
     itemConstraints: Set<PropertyConstraint>,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set property item constraints failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -811,7 +824,7 @@ class AppVersionManagementService(
     propertyIds: List<String>,
     path: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Reorder properties failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -833,7 +846,7 @@ class AppVersionManagementService(
   }
 
   override fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String, path: List<String>): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Delete property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -878,7 +891,7 @@ class AppVersionManagementService(
       logger.warn { "Add computed property failed: type does not support computed properties: $type" }
       return AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.left()
     }
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Add computed property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -915,7 +928,7 @@ class AppVersionManagementService(
       logger.warn { "Update computed property failed: type does not support computed properties: $type" }
       return AppVersionError.COMPUTED_PROPERTY_TYPE_NOT_SUPPORTED.left()
     }
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Update computed property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -943,7 +956,7 @@ class AppVersionManagementService(
     computedPropertyId: String,
     script: String?,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Set computed property script failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -967,7 +980,7 @@ class AppVersionManagementService(
     entityId: String,
     computedPropertyIds: List<String>,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Reorder computed properties failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -991,7 +1004,7 @@ class AppVersionManagementService(
     entityId: String,
     computedPropertyId: String,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
       logger.warn { "Delete computed property failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
@@ -1012,7 +1025,7 @@ class AppVersionManagementService(
       logger.warn { "Add report failed: blank name" }
       return AppVersionError.BLANK_INPUT.left()
     }
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     if (version.reports.any { it.name.equals(name.trim(), ignoreCase = true) }) {
       logger.warn { "Add report failed: report name already exists: $name in version $versionId" }
       return AppVersionError.REPORT_NAME_ALREADY_EXISTS.left()
@@ -1031,7 +1044,7 @@ class AppVersionManagementService(
     html: String,
     script: String,
   ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val report = version.reports.find { it.id.value == reportId } ?: run {
       logger.warn { "Update report failed: report not found: $reportId in version $versionId" }
       return AppVersionError.REPORT_NOT_FOUND.left()
@@ -1044,7 +1057,7 @@ class AppVersionManagementService(
   }
 
   override fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     if (version.reports.none { it.id.value == reportId }) {
       logger.warn { "Delete report failed: report not found: $reportId in version $versionId" }
       return AppVersionError.REPORT_NOT_FOUND.left()
@@ -1055,14 +1068,19 @@ class AppVersionManagementService(
     return updated.right()
   }
 
-  private fun getDraftVersion(appId: String, versionId: String): AppVersion? {
-    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: return null
-    if (version.appId != AppId(appId)) return null
+  private fun getDraftVersion(appId: String, versionId: String): Either<DomainError, AppVersion> {
+    val app = appRepository.findById(AppId(appId)) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    if (app.status != AppStatus.ACTIVE) {
+      logger.warn { "Operation failed: app $appId is not active" }
+      return AppVersionError.APP_INACTIVE.left()
+    }
+    val version = appVersionRepository.findById(AppVersionId(versionId)) ?: return AppVersionError.VERSION_NOT_FOUND.left()
+    if (version.appId != AppId(appId)) return AppVersionError.VERSION_NOT_FOUND.left()
     if (version.status != AppVersionStatus.DRAFT) {
       logger.warn { "Operation failed: version $versionId is not in DRAFT status" }
-      return null
+      return AppVersionError.VERSION_NOT_FOUND.left()
     }
-    return version
+    return version.right()
   }
 
   /** An OBJECT property is only valid once it has at least one nested property, and all of its nested properties are themselves valid (recursively). */

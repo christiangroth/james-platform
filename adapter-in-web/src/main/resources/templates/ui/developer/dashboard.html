@@ -35,6 +35,9 @@
                         <div class="app-section-label text-truncate mb-2" data-testid="app-description">{appInfo.app.description}</div>
                         {/if}
                         <div class="mt-auto d-flex align-items-center gap-2 flex-wrap">
+                            {#if appInfo.app.status.name == 'INACTIVE'}
+                            <span class="badge app-badge-muted" data-testid="app-inactive-badge">{developer:developerAppStatusInactiveLabel()}</span>
+                            {/if}
                             {#if appInfo.hasDraft}
                             <span class="badge app-badge-processing" data-testid="app-draft-badge">{developer:developerDraftLabel()}</span>
                             {/if}

@@ -18,4 +18,6 @@ interface AppManagementPort {
   fun deactivateApp(appId: String, developerId: String): Either<DomainError, AppDeactivationResult>
   fun activateApp(appId: String, developerId: String): Either<DomainError, App>
   fun deleteApp(appId: String, developerId: String): Either<DomainError, Unit>
+  /** Number of active Installations for the app, shown to the developer up front (e.g. before confirming deletion), independent of the app's ACTIVE/INACTIVE status. */
+  fun getActiveInstallationCount(appId: String, developerId: String): Either<DomainError, Int>
 }

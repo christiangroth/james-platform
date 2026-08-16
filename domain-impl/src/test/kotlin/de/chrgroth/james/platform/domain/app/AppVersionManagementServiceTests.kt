@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
@@ -50,6 +51,11 @@ class AppVersionManagementServiceTests {
   private val publishedVersion = version(id = "ver-2", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
   private val draftVersionWithNewEntity = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-new"), name = "NewEntity")))
   private val releaseNotes = "Initial release notes."
+
+  init {
+    // Default: app "app-1" is active, as most tests below only exercise version/entity/property/report mutations and don't care about app status.
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+  }
 
   // region listVersions
 
@@ -154,6 +160,16 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DRAFT_VERSION_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `createVersion fails when app is inactive`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp.copy(status = AppStatus.INACTIVE)
+
+    val result = service.createVersion("app-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_INACTIVE)
   }
 
   // endregion
@@ -380,6 +396,26 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `publishVersion fails when app not found`() {
+    every { appRepository.findById(AppId("app-1")) } returns null
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_NOT_FOUND)
+  }
+
+  @Test
+  fun `publishVersion fails when app is inactive`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp.copy(status = AppStatus.INACTIVE)
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_INACTIVE)
   }
 
   @Test
@@ -750,6 +786,16 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `addEntity fails when app is inactive`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp.copy(status = AppStatus.INACTIVE)
+
+    val result = service.addEntity("app-1", "ver-1", "Order")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_INACTIVE)
   }
 
   // endregion
@@ -2084,6 +2130,16 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteDraftVersion fails when app is inactive`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp.copy(status = AppStatus.INACTIVE)
+
+    val result = service.deleteDraftVersion("app-1", "ver-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_INACTIVE)
   }
 
   // endregion
