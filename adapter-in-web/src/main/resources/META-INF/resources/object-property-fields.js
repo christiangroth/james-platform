@@ -12,6 +12,9 @@ var LIST_VALUE_SEPARATOR = '';
 var objectFieldMessages = {};
 
 function objectFieldScalarInput(field, name, value) {
+    if (field.hasUnit) {
+        return buildUnitValueField(field, name, value);
+    }
     if (field.htmlInputType === 'checkbox') {
         var wrapper = document.createElement('div');
         wrapper.className = 'form-check';

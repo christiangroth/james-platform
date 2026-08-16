@@ -378,6 +378,24 @@ interface DeveloperMessages {
   fun developerDurationPlaceholder(): String
 
   @Message
+  fun developerUnitLabel(): String
+
+  @Message
+  fun developerUnitFamilyLabel(): String
+
+  @Message
+  fun developerUnitFamilyTimeLabel(): String
+
+  @Message
+  fun developerUnitFamilyDistanceLabel(): String
+
+  @Message
+  fun developerUnitStorageGranularityLabel(): String
+
+  @Message
+  fun developerUnitDefaultGranularityLabel(): String
+
+  @Message
   fun developerMinLengthLabel(): String
 
   @Message
@@ -588,6 +606,9 @@ interface DeveloperMessages {
   fun developerListItemTypeSavedMessage(): String
 
   @Message
+  fun developerUnitSavedMessage(): String
+
+  @Message
   fun developerItemConstraintsSavedMessage(): String
 
   @Message
@@ -724,6 +745,15 @@ interface DeveloperMessages {
 
   @Message
   fun developerListItemTypeInvalidError(): String
+
+  @Message
+  fun developerUnitNotSupportedError(): String
+
+  @Message
+  fun developerUnitFamilyInvalidError(): String
+
+  @Message
+  fun developerUnitGranularityInvalidError(): String
 
   @Message
   fun developerReportNameExistsError(): String

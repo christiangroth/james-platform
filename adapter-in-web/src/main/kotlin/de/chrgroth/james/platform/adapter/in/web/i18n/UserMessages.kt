@@ -683,6 +683,12 @@ interface UserMessages {
   fun userDurationPlaceholder(): String
 
   @Message
+  fun userUnitTextModeButton(): String
+
+  @Message
+  fun userUnitDropdownModeButton(): String
+
+  @Message
   fun userDecreaseValueAriaLabel(): String
 
   @Message
