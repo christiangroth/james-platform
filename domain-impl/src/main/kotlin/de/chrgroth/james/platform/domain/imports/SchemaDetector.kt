@@ -21,8 +21,10 @@ object SchemaDetector {
   private val DATE_PATTERN = Regex("""^\d{4}-\d{2}-\d{2}$""")
   private val DATETIME_PATTERN = Regex("""^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$""")
 
-  fun detect(root: JsonNode, path: String): List<SchemaProperty> {
-    val objects = resolveObjects(root, path)
+  fun detect(root: JsonNode, path: String): List<SchemaProperty> = detect(resolveObjects(root, path))
+
+  /** Same detection as [detect] with a path, but over an already-resolved list of objects - used to derive a schema from filtered records instead of the full raw source. */
+  fun detect(objects: List<JsonNode>): List<SchemaProperty> {
     val typeCounts = linkedMapOf<String, MutableMap<SchemaPropertyType, Int>>()
     val presenceCounts = linkedMapOf<String, Int>()
     val numericRanges = linkedMapOf<String, NumericRange>()

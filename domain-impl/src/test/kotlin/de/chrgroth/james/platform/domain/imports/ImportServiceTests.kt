@@ -670,6 +670,8 @@ class ImportServiceTests {
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     val job = importJob(
       status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
       detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true)),
     )
     every { importJobRepository.findById(job.id) } returns job
@@ -686,6 +688,33 @@ class ImportServiceTests {
     assertThat(saved.captured.status).isEqualTo(ImportStatus.READY)
     val view = result.getOrNull()!!
     assertThat(view.validation?.isReady).isTrue()
+  }
+
+  @Test
+  fun `update mapping validates against filtered records rather than the stale unfiltered detected schema`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val job = importJob(
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = """{"items":[{"name":"Alice"},{"other":"x"}]}""",
+      selectedDataPath = "items",
+      // Stale: computed over the unfiltered records, where "name" is only present on one of two objects.
+      detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = false)),
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "name", FilterOperator.IS_NOT_NULL)),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+
+    val result = service.updateMapping(
+      "user-1",
+      job.id.value,
+      listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name")),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.READY)
+    assertThat(result.getOrNull()?.validation?.blockingIssues).isEmpty()
   }
 
   @Test
@@ -756,6 +785,27 @@ class ImportServiceTests {
     val view = result.getOrNull()!!
     assertThat(view.targetEntityDefinition).isEqualTo(entityDefinition)
     assertThat(view.validation).isNull()
+  }
+
+  @Test
+  fun `get mapping view validates against filtered records rather than the stale unfiltered detected schema`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val job = importJob(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice"},{"other":"x"}]}""",
+      selectedDataPath = "items",
+      // Stale: computed over the unfiltered records, where "name" is only present on one of two objects.
+      detectedSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = false)),
+      filterRules = listOf(FilterRule(FilterMode.INCLUDE, "name", FilterOperator.IS_NOT_NULL)),
+      mapping = Mapping(fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name"))),
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.getMappingView("user-1", job.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.validation?.blockingIssues).isEmpty()
   }
 
   @Test
