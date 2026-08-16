@@ -96,6 +96,7 @@ class ImportService(
 
     val detectedDataPaths = DataPathDetector.detect(parsed)
     val singleMatch = detectedDataPaths.singleOrNull()
+    val schema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty()
 
     val now = Instant.now()
     val importJob = ImportJob(
@@ -109,7 +110,8 @@ class ImportService(
       payload = rawPayload,
       detectedDataPaths = detectedDataPaths,
       selectedDataPath = singleMatch?.path,
-      detectedSchema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty(),
+      detectedSchema = schema,
+      filteredSchema = schema,
       createdAt = now,
       lastChangedAt = now,
     )
@@ -139,10 +141,12 @@ class ImportService(
       return ImportError.INVALID_DATA_PATH.left()
     }
 
+    val schema = SchemaDetector.detect(parsed, resolved.path)
     val updated = existing.copy(
       status = ImportStatus.DATA_IDENTIFIED,
       selectedDataPath = resolved.path,
-      detectedSchema = SchemaDetector.detect(parsed, resolved.path),
+      detectedSchema = schema,
+      filteredSchema = schema,
       lastChangedAt = Instant.now(),
     )
     importJobRepository.save(updated)
@@ -168,7 +172,12 @@ class ImportService(
       return ImportError.IMPORT_JOB_NOT_FILTERABLE.left()
     }
 
-    val updated = existing.copy(filterRules = filterRules, lastChangedAt = Instant.now())
+    val filteredRecords = FilterEvaluator.apply(rawRecordsAt(existing), filterRules)
+    val updated = existing.copy(
+      filterRules = filterRules,
+      filteredSchema = SchemaDetector.detect(filteredRecords),
+      lastChangedAt = Instant.now(),
+    )
     importJobRepository.save(updated)
     logger.info { "Filter updated: importJobId=$importJobId rules=${filterRules.size}" }
     return filterView(updated).right()
@@ -213,7 +222,7 @@ class ImportService(
 
     val entityDefinitions = entityDefinitionsOf(installedApp)
     val validation = existing.mapping?.let { mapping ->
-      MappingValidator.validate(mapping, targetEntityDefinition, existing.detectedSchema, entityDefinitions, propertyConstraint)
+      MappingValidator.validate(mapping, targetEntityDefinition, existing.filteredSchema, entityDefinitions, propertyConstraint)
     }
     return MappingView(existing, targetEntityDefinition, entityDefinitions, validation).right()
   }
@@ -250,7 +259,7 @@ class ImportService(
     val mapping = Mapping(
       fieldMappings = fieldMappings,
     )
-    val validation = MappingValidator.validate(mapping, targetEntityDefinition, existing.detectedSchema, entityDefinitions, propertyConstraint)
+    val validation = MappingValidator.validate(mapping, targetEntityDefinition, existing.filteredSchema, entityDefinitions, propertyConstraint)
     val updated = existing.copy(
       status = if (validation.isReady) ImportStatus.READY else ImportStatus.DATA_IDENTIFIED,
       mapping = mapping,

@@ -50,6 +50,13 @@ data class SchemaProperty(
  *
  * [urlPostfix], when set, is appended to the connection's base URL to form this job's actual fetch URL (see
  * [resolveImportUrl]); left `null`, the job fetches from the connection's base URL unchanged.
+ *
+ * [detectedSchema] is derived once from the raw, unfiltered records at [selectedDataPath] and stays unchanged
+ * afterwards - it is the field reference panel shown across the Filter and Mapping steps. [filteredSchema] is
+ * recomputed and persisted alongside [filterRules] whenever they change (see `ImportService.updateFilter`), since
+ * filter rules can change which records survive and thus a property's mandatory-ness, value range, or string length;
+ * mapping validation must judge issues against [filteredSchema], not [detectedSchema], to avoid flagging violations
+ * that a filter already removed.
  */
 data class ImportJob(
   val id: ImportJobId,
@@ -63,6 +70,7 @@ data class ImportJob(
   val detectedDataPaths: List<DataPath> = emptyList(),
   val selectedDataPath: String? = null,
   val detectedSchema: List<SchemaProperty> = emptyList(),
+  val filteredSchema: List<SchemaProperty> = emptyList(),
   val filterRules: List<FilterRule> = emptyList(),
   val mapping: Mapping? = null,
   val createdAt: Instant,

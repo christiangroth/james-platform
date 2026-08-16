@@ -34,6 +34,17 @@ class SchemaDetectorTests {
   }
 
   @Test
+  fun `detect over a pre-resolved list of objects matches detecting over a root and path`() {
+    val objects = objectMapper.readTree("""[{"a":1},{"a":2}]""").toList()
+
+    val result = SchemaDetector.detect(objects)
+
+    assertThat(result).containsExactly(
+      SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true, numericRange = NumericRange(min = 1.0, max = 2.0)),
+    )
+  }
+
+  @Test
   fun `detect counts multiple occurring types per property`() {
     val root = objectMapper.readTree("""{"items":[{"a":1},{"a":"text"},{"a":true}]}""")
 
