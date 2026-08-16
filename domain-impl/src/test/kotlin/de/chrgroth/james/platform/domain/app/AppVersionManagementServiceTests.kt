@@ -36,9 +36,16 @@ import io.mockk.slot
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import java.time.Instant
+import java.util.stream.Stream
 
 class AppVersionManagementServiceTests {
+
+  enum class NotFoundTarget { VERSION, ENTITY, PROPERTY }
 
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
@@ -607,87 +614,16 @@ class AppVersionManagementServiceTests {
     assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
   }
 
-  @Test
-  fun `computeVersionBump detects breaking change when entity definition removed`() {
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
+  @ParameterizedTest(name = "computeVersionBump detects breaking change when {0}")
+  @MethodSource("breakingChangeCases")
+  fun `computeVersionBump detects breaking changes`(
+    caseName: String,
+    publishedEntities: List<EntityDefinition>,
+    draftEntities: List<EntityDefinition>,
+  ) {
+    val pub = publishedVersion.copy(entityDefinitions = publishedEntities)
     val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
-      .copy(entityDefinitions = emptyList())
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
-
-    val result = service.computeVersionBump("app-1", "ver-draft")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
-  }
-
-  @Test
-  fun `computeVersionBump detects breaking change when property removed`() {
-    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
-    val entityWithProp = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
-    val entityWithoutProp = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = emptyList())
-    val pub = publishedVersion.copy(entityDefinitions = listOf(entityWithProp))
-    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
-      .copy(entityDefinitions = listOf(entityWithoutProp))
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
-
-    val result = service.computeVersionBump("app-1", "ver-draft")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
-  }
-
-  @Test
-  fun `computeVersionBump detects breaking change when property type changed`() {
-    val propPublished = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
-    val propDraft = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.STRING)
-    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
-    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
-    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
-    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
-      .copy(entityDefinitions = listOf(entityDraft))
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
-
-    val result = service.computeVersionBump("app-1", "ver-draft")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
-  }
-
-  @Test
-  fun `computeVersionBump detects breaking change when property made non-nullable`() {
-    val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
-    val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = false)
-    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
-    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
-    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
-    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
-      .copy(entityDefinitions = listOf(entityDraft))
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
-
-    val result = service.computeVersionBump("app-1", "ver-draft")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
-  }
-
-  @Test
-  fun `computeVersionBump detects breaking change when type-specific constraint added to existing property`() {
-    val propPublished = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING)
-    val propDraft = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.MaxLength(50)))
-    val entityPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propPublished))
-    val entityDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propDraft))
-    val pub = publishedVersion.copy(entityDefinitions = listOf(entityPublished))
-    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
-      .copy(entityDefinitions = listOf(entityDraft))
+      .copy(entityDefinitions = draftEntities)
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
@@ -1219,36 +1155,32 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NAME_ALREADY_EXISTS)
   }
 
-  @Test
-  fun `updateProperty fails when property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+  @ParameterizedTest(name = "updateProperty fails when {0} not found")
+  @EnumSource(NotFoundTarget::class)
+  fun `updateProperty fails when target not found`(target: NotFoundTarget) {
+    val versionId = if (target == NotFoundTarget.VERSION) "unknown" else "ver-1"
+    val entityId = if (target == NotFoundTarget.ENTITY) "unknown-entity" else "e-1"
+    val propertyId = if (target == NotFoundTarget.PROPERTY) "unknown-prop" else "p-1"
+    val expectedError = when (target) {
+      NotFoundTarget.VERSION -> {
+        every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+        AppVersionError.VERSION_NOT_FOUND
+      }
+      NotFoundTarget.ENTITY -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+        AppVersionError.ENTITY_NOT_FOUND
+      }
+      NotFoundTarget.PROPERTY -> {
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+        AppVersionError.PROPERTY_NOT_FOUND
+      }
+    }
 
-    val result = service.updateProperty("app-1", "ver-1", "e-1", "unknown-prop", "Amount", "LONG", true)
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
-  }
-
-  @Test
-  fun `updateProperty fails when entity not found`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
-
-    val result = service.updateProperty("app-1", "ver-1", "unknown-entity", "p-1", "Amount", "LONG", true)
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
-  }
-
-  @Test
-  fun `updateProperty fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
-
-    val result = service.updateProperty("app-1", "unknown", "e-1", "p-1", "Amount", "LONG", true)
+    val result = service.updateProperty("app-1", versionId, entityId, propertyId, "Amount", "LONG", true)
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+    assertThat(result.leftOrNull()).isEqualTo(expectedError)
   }
 
   // endregion
@@ -1312,36 +1244,32 @@ class AppVersionManagementServiceTests {
     assertThat(updatedProp?.constraints).isEmpty()
   }
 
-  @Test
-  fun `setPropertyConstraints fails when property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+  @ParameterizedTest(name = "setPropertyConstraints fails when {0} not found")
+  @EnumSource(NotFoundTarget::class)
+  fun `setPropertyConstraints fails when target not found`(target: NotFoundTarget) {
+    val versionId = if (target == NotFoundTarget.VERSION) "unknown" else "ver-1"
+    val entityId = if (target == NotFoundTarget.ENTITY) "unknown-entity" else "e-1"
+    val propertyId = if (target == NotFoundTarget.PROPERTY) "unknown-prop" else "p-1"
+    val expectedError = when (target) {
+      NotFoundTarget.VERSION -> {
+        every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+        AppVersionError.VERSION_NOT_FOUND
+      }
+      NotFoundTarget.ENTITY -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+        AppVersionError.ENTITY_NOT_FOUND
+      }
+      NotFoundTarget.PROPERTY -> {
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+        AppVersionError.PROPERTY_NOT_FOUND
+      }
+    }
 
-    val result = service.setPropertyConstraints("app-1", "ver-1", "e-1", "unknown-prop", emptySet())
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyConstraints fails when entity not found`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
-
-    val result = service.setPropertyConstraints("app-1", "ver-1", "unknown-entity", "p-1", emptySet())
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyConstraints fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
-
-    val result = service.setPropertyConstraints("app-1", "unknown", "e-1", "p-1", emptySet())
+    val result = service.setPropertyConstraints("app-1", versionId, entityId, propertyId, emptySet())
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+    assertThat(result.leftOrNull()).isEqualTo(expectedError)
   }
 
   // endregion
@@ -1453,9 +1381,10 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_VALUE_INVALID)
   }
 
-  @Test
-  fun `setPropertyDefault fails for LIST type`() {
-    val property = Property(id = PropertyId("p-1"), name = "Items", type = PropertyType.LIST)
+  @ParameterizedTest(name = "setPropertyDefault fails for {0} type")
+  @EnumSource(value = PropertyType::class, names = ["LIST", "OBJECT", "REF"])
+  fun `setPropertyDefault fails for types not supporting a default`(type: PropertyType) {
+    val property = Property(id = PropertyId("p-1"), name = "Prop", type = type)
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
@@ -1466,62 +1395,32 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_NOT_SUPPORTED)
   }
 
-  @Test
-  fun `setPropertyDefault fails for OBJECT type`() {
-    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+  @ParameterizedTest(name = "setPropertyDefault fails when {0} not found")
+  @EnumSource(NotFoundTarget::class)
+  fun `setPropertyDefault fails when target not found`(target: NotFoundTarget) {
+    val versionId = if (target == NotFoundTarget.VERSION) "unknown" else "ver-1"
+    val entityId = if (target == NotFoundTarget.ENTITY) "unknown-entity" else "e-1"
+    val propertyId = if (target == NotFoundTarget.PROPERTY) "unknown-prop" else "p-1"
+    val expectedError = when (target) {
+      NotFoundTarget.VERSION -> {
+        every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+        AppVersionError.VERSION_NOT_FOUND
+      }
+      NotFoundTarget.ENTITY -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+        AppVersionError.ENTITY_NOT_FOUND
+      }
+      NotFoundTarget.PROPERTY -> {
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+        AppVersionError.PROPERTY_NOT_FOUND
+      }
+    }
 
-    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "somevalue")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_NOT_SUPPORTED)
-  }
-
-  @Test
-  fun `setPropertyDefault fails for REF type`() {
-    val property = Property(id = PropertyId("p-1"), name = "RefProp", type = PropertyType.REF)
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "p-1", "somevalue")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.DEFAULT_NOT_SUPPORTED)
-  }
-
-  @Test
-  fun `setPropertyDefault fails when property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertyDefault("app-1", "ver-1", "e-1", "unknown-prop", "42")
+    val result = service.setPropertyDefault("app-1", versionId, entityId, propertyId, "42")
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyDefault fails when entity not found`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
-
-    val result = service.setPropertyDefault("app-1", "ver-1", "unknown-entity", "p-1", "42")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyDefault fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
-
-    val result = service.setPropertyDefault("app-1", "unknown", "e-1", "p-1", "42")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+    assertThat(result.leftOrNull()).isEqualTo(expectedError)
   }
 
   @Test
@@ -1586,35 +1485,10 @@ class AppVersionManagementServiceTests {
     assertThat(updatedProp?.smartDefault).isNull()
   }
 
-  @Test
-  fun `setPropertySmartDefault fails for LIST type when setting a script`() {
-    val property = Property(id = PropertyId("p-1"), name = "Items", type = PropertyType.LIST)
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
-  }
-
-  @Test
-  fun `setPropertySmartDefault fails for OBJECT type when setting a script`() {
-    val property = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT)
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
-  }
-
-  @Test
-  fun `setPropertySmartDefault fails for REF type when setting a script`() {
-    val property = Property(id = PropertyId("p-1"), name = "RefProp", type = PropertyType.REF)
+  @ParameterizedTest(name = "setPropertySmartDefault fails for {0} type when setting a script")
+  @EnumSource(value = PropertyType::class, names = ["LIST", "OBJECT", "REF"])
+  fun `setPropertySmartDefault fails for types not supporting a smart default`(type: PropertyType) {
+    val property = Property(id = PropertyId("p-1"), name = "Prop", type = type)
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
@@ -1640,36 +1514,32 @@ class AppVersionManagementServiceTests {
     assertThat(updatedProp?.smartDefault).isNull()
   }
 
-  @Test
-  fun `setPropertySmartDefault fails when property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+  @ParameterizedTest(name = "setPropertySmartDefault fails when {0} not found")
+  @EnumSource(NotFoundTarget::class)
+  fun `setPropertySmartDefault fails when target not found`(target: NotFoundTarget) {
+    val versionId = if (target == NotFoundTarget.VERSION) "unknown" else "ver-1"
+    val entityId = if (target == NotFoundTarget.ENTITY) "unknown-entity" else "e-1"
+    val propertyId = if (target == NotFoundTarget.PROPERTY) "unknown-prop" else "p-1"
+    val expectedError = when (target) {
+      NotFoundTarget.VERSION -> {
+        every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
+        AppVersionError.VERSION_NOT_FOUND
+      }
+      NotFoundTarget.ENTITY -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+        AppVersionError.ENTITY_NOT_FOUND
+      }
+      NotFoundTarget.PROPERTY -> {
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+        AppVersionError.PROPERTY_NOT_FOUND
+      }
+    }
 
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "unknown-prop", "now.toString()")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertySmartDefault fails when entity not found`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
-
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "unknown-entity", "p-1", "now.toString()")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertySmartDefault fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
-
-    val result = service.setPropertySmartDefault("app-1", "unknown", "e-1", "p-1", "now.toString()")
+    val result = service.setPropertySmartDefault("app-1", versionId, entityId, propertyId, "now.toString()")
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+    assertThat(result.leftOrNull()).isEqualTo(expectedError)
   }
 
   @Test
@@ -1928,15 +1798,18 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
   }
 
-  @Test
-  fun `getVersionDiff shows default value in diff lines when changed`() {
-    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, default = null)
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+  @ParameterizedTest(name = "getVersionDiff shows {0} in diff lines")
+  @MethodSource("versionDiffCases")
+  fun `getVersionDiff shows changes in diff lines`(
+    caseName: String,
+    predecessorEntities: List<EntityDefinition>,
+    currentEntities: List<EntityDefinition>,
+    expectedLineSubstringGroups: List<List<String>>,
+  ) {
     val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val updatedProp = prop.copy(default = "Alpha")
+      .copy(entityDefinitions = predecessorEntities, createdAt = publishedVersion.createdAt.minusSeconds(100))
     val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
+      .copy(entityDefinitions = currentEntities)
     every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
 
@@ -1945,156 +1818,10 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     val diff = result.getOrNull()!!
     assertThat(diff.entityDiffs).isNotEmpty()
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("default:") }
-  }
-
-  @Test
-  fun `getVersionDiff shows value-proposals in diff lines when changed`() {
-    val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, valueProposals = emptyList())
-    val filterProp = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop, filterProp))
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val updatedProp = prop.copy(valueProposals = listOf("p-2"))
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp, filterProp))))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    assertThat(diff.entityDiffs).isNotEmpty()
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("value-proposals:") }
-  }
-
-  @Test
-  fun `getVersionDiff shows added computed property in diff lines`() {
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = listOf(cp))))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    assertThat(diff.entityDiffs).isNotEmpty()
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("computed Total: LONG") }
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 42L") }
-  }
-
-  @Test
-  fun `getVersionDiff shows removed computed property in diff lines`() {
-    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp))
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = emptyList())))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    assertThat(diff.entityDiffs).isNotEmpty()
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("computed Total: LONG") }
-  }
-
-  @Test
-  fun `getVersionDiff detects changes to computed property script`() {
-    val cp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "0L")
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(cp))
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val updatedCp = cp.copy(script = "42L")
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(computedProperties = listOf(updatedCp))))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    assertThat(diff.entityDiffs).isNotEmpty()
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 42L") }
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("script: 0L") }
-  }
-
-  @Test
-  fun `getVersionDiff shows list item type and item constraints in diff lines when changed`() {
-    val prop = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val updatedProp = prop.copy(itemConstraints = setOf(PropertyConstraint.MaxLength(10)))
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("item-type: STRING") && it.contains("max-length:10") }
-  }
-
-  @Test
-  fun `getVersionDiff shows target entity name in diff lines when changed`() {
-    val targetEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer")
-    val prop = Property(id = PropertyId("p-1"), name = "Owner", type = PropertyType.REF)
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef, targetEntity), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val updatedProp = prop.copy(targetEntityId = EntityDefinitionId("e-2"))
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp)), targetEntity))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("target-entity: Customer") }
-  }
-
-  @Test
-  fun `getVersionDiff shows nested properties in diff lines when changed`() {
-    val nestedProp = Property(id = PropertyId("np-1"), name = "Street", type = PropertyType.STRING)
-    val prop = Property(id = PropertyId("p-1"), name = "Address", type = PropertyType.OBJECT, nestedProperties = listOf(nestedProp))
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
-    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef), createdAt = publishedVersion.createdAt.minusSeconds(100))
-    val updatedNestedProp = nestedProp.copy(nullable = false)
-    val updatedProp = prop.copy(nestedProperties = listOf(updatedNestedProp))
-    val currentVersion = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
-      .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(updatedProp))))
-    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns currentVersion
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, currentVersion)
-
-    val result = service.getVersionDiff("app-1", "ver-new")
-
-    assertThat(result.isRight()).isTrue()
-    val diff = result.getOrNull()!!
-    val entityDiff = diff.entityDiffs.first()
-    assertThat(entityDiff.lines.map { it.text }).anyMatch { it.contains("Street: STRING!") }
+    val lines = diff.entityDiffs.first().lines.map { it.text }
+    expectedLineSubstringGroups.forEach { group ->
+      assertThat(lines).anyMatch { line -> group.all { line.contains(it) } }
+    }
   }
 
   // endregion
@@ -2416,37 +2143,31 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED)
   }
 
-  @Test
-  fun `setPropertyValueProposals fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns null
+  @ParameterizedTest(name = "setPropertyValueProposals fails when {0} not found")
+  @EnumSource(NotFoundTarget::class)
+  fun `setPropertyValueProposals fails when target not found`(target: NotFoundTarget) {
+    val entityId = if (target == NotFoundTarget.ENTITY) "unknown-entity" else "e-1"
+    val propertyId = if (target == NotFoundTarget.PROPERTY) "unknown-prop" else "p-1"
+    val expectedError = when (target) {
+      NotFoundTarget.VERSION -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns null
+        AppVersionError.VERSION_NOT_FOUND
+      }
+      NotFoundTarget.ENTITY -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = emptyList())
+        AppVersionError.ENTITY_NOT_FOUND
+      }
+      NotFoundTarget.PROPERTY -> {
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item")
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+        AppVersionError.PROPERTY_NOT_FOUND
+      }
+    }
 
-    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "p-1", emptyList())
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyValueProposals fails when entity not found`() {
-    val version = draftVersion.copy(entityDefinitions = emptyList())
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertyValueProposals("app-1", "ver-1", "unknown-entity", "p-1", emptyList())
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyValueProposals fails when property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertyValueProposals("app-1", "ver-1", "e-1", "unknown-prop", emptyList())
+    val result = service.setPropertyValueProposals("app-1", "ver-1", entityId, propertyId, emptyList())
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+    assertThat(result.leftOrNull()).isEqualTo(expectedError)
   }
 
   // endregion
@@ -2524,37 +2245,31 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.TARGET_ENTITY_NOT_FOUND)
   }
 
-  @Test
-  fun `setPropertyTargetEntity fails when version not found`() {
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns null
+  @ParameterizedTest(name = "setPropertyTargetEntity fails when {0} not found")
+  @EnumSource(NotFoundTarget::class)
+  fun `setPropertyTargetEntity fails when target not found`(target: NotFoundTarget) {
+    val entityId = if (target == NotFoundTarget.ENTITY) "unknown-entity" else "e-1"
+    val propertyId = if (target == NotFoundTarget.PROPERTY) "unknown-prop" else "p-1"
+    val expectedError = when (target) {
+      NotFoundTarget.VERSION -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns null
+        AppVersionError.VERSION_NOT_FOUND
+      }
+      NotFoundTarget.ENTITY -> {
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = emptyList())
+        AppVersionError.ENTITY_NOT_FOUND
+      }
+      NotFoundTarget.PROPERTY -> {
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item")
+        every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+        AppVersionError.PROPERTY_NOT_FOUND
+      }
+    }
 
-    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-1", "e-2")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyTargetEntity fails when entity not found`() {
-    val version = draftVersion.copy(entityDefinitions = emptyList())
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertyTargetEntity("app-1", "ver-1", "unknown-entity", "p-1", "e-2")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
-  }
-
-  @Test
-  fun `setPropertyTargetEntity fails when property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Item")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "unknown-prop", "e-2")
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", entityId, propertyId, "e-2")
 
     assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+    assertThat(result.leftOrNull()).isEqualTo(expectedError)
   }
 
   // endregion
@@ -2860,4 +2575,116 @@ class AppVersionManagementServiceTests {
   }
 
   // endregion
+
+  companion object {
+
+    @JvmStatic
+    fun breakingChangeCases(): Stream<Arguments> {
+      val entityRemoved = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+
+      val propRemovedProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+      val propRemovedWith = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(propRemovedProp))
+      val propRemovedWithout = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = emptyList())
+
+      val typeChangedPublishedProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+      val typeChangedDraftProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.STRING)
+      val typeChangedPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(typeChangedPublishedProp))
+      val typeChangedDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(typeChangedDraftProp))
+
+      val nonNullablePublishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+      val nonNullableDraftProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = false)
+      val nonNullablePublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(nonNullablePublishedProp))
+      val nonNullableDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(nonNullableDraftProp))
+
+      val constraintPublishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING)
+      val constraintDraftProp = Property(
+        id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING,
+        constraints = setOf(PropertyConstraint.MaxLength(50)),
+      )
+      val constraintPublished = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(constraintPublishedProp))
+      val constraintDraft = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(constraintDraftProp))
+
+      return Stream.of(
+        Arguments.of("entity definition removed", listOf(entityRemoved), emptyList<EntityDefinition>()),
+        Arguments.of("property removed", listOf(propRemovedWith), listOf(propRemovedWithout)),
+        Arguments.of("property type changed", listOf(typeChangedPublished), listOf(typeChangedDraft)),
+        Arguments.of("property made non-nullable", listOf(nonNullablePublished), listOf(nonNullableDraft)),
+        Arguments.of("type-specific constraint added to existing property", listOf(constraintPublished), listOf(constraintDraft)),
+      )
+    }
+
+    @JvmStatic
+    fun versionDiffCases(): Stream<Arguments> {
+      val defaultProp = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, default = null)
+      val defaultEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(defaultProp))
+      val defaultUpdatedEntity = defaultEntity.copy(properties = listOf(defaultProp.copy(default = "Alpha")))
+
+      val valueProposalsProp = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, valueProposals = emptyList())
+      val valueProposalsFilterProp = Property(id = PropertyId("p-2"), name = "Group", type = PropertyType.STRING)
+      val valueProposalsEntity =
+        EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(valueProposalsProp, valueProposalsFilterProp))
+      val valueProposalsUpdatedEntity = valueProposalsEntity.copy(
+        properties = listOf(valueProposalsProp.copy(valueProposals = listOf("p-2")), valueProposalsFilterProp),
+      )
+
+      val computedAddedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+      val addedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+      val computedAddedUpdatedEntity = computedAddedEntity.copy(computedProperties = listOf(addedCp))
+
+      val removedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+      val computedRemovedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(removedCp))
+      val computedRemovedUpdatedEntity = computedRemovedEntity.copy(computedProperties = emptyList())
+
+      val scriptCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "0L")
+      val scriptEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(scriptCp))
+      val scriptUpdatedEntity = scriptEntity.copy(computedProperties = listOf(scriptCp.copy(script = "42L")))
+
+      val listItemProp = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
+      val listItemEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(listItemProp))
+      val listItemUpdatedEntity = listItemEntity.copy(
+        properties = listOf(listItemProp.copy(itemConstraints = setOf(PropertyConstraint.MaxLength(10)))),
+      )
+
+      val targetEntityRef = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer")
+      val targetProp = Property(id = PropertyId("p-1"), name = "Owner", type = PropertyType.REF)
+      val targetEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(targetProp))
+      val targetUpdatedEntity = targetEntity.copy(properties = listOf(targetProp.copy(targetEntityId = EntityDefinitionId("e-2"))))
+
+      val nestedProp = Property(id = PropertyId("np-1"), name = "Street", type = PropertyType.STRING)
+      val nestedParentProp = Property(id = PropertyId("p-1"), name = "Address", type = PropertyType.OBJECT, nestedProperties = listOf(nestedProp))
+      val nestedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(nestedParentProp))
+      val nestedUpdatedEntity = nestedEntity.copy(
+        properties = listOf(nestedParentProp.copy(nestedProperties = listOf(nestedProp.copy(nullable = false)))),
+      )
+
+      return Stream.of(
+        Arguments.of("default value", listOf(defaultEntity), listOf(defaultUpdatedEntity), listOf(listOf("default:"))),
+        Arguments.of("value-proposals", listOf(valueProposalsEntity), listOf(valueProposalsUpdatedEntity), listOf(listOf("value-proposals:"))),
+        Arguments.of(
+          "added computed property", listOf(computedAddedEntity), listOf(computedAddedUpdatedEntity),
+          listOf(listOf("computed Total: LONG"), listOf("script: 42L")),
+        ),
+        Arguments.of(
+          "removed computed property", listOf(computedRemovedEntity), listOf(computedRemovedUpdatedEntity),
+          listOf(listOf("computed Total: LONG")),
+        ),
+        Arguments.of(
+          "changes to computed property script", listOf(scriptEntity), listOf(scriptUpdatedEntity),
+          listOf(listOf("script: 42L"), listOf("script: 0L")),
+        ),
+        Arguments.of(
+          "list item type and item constraints", listOf(listItemEntity), listOf(listItemUpdatedEntity),
+          listOf(listOf("item-type: STRING", "max-length:10")),
+        ),
+        Arguments.of(
+          "target entity name", listOf(targetEntity, targetEntityRef), listOf(targetUpdatedEntity, targetEntityRef),
+          listOf(listOf("target-entity: Customer")),
+        ),
+        Arguments.of(
+          "nested properties", listOf(nestedEntity), listOf(nestedUpdatedEntity),
+          listOf(listOf("Street: STRING!")),
+        ),
+      )
+    }
+  }
 }
