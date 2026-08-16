@@ -26,7 +26,7 @@ James Platform is a personal Low Code system for building and running data-centr
 
 - A Developer creates an **App** and publishes it as a series of **Versions**.
 - Each Version carries a **semver** number derived automatically from entity changes:
-  - *Breaking change* (removed/renamed entity or property, changed immutable ID) → mandatory **Major** release.
+  - *Breaking change* (removed/renamed entity or property, changed immutable ID, changed unit family or storage granularity on a `long`/`Double` property) → mandatory **Major** release.
   - *Non-breaking change* → Developer chooses between **Feature** or **Bugfix** release.
   - The version number is never entered manually.
 - A released Version records a release date and release notes.

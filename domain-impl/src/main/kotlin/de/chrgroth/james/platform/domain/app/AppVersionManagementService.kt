@@ -14,12 +14,17 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Granularity
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.TimeGranularity
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
@@ -733,6 +738,69 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun setPropertyUnit(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    family: String?,
+    storageGranularity: String?,
+    defaultGranularity: String?,
+    path: List<String>,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property unit failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    var resolvedUnit: PropertyUnit? = null
+    val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
+      withPropertyUnit(property, propertyId, family, storageGranularity, defaultGranularity).map {
+        resolvedUnit = it.unit
+        it
+      }
+    }.fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property unit set: $propertyId in entity $entityId in version $versionId (unit=${resolvedUnit?.let { "${it.family}/${it.storageGranularity}" } ?: "cleared"})" }
+    return updated.right()
+  }
+
+  private fun withPropertyUnit(
+    property: Property,
+    propertyId: String,
+    family: String?,
+    storageGranularity: String?,
+    defaultGranularity: String?,
+  ): Either<DomainError, Property> {
+    val trimmedFamily = family?.trim()?.takeIf { it.isNotBlank() } ?: return property.copy(unit = null).right()
+    if (!property.type.supportsUnit()) {
+      logger.warn { "Set property unit failed: type ${property.type} does not support units: $propertyId" }
+      return AppVersionError.UNIT_NOT_SUPPORTED.left()
+    }
+    val parsedFamily = runCatching { UnitFamily.valueOf(trimmedFamily.uppercase()) }.getOrNull() ?: run {
+      logger.warn { "Set property unit failed: invalid family: $family" }
+      return AppVersionError.UNIT_FAMILY_INVALID.left()
+    }
+    val parsedStorageGranularity = parseGranularity(parsedFamily, storageGranularity) ?: run {
+      logger.warn { "Set property unit failed: invalid storage granularity: $storageGranularity for family $parsedFamily" }
+      return AppVersionError.UNIT_GRANULARITY_INVALID.left()
+    }
+    val parsedDefaultGranularity = parseGranularity(parsedFamily, defaultGranularity) ?: run {
+      logger.warn { "Set property unit failed: invalid default granularity: $defaultGranularity for family $parsedFamily" }
+      return AppVersionError.UNIT_GRANULARITY_INVALID.left()
+    }
+    return property.copy(unit = PropertyUnit(parsedFamily, parsedStorageGranularity, parsedDefaultGranularity)).right()
+  }
+
+  private fun parseGranularity(family: UnitFamily, value: String?): Granularity? {
+    val trimmed = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    return when (family) {
+      UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+      UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+    }
+  }
+
   private fun parseListItemType(listItemType: String?): Either<DomainError, PropertyType> {
     val trimmedListItemType = listItemType?.trim()?.takeIf { it.isNotBlank() } ?: run {
       logger.warn { "Parse list item type failed: list item type is required" }
@@ -1118,6 +1186,13 @@ class AppVersionManagementService(
         if (publishedProp.nullable && !draftProp.nullable) return true
         val addedConstraints = draftProp.constraints - publishedProp.constraints
         if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
+        val publishedUnit = publishedProp.unit
+        val draftUnit = draftProp.unit
+        if ((publishedUnit == null) != (draftUnit == null)) return true
+        if (publishedUnit != null && draftUnit != null) {
+          if (publishedUnit.family != draftUnit.family) return true
+          if (publishedUnit.storageGranularity != draftUnit.storageGranularity) return true
+        }
       }
     }
     return false
@@ -1282,6 +1357,10 @@ class AppVersionManagementService(
     val nullable = if (prop.nullable) "?" else "!"
     val constraintsStr = constraintsToDslString(prop.constraints)
     lines.add("$indent${prop.name}: ${prop.type}$nullable$constraintsStr")
+    val unit = prop.unit
+    if (unit != null) {
+      lines.add("$indent  unit: ${unit.family} (granularity: ${unit.storageGranularity}, default: ${unit.defaultGranularity})")
+    }
     if (prop.default != null) {
       lines.add("$indent  default: ${prop.default}")
     }

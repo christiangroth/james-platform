@@ -90,6 +90,16 @@ interface AppVersionManagementPort {
     itemConstraints: Set<PropertyConstraint>,
     path: List<String> = emptyList(),
   ): Either<DomainError, AppVersion>
+  fun setPropertyUnit(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    family: String?,
+    storageGranularity: String?,
+    defaultGranularity: String?,
+    path: List<String> = emptyList(),
+  ): Either<DomainError, AppVersion>
   fun reorderProperties(appId: String, versionId: String, entityId: String, propertyIds: List<String>, path: List<String> = emptyList()): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String, path: List<String> = emptyList()): Either<DomainError, AppVersion>
   fun addComputedProperty(appId: String, versionId: String, entityId: String, name: String, type: String): Either<DomainError, AppVersion>
