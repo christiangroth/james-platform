@@ -1,8 +1,14 @@
 package de.chrgroth.james.platform.domain.app
 
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class PropertyTypeTests {
@@ -223,6 +229,47 @@ class PropertyTypeTests {
   @Test
   fun `OBJECT does not support computed properties`() {
     assertThat(PropertyType.OBJECT.supportsComputedProperty()).isFalse()
+  }
+
+  // endregion
+
+  // region supportsUnit / Property.unit validation
+
+  @Test
+  fun `only LONG and DOUBLE support unit`() {
+    assertThat(PropertyType.LONG.supportsUnit()).isTrue()
+    assertThat(PropertyType.DOUBLE.supportsUnit()).isTrue()
+    val otherTypes = PropertyType.entries - setOf(PropertyType.LONG, PropertyType.DOUBLE)
+    otherTypes.forEach { type ->
+      assertThat(type.supportsUnit())
+        .describedAs("$type should not support unit")
+        .isFalse()
+    }
+  }
+
+  private val distanceUnit = PropertyUnit(
+    family = UnitFamily.DISTANCE,
+    storageGranularity = DistanceGranularity.METERS,
+    defaultGranularity = DistanceGranularity.KILOMETERS,
+  )
+
+  @Test
+  fun `Property accepts unit on LONG and DOUBLE`() {
+    assertThat(Property(id = PropertyId("p1"), name = "Distance", type = PropertyType.LONG, unit = distanceUnit).unit).isEqualTo(distanceUnit)
+    assertThat(Property(id = PropertyId("p2"), name = "Distance", type = PropertyType.DOUBLE, unit = distanceUnit).unit).isEqualTo(distanceUnit)
+  }
+
+  @Test
+  fun `Property rejects unit on types other than LONG and DOUBLE`() {
+    assertThatThrownBy { Property(id = PropertyId("p3"), name = "Distance", type = PropertyType.STRING, unit = distanceUnit) }
+      .isInstanceOf(IllegalArgumentException::class.java)
+  }
+
+  @Test
+  fun `PropertyUnit rejects granularities not belonging to its family`() {
+    assertThatThrownBy {
+      PropertyUnit(family = UnitFamily.TIME, storageGranularity = DistanceGranularity.METERS, defaultGranularity = DistanceGranularity.KILOMETERS)
+    }.isInstanceOf(IllegalArgumentException::class.java)
   }
 
   // endregion

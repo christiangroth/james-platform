@@ -20,6 +20,7 @@ import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.parseDurationValue
+import de.chrgroth.james.platform.domain.model.app.parseUnitValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -27,6 +28,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
+import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
@@ -72,10 +74,10 @@ class AppDataService(
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     val allPathedViolations = mutableListOf<PathedConstraintViolation>()
     for (property in entityDef.properties) {
-      val storedValue = storedValueFor(property, data)
+      val (storedValue, unitViolations) = unitConvertedValue(property, storedValueFor(property, data))
       val parsedValue = parseValue(property, storedValue)
       val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
-      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
+      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue) + unitViolations
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
         logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
@@ -169,10 +171,10 @@ class AppDataService(
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     val allPathedViolations = mutableListOf<PathedConstraintViolation>()
     for (property in entityDef.properties) {
-      val storedValue = storedValueFor(property, data)
+      val (storedValue, unitViolations) = unitConvertedValue(property, storedValueFor(property, data))
       val parsedValue = parseValue(property, storedValue)
       val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
-      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue)
+      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + durationFormatViolations(property, storedValue) + unitViolations
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
         logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
@@ -297,6 +299,23 @@ class AppDataService(
       else -> return emptyList()
     }
     return durationValues.filter { parseDurationValue(it) == null }.map { PropertyConstraintViolation.InvalidDurationFormatViolation }
+  }
+
+  /**
+   * For a property with a [Property.unit], parses its raw submitted text via [parseUnitValue] and converts it into a
+   * number expressed in [PropertyUnit.storageGranularity] — unlike DURATION, the raw text itself is never persisted.
+   * Returns the (possibly converted) value to store alongside any violations (invalid format, or a non-integer result
+   * for a LONG property). Values of properties without a unit pass through unchanged.
+   */
+  private fun unitConvertedValue(property: Property, rawValue: String?): Pair<String?, List<PropertyConstraintViolation>> {
+    val unit = property.unit ?: return rawValue to emptyList()
+    if (rawValue.isNullOrBlank()) return rawValue to emptyList()
+    val parsed = parseUnitValue(rawValue, unit.storageGranularity) ?: return rawValue to listOf(PropertyConstraintViolation.InvalidUnitFormatViolation)
+    if (property.type == PropertyType.LONG && parsed.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+      return rawValue to listOf(PropertyConstraintViolation.NonIntegerUnitValueViolation)
+    }
+    val converted = if (property.type == PropertyType.LONG) parsed.toBigInteger().toString() else parsed.stripTrailingZeros().toPlainString()
+    return converted to emptyList()
   }
 
   private fun parseValue(property: Property, storedValue: String?): Any? {

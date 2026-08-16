@@ -44,6 +44,7 @@ James Platform is a personal Low Code system for building and running data-centr
   - An ID unique within the Entity (immutable).
   - A data type and associated constraints.
   - An optional static **default** value, and/or a **smart default** (see below).
+  - For `long`/`Double` properties: an optional **unit** (see [Property Units](#property-units)).
   - Optional **value proposals** – a Developer-configured list of suggested values offered to the User as autocomplete options in the create/edit form.
   - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
   - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
@@ -67,6 +68,24 @@ James Platform is a personal Low Code system for building and running data-centr
 | `object`   | Inline nested object with its own property list (analogous to an anonymous Entity without a global ID) |
 
 Cyclic reference graphs via `ref` are detected and rejected at schema-definition time.
+
+### Property Units
+
+A `long`/`Double` property may carry a **`PropertyUnit`**, letting a Developer attach a unit family to a
+numeric field and a User enter values as unit-suffixed text (e.g. `15km 400m`) instead of a bare number.
+
+- A `PropertyUnit` has a **`family`** (`TIME` or `DISTANCE`), a **`storageGranularity`**, and a
+  **`defaultGranularity`** — both granularities are one of `TimeGranularity` (`MILLISECONDS`, `SECONDS`,
+  `MINUTES`, `HOURS`, `DAYS`) or `DistanceGranularity` (`MILLIMETERS`, `CENTIMETERS`, `METERS`,
+  `KILOMETERS`), matching the unit's `family`.
+- Values are always stored numerically in `storageGranularity` — `UnitFormat` parses a User's textual
+  input (e.g. `"15km 400m"` → `15400` at `storageGranularity = METERS`) at write time, unlike the `duration`
+  type, which stores its textual input verbatim (see ADR [0016](../adr/0016-property-units-storage-granularity.md)).
+  For a `long` property, the converted value must be an integer (a fractional result is rejected).
+- `storageGranularity` is fixed at field creation and immutable afterward — there is no migration
+  mechanism for existing data, so changing it requires recreating the field (a breaking change, see ADR
+  [0016](../adr/0016-property-units-storage-granularity.md)). `defaultGranularity` — only the granularity
+  pre-selected in the create/edit form — may change freely at any time.
 
 ### Constraints
 
@@ -507,6 +526,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0012](../adr/0012-import-connection-job-split.md)           | Data Import: Separate Reusable Connection from Per-Run Job |
 | [0013](../adr/0013-precomputed-read-models-per-ui-page.md)   | Precomputed Read Models per UI Page (Scoped CQRS Exception) |
 | [0014](../adr/0014-app-lifecycle.md)                          | App Lifecycle: Non-Blocking Deactivation, Blocking Hard Delete |
+| [0015](../adr/0015-import-object-preview-endpoint.md)         | Import Filter Preview: Per-Record Sample Endpoint Reusing FilterEvaluator |
+| [0016](../adr/0016-property-units-storage-granularity.md)     | Property Units: Fixed Numeric Storage Granularity, Immutable After Creation |
 
 # Risks and Technical Debts
 
@@ -571,3 +592,6 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Mapping           | The configuration, held by a single import job, of how each source field maps to a Property of the job's target Entity. |
 | Reference lookup   | A `find`-only rule, configured per REF Property in a Mapping, that resolves a source value to an existing object of the referenced Entity. Never creates a referenced object as a side effect. |
 | Dry run           | A non-persisting preview of an import's Accept step, surfacing per-object validation issues before any data is written. |
+| Property Unit     | An optional unit (`family`, `storageGranularity`, `defaultGranularity`) attached to a `long`/`Double` Property; values are always stored numerically in `storageGranularity`. See ADR [0016](../adr/0016-property-units-storage-granularity.md). |
+| Unit family       | The kind of unit a Property Unit belongs to: `TIME` or `DISTANCE`. Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`) applies. |
+| Storage granularity | A Property Unit's fixed smallest representable unit, chosen at field creation and immutable afterward. |

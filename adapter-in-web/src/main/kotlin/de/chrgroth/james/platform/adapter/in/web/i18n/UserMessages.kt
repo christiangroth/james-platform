@@ -859,6 +859,12 @@ interface UserMessages {
   @Message
   fun userInvalidDurationFormatViolationError(format: String): String
 
+  @Message
+  fun userInvalidUnitFormatViolationError(): String
+
+  @Message
+  fun userNonIntegerUnitValueViolationError(): String
+
   // app data new / edit (constraint hints, shown under the input)
   @Message
   fun userHintMinLabel(): String

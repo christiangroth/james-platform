@@ -10,16 +10,21 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Granularity
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.TimeGranularity
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -142,7 +147,20 @@ class AppVersionRepositoryAdapter(
     listItemType = listItemType?.let { PropertyType.valueOf(it) },
     itemConstraints = itemConstraints.mapNotNull { it.toDomain() }.toSet(),
     nestedProperties = nestedProperties.map { it.toDomain() },
+    unit = unit?.toDomain(),
   )
+
+  private fun PropertyUnitDocument.toDomain(): PropertyUnit? {
+    val parsedFamily = runCatching { UnitFamily.valueOf(family) }.getOrNull() ?: return null
+    val storage = granularityOrNull(parsedFamily, storageGranularity) ?: return null
+    val default = granularityOrNull(parsedFamily, defaultGranularity) ?: return null
+    return runCatching { PropertyUnit(family = parsedFamily, storageGranularity = storage, defaultGranularity = default) }.getOrNull()
+  }
+
+  private fun granularityOrNull(family: UnitFamily, name: String): Granularity? = when (family) {
+    UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(name) }.getOrNull()
+    UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(name) }.getOrNull()
+  }
 
   private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {
     val propertyType = runCatching { PropertyType.valueOf(type) }.getOrNull() ?: return null
@@ -223,7 +241,16 @@ class AppVersionRepositoryAdapter(
     doc.listItemType = listItemType?.name
     doc.itemConstraints = itemConstraints.map { it.toDocument() }
     doc.nestedProperties = nestedProperties.map { it.toDocument() }
+    doc.unit = unit?.toDocument()
   }
+
+  private fun PropertyUnit.toDocument() = PropertyUnitDocument().also { doc ->
+    doc.family = family.name
+    doc.storageGranularity = storageGranularity.enumName()
+    doc.defaultGranularity = defaultGranularity.enumName()
+  }
+
+  private fun Granularity.enumName(): String = (this as Enum<*>).name
 
   private fun ComputedProperty.toDocument() = ComputedPropertyDocument().also { doc ->
     doc.id = id.value

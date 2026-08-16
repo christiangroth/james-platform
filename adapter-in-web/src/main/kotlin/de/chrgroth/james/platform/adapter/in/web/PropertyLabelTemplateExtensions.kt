@@ -174,5 +174,7 @@ object PropertyLabelTemplateExtensions {
     is PropertyConstraintViolation.MaxDurationViolation -> userMessages.userMaxDurationViolationError(violation.max.toString())
     is PropertyConstraintViolation.StepViolation -> userMessages.userStepViolationError(violation.step.toString())
     is PropertyConstraintViolation.InvalidDurationFormatViolation -> userMessages.userInvalidDurationFormatViolationError(DURATION_FORMAT_HINT)
+    is PropertyConstraintViolation.InvalidUnitFormatViolation -> userMessages.userInvalidUnitFormatViolationError()
+    is PropertyConstraintViolation.NonIntegerUnitValueViolation -> userMessages.userNonIntegerUnitValueViolationError()
   }
 }

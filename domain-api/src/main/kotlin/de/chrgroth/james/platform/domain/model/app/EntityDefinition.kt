@@ -54,7 +54,13 @@ data class Property(
   val itemConstraints: Set<PropertyConstraint> = emptySet(),
   // Properties defining the structure of an OBJECT property. Unused for other types. May recursively contain further OBJECT properties.
   val nestedProperties: List<Property> = emptyList(),
-)
+  // Unit assigned to a LONG/DOUBLE property's numeric value, e.g. distance stored in meters. Unused for other types.
+  val unit: PropertyUnit? = null,
+) {
+  init {
+    require(unit == null || type.supportsUnit()) { "unit is not supported for property type $type" }
+  }
+}
 
 sealed interface PropertyConstraint {
   // Unique key constraint (scalar types only — not LIST or OBJECT)
@@ -104,6 +110,8 @@ enum class PropertyType {
       PropertyConstraint.MaxLong::class,
       PropertyConstraint.StepLong::class,
     )
+
+    override fun supportsUnit(): Boolean = true
   },
   DOUBLE {
     override fun availableConstraints() = listOf(
@@ -112,6 +120,8 @@ enum class PropertyType {
       PropertyConstraint.MaxDouble::class,
       PropertyConstraint.StepDouble::class,
     )
+
+    override fun supportsUnit(): Boolean = true
   },
   BOOLEAN {
     override fun availableConstraints() = listOf(
@@ -183,6 +193,9 @@ enum class PropertyType {
   open fun supportsSmartDefault(): Boolean = supportsDefault()
 
   open fun supportsComputedProperty(): Boolean = supportsDefault() && this != REF
+
+  /** Whether this type may carry a [Property.unit] (see also ADR 0016). */
+  open fun supportsUnit(): Boolean = false
 
   /** Constraints applicable to LIST items of this type, i.e. its own constraints minus UniqueKey (not meaningful per list element). */
   fun availableItemConstraints(): List<KClass<out PropertyConstraint>> = availableConstraints().filter { it != PropertyConstraint.UniqueKey::class }
