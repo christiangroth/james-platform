@@ -40,7 +40,7 @@ is reused, but flagged as a **test installation**:
 Add a `TestDataGeneratorPort` (inbound port, `domain-api`) that, given an `EntityDefinition` and a desired object count, produces a list of value maps satisfying every
 constraint already modelled on `Property`:
 
-- **Type-driven generation** – one generator strategy per `PropertyType` (`LONG`, `DOUBLE`, `BOOLEAN`, `STRING`, `DATE`, `TIME`, `DATETIME`, `DURATION`, `REF`, `LIST`, `OBJECT`).
+- **Type-driven generation** – one generator strategy per `PropertyType` (`LONG`, `DOUBLE`, `BOOLEAN`, `STRING`, `DATE`, `TIME`, `DATETIME`, `REF`, `LIST`, `OBJECT`).
 - **Constraint-aware** – respects `MinLong`/`MaxLong`/`StepLong`, `MinLength`/`MaxLength`/`Pattern`, `MinDate`/`MaxDate`, `MinSize`/`MaxSize`, etc. (the full set already defined as
   `PropertyConstraint` subtypes), plus `nullable` and `UniqueKey`.
 - **Nested types** – `LIST` properties generate `MinSize`..`MaxSize` items honoring `listItemType`/`itemConstraints`; `OBJECT` properties recurse into `nestedProperties`.

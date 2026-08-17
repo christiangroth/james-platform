@@ -95,8 +95,9 @@ freely at any time without affecting existing data.
 
 * [`PropertyUnit.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/PropertyUnit.kt)
 * [`UnitFormat.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/UnitFormat.kt)
-* [`DurationFormat.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/DurationFormat.kt)
+* `DurationFormat.kt` – the `duration` type's text-format parser this ADR compares against; removed by ADR [0017](0017-duration-migration-and-removal.md).
 * [`AppDataService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppDataService.kt)
-* [`ScalarValueParsing.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/ScalarValueParsing.kt) – Data Import reuses `storageGranularity`/`factorToSmallestUnit` to convert a `FieldMapping.importGranularity` raw value at mapping time, mirroring `DurationConversionUnit`'s conversion.
+* [`ScalarValueParsing.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/ScalarValueParsing.kt) – Data Import reuses `storageGranularity`/`factorToSmallestUnit` to convert a `FieldMapping.importGranularity` raw value at mapping time.
 * [arc42: Supported Data Types](../arc42/arc42.md#supported-data-types)
 * [arc42: Data Import (ETL)](../arc42/arc42.md#data-import-etl)
+* Superseded (for `duration`) by ADR [0017](0017-duration-migration-and-removal.md)
