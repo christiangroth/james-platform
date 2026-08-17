@@ -72,7 +72,7 @@
             {#else}
             <div class="card app-card">
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0" data-testid="valid-objects-table">
+                    <table class="table table-sm mb-0 app-table" data-testid="valid-objects-table">
                         <thead>
                             <tr>
                                 {#for column in validObjectsColumns}
@@ -128,7 +128,7 @@
                                     </div>
                                     <div class="col-md-6 tab-pane" id="dry-run-target-{object_index}" role="tabpanel" aria-labelledby="dry-run-target-tab-{object_index}" tabindex="0">
                                         <div class="app-section-label small mb-1 d-none d-md-block">{user:userImportDryRunColTargetObject()}</div>
-                                        <table class="table table-sm mb-0" data-testid="dry-run-target-object">
+                                        <table class="table table-sm mb-0 app-table" data-testid="dry-run-target-object">
                                             <tbody>
                                                 {#for property in object.properties}
                                                 <tr class="{#if property.hasIssue}table-danger{/if}" data-testid="dry-run-property-row">
@@ -170,7 +170,7 @@
             {#else}
             <div class="card app-card">
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0" data-testid="skipped-reasons-table">
+                    <table class="table table-sm mb-0 app-table" data-testid="skipped-reasons-table">
                         <thead>
                             <tr>
                                 <th>{user:userImportDryRunSkippedReasonsColProperty()}</th>

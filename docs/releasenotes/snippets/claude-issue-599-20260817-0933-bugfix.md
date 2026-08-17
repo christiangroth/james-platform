@@ -1,0 +1,1 @@
+* Fixed dark mode styling for several tables in the import UIs (schema panel, dry-run details, data path structure, mapping sample/reference lookup) that still showed a white background and black text.
