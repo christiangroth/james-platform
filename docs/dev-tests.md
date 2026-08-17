@@ -27,8 +27,8 @@ decision because of its privacy implications.
 
 ### Test Installations
 
-Test data needs a home that is clearly separated from real User data. The existing `Installation` concept (a User's personal instance of an App Version, see the arc42 glossary)
-is reused, but flagged as a **test installation**:
+Test data needs a home that is clearly separated from real User data. The existing `InstalledApp` concept (a User's personal instance of an App Version — "Installation" in the
+arc42 glossary; `domain-api/.../model/app/InstalledApp.kt`) is reused, but flagged as a **test installation**:
 
 - A Developer can create a test installation for any Version of an App they own, without needing a real User account for it.
 - Test installations are excluded from normal User-facing listings, sharing, and Report data sources unless explicitly targeted by a test run.
@@ -41,8 +41,11 @@ Add a `TestDataGeneratorPort` (inbound port, `domain-api`) that, given an `Entit
 constraint already modelled on `Property`:
 
 - **Type-driven generation** – one generator strategy per `PropertyType` (`LONG`, `DOUBLE`, `BOOLEAN`, `STRING`, `DATE`, `TIME`, `DATETIME`, `REF`, `LIST`, `OBJECT`).
-- **Constraint-aware** – respects `MinLong`/`MaxLong`/`StepLong`, `MinLength`/`MaxLength`/`Pattern`, `MinDate`/`MaxDate`, `MinSize`/`MaxSize`, etc. (the full set already defined as
-  `PropertyConstraint` subtypes), plus `nullable` and `UniqueKey`.
+- **Constraint-aware** – respects `MinLong`/`MaxLong`/`StepLong`, `MinDouble`/`MaxDouble`/`StepDouble`, `MinLength`/`MaxLength`/`Pattern`, `MinDate`/`MaxDate`, `MinTime`/`MaxTime`,
+  `MinDatetime`/`MaxDatetime`, `MinSize`/`MaxSize` (the full set already defined as `PropertyConstraint` subtypes), plus `nullable` and `UniqueKey`.
+- **Unit-aware** – a `LONG`/`DOUBLE` property may carry a `PropertyUnit` (`family`, `storageGranularity`, `defaultGranularity`; see ADR 0016). The generator produces the raw
+  numeric value in the property's fixed `storageGranularity`, the same representation `AppData.data` stores and `PropertyConstraintPort` validates against — it does not need to go
+  through `UnitFormat` text parsing, which only applies to Developer/User-entered text.
 - **Nested types** – `LIST` properties generate `MinSize`..`MaxSize` items honoring `listItemType`/`itemConstraints`; `OBJECT` properties recurse into `nestedProperties`.
 - **`REF` properties** – point at existing objects of the `targetEntityId` entity within the same test installation; if none exist yet, referenced entities are generated first
   (topologically, which is safe since cyclic `ref` graphs are already rejected at schema-definition time).
