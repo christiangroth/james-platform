@@ -19,7 +19,6 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
-import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
@@ -43,7 +42,6 @@ import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
 import java.net.URI
 import java.time.Instant
-import kotlin.time.toJavaDuration
 
 data class DeveloperApiResult(
   val ok: Boolean,
@@ -748,8 +746,6 @@ class DeveloperAppResource {
     @FormParam("maxTime") maxTime: String?,
     @FormParam("minDatetime") minDatetime: String?,
     @FormParam("maxDatetime") maxDatetime: String?,
-    @FormParam("minDuration") minDuration: String?,
-    @FormParam("maxDuration") maxDuration: String?,
     @FormParam("path") path: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.property-constraints-set") {
     val constraints = mutableSetOf<PropertyConstraint>()
@@ -771,8 +767,6 @@ class DeveloperAppResource {
     parseLocalTime(maxTime)?.let { constraints += PropertyConstraint.MaxTime(it) }
     parseLocalDateTime(minDatetime)?.let { constraints += PropertyConstraint.MinDatetime(it) }
     parseLocalDateTime(maxDatetime)?.let { constraints += PropertyConstraint.MaxDatetime(it) }
-    parseDuration(minDuration)?.let { constraints += PropertyConstraint.MinDuration(it) }
-    parseDuration(maxDuration)?.let { constraints += PropertyConstraint.MaxDuration(it) }
     appVersionManagement.setPropertyConstraints(appId, versionId, entityId, propertyId, constraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
@@ -914,8 +908,6 @@ class DeveloperAppResource {
     @FormParam("itemMaxTime") itemMaxTime: String?,
     @FormParam("itemMinDatetime") itemMinDatetime: String?,
     @FormParam("itemMaxDatetime") itemMaxDatetime: String?,
-    @FormParam("itemMinDuration") itemMinDuration: String?,
-    @FormParam("itemMaxDuration") itemMaxDuration: String?,
     @FormParam("path") path: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.property-item-constraints-set") {
     val itemConstraints = mutableSetOf<PropertyConstraint>()
@@ -934,8 +926,6 @@ class DeveloperAppResource {
     parseLocalTime(itemMaxTime)?.let { itemConstraints += PropertyConstraint.MaxTime(it) }
     parseLocalDateTime(itemMinDatetime)?.let { itemConstraints += PropertyConstraint.MinDatetime(it) }
     parseLocalDateTime(itemMaxDatetime)?.let { itemConstraints += PropertyConstraint.MaxDatetime(it) }
-    parseDuration(itemMinDuration)?.let { itemConstraints += PropertyConstraint.MinDuration(it) }
-    parseDuration(itemMaxDuration)?.let { itemConstraints += PropertyConstraint.MaxDuration(it) }
     appVersionManagement.setPropertyItemConstraints(appId, versionId, entityId, propertyId, itemConstraints, parsePath(path)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerItemConstraintsSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
@@ -1185,9 +1175,6 @@ class DeveloperAppResource {
 
   private fun parseLocalDateTime(value: String?): java.time.LocalDateTime? =
     value?.takeIf { it.isNotBlank() }?.let { runCatching { java.time.LocalDateTime.parse(it) }.getOrNull() }
-
-  private fun parseDuration(value: String?): java.time.Duration? =
-    value?.takeIf { it.isNotBlank() }?.let { parseDurationValue(it) }?.toJavaDuration()
 
   private fun reportErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> msg.commonNameRequired()

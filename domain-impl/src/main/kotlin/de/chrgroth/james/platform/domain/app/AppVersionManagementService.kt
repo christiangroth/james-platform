@@ -24,7 +24,6 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.granularityByName
-import de.chrgroth.james.platform.domain.model.app.parseDurationValue
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
@@ -561,7 +560,6 @@ class AppVersionManagementService(
     } else {
       null
     }
-    PropertyType.DURATION -> if (parseDurationValue(value) != null) value else null
     else -> value
   }
 
@@ -1209,8 +1207,6 @@ class AppVersionManagementService(
     is PropertyConstraint.MaxTime,
     is PropertyConstraint.MinDatetime,
     is PropertyConstraint.MaxDatetime,
-    is PropertyConstraint.MinDuration,
-    is PropertyConstraint.MaxDuration,
     -> true
     else -> false
   }
@@ -1419,8 +1415,6 @@ class AppVersionManagementService(
     is PropertyConstraint.MaxTime -> "max:${constraint.max}"
     is PropertyConstraint.MinDatetime -> "min:${constraint.min}"
     is PropertyConstraint.MaxDatetime -> "max:${constraint.max}"
-    is PropertyConstraint.MinDuration -> "min:${constraint.min}"
-    is PropertyConstraint.MaxDuration -> "max:${constraint.max}"
   }
 
   @Suppress("NestedBlockDepth")

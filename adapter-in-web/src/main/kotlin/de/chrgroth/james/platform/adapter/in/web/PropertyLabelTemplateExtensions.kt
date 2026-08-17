@@ -4,7 +4,6 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
-import de.chrgroth.james.platform.domain.model.app.DURATION_FORMAT_HINT
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -33,7 +32,6 @@ object PropertyLabelTemplateExtensions {
     PropertyType.DATE -> appMessages.propertyTypeDate()
     PropertyType.TIME -> appMessages.propertyTypeTime()
     PropertyType.DATETIME -> appMessages.propertyTypeDatetime()
-    PropertyType.DURATION -> appMessages.propertyTypeDuration()
     PropertyType.REF -> appMessages.propertyTypeReference()
     PropertyType.LIST -> appMessages.propertyTypeList()
     PropertyType.OBJECT -> appMessages.propertyTypeObject()
@@ -81,8 +79,6 @@ object PropertyLabelTemplateExtensions {
     PropertyConstraint.MaxTime::class.java,
     PropertyConstraint.MinDatetime::class.java,
     PropertyConstraint.MaxDatetime::class.java,
-    PropertyConstraint.MinDuration::class.java,
-    PropertyConstraint.MaxDuration::class.java,
   )
 
   private fun constraintTextsFor(constraints: Set<PropertyConstraint>): List<String> =
@@ -108,8 +104,6 @@ object PropertyLabelTemplateExtensions {
           is PropertyConstraint.MaxTime -> "${developerMessages.developerMaxTimeLabel()}: ${constraint.max}"
           is PropertyConstraint.MinDatetime -> "${developerMessages.developerMinDatetimeLabel()}: ${constraint.min}"
           is PropertyConstraint.MaxDatetime -> "${developerMessages.developerMaxDatetimeLabel()}: ${constraint.max}"
-          is PropertyConstraint.MinDuration -> "${developerMessages.developerMinDurationLabel()}: ${constraint.min}"
-          is PropertyConstraint.MaxDuration -> "${developerMessages.developerMaxDurationLabel()}: ${constraint.max}"
         }
       }
 
@@ -135,8 +129,6 @@ object PropertyLabelTemplateExtensions {
     is PropertyConstraint.MaxTime -> "${userMessages.userHintMaxTimeLabel()}: ${constraint.max}"
     is PropertyConstraint.MinDatetime -> "${userMessages.userHintMinDatetimeLabel()}: ${constraint.min}"
     is PropertyConstraint.MaxDatetime -> "${userMessages.userHintMaxDatetimeLabel()}: ${constraint.max}"
-    is PropertyConstraint.MinDuration -> "${userMessages.userHintMinDurationLabel()}: ${constraint.min}"
-    is PropertyConstraint.MaxDuration -> "${userMessages.userHintMaxDurationLabel()}: ${constraint.max}"
   }
 
   private fun constraintHintFor(constraints: Set<PropertyConstraint>): String =
@@ -170,10 +162,7 @@ object PropertyLabelTemplateExtensions {
     is PropertyConstraintViolation.MaxTimeViolation -> userMessages.userMaxTimeViolationError(violation.max.toString())
     is PropertyConstraintViolation.MinDatetimeViolation -> userMessages.userMinDatetimeViolationError(violation.min.toString())
     is PropertyConstraintViolation.MaxDatetimeViolation -> userMessages.userMaxDatetimeViolationError(violation.max.toString())
-    is PropertyConstraintViolation.MinDurationViolation -> userMessages.userMinDurationViolationError(violation.min.toString())
-    is PropertyConstraintViolation.MaxDurationViolation -> userMessages.userMaxDurationViolationError(violation.max.toString())
     is PropertyConstraintViolation.StepViolation -> userMessages.userStepViolationError(violation.step.toString())
-    is PropertyConstraintViolation.InvalidDurationFormatViolation -> userMessages.userInvalidDurationFormatViolationError(DURATION_FORMAT_HINT)
     is PropertyConstraintViolation.InvalidUnitFormatViolation -> userMessages.userInvalidUnitFormatViolationError()
     is PropertyConstraintViolation.NonIntegerUnitValueViolation -> userMessages.userNonIntegerUnitValueViolationError()
   }

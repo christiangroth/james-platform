@@ -27,6 +27,7 @@ import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
 import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.time.Duration
@@ -103,6 +104,85 @@ class AppVersionRepositoryAdapter(
   override fun deleteAll() {
     mongoQueryMetrics.timed("app_version.deleteAll") {
       appVersionDocumentRepository.mongoCollection().deleteMany(Filters.exists(ID_FIELD))
+    }
+  }
+
+  override fun migrateDurationProperties(defaultGranularity: TimeGranularity): List<DurationPropertyLocation> =
+    mongoQueryMetrics.timed("app_version.migrateDurationProperties") {
+      val locations = mutableListOf<DurationPropertyLocation>()
+      // listAll/replaceOne operate on the raw storage documents (type/listItemType/constraintType are plain Strings there), never on the
+      // domain model, since a stored "DURATION" value can no longer be parsed by PropertyType.valueOf once the enum constant is removed.
+      appVersionDocumentRepository.listAll().forEach { versionDoc ->
+        var changed = false
+        versionDoc.entityDefinitions.forEach { entityDoc ->
+          val entityId = EntityDefinitionId(entityDoc.id)
+          entityDoc.properties.forEach { propertyDoc ->
+            if (migratePropertyDocument(propertyDoc, entityId, emptyList(), defaultGranularity, locations)) changed = true
+          }
+          entityDoc.computedProperties.forEach { computedPropertyDoc ->
+            if (computedPropertyDoc.type == "DURATION") {
+              computedPropertyDoc.type = "LONG"
+              changed = true
+            }
+          }
+        }
+        if (changed) {
+          appVersionDocumentRepository.mongoCollection().replaceOne(Filters.eq(ID_FIELD, versionDoc.id), versionDoc, ReplaceOptions().upsert(true))
+        }
+      }
+      locations
+    }
+
+  /** Migrates a single (possibly nested) property document, returning whether it or any of its nested properties changed. */
+  private fun migratePropertyDocument(
+    doc: PropertyDocument,
+    entityId: EntityDefinitionId,
+    parentPath: List<PropertyId>,
+    defaultGranularity: TimeGranularity,
+    locations: MutableList<DurationPropertyLocation>,
+  ): Boolean {
+    var changed = false
+    val path = parentPath + PropertyId(doc.id)
+
+    if (doc.type == "DURATION") {
+      doc.type = "LONG"
+      doc.unit = PropertyUnitDocument().also {
+        it.family = UnitFamily.TIME.name
+        it.storageGranularity = TimeGranularity.SECONDS.name
+        it.defaultGranularity = defaultGranularity.name
+      }
+      migrateDurationConstraints(doc.constraints)
+      locations += DurationPropertyLocation(entityId, path, isListItem = false)
+      changed = true
+    } else if (doc.type == "LIST" && doc.listItemType == "DURATION") {
+      doc.listItemType = "LONG"
+      migrateDurationConstraints(doc.itemConstraints)
+      locations += DurationPropertyLocation(entityId, path, isListItem = true)
+      changed = true
+    }
+
+    doc.nestedProperties.forEach { nested ->
+      if (migratePropertyDocument(nested, entityId, path, defaultGranularity, locations)) changed = true
+    }
+
+    return changed
+  }
+
+  /** Converts MinDuration/MaxDuration (stored as an ISO-8601 [stringValue]) to MinLong/MaxLong (value in seconds), in place. */
+  private fun migrateDurationConstraints(constraints: List<ConstraintDocument>) {
+    constraints.forEach { constraint ->
+      when (constraint.constraintType) {
+        "MinDuration" -> {
+          constraint.constraintType = "MinLong"
+          constraint.longValue = constraint.stringValue?.let { Duration.parse(it).seconds }
+          constraint.stringValue = null
+        }
+        "MaxDuration" -> {
+          constraint.constraintType = "MaxLong"
+          constraint.longValue = constraint.stringValue?.let { Duration.parse(it).seconds }
+          constraint.stringValue = null
+        }
+      }
     }
   }
 
@@ -191,8 +271,6 @@ class AppVersionRepositoryAdapter(
     "MaxTime" -> stringValue?.let { runCatching { PropertyConstraint.MaxTime(LocalTime.parse(it)) }.getOrNull() }
     "MinDatetime" -> stringValue?.let { runCatching { PropertyConstraint.MinDatetime(LocalDateTime.parse(it)) }.getOrNull() }
     "MaxDatetime" -> stringValue?.let { runCatching { PropertyConstraint.MaxDatetime(LocalDateTime.parse(it)) }.getOrNull() }
-    "MinDuration" -> stringValue?.let { runCatching { PropertyConstraint.MinDuration(Duration.parse(it)) }.getOrNull() }
-    "MaxDuration" -> stringValue?.let { runCatching { PropertyConstraint.MaxDuration(Duration.parse(it)) }.getOrNull() }
     else -> null
   }
 
@@ -280,8 +358,6 @@ class AppVersionRepositoryAdapter(
       is PropertyConstraint.MaxTime -> doc.stringValue = max.toString()
       is PropertyConstraint.MinDatetime -> doc.stringValue = min.toString()
       is PropertyConstraint.MaxDatetime -> doc.stringValue = max.toString()
-      is PropertyConstraint.MinDuration -> doc.stringValue = min.toString()
-      is PropertyConstraint.MaxDuration -> doc.stringValue = max.toString()
     }
   }
 

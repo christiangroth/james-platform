@@ -1,6 +1,5 @@
 package de.chrgroth.james.platform.domain.model.app
 
-import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -96,10 +95,6 @@ sealed interface PropertyConstraint {
   // Datetime constraints (DATETIME)
   data class MinDatetime(val min: LocalDateTime) : PropertyConstraint
   data class MaxDatetime(val max: LocalDateTime) : PropertyConstraint
-
-  // Duration constraints (DURATION)
-  data class MinDuration(val min: Duration) : PropertyConstraint
-  data class MaxDuration(val max: Duration) : PropertyConstraint
 }
 
 enum class PropertyType {
@@ -163,13 +158,6 @@ enum class PropertyType {
     )
 
     override fun supportsDefault(): Boolean = false
-  },
-  DURATION {
-    override fun availableConstraints() = listOf(
-      PropertyConstraint.UniqueKey::class,
-      PropertyConstraint.MinDuration::class,
-      PropertyConstraint.MaxDuration::class,
-    )
   },
   LIST {
     override fun availableConstraints() = listOf(

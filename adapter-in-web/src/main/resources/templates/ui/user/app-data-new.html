@@ -76,7 +76,7 @@
                                     <option value="false">false</option>
                                 </select>
                                 {#else}
-                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}>
+                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
                                 {/if}
                                 <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="{user:userRemoveValueAriaLabel()}">&times;</button>
                             </div>
@@ -136,7 +136,6 @@
                                {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
                                {#if !prop.constraintMin.isEmpty}min="{prop.constraintMin}"{/if}
                                {#if !prop.constraintMax.isEmpty}max="{prop.constraintMax}"{/if}
-                               {#if prop.type.name == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}
                                {#if prop.defaultValue}value="{prop.defaultValue}"{#else if smartDefaults.get(prop.id)}value="{smartDefaults.get(prop.id)}"{/if}
                                {#if prop.hasValueProposals}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposals}" data-installed-app-id="{info.installedAppId}" data-entity-type-id="{entity.id}" data-property-id="{prop.id}"{/if}
                                data-testid="property-input-{prop.id}">
@@ -178,7 +177,6 @@
             var referenceOptionsData = JSON.parse(document.getElementById('reference-options-data').textContent);
             var objectFieldRenderMessages = {
                 selectPlaceholder: '{msg:commonSelectPlaceholder()}',
-                durationPlaceholder: '{user:userDurationPlaceholder()}',
                 requiredAriaLabel: '{user:userRequiredAriaLabel()}',
                 decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
                 increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',

@@ -269,40 +269,6 @@ class PropertyConstraintServiceTests {
 
   // endregion
 
-  // region MinDuration / MaxDuration
-
-  @Test
-  fun `checkValue passes MinDuration and MaxDuration when value is within range`() {
-    val property = property(
-      type = PropertyType.DURATION,
-      constraints = setOf(PropertyConstraint.MinDuration(java.time.Duration.parse("PT1H")), PropertyConstraint.MaxDuration(java.time.Duration.parse("PT8H"))),
-    )
-
-    assertThat(service.checkValue(property, "4h")).isEmpty()
-  }
-
-  @Test
-  fun `checkValue reports MinDurationViolation when duration is below minimum`() {
-    val min = java.time.Duration.parse("PT1H")
-    val property = property(type = PropertyType.DURATION, constraints = setOf(PropertyConstraint.MinDuration(min)))
-
-    val violations = service.checkValue(property, "30m")
-
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MinDurationViolation(min))
-  }
-
-  @Test
-  fun `checkValue reports MaxDurationViolation when duration exceeds maximum`() {
-    val max = java.time.Duration.parse("PT8H")
-    val property = property(type = PropertyType.DURATION, constraints = setOf(PropertyConstraint.MaxDuration(max)))
-
-    val violations = service.checkValue(property, "09:00:00")
-
-    assertThat(violations).containsExactly(PropertyConstraintViolation.MaxDurationViolation(max))
-  }
-
-  // endregion
-
   // region MinLength / MaxLength / Pattern
 
   @Test

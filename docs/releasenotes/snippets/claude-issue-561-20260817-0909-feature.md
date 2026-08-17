@@ -1,0 +1,1 @@
+* The old standalone "duration" field type has been replaced by numeric fields with a time unit (e.g. entered as "1d 2h 30m"), consistent with all other units. Existing duration fields and their data are converted automatically.

@@ -45,8 +45,6 @@
                  data-constraint-max-time="{selectedProperty.constraintMaxTime}"
                  data-constraint-min-datetime="{selectedProperty.constraintMinDatetime}"
                  data-constraint-max-datetime="{selectedProperty.constraintMaxDatetime}"
-                 data-constraint-min-duration="{selectedProperty.constraintMinDuration}"
-                 data-constraint-max-duration="{selectedProperty.constraintMaxDuration}"
                  data-default-value="{selectedProperty.defaultValue}"
                  data-smart-default="{selectedProperty.smartDefault}"
                  data-value-proposals="{selectedProperty.valueProposals}"
@@ -85,7 +83,6 @@
                         <option value="DATE">{msg:propertyTypeDate()}</option>
                         <option value="TIME">{msg:propertyTypeTime()}</option>
                         <option value="DATETIME">{msg:propertyTypeDatetime()}</option>
-                        <option value="DURATION">{msg:propertyTypeDuration()}</option>
                         <option value="REF">{msg:propertyTypeReference()}</option>
                         <option value="LIST">{msg:propertyTypeList()}</option>
                         <option value="OBJECT">{msg:propertyTypeObject()}</option>
@@ -102,7 +99,6 @@
                         <option value="DATE">{msg:propertyTypeDate()}</option>
                         <option value="TIME">{msg:propertyTypeTime()}</option>
                         <option value="DATETIME">{msg:propertyTypeDatetime()}</option>
-                        <option value="DURATION">{msg:propertyTypeDuration()}</option>
                         <option value="REF">{msg:propertyTypeReference()}</option>
                         <option value="OBJECT">{msg:propertyTypeObject()}</option>
                     </select>
@@ -200,19 +196,6 @@
                         <div class="col-6">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxDatetimeLabel()}</label>
                             <input type="datetime-local" class="form-control app-form-control form-control-sm" id="constraintMaxDatetime" data-testid="constraint-max-datetime">
-                        </div>
-                    </div>
-                </div>
-                <!-- Duration constraints -->
-                <div class="constraint-group d-none" id="constraintGroupDuration">
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMinDurationLabel()}</label>
-                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMinDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="constraint-min-duration">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerMaxDurationLabel()}</label>
-                            <input type="text" class="form-control app-form-control form-control-sm" id="constraintMaxDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="constraint-max-duration">
                         </div>
                     </div>
                 </div>
@@ -401,10 +384,6 @@
                     <div class="default-group d-none" id="defaultGroupDatetime">
                         <input type="datetime-local" class="form-control app-form-control form-control-sm" id="defaultDatetime" data-testid="default-datetime">
                     </div>
-                    <!-- Default: Duration -->
-                    <div class="default-group d-none" id="defaultGroupDuration">
-                        <input type="text" class="form-control app-form-control form-control-sm" id="defaultDuration" placeholder="{developer:developerDurationPlaceholder()}" autocomplete="off" data-testid="default-duration">
-                    </div>
                 </div>
                 <div id="unitSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
@@ -556,7 +535,6 @@
                 'DATE':     ['UniqueKey', 'Date'],
                 'TIME':     ['UniqueKey', 'Time'],
                 'DATETIME': ['UniqueKey', 'Datetime'],
-                'DURATION': ['UniqueKey', 'Duration'],
                 'REF':      ['UniqueKey'],
                 'LIST':     ['List'],
                 'OBJECT':   [],
@@ -570,10 +548,9 @@
                 'DATE':     'Date',
                 'TIME':     'Time',
                 'DATETIME': 'Datetime',
-                'DURATION': 'Duration',
             };
 
-            var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'DURATION'];
+            var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME'];
 
             var UNIT_SUPPORTED_TYPES = ['LONG', 'DOUBLE'];
             // The storage granularity can only be freely chosen while the property has no unit configured yet
@@ -643,14 +620,13 @@
                 document.getElementById('constraintGroupDate').classList.toggle('d-none', !groups.includes('Date'));
                 document.getElementById('constraintGroupTime').classList.toggle('d-none', !groups.includes('Time'));
                 document.getElementById('constraintGroupDatetime').classList.toggle('d-none', !groups.includes('Datetime'));
-                document.getElementById('constraintGroupDuration').classList.toggle('d-none', !groups.includes('Duration'));
                 document.getElementById('constraintGroupNone').classList.toggle('d-none', groups.length > 0);
 
                 applyListItemTypeVisibility(propertyType, document.getElementById('editPropertyListItemType').value);
                 applyUnitVisibility(propertyType);
 
                 var defaultGroup = DEFAULT_TYPE_GROUP[propertyType] || null;
-                ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime', 'Duration'].forEach(function (g) {
+                ['Long', 'Double', 'Boolean', 'String', 'Date', 'Time', 'Datetime'].forEach(function (g) {
                     document.getElementById('defaultGroup' + g).classList.toggle('d-none', defaultGroup !== g);
                 });
                 document.getElementById('defaultSection').classList.toggle('d-none', defaultGroup == null);
@@ -737,8 +713,6 @@
             document.getElementById('constraintMaxTime').value = initialData.getAttribute('data-constraint-max-time') || '';
             document.getElementById('constraintMinDatetime').value = initialData.getAttribute('data-constraint-min-datetime') || '';
             document.getElementById('constraintMaxDatetime').value = initialData.getAttribute('data-constraint-max-datetime') || '';
-            document.getElementById('constraintMinDuration').value = initialData.getAttribute('data-constraint-min-duration') || '';
-            document.getElementById('constraintMaxDuration').value = initialData.getAttribute('data-constraint-max-duration') || '';
             document.getElementById('constraintMinLength').value = initialData.getAttribute('data-constraint-min-length') || '';
             document.getElementById('constraintMaxLength').value = initialData.getAttribute('data-constraint-max-length') || '';
             document.getElementById('constraintPattern').value = initialData.getAttribute('data-constraint-pattern') || '';
@@ -766,7 +740,6 @@
             document.getElementById('defaultDate').value = defaultVal;
             document.getElementById('defaultTime').value = defaultVal;
             document.getElementById('defaultDatetime').value = defaultVal;
-            document.getElementById('defaultDuration').value = defaultVal;
             document.getElementById('editPropertySmartDefault').value = initialData.getAttribute('data-smart-default') || '';
             var rawVp = initialData.getAttribute('data-value-proposals') || '';
             var selectedVpIds = rawVp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -875,12 +848,6 @@
                     var maxDatetime = document.getElementById('constraintMaxDatetime').value;
                     if (minDatetime !== '') constraintFormData.set('minDatetime', minDatetime);
                     if (maxDatetime !== '') constraintFormData.set('maxDatetime', maxDatetime);
-                }
-                if (!document.getElementById('constraintGroupDuration').classList.contains('d-none')) {
-                    var minDuration = document.getElementById('constraintMinDuration').value;
-                    var maxDuration = document.getElementById('constraintMaxDuration').value;
-                    if (minDuration !== '') constraintFormData.set('minDuration', minDuration);
-                    if (maxDuration !== '') constraintFormData.set('maxDuration', maxDuration);
                 }
                 if (!document.getElementById('constraintGroupString').classList.contains('d-none')) {
                     var minLength = document.getElementById('constraintMinLength').value;
@@ -1006,8 +973,6 @@
                         defaultVal2 = document.getElementById('defaultTime').value;
                     } else if (currentType === 'DATETIME' && !document.getElementById('defaultGroupDatetime').classList.contains('d-none')) {
                         defaultVal2 = document.getElementById('defaultDatetime').value;
-                    } else if (currentType === 'DURATION' && !document.getElementById('defaultGroupDuration').classList.contains('d-none')) {
-                        defaultVal2 = document.getElementById('defaultDuration').value;
                     }
                     if (defaultVal2 !== '') {
                         defaultFormData.set('default', defaultVal2);

@@ -22,7 +22,6 @@ class PredefinedSmartDefaultTests {
       PropertyType.LONG,
       PropertyType.DOUBLE,
       PropertyType.BOOLEAN,
-      PropertyType.DURATION,
       PropertyType.LIST,
       PropertyType.OBJECT,
       PropertyType.REF,

@@ -6,4 +6,5 @@ interface AppDataMigrationPort {
   fun renameCollections()
   fun addMissingReleaseNotes()
   fun backfillEntityDisplayText()
+  fun migrateDurationProperties()
 }
