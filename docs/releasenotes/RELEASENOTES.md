@@ -1,3 +1,15 @@
+# 0.95.0 (2026.08.17)
+
+## New Features
+* The old standalone "duration" field type has been replaced by numeric fields with a time unit (e.g. entered as "1d 2h 30m"), consistent with all other units. Existing duration fields and their data are converted automatically.
+
+## Bugfixes / Chore
+* Fixed dark mode styling for several tables in the import UIs (schema panel, dry-run details, data path structure, mapping sample/reference lookup) that still showed a white background and black text.
+
+
+
+---
+
 # 0.94.1 (2026.08.17)
 
 ## Bugfixes / Chore
