@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.domain.app
 
+import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationValidationFailedError
 import de.chrgroth.james.platform.domain.model.app.AppData
@@ -20,6 +21,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationScriptResult
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.justRun
@@ -34,8 +36,10 @@ class AppVersionMigrationServiceTests {
 
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
+  private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appDataPort: AppDataPort = AppDataService(mockk(), appVersionRepository, appDataRepository, PropertyConstraintService())
-  private val service = AppVersionMigrationService(appVersionRepository, appDataRepository, appDataPort, ScriptMetrics(SimpleMeterRegistry()), 30_000L)
+  private val service =
+    AppVersionMigrationService(appVersionRepository, appDataRepository, appDataPort, installedAppRepository, ScriptMetrics(SimpleMeterRegistry()), 30_000L)
 
   private val appId = AppId("app-1")
   private val installedAppId = InstalledAppId("inst-1")
@@ -120,7 +124,8 @@ class AppVersionMigrationServiceTests {
   @Test
   fun `runScript fails when script exceeds timeout`() {
     val entity = EntityDefinition(id = entityId, name = "Order", migrationScript = "Thread.sleep(2000); it")
-    val shortTimeoutService = AppVersionMigrationService(appVersionRepository, appDataRepository, appDataPort, ScriptMetrics(SimpleMeterRegistry()), 50L)
+    val shortTimeoutService =
+      AppVersionMigrationService(appVersionRepository, appDataRepository, appDataPort, installedAppRepository, ScriptMetrics(SimpleMeterRegistry()), 50L)
 
     val result = shortTimeoutService.runScript(entity, entity, emptyMap())
 
@@ -243,6 +248,66 @@ class AppVersionMigrationServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("20")
     assertThat(savedSlot.captured.lastValidatedWithVersion).isEqualTo(VersionNumber("3.0.0"))
+  }
+
+  // endregion
+
+  // region dryRunMigration
+
+  @Test
+  fun `dryRunMigration succeeds without touching any repository when there are no entity migrations`() {
+    val result = service.dryRunMigration(appId, emptyList())
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { installedAppRepository.findAllByAppId(any()) }
+  }
+
+  @Test
+  fun `dryRunMigration succeeds and persists nothing when transformed data passes validation for every installation`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = true)
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val newEntity = previousEntity.copy(migrationScript = "it + (\"${prop.id.value}\" to \"42\")")
+    val inst1 = installedApp(id = "inst-1")
+    val inst2 = installedApp(id = "inst-2")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst1, inst2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst1.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst2.id, entityId) } returns listOf(appData("data-2", "1.0.0"))
+
+    val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `dryRunMigration fails without persisting when script fails for an existing object`() {
+    val previousEntity = EntityDefinition(id = entityId, name = "Order")
+    val newEntity = previousEntity.copy(migrationScript = "throw RuntimeException(\"boom\")")
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
+
+    val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationScriptFailedError::class.java)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `dryRunMigration fails without persisting when migrated data fails re-validation`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = true, constraints = setOf(PropertyConstraint.MinLong(100)))
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val newEntity = previousEntity.copy(migrationScript = "it + (\"${prop.id.value}\" to \"5\")")
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
+
+    val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationValidationFailedError::class.java)
+    verify(exactly = 0) { appDataRepository.save(any()) }
   }
 
   // endregion

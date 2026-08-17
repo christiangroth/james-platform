@@ -61,6 +61,7 @@ class AppVersionManagementServiceTests {
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appVersionMigration: AppVersionMigrationPort = mockk {
     every { migrateInstallation(any(), any(), any(), any()) } returns Unit.right()
+    every { dryRunMigration(any(), any()) } returns Unit.right()
   }
   private val service: AppVersionManagementService =
     AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration)
@@ -305,6 +306,28 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("2.0.0"))
     verify(exactly = 0) { installedAppRepository.findAllByAppId(any()) }
+  }
+
+  @Test
+  fun `publishVersion publishes as Feature bump and auto-upgrades installations when a compensating migration dry-run reconciles a breaking change`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val publishedWithEntity =
+      publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationScript = "it")
+    val draftWithMigrationScript = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithMigrationScript, publishedWithEntity)
+    justRun { appVersionRepository.save(any()) }
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst)
+    justRun { installedAppRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.2.0"))
+    verify(exactly = 1) { appVersionMigration.dryRunMigration(AppId("app-1"), any()) }
+    verify(exactly = 1) { installedAppRepository.save(any()) }
   }
 
   @Test
@@ -707,6 +730,61 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump reclassifies a breaking change as non-breaking when the compensating migration dry-run succeeds`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationScript = "it")
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(entityDefinitions = listOf(draftEntity))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
+    verify(exactly = 1) { appVersionMigration.dryRunMigration(AppId("app-1"), any()) }
+  }
+
+  @Test
+  fun `computeVersionBump keeps a breaking change classified as breaking when the migration dry-run fails`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationScript = "it")
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(entityDefinitions = listOf(draftEntity))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    every { appVersionMigration.dryRunMigration(AppId("app-1"), any()) } returns
+      AppVersionMigrationScriptFailedError("Order", "data-1", "", "boom").left()
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+  }
+
+  @Test
+  fun `computeVersionBump keeps a breaking change classified as breaking without dry-running when draft has no compensating migration script`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(entityDefinitions = listOf(draftEntity))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isTrue()
+    verify(exactly = 0) { appVersionMigration.dryRunMigration(any(), any()) }
   }
 
   @Test
