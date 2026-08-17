@@ -306,6 +306,29 @@ class UserAppDetailPageTests {
   }
 
   @Test
+  fun `edit data page shows the app version metadata field below the last modified field`() {
+    val appName = "App Version App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+    val dataId = createDataAndGetId(installedAppId, entityId)
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/$dataId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    val lastModifiedIndex = html.indexOf("data-testid=\"detail-last-modified\"")
+    val appVersionIndex = html.indexOf("data-testid=\"detail-app-version\"")
+    assertTrue(lastModifiedIndex >= 0 && appVersionIndex > lastModifiedIndex, "Expected the app version field to be rendered after the last modified field")
+
+    val appVersion = Regex("""data-testid="detail-app-version">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
+    assertTrue(!appVersion.isNullOrBlank(), "Expected the app version metadata field to be rendered, but was: $appVersion")
+  }
+
+  @Test
   fun `saving edited data redirects back to the entity list instead of staying on the edit page`() {
     val appName = "Save Redirect App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)

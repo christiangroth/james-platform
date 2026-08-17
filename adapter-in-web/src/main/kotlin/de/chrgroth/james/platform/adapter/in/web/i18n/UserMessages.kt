@@ -729,6 +729,9 @@ interface UserMessages {
   fun userLastModifiedLabel(): String
 
   @Message
+  fun userAppVersionLabel(): String
+
+  @Message
   fun userComputedPropertiesLabel(): String
 
   @Message

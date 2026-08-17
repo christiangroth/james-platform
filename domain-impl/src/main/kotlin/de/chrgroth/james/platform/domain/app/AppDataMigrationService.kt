@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 
@@ -20,6 +21,7 @@ class AppDataMigrationService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
+  private val installedAppRepository: InstalledAppRepositoryPort,
 ) : AppDataMigrationPort {
 
   override fun deleteAppsWithoutDeveloperId() {
@@ -94,6 +96,20 @@ class AppDataMigrationService(
       "Migrated ${locations.size} DURATION propert${if (locations.size == 1) "y" else "ies"} across " +
         "${locationsByEntity.size} entity definition(s), converted $convertedCount app data object(s)"
     }
+  }
+
+  override fun backfillAppVersion() {
+    logger.info { "Backfilling app version for existing app data to the currently installed app version" }
+    var count = 0
+    // findAll is acceptable here: migration runs once at startup before serving requests
+    appDataRepository.findAll().forEach { appData ->
+      val installedApp = installedAppRepository.findById(appData.installedAppId) ?: return@forEach
+      if (appData.appVersion != installedApp.installedVersionNumber) {
+        appDataRepository.save(appData.copy(appVersion = installedApp.installedVersionNumber))
+        count++
+      }
+    }
+    logger.info { "Backfilled app version for $count app data object(s)" }
   }
 
   /** Converts every value at [locations] within [data] from legacy duration text to seconds. Values that no longer parse are left untouched. */

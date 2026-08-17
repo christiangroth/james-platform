@@ -190,6 +190,7 @@ class AppDataService(
     val updatedAppData = existingAppData.copy(
       objectVersion = existingAppData.objectVersion + 1,
       lastChangedAt = Instant.now(),
+      appVersion = installedApp.installedVersionNumber,
       data = parsedData,
     )
     appDataRepository.save(updatedAppData)

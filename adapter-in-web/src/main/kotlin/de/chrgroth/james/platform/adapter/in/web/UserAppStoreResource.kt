@@ -95,6 +95,7 @@ data class AppDataDetail(
   val objectVersion: Int,
   val createdAt: Instant,
   val lastChangedAt: Instant,
+  val appVersion: String,
   val referenceText: String,
   val displayText: String,
   val properties: List<AppDataPropertyView>,
@@ -386,6 +387,7 @@ class UserAppStoreResource {
           objectVersion = appDataItem.objectVersion,
           createdAt = appDataItem.createdAt,
           lastChangedAt = appDataItem.lastChangedAt,
+          appVersion = appDataItem.appVersion.value,
           referenceText = computeReferenceText(entityDef, appDataItem.id.value, appDataItem.data),
           displayText = computeDisplayText(entityDef, appDataItem.id.value, appDataItem.data),
           properties = entityDef.properties.map { prop ->

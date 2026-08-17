@@ -1,0 +1,1 @@
+* Data entries now record the app version they were last saved with, shown in the metadata section below "Zuletzt geändert". Existing entries are automatically migrated to the currently installed app version.
