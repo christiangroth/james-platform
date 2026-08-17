@@ -1,0 +1,14 @@
+package de.chrgroth.james.platform.domain.model.infra
+
+import kotlin.time.Instant
+
+data class OutboxTask(
+  val eventType: String,
+  val deduplicationKey: String,
+  val priority: String,
+  val status: String,
+  val attempts: Int,
+  val nextRetryAt: Instant?,
+  val createdAt: Instant,
+  val lastError: String?,
+)

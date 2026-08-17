@@ -10,10 +10,15 @@ dependencies {
   implementation(project(":adapter-in-web"))
   implementation(project(":adapter-out-config"))
   implementation(project(":adapter-out-mongodb"))
+  implementation(project(":adapter-out-outbox"))
   implementation(project(":adapter-out-scheduler"))
   implementation(project(":adapter-out-slack"))
   implementation(project(":domain-impl"))
 
+  implementation(libs.quarkusOutboxAdapterInScheduler)
+  implementation(libs.quarkusOutboxAdapterOutExecutor)
+  implementation(libs.quarkusOutboxAdapterOutPersistenceMongodb)
+  implementation(libs.quarkusOutboxDomainImpl)
   implementation(libs.quarkusStartersDomainImpl)
   implementation(libs.quarkusStartersAdapterOutPersistenceMongodb)
 
