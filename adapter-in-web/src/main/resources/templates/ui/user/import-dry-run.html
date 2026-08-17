@@ -104,9 +104,9 @@
             {#else}
             <div class="accordion" id="invalidObjectsAccordion">
                 {#for object in invalidObjects}
-                <div class="accordion-item" data-testid="dry-run-object">
+                <div class="accordion-item app-accordion-item" data-testid="dry-run-object">
                     <h2 class="accordion-header">
-                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#invalid-object-{object_index}" aria-expanded="true" data-testid="dry-run-object-toggle">
+                        <button class="accordion-button" type="button" data-bs-target="#invalid-object-{object_index}" aria-expanded="true" data-testid="dry-run-object-toggle">
                             {user:userImportDryRunObjectLabel(object.index)}
                         </button>
                     </h2>
@@ -303,6 +303,27 @@
                 panel.addEventListener('hide.bs.collapse', function () {
                     toggle.classList.remove('active');
                     toggle.setAttribute('aria-expanded', 'false');
+                });
+            });
+
+            // The per-object accordion buttons only ever call show() (never toggle), same as the count
+            // toggles above - clicking the currently open object's header can't collapse it and leave
+            // nothing expanded; exactly one object detail stays open at all times.
+            document.querySelectorAll('#invalidObjectsAccordion .accordion-collapse').forEach(function (panel) {
+                var button = document.querySelector('#invalidObjectsAccordion .accordion-button[data-bs-target="#' + panel.id + '"]');
+                if (!button) { return; }
+
+                button.addEventListener('click', function () {
+                    bootstrap.Collapse.getOrCreateInstance(panel, { parent: '#invalidObjectsAccordion' }).show();
+                });
+
+                panel.addEventListener('show.bs.collapse', function () {
+                    button.classList.remove('collapsed');
+                    button.setAttribute('aria-expanded', 'true');
+                });
+                panel.addEventListener('hide.bs.collapse', function () {
+                    button.classList.add('collapsed');
+                    button.setAttribute('aria-expanded', 'false');
                 });
             });
         }());
