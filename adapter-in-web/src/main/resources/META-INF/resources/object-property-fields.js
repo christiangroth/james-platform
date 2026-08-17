@@ -54,7 +54,6 @@ function objectFieldScalarInput(field, name, value) {
     else if (field.type === 'LONG' && field.step) input.step = field.step;
     if (field.min) input.min = field.min;
     if (field.max) input.max = field.max;
-    if (field.type === 'DURATION') input.placeholder = objectFieldMessages.durationPlaceholder;
     if (value !== undefined && value !== null) input.value = value;
 
     if ((field.type === 'LONG' || field.type === 'DOUBLE') && field.step) {

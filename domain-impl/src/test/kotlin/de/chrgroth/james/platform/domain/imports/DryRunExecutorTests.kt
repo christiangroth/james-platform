@@ -17,7 +17,6 @@ import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
-import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.Mapping
@@ -105,29 +104,6 @@ class DryRunExecutorTests {
 
     assertThat(result.single().isValid).isTrue()
     assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "2024-01-15"))
-  }
-
-  @Test
-  fun `long to duration conversion formats a raw integer as a duration in the configured unit`() {
-    val entity = entityDefinition(Property(id = propertyId, name = "Runtime", type = PropertyType.DURATION, nullable = false))
-    val mapping = mapping(
-      FieldMapping(targetPropertyId = propertyId, sourcePath = "minutes", conversion = FieldMappingConversion.LONG_TO_DURATION, conversionUnit = DurationConversionUnit.MINUTES),
-    )
-
-    val result = execute(records("""[{"minutes":90}]"""), mapping, entity)
-
-    assertThat(result.single().isValid).isTrue()
-    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "1:30:00"))
-  }
-
-  @Test
-  fun `long to duration conversion without a configured unit defaults to seconds`() {
-    val entity = entityDefinition(Property(id = propertyId, name = "Runtime", type = PropertyType.DURATION, nullable = false))
-    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "seconds", conversion = FieldMappingConversion.LONG_TO_DURATION))
-
-    val result = execute(records("""[{"seconds":90}]"""), mapping, entity)
-
-    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "0:01:30"))
   }
 
   @Test

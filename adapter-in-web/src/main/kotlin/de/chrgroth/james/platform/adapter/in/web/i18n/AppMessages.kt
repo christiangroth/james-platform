@@ -117,9 +117,6 @@ interface AppMessages {
   fun propertyTypeDatetime(): String
 
   @Message
-  fun propertyTypeDuration(): String
-
-  @Message
   fun propertyTypeReference(): String
 
   @Message

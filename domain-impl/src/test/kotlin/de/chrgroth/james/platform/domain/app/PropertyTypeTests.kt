@@ -25,7 +25,6 @@ class PropertyTypeTests {
       PropertyType.DATE,
       PropertyType.TIME,
       PropertyType.DATETIME,
-      PropertyType.DURATION,
       PropertyType.REF,
     )
     scalarTypes.forEach { type ->
@@ -178,12 +177,6 @@ class PropertyTypeTests {
       .containsExactly(PropertyConstraint.UniqueKey::class)
   }
 
-  @Test
-  fun `DURATION includes UniqueKey, MinDuration and MaxDuration`() {
-    assertThat(PropertyType.DURATION.availableConstraints())
-      .containsExactly(PropertyConstraint.UniqueKey::class, PropertyConstraint.MinDuration::class, PropertyConstraint.MaxDuration::class)
-  }
-
   // endregion
 
   // region OBJECT
@@ -207,7 +200,6 @@ class PropertyTypeTests {
       PropertyType.DATE,
       PropertyType.TIME,
       PropertyType.DATETIME,
-      PropertyType.DURATION,
     )
     supportedTypes.forEach { type ->
       assertThat(type.supportsComputedProperty())

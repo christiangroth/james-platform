@@ -546,21 +546,6 @@ interface UserMessages {
   fun userImportMappingConversionDatetimeToDate(): String
 
   @Message
-  fun userImportMappingConversionLongToDuration(): String
-
-  @Message
-  fun userImportMappingConversionUnitSeconds(): String
-
-  @Message
-  fun userImportMappingConversionUnitMinutes(): String
-
-  @Message
-  fun userImportMappingConversionUnitHours(): String
-
-  @Message
-  fun userImportMappingConversionUnitDays(): String
-
-  @Message
   fun userImportSchemaTypeString(): String
 
   @Message
@@ -681,9 +666,6 @@ interface UserMessages {
 
   @Message
   fun userAddValueButton(): String
-
-  @Message
-  fun userDurationPlaceholder(): String
 
   @Message
   fun userUnitTextModeButton(): String
@@ -857,16 +839,7 @@ interface UserMessages {
   fun userMaxDatetimeViolationError(max: String): String
 
   @Message
-  fun userMinDurationViolationError(min: String): String
-
-  @Message
-  fun userMaxDurationViolationError(max: String): String
-
-  @Message
   fun userStepViolationError(step: String): String
-
-  @Message
-  fun userInvalidDurationFormatViolationError(format: String): String
 
   @Message
   fun userInvalidUnitFormatViolationError(): String
@@ -916,12 +889,6 @@ interface UserMessages {
 
   @Message
   fun userHintMaxDatetimeLabel(): String
-
-  @Message
-  fun userHintMinDurationLabel(): String
-
-  @Message
-  fun userHintMaxDurationLabel(): String
 
   @Message
   fun userHintUniqueKeyLabel(): String

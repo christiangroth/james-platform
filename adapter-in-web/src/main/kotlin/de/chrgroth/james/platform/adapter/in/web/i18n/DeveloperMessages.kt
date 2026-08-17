@@ -369,15 +369,6 @@ interface DeveloperMessages {
   fun developerMaxDatetimeLabel(): String
 
   @Message
-  fun developerMinDurationLabel(): String
-
-  @Message
-  fun developerMaxDurationLabel(): String
-
-  @Message
-  fun developerDurationPlaceholder(): String
-
-  @Message
   fun developerUnitLabel(): String
 
   @Message

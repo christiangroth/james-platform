@@ -110,7 +110,7 @@
                                 <option value="false" {#if val == "false"}selected{/if}>false</option>
                             </select>
                             {#else}
-                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}>
+                            <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" value="{val}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
                             {/if}
                             <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="{user:userRemoveValueAriaLabel()}">&times;</button>
                         </div>
@@ -131,7 +131,7 @@
                                     <option value="false">false</option>
                                 </select>
                                 {#else}
-                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if} {#if prop.listItemType == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}>
+                                <input type="{prop.itemHtmlInputType}" class="form-control app-form-control form-control-sm" name="prop_{prop.id}" {#if prop.listItemType == "DOUBLE"}step="any"{/if}>
                                 {/if}
                                 <button type="button" class="btn btn-app-secondary btn-sm list-remove-row" aria-label="{user:userRemoveValueAriaLabel()}">&times;</button>
                             </div>
@@ -191,7 +191,6 @@
                                {#if !prop.numberStepAttribute.isEmpty}step="{prop.numberStepAttribute}"{/if}
                                {#if !prop.min.isEmpty}min="{prop.min}"{/if}
                                {#if !prop.max.isEmpty}max="{prop.max}"{/if}
-                               {#if prop.type == "DURATION"}placeholder="{user:userDurationPlaceholder()}"{/if}
                                {#if !prop.valueProposals.isEmpty}list="datalist_{prop.id}" data-value-proposals="{prop.valueProposalsString}" data-installed-app-id="{detail.installedAppId}" data-entity-type-id="{detail.entityTypeId}" data-property-id="{prop.id}"{/if}
                                data-testid="edit-property-input-{prop.id}">
                         {#if (prop.type == "LONG" || prop.type == "DOUBLE") && !prop.step.isEmpty}
@@ -269,7 +268,6 @@
                 JSON.parse(document.getElementById('reference-options-data').textContent),
                 {
                     selectPlaceholder: '{msg:commonSelectPlaceholder()}',
-                    durationPlaceholder: '{user:userDurationPlaceholder()}',
                     requiredAriaLabel: '{user:userRequiredAriaLabel()}',
                     decreaseValueAriaLabel: '{user:userDecreaseValueAriaLabel()}',
                     increaseValueAriaLabel: '{user:userIncreaseValueAriaLabel()}',

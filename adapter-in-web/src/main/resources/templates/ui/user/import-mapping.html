@@ -133,11 +133,6 @@
                                         <option value="{option.value}" {#if option.value == property.conversion}selected{/if}>{option.label}</option>
                                         {/for}
                                     </select>
-                                    <select class="form-select form-select-sm app-form-control conversion-unit-select mt-1 {#if property.conversion != 'LONG_TO_DURATION'}d-none{/if}" data-testid="conversion-unit-select">
-                                        {#for option in conversionUnitOptions}
-                                        <option value="{option.value}" {#if option.value == property.conversionUnit}selected{/if}>{option.label}</option>
-                                        {/for}
-                                    </select>
                                     <select class="form-select form-select-sm app-form-control granularity-select mt-1 {#if !property.hasUnit}d-none{/if}" data-testid="granularity-select" data-unit-family="{property.unitFamily}" data-import-granularity="{property.importGranularity}"></select>
                                 </td>
                                 <td>
@@ -221,7 +216,6 @@
                         targetPropertyId: row.getAttribute('data-property-id'),
                         sourcePath: useLookup ? '' : row.querySelector('.source-path-select').value,
                         conversion: row.querySelector('.conversion-select').value,
-                        conversionUnit: row.querySelector('.conversion-unit-select').value,
                         importGranularity: row.querySelector('.granularity-select').value,
                         fallbackValue: row.querySelector('.fallback-value-input').value,
                         referenceLookup: null
@@ -356,12 +350,6 @@
 
             if (mappingForm) {
                 mappingForm.addEventListener('change', function (e) {
-                    if (e.target.classList.contains('conversion-select')) {
-                        var unitSelect = e.target.closest('td').querySelector('.conversion-unit-select');
-                        unitSelect.classList.toggle('d-none', e.target.value !== 'LONG_TO_DURATION');
-                        scheduleSampleReload();
-                        return;
-                    }
                     if (!e.target.classList.contains('reference-lookup-toggle')) {
                         scheduleSampleReload();
                         return;
