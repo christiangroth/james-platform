@@ -30,4 +30,13 @@ interface AppVersionMigrationPort {
    * failing object and persists nothing for this installation.
    */
   fun migrateInstallation(installedAppId: InstalledAppId, appId: AppId, fromVersion: VersionNumber, toVersion: VersionNumber): Either<DomainError, Unit>
+
+  /**
+   * Dry-runs each (previous, new) Entity pair in [entityMigrations] against every existing AppData row of [appId], across all installations,
+   * without persisting anything. Used by `AppVersionManagementService.publishVersion()`/`computeVersionBump()` (see
+   * docs/app-version-migration.md section 5.4) to check whether a migration neutralizes an otherwise-breaking change before a Version is
+   * published. Returns [Unit] on success (including when there is no matching data); on failure, the [DomainError] describing the first
+   * failing object.
+   */
+  fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit>
 }

@@ -21,6 +21,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationScriptResult
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
@@ -41,6 +42,7 @@ class AppVersionMigrationService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val appData: AppDataPort,
+  private val installedAppRepository: InstalledAppRepositoryPort,
   private val scriptMetrics: ScriptMetrics,
   @param:ConfigProperty(name = "app.script.timeout-ms", defaultValue = "500")
   private val scriptTimeoutMs: Long,
@@ -120,35 +122,19 @@ class AppVersionMigrationService(
         .filter { publishedVersions.indexOfFirst { v -> v.versionNumber == it.lastValidatedWithVersion } < versionIndex }
 
       for (existingAppData in pendingAppData) {
-        when (val scriptResult = runScript(previousEntity, entity, existingAppData.data)) {
-          is MigrationScriptResult.Failure -> {
-            logger.warn {
-              "Migration aborted for installedAppId=${installedAppId.value}: entity=${entity.name} appDataId=${existingAppData.id.value} " +
-                "version=${version.versionNumber?.value}: ${scriptResult.reason}"
-            }
-            return AppVersionMigrationScriptFailedError(entity.name, existingAppData.id.value, version.versionNumber?.value ?: "", scriptResult.reason).left()
-          }
-          is MigrationScriptResult.Success -> {
-            val validation = appData.validateEntityData(entity, scriptResult.data, installedAppId.value, excludingDataId = existingAppData.id.value)
-            when (validation) {
-              is Either.Left -> {
-                val propertyViolations = (validation.value as? AppDataConstraintViolationError)?.propertyViolations ?: emptyMap()
-                logger.warn {
-                  "Migration aborted for installedAppId=${installedAppId.value}: entity=${entity.name} appDataId=${existingAppData.id.value} " +
-                    "version=${version.versionNumber?.value} failed re-validation: $propertyViolations"
-                }
-                return AppVersionMigrationValidationFailedError(entity.name, existingAppData.id.value, version.versionNumber?.value ?: "", propertyViolations).left()
-              }
-              is Either.Right -> {
-                pendingSaves[existingAppData.id] = existingAppData.copy(
-                  data = scriptResult.data,
-                  lastValidatedWithVersion = version.versionNumber!!,
-                  objectVersion = existingAppData.objectVersion + 1,
-                )
-              }
-            }
-          }
-        }
+        val migrated = runAndValidate(
+          previousEntity,
+          entity,
+          existingAppData,
+          installedAppId,
+          version.versionNumber?.value ?: "",
+          "installedAppId=${installedAppId.value}",
+        ).fold({ return it.left() }, { it })
+        pendingSaves[existingAppData.id] = existingAppData.copy(
+          data = migrated,
+          lastValidatedWithVersion = version.versionNumber!!,
+          objectVersion = existingAppData.objectVersion + 1,
+        )
       }
     }
 
@@ -157,6 +143,49 @@ class AppVersionMigrationService(
       logger.info { "Migrated ${pendingSaves.size} app data object(s) for installedAppId=${installedAppId.value} from ${fromVersion.value} to ${toVersion.value}" }
     }
     return Unit.right()
+  }
+
+  override fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit> {
+    if (entityMigrations.isEmpty()) return Unit.right()
+    val installations = installedAppRepository.findAllByAppId(appId)
+    for ((previousEntity, newEntity) in entityMigrations) {
+      for (installedApp in installations) {
+        val existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, newEntity.id)
+        for (existingAppDataRow in existingAppData) {
+          runAndValidate(previousEntity, newEntity, existingAppDataRow, installedApp.id, "", "dry-run for appId=${appId.value}")
+            .fold({ return it.left() }, {})
+        }
+      }
+    }
+    return Unit.right()
+  }
+
+  /** Runs [newEntity]'s migration script against [existingAppData] and re-validates the result, logging and returning a [DomainError] on failure. */
+  private fun runAndValidate(
+    previousEntity: EntityDefinition,
+    newEntity: EntityDefinition,
+    existingAppData: AppData,
+    installedAppId: InstalledAppId,
+    versionNumber: String,
+    logContext: String,
+  ): Either<DomainError, Map<String, String?>> {
+    when (val scriptResult = runScript(previousEntity, newEntity, existingAppData.data)) {
+      is MigrationScriptResult.Failure -> {
+        logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value}: ${scriptResult.reason}" }
+        return AppVersionMigrationScriptFailedError(newEntity.name, existingAppData.id.value, versionNumber, scriptResult.reason).left()
+      }
+      is MigrationScriptResult.Success -> {
+        val validation = appData.validateEntityData(newEntity, scriptResult.data, installedAppId.value, excludingDataId = existingAppData.id.value)
+        return when (validation) {
+          is Either.Left -> {
+            val propertyViolations = (validation.value as? AppDataConstraintViolationError)?.propertyViolations ?: emptyMap()
+            logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value} failed re-validation: $propertyViolations" }
+            AppVersionMigrationValidationFailedError(newEntity.name, existingAppData.id.value, versionNumber, propertyViolations).left()
+          }
+          is Either.Right -> scriptResult.data.right()
+        }
+      }
+    }
   }
 
   /** The entity definition [entity] is migrating from: its own shape in the published Version immediately preceding [versionIndex], if any. */

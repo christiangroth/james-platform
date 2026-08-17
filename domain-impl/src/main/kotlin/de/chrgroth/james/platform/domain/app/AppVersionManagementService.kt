@@ -162,7 +162,7 @@ class AppVersionManagementService(
         logger.warn { "Publish version failed: invalid bump type: $bumpType" }
         return AppVersionError.INVALID_BUMP_TYPE.left()
       }
-      hasBreaking = hasBreakingChanges(latestPublished, version)
+      hasBreaking = resolveBreakingChanges(AppId(appId), latestPublished, version)
       val (onBreaking, onFeature, onBugfix) = nextVersions(latestVersionNumber)
       when {
         hasBreaking -> onBreaking
@@ -262,7 +262,7 @@ class AppVersionManagementService(
       ).right()
     }
     val hasChanges = hasAnyChanges(latestPublished, draft)
-    val hasBreaking = hasBreakingChanges(latestPublished, draft)
+    val hasBreaking = resolveBreakingChanges(AppId(appId), latestPublished, draft)
     val latestVersionNumber = latestPublished.versionNumber ?: run {
       logger.warn { "Compute version bump failed: latest published version has no version number for app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
@@ -1187,28 +1187,55 @@ class AppVersionManagementService(
   private fun hasAnyChanges(published: AppVersion, draft: AppVersion): Boolean =
     draft.entityDefinitions != published.entityDefinitions || draft.reports != published.reports
 
-  private fun hasBreakingChanges(published: AppVersion, draft: AppVersion): Boolean {
-    val publishedEntityIds = published.entityDefinitions.map { it.id }.toSet()
-    val draftEntityIds = draft.entityDefinitions.map { it.id }.toSet()
-    if (!draftEntityIds.containsAll(publishedEntityIds)) return true
-    for (publishedEntity in published.entityDefinitions) {
-      val draftEntity = draft.entityDefinitions.find { it.id == publishedEntity.id } ?: return true
-      val publishedPropIds = publishedEntity.properties.map { it.id }.toSet()
-      val draftPropIds = draftEntity.properties.map { it.id }.toSet()
-      if (!draftPropIds.containsAll(publishedPropIds)) return true
-      for (publishedProp in publishedEntity.properties) {
-        val draftProp = draftEntity.properties.find { it.id == publishedProp.id } ?: return true
-        if (draftProp.type != publishedProp.type) return true
-        if (publishedProp.nullable && !draftProp.nullable) return true
-        val addedConstraints = draftProp.constraints - publishedProp.constraints
-        if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
-        val publishedUnit = publishedProp.unit
-        val draftUnit = draftProp.unit
-        if ((publishedUnit == null) != (draftUnit == null)) return true
-        if (publishedUnit != null && draftUnit != null) {
-          if (publishedUnit.family != draftUnit.family) return true
-          if (publishedUnit.storageGranularity != draftUnit.storageGranularity) return true
-        }
+  /**
+   * Determines whether [draft] has breaking changes relative to [published], applying docs/app-version-migration.md section 5.4: if the
+   * change is breaking and [draft] declares a migration script for every Entity whose change made it breaking, dry-runs those migrations
+   * (via [appVersionMigration]) against all existing AppData of [appId] across every installation. A fully successful dry-run reclassifies
+   * the change as non-breaking, allowing publish as Feature/Bugfix instead of a forced Major bump; a failed or incomplete dry-run leaves the
+   * change breaking, exactly as before this reclassification existed.
+   */
+  private fun resolveBreakingChanges(appId: AppId, published: AppVersion, draft: AppVersion): Boolean {
+    val breakingEntityIds = breakingChangeEntityIds(published, draft)
+    if (breakingEntityIds.isEmpty()) return false
+    val entityMigrations = breakingEntityIds.map { entityId ->
+      val draftEntity = draft.entityDefinitions.find { it.id == entityId && it.migrationScript != null } ?: return true
+      val previousEntity = published.entityDefinitions.find { it.id == entityId } ?: draftEntity
+      previousEntity to draftEntity
+    }
+    return appVersionMigration.dryRunMigration(appId, entityMigrations).fold(
+      ifLeft = { error ->
+        logger.warn { "Migration dry-run failed to reconcile breaking change for app ${appId.value} (${error.code}) — Major bump remains mandatory" }
+        true
+      },
+      ifRight = { false },
+    )
+  }
+
+  /** The ids of Entities (present in [published]) whose change from [published] to [draft] is breaking, see docs/app-version-migration.md section 2.1. */
+  private fun breakingChangeEntityIds(published: AppVersion, draft: AppVersion): Set<EntityDefinitionId> {
+    val draftEntitiesById = draft.entityDefinitions.associateBy { it.id }
+    return published.entityDefinitions.mapNotNullTo(mutableSetOf()) { publishedEntity ->
+      val draftEntity = draftEntitiesById[publishedEntity.id]
+      if (draftEntity == null || isEntityBreaking(publishedEntity, draftEntity)) publishedEntity.id else null
+    }
+  }
+
+  private fun isEntityBreaking(publishedEntity: EntityDefinition, draftEntity: EntityDefinition): Boolean {
+    val publishedPropIds = publishedEntity.properties.map { it.id }.toSet()
+    val draftPropIds = draftEntity.properties.map { it.id }.toSet()
+    if (!draftPropIds.containsAll(publishedPropIds)) return true
+    for (publishedProp in publishedEntity.properties) {
+      val draftProp = draftEntity.properties.find { it.id == publishedProp.id } ?: return true
+      if (draftProp.type != publishedProp.type) return true
+      if (publishedProp.nullable && !draftProp.nullable) return true
+      val addedConstraints = draftProp.constraints - publishedProp.constraints
+      if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
+      val publishedUnit = publishedProp.unit
+      val draftUnit = draftProp.unit
+      if ((publishedUnit == null) != (draftUnit == null)) return true
+      if (publishedUnit != null && draftUnit != null) {
+        if (publishedUnit.family != draftUnit.family) return true
+        if (publishedUnit.storageGranularity != draftUnit.storageGranularity) return true
       }
     }
     return false
