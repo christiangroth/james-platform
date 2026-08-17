@@ -28,10 +28,11 @@ previous Version. This raises two related needs (see the issue):
   [Property Units](arc42/arc42.md#property-units)). If breaking, a Major bump is enforced; the Developer has no way to influence this.
 - On publish, `autoUpgradeInstallations()` bumps every installation's `installedVersionNumber` **only if the change is non-breaking**. No data is touched. If the change is
   breaking, installations stay on the old Version until the User calls `UserAppStorePort.upgradeApp()` — which *also* only bumps `installedVersionNumber` and never touches
-  `AppData` (`UserAppStoreService.kt:145-166`).
-- `AppData` (`domain-api/.../model/app/AppData.kt`) already has an `appVersion: VersionNumber` field, but it is only ever set once, at creation
-  (`AppDataService.createAppData()`), from the installation's *current* version. `AppDataService.updateAppData()` never updates it — so today it does not even reliably mean
-  "created with this version", let alone "last edited with". There is no field at all for "last validated with version".
+  `AppData` (`UserAppStoreService.kt:147-168`).
+- `AppData` (`domain-api/.../model/app/AppData.kt`) has an `appVersion: VersionNumber` field. As of #337, this is now stamped with the installation's *current*
+  `installedVersionNumber` on every save — both `AppDataService.createAppData()` and `AppDataService.updateAppData()` — so it reliably means "last saved (created or edited)
+  with this version"; a one-time startup migration (`AppDataMigrationService.backfillAppVersion()`) backfilled it for pre-existing data. It is still a single field, though:
+  there is no way to tell the original creation version once an object has since been edited, and there is still no field at all for "last validated with version".
 - Constraint validation (`PropertyConstraintPort.checkValue()`) only ever runs against data the User is actively submitting through `createAppData`/`updateAppData`. Existing
   objects that were valid under an old schema are never re-checked against a new schema.
 - `AppDataMigrationPort` / `AppDataMigrationService` (`domain-impl/.../app/AppDataMigrationService.kt`) plus the `Starter`s in `adapter-in-starter` are a **different,
@@ -44,17 +45,17 @@ previous Version. This raises two related needs (see the issue):
 
 ### 2.2 Gaps to close first (prerequisites)
 
-The issue explicitly asks to check whether the prerequisites are in place. They are **not**, today:
+The issue explicitly asks to check whether the prerequisites are in place. One (gap 1) is now closed; the rest are **not**, today:
 
 | # | Gap | Why it matters for migrations |
 |---|-----|--------------------------------|
-| 1 | `AppData` has one `appVersion` field, set at creation and never updated | Can't tell whether an object was ever touched (edited or migrated) under a later Version — this is the concrete prerequisite the issue calls out. |
+| 1 | ~~`AppData.appVersion`, set at creation and never updated~~ — **closed by #337**: refreshed on every create/update. | Every object reliably tells which Version it was *last saved with*. The original *creation* version, once an object has since been edited, is no longer derivable — this concept treats that as no longer needed (see 5.1). |
 | 2 | No "last validated with version" field | A migration engine needs to know, per object, whether it already satisfies the current Version's schema, to avoid re-running migrations/validation on every read. |
 | 3 | No concept of a migration attached to an `AppVersion` | Nothing to author, store, or execute. |
 | 4 | `hasBreakingChanges()` / `publishVersion()` have no notion of "a migration compensates for this change" | Required for "avoid a Major bump via migration". |
 | 5 | Upgrading an installation (auto or manual) never touches `AppData` | Migrations need a defined execution point. |
 
-Section 4 proposes closing gaps 1–2 as a data-model change, and gaps 3–5 as the migration concept itself.
+Section 5 proposes closing gap 2 as a data-model change (5.1), and gaps 3–5 as the migration concept itself (5.2–5.5).
 
 ## 3. Goals
 
@@ -62,7 +63,7 @@ Section 4 proposes closing gaps 1–2 as a data-model change, and gaps 3–5 as 
 - A migration that neutralizes what would otherwise be a breaking schema change (e.g. backfilling a new `NOT NULL` property) can allow the Version to be published as
   Feature/Bugfix instead of a forced Major bump — *if* it demonstrably brings all existing data into a valid state.
 - A Developer can also attach a migration to a Version that has no Entity/Report changes at all ("general migration"), e.g. to fix up data affected by a past bug.
-- Every `AppData` object exposes, at all times, which App Version it was created with, last edited with, and last validated with.
+- Every `AppData` object exposes, at all times, which App Version it was last saved with (already in place via `appVersion`, see 2.1/2.2) and last validated with.
 - Migrations run automatically as part of the existing upgrade flow (auto-upgrade for non-breaking Versions, explicit `upgradeApp` for breaking ones) — no separate UI concept
   for "run migration" is required beyond what already exists for upgrading.
 - Consistent with the project's constraints (single-developer hobby project, no message brokers/queues, see `docs/coding-guidelines/role-architect.md`): migrations execute
@@ -82,16 +83,20 @@ Section 4 proposes closing gaps 1–2 as a data-model change, and gaps 3–5 as 
 
 ### 5.1 Data model: per-object version tracking
 
-Replace the single `AppData.appVersion` field with three explicit fields:
+**Update:** this section originally proposed splitting `AppData.appVersion` into three fields (`createdWithVersion`, `lastEditedWithVersion`, `lastValidatedWithVersion`).
+#337 already closed the "last saved with" half of that gap, but deliberately *without* the three-way split: it keeps the existing single `appVersion` field and simply
+stamps it with the installation's current `installedVersionNumber` on every `createAppData`/`updateAppData`/import — so it now means "last saved (created or edited) with"
+rather than "created with". Its PR description explicitly frames this as prep work for this issue. This concept adopts that decision rather than re-proposing the split:
+the original creation version isn't needed for migrations (a migration only ever needs to know what the data currently reflects, not its history), so only one new field
+is needed:
 
 ```kotlin
 data class AppData(
   val id: AppDataId,
   val userId: String,
   val installedAppId: InstalledAppId,
-  val createdWithVersion: VersionNumber,       // was: appVersion — set once at creation, immutable
-  val lastEditedWithVersion: VersionNumber,    // updated whenever a User edits the object via createAppData/updateAppData
-  val lastValidatedWithVersion: VersionNumber, // updated whenever the object is (re-)validated against an EntityDefinition — including by a migration
+  val appVersion: VersionNumber,                // already in place (#337): last saved (created or edited) with this version
+  val lastValidatedWithVersion: VersionNumber,  // new: updated whenever the object is (re-)validated against an EntityDefinition — including by a migration
   val entityType: EntityDefinitionId,
   val objectVersion: Int,
   val createdAt: Instant,
@@ -100,15 +105,16 @@ data class AppData(
 )
 ```
 
-- `createdWithVersion` is what `appVersion` already almost is today — it just needs to stay untouched after creation (already true) and be renamed for clarity.
-- `lastEditedWithVersion` is a genuinely new behavior: `AppDataService.updateAppData()` must start stamping it with the installation's *current* `installedVersionNumber`
-  at the time of the edit (it currently doesn't touch `appVersion` at all — this is the concrete bug the issue points at).
+- `appVersion` needs no further changes — `AppDataService.createAppData()`/`updateAppData()` already stamp it, and `AppDataMigrationService.backfillAppVersion()` already
+  backfilled it for pre-existing data.
 - `lastValidatedWithVersion` is set to the installation's current version whenever the object passes constraint validation against that version's `EntityDefinition` —
-  this happens naturally on every create/update, and additionally after a successful migration run (5.3). It lets the migration engine cheaply skip objects that are already
+  this happens naturally on every create/update (at which point it always equals `appVersion`), and additionally after a successful migration run (5.3), where it can run
+  ahead of `appVersion` (data re-validated by a migration without the User having touched it). It lets the migration engine cheaply skip objects that are already
   known-valid for the target version (`lastValidatedWithVersion == targetVersion` ⇒ skip).
 
-This is a breaking change to `AppDataDocument` (`adapter-out-mongodb`) and needs its own platform-level migration Starter (using the *existing* `AppDataMigrationPort`
-mechanism from section 2.1) to backfill `lastEditedWithVersion`/`lastValidatedWithVersion` from the current `appVersion` value for all existing documents.
+Adding `lastValidatedWithVersion` is still a breaking change to `AppDataDocument` (`adapter-out-mongodb`) and needs its own platform-level migration Starter (using the
+*existing* `AppDataMigrationPort` mechanism from section 2.1, the same one `backfillAppVersion()` already uses) to backfill it from each object's current `appVersion`
+value for all existing documents.
 
 ### 5.2 Migration definition
 
@@ -220,4 +226,4 @@ Extends the Glossary in [arc42.md](arc42/arc42.md):
 |------|------------|
 | App Version Migration | A Developer-authored Kotlin script attached to an `EntityDefinition` within an `AppVersion`, transforming existing `AppData` when an installation upgrades past that Version. |
 | Migration dry-run | Executing a migration against all existing data without persisting results, used at publish time to check whether it neutralizes an otherwise-breaking change. |
-| `createdWithVersion` / `lastEditedWithVersion` / `lastValidatedWithVersion` | Per-`AppData` fields recording which `VersionNumber` last created, edited, or successfully validated the object. |
+| `appVersion` / `lastValidatedWithVersion` | Per-`AppData` fields recording which `VersionNumber` last saved (created or edited; `appVersion`, already in place per #337) or successfully validated (`lastValidatedWithVersion`, proposed) the object. |
