@@ -77,7 +77,7 @@
                                     {#if property.isReference}
                                     <div class="reference-lookup-builder {#if !property.useReferenceLookup}d-none{/if}" data-testid="reference-lookup-builder">
                                         <div class="form-text mb-1">{user:userImportMappingLookupHint()}</div>
-                                        <table class="table table-sm mb-1 reference-lookup-criteria-table" data-testid="reference-lookup-criteria-table">
+                                        <table class="table table-sm mb-1 app-table reference-lookup-criteria-table" data-testid="reference-lookup-criteria-table">
                                             <tbody>
                                                 {#for criterion in property.referenceLookupCriteria}
                                                 <tr class="reference-lookup-criterion-row" data-testid="reference-lookup-criterion-row">
@@ -184,7 +184,7 @@
                             </div>
                             <div class="col-md-6 tab-pane" id="mapping-sample-target-pane" role="tabpanel" aria-labelledby="mapping-sample-target-tab" tabindex="0">
                                 <div class="app-section-label small mb-1 d-none d-md-block">{user:userImportDryRunColTargetObject()}</div>
-                                <table class="table table-sm mb-0" data-testid="mapping-sample-target-object">
+                                <table class="table table-sm mb-0 app-table" data-testid="mapping-sample-target-object">
                                     <tbody id="mappingSampleTargetBody"></tbody>
                                 </table>
                             </div>
