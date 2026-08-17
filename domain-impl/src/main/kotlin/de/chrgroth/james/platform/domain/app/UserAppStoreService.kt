@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppInfo
@@ -33,6 +34,7 @@ class UserAppStoreService(
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val userRepository: UserRepositoryPort,
+  private val appVersionMigration: AppVersionMigrationPort,
 ) : UserAppStorePort {
 
   private fun latestPublishedVersion(appId: AppId) =
@@ -161,6 +163,10 @@ class UserAppStoreService(
       logger.warn { "Upgrade app failed: already up to date for installedAppId: $installedAppId" }
       return UserAppStoreError.ALREADY_UP_TO_DATE.left()
     }
+    appVersionMigration.migrateInstallation(existing.id, existing.appId, existing.installedVersionNumber, latestVersion.versionNumber!!).fold(
+      ifLeft = { return it.left() },
+      ifRight = {},
+    )
     val upgraded = existing.copy(installedVersionNumber = latestVersion.versionNumber!!)
     installedAppRepository.save(upgraded)
     logger.info { "App upgraded: installedAppId=$installedAppId to version ${latestVersion.versionNumber!!.value}" }

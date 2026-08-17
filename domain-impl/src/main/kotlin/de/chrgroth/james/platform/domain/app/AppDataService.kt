@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -251,6 +252,30 @@ class AppDataService(
     appDataRepository.delete(AppDataId(dataId))
     logger.info { "App data deleted: $dataId for installed app: $installedAppId (${references.size} reference(s) cleared)" }
     return references.size.right()
+  }
+
+  override fun validateEntityData(entityDef: EntityDefinition, data: Map<String, String?>, installedAppId: String, excludingDataId: String?): Either<DomainError, Unit> {
+    val existingValues = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), entityDef.id)
+      .filter { excludingDataId == null || it.id.value != excludingDataId }
+
+    val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
+    val allPathedViolations = mutableListOf<PathedConstraintViolation>()
+    for (property in entityDef.properties) {
+      val storedValue = data[property.id.value]
+      val parsedValue = parseValue(property, storedValue)
+      val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
+      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId))
+      val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
+      if (violations.isNotEmpty()) {
+        allViolations[property.id.value] = violations
+        allPathedViolations += propertyConstraint.checkValueWithPaths(property, parsedValue, existingParsedValues)
+        allPathedViolations += extraViolations.map { PathedConstraintViolation(property.name, it) }
+      }
+    }
+    if (allViolations.isNotEmpty()) {
+      return AppDataConstraintViolationError(allViolations, allPathedViolations).left()
+    }
+    return Unit.right()
   }
 
   /** Encodes the raw form values submitted for a top-level property into the single string stored in [AppData.data]. */

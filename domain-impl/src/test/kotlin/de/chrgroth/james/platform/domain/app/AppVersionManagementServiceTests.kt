@@ -1,9 +1,12 @@
 package de.chrgroth.james.platform.domain.app
 
+import arrow.core.left
+import arrow.core.right
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.app
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
 import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.AppVersionError
+import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AppId
@@ -29,6 +32,7 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
+import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -55,7 +59,11 @@ class AppVersionManagementServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val propertyConstraintPort: PropertyConstraintPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
-  private val service: AppVersionManagementService = AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository)
+  private val appVersionMigration: AppVersionMigrationPort = mockk {
+    every { migrateInstallation(any(), any(), any(), any()) } returns Unit.right()
+  }
+  private val service: AppVersionManagementService =
+    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration)
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -345,6 +353,26 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     verify(exactly = 1) { installedAppRepository.save(any()) }
     assertThat(savedSlot.first().installedVersionNumber).isEqualTo(VersionNumber("1.2.0"))
+    assertThat(savedSlot.first().id.value).isEqualTo("inst-2")
+  }
+
+  @Test
+  fun `publishVersion continues auto-upgrading other installations when one migration fails`() {
+    val inst1 = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    val inst2 = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst1, inst2)
+    val savedSlot = mutableListOf<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedSlot)) }
+    every {
+      appVersionMigration.migrateInstallation(inst1.id, AppId("app-1"), VersionNumber("1.1.0"), VersionNumber("1.2.0"))
+    } returns AppVersionMigrationScriptFailedError("Order", "data-1", "1.2.0", "boom").left()
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { installedAppRepository.save(any()) }
     assertThat(savedSlot.first().id.value).isEqualTo("inst-2")
   }
 
@@ -1933,6 +1961,47 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isEqualTo("Order {id}")
+  }
+
+  // endregion
+
+  // region updateEntityMigrationScript
+
+  @Test
+  fun `updateEntityMigrationScript sets script`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateEntityMigrationScript("app-1", "ver-1", "e-1", "it + (\"newProp\" to \"default\")")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.migrationScript).isEqualTo("it + (\"newProp\" to \"default\")")
+  }
+
+  @Test
+  fun `updateEntityMigrationScript clears script when blank`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationScript = "it")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateEntityMigrationScript("app-1", "ver-1", "e-1", "   ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.migrationScript).isNull()
+  }
+
+  @Test
+  fun `updateEntityMigrationScript fails when entity not found`() {
+    val version = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val result = service.updateEntityMigrationScript("app-1", "ver-1", "unknown", "it")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
   }
 
   // endregion

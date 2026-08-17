@@ -6,12 +6,13 @@ package de.chrgroth.james.platform.domain.model.infra
 enum class ScriptType {
   SMART_DEFAULT,
   COMPUTED_PROPERTY,
+  MIGRATION,
 }
 
 /**
  * Collected execution metrics for a single Kotlin script, identified by its type, entity and property.
  *
- * @property type the kind of script (smart default or computed property)
+ * @property type the kind of script (smart default, computed property or migration)
  * @property entityName the display name of the entity owning the property
  * @property propertyName the display name of the property whose script was evaluated
  * @property executionCount total number of times this script has been evaluated since application start

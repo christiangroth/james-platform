@@ -149,6 +149,60 @@ class AppDataServiceTests {
 
   // endregion
 
+  // region validateEntityData
+
+  @Test
+  fun `validateEntityData succeeds for already-stored-form data with no violations`() {
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(prop1, "value", emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+
+    val result = service.validateEntityData(entityDef, mapOf(prop1Id.value to "value"), installedAppId.value)
+
+    assertThat(result.isRight()).isTrue()
+  }
+
+  @Test
+  fun `validateEntityData returns AppDataConstraintViolationError when a constraint fails`() {
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(prop1, "dup", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(prop1, "dup", emptyList()) } returns listOf(PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation))
+
+    val result = service.validateEntityData(entityDef, mapOf(prop1Id.value to "dup"), installedAppId.value)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[prop1Id.value]).containsExactly(PropertyConstraintViolation.UniqueKeyViolation)
+  }
+
+  @Test
+  fun `validateEntityData excludes the given data id from sibling uniqueness checks`() {
+    val other = AppData(
+      id = AppDataId("other-data"),
+      userId = userId,
+      installedAppId = installedAppId,
+      appVersion = VersionNumber("1.0.0"),
+      lastValidatedWithVersion = VersionNumber("1.0.0"),
+      entityType = entityId,
+      objectVersion = 1,
+      createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+      lastChangedAt = Instant.parse("2024-01-01T00:00:00Z"),
+      data = mapOf(prop1Id.value to "value"),
+    )
+    val self = other.copy(id = AppDataId("self-data"))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(other, self)
+    every { propertyConstraint.checkValue(prop1, "value", listOf("value")) } returns emptyList()
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+
+    val result = service.validateEntityData(entityDef, mapOf(prop1Id.value to "value"), installedAppId.value, excludingDataId = "self-data")
+
+    assertThat(result.isRight()).isTrue()
+    verify { propertyConstraint.checkValue(prop1, "value", listOf("value")) }
+  }
+
+  // endregion
+
   // region updateAppData constraint violations
 
   @Test

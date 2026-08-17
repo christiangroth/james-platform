@@ -158,6 +158,12 @@ interface DeveloperMessages {
   fun developerEditDisplayTextAriaLabel(): String
 
   @Message
+  fun developerMigrationScriptHeading(): String
+
+  @Message
+  fun developerEditMigrationScriptAriaLabel(): String
+
+  @Message
   fun developerSortOrderHeading(): String
 
   @Message
@@ -279,6 +285,15 @@ interface DeveloperMessages {
 
   @Message
   fun developerDisplayTextPlaceholder(): String
+
+  @Message
+  fun developerEditMigrationScriptModalTitle(): String
+
+  @Message
+  fun developerMigrationScriptHelp(): String
+
+  @Message
+  fun developerMigrationScriptPlaceholder(): String
 
   @Message
   fun developerIdBadge(): String
@@ -565,6 +580,9 @@ interface DeveloperMessages {
 
   @Message
   fun developerDisplayTextSavedMessage(): String
+
+  @Message
+  fun developerMigrationScriptSavedMessage(): String
 
   @Message
   fun developerPropertyNameRequiredError(): String

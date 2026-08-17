@@ -105,6 +105,13 @@ enum class UserAppStoreError(override val code: String) : DomainError {
   ;
 }
 
+/** See docs/app-version-migration.md and docs/adr/0018-app-version-migration-execution-trigger.md. */
+enum class AppVersionMigrationError(override val code: String) : DomainError {
+  SCRIPT_FAILED("MIGRATION-001"),
+  VALIDATION_FAILED_AFTER_MIGRATION("MIGRATION-002"),
+  ;
+}
+
 enum class AppDataError(override val code: String) : DomainError {
   INSTALLED_APP_NOT_FOUND("APPDATA-001"),
   ENTITY_NOT_FOUND("APPDATA-002"),
@@ -172,6 +179,26 @@ data class PathedConstraintViolation(
   val path: String,
   val violation: PropertyConstraintViolation,
 )
+
+/** An Entity's migration script (see docs/app-version-migration.md) threw or timed out while migrating one AppData object during an installation upgrade. */
+data class AppVersionMigrationScriptFailedError(
+  val entityName: String,
+  val appDataId: String,
+  val versionNumber: String,
+  val reason: String,
+) : DomainError {
+  override val code: String = AppVersionMigrationError.SCRIPT_FAILED.code
+}
+
+/** A migration script ran successfully but its transformed data still violates the new EntityDefinition's constraints. */
+data class AppVersionMigrationValidationFailedError(
+  val entityName: String,
+  val appDataId: String,
+  val versionNumber: String,
+  val propertyViolations: Map<String, List<PropertyConstraintViolation>>,
+) : DomainError {
+  override val code: String = AppVersionMigrationError.VALIDATION_FAILED_AFTER_MIGRATION.code
+}
 
 data class DisplayTextInvalidError(
   val entityNames: List<String>,
