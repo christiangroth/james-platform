@@ -2,6 +2,8 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
+import com.mongodb.client.model.UpdateOptions
+import com.mongodb.client.model.Updates
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -62,6 +64,16 @@ class ImportJobRepositoryAdapter(
     mongoQueryMetrics.timed("import_job.deleteAllLastChangedBefore") {
       importJobDocumentRepository.mongoCollection().deleteMany(Filters.lt(LAST_CHANGED_AT_FIELD, cutoff)).deletedCount
     }
+
+  override fun migrateLongToDurationFieldMappingConversion() {
+    mongoQueryMetrics.timed("import_job.migrateLongToDurationFieldMappingConversion") {
+      importJobDocumentRepository.mongoCollection().updateMany(
+        Filters.eq(FIELD_MAPPINGS_CONVERSION_FIELD, LEGACY_LONG_TO_DURATION_CONVERSION),
+        Updates.set(FIELD_MAPPINGS_MATCHED_CONVERSION_FIELD, FieldMappingConversion.NONE.name),
+        UpdateOptions().arrayFilters(listOf(Filters.eq(MATCHED_ELEMENT_CONVERSION_FIELD, LEGACY_LONG_TO_DURATION_CONVERSION))),
+      )
+    }
+  }
 
   private fun ImportJobDocument.toDomain() = ImportJob(
     id = ImportJobId(id),
@@ -201,5 +213,12 @@ class ImportJobRepositoryAdapter(
     internal const val ID_FIELD = "_id"
     internal const val USER_ID_FIELD = "userId"
     internal const val LAST_CHANGED_AT_FIELD = "lastChangedAt"
+    internal const val FIELD_MAPPINGS_CONVERSION_FIELD = "mapping.fieldMappings.conversion"
+    internal const val FIELD_MAPPINGS_MATCHED_CONVERSION_FIELD = "mapping.fieldMappings.\$[elem].conversion"
+    internal const val MATCHED_ELEMENT_CONVERSION_FIELD = "elem.conversion"
+
+    // ADR 0017: FieldMappingConversion.LONG_TO_DURATION was removed together with the DURATION property type; see
+    // migrateLongToDurationFieldMappingConversion().
+    internal const val LEGACY_LONG_TO_DURATION_CONVERSION = "LONG_TO_DURATION"
   }
 }
