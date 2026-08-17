@@ -414,6 +414,27 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `publishVersion succeeds and auto-upgrades when only a migration script changed`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val publishedWithEntity = publishedVersion.copy(entityDefinitions = listOf(entity))
+    val draftWithMigrationScript = draftVersion.copy(entityDefinitions = listOf(entity.copy(migrationScript = "it")))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithMigrationScript, publishedWithEntity)
+    justRun { appVersionRepository.save(any()) }
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst)
+    val savedSlot = mutableListOf<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedSlot)) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    // a migration-script-only change can never be breaking, so the bump stays a plain BUGFIX bump instead of a forced Major
+    assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.1.1"))
+    verify(exactly = 1) { installedAppRepository.save(any()) }
+    assertThat(savedSlot.first().installedVersionNumber).isEqualTo(VersionNumber("1.1.1"))
+  }
+
+  @Test
   fun `publishVersion fails when version number already exists for app`() {
     // collidingPublished is at 1.1.1 (the expected BUGFIX bump from publishedVersion 1.1.0),
     // with an older createdAt so publishedVersion is the latest and used as the base for bump calculation
