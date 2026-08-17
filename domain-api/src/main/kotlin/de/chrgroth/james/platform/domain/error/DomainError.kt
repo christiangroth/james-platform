@@ -201,10 +201,8 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data class MaxTimeViolation(val max: java.time.LocalTime) : PropertyConstraintViolation("PROP-014")
   data class MinDatetimeViolation(val min: java.time.LocalDateTime) : PropertyConstraintViolation("PROP-015")
   data class MaxDatetimeViolation(val max: java.time.LocalDateTime) : PropertyConstraintViolation("PROP-016")
-  data class MinDurationViolation(val min: java.time.Duration) : PropertyConstraintViolation("PROP-017")
-  data class MaxDurationViolation(val max: java.time.Duration) : PropertyConstraintViolation("PROP-018")
+  // PROP-017, PROP-018, PROP-020 were MinDurationViolation/MaxDurationViolation/InvalidDurationFormatViolation, removed with DURATION (ADR 0017); codes not reused.
   data class StepViolation(val step: Number) : PropertyConstraintViolation("PROP-019")
-  data object InvalidDurationFormatViolation : PropertyConstraintViolation("PROP-020")
   data object InvalidUnitFormatViolation : PropertyConstraintViolation("PROP-021")
   data object NonIntegerUnitValueViolation : PropertyConstraintViolation("PROP-022")
 }

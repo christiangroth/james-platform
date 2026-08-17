@@ -31,6 +31,11 @@ class AppDataRepositoryAdapter(
       ).list().map { it.toDomain() }
     }
 
+  override fun findAll(): List<AppData> =
+    mongoQueryMetrics.timed("app_data.findAll") {
+      appDataDocumentRepository.listAll().map { it.toDomain() }
+    }
+
   override fun findById(id: AppDataId): AppData? =
     mongoQueryMetrics.timed("app_data.findById") {
       appDataDocumentRepository.findById(id.value)?.toDomain()

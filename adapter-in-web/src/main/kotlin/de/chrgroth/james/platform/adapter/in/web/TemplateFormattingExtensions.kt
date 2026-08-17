@@ -9,7 +9,6 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
-import de.chrgroth.james.platform.domain.model.app.formatDurationValue
 import de.chrgroth.james.platform.domain.model.app.unitFormatHint as domainUnitFormatHint
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
@@ -211,16 +210,6 @@ object TemplateFormattingExtensions {
   /** Returns the MaxDatetime constraint value, or empty string if not set. */
   @JvmStatic
   fun constraintMaxDatetime(property: Property): String = constraintValue<PropertyConstraint.MaxDatetime>(property.constraints) { it.max }
-
-  /** Returns the MinDuration constraint value formatted as "hh:mm:ss", or empty string if not set. */
-  @JvmStatic
-  fun constraintMinDuration(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MinDuration>().firstOrNull()?.let { formatDurationValue(it.min) } ?: ""
-
-  /** Returns the MaxDuration constraint value formatted as "hh:mm:ss", or empty string if not set. */
-  @JvmStatic
-  fun constraintMaxDuration(property: Property): String =
-    property.constraints.filterIsInstance<PropertyConstraint.MaxDuration>().firstOrNull()?.let { formatDurationValue(it.max) } ?: ""
 
   /** Returns the MinLength constraint value, or empty string if not set. */
   @JvmStatic

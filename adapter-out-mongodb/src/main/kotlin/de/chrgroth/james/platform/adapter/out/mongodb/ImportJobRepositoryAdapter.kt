@@ -6,7 +6,6 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.imports.DataPath
-import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
@@ -117,7 +116,6 @@ class ImportJobRepositoryAdapter(
     targetPropertyId = PropertyId(targetPropertyId),
     sourcePath = sourcePath,
     conversion = FieldMappingConversion.valueOf(conversion),
-    conversionUnit = conversionUnit?.let { DurationConversionUnit.valueOf(it) },
     importGranularity = importGranularity,
     fallbackValue = fallbackValue,
     referenceLookup = referenceLookup?.toDomain(),
@@ -185,7 +183,6 @@ class ImportJobRepositoryAdapter(
     doc.targetPropertyId = targetPropertyId.value
     doc.sourcePath = sourcePath
     doc.conversion = conversion.name
-    doc.conversionUnit = conversionUnit?.name
     doc.importGranularity = importGranularity
     doc.fallbackValue = fallbackValue
     doc.referenceLookup = referenceLookup?.toDocument()
