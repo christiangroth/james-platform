@@ -16,6 +16,5 @@ class AppDataDocument {
   var objectVersion: Int = 1
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
-  lateinit var appBuildVersion: String
   var data: Map<String, String?> = emptyMap()
 }

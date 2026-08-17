@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
@@ -18,6 +19,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -32,7 +34,8 @@ class AppDataMigrationServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
-  private val service = AppDataMigrationService(appRepository, appVersionRepository, appDataRepository, "1.0.0")
+  private val installedAppRepository: InstalledAppRepositoryPort = mockk()
+  private val service = AppDataMigrationService(appRepository, appVersionRepository, appDataRepository, installedAppRepository)
 
   private val entityWithDisplayText = EntityDefinition(
     id = EntityDefinitionId("entity-1"),
@@ -128,7 +131,6 @@ class AppDataMigrationServiceTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
-    appBuildVersion = "1.0.0",
     data = data,
   )
 
@@ -210,12 +212,47 @@ class AppDataMigrationServiceTests {
     verify(exactly = 0) { appDataRepository.save(any()) }
   }
 
+  private fun installedApp(id: String, versionNumber: String) = InstalledApp(
+    id = InstalledAppId(id),
+    userId = "user-1",
+    appId = AppId("app-1"),
+    installedVersionNumber = VersionNumber(versionNumber),
+    installedAt = Instant.now(),
+  )
+
   @Test
-  fun `backfillAppBuildVersion delegates to the repository with the current build version`() {
-    justRun { appDataRepository.backfillAppBuildVersion("1.0.0") }
+  fun `backfillAppVersion updates app data whose appVersion differs from the currently installed app version`() {
+    val item = appData("entity-1", emptyMap()).copy(installedAppId = InstalledAppId("installed-1"), appVersion = VersionNumber("1.0.0"))
+    every { appDataRepository.findAll() } returns listOf(item)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp("installed-1", "2.0.0")
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
 
-    service.backfillAppBuildVersion()
+    service.backfillAppVersion()
 
-    verify(exactly = 1) { appDataRepository.backfillAppBuildVersion("1.0.0") }
+    verify(exactly = 1) { appDataRepository.save(any()) }
+    assertThat(savedSlot.captured.appVersion).isEqualTo(VersionNumber("2.0.0"))
+  }
+
+  @Test
+  fun `backfillAppVersion does not save app data already matching the currently installed app version`() {
+    val item = appData("entity-1", emptyMap()).copy(installedAppId = InstalledAppId("installed-1"), appVersion = VersionNumber("2.0.0"))
+    every { appDataRepository.findAll() } returns listOf(item)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp("installed-1", "2.0.0")
+
+    service.backfillAppVersion()
+
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `backfillAppVersion skips app data whose installed app no longer exists`() {
+    val item = appData("entity-1", emptyMap()).copy(installedAppId = InstalledAppId("installed-1"), appVersion = VersionNumber("1.0.0"))
+    every { appDataRepository.findAll() } returns listOf(item)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns null
+
+    service.backfillAppVersion()
+
+    verify(exactly = 0) { appDataRepository.save(any()) }
   }
 }

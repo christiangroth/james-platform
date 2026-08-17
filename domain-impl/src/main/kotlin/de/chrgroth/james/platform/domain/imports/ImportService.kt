@@ -40,7 +40,6 @@ import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPor
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
-import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.time.Instant
 import java.util.UUID
 
@@ -55,8 +54,6 @@ class ImportService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
-  @param:ConfigProperty(name = "quarkus.application.version")
-  private val appBuildVersion: String,
 ) : ImportPort {
 
   override fun listAllImportJobs(userId: String): List<ImportJob> =
@@ -361,7 +358,6 @@ class ImportService(
           objectVersion = 1,
           createdAt = now,
           lastChangedAt = now,
-          appBuildVersion = appBuildVersion,
           data = data,
         ),
       )

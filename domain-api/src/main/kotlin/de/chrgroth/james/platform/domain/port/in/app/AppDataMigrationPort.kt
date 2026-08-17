@@ -7,5 +7,5 @@ interface AppDataMigrationPort {
   fun addMissingReleaseNotes()
   fun backfillEntityDisplayText()
   fun migrateDurationProperties()
-  fun backfillAppBuildVersion()
+  fun backfillAppVersion()
 }

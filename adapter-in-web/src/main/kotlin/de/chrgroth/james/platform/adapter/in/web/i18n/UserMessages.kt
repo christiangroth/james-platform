@@ -729,7 +729,7 @@ interface UserMessages {
   fun userLastModifiedLabel(): String
 
   @Message
-  fun userAppBuildVersionLabel(): String
+  fun userAppVersionLabel(): String
 
   @Message
   fun userComputedPropertiesLabel(): String

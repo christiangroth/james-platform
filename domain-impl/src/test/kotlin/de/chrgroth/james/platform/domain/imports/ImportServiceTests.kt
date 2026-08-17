@@ -74,7 +74,6 @@ class ImportServiceTests {
     appVersionRepository,
     appDataRepository,
     propertyConstraint,
-    "1.0.0",
   )
 
   private val installedApp = InstalledApp(
@@ -954,7 +953,6 @@ class ImportServiceTests {
       objectVersion = 1,
       createdAt = Instant.now(),
       lastChangedAt = Instant.now(),
-      appBuildVersion = "1.0.0",
       data = mapOf("prop-1" to "Alice"),
     )
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returnsMany

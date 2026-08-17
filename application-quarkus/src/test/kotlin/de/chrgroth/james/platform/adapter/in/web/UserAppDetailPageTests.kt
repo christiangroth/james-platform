@@ -306,8 +306,8 @@ class UserAppDetailPageTests {
   }
 
   @Test
-  fun `edit data page shows the app build version metadata field below the last modified field`() {
-    val appName = "App Build Version App ${System.nanoTime()}"
+  fun `edit data page shows the app version metadata field below the last modified field`() {
+    val appName = "App Version App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
     val entityId = addEntity(appId, versionId, "Entity One")
     val installedAppId = publishAndInstall(appId, appName)
@@ -321,11 +321,11 @@ class UserAppDetailPageTests {
       .extract().body().asString()
 
     val lastModifiedIndex = html.indexOf("data-testid=\"detail-last-modified\"")
-    val appBuildVersionIndex = html.indexOf("data-testid=\"detail-app-build-version\"")
-    assertTrue(lastModifiedIndex >= 0 && appBuildVersionIndex > lastModifiedIndex, "Expected the app build version field to be rendered after the last modified field")
+    val appVersionIndex = html.indexOf("data-testid=\"detail-app-version\"")
+    assertTrue(lastModifiedIndex >= 0 && appVersionIndex > lastModifiedIndex, "Expected the app version field to be rendered after the last modified field")
 
-    val appBuildVersion = Regex("""data-testid="detail-app-build-version">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
-    assertTrue(!appBuildVersion.isNullOrBlank(), "Expected the app build version metadata field to be rendered, but was: $appBuildVersion")
+    val appVersion = Regex("""data-testid="detail-app-version">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
+    assertTrue(!appVersion.isNullOrBlank(), "Expected the app version metadata field to be rendered, but was: $appVersion")
   }
 
   @Test

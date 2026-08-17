@@ -6,13 +6,13 @@ import jakarta.enterprise.context.ApplicationScoped
 
 @ApplicationScoped
 @Suppress("Unused")
-class AppBuildVersionMigrationStarter(
+class AppVersionMigrationStarter(
   private val appDataMigration: AppDataMigrationPort,
 ) : Starter {
 
-  override val id = "AppBuildVersionMigrationStarter-v1"
+  override val id = "AppVersionMigrationStarter-v1"
 
   override fun execute() {
-    appDataMigration.backfillAppBuildVersion()
+    appDataMigration.backfillAppVersion()
   }
 }

@@ -2,7 +2,6 @@ package de.chrgroth.james.platform.adapter.out.mongodb
 
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
-import com.mongodb.client.model.Updates
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
@@ -76,14 +75,6 @@ class AppDataRepositoryAdapter(
     }
   }
 
-  override fun backfillAppBuildVersion(appBuildVersion: String) {
-    mongoQueryMetrics.timed("app_data.backfillAppBuildVersion") {
-      val collection = appDataDocumentRepository.mongoCollection()
-      val missingField = Filters.not(Filters.exists(APP_BUILD_VERSION_FIELD))
-      collection.updateMany(missingField, Updates.set(APP_BUILD_VERSION_FIELD, appBuildVersion))
-    }
-  }
-
   private fun AppDataDocument.toDomain() = AppData(
     id = AppDataId(id),
     userId = userId,
@@ -93,7 +84,6 @@ class AppDataRepositoryAdapter(
     objectVersion = objectVersion,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
-    appBuildVersion = appBuildVersion,
     data = data,
   )
 
@@ -106,7 +96,6 @@ class AppDataRepositoryAdapter(
     doc.objectVersion = objectVersion
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
-    doc.appBuildVersion = appBuildVersion
     doc.data = data
   }
 
@@ -114,6 +103,5 @@ class AppDataRepositoryAdapter(
     internal const val ID_FIELD = "_id"
     internal const val INSTALLED_APP_ID_FIELD = "installedAppId"
     internal const val ENTITY_TYPE_FIELD = "entityType"
-    private const val APP_BUILD_VERSION_FIELD = "appBuildVersion"
   }
 }

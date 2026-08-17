@@ -11,9 +11,9 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
-import org.eclipse.microprofile.config.inject.ConfigProperty
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -21,8 +21,7 @@ class AppDataMigrationService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
-  @param:ConfigProperty(name = "quarkus.application.version")
-  private val appBuildVersion: String,
+  private val installedAppRepository: InstalledAppRepositoryPort,
 ) : AppDataMigrationPort {
 
   override fun deleteAppsWithoutDeveloperId() {
@@ -99,10 +98,18 @@ class AppDataMigrationService(
     }
   }
 
-  override fun backfillAppBuildVersion() {
-    logger.info { "Backfilling app build version for existing app data" }
-    appDataRepository.backfillAppBuildVersion(appBuildVersion)
-    logger.info { "Backfilled app build version $appBuildVersion for existing app data" }
+  override fun backfillAppVersion() {
+    logger.info { "Backfilling app version for existing app data to the currently installed app version" }
+    var count = 0
+    // findAll is acceptable here: migration runs once at startup before serving requests
+    appDataRepository.findAll().forEach { appData ->
+      val installedApp = installedAppRepository.findById(appData.installedAppId) ?: return@forEach
+      if (appData.appVersion != installedApp.installedVersionNumber) {
+        appDataRepository.save(appData.copy(appVersion = installedApp.installedVersionNumber))
+        count++
+      }
+    }
+    logger.info { "Backfilled app version for $count app data object(s)" }
   }
 
   /** Converts every value at [locations] within [data] from legacy duration text to seconds. Values that no longer parse are left untouched. */

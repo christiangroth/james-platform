@@ -41,7 +41,7 @@ class AppDataServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val propertyConstraint: PropertyConstraintPort = mockk()
-  private val service = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, propertyConstraint, "1.0.0")
+  private val service = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, propertyConstraint)
 
   private val installedAppId = InstalledAppId("installed-app-1")
   private val appId = AppId("app-1")
@@ -79,7 +79,6 @@ class AppDataServiceTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
-    appBuildVersion = "0.9.0",
     data = mapOf("prop-1" to "existing-value"),
   )
 
@@ -144,7 +143,7 @@ class AppDataServiceTests {
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.appBuildVersion).isEqualTo("1.0.0")
+    assertThat(result.getOrNull()?.appVersion).isEqualTo(installedApp.installedVersionNumber)
   }
 
   // endregion
@@ -189,7 +188,25 @@ class AppDataServiceTests {
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.appBuildVersion).isEqualTo("1.0.0")
+    assertThat(result.getOrNull()?.appVersion).isEqualTo(installedApp.installedVersionNumber)
+  }
+
+  @Test
+  fun `updateAppData refreshes appVersion to the currently installed app version even when the object was created on an older version`() {
+    val staleAppData = existingAppData.copy(appVersion = VersionNumber("0.9.0"))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns staleAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(prop1, "value", emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+    justRun { appDataRepository.save(any()) }
+
+    val data = mapOf("prop_${prop1Id.value}" to listOf("value"))
+    val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.appVersion).isEqualTo(VersionNumber("1.0.0"))
   }
 
   // endregion
@@ -212,7 +229,6 @@ class AppDataServiceTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
-    appBuildVersion = "1.0.0",
     data = mapOf(refPropId.value to "data-1"),
   )
 

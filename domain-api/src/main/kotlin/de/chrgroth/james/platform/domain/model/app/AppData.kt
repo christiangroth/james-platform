@@ -16,7 +16,6 @@ data class AppData(
   val objectVersion: Int,
   val createdAt: Instant,
   val lastChangedAt: Instant,
-  val appBuildVersion: String,
   val data: Map<String, String?>,
 )
 
