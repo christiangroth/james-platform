@@ -7,7 +7,7 @@ creates real value. You think in interfaces, contracts, and testability. Your me
 
 ## Project Overview
 
-James Platform is a single-user developer tool deployed on a personal VPS. It provides a web UI for managing users and infrastructure, with a cookie-based authentication system, one-time startup starters, and in-app documentation serving.
+James Platform is a single-user developer tool deployed on a personal VPS. It provides a web UI for managing users and infrastructure, with a cookie-based authentication system, a narrowly-scoped persistent outbox for long-running domain operations, one-time startup starters, and in-app documentation serving.
 
 See [arc42.md](../arc42/arc42.md) for full architecture documentation.
 
@@ -19,7 +19,7 @@ Module naming pattern:
 
 ```
 adapter-in-...      ← drives the domain (HTTP, scheduler, starters)
-adapter-out-...     ← driven by the domain (MongoDB, config, external API, Slack)
+adapter-out-...     ← driven by the domain (MongoDB, config, external API, Slack, outbox writer)
 application-quarkus ← wiring only: CDI, configuration, integration tests
 domain-api          ← ports (interfaces) and domain model only – zero infrastructure
 domain-impl         ← business logic implementing the inbound port interfaces
@@ -67,6 +67,10 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
 
 - **Port interfaces** (`domain-api/port/in` and `domain-api/port/out`) are the only legal crossing points between domain and adapters. New features must define ports first,
   implement adapters second.
+- **Outbox events** – explicit, persistent contract between domain and `adapter-out-outbox`. Event types are
+  versioned; new types may be added, but existing types must not be renamed or have their payload structure
+  broken without a migration strategy. Scope is limited to the operations named in
+  [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md).
 
 ## Complexity Boundaries
 
@@ -77,12 +81,19 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
   service for single-source writes, or via a CDI event for multi-source/fan-out writes; backfilled via the
   existing `Starter` mechanism. Ports live in `domain-api/port/out/readmodel`. See
   [ADR-0013](../adr/0013-precomputed-read-models-per-ui-page.md).
+- Persistent outbox (`de.chrgroth.quarkus.outbox` library) for the specific long-running domain operations
+  identified in series [#543](https://github.com/christiangroth/james-platform/issues/543): Data Import
+  accept, App uninstall/data deletion, App deletion, User deletion, and bulk App Version Migration on publish.
+  A single, un-throttled "domain" partition – no per-operation partitioning, no rate limiting (this is an
+  internal domain mechanism, not an external API integration). Port lives in
+  `domain-api/port/out/infra/OutboxPort.kt`; adapter lives in `adapter-out-outbox`. See
+  [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md).
 
 **Not allowed:**
 
 - No general CQRS or event sourcing beyond the precomputed read models above
-- No message brokers (Kafka, RabbitMQ), no persistent outbox – CDI events are sufficient (outbox was
-  deliberately removed, see [#215](https://github.com/christiangroth/james-platform/pull/215))
+- No message brokers (Kafka, RabbitMQ) and no *general-purpose* outbox – CDI events remain sufficient for
+  everything outside the narrow, named scope of [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)
 - No separate frontend deployment – Qute SSR in the same Quarkus process
 
 ## Testing Strategy
@@ -117,6 +128,7 @@ See [arc42.md](../arc42/arc42.md) — section "Release Process" under Deployment
 
 1. Does this logic belong in the domain or in an adapter?
 2. Would this compile in `domain-api`/`domain-impl` without any adapter dependency? If not, it's in the wrong place.
-3. Does it break an existing contract? Update the contract test first.
-4. Is the complexity domain-justified or technical over-engineering?
-5. How will it be tested? Which boundary layer is the right entry point?
+3. Does it need a new outbox event, or does it fall outside the scope of [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md) and belong on a CDI event instead?
+4. Does it break an existing contract? Update the contract test first.
+5. Is the complexity domain-justified or technical over-engineering?
+6. How will it be tested? Which boundary layer is the right entry point?
