@@ -19,6 +19,7 @@ interface AppVersionManagementPort {
   fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion>
   fun reorderEntities(appId: String, versionId: String, entityIds: List<String>): Either<DomainError, AppVersion>
   fun updateEntityDisplayText(appId: String, versionId: String, entityId: String, displayText: String?): Either<DomainError, AppVersion>
+  fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion>
   fun updateEntitySortCriteria(appId: String, versionId: String, entityId: String, sortBy: List<SortCriteria>): Either<DomainError, AppVersion>
   fun addProperty(
     appId: String,

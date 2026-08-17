@@ -87,6 +87,22 @@
                     </div>
                 </div>
 
+                <!-- Migration Script -->
+                <div class="mb-4">
+                    <h3 class="fs-6 fw-semibold mb-2">{developer:developerMigrationScriptHeading()}</h3>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="app-section-label" style="font-size:0.85rem;" data-testid="migration-script-value" data-script-label="{developer:developerScriptLabel()}">
+                            {#if selectedEntity.migrationScript}{developer:developerScriptLabel()}{#else}—{/if}
+                        </span>
+                        <button type="button" class="btn btn-app-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editMigrationScriptModal"
+                                title="{developer:developerEditMigrationScriptAriaLabel()}" aria-label="{developer:developerEditMigrationScriptAriaLabel()}"
+                                data-testid="open-migration-script-modal-button">
+                            <i class="bi bi-pencil" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Sort Order -->
                 <div class="mb-4">
                     <h3 class="fs-6 fw-semibold mb-2">{developer:developerSortOrderHeading()}</h3>
@@ -743,6 +759,35 @@
     {/if}
     {/if}
 
+    <!-- Edit Migration Script Modal -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="editMigrationScriptModal" tabindex="-1" aria-labelledby="editMigrationScriptModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editMigrationScriptModalLabel">{developer:developerEditMigrationScriptModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="migrationScriptForm" data-entity-id="{selectedEntity.id}">
+                    <div class="modal-body">
+                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerScriptKotlinLabel()}</div>
+                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerMigrationScriptHelp()}</p>
+                        <textarea class="form-control app-form-control form-control-sm" id="migrationScriptInput" name="migrationScript" rows="8"
+                                  style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerMigrationScriptPlaceholder()}"
+                                  data-testid="migration-script-input">{selectedEntity.migrationScript}</textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="save-migration-script-button">{msg:commonSave()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+
     {#if isDraft}
     {#if selectedEntity != null}
     {#if !isNestedLevel}
@@ -899,6 +944,33 @@
                         }
                     }
                 });
+
+                var migrationScriptForm = document.getElementById('migrationScriptForm');
+                if (migrationScriptForm) {
+                    migrationScriptForm.addEventListener('submit', async function (e) {
+                        e.preventDefault();
+                        var btn = migrationScriptForm.querySelector('[type="submit"]');
+                        btn.disabled = true;
+                        var entityId = migrationScriptForm.getAttribute('data-entity-id');
+                        var result = await apiPost(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/migration-script',
+                            new FormData(migrationScriptForm), false
+                        );
+                        btn.disabled = false;
+                        if (result && result.ok) {
+                            var editMigrationScriptModalEl = document.getElementById('editMigrationScriptModal');
+                            if (editMigrationScriptModalEl) {
+                                var migrationModal = bootstrap.Modal.getInstance(editMigrationScriptModalEl);
+                                if (migrationModal) { migrationModal.hide(); }
+                            }
+                            var migrationScriptValue = document.querySelector('[data-testid="migration-script-value"]');
+                            if (migrationScriptValue) {
+                                var scriptVal = document.getElementById('migrationScriptInput').value;
+                                migrationScriptValue.textContent = scriptVal.trim() ? migrationScriptValue.getAttribute('data-script-label') : '—';
+                            }
+                        }
+                    });
+                }
 
                 function updateDisplayTextBadgeVisibility() {
                     var input = document.getElementById('displayTextInput');

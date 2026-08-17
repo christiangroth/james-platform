@@ -206,6 +206,7 @@ class AppVersionRepositoryAdapter(
       properties = properties.map { it.toDomain() },
       sortBy = sortBy.mapNotNull { it.toDomain() },
       computedProperties = computedProperties.mapNotNull { it.toDomain() },
+      migrationScript = migrationScript,
     )
   }
 
@@ -299,6 +300,7 @@ class AppVersionRepositoryAdapter(
     doc.properties = properties.map { it.toDocument() }
     doc.sortBy = sortBy.map { it.toDocument() }
     doc.computedProperties = computedProperties.map { it.toDocument() }
+    doc.migrationScript = migrationScript
   }
 
   private fun SortCriteria.toDocument() = SortCriteriaDocument().also { doc ->

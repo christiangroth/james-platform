@@ -36,6 +36,7 @@ import de.chrgroth.james.platform.domain.model.app.DiffStatus
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -52,6 +53,7 @@ class AppVersionManagementService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
+  private val appVersionMigration: AppVersionMigrationPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -203,11 +205,20 @@ class AppVersionManagementService(
     if (previousVersionNumber == null) return
     val installations = installedAppRepository.findAllByAppId(appId)
     val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber }
+    var upgradedCount = 0
     toUpgrade.forEach { installedApp ->
-      installedAppRepository.save(installedApp.copy(installedVersionNumber = newVersionNumber))
+      appVersionMigration.migrateInstallation(installedApp.id, appId, previousVersionNumber, newVersionNumber).fold(
+        ifLeft = { error ->
+          logger.warn { "Auto-upgrade skipped for installedAppId=${installedApp.id.value}: migration failed (${error.code}) — staying on ${previousVersionNumber.value}" }
+        },
+        ifRight = {
+          installedAppRepository.save(installedApp.copy(installedVersionNumber = newVersionNumber))
+          upgradedCount++
+        },
+      )
     }
-    if (toUpgrade.isNotEmpty()) {
-      logger.info { "Auto-upgraded ${toUpgrade.size} installation(s) of app ${appId.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
+    if (upgradedCount > 0) {
+      logger.info { "Auto-upgraded $upgradedCount installation(s) of app ${appId.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
     }
   }
 
@@ -359,6 +370,20 @@ class AppVersionManagementService(
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Entity display text updated: $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update entity migration script failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val trimmedScript = migrationScript?.takeIf { it.isNotBlank() }
+    val updatedEntity = entity.copy(migrationScript = trimmedScript)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Entity migration script updated: $entityId in version $versionId (script=${trimmedScript?.let { "set" } ?: "cleared"})" }
     return updated.right()
   }
 

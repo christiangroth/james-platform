@@ -2,6 +2,9 @@ package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.app
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
+import arrow.core.left
+import arrow.core.right
+import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppStatus
@@ -9,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -30,7 +34,8 @@ class UserAppStoreServiceTests {
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val userRepository: UserRepositoryPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, userRepository)
+  private val appVersionMigration: AppVersionMigrationPort = mockk()
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, userRepository, appVersionMigration)
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
@@ -325,6 +330,7 @@ class UserAppStoreServiceTests {
     val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
+    every { appVersionMigration.migrateInstallation(InstalledAppId("inst-1"), AppId("app-1"), VersionNumber("1.0.0"), VersionNumber("2.0.0")) } returns Unit.right()
     val savedSlot = slot<InstalledApp>()
     justRun { installedAppRepository.save(capture(savedSlot)) }
 
@@ -333,6 +339,23 @@ class UserAppStoreServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.installedVersionNumber).isEqualTo(VersionNumber("2.0.0"))
     assertThat(savedSlot.captured.installedVersionNumber).isEqualTo(VersionNumber("2.0.0"))
+  }
+
+  @Test
+  fun `upgradeApp aborts and does not persist when migration fails`() {
+    val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
+    val migrationError = AppVersionMigrationScriptFailedError("Order", "data-1", "2.0.0", "boom")
+    every {
+      appVersionMigration.migrateInstallation(InstalledAppId("inst-1"), AppId("app-1"), VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+    } returns migrationError.left()
+
+    val result = service.upgradeApp("user-1", "inst-1")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(migrationError)
+    verify(exactly = 0) { installedAppRepository.save(any()) }
   }
 
   @Test

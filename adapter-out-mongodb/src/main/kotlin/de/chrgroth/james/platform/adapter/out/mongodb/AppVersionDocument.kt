@@ -25,6 +25,7 @@ class EntityDefinitionDocument {
   var properties: List<PropertyDocument> = emptyList()
   var sortBy: List<SortCriteriaDocument> = emptyList()
   var computedProperties: List<ComputedPropertyDocument> = emptyList()
+  var migrationScript: String? = null
 }
 
 class SortCriteriaDocument {
