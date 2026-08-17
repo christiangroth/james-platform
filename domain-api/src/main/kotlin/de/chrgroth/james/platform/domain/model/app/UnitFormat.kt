@@ -52,6 +52,15 @@ private fun granularitiesOf(family: UnitFamily): List<Granularity> = when (famil
   UnitFamily.DISTANCE -> DistanceGranularity.entries
 }
 
+/** Resolves [name] (case-insensitive, e.g. `"kilometers"`) to a [Granularity] of [family], or null if it does not name one of its entries. */
+fun granularityByName(family: UnitFamily, name: String?): Granularity? {
+  val trimmed = name?.trim()?.takeIf { it.isNotBlank() } ?: return null
+  return when (family) {
+    UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+    UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+  }
+}
+
 /** Formats [value] (expressed in [storageGranularity]) as a unit-suffixed composite string, e.g. "15km 400m", accepted back by [parseUnitValue]. */
 fun formatUnitValue(value: BigDecimal, storageGranularity: Granularity): String {
   val granularities = granularitiesOf(storageGranularity.family).sortedByDescending { it.factorToSmallestUnit }

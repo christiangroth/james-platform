@@ -97,4 +97,6 @@ freely at any time without affecting existing data.
 * [`UnitFormat.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/UnitFormat.kt)
 * [`DurationFormat.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/DurationFormat.kt)
 * [`AppDataService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppDataService.kt)
+* [`ScalarValueParsing.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/ScalarValueParsing.kt) – Data Import reuses `storageGranularity`/`factorToSmallestUnit` to convert a `FieldMapping.importGranularity` raw value at mapping time, mirroring `DurationConversionUnit`'s conversion.
 * [arc42: Supported Data Types](../arc42/arc42.md#supported-data-types)
+* [arc42: Data Import (ETL)](../arc42/arc42.md#data-import-etl)

@@ -51,13 +51,17 @@ data class ReferenceLookup(
  * schema field. Either [sourcePath] (a path into the detected schema), [fallbackValue] (a static value used for
  * every record), [referenceLookup] (only for REF properties; takes priority over [sourcePath] when set), or any
  * combination may be set; a property with none of them is considered unmapped. [conversionUnit] only applies to
- * [FieldMappingConversion.LONG_TO_DURATION] and is ignored otherwise.
+ * [FieldMappingConversion.LONG_TO_DURATION] and is ignored otherwise. [importGranularity] only applies to a target
+ * property that carries a [de.chrgroth.james.platform.domain.model.app.PropertyUnit] and names one of that unit's
+ * family granularities (e.g. `"KILOMETERS"`) the raw source value is expressed in; it is converted to the
+ * property's `storageGranularity` before being interpreted, and is ignored otherwise.
  */
 data class FieldMapping(
   val targetPropertyId: PropertyId,
   val sourcePath: String? = null,
   val conversion: FieldMappingConversion = FieldMappingConversion.NONE,
   val conversionUnit: DurationConversionUnit? = null,
+  val importGranularity: String? = null,
   val fallbackValue: String? = null,
   val referenceLookup: ReferenceLookup? = null,
 )

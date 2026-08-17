@@ -1,0 +1,1 @@
+* Data import mapping now supports Property Units: for target fields with a configured unit (e.g. distance or time), the granularity the source data is provided in can be selected, converting values automatically to the field's storage granularity.

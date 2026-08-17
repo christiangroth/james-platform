@@ -118,6 +118,7 @@ class ImportJobRepositoryAdapter(
     sourcePath = sourcePath,
     conversion = FieldMappingConversion.valueOf(conversion),
     conversionUnit = conversionUnit?.let { DurationConversionUnit.valueOf(it) },
+    importGranularity = importGranularity,
     fallbackValue = fallbackValue,
     referenceLookup = referenceLookup?.toDomain(),
   )
@@ -185,6 +186,7 @@ class ImportJobRepositoryAdapter(
     doc.sourcePath = sourcePath
     doc.conversion = conversion.name
     doc.conversionUnit = conversionUnit?.name
+    doc.importGranularity = importGranularity
     doc.fallbackValue = fallbackValue
     doc.referenceLookup = referenceLookup?.toDocument()
   }

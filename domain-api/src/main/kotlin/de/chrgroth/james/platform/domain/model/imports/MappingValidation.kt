@@ -56,6 +56,9 @@ sealed interface MappingIssue {
 
   /** The configured static [FieldMapping.fallbackValue] violates a constraint of the target property. */
   data class FallbackValueViolatesConstraint(override val targetPropertyId: PropertyId, val violation: PropertyConstraintViolation) : MappingIssue
+
+  /** The target property carries a [de.chrgroth.james.platform.domain.model.app.PropertyUnit] and is mapped to a source field, but [FieldMapping.importGranularity] is not set. */
+  data class MissingImportGranularity(override val targetPropertyId: PropertyId) : MappingIssue
 }
 
 data class MappingValidationResult(

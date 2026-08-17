@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.app.PropertyConstraintService
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
@@ -12,6 +13,8 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DurationConversionUnit
@@ -125,6 +128,29 @@ class DryRunExecutorTests {
     val result = execute(records("""[{"seconds":90}]"""), mapping, entity)
 
     assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "0:01:30"))
+  }
+
+  @Test
+  fun `import granularity converts a raw value into the property's storage granularity`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
+    val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "distance", importGranularity = "KILOMETERS"))
+
+    val result = execute(records("""[{"distance":15}]"""), mapping, entity)
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "15000"))
+  }
+
+  @Test
+  fun `import granularity matching the storage granularity leaves the raw value unchanged`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
+    val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "distance", importGranularity = "METERS"))
+
+    val result = execute(records("""[{"distance":15000}]"""), mapping, entity)
+
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "15000"))
   }
 
   @Test
