@@ -1,3 +1,12 @@
+# 0.96.2 (2026.08.17)
+
+## Bugfixes / Chore
+* Fixed an error that could prevent existing imports with a duration field mapping from loading.
+
+
+
+---
+
 # 0.96.0 (2026.08.17)
 
 ## New Features
