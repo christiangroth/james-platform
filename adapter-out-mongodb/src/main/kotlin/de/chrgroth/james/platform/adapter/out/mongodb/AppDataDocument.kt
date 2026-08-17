@@ -12,6 +12,10 @@ class AppDataDocument {
   lateinit var userId: String
   lateinit var installedAppId: String
   lateinit var appVersion: String
+
+  // Defaults to empty rather than lateinit: documents saved before this field existed lack it, and the startup backfill Starter
+  // reads them (via AppDataRepositoryAdapter.toDomain()) before it can set a real value.
+  var lastValidatedWithVersion: String = ""
   lateinit var entityType: String
   var objectVersion: Int = 1
   lateinit var createdAt: Instant

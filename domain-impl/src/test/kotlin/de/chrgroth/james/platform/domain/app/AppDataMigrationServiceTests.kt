@@ -127,6 +127,7 @@ class AppDataMigrationServiceTests {
     userId = "user-1",
     installedAppId = InstalledAppId("installed-1"),
     appVersion = VersionNumber("1.0.0"),
+    lastValidatedWithVersion = VersionNumber("1.0.0"),
     entityType = EntityDefinitionId(entityType),
     objectVersion = 1,
     createdAt = Instant.now(),
@@ -252,6 +253,29 @@ class AppDataMigrationServiceTests {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns null
 
     service.backfillAppVersion()
+
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `backfillLastValidatedWithVersion sets lastValidatedWithVersion to appVersion when they differ`() {
+    val item = appData("entity-1", emptyMap()).copy(appVersion = VersionNumber("2.0.0"), lastValidatedWithVersion = VersionNumber(""))
+    every { appDataRepository.findAll() } returns listOf(item)
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    service.backfillLastValidatedWithVersion()
+
+    verify(exactly = 1) { appDataRepository.save(any()) }
+    assertThat(savedSlot.captured.lastValidatedWithVersion).isEqualTo(VersionNumber("2.0.0"))
+  }
+
+  @Test
+  fun `backfillLastValidatedWithVersion does not save app data where lastValidatedWithVersion already matches appVersion`() {
+    val item = appData("entity-1", emptyMap()).copy(appVersion = VersionNumber("2.0.0"), lastValidatedWithVersion = VersionNumber("2.0.0"))
+    every { appDataRepository.findAll() } returns listOf(item)
+
+    service.backfillLastValidatedWithVersion()
 
     verify(exactly = 0) { appDataRepository.save(any()) }
   }

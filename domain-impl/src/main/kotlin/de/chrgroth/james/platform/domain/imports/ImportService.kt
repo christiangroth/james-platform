@@ -354,6 +354,7 @@ class ImportService(
           userId = userId,
           installedAppId = installedApp.id,
           appVersion = installedApp.installedVersionNumber,
+          lastValidatedWithVersion = installedApp.installedVersionNumber,
           entityType = entityDefinition.id,
           objectVersion = 1,
           createdAt = now,
