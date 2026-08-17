@@ -80,6 +80,7 @@ class AppDataRepositoryAdapter(
     userId = userId,
     installedAppId = InstalledAppId(installedAppId),
     appVersion = VersionNumber(appVersion),
+    lastValidatedWithVersion = VersionNumber(lastValidatedWithVersion),
     entityType = EntityDefinitionId(entityType),
     objectVersion = objectVersion,
     createdAt = createdAt,
@@ -92,6 +93,7 @@ class AppDataRepositoryAdapter(
     doc.userId = userId
     doc.installedAppId = installedAppId.value
     doc.appVersion = appVersion.value
+    doc.lastValidatedWithVersion = lastValidatedWithVersion.value
     doc.entityType = entityType.value
     doc.objectVersion = objectVersion
     doc.createdAt = createdAt

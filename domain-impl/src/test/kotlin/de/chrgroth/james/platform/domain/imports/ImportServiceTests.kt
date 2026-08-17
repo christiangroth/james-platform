@@ -949,6 +949,7 @@ class ImportServiceTests {
       userId = "user-1",
       installedAppId = InstalledAppId("installed-1"),
       appVersion = VersionNumber("1.0.0"),
+      lastValidatedWithVersion = VersionNumber("1.0.0"),
       entityType = EntityDefinitionId("entity-1"),
       objectVersion = 1,
       createdAt = Instant.now(),

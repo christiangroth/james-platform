@@ -12,6 +12,7 @@ data class AppData(
   val userId: String,
   val installedAppId: InstalledAppId,
   val appVersion: VersionNumber,
+  val lastValidatedWithVersion: VersionNumber,
   val entityType: EntityDefinitionId,
   val objectVersion: Int,
   val createdAt: Instant,

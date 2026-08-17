@@ -8,4 +8,5 @@ interface AppDataMigrationPort {
   fun backfillEntityDisplayText()
   fun migrateDurationProperties()
   fun backfillAppVersion()
+  fun backfillLastValidatedWithVersion()
 }

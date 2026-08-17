@@ -96,6 +96,7 @@ class AppDataService(
       userId = userId,
       installedAppId = InstalledAppId(installedAppId),
       appVersion = installedApp.installedVersionNumber,
+      lastValidatedWithVersion = installedApp.installedVersionNumber,
       entityType = EntityDefinitionId(entityTypeId),
       objectVersion = 1,
       createdAt = now,
@@ -191,6 +192,7 @@ class AppDataService(
       objectVersion = existingAppData.objectVersion + 1,
       lastChangedAt = Instant.now(),
       appVersion = installedApp.installedVersionNumber,
+      lastValidatedWithVersion = installedApp.installedVersionNumber,
       data = parsedData,
     )
     appDataRepository.save(updatedAppData)

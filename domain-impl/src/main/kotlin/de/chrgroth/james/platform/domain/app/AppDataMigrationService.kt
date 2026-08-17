@@ -112,6 +112,19 @@ class AppDataMigrationService(
     logger.info { "Backfilled app version for $count app data object(s)" }
   }
 
+  override fun backfillLastValidatedWithVersion() {
+    logger.info { "Backfilling last validated app version for existing app data" }
+    var count = 0
+    // findAll is acceptable here: migration runs once at startup before serving requests
+    appDataRepository.findAll().forEach { appData ->
+      if (appData.lastValidatedWithVersion != appData.appVersion) {
+        appDataRepository.save(appData.copy(lastValidatedWithVersion = appData.appVersion))
+        count++
+      }
+    }
+    logger.info { "Backfilled last validated app version for $count app data object(s)" }
+  }
+
   /** Converts every value at [locations] within [data] from legacy duration text to seconds. Values that no longer parse are left untouched. */
   private fun migrateDurationValues(data: Map<String, String?>, locations: List<DurationPropertyLocation>): Map<String, String?> {
     val locationsByTopLevelId = locations.groupBy { it.path.first().value }
