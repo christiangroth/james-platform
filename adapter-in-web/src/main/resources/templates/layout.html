@@ -453,6 +453,12 @@
         .app-modal-content .modal-footer {
             border-color: var(--color-border);
         }
+        /* Dark offcanvas (e.g. the "Quelldaten" schema panel) - Bootstrap's offcanvas otherwise
+           falls back to its own light background regardless of [data-theme]. */
+        .app-offcanvas {
+            background-color: var(--color-bg-card);
+            color: var(--color-text-primary);
+        }
         /* Dark accordion */
         .app-accordion-item {
             background-color: var(--color-bg-card);
