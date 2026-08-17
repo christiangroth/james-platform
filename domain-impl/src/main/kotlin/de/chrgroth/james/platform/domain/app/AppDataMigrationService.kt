@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
+import org.eclipse.microprofile.config.inject.ConfigProperty
 
 @ApplicationScoped
 @Suppress("Unused")
@@ -20,6 +21,8 @@ class AppDataMigrationService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
+  @param:ConfigProperty(name = "quarkus.application.version")
+  private val appBuildVersion: String,
 ) : AppDataMigrationPort {
 
   override fun deleteAppsWithoutDeveloperId() {
@@ -94,6 +97,12 @@ class AppDataMigrationService(
       "Migrated ${locations.size} DURATION propert${if (locations.size == 1) "y" else "ies"} across " +
         "${locationsByEntity.size} entity definition(s), converted $convertedCount app data object(s)"
     }
+  }
+
+  override fun backfillAppBuildVersion() {
+    logger.info { "Backfilling app build version for existing app data" }
+    appDataRepository.backfillAppBuildVersion(appBuildVersion)
+    logger.info { "Backfilled app build version $appBuildVersion for existing app data" }
   }
 
   /** Converts every value at [locations] within [data] from legacy duration text to seconds. Values that no longer parse are left untouched. */

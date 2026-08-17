@@ -57,6 +57,7 @@ class DryRunExecutorTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
+    appBuildVersion = "1.0.0",
     data = data,
   )
 
@@ -173,6 +174,7 @@ class DryRunExecutorTests {
         objectVersion = 1,
         createdAt = Instant.now(),
         lastChangedAt = Instant.now(),
+        appBuildVersion = "1.0.0",
         data = mapOf(propertyId.value to "DUP"),
       ),
     )

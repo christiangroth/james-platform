@@ -16,4 +16,7 @@ interface AppDataRepositoryPort {
   fun delete(id: AppDataId)
   fun deleteAllByInstalledAppId(installedAppId: InstalledAppId)
   fun deleteAllByInstalledAppIdAndEntityType(installedAppId: InstalledAppId, entityType: EntityDefinitionId)
+
+  /** Sets [appBuildVersion] on every stored AppData document that does not yet have an appBuildVersion field. Used only for the one-time startup migration. */
+  fun backfillAppBuildVersion(appBuildVersion: String)
 }

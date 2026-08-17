@@ -27,6 +27,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
+import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
@@ -38,6 +39,8 @@ class AppDataService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
+  @param:ConfigProperty(name = "quarkus.application.version")
+  private val appBuildVersion: String,
 ) : AppDataPort {
 
   override fun createAppData(
@@ -100,6 +103,7 @@ class AppDataService(
       objectVersion = 1,
       createdAt = now,
       lastChangedAt = now,
+      appBuildVersion = appBuildVersion,
       data = parsedData,
     )
     appDataRepository.save(appData)
@@ -190,6 +194,7 @@ class AppDataService(
     val updatedAppData = existingAppData.copy(
       objectVersion = existingAppData.objectVersion + 1,
       lastChangedAt = Instant.now(),
+      appBuildVersion = appBuildVersion,
       data = parsedData,
     )
     appDataRepository.save(updatedAppData)

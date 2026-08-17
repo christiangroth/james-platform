@@ -32,7 +32,7 @@ class AppDataMigrationServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
-  private val service = AppDataMigrationService(appRepository, appVersionRepository, appDataRepository)
+  private val service = AppDataMigrationService(appRepository, appVersionRepository, appDataRepository, "1.0.0")
 
   private val entityWithDisplayText = EntityDefinition(
     id = EntityDefinitionId("entity-1"),
@@ -128,6 +128,7 @@ class AppDataMigrationServiceTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
+    appBuildVersion = "1.0.0",
     data = data,
   )
 
@@ -207,5 +208,14 @@ class AppDataMigrationServiceTests {
     service.migrateDurationProperties()
 
     verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `backfillAppBuildVersion delegates to the repository with the current build version`() {
+    justRun { appDataRepository.backfillAppBuildVersion("1.0.0") }
+
+    service.backfillAppBuildVersion()
+
+    verify(exactly = 1) { appDataRepository.backfillAppBuildVersion("1.0.0") }
   }
 }

@@ -41,7 +41,7 @@ class AppDataServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val propertyConstraint: PropertyConstraintPort = mockk()
-  private val service = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, propertyConstraint)
+  private val service = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, propertyConstraint, "1.0.0")
 
   private val installedAppId = InstalledAppId("installed-app-1")
   private val appId = AppId("app-1")
@@ -79,6 +79,7 @@ class AppDataServiceTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
+    appBuildVersion = "0.9.0",
     data = mapOf("prop-1" to "existing-value"),
   )
 
@@ -143,6 +144,7 @@ class AppDataServiceTests {
     val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
 
     assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.appBuildVersion).isEqualTo("1.0.0")
   }
 
   // endregion
@@ -187,6 +189,7 @@ class AppDataServiceTests {
     val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
 
     assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.appBuildVersion).isEqualTo("1.0.0")
   }
 
   // endregion
@@ -209,6 +212,7 @@ class AppDataServiceTests {
     objectVersion = 1,
     createdAt = Instant.now(),
     lastChangedAt = Instant.now(),
+    appBuildVersion = "1.0.0",
     data = mapOf(refPropId.value to "data-1"),
   )
 

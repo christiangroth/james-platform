@@ -1037,6 +1037,7 @@ class UserImportResourceTests {
         objectVersion = 1,
         createdAt = Instant.now(),
         lastChangedAt = Instant.now(),
+        appBuildVersion = "1.0.0",
         data = mapOf(codePropertyId to "ACME"),
       ),
     )
@@ -1473,6 +1474,7 @@ class UserImportResourceTests {
         objectVersion = 1,
         createdAt = Instant.now(),
         lastChangedAt = Instant.now(),
+        appBuildVersion = "1.0.0",
         data = mapOf(propertyId to "ACME"),
       ),
     )
