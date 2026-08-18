@@ -387,8 +387,25 @@
                     var result = await fetchAction('DELETE', '/ui/admin/users/' + encodeURIComponent(username));
                     bootstrap.Modal.getInstance(deleteUserModal).hide();
                     showMessage(result.ok, result.message);
-                    if (result.ok) { await refreshTable(); }
+                    if (result.ok) { pollUntilUserDeleted(username); }
                 });
+            }
+
+            // Deleting now runs in the background via the outbox (see ADR 0019): poll until the user is actually
+            // gone, then refresh the table - rather than assuming the delete call already finished.
+            function pollUntilUserDeleted(username) {
+                var timer = setInterval(async function () {
+                    try {
+                        var response = await fetch('/ui/admin/users/' + encodeURIComponent(username) + '/status', { cache: 'no-store' });
+                        var status = await response.json();
+                        if (!status.stillExists) {
+                            clearInterval(timer);
+                            await refreshTable();
+                        }
+                    } catch (ex) {
+                        clearInterval(timer);
+                    }
+                }, 1000);
             }
         }());
     </script>

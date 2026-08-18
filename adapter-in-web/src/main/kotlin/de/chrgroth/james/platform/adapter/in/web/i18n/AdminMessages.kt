@@ -124,7 +124,7 @@ interface AdminMessages {
   fun adminRolesUpdatedMessage(): String
 
   @Message
-  fun adminUserDeletedMessage(): String
+  fun adminUserDeleteQueuedMessage(): String
 
   @Message
   fun adminUserNotFoundError(): String

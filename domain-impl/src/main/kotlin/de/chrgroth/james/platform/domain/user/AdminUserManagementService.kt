@@ -9,7 +9,11 @@ import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -20,6 +24,9 @@ import java.util.UUID
 @Suppress("Unused")
 class AdminUserManagementService(
   private val userRepository: UserRepositoryPort,
+  private val installedAppRepository: InstalledAppRepositoryPort,
+  private val appDataRepository: AppDataRepositoryPort,
+  private val outbox: OutboxPort,
 ) : AdminUserManagementPort {
 
   override fun listUsers(): List<User> = userRepository.findAll()
@@ -96,8 +103,22 @@ class AdminUserManagementService(
       logger.warn { "Delete user failed: user not found: $username" }
       return UserAdminError.USER_NOT_FOUND.left()
     }
+    outbox.enqueue(DomainOutboxEvent.DeleteUser(userId = user.id.value, username = user.username.value))
+    logger.info { "Delete user enqueued: $username by $callingUsername" }
+    return Unit.right()
+  }
+
+  override fun handle(event: DomainOutboxEvent.DeleteUser): Either<DomainError, Unit> {
+    val user = userRepository.findById(UserId(event.userId)) ?: run {
+      logger.info { "Delete user handler: user already gone, treating as already processed: ${event.username}" }
+      return Unit.right()
+    }
+    installedAppRepository.findAllByUserId(user.id.value).forEach { installedApp ->
+      appDataRepository.deleteAllByInstalledAppId(installedApp.id)
+      installedAppRepository.delete(installedApp.id)
+    }
     userRepository.delete(user.id)
-    logger.info { "User deleted: $username by $callingUsername" }
+    logger.info { "User deleted: ${event.username}" }
     return Unit.right()
   }
 
