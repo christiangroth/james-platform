@@ -81,6 +81,7 @@ data class ImportJobRow(
   val targetEntityName: String,
   val connectionName: String,
   val statusLabel: String,
+  val accepting: Boolean,
   val awaitingDataPathSelection: Boolean,
   val filterable: Boolean,
   val mappable: Boolean,
@@ -704,10 +705,7 @@ class UserImportResource {
     val replaceExisting = mode == "REPLACE"
     importPort.acceptDryRun(userId, importJobId, replaceExisting).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code))).build() },
-      ifRight = { result ->
-        val message = userMsg.userImportDryRunAcceptedMessage(result.savedCount, result.discardedCount)
-        Response.ok(DeveloperApiResult(true, message, redirectUrl = "/ui/user/imports")).build()
-      },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportDryRunQueuedMessage(), redirectUrl = "/ui/user/imports")).build() },
     )
   }
 
@@ -742,6 +740,7 @@ class UserImportResource {
     targetEntityName = entityNamesById[targetEntityDefinitionId.value].orEmpty(),
     connectionName = connectionNamesById[connectionId.value].orEmpty(),
     statusLabel = statusLabel(status),
+    accepting = status == ImportStatus.ACCEPTING,
     awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,
     filterable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
     mappable = status == ImportStatus.DATA_IDENTIFIED || status == ImportStatus.READY,
@@ -951,6 +950,7 @@ class UserImportResource {
     ImportStatus.DOWNLOADED -> userMsg.userImportStatusDownloaded()
     ImportStatus.DATA_IDENTIFIED -> userMsg.userImportStatusDataIdentified()
     ImportStatus.READY -> userMsg.userImportStatusReady()
+    ImportStatus.ACCEPTING -> userMsg.userImportStatusAccepting()
   }
 
   private fun importErrorMessage(code: String): String = when (code) {

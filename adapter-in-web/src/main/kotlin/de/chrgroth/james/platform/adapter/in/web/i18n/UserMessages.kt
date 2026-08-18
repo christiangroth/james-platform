@@ -208,6 +208,9 @@ interface UserMessages {
   fun userImportStatusReady(): String
 
   @Message
+  fun userImportStatusAccepting(): String
+
+  @Message
   fun userImportFilterLinkLabel(): String
 
   @Message
@@ -646,7 +649,7 @@ interface UserMessages {
   fun userImportDryRunReplaceConfirm(targetEntityName: String, validCount: Int, skippedCount: Int, invalidCount: Int): String
 
   @Message
-  fun userImportDryRunAcceptedMessage(savedCount: Int, discardedCount: Int): String
+  fun userImportDryRunQueuedMessage(): String
 
   // app data new / edit (shared form fields)
   @Message

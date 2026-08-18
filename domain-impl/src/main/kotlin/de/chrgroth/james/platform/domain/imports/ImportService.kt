@@ -14,7 +14,6 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
-import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
@@ -29,6 +28,7 @@ import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -37,6 +37,7 @@ import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -54,6 +55,7 @@ class ImportService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
+  private val outbox: OutboxPort,
 ) : ImportPort {
 
   override fun listAllImportJobs(userId: String): List<ImportJob> =
@@ -324,7 +326,7 @@ class ImportService(
     return MappingSample(records.size, dryRunObject).right()
   }
 
-  override fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, DryRunAcceptResult> {
+  override fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, ImportJob> {
     val existing = requireOwnedImportJob(userId, importJobId) ?: run {
       logger.warn { "Accept dry run failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
@@ -333,12 +335,33 @@ class ImportService(
       logger.warn { "Accept dry run failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val (mapping, entityDefinition) = readyMappingAndEntity(existing, installedApp) ?: run {
+    readyMappingAndEntity(existing, installedApp) ?: run {
       logger.warn { "Accept dry run failed: import job not ready: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
 
-    if (replaceExisting) {
+    val updated = existing.copy(status = ImportStatus.ACCEPTING, lastChangedAt = Instant.now())
+    importJobRepository.save(updated)
+    outbox.enqueue(DomainOutboxEvent.AcceptDryRun(importJobId = updated.id.value, userId = userId, replaceExisting = replaceExisting))
+    logger.info { "Accept dry run enqueued: importJobId=$importJobId replaceExisting=$replaceExisting" }
+    return updated.right()
+  }
+
+  override fun handle(event: DomainOutboxEvent.AcceptDryRun): Either<DomainError, Unit> {
+    val existing = importJobRepository.findById(ImportJobId(event.importJobId)) ?: run {
+      logger.info { "Accept dry run handler: import job already gone, treating as already processed: importJobId=${event.importJobId}" }
+      return Unit.right()
+    }
+    val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
+      logger.warn { "Accept dry run handler failed: installed app not found: ${existing.installedAppId} for importJobId: ${event.importJobId}" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val (mapping, entityDefinition) = mappingAndEntity(existing, installedApp) ?: run {
+      logger.warn { "Accept dry run handler failed: import job has no mapping: ${event.importJobId}" }
+      return ImportError.IMPORT_JOB_NOT_READY.left()
+    }
+
+    if (event.replaceExisting) {
       appDataRepository.deleteAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id)
       logger.info { "Accept dry run: cleared existing data before replace import: installedAppId=${installedApp.id} entityType=${entityDefinition.id}" }
     }
@@ -351,7 +374,7 @@ class ImportService(
       appDataRepository.save(
         AppData(
           id = AppDataId(UUID.randomUUID().toString()),
-          userId = userId,
+          userId = event.userId,
           installedAppId = installedApp.id,
           appVersion = installedApp.installedVersionNumber,
           lastValidatedWithVersion = installedApp.installedVersionNumber,
@@ -367,8 +390,8 @@ class ImportService(
     val discardedCount = objects.size - savedCount
 
     importJobRepository.delete(existing.id)
-    logger.info { "Dry run accepted: importJobId=$importJobId saved=$savedCount discarded=$discardedCount" }
-    return DryRunAcceptResult(installedApp.id, savedCount, discardedCount).right()
+    logger.info { "Dry run accepted: importJobId=${event.importJobId} saved=$savedCount discarded=$discardedCount" }
+    return Unit.right()
   }
 
   private fun readyMappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
@@ -379,8 +402,9 @@ class ImportService(
   /**
    * Mapping and target entity definition for a job that merely has a mapping configured, regardless of whether
    * it is free of blocking [de.chrgroth.james.platform.domain.model.imports.MappingIssue]s. Used for [dryRun],
-   * which is read-only and should surface mapping issues per record rather than refuse to run - unlike
-   * [acceptDryRun], which still requires [ImportStatus.READY] via [readyMappingAndEntity].
+   * which is read-only and should surface mapping issues per record rather than refuse to run, and for [handle],
+   * which by the time it runs always finds the job in [ImportStatus.ACCEPTING] rather than [ImportStatus.READY] -
+   * [acceptDryRun] itself still requires [ImportStatus.READY] via [readyMappingAndEntity] before enqueueing.
    */
   private fun mappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
     val mapping = existing.mapping ?: return null

@@ -50,7 +50,7 @@
                         </thead>
                         <tbody>
                             {#for job in jobs}
-                            <tr class="import-row" data-testid="import-row" data-import-id="{job.id}" style="cursor:pointer;">
+                            <tr class="import-row" data-testid="import-row" data-import-id="{job.id}" data-accepting="{job.accepting}" style="cursor:pointer;">
                                 <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
                                 <td data-testid="import-connection-name">{job.connectionName}</td>
                                 <td data-testid="import-installed-app-name">{job.installedAppName}</td>
@@ -206,6 +206,27 @@
                     showMessage(false, networkErrorMessage);
                 }
             }
+
+            // A dry-run accept enqueued via the outbox runs in the background: poll the table while any row is
+            // still ACCEPTING, so the row disappears (or its status catches up) without a manual page reload.
+            var acceptingPollTimer = null;
+
+            function hasAcceptingRow() {
+                return !!document.querySelector('.import-row[data-accepting="true"]');
+            }
+
+            function pollWhileAccepting() {
+                if (acceptingPollTimer) { return; }
+                acceptingPollTimer = setInterval(async function () {
+                    await refreshTable();
+                    if (!hasAcceptingRow()) {
+                        clearInterval(acceptingPollTimer);
+                        acceptingPollTimer = null;
+                    }
+                }, 2000);
+            }
+
+            if (hasAcceptingRow()) { pollWhileAccepting(); }
 
             async function fetchForm(method, url, formData) {
                 try {
