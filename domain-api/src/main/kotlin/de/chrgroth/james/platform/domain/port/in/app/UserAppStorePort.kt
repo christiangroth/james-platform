@@ -4,6 +4,7 @@ import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 
 data class PublishedAppInfo(
   val appId: String,
@@ -38,4 +39,7 @@ interface UserAppStorePort {
   fun installApp(userId: String, appId: String): Either<DomainError, InstalledApp>
   fun upgradeApp(userId: String, installedAppId: String): Either<DomainError, InstalledApp>
   fun uninstallApp(userId: String, installedAppId: String): Either<DomainError, Unit>
+
+  /** Called by the outbox dispatcher, not directly by inbound adapters. */
+  fun handle(event: DomainOutboxEvent.UninstallApp): Either<DomainError, Unit>
 }

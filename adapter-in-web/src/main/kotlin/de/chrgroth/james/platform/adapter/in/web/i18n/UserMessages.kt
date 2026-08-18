@@ -751,7 +751,7 @@ interface UserMessages {
   fun userAppUpgradedMessage(): String
 
   @Message
-  fun userAppUninstalledMessage(): String
+  fun userAppUninstallQueuedMessage(): String
 
   @Message
   fun userEntityTypeRequiredError(): String

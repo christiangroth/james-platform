@@ -375,8 +375,29 @@ class UserAppDetailPageTests {
     assertTrue(dashboardHtml.contains("data-testid=\"installed-app-deactivated-info\""), "Expected the deactivated info on the dashboard tile")
   }
 
+  /**
+   * Uninstalling now only enqueues an outbox event (see ADR 0019) instead of deleting synchronously, so the actual
+   * removal - the last step of `UserAppStoreService.handle` - is observed by polling the dedicated status endpoint
+   * instead of asserted immediately after the delete call returns. The outbox worker starts at application startup
+   * and is signalled on enqueue, so it picks up the task well within this bound under normal test conditions.
+   */
+  private fun awaitUninstalled(installedAppId: String) {
+    val deadlineMs = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadlineMs) {
+      val stillInstalled = given()
+        .`when`()
+        .get("/ui/user/apps/$installedAppId/status")
+        .then()
+        .statusCode(200)
+        .extract().body().jsonPath().getBoolean("stillInstalled")
+      if (!stillInstalled) return
+      Thread.sleep(50)
+    }
+    throw AssertionError("Expected installed app $installedAppId to be uninstalled by the outbox dispatcher within 5s")
+  }
+
   @Test
-  fun `deleting an installed app removes it and redirects to the dashboard`() {
+  fun `deleting an installed app enqueues its removal and it disappears in the background`() {
     val appName = "Uninstall App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)
     addEntity(appId, versionId, "Entity One")
@@ -388,7 +409,8 @@ class UserAppDetailPageTests {
       .then()
       .statusCode(200)
       .body(containsString("\"ok\":true"))
-      .body(containsString("\"redirectUrl\":\"/ui/user/dashboard\""))
+
+    awaitUninstalled(installedAppId)
 
     given()
       .redirects().follow(false)
