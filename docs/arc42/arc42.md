@@ -149,7 +149,7 @@ The flow:
 | 1        | Correctness      | Entity schema constraints and cyclic-reference detection must be enforced without exception.  |
 | 2        | Security         | Role-based access control, cookie security, and Report sandboxing protect user data.          |
 | 3        | Developer UX     | App and schema creation must feel lightweight; no boilerplate for common CRUD patterns.       |
-| 4        | Reliability      | External operations (e.g. notifications) are delivered on a best-effort basis.                |
+| 4        | Reliability      | Long-running domain operations (import, deletion, migration) are routed through a persistent outbox for at-least-once execution; external notifications remain best-effort. |
 | 5        | Maintainability  | Hexagonal architecture and clear module boundaries keep the codebase understandable.          |
 
 # Architecture Constraints
@@ -204,7 +204,7 @@ graph TD
 | Correctness       | Constraint validation and cyclic-reference detection in the domain layer; enforced before any persistence write.   |
 | Security          | Role-based access via `QuarkusSecurityIdentity`; `HttpOnly` AES session cookie; computed-property scripts run with a timeout guard only, no deeper sandbox (Report sandboxing still a concept, see [Reports](#reports)). |
 | Developer UX      | Generic CRUD UI generated from Entity metadata; semver auto-derived; no boilerplate for common patterns.           |
-| Reliability       | External operations (notifications, …) are delivered on a best-effort basis.                                       |
+| Reliability       | External operations (notifications, …) are delivered on a best-effort basis; long-running domain operations (import, deletion, migration) use a persistent outbox for at-least-once execution, see [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |
 | Maintainability   | Hexagonal architecture with strict module-dependency rules; zero infrastructure in `domain-api` / `domain-impl`.   |
 | Flexible schemas  | MongoDB document model maps naturally to dynamic Entity/Property definitions.                                      |
 | Simple deployment | Quarkus native Docker image + Docker Swarm on existing VPS; MongoDB Atlas as managed database.                     |
@@ -228,6 +228,7 @@ flowchart TB
         AIW["adapter-in-web"]
         AIS["adapter-in-starter"]
         AISC["adapter-in-scheduler"]
+        AIO["adapter-in-outbox"]
     end
 
     DA["domain-api<br/>ports + domain model"]
@@ -236,6 +237,7 @@ flowchart TB
     subgraph Outbound["Outbound Adapters"]
         AOC["adapter-out-config"]
         AOM["adapter-out-mongodb"]
+        AOO["adapter-out-outbox"]
         AOS["adapter-out-scheduler"]
         AOSL["adapter-out-slack"]
     end
@@ -258,8 +260,10 @@ Base package: `de.chrgroth.james.platform`
 | `adapter-in-web`      | inbound    | HTTP endpoints, Qute SSR templates, SSE adapters, cookie auth mechanism               |
 | `adapter-in-starter`  | inbound    | One-time startup beans (starters) for data migrations and one-time bugfixes           |
 | `adapter-in-scheduler` | inbound   | Wired with the Quarkus scheduler extension; runs the `@Scheduled` import job cleanup cronjob |
+| `adapter-in-outbox`   | inbound    | `ApplicationOutboxDispatcher` implementation; dispatches claimed outbox tasks into domain inbound ports |
 | `adapter-out-config`  | outbound   | Reads Quarkus/MicroProfile config and environment variables for health/config display |
 | `adapter-out-mongodb` | outbound   | MongoDB persistence: user repository, MongoDB viewer, stats adapter                  |
+| `adapter-out-outbox`  | outbound   | Wraps the `de.chrgroth.quarkus.outbox` library's client; enqueues and queries outbox tasks |
 | `adapter-out-scheduler` | outbound | Reads Quarkus scheduler metadata for health/cronjob display                          |
 | `adapter-out-slack`   | outbound   | Slack notification adapter                                                            |
 | `application-quarkus` | –          | Wiring only: CDI, configuration, integration tests                                   |
@@ -276,20 +280,29 @@ strict inbound/outbound module split described above; see [Technical Debts](#tec
 
 ### External Dependencies
 
-Two of Chris's own projects, both hosted as GitHub Packages (Maven repositories declared in
+Three of Chris's own projects, all hosted as GitHub Packages (Maven repositories declared in
 `settings.gradle.kts`, resolved with a `GHCR_PAT`/`GITHUB_ACTOR` credential):
 
 - [christiangroth/quarkus-one-time-starters](https://github.com/christiangroth/quarkus-one-time-starters) — runtime dependency, three artifacts:
   - `domain-api` – contracts: `Starter`, `StarterSkipPredicate`, `StarterCompletionFlag`
   - `domain-impl` – execution orchestration and startup observer
   - `adapter-out-persistence-mongodb` – MongoDB persistence for starter execution state
+- [christiangroth/quarkus-outbox](https://github.com/christiangroth/quarkus-outbox) — runtime dependency, reintroduced by [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)
+  scoped to a single, un-throttled "domain" partition (an earlier, multi-partition, rate-limit-aware version
+  of this same library was removed entirely in [#215](https://github.com/christiangroth/james-platform/pull/215)).
+  Five artifacts:
+  - `domain-api` – outbox contracts: `ApplicationOutboxPartition`, `ApplicationOutboxEvent`,
+    `ApplicationOutboxDispatcher`, `ApplicationOutboxClient`, `DispatchResult`, and associated types
+  - `domain-impl` – CDI-managed orchestration: enqueue/dispatch control, retry policy, archiving, startup
+    recovery of stale tasks
+  - `adapter-out-executor` – coroutine-based per-partition dispatch workers
+  - `adapter-out-persistence-mongodb` – MongoDB persistence: at-least-once delivery, atomic claim, task
+    deduplication, priority ordering
+  - `adapter-in-scheduler` – scheduled daily archive-retention cleanup and event-type-count reconciliation
 - [christiangroth/gradle-release-notes-plugin](https://github.com/christiangroth/gradle-release-notes-plugin) — build-time Gradle plugin (`de.chrgroth.gradle.release-notes`) that
   compiles `docs/releasenotes/snippets/*.md` into `docs/releasenotes/RELEASENOTES.md` on
   release; not a runtime dependency of the application itself. See [Release
   Process](#release-process).
-
-No outbox pattern is in use — an earlier persistent-outbox concept was removed entirely
-(`0affc8fc`, see `docs/backport.md`) and no equivalent replaced it, in-house or external.
 
 # Runtime View
 
@@ -330,6 +343,18 @@ Other notable flows:
   events on state changes, which `DashboardSseAdapter`/`HealthSseAdapter` (in `adapter-in-web`)
   translate into named SSE events pushed to connected clients (see [Server-Sent Events (SSE)
   and Live Updates](#server-sent-events-sse-and-live-updates)).
+- **Outbox dispatch** (see ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)):
+  a domain service calls `OutboxPort.enqueue()` with a `DomainOutboxEvent`; `adapter-out-outbox` persists it
+  via the `de.chrgroth.quarkus.outbox` library's MongoDB adapter and returns immediately. A library-managed
+  worker later claims the task and calls `DomainOutboxTaskDispatcher.dispatch()` in `adapter-in-outbox`
+  to actually execute the operation, by calling into domain inbound ports – the dispatcher drives the domain,
+  so it is an inbound, not outbound, adapter, mirroring the split already used in the sister project
+  [spotify-control](https://github.com/christiangroth/spotify-control). Failures are retried with backoff.
+  Archiving (`outbox.archive.enabled`) is switched off in this project – completed and permanently failed
+  tasks are deleted from the `outbox` collection outright instead of being copied into `outbox_archive` first,
+  so no historical record of dispatched or failed tasks is kept. As of this ADR no domain service enqueues an
+  event yet — the follow-up tickets in series
+  [#543](https://github.com/christiangroth/james-platform/issues/543) are what will make this flow live.
 
 # Deployment View
 
@@ -415,7 +440,7 @@ Tests follow the *Test Your Boundaries* principle mapped to the hexagonal archit
 | 4 – App wiring          | Health/metrics endpoints               | None                                                    | `application-quarkus`     | `@QuarkusTest`                |
 | 5 – Adapter-local logic | Class under test                       | MockK mocks                                             | individual adapter module | JUnit 5 + MockK               |
 
-Layer 5 applies to adapter modules where the logic is pure (e.g. `adapter-in-starter`, `adapter-out-scheduler`).
+Layer 5 applies to adapter modules where the logic is pure (e.g. `adapter-in-starter`, `adapter-in-outbox`, `adapter-out-scheduler`, `adapter-out-outbox`).
 
 ## Authentication and Access Control
 
@@ -509,7 +534,10 @@ this has been missed twice historically (see `docs/backport.md` section 3).
 script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
 `app.imports.cleanup.retention-days` (import job cleanup cronjob, default 14 days),
 `app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
-`quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`).
+`quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`),
+`outbox.archive.enabled` (outbox archive collection disabled, `false`), `outbox.archive.retention-days`
+(outbox archive cleanup, default 30 days, currently unused while archiving is disabled; see ADR
+[0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)).
 
 # Architecture Decisions
 
@@ -531,6 +559,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0014](../adr/0014-app-lifecycle.md)                          | App Lifecycle: Non-Blocking Deactivation, Blocking Hard Delete |
 | [0015](../adr/0015-import-object-preview-endpoint.md)         | Import Filter Preview: Per-Record Sample Endpoint Reusing FilterEvaluator |
 | [0016](../adr/0016-property-units-storage-granularity.md)     | Property Units: Fixed Numeric Storage Granularity, Immutable After Creation |
+| [0018](../adr/0018-app-version-migration-execution-trigger.md) | App Version Migrations: Synchronous, In-Request Execution on Upgrade |
+| [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md) | Persistent Outbox for Long-Running Domain Operations |
 
 # Risks and Technical Debts
 
@@ -598,3 +628,4 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Property Unit     | An optional unit (`family`, `storageGranularity`, `defaultGranularity`) attached to a `long`/`Double` Property; values are always stored numerically in `storageGranularity`. See ADR [0016](../adr/0016-property-units-storage-granularity.md). |
 | Unit family       | The kind of unit a Property Unit belongs to: `TIME` or `DISTANCE`. Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`) applies. |
 | Storage granularity | A Property Unit's fixed smallest representable unit, chosen at field creation and immutable afterward. |
+| Outbox            | A persistent queue for at-least-once execution of long-running domain operations (import, deletion, migration). Scoped to a single "domain" partition, no rate limiting. See ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |
