@@ -11,6 +11,9 @@ enum class ImportStatus {
   DOWNLOADED,
   DATA_IDENTIFIED,
   READY,
+
+  /** Accept was triggered and enqueued via the outbox; the job is kept around until the background dispatcher deletes it on success. */
+  ACCEPTING,
 }
 
 data class DataPath(

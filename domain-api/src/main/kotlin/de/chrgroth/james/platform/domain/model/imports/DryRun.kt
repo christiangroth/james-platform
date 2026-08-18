@@ -1,7 +1,6 @@
 package de.chrgroth.james.platform.domain.model.imports
 
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
-import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 
 /**
@@ -59,12 +58,6 @@ data class DryRunReport(
   val invalidObjects: List<DryRunObject> get() = objects.filter { it.isInvalid }
   val skippedObjects: List<DryRunObject> get() = objects.filter { it.isSkipped }
 }
-
-data class DryRunAcceptResult(
-  val installedAppId: InstalledAppId,
-  val savedCount: Int,
-  val discardedCount: Int,
-)
 
 /**
  * A single source record - at [index] within the Mapping step's filtered record set - together with the

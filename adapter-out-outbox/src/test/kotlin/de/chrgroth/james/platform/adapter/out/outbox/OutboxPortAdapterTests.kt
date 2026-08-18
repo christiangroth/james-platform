@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.out.outbox
 
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxClient
 import de.chrgroth.quarkus.outbox.domain.OutboxEventPriority
@@ -8,18 +9,28 @@ import de.chrgroth.quarkus.outbox.domain.OutboxPartitionStatus
 import de.chrgroth.quarkus.outbox.domain.OutboxTask as LibraryOutboxTask
 import de.chrgroth.quarkus.outbox.domain.OutboxTaskStatus
 import io.mockk.every
+import io.mockk.justRun
 import io.mockk.mockk
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
 
-// DomainOutboxEvent is a sealed interface with no concrete subtypes yet (added by follow-up tickets in #543),
-// so enqueue() cannot be exercised with a real or mocked instance until one exists.
 class OutboxPortAdapterTests {
 
   private val outbox: ApplicationOutboxClient = mockk()
 
   private val adapter = OutboxPortAdapter(outbox)
+
+  @Test
+  fun `enqueue delegates to the outbox client`() {
+    val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = false)
+    justRun { outbox.enqueue(event) }
+
+    adapter.enqueue(event)
+
+    verify(exactly = 1) { outbox.enqueue(event) }
+  }
 
   @Test
   fun `partition stats fall back to active with zero counts when no info exists`() {

@@ -2,7 +2,6 @@ package de.chrgroth.james.platform.domain.port.`in`.imports
 
 import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
-import de.chrgroth.james.platform.domain.model.imports.DryRunAcceptResult
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
@@ -11,6 +10,7 @@ import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 
 interface ImportPort {
   /** Lists all of [userId]'s import jobs across every installed app, newest first. */
@@ -56,9 +56,21 @@ interface ImportPort {
   fun resolveMappingSample(userId: String, importJobId: String, index: Int, fieldMappings: List<FieldMapping>): Either<DomainError, MappingSample>
 
   /**
-   * Saves every valid object from the current dry-run, discards invalid ones, and deletes the [ImportJob] (including its raw payload).
-   * When [replaceExisting] is set, every existing instance of the target entity is deleted first, and the dry-run is re-evaluated
-   * against that now-empty state — so a record only skipped because it collided with data that is about to be deleted ends up saved instead.
+   * Marks the job as [de.chrgroth.james.platform.domain.model.imports.ImportStatus.ACCEPTING] and enqueues a
+   * [DomainOutboxEvent.AcceptDryRun] outbox event for background processing (see [handle]), instead of running
+   * the accept synchronously in the request - the source data volume is unbounded, so it could otherwise exceed
+   * the request timeout. Returns the updated job immediately; the caller must poll or reload to observe completion
+   * (the job is deleted by [handle] once processing finishes).
    */
-  fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, DryRunAcceptResult>
+  fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, ImportJob>
+
+  /**
+   * Performs the actual accept: saves every valid object from the current dry-run, discards invalid ones, and
+   * deletes the [ImportJob] (including its raw payload). When [DomainOutboxEvent.AcceptDryRun.replaceExisting] is
+   * set, every existing instance of the target entity is deleted first, and the dry-run is re-evaluated against
+   * that now-empty state — so a record only skipped because it collided with data that is about to be deleted ends
+   * up saved instead. Called by the outbox dispatcher, not directly by inbound adapters. A no-longer-existing
+   * import job (already processed by a prior delivery, or deleted by the user) is treated as a no-op success.
+   */
+  fun handle(event: DomainOutboxEvent.AcceptDryRun): Either<DomainError, Unit>
 }

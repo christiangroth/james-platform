@@ -58,6 +58,22 @@ class UserImportResourceTests {
     }
   }
 
+  /**
+   * Accepting a dry run now only enqueues an outbox event (see ADR 0019) instead of running synchronously, so the
+   * import job's deletion - the last step of `ImportService.handle` - is observed by polling instead of asserted
+   * immediately after the accept call returns. The outbox worker starts at application startup and is signalled
+   * on enqueue, so it picks up the task well within this bound under normal test conditions.
+   */
+  private fun awaitImportAccepted(importJobId: String) {
+    val deadlineMs = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadlineMs) {
+      val tableHtml = given().`when`().get("/ui/user/imports/table").then().statusCode(200).extract().body().asString()
+      if (!tableHtml.contains("data-import-id=\"$importJobId\"")) return
+      Thread.sleep(50)
+    }
+    throw AssertionError("Expected import job $importJobId to be accepted (and deleted) by the outbox dispatcher within 5s")
+  }
+
   private fun createApp(appName: String): Pair<String, String> {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")
@@ -1000,14 +1016,7 @@ class UserImportResourceTests {
       .body("ok", equalTo(true))
       .body("redirectUrl", equalTo("/ui/user/imports"))
 
-    val tableHtml = given()
-      .`when`()
-      .get("/ui/user/imports/table")
-      .then()
-      .statusCode(200)
-      .extract().body().asString()
-
-    assertTrue(!tableHtml.contains("data-import-id=\"$importId\""), "Expected the import job to have been deleted after accepting the dry run")
+    awaitImportAccepted(importId)
   }
 
   /**
@@ -1074,6 +1083,7 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
+    awaitImportAccepted(lookupImportId)
 
     val savedContact = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId)).single()
     assertTrue(savedContact.data[companyPropertyId] == companyAppDataId.value, "Expected the Contact's Company reference to resolve to the seeded Company's id")
@@ -1115,6 +1125,7 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
+    awaitImportAccepted(directImportId)
 
     val savedContacts = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(contactEntityId))
     assertTrue(
@@ -1183,6 +1194,7 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
+    awaitImportAccepted(importId)
 
     val savedCompanies = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId))
     assertTrue(
@@ -1507,6 +1519,7 @@ class UserImportResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(true))
+    awaitImportAccepted(importId)
 
     val savedCompanies = appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId))
     assertTrue(savedCompanies.size == 1, "Expected exactly one Company to remain after replace")
