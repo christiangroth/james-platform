@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+  implementation(project(":adapter-in-outbox"))
   implementation(project(":adapter-in-scheduler"))
   implementation(project(":adapter-in-starter"))
   implementation(project(":adapter-in-web"))

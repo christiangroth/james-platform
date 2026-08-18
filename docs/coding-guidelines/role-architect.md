@@ -86,7 +86,10 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
   accept, App uninstall/data deletion, App deletion, User deletion, and bulk App Version Migration on publish.
   A single, un-throttled "domain" partition – no per-operation partitioning, no rate limiting (this is an
   internal domain mechanism, not an external API integration). Port lives in
-  `domain-api/port/out/infra/OutboxPort.kt`; adapter lives in `adapter-out-outbox`. See
+  `domain-api/port/out/infra/OutboxPort.kt`; the outbound side (enqueueing/querying tasks) lives in
+  `adapter-out-outbox`; the `ApplicationOutboxDispatcher` that drives the domain once a library-managed worker
+  claims a task lives in `adapter-in-outbox` – it calls domain inbound ports, so per the module naming pattern
+  above it is an inbound, not outbound, adapter. See
   [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md).
 
 **Not allowed:**

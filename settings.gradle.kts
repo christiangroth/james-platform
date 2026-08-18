@@ -40,6 +40,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "james-platform"
 
+include("adapter-in-outbox")
 include("adapter-in-scheduler")
 include("adapter-in-starter")
 include("adapter-in-web")

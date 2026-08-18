@@ -56,10 +56,14 @@ platform execute these long-running operations reliably and resumably, without w
 ## Decision Outcome
 
 Chosen option: **"Reintroduce `de.chrgroth.quarkus.outbox`, scoped to a single domain partition"**. The same
-library removed in [#215](https://github.com/christiangroth/james-platform/pull/215) is added back
-(`adapter-out-outbox` wraps `ApplicationOutboxClient`/`ApplicationOutboxDispatcher`; the domain-facing contract
+library removed in [#215](https://github.com/christiangroth/james-platform/pull/215) is added back, split
+across two adapter modules per the hexagonal in/out rule (mirroring the same split already proven in the
+sister project [spotify-control](https://github.com/christiangroth/spotify-control)): `adapter-out-outbox`
+wraps `ApplicationOutboxClient` to enqueue and query tasks (driven by the domain, so outbound); `adapter-in-outbox`
+implements `ApplicationOutboxDispatcher`, which a library-managed worker calls to dispatch a claimed task back
+into domain inbound ports (drives the domain, so inbound). The domain-facing contract
 is `OutboxPort` in `domain-api/port/out/infra`, `DomainOutboxEvent`/`DomainOutboxPartition` in
-`domain-api/outbox`). Unlike the previous incarnation, there is exactly **one** partition
+`domain-api/outbox`. Unlike the previous incarnation, there is exactly **one** partition
 (`DomainOutboxPartition.Domain`, key `"domain"`) – no per-operation partitioning and no rate
 limiting/throttling, because none of the operations in scope call an external, rate-limited API; they only
 read and write this application's own MongoDB. Retry backoff, deduplication (via each event's
@@ -75,9 +79,12 @@ introduces the port, the adapter, and the library wiring with no concrete event 
 nothing to dispatch until a follow-up ticket adds one.
 
 **Deferred, not part of this decision:** the previous incarnation also had an in-app outbox viewer/health page
-(`adapter-in-outbox`, `OutboxViewerResource`, `health.html` partition stats). That observability layer is not
-reintroduced here – it added no reliability value by itself and can be added later, by this ADR or a follow-up,
-once a concrete operation is actually running through the outbox and there is something real to observe.
+(`OutboxViewerResource`, `health.html` partition stats). That observability layer is not reintroduced here – it
+added no reliability value by itself and can be added later, by this ADR or a follow-up, once a concrete
+operation is actually running through the outbox and there is something real to observe. Note: the previous
+incarnation used the module name `adapter-in-outbox` for that viewer; this ADR reuses the same module name for
+a different purpose – the `ApplicationOutboxDispatcher` implementation (see "Decision Outcome" above), which
+drives the domain and is therefore in scope now, unlike the deferred viewer.
 
 ### Relationship to ADR 0013 (Precomputed Read Models per UI Page)
 

@@ -1,4 +1,4 @@
-package de.chrgroth.james.platform.adapter.out.outbox
+package de.chrgroth.james.platform.adapter.`in`.outbox
 
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxDispatcher
