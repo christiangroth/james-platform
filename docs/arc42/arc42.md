@@ -349,10 +349,12 @@ Other notable flows:
   worker later claims the task and calls `DomainOutboxTaskDispatcher.dispatch()` in `adapter-in-outbox`
   to actually execute the operation, by calling into domain inbound ports – the dispatcher drives the domain,
   so it is an inbound, not outbound, adapter, mirroring the split already used in the sister project
-  [spotify-control](https://github.com/christiangroth/spotify-control). Failures are retried with backoff, and
-  a permanently failed task is archived. As of this ADR no domain service enqueues an event yet — the
-  follow-up tickets in series [#543](https://github.com/christiangroth/james-platform/issues/543) are what
-  will make this flow live.
+  [spotify-control](https://github.com/christiangroth/spotify-control). Failures are retried with backoff.
+  Archiving (`outbox.archive.enabled`) is switched off in this project – completed and permanently failed
+  tasks are deleted from the `outbox` collection outright instead of being copied into `outbox_archive` first,
+  so no historical record of dispatched or failed tasks is kept. As of this ADR no domain service enqueues an
+  event yet — the follow-up tickets in series
+  [#543](https://github.com/christiangroth/james-platform/issues/543) are what will make this flow live.
 
 # Deployment View
 
@@ -533,7 +535,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 `app.imports.cleanup.retention-days` (import job cleanup cronjob, default 14 days),
 `app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
 `quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`),
-`outbox.archive.retention-days` (outbox archive cleanup, default 30 days; see ADR
+`outbox.archive.enabled` (outbox archive collection disabled, `false`), `outbox.archive.retention-days`
+(outbox archive cleanup, default 30 days, currently unused while archiving is disabled; see ADR
 [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)).
 
 # Architecture Decisions

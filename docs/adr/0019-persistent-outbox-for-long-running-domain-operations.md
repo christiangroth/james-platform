@@ -86,6 +86,13 @@ incarnation used the module name `adapter-in-outbox` for that viewer; this ADR r
 a different purpose – the `ApplicationOutboxDispatcher` implementation (see "Decision Outcome" above), which
 drives the domain and is therefore in scope now, unlike the deferred viewer.
 
+**Archiving is disabled** (`outbox.archive.enabled=false`): the library can copy completed/permanently-failed
+tasks into a separate `outbox_archive` collection before deleting them from `outbox`. With no viewer/health
+page reintroduced (see above) there is nothing in this project that reads that collection, so keeping it
+populated has no observability value yet – completed and permanently failed tasks are deleted outright instead.
+This can be revisited together with the deferred viewer once a concrete operation is running through the
+outbox and there is a real audience for archived task history.
+
 ### Relationship to ADR 0013 (Precomputed Read Models per UI Page)
 
 No change. Precomputed read-model rebuilds continue to use CDI events (or inline calls for single-source
@@ -119,8 +126,9 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
 
 ### Negative Consequences
 
-* Reintroduces an external dependency and the operational surface that came with it (`outbox`/`outbox_archive`
-  MongoDB collections), which #215 had eliminated.
+* Reintroduces an external dependency and the operational surface that came with it (the `outbox` MongoDB
+  collection; `outbox_archive` exists but stays empty since archiving is disabled, see above), which #215 had
+  eliminated.
 * Operations routed through the outbox become eventually consistent from the caller's perspective (the
   HTTP response returns once the event is enqueued, not once it is processed) – each follow-up ticket must
   define how its UI communicates "in progress" instead of the previous request/response result.
