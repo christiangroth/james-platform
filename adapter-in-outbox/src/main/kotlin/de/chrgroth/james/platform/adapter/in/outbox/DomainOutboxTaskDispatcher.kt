@@ -4,6 +4,7 @@ import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
+import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxDispatcher
@@ -18,6 +19,7 @@ import mu.KLogging
 class DomainOutboxTaskDispatcher(
   private val importPort: ImportPort,
   private val userAppStorePort: UserAppStorePort,
+  private val appManagementPort: AppManagementPort,
 ) : ApplicationOutboxDispatcher {
 
   override fun getAllPartitions(): List<ApplicationOutboxPartition> = DomainOutboxPartition.all
@@ -31,6 +33,7 @@ class DomainOutboxTaskDispatcher(
     when (event) {
       is DomainOutboxEvent.AcceptDryRun -> importPort.handle(event)
       is DomainOutboxEvent.UninstallApp -> userAppStorePort.handle(event)
+      is DomainOutboxEvent.DeleteApp -> appManagementPort.handle(event)
     }
   }
 

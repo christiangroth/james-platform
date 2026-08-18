@@ -9,11 +9,13 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppName
 import de.chrgroth.james.platform.domain.model.app.AppStatus
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDeactivationResult
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -25,6 +27,7 @@ class AppManagementService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
+  private val outbox: OutboxPort,
 ) : AppManagementPort {
 
   override fun listApps(developerId: String): List<App> = appRepository.findAllByDeveloperId(developerId)
@@ -149,9 +152,19 @@ class AppManagementService(
       logger.warn { "Delete app failed: has active installations: $appId" }
       return AppError.HAS_ACTIVE_INSTALLATIONS.left()
     }
+    outbox.enqueue(DomainOutboxEvent.DeleteApp(appId = app.id.value, developerId = developerId))
+    logger.info { "Delete app enqueued: $appId" }
+    return Unit.right()
+  }
+
+  override fun handle(event: DomainOutboxEvent.DeleteApp): Either<DomainError, Unit> {
+    val app = appRepository.findById(AppId(event.appId)) ?: run {
+      logger.info { "Delete app handler: app already gone, treating as already processed: ${event.appId}" }
+      return Unit.right()
+    }
     appVersionRepository.findAllByAppId(app.id).forEach { version -> appVersionRepository.delete(version.id) }
     appRepository.delete(app.id)
-    logger.info { "App deleted: $appId" }
+    logger.info { "App deleted: ${event.appId}" }
     return Unit.right()
   }
 

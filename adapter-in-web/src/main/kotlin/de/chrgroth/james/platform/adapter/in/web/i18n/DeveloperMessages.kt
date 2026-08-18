@@ -552,7 +552,7 @@ interface DeveloperMessages {
   fun developerAppAlreadyActiveError(): String
 
   @Message
-  fun developerAppDeletedMessage(): String
+  fun developerAppDeleteQueuedMessage(): String
 
   @Message
   fun developerAppHasActiveInstallationsError(): String
