@@ -1,3 +1,13 @@
+# 0.98.4 (2026.08.18)
+
+## Bugfixes / Chore
+* Deleting an app now removes its versions in the background instead of blocking the request, so apps with many versions no longer risk timing out.
+* The app overview page shows a "wird im Hintergrund gelöscht" notice while a deletion is still being processed in the background.
+
+
+
+---
+
 # 0.98.3 (2026.08.18)
 
 ## Bugfixes / Chore
