@@ -2,10 +2,12 @@ package de.chrgroth.james.platform.adapter.`in`.outbox
 
 import arrow.core.left
 import arrow.core.right
+import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
+import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.quarkus.outbox.domain.DispatchResult
@@ -19,10 +21,12 @@ class DomainOutboxTaskDispatcherTests {
 
   private val importPort = mockk<ImportPort>()
   private val userAppStorePort = mockk<UserAppStorePort>()
-  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort)
+  private val appManagementPort = mockk<AppManagementPort>()
+  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort)
 
   private val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = true)
   private val uninstallEvent = DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1")
+  private val deleteAppEvent = DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1")
 
   @Test
   fun `all partitions returns the single domain partition`() {
@@ -90,6 +94,31 @@ class DomainOutboxTaskDispatcherTests {
     every { userAppStorePort.handle(uninstallEvent) } returns UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
 
     val result = dispatcher.dispatch(uninstallEvent)
+
+    assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
+  }
+
+  @Test
+  fun `deserialize reconstructs a DeleteApp event from its serialized payload`() {
+    val deserialized = dispatcher.deserialize(DomainOutboxPartition.Domain, DomainOutboxEvent.DeleteApp.KEY, deleteAppEvent.serializePayload)
+
+    assertThat(deserialized).isEqualTo(deleteAppEvent)
+  }
+
+  @Test
+  fun `dispatch routes DeleteApp to AppManagementPort#handle and returns success when it succeeds`() {
+    every { appManagementPort.handle(deleteAppEvent) } returns Unit.right()
+
+    val result = dispatcher.dispatch(deleteAppEvent)
+
+    assertThat(result).isEqualTo(DispatchResult.Success)
+  }
+
+  @Test
+  fun `dispatch returns failed when the DeleteApp handler reports an error`() {
+    every { appManagementPort.handle(deleteAppEvent) } returns AppError.APP_NOT_FOUND.left()
+
+    val result = dispatcher.dispatch(deleteAppEvent)
 
     assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
   }

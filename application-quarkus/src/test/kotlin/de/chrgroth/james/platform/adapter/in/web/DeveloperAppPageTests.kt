@@ -682,8 +682,29 @@ class DeveloperAppPageTests {
       .body(containsString("""data-testid="delete-app-button""""))
   }
 
+  /**
+   * Deleting now only enqueues an outbox event (see ADR 0019) instead of deleting synchronously, so the actual
+   * removal - the last step of `AppManagementService.handle` - is observed by polling the dedicated status endpoint
+   * instead of asserted immediately after the delete call returns. The outbox worker starts at application startup
+   * and is signalled on enqueue, so it picks up the task well within this bound under normal test conditions.
+   */
+  private fun awaitAppDeleted(appId: String) {
+    val deadlineMs = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadlineMs) {
+      val stillExists = given()
+        .`when`()
+        .get("/ui/developer/apps/$appId/status")
+        .then()
+        .statusCode(200)
+        .extract().body().jsonPath().getBoolean("stillExists")
+      if (!stillExists) return
+      Thread.sleep(50)
+    }
+    throw AssertionError("Expected app $appId to be deleted by the outbox dispatcher within 5s")
+  }
+
   @Test
-  fun `delete app succeeds and redirects to dashboard when no installations exist`() {
+  fun `delete app enqueues its removal and it disappears in the background`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "Delete App ${System.nanoTime()}")
@@ -701,7 +722,8 @@ class DeveloperAppPageTests {
       .statusCode(200)
       .contentType(containsString("application/json"))
       .body(containsString("\"ok\":true"))
-      .body(containsString("\"redirectUrl\":\"/ui/developer/dashboard\""))
+
+    awaitAppDeleted(appId)
 
     given()
       .redirects().follow(false)

@@ -11,9 +11,11 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -27,7 +29,8 @@ class AppManagementServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
-  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository)
+  private val outbox: OutboxPort = mockk()
+  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository, outbox)
 
   private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 
@@ -379,35 +382,16 @@ class AppManagementServiceTests {
   // region deleteApp
 
   @Test
-  fun `deleteApp succeeds and cascades version deletion when no installations exist`() {
+  fun `deleteApp enqueues a DeleteApp outbox event when no installations exist`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(
-      version(id = "ver-1"),
-      version(id = "ver-2"),
-    )
-    justRun { appVersionRepository.delete(any()) }
-    justRun { appRepository.delete(any()) }
+    justRun { outbox.enqueue(any()) }
 
     val result = service.deleteApp("app-1", "dev-1")
 
     assertThat(result.isRight()).isTrue()
-    verify { appVersionRepository.delete(AppVersionId("ver-1")) }
-    verify { appVersionRepository.delete(AppVersionId("ver-2")) }
-    verify { appRepository.delete(AppId("app-1")) }
-  }
-
-  @Test
-  fun `deleteApp succeeds when app has no versions`() {
-    every { appRepository.findById(AppId("app-1")) } returns existingApp
-    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
-    justRun { appRepository.delete(any()) }
-
-    val result = service.deleteApp("app-1", "dev-1")
-
-    assertThat(result.isRight()).isTrue()
-    verify { appRepository.delete(AppId("app-1")) }
+    verify { outbox.enqueue(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1")) }
+    verify(exactly = 0) { appRepository.delete(any()) }
   }
 
   @Test
@@ -440,7 +424,7 @@ class AppManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.HAS_ACTIVE_INSTALLATIONS)
-    verify(exactly = 0) { appRepository.delete(any()) }
+    verify(exactly = 0) { outbox.enqueue(any()) }
   }
 
   @Test
@@ -453,6 +437,50 @@ class AppManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppError.HAS_ACTIVE_INSTALLATIONS)
+  }
+
+  // endregion
+
+  // region handle(DeleteApp)
+
+  @Test
+  fun `handle DeleteApp cascades version deletion and deletes the app`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(
+      version(id = "ver-1"),
+      version(id = "ver-2"),
+    )
+    justRun { appVersionRepository.delete(any()) }
+    justRun { appRepository.delete(any()) }
+
+    val result = service.handle(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1"))
+
+    assertThat(result.isRight()).isTrue()
+    verify { appVersionRepository.delete(AppVersionId("ver-1")) }
+    verify { appVersionRepository.delete(AppVersionId("ver-2")) }
+    verify { appRepository.delete(AppId("app-1")) }
+  }
+
+  @Test
+  fun `handle DeleteApp succeeds when app has no versions`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    justRun { appRepository.delete(any()) }
+
+    val result = service.handle(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1"))
+
+    assertThat(result.isRight()).isTrue()
+    verify { appRepository.delete(AppId("app-1")) }
+  }
+
+  @Test
+  fun `handle DeleteApp treats an already deleted app as already processed`() {
+    every { appRepository.findById(AppId("app-1")) } returns null
+
+    val result = service.handle(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1"))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appRepository.delete(any()) }
   }
 
   // endregion

@@ -51,12 +51,34 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Deletes an app and all of its [de.chrgroth.james.platform.domain.model.app.AppVersion]s in the background
+   * (see `AppManagementPort.deleteApp`). Deduplicated per app so a repeated/double submitted delete click does not
+   * enqueue a second run.
+   * payload = "$appId\n$developerId"
+   */
+  data class DeleteApp(val appId: String, val developerId: String) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$appId"
+    override val partition = DomainOutboxPartition.Domain
+    override val serializePayload = "$appId\n$developerId"
+
+    companion object {
+      const val KEY = "DeleteApp"
+      fun fromPayload(payload: String): DeleteApp {
+        val parts = payload.split("\n")
+        return DeleteApp(appId = parts[0], developerId = parts[1])
+      }
+    }
+  }
+
   companion object {
-    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY)
+    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY)
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
       UninstallApp.KEY -> UninstallApp.fromPayload(payload)
+      DeleteApp.KEY -> DeleteApp.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

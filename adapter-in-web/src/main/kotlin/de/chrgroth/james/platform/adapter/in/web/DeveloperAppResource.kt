@@ -52,6 +52,10 @@ data class DeveloperApiResult(
   val errorDetails: List<String>? = null,
 )
 
+data class AppStatusResponse(
+  val stillExists: Boolean,
+)
+
 data class DashboardAppInfo(
   val app: App,
   val hasDraft: Boolean,
@@ -220,8 +224,19 @@ class DeveloperAppResource {
       ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
     appManagement.deleteApp(appId, developerId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAppDeletedMessage(), "/ui/developer/dashboard")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAppDeleteQueuedMessage())).build() },
     )
+  }
+
+  /** Polled by the app overview page while a delete enqueued via [deleteApp] runs in the background. */
+  @GET
+  @Path("/apps/{appId}/status")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun appStatus(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("rest.developer.app-status") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    val stillExists = appManagement.getApp(appId, developerId).isRight()
+    Response.ok(AppStatusResponse(stillExists)).build()
   }
 
   @GET
