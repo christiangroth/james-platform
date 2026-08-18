@@ -353,9 +353,10 @@ Other notable flows:
   Archiving (`outbox.archive.enabled`) is switched off in this project – completed and permanently failed
   tasks are deleted from the `outbox` collection outright instead of being copied into `outbox_archive` first,
   so no historical record of dispatched or failed tasks is kept. Import accept (`ImportService.acceptDryRun`,
-  `DomainOutboxEvent.AcceptDryRun`) is the first operation routed through this flow; the remaining operations in
-  series [#543](https://github.com/christiangroth/james-platform/issues/543) (App uninstall/data deletion, App
-  deletion, User deletion, App Version Migration on publish) are follow-up tickets.
+  `DomainOutboxEvent.AcceptDryRun`) and app uninstall (`UserAppStoreService.uninstallApp`,
+  `DomainOutboxEvent.UninstallApp`) are routed through this flow; the remaining operations in series
+  [#543](https://github.com/christiangroth/james-platform/issues/543) (App deletion, User deletion, App Version
+  Migration on publish) are follow-up tickets.
 
 # Deployment View
 

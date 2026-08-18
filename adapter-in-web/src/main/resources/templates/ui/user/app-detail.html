@@ -138,8 +138,9 @@
                         });
                         var result = await response.json();
                         if (modal) { modal.hide(); }
-                        if (result.ok && result.redirectUrl) {
-                            window.location.href = result.redirectUrl;
+                        if (result.ok) {
+                            showMessage(true, result.message);
+                            pollUntilUninstalled();
                         } else {
                             showMessage(false, result.message);
                             btn.disabled = false;
@@ -150,6 +151,23 @@
                         btn.disabled = false;
                     }
                 });
+            }
+
+            // Uninstalling now runs in the background via the outbox (see ADR 0019): poll until the installed app
+            // is actually gone, then leave for the dashboard - rather than assuming the delete call already finished.
+            function pollUntilUninstalled() {
+                var timer = setInterval(async function () {
+                    try {
+                        var response = await fetch('/ui/user/apps/' + installedAppId + '/status', { cache: 'no-store' });
+                        var status = await response.json();
+                        if (!status.stillInstalled) {
+                            clearInterval(timer);
+                            window.location.href = '/ui/user/dashboard';
+                        }
+                    } catch (ex) {
+                        clearInterval(timer);
+                    }
+                }, 1000);
             }
 
             // Clickable rows

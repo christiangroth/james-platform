@@ -30,11 +30,33 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Deletes an installed app's [de.chrgroth.james.platform.domain.model.app.AppData] and the installed app itself
+   * in the background (see `UserAppStorePort.uninstallApp`). Deduplicated per installed app so a repeated/double
+   * submitted uninstall click does not enqueue a second run.
+   * payload = "$installedAppId\n$userId"
+   */
+  data class UninstallApp(val installedAppId: String, val userId: String) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$installedAppId"
+    override val partition = DomainOutboxPartition.Domain
+    override val serializePayload = "$installedAppId\n$userId"
+
+    companion object {
+      const val KEY = "UninstallApp"
+      fun fromPayload(payload: String): UninstallApp {
+        val parts = payload.split("\n")
+        return UninstallApp(installedAppId = parts[0], userId = parts[1])
+      }
+    }
+  }
+
   companion object {
-    val allKeys: List<String> = listOf(AcceptDryRun.KEY)
+    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY)
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
+      UninstallApp.KEY -> UninstallApp.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

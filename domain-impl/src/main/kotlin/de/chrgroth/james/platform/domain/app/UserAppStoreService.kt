@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.user.UserId
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
@@ -20,6 +21,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -35,6 +37,7 @@ class UserAppStoreService(
   private val appDataRepository: AppDataRepositoryPort,
   private val userRepository: UserRepositoryPort,
   private val appVersionMigration: AppVersionMigrationPort,
+  private val outbox: OutboxPort,
 ) : UserAppStorePort {
 
   private fun latestPublishedVersion(appId: AppId) =
@@ -182,9 +185,19 @@ class UserAppStoreService(
       logger.warn { "Uninstall app failed: installed app not found for user: $userId" }
       return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
     }
+    outbox.enqueue(DomainOutboxEvent.UninstallApp(installedAppId = existing.id.value, userId = userId))
+    logger.info { "Uninstall app enqueued: installedAppId=$installedAppId for user=$userId" }
+    return Unit.right()
+  }
+
+  override fun handle(event: DomainOutboxEvent.UninstallApp): Either<DomainError, Unit> {
+    val existing = installedAppRepository.findById(InstalledAppId(event.installedAppId)) ?: run {
+      logger.info { "Uninstall app handler: installed app already gone, treating as already processed: installedAppId=${event.installedAppId}" }
+      return Unit.right()
+    }
     appDataRepository.deleteAllByInstalledAppId(existing.id)
     installedAppRepository.delete(existing.id)
-    logger.info { "App uninstalled: installedAppId=$installedAppId for user=$userId" }
+    logger.info { "App uninstalled: installedAppId=${event.installedAppId} for user=${event.userId}" }
     return Unit.right()
   }
 

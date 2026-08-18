@@ -110,6 +110,10 @@ data class EntityTab(
   val totalPages: Int,
 )
 
+data class InstalledAppStatusResponse(
+  val stillInstalled: Boolean,
+)
+
 @Path("/ui")
 @ApplicationScoped
 @Authenticated
@@ -275,8 +279,18 @@ class UserAppStoreResource {
     val userId = securityIdentity.principal.name
     userAppStore.uninstallApp(userId, installedAppId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appStoreErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppUninstalledMessage(), "/ui/user/dashboard")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userAppUninstallQueuedMessage())).build() },
     )
+  }
+
+  /** Polled by the app detail page while an uninstall enqueued via [deleteInstalledApp] runs in the background. */
+  @GET
+  @Path("/user/apps/{installedAppId}/status")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun installedAppStatus(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("rest.user-app-store.app-status") {
+    val userId = securityIdentity.principal.name
+    val stillInstalled = userAppStore.getInstalledApp(userId, installedAppId).isRight()
+    Response.ok(InstalledAppStatusResponse(stillInstalled)).build()
   }
 
   @GET

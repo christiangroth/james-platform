@@ -12,11 +12,13 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
@@ -35,7 +37,8 @@ class UserAppStoreServiceTests {
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val userRepository: UserRepositoryPort = mockk()
   private val appVersionMigration: AppVersionMigrationPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, userRepository, appVersionMigration)
+  private val outboxPort: OutboxPort = mockk()
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, userRepository, appVersionMigration, outboxPort)
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
@@ -396,17 +399,18 @@ class UserAppStoreServiceTests {
   // region uninstallApp
 
   @Test
-  fun `uninstallApp deletes app data and installed app for valid user and installed app id`() {
+  fun `uninstallApp enqueues an outbox event instead of deleting synchronously`() {
     val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
-    justRun { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
-    justRun { installedAppRepository.delete(InstalledAppId("inst-1")) }
+    val enqueued = slot<DomainOutboxEvent.UninstallApp>()
+    justRun { outboxPort.enqueue(capture(enqueued)) }
 
     val result = service.uninstallApp("user-1", "inst-1")
 
     assertThat(result.isRight()).isTrue()
-    verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
-    verify { installedAppRepository.delete(InstalledAppId("inst-1")) }
+    assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1"))
+    verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppId(any()) }
+    verify(exactly = 0) { installedAppRepository.delete(any()) }
   }
 
   @Test
@@ -417,6 +421,7 @@ class UserAppStoreServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+    verify(exactly = 0) { outboxPort.enqueue(any()) }
   }
 
   @Test
@@ -428,6 +433,36 @@ class UserAppStoreServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(UserAppStoreError.INSTALLED_APP_NOT_FOUND)
+    verify(exactly = 0) { outboxPort.enqueue(any()) }
+  }
+
+  // endregion
+
+  // region handle(UninstallApp)
+
+  @Test
+  fun `handle uninstall app deletes app data and installed app`() {
+    val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
+    justRun { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
+    justRun { installedAppRepository.delete(InstalledAppId("inst-1")) }
+
+    val result = service.handle(DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1"))
+
+    assertThat(result.isRight()).isTrue()
+    verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
+    verify { installedAppRepository.delete(InstalledAppId("inst-1")) }
+  }
+
+  @Test
+  fun `handle uninstall app is a no-op success when the installed app was already processed or deleted`() {
+    every { installedAppRepository.findById(InstalledAppId("missing")) } returns null
+
+    val result = service.handle(DomainOutboxEvent.UninstallApp(installedAppId = "missing", userId = "user-1"))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppId(any()) }
+    verify(exactly = 0) { installedAppRepository.delete(any()) }
   }
 
   // endregion

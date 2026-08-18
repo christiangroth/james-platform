@@ -4,6 +4,7 @@ import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
+import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxDispatcher
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxEvent
@@ -16,6 +17,7 @@ import mu.KLogging
 @Suppress("Unused", "TooGenericExceptionCaught")
 class DomainOutboxTaskDispatcher(
   private val importPort: ImportPort,
+  private val userAppStorePort: UserAppStorePort,
 ) : ApplicationOutboxDispatcher {
 
   override fun getAllPartitions(): List<ApplicationOutboxPartition> = DomainOutboxPartition.all
@@ -28,6 +30,7 @@ class DomainOutboxTaskDispatcher(
   private fun dispatchEvent(event: DomainOutboxEvent): DispatchResult = handleDomainOperation(event.key) {
     when (event) {
       is DomainOutboxEvent.AcceptDryRun -> importPort.handle(event)
+      is DomainOutboxEvent.UninstallApp -> userAppStorePort.handle(event)
     }
   }
 
