@@ -1,3 +1,12 @@
+# 0.98.1 (2026.08.18)
+
+## Bugfixes / Chore
+* Reintroduced a narrowly-scoped persistent outbox as internal infrastructure for upcoming long-running operations (data import, uninstall, deletion, migration); nothing user-facing changes yet.
+
+
+
+---
+
 # 0.98.0 (2026.08.17)
 
 ## New Features
