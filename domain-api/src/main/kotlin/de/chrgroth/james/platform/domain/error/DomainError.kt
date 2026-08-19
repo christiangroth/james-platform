@@ -105,6 +105,14 @@ enum class UserAppStoreError(override val code: String) : DomainError {
   ;
 }
 
+/** See docs/dev-tests.md ("Test Installations"). */
+enum class DeveloperTestInstallationError(override val code: String) : DomainError {
+  APP_NOT_FOUND("TESTINST-001"),
+  VERSION_NOT_FOUND("TESTINST-002"),
+  INSTALLATION_NOT_FOUND("TESTINST-003"),
+  ;
+}
+
 /** See docs/app-version-migration.md and docs/adr/0018-app-version-migration-execution-trigger.md. */
 enum class AppVersionMigrationError(override val code: String) : DomainError {
   SCRIPT_FAILED("MIGRATION-001"),

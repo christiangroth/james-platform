@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDeactivationResult
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -27,6 +28,7 @@ class AppManagementService(
   private val appRepository: AppRepositoryPort,
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
+  private val appDataRepository: AppDataRepositoryPort,
   private val outbox: OutboxPort,
 ) : AppManagementPort {
 
@@ -115,7 +117,8 @@ class AppManagementService(
     }
     val updatedApp = app.copy(status = AppStatus.INACTIVE, updatedAt = Instant.now())
     appRepository.save(updatedApp)
-    val activeInstallationCount = installedAppRepository.findAllByAppId(updatedApp.id).size
+    // Test installations (see docs/dev-tests.md) are not real Users, so they are excluded from this count.
+    val activeInstallationCount = installedAppRepository.findAllByAppId(updatedApp.id).count { !it.isTest }
     logger.info { "App deactivated: $appId, active installations unaffected: $activeInstallationCount" }
     return AppDeactivationResult(app = updatedApp, activeInstallationCount = activeInstallationCount).right()
   }
@@ -148,7 +151,8 @@ class AppManagementService(
       logger.warn { "Delete app failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
-    if (installedAppRepository.findAllByAppId(app.id).isNotEmpty()) {
+    // Test installations (see docs/dev-tests.md) don't block deletion; any left over are cleaned up in the handler below.
+    if (installedAppRepository.findAllByAppId(app.id).any { !it.isTest }) {
       logger.warn { "Delete app failed: has active installations: $appId" }
       return AppError.HAS_ACTIVE_INSTALLATIONS.left()
     }
@@ -161,6 +165,11 @@ class AppManagementService(
     val app = appRepository.findById(AppId(event.appId)) ?: run {
       logger.info { "Delete app handler: app already gone, treating as already processed: ${event.appId}" }
       return Unit.right()
+    }
+    // Only test installations can still exist here, real ones are guarded against in deleteApp above.
+    installedAppRepository.findAllByAppId(app.id).forEach { installedApp ->
+      appDataRepository.deleteAllByInstalledAppId(installedApp.id)
+      installedAppRepository.delete(installedApp.id)
     }
     appVersionRepository.findAllByAppId(app.id).forEach { version -> appVersionRepository.delete(version.id) }
     appRepository.delete(app.id)
@@ -177,7 +186,8 @@ class AppManagementService(
       logger.warn { "Get active installation count failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
-    return installedAppRepository.findAllByAppId(app.id).size.right()
+    // Test installations (see docs/dev-tests.md) are not real Users, so they are excluded from this count.
+    return installedAppRepository.findAllByAppId(app.id).count { !it.isTest }.right()
   }
 
   companion object : KLogging()

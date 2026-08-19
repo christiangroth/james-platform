@@ -214,7 +214,8 @@ class AppVersionManagementService(
   private fun autoUpgradeInstallations(appId: AppId, previousVersionNumber: VersionNumber?, newVersionNumber: VersionNumber) {
     if (previousVersionNumber == null) return
     val installations = installedAppRepository.findAllByAppId(appId)
-    val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber }
+    // Test installations (see docs/dev-tests.md) stay pinned to the version the Developer explicitly chose for them.
+    val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber && !it.isTest }
     toUpgrade.forEach { installedApp ->
       outbox.enqueue(
         DomainOutboxEvent.AutoUpgradeInstallation(

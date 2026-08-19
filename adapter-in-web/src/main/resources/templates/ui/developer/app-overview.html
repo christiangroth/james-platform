@@ -111,6 +111,91 @@
             </div>
             {/for}
         </div>
+
+        <h2 class="fs-5 fw-semibold mb-3 mt-4">{developer:developerTestInstallationsHeading()}</h2>
+        <div class="row g-3" data-testid="test-installations-grid">
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <div class="card app-card p-3 h-100 d-flex flex-column align-items-center justify-content-center text-center"
+                     style="cursor:pointer; border-style:dashed !important;"
+                     id="createTestInstallationTile"
+                     data-testid="create-test-installation-tile"
+                     data-bs-toggle="modal" data-bs-target="#createTestInstallationModal"
+                     role="button"
+                     aria-label="{developer:developerCreateTestInstallationAriaLabel()}">
+                    <i class="bi bi-plus-lg mb-2" style="color:var(--color-text-muted);font-size:32px;" aria-hidden="true"></i>
+                    <div class="fw-semibold fs-6">{developer:developerCreateTestInstallationTile()}</div>
+                </div>
+            </div>
+
+            {#for ti in testInstallations}
+            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                <div class="card app-card p-3 h-100 d-flex flex-column" data-testid="test-installation-tile">
+                    <div class="fw-semibold fs-6 mb-1" data-testid="test-installation-version">
+                        {#if ti.version.versionNumber}{ti.version.versionNumber}{#else}<span class="app-section-label">{developer:developerDraftLabel()}</span>{/if}
+                    </div>
+                    <div class="app-section-label mb-2" data-testid="test-installation-created-at">{ti.installedAt.formatted}</div>
+                    <div class="mt-auto d-flex align-items-center">
+                        <button type="button" class="btn btn-app-danger btn-sm ms-auto delete-test-installation-button"
+                                data-installed-app-id="{ti.installedAppId}"
+                                title="{developer:developerDeleteTestInstallationAriaLabel()}" aria-label="{developer:developerDeleteTestInstallationAriaLabel()}"
+                                data-testid="delete-test-installation-button">
+                            <i class="bi bi-trash" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {/for}
+        </div>
+    </div>
+
+    <!-- Create Test Installation Modal -->
+    <div class="modal fade" id="createTestInstallationModal" tabindex="-1" aria-labelledby="createTestInstallationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createTestInstallationModalLabel">{developer:developerCreateTestInstallationModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="createTestInstallationForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="testInstallationVersionId" class="form-label">{developer:developerTestInstallationVersionFieldLabel()}</label>
+                            <select class="form-select app-form-control" id="testInstallationVersionId" name="versionId" required data-testid="test-installation-version-select">
+                                {#for version in versions}
+                                <option value="{version.id}">{#if version.versionNumber}{version.versionNumber}{#else}{developer:developerDraftLabel()}{/if}</option>
+                                {/for}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="create-test-installation-submit-button">{msg:commonSave()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Test Installation Modal -->
+    <div class="modal fade" id="deleteTestInstallationModal" tabindex="-1" aria-labelledby="deleteTestInstallationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="deleteTestInstallationModalLabel">{developer:developerDeleteTestInstallationModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body">
+                    {developer:developerDeleteTestInstallationConfirm()}
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-app-secondary btn-sm" data-bs-dismiss="modal"
+                            data-testid="cancel-delete-test-installation-button">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger btn-sm" data-testid="confirm-delete-test-installation-button" id="confirmDeleteTestInstallationButton">
+                        {developer:developerDeleteTestInstallationAriaLabel()}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Edit App Modal -->
@@ -384,6 +469,71 @@
                         showMessage(false, networkErrorMessage);
                         newVersionTile.style.pointerEvents = '';
                         newVersionTile.style.opacity = '';
+                    }
+                });
+            }
+
+            // Create Test Installation
+            var createTestInstallationForm = document.getElementById('createTestInstallationForm');
+            if (createTestInstallationForm) {
+                createTestInstallationForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var submitBtn = createTestInstallationForm.querySelector('[type="submit"]');
+                    submitBtn.disabled = true;
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/test-installations', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams(new FormData(this)).toString()
+                        });
+                        var result = await response.json();
+                        var modal = bootstrap.Modal.getInstance(document.getElementById('createTestInstallationModal'));
+                        if (modal) { modal.hide(); }
+                        if (result.ok) {
+                            window.location.reload();
+                        } else {
+                            showMessage(false, result.message);
+                            submitBtn.disabled = false;
+                        }
+                    } catch (ex) {
+                        showMessage(false, networkErrorMessage);
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+
+            // Delete Test Installation
+            var deleteTestInstallationModalEl = document.getElementById('deleteTestInstallationModal');
+            var installedAppIdToDelete = null;
+            document.querySelectorAll('.delete-test-installation-button').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    installedAppIdToDelete = btn.getAttribute('data-installed-app-id');
+                    bootstrap.Modal.getOrCreateInstance(deleteTestInstallationModalEl).show();
+                });
+            });
+            var confirmDeleteTestInstallationButton = document.getElementById('confirmDeleteTestInstallationButton');
+            if (confirmDeleteTestInstallationButton) {
+                confirmDeleteTestInstallationButton.addEventListener('click', async function () {
+                    var btn = this;
+                    btn.disabled = true;
+                    var modal = bootstrap.Modal.getInstance(deleteTestInstallationModalEl);
+                    try {
+                        var response = await fetch('/ui/developer/apps/' + appId + '/test-installations/' + installedAppIdToDelete + '/delete', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        var result = await response.json();
+                        if (modal) { modal.hide(); }
+                        if (result.ok) {
+                            window.location.reload();
+                        } else {
+                            showMessage(false, result.message);
+                        }
+                        btn.disabled = false;
+                    } catch (ex) {
+                        if (modal) { modal.hide(); }
+                        showMessage(false, networkErrorMessage);
+                        btn.disabled = false;
                     }
                 });
             }

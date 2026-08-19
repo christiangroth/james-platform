@@ -173,6 +173,21 @@ class UserAppStoreServiceTests {
     assertThat(result).isEmpty()
   }
 
+  @Test
+  fun `getInstalledApps excludes test installations`() {
+    val installed1 = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    val testInstalled = installedApp(id = "inst-2", userId = "user-1", appId = "app-2", versionNumber = "1.0.0", isTest = true)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installed1, testInstalled)
+    every { appRepository.findById(AppId("app-1")) } returns app1
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns v1
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
+
+    val result = service.getInstalledApps("user-1")
+
+    assertThat(result).hasSize(1)
+    assertThat(result[0].installedAppId).isEqualTo("inst-1")
+  }
+
   // endregion
 
   // region getInstalledApp
@@ -473,12 +488,14 @@ class UserAppStoreServiceTests {
       userId: String = "user-1",
       appId: String = "app-1",
       versionNumber: String = "1.0.0",
+      isTest: Boolean = false,
     ) = InstalledApp(
       id = InstalledAppId(id),
       userId = userId,
       appId = AppId(appId),
       installedVersionNumber = VersionNumber(versionNumber),
       installedAt = Instant.now(),
+      isTest = isTest,
     )
   }
 }
