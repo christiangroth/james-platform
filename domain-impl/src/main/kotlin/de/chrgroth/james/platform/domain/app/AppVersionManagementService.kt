@@ -6,7 +6,9 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
+import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersion
@@ -195,6 +197,11 @@ class AppVersionManagementService(
     if (invalidObjectStructureEntityNames.isNotEmpty()) {
       logger.warn { "Publish version failed: invalid object structure in entities: $invalidObjectStructureEntityNames" }
       return InvalidObjectStructureError(invalidObjectStructureEntityNames).left()
+    }
+    val invalidAggregationEntityNames = version.entityDefinitions.filter { hasInvalidAggregationDefinitions(it) }.map { it.name }
+    if (invalidAggregationEntityNames.isNotEmpty()) {
+      logger.warn { "Publish version failed: invalid aggregation definitions in entities: $invalidAggregationEntityNames" }
+      return InvalidAggregationDefinitionError(invalidAggregationEntityNames).left()
     }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
@@ -1206,6 +1213,35 @@ class AppVersionManagementService(
     it.type == PropertyType.OBJECT && (it.nestedProperties.isEmpty() || hasInvalidObjectStructure(it.nestedProperties))
   }
 
+  /**
+   * See docs/adr/0020-aggregation-definitions.md. An entity's aggregations are invalid once their name isn't unique, or once any of them
+   * dangles (references a since-deleted/retyped property) — the same "publish revalidates cross-references" pattern as
+   * [hasInvalidObjectStructure]/[extractPropertyNames] above, since an aggregation can be invalidated by editing a property it was never
+   * directly involved in creating.
+   */
+  private fun hasInvalidAggregationDefinitions(entity: EntityDefinition): Boolean {
+    if (entity.aggregations.isEmpty()) return false
+    val hasDuplicateNames = entity.aggregations.groupBy { it.name.trim().lowercase() }.values.any { it.size > 1 }
+    return hasDuplicateNames || entity.aggregations.any { !isValidAggregationDefinition(entity, it) }
+  }
+
+  /** Ref-depth 1 only (see docs/adr/0020-aggregation-definitions.md): [AggregationDefinition.refPath], if set, must be a top-level REF property of [entity], never a chain. */
+  private fun isValidAggregationDefinition(entity: EntityDefinition, aggregation: AggregationDefinition): Boolean {
+    if (aggregation.name.isBlank()) return false
+    val sourceProperty = entity.properties.find { it.id == aggregation.sourceProperty } ?: return false
+    if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return false
+    aggregation.refPath?.let { refPath ->
+      val refProperty = entity.properties.find { it.id == refPath } ?: return false
+      if (refProperty.type != PropertyType.REF) return false
+    }
+    aggregation.groupBy?.let { groupBy ->
+      if (groupBy == aggregation.sourceProperty) return false
+      val groupByProperty = entity.properties.find { it.id == groupBy } ?: return false
+      if (groupByProperty.type == PropertyType.LIST || groupByProperty.type == PropertyType.OBJECT) return false
+    }
+    return true
+  }
+
   private fun extractPropertyNames(template: String): Set<String> =
     Regex("\\{([^}]+)\\}").findAll(template)
       .map { it.groupValues[1] }
@@ -1539,5 +1575,6 @@ class AppVersionManagementService(
 
   companion object : KLogging() {
     internal const val FIRST_VERSION = "0.1.0"
+    private val NUMERIC_PROPERTY_TYPES = setOf(PropertyType.LONG, PropertyType.DOUBLE)
   }
 }
