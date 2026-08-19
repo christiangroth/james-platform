@@ -122,6 +122,9 @@ interface DeveloperMessages {
   fun developerTestInstallationVersionFieldLabel(): String
 
   @Message
+  fun developerOpenTestInstallationAriaLabel(): String
+
+  @Message
   fun developerDeleteTestInstallationAriaLabel(): String
 
   @Message

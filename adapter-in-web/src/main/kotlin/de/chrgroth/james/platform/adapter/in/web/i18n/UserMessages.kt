@@ -122,6 +122,9 @@ interface UserMessages {
   @Message
   fun userImportButtonLabel(): String
 
+  @Message
+  fun userTestInstallationBadge(): String
+
   // app imports
   @Message
   fun userImportsTitle(): String

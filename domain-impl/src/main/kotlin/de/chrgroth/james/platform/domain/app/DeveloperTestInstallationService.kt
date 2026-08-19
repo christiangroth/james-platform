@@ -42,7 +42,7 @@ class DeveloperTestInstallationService(
     return installedAppRepository.findAllByAppId(app.id).filter { it.isTest }.right()
   }
 
-  override fun createTestInstallation(appId: String, versionId: String, developerId: String): Either<DomainError, InstalledApp> {
+  override fun createTestInstallation(appId: String, versionId: String, developerId: String, userId: String): Either<DomainError, InstalledApp> {
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Create test installation failed: app not found: $appId" }
       return DeveloperTestInstallationError.APP_NOT_FOUND.left()
@@ -58,7 +58,7 @@ class DeveloperTestInstallationService(
     }
     val installedApp = InstalledApp(
       id = InstalledAppId(UUID.randomUUID().toString()),
-      userId = developerId,
+      userId = userId,
       appId = app.id,
       // DRAFT versions have no versionNumber yet; this placeholder is never resolved against - installedVersionId is authoritative for test installations.
       installedVersionNumber = version.versionNumber ?: VersionNumber("draft-${version.id.value}"),

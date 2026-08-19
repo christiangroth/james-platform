@@ -10,6 +10,11 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
  */
 interface DeveloperTestInstallationPort {
   fun listTestInstallations(appId: String, developerId: String): Either<DomainError, List<InstalledApp>>
-  fun createTestInstallation(appId: String, versionId: String, developerId: String): Either<DomainError, InstalledApp>
+  /**
+   * [developerId] (the developer's internal user id) is used for the app-ownership check; [userId] (the developer's
+   * login username) is stamped onto the created [InstalledApp] so it is reachable through the same User-facing
+   * lookups (see [de.chrgroth.james.platform.domain.port.in.app.UserAppStorePort.getInstalledApp]) real installations use.
+   */
+  fun createTestInstallation(appId: String, versionId: String, developerId: String, userId: String): Either<DomainError, InstalledApp>
   fun deleteTestInstallation(appId: String, installedAppId: String, developerId: String): Either<DomainError, Unit>
 }

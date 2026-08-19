@@ -311,7 +311,8 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.test-installation-create") {
     val developerId = currentDeveloperUserIdValue()
       ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
-    developerTestInstallations.createTestInstallation(appId, versionId, developerId).fold(
+    // Stamped with the raw principal name, not developerId, so it is reachable via the User-facing lookups (see UserAppStoreResource).
+    developerTestInstallations.createTestInstallation(appId, versionId, developerId, securityIdentity.principal.name).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, testInstallationErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerTestInstallationCreatedMessage(), "/ui/developer/apps/$appId")).build() },
     )
