@@ -38,12 +38,13 @@ class OutboxPortAdapterTests {
 
     val stats = adapter.getPartitionStats()
 
-    assertThat(stats).hasSize(1)
-    assertThat(stats.single().name).isEqualTo("domain")
-    assertThat(stats.single().status).isEqualTo("ACTIVE")
-    assertThat(stats.single().documentCount).isZero()
-    assertThat(stats.single().blockedUntil).isNull()
-    assertThat(stats.single().eventTypeCounts).isEmpty()
+    assertThat(stats).extracting("name").containsExactly("domain", "test-data-generation")
+    stats.forEach {
+      assertThat(it.status).isEqualTo("ACTIVE")
+      assertThat(it.documentCount).isZero()
+      assertThat(it.blockedUntil).isNull()
+      assertThat(it.eventTypeCounts).isEmpty()
+    }
   }
 
   @Test
@@ -59,7 +60,7 @@ class OutboxPortAdapterTests {
       ),
     )
 
-    val stats = adapter.getPartitionStats().single()
+    val stats = adapter.getPartitionStats().single { it.name == "domain" }
 
     assertThat(stats.status).isEqualTo("PAUSED")
     assertThat(stats.documentCount).isEqualTo(5L)
