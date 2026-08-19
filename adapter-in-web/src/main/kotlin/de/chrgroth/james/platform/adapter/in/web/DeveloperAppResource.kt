@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
+import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.App
@@ -21,6 +22,7 @@ import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
 import io.quarkus.qute.RawString
@@ -61,6 +63,13 @@ data class DashboardAppInfo(
   val hasDraft: Boolean,
   val latestVersionNumber: String?,
   val latestVersionPublishedAt: Instant?,
+)
+
+/** A Developer-owned test installation shown on the app overview page (see docs/dev-tests.md). */
+data class TestInstallationInfo(
+  val installedAppId: String,
+  val version: AppVersion,
+  val installedAt: Instant,
 )
 
 data class SortCriteriaRequest @JsonCreator constructor(
@@ -116,6 +125,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var appVersionManagement: AppVersionManagementPort
+
+  @Inject
+  private lateinit var developerTestInstallations: DeveloperTestInstallationPort
 
   @Inject
   private lateinit var msg: AppMessages
@@ -255,15 +267,55 @@ class DeveloperAppResource {
         val draftIdWithDiff = if (hasDraft && publishedByDate.isNotEmpty()) setOf(versions.first { it.status == AppVersionStatus.DRAFT }.id.value) else emptySet<String>()
         val versionIdsWithPredecessor = publishedIdsWithPredecessor + draftIdWithDiff
         val installationCount = appManagement.getActiveInstallationCount(appId, developerId).getOrNull() ?: 0
+        val testInstallations = developerTestInstallations.listTestInstallations(appId, developerId).getOrNull().orEmpty()
+          .mapNotNull { installed ->
+            val versionId = installed.installedVersionId?.value ?: return@mapNotNull null
+            val version = versions.find { it.id.value == versionId } ?: return@mapNotNull null
+            TestInstallationInfo(installedAppId = installed.id.value, version = version, installedAt = installed.installedAt)
+          }
+          .sortedByDescending { it.installedAt }
         Response.ok(
           appOverviewTemplate
             .data("app", app)
             .data("versions", versions)
             .data("hasDraft", hasDraft)
             .data("versionsWithDiff", versionIdsWithPredecessor)
-            .data("installationCount", installationCount),
+            .data("installationCount", installationCount)
+            .data("testInstallations", testInstallations),
         ).build()
       },
+    )
+  }
+
+  /** See docs/dev-tests.md ("Test Installations"): a test installation for any version of a Developer's own app, without a real User account. */
+  @POST
+  @Path("/apps/{appId}/test-installations")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun createTestInstallation(
+    @PathParam("appId") appId: String,
+    @FormParam("versionId") versionId: String,
+  ): Response = httpResponseMetrics.timed("rest.developer.test-installation-create") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    developerTestInstallations.createTestInstallation(appId, versionId, developerId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, testInstallationErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerTestInstallationCreatedMessage(), "/ui/developer/apps/$appId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/test-installations/{installedAppId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteTestInstallation(
+    @PathParam("appId") appId: String,
+    @PathParam("installedAppId") installedAppId: String,
+  ): Response = httpResponseMetrics.timed("rest.developer.test-installation-delete") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    developerTestInstallations.deleteTestInstallation(appId, installedAppId, developerId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, testInstallationErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerTestInstallationDeletedMessage())).build() },
     )
   }
 
@@ -1150,6 +1202,13 @@ class DeveloperAppResource {
     AppError.HAS_ACTIVE_INSTALLATIONS.code -> devMsg.developerAppHasActiveInstallationsError()
     AppError.ALREADY_ACTIVE.code -> devMsg.developerAppAlreadyActiveError()
     AppError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
+    else -> msg.commonUnexpectedError()
+  }
+
+  private fun testInstallationErrorMessage(code: String): String = when (code) {
+    DeveloperTestInstallationError.APP_NOT_FOUND.code -> devMsg.developerUserNotFoundError()
+    DeveloperTestInstallationError.VERSION_NOT_FOUND.code -> devMsg.developerTestInstallationVersionNotFoundError()
+    DeveloperTestInstallationError.INSTALLATION_NOT_FOUND.code -> devMsg.developerTestInstallationNotFoundError()
     else -> msg.commonUnexpectedError()
   }
 

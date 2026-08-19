@@ -147,6 +147,26 @@ class AppDataServiceTests {
     assertThat(result.getOrNull()?.appVersion).isEqualTo(installedApp.installedVersionNumber)
   }
 
+  @Test
+  fun `createAppData resolves a DRAFT-pinned test installation by id and still enforces constraints`() {
+    val draftVersionId = AppVersionId("ver-draft")
+    val draftVersion = appVersion.copy(id = draftVersionId, versionNumber = null, status = AppVersionStatus.DRAFT)
+    val testInstalledApp = installedApp.copy(isTest = true, installedVersionId = draftVersionId, installedVersionNumber = VersionNumber("draft-ver-draft"))
+    every { installedAppRepository.findById(installedAppId) } returns testInstalledApp
+    every { appVersionRepository.findById(draftVersionId) } returns draftVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(prop1, "duplicate", emptyList()) } returns listOf(PropertyConstraintViolation.UniqueKeyViolation)
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(prop1, "duplicate", emptyList()) } returns listOf(PathedConstraintViolation("Field1", PropertyConstraintViolation.UniqueKeyViolation))
+
+    val data = mapOf("prop_${prop1Id.value}" to listOf("duplicate"))
+    val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(AppDataConstraintViolationError::class.java)
+    verify(exactly = 0) { appVersionRepository.findByAppIdAndVersionNumber(any(), any()) }
+  }
+
   // endregion
 
   // region validateEntityData

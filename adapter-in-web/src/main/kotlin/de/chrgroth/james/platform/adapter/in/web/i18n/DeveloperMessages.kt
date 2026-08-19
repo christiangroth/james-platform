@@ -105,6 +105,43 @@ interface DeveloperMessages {
   @Message
   fun developerDiffButton(): String
 
+  // developer test installations (see docs/dev-tests.md)
+  @Message
+  fun developerTestInstallationsHeading(): String
+
+  @Message
+  fun developerCreateTestInstallationTile(): String
+
+  @Message
+  fun developerCreateTestInstallationAriaLabel(): String
+
+  @Message
+  fun developerCreateTestInstallationModalTitle(): String
+
+  @Message
+  fun developerTestInstallationVersionFieldLabel(): String
+
+  @Message
+  fun developerDeleteTestInstallationAriaLabel(): String
+
+  @Message
+  fun developerDeleteTestInstallationModalTitle(): String
+
+  @Message
+  fun developerDeleteTestInstallationConfirm(): String
+
+  @Message
+  fun developerTestInstallationCreatedMessage(): String
+
+  @Message
+  fun developerTestInstallationDeletedMessage(): String
+
+  @Message
+  fun developerTestInstallationVersionNotFoundError(): String
+
+  @Message
+  fun developerTestInstallationNotFoundError(): String
+
   @Message
   fun developerEditAppModalTitle(): String
 

@@ -369,6 +369,21 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `publishVersion does not enqueue auto-upgrade for test installations`() {
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    val testInst = installedApp(id = "inst-2", userId = "dev-1", appId = "app-1", versionNumber = "1.1.0", isTest = true)
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst, testInst)
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { outbox.enqueue(any()) }
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0")) }
+  }
+
+  @Test
   fun `publishVersion does not enqueue auto-upgrade for installations that are not on the previous version`() {
     val instOnOldVersion = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     val instOnCurrentVersion = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")

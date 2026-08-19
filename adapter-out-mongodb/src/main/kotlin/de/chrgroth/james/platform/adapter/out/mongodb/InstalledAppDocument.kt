@@ -13,4 +13,6 @@ class InstalledAppDocument {
   lateinit var appId: String
   lateinit var installedVersionNumber: String
   lateinit var installedAt: Instant
+  var isTest: Boolean = false
+  var installedVersionId: String? = null
 }

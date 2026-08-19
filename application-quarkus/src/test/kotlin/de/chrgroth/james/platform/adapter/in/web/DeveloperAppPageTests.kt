@@ -770,6 +770,133 @@ class DeveloperAppPageTests {
       .statusCode(200)
   }
 
+  /** See docs/dev-tests.md ("Test Installations"): mirrors [awaitAppDeleted], but for a single test installation removed via the same outbox event. */
+  private fun awaitInstalledAppDeleted(installedAppId: String) {
+    val deadlineMs = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadlineMs) {
+      if (installedAppRepository.findById(InstalledAppId(installedAppId)) == null) return
+      Thread.sleep(50)
+    }
+    throw AssertionError("Expected installed app $installedAppId to be deleted by the outbox dispatcher within 5s")
+  }
+
+  @Test
+  fun `create test installation for a draft version shows up on the app overview page and can be deleted`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Test Installation App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="test-installation-tile""""))
+      .body(containsString("""data-installed-app-id="$installedAppId""""))
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations/$installedAppId/delete")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    awaitInstalledAppDeleted(installedAppId)
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("""data-testid="test-installation-tile"""")))
+  }
+
+  @Test
+  fun `create test installation fails for unknown version`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Test Installation Unknown Version App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", "unknown-version")
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
+  fun `test installations do not block app deletion`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Test Installation Delete App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/delete")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    awaitAppDeleted(appId)
+  }
+
   @Test
   fun `dashboard shows inactive badge for inactive app`() {
     val appId = given()

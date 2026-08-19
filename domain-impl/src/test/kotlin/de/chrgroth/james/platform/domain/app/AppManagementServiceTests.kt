@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -29,8 +30,9 @@ class AppManagementServiceTests {
   private val appRepository: AppRepositoryPort = mockk()
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
+  private val appDataRepository: AppDataRepositoryPort = mockk()
   private val outbox: OutboxPort = mockk()
-  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository, outbox)
+  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, outbox)
 
   private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 
@@ -298,6 +300,21 @@ class AppManagementServiceTests {
   }
 
   @Test
+  fun `deactivateApp excludes test installations from active installation count`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    justRun { appRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(
+      installedApp(id = "installed-1"),
+      installedApp(id = "installed-2", isTest = true),
+    )
+
+    val result = service.deactivateApp("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.activeInstallationCount).isEqualTo(1)
+  }
+
+  @Test
   fun `deactivateApp fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
@@ -439,6 +456,18 @@ class AppManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppError.HAS_ACTIVE_INSTALLATIONS)
   }
 
+  @Test
+  fun `deleteApp is not blocked when only test installations exist`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(installedApp(id = "installed-1", isTest = true))
+    justRun { outbox.enqueue(any()) }
+
+    val result = service.deleteApp("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify { outbox.enqueue(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1")) }
+  }
+
   // endregion
 
   // region handle(DeleteApp)
@@ -446,6 +475,7 @@ class AppManagementServiceTests {
   @Test
   fun `handle DeleteApp cascades version deletion and deletes the app`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(
       version(id = "ver-1"),
       version(id = "ver-2"),
@@ -464,12 +494,30 @@ class AppManagementServiceTests {
   @Test
   fun `handle DeleteApp succeeds when app has no versions`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
     justRun { appRepository.delete(any()) }
 
     val result = service.handle(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1"))
 
     assertThat(result.isRight()).isTrue()
+    verify { appRepository.delete(AppId("app-1")) }
+  }
+
+  @Test
+  fun `handle DeleteApp cleans up any leftover test installations and their app data`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(installedApp(id = "installed-1", isTest = true))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    justRun { appDataRepository.deleteAllByInstalledAppId(any()) }
+    justRun { installedAppRepository.delete(any()) }
+    justRun { appRepository.delete(any()) }
+
+    val result = service.handle(DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1"))
+
+    assertThat(result.isRight()).isTrue()
+    verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("installed-1")) }
+    verify { installedAppRepository.delete(InstalledAppId("installed-1")) }
     verify { appRepository.delete(AppId("app-1")) }
   }
 
@@ -499,6 +547,20 @@ class AppManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()).isEqualTo(2)
+  }
+
+  @Test
+  fun `getActiveInstallationCount excludes test installations`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(
+      installedApp(id = "installed-1"),
+      installedApp(id = "installed-2", isTest = true),
+    )
+
+    val result = service.getActiveInstallationCount("app-1", "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(1)
   }
 
   @Test
@@ -562,12 +624,13 @@ class AppManagementServiceTests {
       createdAt = Instant.now(),
     )
 
-    fun installedApp(id: String = "installed-1", userId: String = "user-1", appId: String = "app-1") = InstalledApp(
+    fun installedApp(id: String = "installed-1", userId: String = "user-1", appId: String = "app-1", isTest: Boolean = false) = InstalledApp(
       id = InstalledAppId(id),
       userId = userId,
       appId = AppId(appId),
       installedVersionNumber = VersionNumber("1.0.0"),
       installedAt = Instant.now(),
+      isTest = isTest,
     )
   }
 }

@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -53,7 +54,7 @@ class AppDataService(
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
     }
 
-    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    val appVersion = resolveAppVersion(installedApp)
     if (appVersion == null) {
       logger.warn { "Create app data failed: app version not found for installed app: $installedAppId" }
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
@@ -151,7 +152,7 @@ class AppDataService(
       return AppDataError.APP_DATA_NOT_FOUND.left()
     }
 
-    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    val appVersion = resolveAppVersion(installedApp)
     if (appVersion == null) {
       logger.warn { "Update app data failed: app version not found for installed app: $installedAppId" }
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
@@ -213,7 +214,7 @@ class AppDataService(
       return AppDataError.APP_DATA_NOT_FOUND.left()
     }
 
-    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    val appVersion = resolveAppVersion(installedApp)
     if (appVersion == null) {
       logger.warn { "Delete app data failed: app version not found for installed app: $installedAppId" }
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
@@ -378,7 +379,7 @@ class AppDataService(
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
     }
 
-    val appVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    val appVersion = resolveAppVersion(installedApp)
     if (appVersion == null) {
       logger.warn { "Get value proposals failed: app version not found for installed app: $installedAppId" }
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
@@ -430,6 +431,11 @@ class AppDataService(
 
     return proposals.right()
   }
+
+  /** Test installations (see docs/dev-tests.md) pin their version by id since a DRAFT version has no [InstalledApp.installedVersionNumber] yet. */
+  private fun resolveAppVersion(installedApp: InstalledApp): AppVersion? =
+    installedApp.installedVersionId?.let { appVersionRepository.findById(it) }
+      ?: appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
 
   companion object : KLogging()
 }
