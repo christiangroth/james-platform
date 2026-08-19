@@ -1,3 +1,12 @@
+# 0.98.8 (2026.08.19)
+
+## Bugfixes / Chore
+* Publishing a non-breaking App Version now auto-upgrades installations in the background instead of migrating all of them inline as part of the publish request, so publishing no longer risks timing out for Apps with many installations.
+
+
+
+---
+
 # 0.98.7 (2026.08.19)
 
 ## Bugfixes / Chore
