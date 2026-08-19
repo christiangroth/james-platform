@@ -114,6 +114,23 @@ module as an existing one. Concrete event types are added by the follow-up ticke
 route an operation through the outbox; this ticket introduces the port, the adapter, and the library wiring
 with no concrete event types yet – the dispatcher has nothing to dispatch until a follow-up ticket adds one.
 
+**Partition granularity is per operation type, not per invocation.** `quarkus-outbox` starts exactly one worker
+coroutine per `DomainOutboxPartition` at boot (`PartitionWorkerStarter`, iterating
+`ApplicationOutboxDispatcher.getAllPartitions()` once at startup), and that worker dispatches tasks strictly one
+at a time – claim, dispatch, complete/retry, then claim the next; there is no per-partition concurrency setting,
+only an optional `throttleInterval` that adds delay between dispatches, never parallelism. Splitting partitions
+per operation therefore parallelizes across *different* operations (e.g. a stuck `UserDeletion` no longer delays
+`AppDeletion`), but two invocations of the *same* operation for two different users still serialize through that
+operation's single worker – a second user's deletion enqueued while a first is being processed (or retrying)
+waits behind it. This is accepted for now: none of the five operations in scope are high-frequency,
+latency-sensitive-to-the-user actions – they are low-volume, admin/self-service-triggered operations in a
+single-developer/hobby-scale project – so a short queue behind an in-progress same-type operation is an
+acceptable trade-off, not a functional problem today. If a concrete operation later needs per-invocation (e.g.
+per-user) parallelism, the option is a small, statically-enumerable pool of partitions per operation (e.g.
+`UserDeletion-0`..`UserDeletion-N`, routed by `hash(userId) % N`), not one partition per user – partitions must
+be enumerable up front for `getAllPartitions()`, and an unbounded, per-entity partition count would itself
+become the kind of proliferation this ADR's partitioning rule exists to avoid.
+
 **Deferred, not part of this decision:** the previous incarnation also had an in-app outbox viewer/health page
 (`OutboxViewerResource`, `health.html` partition stats). That observability layer is not reintroduced here – it
 added no reliability value by itself and can be added later, by this ADR or a follow-up, once a concrete
@@ -175,6 +192,10 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
   once tickets 2/6–6/6 land; until then it is unused infrastructure sitting in the codebase.
 * More partitions to track once the deferred observability layer (see above) is eventually added – each
   operation's partition needs to be individually visible, not just the outbox collection as a whole.
+* Per-operation partitioning isolates unrelated operations from each other but does not parallelize multiple
+  invocations of the *same* operation (e.g. two different users' deletions still serialize through one worker)
+  – see "Partition granularity is per operation type, not per invocation" above; accepted for now given the low
+  volume of the operations in scope.
 
 ## Pros and Cons of the Options
 
@@ -221,4 +242,7 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
   [#619](https://github.com/christiangroth/james-platform/issues/619)
 * Scope generalized to any long-running domain/business or technical operation, with mandatory per-operation
   partition separation, per review feedback on PR
+  [#634](https://github.com/christiangroth/james-platform/pull/634)
+* Documented that partition granularity is per operation type, not per invocation (no intra-partition
+  parallelism, e.g. across users), per further review feedback on PR
   [#634](https://github.com/christiangroth/james-platform/pull/634)
