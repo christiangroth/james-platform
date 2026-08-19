@@ -72,13 +72,36 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Deletes a user's [de.chrgroth.james.platform.domain.model.app.InstalledApp]s (including their
+   * [de.chrgroth.james.platform.domain.model.app.AppData]) and the user itself in the background (see
+   * `AdminUserManagementService.deleteUser`). Deduplicated per user so a repeated/double submitted delete click
+   * does not enqueue a second run.
+   * payload = "$userId\n$username"
+   */
+  data class DeleteUser(val userId: String, val username: String) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$userId"
+    override val partition = DomainOutboxPartition.Domain
+    override val serializePayload = "$userId\n$username"
+
+    companion object {
+      const val KEY = "DeleteUser"
+      fun fromPayload(payload: String): DeleteUser {
+        val parts = payload.split("\n")
+        return DeleteUser(userId = parts[0], username = parts[1])
+      }
+    }
+  }
+
   companion object {
-    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY)
+    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY)
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
       UninstallApp.KEY -> UninstallApp.fromPayload(payload)
       DeleteApp.KEY -> DeleteApp.fromPayload(payload)
+      DeleteUser.KEY -> DeleteUser.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

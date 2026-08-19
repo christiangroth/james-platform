@@ -25,6 +25,8 @@ import jakarta.ws.rs.core.Response
 
 data class ApiResult(val ok: Boolean, val message: String)
 
+data class UserStatusResponse(val stillExists: Boolean)
+
 @Path("/ui/admin/users")
 @ApplicationScoped
 @RolesAllowed("ADMIN")
@@ -141,8 +143,17 @@ class AdminUserManagementResource {
     val callingUsername = securityIdentity.principal.name
     adminUserManagement.deleteUser(username, callingUsername).fold(
       ifLeft = { error -> Response.ok(ApiResult(false, errorMessage(error.code))).build() },
-      ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserDeletedMessage())).build() },
+      ifRight = { Response.ok(ApiResult(true, adminMsg.adminUserDeleteQueuedMessage())).build() },
     )
+  }
+
+  /** Polled by the users page while a delete enqueued via [deleteUser] runs in the background. */
+  @GET
+  @Path("/{username}/status")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun userStatus(@PathParam("username") username: String): Response = httpResponseMetrics.timed("rest.admin.user-status") {
+    val stillExists = adminUserManagement.listUsers().any { it.username.value == username }
+    Response.ok(UserStatusResponse(stillExists)).build()
   }
 
   private fun renderUsers(): Any {

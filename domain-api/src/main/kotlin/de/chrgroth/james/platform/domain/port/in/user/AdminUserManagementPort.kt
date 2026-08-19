@@ -4,6 +4,7 @@ import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserRole
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 
 interface AdminUserManagementPort {
   fun listUsers(): List<User>
@@ -13,4 +14,7 @@ interface AdminUserManagementPort {
   fun setPassword(username: String, newPassword: String): Either<DomainError, User>
   fun setRoles(username: String, roles: Set<UserRole>, callingUsername: String): Either<DomainError, User>
   fun deleteUser(username: String, callingUsername: String): Either<DomainError, Unit>
+
+  /** Called by the outbox dispatcher, not directly by inbound adapters. */
+  fun handle(event: DomainOutboxEvent.DeleteUser): Either<DomainError, Unit>
 }

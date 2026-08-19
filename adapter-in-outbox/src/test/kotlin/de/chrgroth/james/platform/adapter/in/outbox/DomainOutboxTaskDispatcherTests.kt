@@ -4,12 +4,14 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.ImportError
+import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
+import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
 import de.chrgroth.quarkus.outbox.domain.DispatchResult
 import io.mockk.every
 import io.mockk.mockk
@@ -22,11 +24,13 @@ class DomainOutboxTaskDispatcherTests {
   private val importPort = mockk<ImportPort>()
   private val userAppStorePort = mockk<UserAppStorePort>()
   private val appManagementPort = mockk<AppManagementPort>()
-  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort)
+  private val adminUserManagementPort = mockk<AdminUserManagementPort>()
+  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort, adminUserManagementPort)
 
   private val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = true)
   private val uninstallEvent = DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1")
   private val deleteAppEvent = DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1")
+  private val deleteUserEvent = DomainOutboxEvent.DeleteUser(userId = "user-1", username = "user")
 
   @Test
   fun `all partitions returns the single domain partition`() {
@@ -119,6 +123,31 @@ class DomainOutboxTaskDispatcherTests {
     every { appManagementPort.handle(deleteAppEvent) } returns AppError.APP_NOT_FOUND.left()
 
     val result = dispatcher.dispatch(deleteAppEvent)
+
+    assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
+  }
+
+  @Test
+  fun `deserialize reconstructs a DeleteUser event from its serialized payload`() {
+    val deserialized = dispatcher.deserialize(DomainOutboxPartition.Domain, DomainOutboxEvent.DeleteUser.KEY, deleteUserEvent.serializePayload)
+
+    assertThat(deserialized).isEqualTo(deleteUserEvent)
+  }
+
+  @Test
+  fun `dispatch routes DeleteUser to AdminUserManagementPort#handle and returns success when it succeeds`() {
+    every { adminUserManagementPort.handle(deleteUserEvent) } returns Unit.right()
+
+    val result = dispatcher.dispatch(deleteUserEvent)
+
+    assertThat(result).isEqualTo(DispatchResult.Success)
+  }
+
+  @Test
+  fun `dispatch returns failed when the DeleteUser handler reports an error`() {
+    every { adminUserManagementPort.handle(deleteUserEvent) } returns UserAdminError.USER_NOT_FOUND.left()
+
+    val result = dispatcher.dispatch(deleteUserEvent)
 
     assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
   }

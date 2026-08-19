@@ -354,10 +354,11 @@ Other notable flows:
   tasks are deleted from the `outbox` collection outright instead of being copied into `outbox_archive` first,
   so no historical record of dispatched or failed tasks is kept. Import accept (`ImportService.acceptDryRun`,
   `DomainOutboxEvent.AcceptDryRun`), app uninstall (`UserAppStoreService.uninstallApp`,
-  `DomainOutboxEvent.UninstallApp`), and app deletion (`AppManagementService.deleteApp`,
-  `DomainOutboxEvent.DeleteApp`) are routed through this flow; the remaining operations in series
-  [#543](https://github.com/christiangroth/james-platform/issues/543) (User deletion, App Version Migration on
-  publish) are follow-up tickets.
+  `DomainOutboxEvent.UninstallApp`), app deletion (`AppManagementService.deleteApp`,
+  `DomainOutboxEvent.DeleteApp`), and user deletion including its cascading installed-app/AppData cleanup
+  (`AdminUserManagementService.deleteUser`, `DomainOutboxEvent.DeleteUser`) are routed through this flow; the
+  remaining operation in series [#543](https://github.com/christiangroth/james-platform/issues/543) (App Version
+  Migration on publish) is a follow-up ticket.
 
 # Deployment View
 
