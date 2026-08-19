@@ -94,14 +94,43 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Migrates a single installation's [de.chrgroth.james.platform.domain.model.app.AppData] and advances its
+   * `installedVersionNumber` in the background, one event per installation (see
+   * `AppVersionManagementService.autoUpgradeInstallations`, part of the bulk auto-upgrade triggered by publishing a
+   * non-breaking Version). Deduplicated per installation and target version so a repeated publish does not enqueue
+   * the same upgrade twice.
+   * payload = "$installedAppId\n$appId\n$fromVersionNumber\n$toVersionNumber"
+   */
+  data class AutoUpgradeInstallation(
+    val installedAppId: String,
+    val appId: String,
+    val fromVersionNumber: String,
+    val toVersionNumber: String,
+  ) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$installedAppId:$toVersionNumber"
+    override val partition = DomainOutboxPartition.Domain
+    override val serializePayload = "$installedAppId\n$appId\n$fromVersionNumber\n$toVersionNumber"
+
+    companion object {
+      const val KEY = "AutoUpgradeInstallation"
+      fun fromPayload(payload: String): AutoUpgradeInstallation {
+        val parts = payload.split("\n")
+        return AutoUpgradeInstallation(installedAppId = parts[0], appId = parts[1], fromVersionNumber = parts[2], toVersionNumber = parts[3])
+      }
+    }
+  }
+
   companion object {
-    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY)
+    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY, AutoUpgradeInstallation.KEY)
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
       UninstallApp.KEY -> UninstallApp.fromPayload(payload)
       DeleteApp.KEY -> DeleteApp.fromPayload(payload)
       DeleteUser.KEY -> DeleteUser.fromPayload(payload)
+      AutoUpgradeInstallation.KEY -> AutoUpgradeInstallation.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

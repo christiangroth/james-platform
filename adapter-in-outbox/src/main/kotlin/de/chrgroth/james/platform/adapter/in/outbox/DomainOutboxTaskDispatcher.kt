@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
@@ -22,6 +23,7 @@ class DomainOutboxTaskDispatcher(
   private val userAppStorePort: UserAppStorePort,
   private val appManagementPort: AppManagementPort,
   private val adminUserManagementPort: AdminUserManagementPort,
+  private val appVersionManagementPort: AppVersionManagementPort,
 ) : ApplicationOutboxDispatcher {
 
   override fun getAllPartitions(): List<ApplicationOutboxPartition> = DomainOutboxPartition.all
@@ -37,6 +39,7 @@ class DomainOutboxTaskDispatcher(
       is DomainOutboxEvent.UninstallApp -> userAppStorePort.handle(event)
       is DomainOutboxEvent.DeleteApp -> appManagementPort.handle(event)
       is DomainOutboxEvent.DeleteUser -> adminUserManagementPort.handle(event)
+      is DomainOutboxEvent.AutoUpgradeInstallation -> appVersionManagementPort.handle(event)
     }
   }
 
