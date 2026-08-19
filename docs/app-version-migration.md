@@ -37,7 +37,7 @@ previous Version. This raises two related needs (see the issue):
   objects that were valid under an old schema are never re-checked against a new schema.
 - `AppDataMigrationPort` / `AppDataMigrationService` (`domain-impl/.../app/AppDataMigrationService.kt`) plus the `Starter`s in `adapter-in-starter` are a **different,
   unrelated** mechanism: one-time, platform-internal, run automatically on every application startup (via `christiangroth/quarkus-one-time-starters`), for fixing the
-  *platform's own* bugs/schema drift (e.g. `backfillEntityDisplayText`). They are not Developer-facing and not scoped to a single App or Version. **This concept must use a
+  *platform's own* bugs/schema drift (e.g. `backfillAppVersion`). They are not Developer-facing and not scoped to a single App or Version. **This concept must use a
   clearly different name** (e.g. `AppVersionMigrationPort`) to avoid confusion with that existing port.
 - `ComputedPropertyService` (`domain-impl/.../app/ComputedPropertyService.kt`) already runs Developer-authored Kotlin scripts (JSR-223 `.kts` engine) per Entity, with a
   configurable timeout (`app.script.timeout-ms`, default 500 ms), execution on a dedicated virtual-thread executor so timeouts can actually be interrupted, and metrics via
