@@ -345,6 +345,35 @@ class AggregationInlineUpdateServiceTests {
     assertThat(savedSlot.captured.id.bucketKey).isEqualTo("2026-08")
   }
 
+  @Test
+  fun `create groups the value by timeProperty instead of createdAt when set`() {
+    val eventDatePropId = PropertyId("eventDate")
+    val eventDateProp = Property(id = eventDatePropId, name = "Event Date", type = PropertyType.DATE)
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total per month",
+      function = AggregationFunction.SUM,
+      sourceProperty = amountPropId,
+      timeBucket = TimeBucket.MONAT,
+      timeProperty = eventDatePropId,
+    )
+    val entityDef =
+      EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Entity", properties = listOf(amountProp, eventDateProp), aggregations = listOf(aggregation))
+    val id = AggregationValueId(installedAppId, aggregation.id, bucketKey = "2025-01")
+    every { aggregationRepository.findByAggregationValueId(id) } returns null
+    val savedSlot = slot<AggregationValue>()
+    justRun { aggregationRepository.save(capture(savedSlot)) }
+
+    service.onAppDataCreated(
+      installedAppId,
+      listOf(entityDef),
+      entityDef,
+      appData("d1", mapOf(amountPropId.value to "5", eventDatePropId.value to "2025-01-10"), createdAt = Instant.parse("2026-08-19T10:00:00Z")),
+    )
+
+    assertThat(savedSlot.captured.id.bucketKey).isEqualTo("2025-01")
+  }
+
   // endregion
 
   // region dependency index scoping

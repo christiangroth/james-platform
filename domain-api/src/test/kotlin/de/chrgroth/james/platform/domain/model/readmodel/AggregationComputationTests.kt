@@ -122,6 +122,39 @@ class AggregationComputationTests {
     assertThat(aggregation.bucketKeyOf(appData("d1", emptyMap()))).isNull()
   }
 
+  @Test
+  fun `bucketKeyOf uses timeProperty instead of createdAt when set, for both DATE and DATETIME values`() {
+    val eventDatePropId = PropertyId("eventDate")
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total",
+      function = AggregationFunction.SUM,
+      sourceProperty = amountPropId,
+      timeBucket = TimeBucket.MONAT,
+      timeProperty = eventDatePropId,
+    )
+    val createdAt = Instant.parse("2026-01-01T00:00:00Z")
+
+    assertThat(aggregation.bucketKeyOf(appData("d1", mapOf(eventDatePropId.value to "2026-08-19"), createdAt))).isEqualTo("2026-08")
+    assertThat(aggregation.bucketKeyOf(appData("d2", mapOf(eventDatePropId.value to "2026-08-19T10:15:00"), createdAt))).isEqualTo("2026-08")
+  }
+
+  @Test
+  fun `bucketKeyOf is null when timeProperty is set but the item has no or an unparsable value for it`() {
+    val eventDatePropId = PropertyId("eventDate")
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total",
+      function = AggregationFunction.SUM,
+      sourceProperty = amountPropId,
+      timeBucket = TimeBucket.MONAT,
+      timeProperty = eventDatePropId,
+    )
+
+    assertThat(aggregation.bucketKeyOf(appData("d1", emptyMap()))).isNull()
+    assertThat(aggregation.bucketKeyOf(appData("d2", mapOf(eventDatePropId.value to "not-a-date")))).isNull()
+  }
+
   // endregion
 
   // region computeAggregationValues

@@ -1244,7 +1244,11 @@ class AppVersionManagementService(
     return hasDuplicateNames || entity.aggregations.any { !isValidAggregationDefinition(entity, it) }
   }
 
-  /** Ref-depth 1 only (see docs/adr/0020-aggregation-definitions.md): [AggregationDefinition.refPath], if set, must be a top-level REF property of [entity], never a chain. */
+  /**
+   * Ref-depth 1 only (see docs/adr/0020-aggregation-definitions.md): [AggregationDefinition.refPath], if set, must be a top-level REF
+   * property of [entity], never a chain. [AggregationDefinition.timeProperty], if set, requires [AggregationDefinition.timeBucket] and
+   * must be a top-level DATE/DATETIME property of [entity].
+   */
   private fun isValidAggregationDefinition(entity: EntityDefinition, aggregation: AggregationDefinition): Boolean {
     if (aggregation.name.isBlank()) return false
     val sourceProperty = entity.properties.find { it.id == aggregation.sourceProperty } ?: return false
@@ -1252,6 +1256,11 @@ class AppVersionManagementService(
     aggregation.refPath?.let { refPath ->
       val refProperty = entity.properties.find { it.id == refPath } ?: return false
       if (refProperty.type != PropertyType.REF) return false
+    }
+    aggregation.timeProperty?.let { timeProperty ->
+      if (aggregation.timeBucket == null) return false
+      val timePropertyDefinition = entity.properties.find { it.id == timeProperty } ?: return false
+      if (timePropertyDefinition.type !in DATE_TIME_PROPERTY_TYPES) return false
     }
     aggregation.groupBy?.let { groupBy ->
       if (groupBy == aggregation.sourceProperty) return false
@@ -1595,5 +1604,6 @@ class AppVersionManagementService(
   companion object : KLogging() {
     internal const val FIRST_VERSION = "0.1.0"
     private val NUMERIC_PROPERTY_TYPES = setOf(PropertyType.LONG, PropertyType.DOUBLE)
+    private val DATE_TIME_PROPERTY_TYPES = setOf(PropertyType.DATE, PropertyType.DATETIME)
   }
 }
