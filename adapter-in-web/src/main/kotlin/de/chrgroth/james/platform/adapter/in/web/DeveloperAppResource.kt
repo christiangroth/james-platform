@@ -10,6 +10,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
+import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
@@ -23,6 +24,7 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
 import io.quarkus.qute.RawString
@@ -128,6 +130,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var developerTestInstallations: DeveloperTestInstallationPort
+
+  @Inject
+  private lateinit var testDataGenerator: TestDataGeneratorPort
 
   @Inject
   private lateinit var msg: AppMessages
@@ -363,7 +368,8 @@ class DeveloperAppResource {
             .data("currentPropertiesJson", EMPTY_JSON_ARRAY)
             .data("path", "")
             .data("breadcrumb", emptyList<PropertyBreadcrumb>())
-            .data("isNestedLevel", false),
+            .data("isNestedLevel", false)
+            .data("testInstallations", testInstallationsForVersion(appId, version, developerId)),
         ).build()
       },
     )
@@ -411,6 +417,7 @@ class DeveloperAppResource {
             .data("currentPropertiesJson", currentPropertiesJson)
             .data("path", breadcrumb.lastOrNull()?.path ?: "")
             .data("breadcrumb", breadcrumb)
+            .data("testInstallations", testInstallationsForVersion(appId, version, developerId))
             .data("isNestedLevel", breadcrumb.isNotEmpty()),
         ).build()
       },
@@ -546,7 +553,8 @@ class DeveloperAppResource {
             .data("currentPropertiesJson", EMPTY_JSON_ARRAY)
             .data("path", "")
             .data("breadcrumb", emptyList<PropertyBreadcrumb>())
-            .data("isNestedLevel", false),
+            .data("isNestedLevel", false)
+            .data("testInstallations", testInstallationsForVersion(appId, version, developerId)),
         ).build()
       },
     )
@@ -675,6 +683,27 @@ class DeveloperAppResource {
     appVersionManagement.deleteEntity(appId, versionId, entityId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerEntityDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId")).build() },
+    )
+  }
+
+  /** See docs/dev-tests.md ("Phase 1 - Automatic Test Data Generator"): the synchronous, bounded generation case triggered from the entity editor. */
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/generate-test-data")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun generateTestData(
+    @PathParam("appId") appId: String,
+    @PathParam("entityId") entityId: String,
+    @FormParam("installedAppId") installedAppId: String,
+    @FormParam("count") count: Int,
+    @FormParam("seed") seed: String?,
+  ): Response = httpResponseMetrics.timed("rest.developer.test-data-generate") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.ok(DeveloperApiResult(false, devMsg.developerUserNotFoundError())).build()
+    val seedValue = seed?.trim()?.takeIf { it.isNotEmpty() }?.toLongOrNull()
+    testDataGenerator.generateTestData(appId, installedAppId, entityId, count, developerId, seedValue).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, testDataGeneratorErrorMessage(error.code))).build() },
+      ifRight = { generated -> Response.ok(DeveloperApiResult(true, devMsg.developerGenerateTestDataSuccessMessage(generated.size))).build() },
     )
   }
 
@@ -1212,8 +1241,23 @@ class DeveloperAppResource {
     else -> msg.commonUnexpectedError()
   }
 
+  private fun testDataGeneratorErrorMessage(code: String): String = when (code) {
+    TestDataGeneratorError.APP_NOT_FOUND.code -> devMsg.developerUserNotFoundError()
+    TestDataGeneratorError.INSTALLATION_NOT_FOUND.code -> devMsg.developerTestInstallationNotFoundError()
+    TestDataGeneratorError.ENTITY_NOT_FOUND.code -> devMsg.developerGenerateTestDataEntityNotFoundError()
+    TestDataGeneratorError.INVALID_COUNT.code -> devMsg.developerGenerateTestDataInvalidCountError()
+    TestDataGeneratorError.GENERATION_FAILED.code -> devMsg.developerGenerateTestDataGenerationFailedError()
+    else -> msg.commonUnexpectedError()
+  }
+
   private fun hasDiffForDraft(appId: String, isDraft: Boolean): Boolean =
     isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
+
+  /** Test installations pinned to [version], the only ones a test data generation run for an entity of this version can target. */
+  private fun testInstallationsForVersion(appId: String, version: AppVersion, developerId: String): List<TestInstallationInfo> =
+    developerTestInstallations.listTestInstallations(appId, developerId).getOrNull().orEmpty()
+      .filter { it.installedVersionId == version.id }
+      .map { TestInstallationInfo(installedAppId = it.id.value, version = version, installedAt = it.installedAt) }
 
   private fun versionErrorMessage(code: String): String = when (code) {
     AppVersionError.INVALID_BUMP_TYPE.code -> devMsg.developerInvalidBumpTypeError()
