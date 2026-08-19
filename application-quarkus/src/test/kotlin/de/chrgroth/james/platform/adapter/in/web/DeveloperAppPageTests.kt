@@ -842,6 +842,46 @@ class DeveloperAppPageTests {
   }
 
   @Test
+  fun `app overview links a test installation tile to its generic data view`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Test Installation Link App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="open-test-installation-button""""))
+      .body(containsString("""href="/ui/user/apps/$installedAppId""""))
+  }
+
+  @Test
   fun `create test installation fails for unknown version`() {
     val appId = given()
       .contentType("application/x-www-form-urlencoded")

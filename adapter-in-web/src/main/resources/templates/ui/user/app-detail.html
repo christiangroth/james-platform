@@ -18,6 +18,9 @@
 
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="app-title">{info.appName}</h1>
+            {#if info.installedApp.test}
+            <span class="badge app-badge-muted" data-testid="test-installation-badge">{user:userTestInstallationBadge()}</span>
+            {/if}
             {#if isDataImport}
             <a href="/ui/user/imports" class="btn btn-app-secondary btn-sm ms-auto" data-testid="import-button" title="{user:userImportButtonLabel()}" aria-label="{user:userImportButtonLabel()}">
                 <i class="bi bi-cloud-upload" aria-hidden="true"></i>

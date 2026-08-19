@@ -1,15 +1,21 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.security.TestSecurity
 import io.restassured.RestAssured.given
 import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.containsString
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,6 +28,12 @@ class UserAppDetailPageTests {
 
   @Inject
   lateinit var userRepository: UserRepositoryPort
+
+  @Inject
+  lateinit var installedAppRepository: InstalledAppRepositoryPort
+
+  @Inject
+  lateinit var appDataRepository: AppDataRepositoryPort
 
   @BeforeEach
   fun setup() {
@@ -419,5 +431,52 @@ class UserAppDetailPageTests {
       .then()
       .statusCode(303)
       .header("Location", containsString("/ui/user/dashboard"))
+  }
+
+  /**
+   * See docs/dev-tests.md ("Phase 2 - Manual Test Data Sets"): a test installation pinned to a DRAFT version (issue
+   * #635) must be reachable through the same generic CRUD pages as a real installation, and manually-entered data must
+   * coexist with data generated via the test data generator (issues #636/#637/#646/#647).
+   */
+  @Test
+  fun `test installation pinned to a draft version is reachable through the generic app detail page and mixes manual with generated data`() {
+    val appName = "Test Installation Reach App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    val detailHtml = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+    assertTrue(detailHtml.contains("data-testid=\"test-installation-badge\""), "Expected the test installation badge to be rendered")
+    assertTrue(detailHtml.contains("Entity One"), "Expected the entity to be rendered for the draft-pinned test installation")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("count", "3")
+      .formParam("seed", "42")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/generate-test-data")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    createDataAndGetId(installedAppId, entityId)
+
+    assertEquals(4, appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId)).size)
   }
 }

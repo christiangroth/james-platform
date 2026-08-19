@@ -78,12 +78,12 @@ class DeveloperTestInstallationServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns publishedVersion
     justRun { installedAppRepository.save(any()) }
 
-    val result = service.createTestInstallation("app-1", "ver-1", "dev-1")
+    val result = service.createTestInstallation("app-1", "ver-1", "dev-1", "developer-username")
 
     assertThat(result.isRight()).isTrue()
     val created = result.getOrNull()!!
     assertThat(created.isTest).isTrue()
-    assertThat(created.userId).isEqualTo("dev-1")
+    assertThat(created.userId).isEqualTo("developer-username")
     assertThat(created.appId).isEqualTo(AppId("app-1"))
     assertThat(created.installedVersionId).isEqualTo(AppVersionId("ver-1"))
     assertThat(created.installedVersionNumber).isEqualTo(VersionNumber("1.0.0"))
@@ -97,7 +97,7 @@ class DeveloperTestInstallationServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draftVersion
     justRun { installedAppRepository.save(any()) }
 
-    val result = service.createTestInstallation("app-1", "ver-draft", "dev-1")
+    val result = service.createTestInstallation("app-1", "ver-draft", "dev-1", "developer-username")
 
     assertThat(result.isRight()).isTrue()
     val created = result.getOrNull()!!
@@ -109,7 +109,7 @@ class DeveloperTestInstallationServiceTests {
   fun `createTestInstallation fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
-    val result = service.createTestInstallation("unknown", "ver-1", "dev-1")
+    val result = service.createTestInstallation("unknown", "ver-1", "dev-1", "developer-username")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(DeveloperTestInstallationError.APP_NOT_FOUND)
@@ -119,7 +119,7 @@ class DeveloperTestInstallationServiceTests {
   fun `createTestInstallation fails when app belongs to another developer`() {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
 
-    val result = service.createTestInstallation("app-1", "ver-1", "dev-2")
+    val result = service.createTestInstallation("app-1", "ver-1", "dev-2", "developer-username")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(DeveloperTestInstallationError.APP_NOT_FOUND)
@@ -130,7 +130,7 @@ class DeveloperTestInstallationServiceTests {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findById(AppVersionId("unknown")) } returns null
 
-    val result = service.createTestInstallation("app-1", "unknown", "dev-1")
+    val result = service.createTestInstallation("app-1", "unknown", "dev-1", "developer-username")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(DeveloperTestInstallationError.VERSION_NOT_FOUND)
@@ -142,7 +142,7 @@ class DeveloperTestInstallationServiceTests {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns otherAppVersion
 
-    val result = service.createTestInstallation("app-1", "ver-1", "dev-1")
+    val result = service.createTestInstallation("app-1", "ver-1", "dev-1", "developer-username")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(DeveloperTestInstallationError.VERSION_NOT_FOUND)

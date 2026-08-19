@@ -135,6 +135,11 @@
                     </div>
                     <div class="app-section-label mb-2" data-testid="test-installation-created-at">{ti.installedAt.formatted}</div>
                     <div class="mt-auto d-flex align-items-center">
+                        <a href="/ui/user/apps/{ti.installedAppId}" class="btn btn-app-secondary btn-sm"
+                           title="{developer:developerOpenTestInstallationAriaLabel()}" aria-label="{developer:developerOpenTestInstallationAriaLabel()}"
+                           data-testid="open-test-installation-button">
+                            <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                        </a>
                         <button type="button" class="btn btn-app-danger btn-sm ms-auto delete-test-installation-button"
                                 data-installed-app-id="{ti.installedAppId}"
                                 title="{developer:developerDeleteTestInstallationAriaLabel()}" aria-label="{developer:developerDeleteTestInstallationAriaLabel()}"

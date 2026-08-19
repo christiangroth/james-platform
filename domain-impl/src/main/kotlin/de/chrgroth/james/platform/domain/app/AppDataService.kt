@@ -432,10 +432,8 @@ class AppDataService(
     return proposals.right()
   }
 
-  /** Test installations (see docs/dev-tests.md) pin their version by id since a DRAFT version has no [InstalledApp.installedVersionNumber] yet. */
   private fun resolveAppVersion(installedApp: InstalledApp): AppVersion? =
-    installedApp.installedVersionId?.let { appVersionRepository.findById(it) }
-      ?: appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
+    resolveInstalledAppVersion(installedApp, appVersionRepository)
 
   companion object : KLogging()
 }

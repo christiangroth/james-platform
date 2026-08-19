@@ -87,7 +87,7 @@ class UserAppStoreService(
     val installed = installedAppRepository.findAllByUserId(userId).filter { !it.isTest }
     return installed.mapNotNull { installedApp ->
       val app = appRepository.findById(installedApp.appId) ?: return@mapNotNull null
-      val installedVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber) ?: return@mapNotNull null
+      val installedVersion = resolveInstalledAppVersion(installedApp, appVersionRepository) ?: return@mapNotNull null
       val latestVersion = latestPublishedVersion(installedApp.appId) ?: installedVersion
       InstalledAppInfo(
         installedApp = installedApp,
@@ -110,7 +110,7 @@ class UserAppStoreService(
       logger.warn { "Get installed app failed: app not found for installed app: $installedAppId" }
       return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val installedVersion = appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber) ?: run {
+    val installedVersion = resolveInstalledAppVersion(installedApp, appVersionRepository) ?: run {
       logger.warn { "Get installed app failed: version not found for installed app: $installedAppId" }
       return UserAppStoreError.INSTALLED_APP_NOT_FOUND.left()
     }
