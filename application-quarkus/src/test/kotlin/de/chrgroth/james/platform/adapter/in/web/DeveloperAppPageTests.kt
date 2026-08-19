@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.model.app.AppId
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
@@ -8,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
@@ -31,6 +33,9 @@ class DeveloperAppPageTests {
 
   @Inject
   lateinit var installedAppRepository: InstalledAppRepositoryPort
+
+  @Inject
+  lateinit var appDataRepository: AppDataRepositoryPort
 
   @BeforeEach
   fun setup() {
@@ -895,6 +900,182 @@ class DeveloperAppPageTests {
       .body(containsString("\"ok\":true"))
 
     awaitAppDeleted(appId)
+  }
+
+  @Test
+  fun `entity editor offers generate test data for installations pinned to the current version`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Generate Test Data UI App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="open-generate-test-data-modal-button""""))
+      .body(containsString("""data-testid="generate-test-data-no-installations-hint""""))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="generate-test-data-installation-select""""))
+      .body(containsString("""value="$installedAppId""""))
+  }
+
+  @Test
+  fun `generate test data creates the requested number of objects in the chosen test installation`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Generate Test Data App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Amount")
+      .formParam("type", "LONG")
+      .formParam("nullable", false)
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("count", "5")
+      .formParam("seed", "42")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/generate-test-data")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    assertThat(appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId))).hasSize(5)
+  }
+
+  @Test
+  fun `generate test data fails for a count outside the allowed range`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Generate Test Data Invalid Count App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("count", "0")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/generate-test-data")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
   }
 
   @Test

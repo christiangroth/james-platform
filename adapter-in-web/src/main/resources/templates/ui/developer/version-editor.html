@@ -67,6 +67,14 @@
             <div class="card app-card p-4" data-testid="entity-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">{developer:developerEntityHeading(selectedEntity.name)}</h2>
+                    {#if !isNestedLevel}
+                    <button type="button" class="btn btn-app-secondary btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#generateTestDataModal"
+                            title="{developer:developerGenerateTestDataAriaLabel()}" aria-label="{developer:developerGenerateTestDataAriaLabel()}"
+                            data-testid="open-generate-test-data-modal-button">
+                        <i class="bi bi-magic" aria-hidden="true"></i>
+                    </button>
+                    {/if}
                     {#btn-icon-delete testId="delete-entity-button" title=msg:commonDelete() extraClass="ms-auto" bsTarget="#deleteEntityModal" action="" entityId=selectedEntity.id propertyId="" reportId="" username="" /}
                 </div>
 
@@ -572,6 +580,53 @@
     </div>
     {/if}
 
+    <!-- Generate Test Data Modal -->
+    {#if isDraft && selectedEntity != null}
+    <div class="modal fade" id="generateTestDataModal" tabindex="-1" aria-labelledby="generateTestDataModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="generateTestDataModalLabel">{developer:developerGenerateTestDataModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                {#if testInstallations.isEmpty}
+                <div class="modal-body">
+                    <p class="mb-0 app-section-label" data-testid="generate-test-data-no-installations-hint">{developer:developerGenerateTestDataNoInstallationsHint()}</p>
+                </div>
+                {#else}
+                <form id="generateTestDataForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="generateTestDataInstalledAppId" class="form-label">{developer:developerGenerateTestDataInstallationFieldLabel()}</label>
+                            <select class="form-select app-form-control" id="generateTestDataInstalledAppId" name="installedAppId" required
+                                    data-testid="generate-test-data-installation-select">
+                                {#for ti in testInstallations}
+                                <option value="{ti.installedAppId}">{ti.installedAt.formatted}</option>
+                                {/for}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="generateTestDataCount" class="form-label">{developer:developerGenerateTestDataCountFieldLabel()}</label>
+                            <input type="number" class="form-control app-form-control" id="generateTestDataCount" name="count"
+                                   min="1" max="500" value="10" required data-testid="generate-test-data-count-input">
+                        </div>
+                        <div class="mb-3">
+                            <label for="generateTestDataSeed" class="form-label">{developer:developerGenerateTestDataSeedFieldLabel()}</label>
+                            <input type="number" class="form-control app-form-control" id="generateTestDataSeed" name="seed" autocomplete="off"
+                                   data-testid="generate-test-data-seed-input">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="generate-test-data-submit-button">{developer:developerGenerateTestDataSubmitButton()}</button>
+                    </div>
+                </form>
+                {/if}
+            </div>
+        </div>
+    </div>
+    {/if}
+
     <!-- Delete Report Modal -->
     {#if isDraft}
     <div class="modal fade" id="deleteReportModal" tabindex="-1" aria-labelledby="deleteReportModalLabel" aria-hidden="true">
@@ -848,6 +903,7 @@
         (function () {
             var appId = '{app.id}';
             var versionId = '{version.id}';
+            var generateTestDataEntityId = '{#if selectedEntity}{selectedEntity.id}{/if}';
             var messagePanel = document.getElementById('version-message');
             var messageTimer = null;
             var networkErrorMessage = '{msg:commonNetworkError()}';
@@ -1054,6 +1110,25 @@
                 deleteEntityModal.addEventListener('hidden.bs.modal', function () {
                     pendingDeleteEntityId = null;
                     confirmDeleteEntityBtn.disabled = false;
+                });
+            }
+
+            // Generate Test Data modal
+            var generateTestDataForm = document.getElementById('generateTestDataForm');
+            if (generateTestDataForm) {
+                generateTestDataForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var submitBtn = generateTestDataForm.querySelector('[type="submit"]');
+                    submitBtn.disabled = true;
+                    var formData = new FormData(generateTestDataForm);
+                    var url = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + generateTestDataEntityId + '/generate-test-data';
+                    var result = await apiPost(url, formData, false);
+                    submitBtn.disabled = false;
+                    if (result && result.ok) {
+                        var modal = bootstrap.Modal.getInstance(document.getElementById('generateTestDataModal'));
+                        if (modal) { modal.hide(); }
+                        generateTestDataForm.reset();
+                    }
                 });
             }
 

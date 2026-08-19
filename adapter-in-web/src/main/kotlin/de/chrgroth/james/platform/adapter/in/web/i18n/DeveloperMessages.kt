@@ -142,6 +142,40 @@ interface DeveloperMessages {
   @Message
   fun developerTestInstallationNotFoundError(): String
 
+  // developer test data generator (see docs/dev-tests.md, "Phase 1 - Automatic Test Data Generator")
+  @Message
+  fun developerGenerateTestDataAriaLabel(): String
+
+  @Message
+  fun developerGenerateTestDataModalTitle(): String
+
+  @Message
+  fun developerGenerateTestDataInstallationFieldLabel(): String
+
+  @Message
+  fun developerGenerateTestDataNoInstallationsHint(): String
+
+  @Message
+  fun developerGenerateTestDataCountFieldLabel(): String
+
+  @Message
+  fun developerGenerateTestDataSeedFieldLabel(): String
+
+  @Message
+  fun developerGenerateTestDataSubmitButton(): String
+
+  @Message
+  fun developerGenerateTestDataSuccessMessage(count: Int): String
+
+  @Message
+  fun developerGenerateTestDataEntityNotFoundError(): String
+
+  @Message
+  fun developerGenerateTestDataInvalidCountError(): String
+
+  @Message
+  fun developerGenerateTestDataGenerationFailedError(): String
+
   @Message
   fun developerEditAppModalTitle(): String
 
