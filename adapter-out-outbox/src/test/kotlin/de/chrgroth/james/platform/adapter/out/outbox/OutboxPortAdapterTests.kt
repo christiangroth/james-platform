@@ -38,7 +38,7 @@ class OutboxPortAdapterTests {
 
     val stats = adapter.getPartitionStats()
 
-    assertThat(stats).extracting("name").containsExactly("domain", "test-data-generation")
+    assertThat(stats).extracting("name").containsExactly("domain", "test-data-generation", "aggregation-recompute")
     stats.forEach {
       assertThat(it.status).isEqualTo("ACTIVE")
       assertThat(it.documentCount).isZero()

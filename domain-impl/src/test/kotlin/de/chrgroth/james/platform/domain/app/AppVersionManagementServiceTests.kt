@@ -2969,6 +2969,7 @@ class AppVersionManagementServiceTests {
   fun `handle AutoUpgradeInstallation migrates and advances the installation to the target version`() {
     val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
     every { installedAppRepository.findById(inst.id) } returns inst
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.2.0")) } returns null
     val savedSlot = slot<InstalledApp>()
     justRun { installedAppRepository.save(capture(savedSlot)) }
 
@@ -2977,6 +2978,23 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     verify(exactly = 1) { appVersionMigration.migrateInstallation(inst.id, AppId("app-1"), VersionNumber("1.1.0"), VersionNumber("1.2.0")) }
     assertThat(savedSlot.captured.installedVersionNumber).isEqualTo(VersionNumber("1.2.0"))
+  }
+
+  @Test
+  fun `handle AutoUpgradeInstallation enqueues a recompute for every aggregation declared on the target version`() {
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = PropertyId("amount"))
+    val entity = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Entity", aggregations = listOf(aggregation))
+    val targetVersion = version(id = "ver-2", appId = "app-1", versionNumber = "1.2.0", status = AppVersionStatus.PUBLISHED).copy(entityDefinitions = listOf(entity))
+    every { installedAppRepository.findById(inst.id) } returns inst
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.2.0")) } returns targetVersion
+    justRun { installedAppRepository.save(any()) }
+    justRun { outbox.enqueue(any()) }
+
+    val result = service.handle(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
+
+    assertThat(result.isRight()).isTrue()
+    verify { outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "inst-1", aggregationDefinitionId = "agg-1")) }
   }
 
   @Test

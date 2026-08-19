@@ -12,7 +12,12 @@ sealed interface DomainOutboxPartition : ApplicationOutboxPartition {
     override val key = "test-data-generation"
   }
 
+  /** Dedicated partition for [DomainOutboxEvent.RecomputeAggregation] (see docs/adr/0020-aggregation-definitions.md), kept separate from [Domain] per ADR 0019's mandatory per-operation partition separation. */
+  data object AggregationRecompute : DomainOutboxPartition {
+    override val key = "aggregation-recompute"
+  }
+
   companion object {
-    val all: List<DomainOutboxPartition> = listOf(Domain, TestDataGeneration)
+    val all: List<DomainOutboxPartition> = listOf(Domain, TestDataGeneration, AggregationRecompute)
   }
 }

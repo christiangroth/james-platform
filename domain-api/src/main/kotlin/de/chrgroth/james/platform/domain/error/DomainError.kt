@@ -143,6 +143,11 @@ enum class AppDataError(override val code: String) : DomainError {
   ;
 }
 
+enum class AggregationError(override val code: String) : DomainError {
+  INSTALLED_APP_NOT_FOUND("AGG-001"),
+  ;
+}
+
 enum class ImportError(override val code: String) : DomainError {
   INSTALLED_APP_NOT_FOUND("IMPORT-001"),
   INVALID_URL("IMPORT-004"),

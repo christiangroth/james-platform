@@ -14,6 +14,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.buildAggregationDependencyIndex
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
@@ -389,9 +390,28 @@ class ImportService(
     }
     val discardedCount = objects.size - savedCount
 
+    if (savedCount > 0 || event.replaceExisting) {
+      enqueueAggregationRecompute(installedApp.id, entityDefinitionsOf(installedApp), entityDefinition.id)
+    }
+
     importJobRepository.delete(existing.id)
     logger.info { "Dry run accepted: importJobId=${event.importJobId} saved=$savedCount discarded=$discardedCount" }
     return Unit.right()
+  }
+
+  /**
+   * Import writes AppData directly via [appDataRepository], bypassing `AppDataService`'s inline aggregation hook -
+   * so once an import job has saved data, every aggregation the dependency index (see #640) maps to
+   * [targetEntityId] is enqueued for a full outbox recompute instead (see docs/adr/0020-aggregation-definitions.md).
+   */
+  private fun enqueueAggregationRecompute(installedAppId: InstalledAppId, entityDefinitions: List<EntityDefinition>, targetEntityId: EntityDefinitionId) {
+    val affected = buildAggregationDependencyIndex(entityDefinitions).affectedBy(targetEntityId)
+    affected.map { it.aggregationId }.distinct().forEach { aggregationDefinitionId ->
+      outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = installedAppId.value, aggregationDefinitionId = aggregationDefinitionId.value))
+    }
+    if (affected.isNotEmpty()) {
+      logger.info { "Aggregation recompute enqueued after import: installedAppId=${installedAppId.value} entityType=${targetEntityId.value} aggregations=${affected.size}" }
+    }
   }
 
   private fun readyMappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {

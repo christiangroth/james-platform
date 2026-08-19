@@ -160,8 +160,35 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Fully recomputes every group/bucket of [aggregationDefinitionId] for [installedAppId] from scratch, scanning
+   * all AppData of the owning Entity (see docs/adr/0020-aggregation-definitions.md). Used whenever a recompute
+   * cannot stay an O(1) inline update: a MIN/MAX eviction (`AppDataService`'s inline hook), an App-Version
+   * auto-upgrade/migration, or an Import job completing (`ImportService` writes AppData directly via
+   * `AppDataRepositoryPort`, bypassing `AppDataService`'s inline hook). Runs on its own
+   * [DomainOutboxPartition.AggregationRecompute] partition per ADR 0019's mandatory per-operation partition
+   * separation. Deduplicated per installation and aggregation so a repeated trigger while a recompute for the same
+   * aggregation is already queued does not enqueue a second run.
+   * payload = "$installedAppId\n$aggregationDefinitionId"
+   */
+  data class RecomputeAggregation(val installedAppId: String, val aggregationDefinitionId: String) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$installedAppId:$aggregationDefinitionId"
+    override val partition = DomainOutboxPartition.AggregationRecompute
+    override val serializePayload = "$installedAppId\n$aggregationDefinitionId"
+
+    companion object {
+      const val KEY = "RecomputeAggregation"
+      fun fromPayload(payload: String): RecomputeAggregation {
+        val parts = payload.split("\n")
+        return RecomputeAggregation(installedAppId = parts[0], aggregationDefinitionId = parts[1])
+      }
+    }
+  }
+
   companion object {
-    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY, AutoUpgradeInstallation.KEY, GenerateTestData.KEY)
+    val allKeys: List<String> =
+      listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY, AutoUpgradeInstallation.KEY, GenerateTestData.KEY, RecomputeAggregation.KEY)
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
@@ -170,6 +197,7 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
       DeleteUser.KEY -> DeleteUser.fromPayload(payload)
       AutoUpgradeInstallation.KEY -> AutoUpgradeInstallation.fromPayload(payload)
       GenerateTestData.KEY -> GenerateTestData.fromPayload(payload)
+      RecomputeAggregation.KEY -> RecomputeAggregation.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

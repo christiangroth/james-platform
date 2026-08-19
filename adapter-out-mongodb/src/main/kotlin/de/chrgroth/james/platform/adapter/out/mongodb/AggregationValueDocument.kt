@@ -16,4 +16,5 @@ class AggregationValueDocument {
   var value: Double = 0.0
   lateinit var status: String
   lateinit var updatedAt: Instant
+  var sampleCount: Long = 0
 }

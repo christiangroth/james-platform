@@ -21,6 +21,22 @@ class AggregationRepositoryTests {
   lateinit var aggregationRepository: AggregationRepositoryPort
 
   @Test
+  fun `findByAggregationValueId returns the single value matching the composite id, or null`() {
+    val installedAppId = InstalledAppId(UUID.randomUUID().toString())
+    val aggregationDefinitionId = AggregationDefinitionId(UUID.randomUUID().toString())
+    val id = AggregationValueId(installedAppId = installedAppId, aggregationDefinitionId = aggregationDefinitionId, groupKey = "group-1", bucketKey = "2026-08")
+    val otherGroupId = id.copy(groupKey = "group-2")
+    val value = AggregationValue(id = id, value = 7.0, status = AggregationValueStatus.UP_TO_DATE, updatedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS))
+    val otherValue = AggregationValue(id = otherGroupId, value = 9.0, status = AggregationValueStatus.UP_TO_DATE, updatedAt = Instant.now().truncatedTo(ChronoUnit.MILLIS))
+    aggregationRepository.save(value)
+    aggregationRepository.save(otherValue)
+
+    assertThat(aggregationRepository.findByAggregationValueId(id)).isEqualTo(value)
+    assertThat(aggregationRepository.findByAggregationValueId(otherGroupId)).isEqualTo(otherValue)
+    assertThat(aggregationRepository.findByAggregationValueId(id.copy(groupKey = "no-such-group"))).isNull()
+  }
+
+  @Test
   fun `save and findAllByInstalledAppIdAndAggregationDefinitionId round-trip a grouped, bucketed value`() {
     val installedAppId = InstalledAppId(UUID.randomUUID().toString())
     val aggregationDefinitionId = AggregationDefinitionId(UUID.randomUUID().toString())

@@ -22,4 +22,7 @@ data class AggregationValue(
   val value: Double,
   val status: AggregationValueStatus,
   val updatedAt: Instant,
+  // Number of AppData instances contributing to `value`. Only needed to incrementally recompute AVG's running mean
+  // (see AggregationComputation.kt); left at 0 for every other AggregationFunction.
+  val sampleCount: Long = 0,
 )

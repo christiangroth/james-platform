@@ -17,6 +17,11 @@ class AggregationRepositoryAdapter(
   private val mongoQueryMetrics: MongoQueryMetrics,
 ) : AggregationRepositoryPort {
 
+  override fun findByAggregationValueId(id: AggregationValueId): AggregationValue? =
+    mongoQueryMetrics.timed("aggregation.findByAggregationValueId") {
+      aggregationValueDocumentRepository.findById(compositeId(id))?.toDomain()
+    }
+
   override fun findAllByInstalledAppIdAndAggregationDefinitionId(installedAppId: InstalledAppId, aggregationDefinitionId: AggregationDefinitionId): List<AggregationValue> =
     mongoQueryMetrics.timed("aggregation.findAllByInstalledAppIdAndAggregationDefinitionId") {
       aggregationValueDocumentRepository.find(
@@ -77,6 +82,7 @@ class AggregationRepositoryAdapter(
     value = value,
     status = AggregationValueStatus.valueOf(status),
     updatedAt = updatedAt,
+    sampleCount = sampleCount,
   )
 
   private fun AggregationValue.toDocument() = AggregationValueDocument().also { doc ->
@@ -88,6 +94,7 @@ class AggregationRepositoryAdapter(
     doc.value = value
     doc.status = status.name
     doc.updatedAt = updatedAt
+    doc.sampleCount = sampleCount
   }
 
   private fun compositeId(id: AggregationValueId): String =
