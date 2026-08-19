@@ -598,6 +598,83 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when timeProperty is not a DATE or DATETIME property`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val notADateProp = Property(id = PropertyId("p-2"), name = "Note", type = PropertyType.STRING)
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      timeBucket = TimeBucket.MONAT,
+      timeProperty = notADateProp.id,
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(kilometerProp, notADateProp), aggregations = listOf(aggregation))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when timeProperty is set without timeBucket`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val eventDateProp = Property(id = PropertyId("p-2"), name = "Event Date", type = PropertyType.DATE)
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      timeProperty = eventDateProp.id,
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(kilometerProp, eventDateProp), aggregations = listOf(aggregation))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+  }
+
+  @Test
+  fun `publishVersion succeeds with a valid timeProperty overriding time bucketing, for both DATE and DATETIME`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val eventDateProp = Property(id = PropertyId("p-2"), name = "Event Date", type = PropertyType.DATE)
+    val eventDatetimeProp = Property(id = PropertyId("p-3"), name = "Event Datetime", type = PropertyType.DATETIME)
+    val aggregationWithDate = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total by date",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      timeBucket = TimeBucket.MONAT,
+      timeProperty = eventDateProp.id,
+    )
+    val aggregationWithDatetime = AggregationDefinition(
+      id = AggregationDefinitionId("agg-2"),
+      name = "Total by datetime",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      timeBucket = TimeBucket.TAG,
+      timeProperty = eventDatetimeProp.id,
+    )
+    val entity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Lauf",
+      properties = listOf(kilometerProp, eventDateProp, eventDatetimeProp),
+      aggregations = listOf(aggregationWithDate, aggregationWithDatetime),
+    )
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
+  }
+
+  @Test
   fun `publishVersion fails with InvalidAggregationDefinitionError when two aggregations share a name`() {
     val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
     val aggregationA = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = kilometerProp.id)

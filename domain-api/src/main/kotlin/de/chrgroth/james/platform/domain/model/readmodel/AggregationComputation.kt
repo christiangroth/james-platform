@@ -6,6 +6,8 @@ import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.temporal.WeekFields
 
@@ -37,11 +39,20 @@ fun AggregationDefinition.contributionOf(item: AppData): Double? {
 fun AggregationDefinition.groupKeyOf(item: AppData): String? =
   refPath?.let { item.data[it.value] } ?: groupBy?.let { item.data[it.value] }
 
-/** The time bucket [item] falls into, keyed by [AppData.createdAt], or null when [AggregationDefinition.timeBucket] is unset. */
-fun AggregationDefinition.bucketKeyOf(item: AppData): String? = timeBucket?.let { encodeTimeBucket(it, item.createdAt) }
+/**
+ * The time bucket [item] falls into, keyed by [AggregationDefinition.timeProperty] if set (a DATE/DATETIME
+ * property of [item]'s Entity), else by [AppData.createdAt]; null when [AggregationDefinition.timeBucket] is
+ * unset, or when [timeProperty] is set but [item] has no (parseable) value for it.
+ */
+fun AggregationDefinition.bucketKeyOf(item: AppData): String? = timeBucket?.let { bucket -> bucketDateOf(item)?.let { encodeTimeBucket(bucket, it) } }
 
-private fun encodeTimeBucket(bucket: TimeBucket, instant: Instant): String {
-  val date = instant.atZone(ZoneOffset.UTC).toLocalDate()
+private fun AggregationDefinition.bucketDateOf(item: AppData): LocalDate? {
+  val timeProperty = timeProperty ?: return item.createdAt.atZone(ZoneOffset.UTC).toLocalDate()
+  val raw = item.data[timeProperty.value] ?: return null
+  return runCatching { LocalDate.parse(raw) }.getOrNull() ?: runCatching { LocalDateTime.parse(raw).toLocalDate() }.getOrNull()
+}
+
+private fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate): String {
   return when (bucket) {
     TimeBucket.TAG -> date.toString()
     TimeBucket.WOCHE -> {

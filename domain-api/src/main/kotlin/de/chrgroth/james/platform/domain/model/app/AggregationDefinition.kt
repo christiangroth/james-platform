@@ -32,6 +32,10 @@ enum class TimeBucket { TAG, WOCHE, MONAT, JAHR }
  * docs/adr/0020-aggregation-definitions.md) — it groups the aggregation's values per instance of the referenced
  * Entity, e.g. `Lauf.laufschuhId` producing one value per `Laufschuh`. Without [refPath], the aggregation produces
  * a single, ungrouped value across all instances of the owning Entity.
+ *
+ * [timeProperty] only applies when [timeBucket] is set: it overrides which timestamp an item's time bucket is
+ * derived from. Must be a top-level property of that same Entity of type [PropertyType.DATE] or
+ * [PropertyType.DATETIME]. When unset, bucketing falls back to the item's `AppData.createdAt`.
  */
 data class AggregationDefinition(
   val id: AggregationDefinitionId,
@@ -40,5 +44,6 @@ data class AggregationDefinition(
   val sourceProperty: PropertyId,
   val refPath: PropertyId? = null,
   val timeBucket: TimeBucket? = null,
+  val timeProperty: PropertyId? = null,
   val groupBy: PropertyId? = null,
 )
