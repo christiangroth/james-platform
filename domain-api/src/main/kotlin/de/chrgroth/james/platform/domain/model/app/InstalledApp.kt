@@ -15,4 +15,10 @@ data class InstalledApp(
   val isTest: Boolean = false,
   /** Set only for test installations, so they can pin a DRAFT version (which has no [installedVersionNumber] yet). Real installations resolve their version by number instead. */
   val installedVersionId: AppVersionId? = null,
+  /**
+   * Set while a background test data generation run (see [de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent.GenerateTestData])
+   * is in flight for this entity, following the same "status field the UI reflects on next reload" pattern ADR 0019
+   * established for `ImportJob.status = ACCEPTING`. Cleared again once the run finishes, regardless of outcome.
+   */
+  val generatingEntityId: EntityDefinitionId? = null,
 )

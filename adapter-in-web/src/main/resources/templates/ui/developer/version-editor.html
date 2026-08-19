@@ -1121,6 +1121,7 @@
                     var submitBtn = generateTestDataForm.querySelector('[type="submit"]');
                     submitBtn.disabled = true;
                     var formData = new FormData(generateTestDataForm);
+                    var installedAppIdForPoll = formData.get('installedAppId');
                     var url = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + generateTestDataEntityId + '/generate-test-data';
                     var result = await apiPost(url, formData, false);
                     submitBtn.disabled = false;
@@ -1128,8 +1129,28 @@
                         var modal = bootstrap.Modal.getInstance(document.getElementById('generateTestDataModal'));
                         if (modal) { modal.hide(); }
                         generateTestDataForm.reset();
+                        if (result.queued) { pollWhileGeneratingTestData(installedAppIdForPoll); }
                     }
                 });
+            }
+
+            // A large generation run enqueued via the outbox (see ADR 0019) runs in the background: poll until the
+            // installation's generatingEntityId is cleared, then reload so the newly generated objects show up.
+            function pollWhileGeneratingTestData(installedAppId) {
+                var timer = setInterval(async function () {
+                    try {
+                        var statusUrl = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + generateTestDataEntityId
+                            + '/generate-test-data/status?installedAppId=' + encodeURIComponent(installedAppId);
+                        var response = await fetch(statusUrl, { cache: 'no-store' });
+                        var status = await response.json();
+                        if (!status.generating) {
+                            clearInterval(timer);
+                            window.location.reload();
+                        }
+                    } catch (ex) {
+                        clearInterval(timer);
+                    }
+                }, 2000);
             }
 
             // Delete Report modal

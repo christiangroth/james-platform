@@ -122,8 +122,46 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Generates [count] test objects for entity [entityId] into test installation [installedAppId] (belonging to
+   * [appId]) in the background instead of blocking the request (see docs/dev-tests.md, "Execution model - synchronous
+   * vs. outbox"). Runs on its own [DomainOutboxPartition.TestDataGeneration] partition per ADR 0019's mandatory
+   * per-operation partition separation, so a backlog here never delays the other domain operations sharing
+   * [DomainOutboxPartition.Domain]. Deduplicated per installation and entity so a repeated/double-submitted generate
+   * click while a run for the same entity is already queued does not enqueue a second one.
+   * payload = "$appId\n$installedAppId\n$entityId\n$count\n$developerId\n${seed ?: ""}"
+   */
+  data class GenerateTestData(
+    val appId: String,
+    val installedAppId: String,
+    val entityId: String,
+    val count: Int,
+    val developerId: String,
+    val seed: Long?,
+  ) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$installedAppId:$entityId"
+    override val partition = DomainOutboxPartition.TestDataGeneration
+    override val serializePayload = "$appId\n$installedAppId\n$entityId\n$count\n$developerId\n${seed ?: ""}"
+
+    companion object {
+      const val KEY = "GenerateTestData"
+      fun fromPayload(payload: String): GenerateTestData {
+        val parts = payload.split("\n")
+        return GenerateTestData(
+          appId = parts[0],
+          installedAppId = parts[1],
+          entityId = parts[2],
+          count = parts[3].toInt(),
+          developerId = parts[4],
+          seed = parts[5].takeIf { it.isNotEmpty() }?.toLong(),
+        )
+      }
+    }
+  }
+
   companion object {
-    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY, AutoUpgradeInstallation.KEY)
+    val allKeys: List<String> = listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY, AutoUpgradeInstallation.KEY, GenerateTestData.KEY)
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
@@ -131,6 +169,7 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
       DeleteApp.KEY -> DeleteApp.fromPayload(payload)
       DeleteUser.KEY -> DeleteUser.fromPayload(payload)
       AutoUpgradeInstallation.KEY -> AutoUpgradeInstallation.fromPayload(payload)
+      GenerateTestData.KEY -> GenerateTestData.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

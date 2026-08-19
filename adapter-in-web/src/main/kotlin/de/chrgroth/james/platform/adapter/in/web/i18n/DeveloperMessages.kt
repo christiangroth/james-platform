@@ -167,6 +167,10 @@ interface DeveloperMessages {
   @Message
   fun developerGenerateTestDataSuccessMessage(count: Int): String
 
+  /** Shown once a large run was enqueued via the outbox instead of generated inline (see docs/dev-tests.md, "Execution model"). */
+  @Message
+  fun developerGenerateTestDataQueuedMessage(): String
+
   @Message
   fun developerGenerateTestDataEntityNotFoundError(): String
 
@@ -175,6 +179,9 @@ interface DeveloperMessages {
 
   @Message
   fun developerGenerateTestDataGenerationFailedError(): String
+
+  @Message
+  fun developerGenerateTestDataAlreadyGeneratingError(): String
 
   @Message
   fun developerEditAppModalTitle(): String

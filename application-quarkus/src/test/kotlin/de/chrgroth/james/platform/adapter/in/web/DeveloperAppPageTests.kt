@@ -1078,6 +1078,91 @@ class DeveloperAppPageTests {
       .body(containsString("\"ok\":false"))
   }
 
+  /** See docs/dev-tests.md ("Execution model"): mirrors [awaitAppDeleted], but for a large generation run enqueued via the outbox. */
+  private fun awaitTestDataGenerated(appId: String, versionId: String, entityId: String, installedAppId: String) {
+    val deadlineMs = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadlineMs) {
+      val generating = given()
+        .queryParam("installedAppId", installedAppId)
+        .`when`()
+        .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/generate-test-data/status")
+        .then()
+        .statusCode(200)
+        .extract().body().jsonPath().getBoolean("generating")
+      if (!generating) return
+      Thread.sleep(50)
+    }
+    throw AssertionError("Expected test data generation for entity $entityId to finish by the outbox dispatcher within 5s")
+  }
+
+  @Test
+  fun `generate test data above the async threshold enqueues the run and it completes in the background`() {
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Generate Test Data Async App ${System.nanoTime()}")
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val versionId = given()
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    val entityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "TestEntity")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Amount")
+      .formParam("type", "LONG")
+      .formParam("nullable", false)
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("versionId", versionId)
+      .`when`()
+      .post("/ui/developer/apps/$appId/test-installations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val installedAppId = installedAppRepository.findAllByAppId(AppId(appId)).single().id.value
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("count", "101")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/generate-test-data")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+      .body(containsString("\"queued\":true"))
+
+    awaitTestDataGenerated(appId, versionId, entityId, installedAppId)
+
+    assertThat(appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId(installedAppId), EntityDefinitionId(entityId))).hasSize(101)
+  }
+
   @Test
   fun `dashboard shows inactive badge for inactive app`() {
     val appId = given()

@@ -15,4 +15,5 @@ class InstalledAppDocument {
   lateinit var installedAt: Instant
   var isTest: Boolean = false
   var installedVersionId: String? = null
+  var generatingEntityId: String? = null
 }
