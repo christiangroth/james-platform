@@ -57,6 +57,20 @@ constraint already modelled on `Property`:
 
 Developer UI: an action on an Entity ("Generate test data") that asks for object count and an optional seed, then creates the objects in a chosen test installation.
 
+**Execution model – synchronous vs. outbox.** Generating many objects (especially with `REF` fan-out generating referenced entities transitively) is exactly the kind of unbounded,
+potentially long-running, in-request operation [ADR 0019](adr/0019-persistent-outbox-for-long-running-domain-operations.md) introduced the persistent outbox
+(`OutboxPort`/`DomainOutboxEvent` in `domain-api`, `de.chrgroth.quarkus.outbox`-backed adapters) for. A small, bounded generation run (few objects, no deep `REF` fan-out) can stay
+synchronous and return the created objects directly. A larger run should enqueue via the outbox instead of blocking the request: `OutboxPort.enqueue(...)` with a new
+`DomainOutboxEvent` (e.g. `GenerateTestData(entityId, testInstallationId, count, seed)`), the request returns immediately, and the async worker performs the actual generation
+(reusing the same generator + `PropertyConstraintPort` safety net described above) and dispatches through `domain-api`'s inbound ports exactly like the existing outbox event types.
+The Developer-facing "in progress" signal would follow the same pattern ADR 0019 established for `ImportJob.status = ACCEPTING`: a status field on the test-run/test-installation
+that the UI reflects on next reload, rather than a blocking response.
+
+**Important scope caveat:** ADR 0019 is deliberately narrow — it currently authorizes the outbox *only* for the five operations of issue series #543 (Import accept, App
+uninstall/deletion, User deletion, App Version Migration bulk auto-upgrade) and explicitly states it "is not a general-purpose event bus and does not apply to anything else."
+Routing test data generation through it is therefore not automatically in scope; it requires its own follow-up decision (either an ADR amendment or a new ADR) to add a
+`GenerateTestData` event type to the existing single `Domain` partition before implementation.
+
 ### Phase 2 – Manual Test Data Sets
 
 Generated data covers the "typical" and constraint-boundary cases mechanically, but a Developer will still want to hand-craft specific scenarios (a known-tricky combination of
@@ -73,7 +87,12 @@ able to:
 - Run the Report's script/HTML the same way it would run for a User.
 - Compare output against an expected snapshot or specific assertions the Developer defines.
 
-This phase is intentionally left at the concept level here and should be revisited once Report sandboxing is decided (candidate for its own ADR).
+A Report test run against a data-heavy test installation has the same unbounded-runtime shape as the operations
+[ADR 0019](adr/0019-persistent-outbox-for-long-running-domain-operations.md) put behind the outbox, so it is a natural second candidate for a `DomainOutboxEvent` (e.g.
+`RunReportTest`) once Report sandboxing exists — subject to the same scope caveat as Phase 1: ADR 0019's current scope would need to be extended to cover it.
+
+This phase is intentionally left at the concept level here and should be revisited once Report sandboxing is decided (candidate for its own ADR, which should also settle the
+outbox scope extension for both Phase 1's larger generation runs and Phase 3's test runs).
 
 ### Deferred – Anonymized Real User Data (option 3)
 
