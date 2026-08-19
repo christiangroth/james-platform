@@ -113,6 +113,16 @@ enum class DeveloperTestInstallationError(override val code: String) : DomainErr
   ;
 }
 
+/** See docs/dev-tests.md ("Phase 1 – Automatic Test Data Generator"). */
+enum class TestDataGeneratorError(override val code: String) : DomainError {
+  APP_NOT_FOUND("TESTDATA-001"),
+  INSTALLATION_NOT_FOUND("TESTDATA-002"),
+  ENTITY_NOT_FOUND("TESTDATA-003"),
+  INVALID_COUNT("TESTDATA-004"),
+  GENERATION_FAILED("TESTDATA-005"),
+  ;
+}
+
 /** See docs/app-version-migration.md and docs/adr/0018-app-version-migration-execution-trigger.md. */
 enum class AppVersionMigrationError(override val code: String) : DomainError {
   SCRIPT_FAILED("MIGRATION-001"),
