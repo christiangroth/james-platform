@@ -24,6 +24,12 @@ listed above: growing data volumes make in-request timeouts a real, not hypothet
 platform execute these long-running operations reliably and resumably, without walking back the simplification
 [#215](https://github.com/christiangroth/james-platform/pull/215) achieved for the rest of the system?
 
+The five operations above are the first, concrete instances of a general shape, not a closed list. The platform will keep growing additional long-running domain/business
+operations (fachliche Operationen) and technical operations (e.g. maintenance/reindexing jobs) that face the identical in-request-timeout problem – bulk test-data generation
+and Report test runs (see [docs/dev-tests.md](../dev-tests.md)) are already-identified future candidates. Deciding the outbox question again from scratch for every such
+operation would be wasteful; this ADR is written to authorize the outbox as the platform's standing mechanism for long-running work in general, business or technical, with
+the five operations of series #543 as its first adopters.
+
 ## Decision Drivers
 
 * [#215](https://github.com/christiangroth/james-platform/pull/215) removed the outbox because it was unused
@@ -40,6 +46,10 @@ platform execute these long-running operations reliably and resumably, without w
   leaving a stale contradiction between the two documents
 * This is an internal domain mechanism, not an external API integration – unlike the previous incarnation
   (which paused per-partition on HTTP 429 from Slack), no rate limiting or throttling is needed here
+* Partitions must stay cleanly separated per operation: sharing one partition across unrelated operations
+  reintroduces the head-of-line-blocking and cross-operation coupling risk the previous, removed incarnation
+  avoided by partitioning per external service – a stuck or backlogged operation must not delay or starve an
+  unrelated one competing for the same partition's worker capacity
 * Must fit the existing hexagonal architecture: a port in `domain-api`, the persistent implementation in an
   `adapter-out-*` module, zero infrastructure leaking into `domain-api`/`domain-impl`
 * Reuse over reinvention: the same external library removed in #215 already solves at-least-once delivery,
@@ -48,14 +58,17 @@ platform execute these long-running operations reliably and resumably, without w
 
 ## Considered Options
 
-1. **Reintroduce the `de.chrgroth.quarkus.outbox` library** ([christiangroth/quarkus-outbox](https://github.com/christiangroth/quarkus-outbox)), scoped to a single "domain" partition for exactly the operations identified in series #543
+1. **Reintroduce the `de.chrgroth.quarkus.outbox` library**
+   ([christiangroth/quarkus-outbox](https://github.com/christiangroth/quarkus-outbox)), with one cleanly
+   separated partition per long-running operation, for the operations identified in series #543 and as a
+   general mechanism for future long-running domain/business or technical operations
 2. **Keep operations fully synchronous in-request** (status quo) and address timeouts by raising HTTP timeout limits or splitting work across multiple requests
 3. **Bespoke, project-local queue** – a hand-rolled MongoDB collection polled by a scheduler job, instead of the external library
 4. **General-purpose event bus / message broker** (Kafka, RabbitMQ)
 
 ## Decision Outcome
 
-Chosen option: **"Reintroduce `de.chrgroth.quarkus.outbox`, scoped to a single domain partition"**. The same
+Chosen option: **"Reintroduce `de.chrgroth.quarkus.outbox`, with one cleanly separated partition per operation"**. The same
 library removed in [#215](https://github.com/christiangroth/james-platform/pull/215) is added back, split
 across two adapter modules per the hexagonal in/out rule (mirroring the same split already proven in the
 sister project [spotify-control](https://github.com/christiangroth/spotify-control)): `adapter-out-outbox`
@@ -63,20 +76,43 @@ wraps `ApplicationOutboxClient` to enqueue and query tasks (driven by the domain
 implements `ApplicationOutboxDispatcher`, which a library-managed worker calls to dispatch a claimed task back
 into domain inbound ports (drives the domain, so inbound). The domain-facing contract
 is `OutboxPort` in `domain-api/port/out/infra`, `DomainOutboxEvent`/`DomainOutboxPartition` in
-`domain-api/outbox`. Unlike the previous incarnation, there is exactly **one** partition
-(`DomainOutboxPartition.Domain`, key `"domain"`) – no per-operation partitioning and no rate
-limiting/throttling, because none of the operations in scope call an external, rate-limited API; they only
-read and write this application's own MongoDB. Retry backoff, deduplication (via each event's
-`deduplicationKey`), at-least-once delivery, and startup recovery of stale tasks are all provided by the
-library unchanged.
+`domain-api/outbox`. Every distinct long-running operation gets its **own** `DomainOutboxPartition` (e.g.
+`DataImport`, `AppUninstall`, `AppDeletion`, `UserDeletion`, `AppVersionMigration`) – partitions are never
+shared across unrelated operations, whether they are fachliche/business operations or technical ones. No rate
+limiting/throttling is configured on any partition, because none of the operations in scope call an external,
+rate-limited API; they only read and write this application's own MongoDB. Retry backoff, deduplication (via
+each event's `deduplicationKey`), at-least-once delivery, and startup recovery of stale tasks are all provided
+by the library unchanged, per partition.
 
-**Scope is deliberately narrow**: this ADR authorizes the outbox *only* for the operations identified in
-series [#543](https://github.com/christiangroth/james-platform/issues/543) – Data Import (ETL) accept,
-App uninstall/data deletion, App deletion, User deletion, and App Version Migration on publish (bulk
-auto-upgrade). It is not a general-purpose event bus and does not apply to anything else. Concrete event types
-are added by the follow-up tickets (2/6–6/6) that actually route an operation through the outbox; this ticket
-introduces the port, the adapter, and the library wiring with no concrete event types yet – the dispatcher has
-nothing to dispatch until a follow-up ticket adds one.
+**Scope: general-purpose for long-running work, narrow for anything else.** This ADR authorizes the outbox as
+the platform's standing mechanism for any long-running domain/business or technical operation that would
+otherwise run synchronously in-request and risk timing out or losing progress on crash – not only the five
+operations identified in series [#543](https://github.com/christiangroth/james-platform/issues/543) (Data
+Import (ETL) accept, App uninstall/data deletion, App deletion, User deletion, and App Version Migration on
+publish/bulk auto-upgrade). Those five remain the first concrete adopters and the ones with event types defined
+by the follow-up tickets in this series (2/6–6/6); a future long-running operation (e.g. bulk test-data
+generation or Report test runs, see [docs/dev-tests.md](../dev-tests.md)) may add its own
+`DomainOutboxEvent`/`DomainOutboxPartition` without requiring a new or amended ADR, as long as it follows the
+partitioning rule below. This is still not a general-purpose event bus for arbitrary messaging or decoupling
+between bounded contexts – it exists specifically for the request-timeout/crash-recovery problem stated above,
+not as a substitute for CDI events (see "Relationship to ADR 0013" below) or as an integration mechanism with
+external systems.
+
+**Partition separation is mandatory.** Every distinct long-running operation gets its own
+`DomainOutboxPartition`; operations must never share a partition, whether they are fachliche/business
+operations (e.g. User deletion, App uninstall) or technical operations (e.g. a future index-rebuild or
+cache-warming job). The library dispatches and retries per partition, so a partition is the unit of failure
+isolation and backpressure: if one operation is backlogged, stuck retrying, or has a bug causing repeated
+failures, only its own partition's queue grows – unrelated operations, sharing no partition, keep dispatching
+at full speed. This supersedes the single shared `Domain` partition (key `"domain"`) from the initial version
+of this decision; that design's justification (no operation in scope called a rate-limited external API) was
+true but incomplete – queue depth and retry storms are a real isolation concern even without external rate
+limits. Partition keys follow the operation name in kebab-case (e.g. `data-import`, `app-uninstall`,
+`app-deletion`, `user-deletion`, `app-version-migration`); a new operation defines a new
+`DomainOutboxPartition` rather than reusing an existing one, even if it happens to touch the same aggregate or
+module as an existing one. Concrete event types are added by the follow-up tickets (2/6–6/6) that actually
+route an operation through the outbox; this ticket introduces the port, the adapter, and the library wiring
+with no concrete event types yet – the dispatcher has nothing to dispatch until a follow-up ticket adds one.
 
 **Deferred, not part of this decision:** the previous incarnation also had an in-app outbox viewer/health page
 (`OutboxViewerResource`, `health.html` partition stats). That observability layer is not reintroduced here – it
@@ -121,8 +157,11 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
   double-processing.
 * Reuses infrastructure this project already had a working integration for – no new operational surface (same
   MongoDB, same library, same GitHub Packages credentials already configured for `quarkus-one-time-starters`).
-* The single-partition, no-throttling design keeps the reintroduction genuinely narrow: no rate-limit state
-  machine, no per-operation partition proliferation.
+* Per-operation partitioning contains failures and backlogs to the operation that caused them – a stuck or
+  misbehaving operation cannot starve unrelated operations of dispatch capacity, without needing a rate-limit
+  state machine (still not needed, since nothing in scope calls a rate-limited external API).
+* The outbox is now a standing mechanism: future long-running domain/business or technical operations can adopt
+  it by adding an event type and a dedicated partition, without re-litigating this ADR's core decision.
 
 ### Negative Consequences
 
@@ -134,17 +173,20 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
   define how its UI communicates "in progress" instead of the previous request/response result.
 * This ADR alone introduces no observable behavior change (nothing enqueues yet) – its value is only realized
   once tickets 2/6–6/6 land; until then it is unused infrastructure sitting in the codebase.
+* More partitions to track once the deferred observability layer (see above) is eventually added – each
+  operation's partition needs to be individually visible, not just the outbox collection as a whole.
 
 ## Pros and Cons of the Options
 
-### Reintroduce `de.chrgroth.quarkus.outbox`, single domain partition
+### Reintroduce `de.chrgroth.quarkus.outbox`, one cleanly separated partition per operation
 
 * Good, because it directly solves at-least-once delivery, retry, and deduplication without writing that logic
   from scratch.
 * Good, because the library and its GitHub Packages credentials were already integrated once in this project;
   the reintroduction is low-risk, proven infrastructure, not a new unknown.
-* Good, because a single un-throttled partition is honestly simpler than the previous multi-partition,
-  rate-limit-aware design – this reintroduction is narrower than what #215 removed, not a like-for-like revert.
+* Good, because per-operation partitioning without rate-limit/throttle state machines is simpler than the
+  previous multi-partition, rate-limit-aware design, while still getting that design's failure-isolation
+  benefit – this reintroduction is narrower than what #215 removed, not a like-for-like revert.
 * Bad, because it reintroduces external dependency and operational surface that #215 had deliberately removed.
 
 ### Keep operations fully synchronous in-request
@@ -177,3 +219,6 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
 * [christiangroth/quarkus-outbox](https://github.com/christiangroth/quarkus-outbox) library
 * Series: [#543](https://github.com/christiangroth/james-platform/issues/543); this ticket:
   [#619](https://github.com/christiangroth/james-platform/issues/619)
+* Scope generalized to any long-running domain/business or technical operation, with mandatory per-operation
+  partition separation, per review feedback on PR
+  [#634](https://github.com/christiangroth/james-platform/pull/634)

@@ -66,10 +66,10 @@ synchronous and return the created objects directly. A larger run should enqueue
 The Developer-facing "in progress" signal would follow the same pattern ADR 0019 established for `ImportJob.status = ACCEPTING`: a status field on the test-run/test-installation
 that the UI reflects on next reload, rather than a blocking response.
 
-**Important scope caveat:** ADR 0019 is deliberately narrow — it currently authorizes the outbox *only* for the five operations of issue series #543 (Import accept, App
-uninstall/deletion, User deletion, App Version Migration bulk auto-upgrade) and explicitly states it "is not a general-purpose event bus and does not apply to anything else."
-Routing test data generation through it is therefore not automatically in scope; it requires its own follow-up decision (either an ADR amendment or a new ADR) to add a
-`GenerateTestData` event type to the existing single `Domain` partition before implementation.
+**Scope note:** ADR 0019 now authorizes the outbox as the platform's standing mechanism for long-running domain/business or technical operations in general, not only the five
+operations of issue series #543. Routing test data generation through it therefore needs no further ADR amendment — implementation just adds a `GenerateTestData` event type on
+its own dedicated `DomainOutboxPartition` (per ADR 0019's mandatory per-operation partition separation), not the `DataImport`/`AppUninstall`/etc. partitions used by the
+series #543 operations.
 
 ### Phase 2 – Manual Test Data Sets
 
@@ -89,10 +89,10 @@ able to:
 
 A Report test run against a data-heavy test installation has the same unbounded-runtime shape as the operations
 [ADR 0019](adr/0019-persistent-outbox-for-long-running-domain-operations.md) put behind the outbox, so it is a natural second candidate for a `DomainOutboxEvent` (e.g.
-`RunReportTest`) once Report sandboxing exists — subject to the same scope caveat as Phase 1: ADR 0019's current scope would need to be extended to cover it.
+`RunReportTest`) on its own dedicated partition once Report sandboxing exists — already in scope per ADR 0019's general-purpose outbox authorization, no further ADR needed.
 
-This phase is intentionally left at the concept level here and should be revisited once Report sandboxing is decided (candidate for its own ADR, which should also settle the
-outbox scope extension for both Phase 1's larger generation runs and Phase 3's test runs).
+This phase is intentionally left at the concept level here and should be revisited once Report sandboxing is decided (candidate for its own ADR covering the sandboxing model
+itself, not the outbox routing, which ADR 0019 already covers).
 
 ### Deferred – Anonymized Real User Data (option 3)
 
