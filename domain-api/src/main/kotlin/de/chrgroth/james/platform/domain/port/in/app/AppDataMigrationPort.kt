@@ -5,7 +5,6 @@ interface AppDataMigrationPort {
   fun deleteAllApps()
   fun renameCollections()
   fun addMissingReleaseNotes()
-  fun backfillEntityDisplayText()
   fun migrateDurationProperties()
   fun backfillAppVersion()
   fun backfillLastValidatedWithVersion()

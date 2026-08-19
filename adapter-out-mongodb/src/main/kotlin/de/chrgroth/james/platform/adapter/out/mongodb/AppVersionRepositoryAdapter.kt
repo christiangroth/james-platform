@@ -197,18 +197,15 @@ class AppVersionRepositoryAdapter(
     createdAt = createdAt,
   )
 
-  private fun EntityDefinitionDocument.toDomain(): EntityDefinition {
-    val safeDisplayText: String? = displayText // handles potential JVM null from BSON codec on legacy docs
-    return EntityDefinition(
-      id = EntityDefinitionId(id),
-      name = name,
-      displayText = safeDisplayText?.takeIf { it.isNotBlank() },
-      properties = properties.map { it.toDomain() },
-      sortBy = sortBy.mapNotNull { it.toDomain() },
-      computedProperties = computedProperties.mapNotNull { it.toDomain() },
-      migrationScript = migrationScript,
-    )
-  }
+  private fun EntityDefinitionDocument.toDomain() = EntityDefinition(
+    id = EntityDefinitionId(id),
+    name = name,
+    displayText = displayText?.takeIf { it.isNotBlank() },
+    properties = properties.map { it.toDomain() },
+    sortBy = sortBy.mapNotNull { it.toDomain() },
+    computedProperties = computedProperties.mapNotNull { it.toDomain() },
+    migrationScript = migrationScript,
+  )
 
   private fun SortCriteriaDocument.toDomain(): SortCriteria? {
     val dir = runCatching { SortDirection.valueOf(direction) }.getOrNull() ?: return null
@@ -296,7 +293,7 @@ class AppVersionRepositoryAdapter(
   private fun EntityDefinition.toDocument() = EntityDefinitionDocument().also { doc ->
     doc.id = id.value
     doc.name = name
-    doc.displayText = displayText ?: "Display Text"
+    doc.displayText = displayText
     doc.properties = properties.map { it.toDocument() }
     doc.sortBy = sortBy.map { it.toDocument() }
     doc.computedProperties = computedProperties.map { it.toDocument() }

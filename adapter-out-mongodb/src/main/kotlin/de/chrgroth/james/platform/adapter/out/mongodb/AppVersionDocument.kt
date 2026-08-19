@@ -21,7 +21,7 @@ class AppVersionDocument {
 class EntityDefinitionDocument {
   lateinit var id: String
   lateinit var name: String
-  var displayText: String = "Display Text"
+  var displayText: String? = null
   var properties: List<PropertyDocument> = emptyList()
   var sortBy: List<SortCriteriaDocument> = emptyList()
   var computedProperties: List<ComputedPropertyDocument> = emptyList()

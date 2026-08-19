@@ -619,8 +619,10 @@ class UserAppStoreResource {
     return if (comparator != null) rows.sortedWith(comparator) else rows
   }
 
+  /** Renders the entity's Display Text template, falling back to the generic reference text (unique property values) when none is configured. */
   private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>): String {
-    val template = entityDef?.displayText ?: return dataId
+    if (entityDef == null) return dataId
+    val template = entityDef.displayText ?: return computeReferenceText(entityDef, dataId, data)
     val nameToId = entityDef.properties.associate { it.name to it.id.value }
     val result = DISPLAY_TEXT_TOKEN_REGEX.replace(template) { match ->
       val key = match.groupValues[1]
@@ -630,7 +632,7 @@ class UserAppStoreResource {
         if (propId == null) "<?>" else data[propId] ?: ""
       }
     }.trim()
-    return result.ifBlank { dataId }
+    return result.ifBlank { computeReferenceText(entityDef, dataId, data) }
   }
 
   private fun computeReferenceText(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String {
@@ -639,10 +641,6 @@ class UserAppStoreResource {
       .map { data[it.id.value] ?: "" }
     return "${entityDef.name} $dataId [${uniqueValues.joinToString(", ")}]"
   }
-
-  /** Returns the entity's Display Text if configured, otherwise the generic reference text. Used to label Reference property options. */
-  private fun resolveReferenceLabel(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String =
-    if (entityDef.displayText != null) computeDisplayText(entityDef, dataId, data) else computeReferenceText(entityDef, dataId, data)
 
   /** Collects Reference properties recursively, including those nested inside OBJECT properties at any depth. */
   private fun collectReferenceProperties(properties: List<Property>): List<Property> =
@@ -664,7 +662,7 @@ class UserAppStoreResource {
       val targetEntity = entityDefinitions.find { it.id == prop.targetEntityId }
       val options = targetEntity?.let { target ->
         allData.filter { it.entityType == target.id }
-          .map { AppDataRow(id = it.id.value, displayText = resolveReferenceLabel(target, it.id.value, it.data)) }
+          .map { AppDataRow(id = it.id.value, displayText = computeDisplayText(target, it.id.value, it.data)) }
       } ?: emptyList()
       prop.id.value to options
     }

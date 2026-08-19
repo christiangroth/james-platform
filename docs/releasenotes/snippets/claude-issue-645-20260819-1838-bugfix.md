@@ -1,0 +1,1 @@
+* Fixed the fallback for an Entity's Display Text: when no Display Text template is configured, the app data list and detail views now show the entity name, id and unique property values instead of the literal placeholder text "Display Text".
