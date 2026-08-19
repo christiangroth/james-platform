@@ -91,6 +91,13 @@ When in doubt: if it compiles without `domain-api` in scope, it belongs in an ad
   claims a task lives in `adapter-in-outbox` – it calls domain inbound ports, so per the module naming pattern
   above it is an inbound, not outbound, adapter. See
   [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md).
+- Aggregation definitions (`AggregationDefinition` on `EntityDefinition`) are the combination of the two
+  exceptions above, not a third one: declaration + computed-value storage follow the precomputed-read-model
+  convention (`AggregationRepositoryPort` in `domain-api/port/out/readmodel`, MongoDB adapter, `status: UP_TO_DATE
+  | STALE`), bulk recomputation runs through the outbox. Declarative only (function + source property + optional
+  single-hop `Ref` path + optional time bucket + optional group-by) – no scripts – so writes can be mapped to the
+  aggregations they affect via a static dependency index instead of a full recompute. See
+  [ADR-0020](../adr/0020-aggregation-definitions.md).
 
 **Not allowed:**
 

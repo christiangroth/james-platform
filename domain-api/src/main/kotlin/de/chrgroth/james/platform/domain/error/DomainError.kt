@@ -92,6 +92,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   UNIT_NOT_SUPPORTED("APPVER-043"),
   UNIT_FAMILY_INVALID("APPVER-044"),
   UNIT_GRANULARITY_INVALID("APPVER-045"),
+  INVALID_AGGREGATION_DEFINITION("APPVER-046"),
   ;
 }
 
@@ -230,6 +231,13 @@ data class InvalidObjectStructureError(
   val entityNames: List<String>,
 ) : DomainError {
   override val code: String = AppVersionError.INVALID_OBJECT_STRUCTURE.code
+}
+
+/** See docs/adr/0020-aggregation-definitions.md — an AggregationDefinition became invalid, e.g. its sourceProperty/refPath/groupBy was deleted or retyped. */
+data class InvalidAggregationDefinitionError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_AGGREGATION_DEFINITION.code
 }
 
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {

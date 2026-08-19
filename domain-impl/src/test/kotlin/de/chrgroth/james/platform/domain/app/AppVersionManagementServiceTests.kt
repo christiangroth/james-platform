@@ -8,7 +8,11 @@ import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
+import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
@@ -27,6 +31,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
@@ -541,6 +546,112 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when sourceProperty no longer exists`() {
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = PropertyId("gone"))
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", aggregations = listOf(aggregation))
+    val draftWithInvalidAggregation = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithInvalidAggregation)
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull()
+    assertThat(error).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+    assertThat((error as InvalidAggregationDefinitionError).entityNames).containsExactly("Lauf")
+    assertThat(error.code).isEqualTo(AppVersionError.INVALID_AGGREGATION_DEFINITION.code)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when SUM sourceProperty is not numeric`() {
+    val stringProp = Property(id = PropertyId("p-1"), name = "Name", type = PropertyType.STRING)
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = stringProp.id)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(stringProp), aggregations = listOf(aggregation))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when refPath is not a REF property`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val notARefProp = Property(id = PropertyId("p-2"), name = "Note", type = PropertyType.STRING)
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      refPath = notARefProp.id,
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(kilometerProp, notARefProp), aggregations = listOf(aggregation))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when two aggregations share a name`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val aggregationA = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = kilometerProp.id)
+    val aggregationB = AggregationDefinition(id = AggregationDefinitionId("agg-2"), name = "total", function = AggregationFunction.AVG, sourceProperty = kilometerProp.id)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(kilometerProp), aggregations = listOf(aggregationA, aggregationB))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+  }
+
+  @Test
+  fun `publishVersion succeeds with a valid cross-entity aggregation using refPath, groupBy and timeBucket`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val laufschuhRefProp = Property(id = PropertyId("p-2"), name = "Laufschuh", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-2"))
+    val laufartProp = Property(id = PropertyId("p-3"), name = "Laufart", type = PropertyType.STRING)
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Sum per Laufschuh per Month",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      refPath = laufschuhRefProp.id,
+      timeBucket = TimeBucket.MONAT,
+      groupBy = laufartProp.id,
+    )
+    val laufEntity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Lauf",
+      properties = listOf(kilometerProp, laufschuhRefProp, laufartProp),
+      aggregations = listOf(aggregation),
+    )
+    val laufschuhEntity = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Laufschuh")
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(laufEntity, laufschuhEntity)))
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(AppVersionStatus.PUBLISHED)
+  }
+
+  @Test
+  fun `publishVersion succeeds with a COUNT aggregation over a non-numeric sourceProperty`() {
+    val noteProp = Property(id = PropertyId("p-1"), name = "Note", type = PropertyType.STRING)
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Count", function = AggregationFunction.COUNT, sourceProperty = noteProp.id)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(noteProp), aggregations = listOf(aggregation))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
   }
 
   // endregion
