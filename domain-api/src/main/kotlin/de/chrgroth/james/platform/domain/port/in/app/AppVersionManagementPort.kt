@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.VersionDiff
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 
 interface AppVersionManagementPort {
   fun listVersions(appId: String): Either<DomainError, List<AppVersion>>
@@ -112,4 +113,7 @@ interface AppVersionManagementPort {
   fun updateReport(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion>
   fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion>
   fun getVersionDiff(appId: String, versionId: String): Either<DomainError, VersionDiff>
+
+  /** Called by the outbox dispatcher, not directly by inbound adapters. */
+  fun handle(event: DomainOutboxEvent.AutoUpgradeInstallation): Either<DomainError, Unit>
 }

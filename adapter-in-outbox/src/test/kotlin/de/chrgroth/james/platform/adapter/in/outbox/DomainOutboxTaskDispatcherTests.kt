@@ -3,12 +3,14 @@ package de.chrgroth.james.platform.adapter.`in`.outbox
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppError
+import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
@@ -25,12 +27,15 @@ class DomainOutboxTaskDispatcherTests {
   private val userAppStorePort = mockk<UserAppStorePort>()
   private val appManagementPort = mockk<AppManagementPort>()
   private val adminUserManagementPort = mockk<AdminUserManagementPort>()
-  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort, adminUserManagementPort)
+  private val appVersionManagementPort = mockk<AppVersionManagementPort>()
+  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort, adminUserManagementPort, appVersionManagementPort)
 
   private val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = true)
   private val uninstallEvent = DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1")
   private val deleteAppEvent = DomainOutboxEvent.DeleteApp(appId = "app-1", developerId = "dev-1")
   private val deleteUserEvent = DomainOutboxEvent.DeleteUser(userId = "user-1", username = "user")
+  private val autoUpgradeEvent =
+    DomainOutboxEvent.AutoUpgradeInstallation(installedAppId = "inst-1", appId = "app-1", fromVersionNumber = "1.0.0", toVersionNumber = "1.1.0")
 
   @Test
   fun `all partitions returns the single domain partition`() {
@@ -148,6 +153,31 @@ class DomainOutboxTaskDispatcherTests {
     every { adminUserManagementPort.handle(deleteUserEvent) } returns UserAdminError.USER_NOT_FOUND.left()
 
     val result = dispatcher.dispatch(deleteUserEvent)
+
+    assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
+  }
+
+  @Test
+  fun `deserialize reconstructs an AutoUpgradeInstallation event from its serialized payload`() {
+    val deserialized = dispatcher.deserialize(DomainOutboxPartition.Domain, DomainOutboxEvent.AutoUpgradeInstallation.KEY, autoUpgradeEvent.serializePayload)
+
+    assertThat(deserialized).isEqualTo(autoUpgradeEvent)
+  }
+
+  @Test
+  fun `dispatch routes AutoUpgradeInstallation to AppVersionManagementPort#handle and returns success when it succeeds`() {
+    every { appVersionManagementPort.handle(autoUpgradeEvent) } returns Unit.right()
+
+    val result = dispatcher.dispatch(autoUpgradeEvent)
+
+    assertThat(result).isEqualTo(DispatchResult.Success)
+  }
+
+  @Test
+  fun `dispatch returns failed when the AutoUpgradeInstallation handler reports an error`() {
+    every { appVersionManagementPort.handle(autoUpgradeEvent) } returns AppVersionError.VERSION_NOT_FOUND.left()
+
+    val result = dispatcher.dispatch(autoUpgradeEvent)
 
     assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
   }

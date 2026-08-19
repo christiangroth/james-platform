@@ -1,6 +1,6 @@
 # App Version Migrations: Synchronous, In-Request Execution on Upgrade
 
-* Status: accepted
+* Status: partially superseded by [ADR 0019](0019-persistent-outbox-for-long-running-domain-operations.md) — see note below
 * Deciders: Chris
 * Date: 2026-08-17
 
@@ -49,6 +49,21 @@ auto-upgrade case) processing continues independently for the remaining installa
 * Failure isolation falls out naturally: each installation's migration result is independent, so a `forEach` in `autoUpgradeInstallations()` already isolates failures
   without extra coordination code.
 
+### Relationship to ADR 0019 (Persistent Outbox for Long-Running Domain Operations)
+
+**Partially superseded**, for one of the two call sites this decision covers. `UserAppStorePort.upgradeApp()` (single
+installation, User-triggered) is **unchanged**: one installation's migration is bounded work, so synchronous,
+in-request execution stays exactly as described below. `AppVersionManagementService.autoUpgradeInstallations()`
+(bulk, triggered synchronously from `publishVersion()`) is **superseded**: this decision chose synchronous execution
+there specifically because "no job queue/worker...exists in this codebase and is explicitly out of scope for a
+single-developer/hobby project" (see Decision Drivers below) — [ADR 0019](0019-persistent-outbox-for-long-running-domain-operations.md)
+changes that premise by reintroducing a persistent outbox, scoped narrowly to the operations in series
+[#543](https://github.com/christiangroth/james-platform/issues/543). Bulk auto-upgrade now enqueues one outbox
+event per installation instead of migrating all installations inline within the publish request; the per-installation
+migration logic itself (`AppVersionMigrationPort.migrateInstallation()`, its all-or-nothing validation, and its
+failure-isolation semantics) is reused unchanged inside the outbox dispatcher — only *where* it runs (in-request vs.
+via the outbox worker) changes.
+
 ### Negative Consequences
 
 * A slow migration (many `AppData` rows, or a script close to the timeout for each) directly extends the latency of the upgrade request; there is no progress UI for
@@ -87,3 +102,5 @@ auto-upgrade case) processing continues independently for the remaining installa
 * [docs/app-version-migration.md](../app-version-migration.md)
 * Reuses the execution model from [ADR 0008](0008-computed-property-script-execution.md)
 * Follows the error-handling convention from [ADR 0006](0006-error-handling-concept.md)
+* Partially superseded by [ADR 0019](0019-persistent-outbox-for-long-running-domain-operations.md) (App Version
+  Migrations: `autoUpgradeInstallations()` call site only) — see "Relationship to ADR 0019" above

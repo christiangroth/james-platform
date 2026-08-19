@@ -355,10 +355,12 @@ Other notable flows:
   so no historical record of dispatched or failed tasks is kept. Import accept (`ImportService.acceptDryRun`,
   `DomainOutboxEvent.AcceptDryRun`), app uninstall (`UserAppStoreService.uninstallApp`,
   `DomainOutboxEvent.UninstallApp`), app deletion (`AppManagementService.deleteApp`,
-  `DomainOutboxEvent.DeleteApp`), and user deletion including its cascading installed-app/AppData cleanup
-  (`AdminUserManagementService.deleteUser`, `DomainOutboxEvent.DeleteUser`) are routed through this flow; the
-  remaining operation in series [#543](https://github.com/christiangroth/james-platform/issues/543) (App Version
-  Migration on publish) is a follow-up ticket.
+  `DomainOutboxEvent.DeleteApp`), user deletion including its cascading installed-app/AppData cleanup
+  (`AdminUserManagementService.deleteUser`, `DomainOutboxEvent.DeleteUser`), and bulk App Version auto-upgrade on
+  publish, one event per installation (`AppVersionManagementService.autoUpgradeInstallations`,
+  `DomainOutboxEvent.AutoUpgradeInstallation`) are routed through this flow, completing series
+  [#543](https://github.com/christiangroth/james-platform/issues/543); the single-installation, User-triggered
+  `UserAppStorePort.upgradeApp()` stays synchronous in-request, see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md).
 
 # Deployment View
 

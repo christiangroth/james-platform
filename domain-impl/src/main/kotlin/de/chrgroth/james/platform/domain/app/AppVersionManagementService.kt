@@ -17,6 +17,7 @@ import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -35,12 +36,14 @@ import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
 import de.chrgroth.james.platform.domain.model.app.DiffStatus
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -54,6 +57,7 @@ class AppVersionManagementService(
   private val propertyConstraint: PropertyConstraintPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appVersionMigration: AppVersionMigrationPort,
+  private val outbox: OutboxPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -201,25 +205,54 @@ class AppVersionManagementService(
     return publishedVersion.right()
   }
 
+  /**
+   * Enqueues one [DomainOutboxEvent.AutoUpgradeInstallation] per installation still on [previousVersionNumber], each migrated and
+   * upgraded independently in the background by [handle] — see docs/adr/0019-persistent-outbox-for-long-running-domain-operations.md
+   * ("Relationship to ADR 0018"). A failed migration only affects its own installation's outbox task, isolating failures the same
+   * way the previous inline `forEach` did.
+   */
   private fun autoUpgradeInstallations(appId: AppId, previousVersionNumber: VersionNumber?, newVersionNumber: VersionNumber) {
     if (previousVersionNumber == null) return
     val installations = installedAppRepository.findAllByAppId(appId)
     val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber }
-    var upgradedCount = 0
     toUpgrade.forEach { installedApp ->
-      appVersionMigration.migrateInstallation(installedApp.id, appId, previousVersionNumber, newVersionNumber).fold(
-        ifLeft = { error ->
-          logger.warn { "Auto-upgrade skipped for installedAppId=${installedApp.id.value}: migration failed (${error.code}) — staying on ${previousVersionNumber.value}" }
-        },
-        ifRight = {
-          installedAppRepository.save(installedApp.copy(installedVersionNumber = newVersionNumber))
-          upgradedCount++
-        },
+      outbox.enqueue(
+        DomainOutboxEvent.AutoUpgradeInstallation(
+          installedAppId = installedApp.id.value,
+          appId = appId.value,
+          fromVersionNumber = previousVersionNumber.value,
+          toVersionNumber = newVersionNumber.value,
+        ),
       )
     }
-    if (upgradedCount > 0) {
-      logger.info { "Auto-upgraded $upgradedCount installation(s) of app ${appId.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
+    if (toUpgrade.isNotEmpty()) {
+      logger.info { "Auto-upgrade enqueued for ${toUpgrade.size} installation(s) of app ${appId.value} from ${previousVersionNumber.value} to ${newVersionNumber.value}" }
     }
+  }
+
+  override fun handle(event: DomainOutboxEvent.AutoUpgradeInstallation): Either<DomainError, Unit> {
+    val installedAppId = InstalledAppId(event.installedAppId)
+    val installedApp = installedAppRepository.findById(installedAppId) ?: run {
+      logger.info { "Auto-upgrade handler: installation already gone, treating as already processed: ${event.installedAppId}" }
+      return Unit.right()
+    }
+    val fromVersionNumber = VersionNumber(event.fromVersionNumber)
+    if (installedApp.installedVersionNumber != fromVersionNumber) {
+      logger.info { "Auto-upgrade handler: installedAppId=${event.installedAppId} no longer on expected version ${event.fromVersionNumber}, skipping" }
+      return Unit.right()
+    }
+    val toVersionNumber = VersionNumber(event.toVersionNumber)
+    return appVersionMigration.migrateInstallation(installedAppId, AppId(event.appId), fromVersionNumber, toVersionNumber).fold(
+      ifLeft = { error ->
+        logger.warn { "Auto-upgrade failed for installedAppId=${event.installedAppId}: migration failed (${error.code}) — staying on ${event.fromVersionNumber}" }
+        error.left()
+      },
+      ifRight = {
+        installedAppRepository.save(installedApp.copy(installedVersionNumber = toVersionNumber))
+        logger.info { "Auto-upgraded installedAppId=${event.installedAppId} from ${event.fromVersionNumber} to ${event.toVersionNumber}" }
+        Unit.right()
+      },
+    )
   }
 
 

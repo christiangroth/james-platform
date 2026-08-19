@@ -1,0 +1,1 @@
+* Publishing a non-breaking App Version now auto-upgrades installations in the background instead of migrating all of them inline as part of the publish request, so publishing no longer risks timing out for Apps with many installations.

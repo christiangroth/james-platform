@@ -19,6 +19,7 @@ import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -32,11 +33,13 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -63,8 +66,11 @@ class AppVersionManagementServiceTests {
     every { migrateInstallation(any(), any(), any(), any()) } returns Unit.right()
     every { dryRunMigration(any(), any()) } returns Unit.right()
   }
+  private val outbox: OutboxPort = mockk {
+    justRun { enqueue(any()) }
+  }
   private val service: AppVersionManagementService =
-    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration)
+    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox)
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -309,7 +315,7 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion publishes as Feature bump and auto-upgrades installations when a compensating migration dry-run reconciles a breaking change`() {
+  fun `publishVersion publishes as Feature bump and enqueues auto-upgrade for installations when a compensating migration dry-run reconciles a breaking change`() {
     val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
     val draftProp = publishedProp.copy(nullable = false)
     val publishedWithEntity =
@@ -320,14 +326,16 @@ class AppVersionManagementServiceTests {
     justRun { appVersionRepository.save(any()) }
     val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst)
-    justRun { installedAppRepository.save(any()) }
 
     val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.2.0"))
     verify(exactly = 1) { appVersionMigration.dryRunMigration(AppId("app-1"), any()) }
-    verify(exactly = 1) { installedAppRepository.save(any()) }
+    verify(exactly = 1) {
+      outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
+    }
+    verify(exactly = 0) { installedAppRepository.save(any()) }
   }
 
   @Test
@@ -345,58 +353,34 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion auto-upgrades installations without breaking changes`() {
+  fun `publishVersion enqueues auto-upgrade for installations without breaking changes`() {
     val inst1 = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
     val inst2 = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst1, inst2)
-    val savedSlot = mutableListOf<InstalledApp>()
-    justRun { installedAppRepository.save(capture(savedSlot)) }
 
     val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
-    verify(exactly = 2) { installedAppRepository.save(any()) }
-    assertThat(savedSlot).allSatisfy { it.installedVersionNumber == VersionNumber("1.2.0") }
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0")) }
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-2", "app-1", "1.1.0", "1.2.0")) }
+    verify(exactly = 0) { installedAppRepository.save(any()) }
   }
 
   @Test
-  fun `publishVersion does not auto-upgrade installations that are not on the previous version`() {
+  fun `publishVersion does not enqueue auto-upgrade for installations that are not on the previous version`() {
     val instOnOldVersion = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     val instOnCurrentVersion = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(instOnOldVersion, instOnCurrentVersion)
-    val savedSlot = mutableListOf<InstalledApp>()
-    justRun { installedAppRepository.save(capture(savedSlot)) }
 
     val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
-    verify(exactly = 1) { installedAppRepository.save(any()) }
-    assertThat(savedSlot.first().installedVersionNumber).isEqualTo(VersionNumber("1.2.0"))
-    assertThat(savedSlot.first().id.value).isEqualTo("inst-2")
-  }
-
-  @Test
-  fun `publishVersion continues auto-upgrading other installations when one migration fails`() {
-    val inst1 = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
-    val inst2 = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
-    justRun { appVersionRepository.save(any()) }
-    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst1, inst2)
-    val savedSlot = mutableListOf<InstalledApp>()
-    justRun { installedAppRepository.save(capture(savedSlot)) }
-    every {
-      appVersionMigration.migrateInstallation(inst1.id, AppId("app-1"), VersionNumber("1.1.0"), VersionNumber("1.2.0"))
-    } returns AppVersionMigrationScriptFailedError("Order", "data-1", "1.2.0", "boom").left()
-
-    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
-
-    assertThat(result.isRight()).isTrue()
-    verify(exactly = 1) { installedAppRepository.save(any()) }
-    assertThat(savedSlot.first().id.value).isEqualTo("inst-2")
+    verify(exactly = 1) { outbox.enqueue(any()) }
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-2", "app-1", "1.1.0", "1.2.0")) }
   }
 
   @Test
@@ -437,7 +421,7 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion succeeds and auto-upgrades when only a migration script changed`() {
+  fun `publishVersion succeeds and enqueues auto-upgrade when only a migration script changed`() {
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
     val publishedWithEntity = publishedVersion.copy(entityDefinitions = listOf(entity))
     val draftWithMigrationScript = draftVersion.copy(entityDefinitions = listOf(entity.copy(migrationScript = "it")))
@@ -445,16 +429,14 @@ class AppVersionManagementServiceTests {
     justRun { appVersionRepository.save(any()) }
     val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst)
-    val savedSlot = mutableListOf<InstalledApp>()
-    justRun { installedAppRepository.save(capture(savedSlot)) }
 
     val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
     // a migration-script-only change can never be breaking, so the bump stays a plain BUGFIX bump instead of a forced Major
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.1.1"))
-    verify(exactly = 1) { installedAppRepository.save(any()) }
-    assertThat(savedSlot.first().installedVersionNumber).isEqualTo(VersionNumber("1.1.1"))
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.1.1")) }
+    verify(exactly = 0) { installedAppRepository.save(any()) }
   }
 
   @Test
@@ -2851,6 +2833,61 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region handle(AutoUpgradeInstallation)
+
+  @Test
+  fun `handle AutoUpgradeInstallation migrates and advances the installation to the target version`() {
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    every { installedAppRepository.findById(inst.id) } returns inst
+    val savedSlot = slot<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedSlot)) }
+
+    val result = service.handle(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { appVersionMigration.migrateInstallation(inst.id, AppId("app-1"), VersionNumber("1.1.0"), VersionNumber("1.2.0")) }
+    assertThat(savedSlot.captured.installedVersionNumber).isEqualTo(VersionNumber("1.2.0"))
+  }
+
+  @Test
+  fun `handle AutoUpgradeInstallation treats an already gone installation as already processed`() {
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns null
+
+    val result = service.handle(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appVersionMigration.migrateInstallation(any(), any(), any(), any()) }
+    verify(exactly = 0) { installedAppRepository.save(any()) }
+  }
+
+  @Test
+  fun `handle AutoUpgradeInstallation skips migration when the installation is no longer on the expected version`() {
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.2.0")
+    every { installedAppRepository.findById(inst.id) } returns inst
+
+    val result = service.handle(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appVersionMigration.migrateInstallation(any(), any(), any(), any()) }
+    verify(exactly = 0) { installedAppRepository.save(any()) }
+  }
+
+  @Test
+  fun `handle AutoUpgradeInstallation fails and leaves the installation unchanged when migration fails`() {
+    val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
+    every { installedAppRepository.findById(inst.id) } returns inst
+    every {
+      appVersionMigration.migrateInstallation(inst.id, AppId("app-1"), VersionNumber("1.1.0"), VersionNumber("1.2.0"))
+    } returns AppVersionMigrationScriptFailedError("Order", "data-1", "1.2.0", "boom").left()
+
+    val result = service.handle(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
+
+    assertThat(result.isLeft()).isTrue()
+    verify(exactly = 0) { installedAppRepository.save(any()) }
   }
 
   // endregion
