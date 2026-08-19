@@ -1,3 +1,13 @@
+# 0.99.0 (2026.08.19)
+
+## New Features
+* Developers can now create test installations for any version of their own Apps (including drafts, before publishing), without needing a real User account.
+* Test installations are excluded from installation counts and listings shown to real Users.
+
+
+
+---
+
 # 0.98.8 (2026.08.19)
 
 ## Bugfixes / Chore
