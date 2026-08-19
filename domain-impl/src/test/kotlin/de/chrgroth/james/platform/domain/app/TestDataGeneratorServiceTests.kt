@@ -373,7 +373,7 @@ class TestDataGeneratorServiceTests {
     stubStore()
 
     val realPropertyConstraint: PropertyConstraintPort = PropertyConstraintService()
-    val realAppData = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, realPropertyConstraint)
+    val realAppData = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, realPropertyConstraint, mockk(relaxed = true))
     val realService = TestDataGeneratorService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, realAppData, outboxPort)
 
     val result = realService.generateTestData("app-1", "installed-1", "entity-1", 30, "dev-1", seed = 7L)

@@ -4,6 +4,7 @@ import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
+import de.chrgroth.james.platform.domain.port.`in`.app.AggregationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
@@ -26,6 +27,7 @@ class DomainOutboxTaskDispatcher(
   private val adminUserManagementPort: AdminUserManagementPort,
   private val appVersionManagementPort: AppVersionManagementPort,
   private val testDataGeneratorPort: TestDataGeneratorPort,
+  private val aggregationPort: AggregationPort,
 ) : ApplicationOutboxDispatcher {
 
   override fun getAllPartitions(): List<ApplicationOutboxPartition> = DomainOutboxPartition.all
@@ -43,6 +45,7 @@ class DomainOutboxTaskDispatcher(
       is DomainOutboxEvent.DeleteUser -> adminUserManagementPort.handle(event)
       is DomainOutboxEvent.AutoUpgradeInstallation -> appVersionManagementPort.handle(event)
       is DomainOutboxEvent.GenerateTestData -> testDataGeneratorPort.handle(event)
+      is DomainOutboxEvent.RecomputeAggregation -> aggregationPort.handle(event)
     }
   }
 

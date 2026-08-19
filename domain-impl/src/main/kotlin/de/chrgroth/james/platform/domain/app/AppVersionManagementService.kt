@@ -257,10 +257,29 @@ class AppVersionManagementService(
       },
       ifRight = {
         installedAppRepository.save(installedApp.copy(installedVersionNumber = toVersionNumber))
+        enqueueAggregationRecompute(installedAppId, AppId(event.appId), toVersionNumber)
         logger.info { "Auto-upgraded installedAppId=${event.installedAppId} from ${event.fromVersionNumber} to ${event.toVersionNumber}" }
         Unit.right()
       },
     )
+  }
+
+  /**
+   * A structural AggregationDefinition change only ever reaches an existing installation via a Version publish +
+   * auto-upgrade (there is no separate, direct edit path for an already-installed AggregationDefinition) - so once
+   * an installation has migrated onto [toVersionNumber], every aggregation declared there is enqueued for a full
+   * outbox recompute (see docs/adr/0020-aggregation-definitions.md), covering both a changed AggregationDefinition
+   * and the App-Version migration itself invalidating previously computed values.
+   */
+  private fun enqueueAggregationRecompute(installedAppId: InstalledAppId, appId: AppId, toVersionNumber: VersionNumber) {
+    val entityDefinitions = appVersionRepository.findByAppIdAndVersionNumber(appId, toVersionNumber)?.entityDefinitions.orEmpty()
+    val aggregationDefinitionIds = entityDefinitions.flatMap { it.aggregations }.map { it.id }.distinct()
+    aggregationDefinitionIds.forEach { aggregationDefinitionId ->
+      outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = installedAppId.value, aggregationDefinitionId = aggregationDefinitionId.value))
+    }
+    if (aggregationDefinitionIds.isNotEmpty()) {
+      logger.info { "Aggregation recompute enqueued after auto-upgrade: installedAppId=${installedAppId.value} aggregations=${aggregationDefinitionIds.size}" }
+    }
   }
 
 

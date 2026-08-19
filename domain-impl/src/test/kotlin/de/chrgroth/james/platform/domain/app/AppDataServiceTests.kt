@@ -41,7 +41,8 @@ class AppDataServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val propertyConstraint: PropertyConstraintPort = mockk()
-  private val service = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, propertyConstraint)
+  private val aggregationInlineUpdate: AggregationInlineUpdateService = mockk(relaxed = true)
+  private val service = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, propertyConstraint, aggregationInlineUpdate)
 
   private val installedAppId = InstalledAppId("installed-app-1")
   private val appId = AppId("app-1")
@@ -717,6 +718,90 @@ class AppDataServiceTests {
     @Suppress("UNCHECKED_CAST")
     val level4 = level3[deepLevel4PropId.value] as Map<String, Any?>
     assertThat(level4[deepLevel5PropId.value]).isEqualTo("deep-value")
+  }
+
+  // endregion
+
+  // region aggregation inline hook wiring
+
+  @Test
+  fun `createAppData invokes the aggregation inline hook with the resolved entity definition and saved app data`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(prop1, "value", emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+    justRun { appDataRepository.save(any()) }
+
+    val data = mapOf("prop_${prop1Id.value}" to listOf("value"))
+    val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    verify {
+      aggregationInlineUpdate.onAppDataCreated(installedAppId, appVersion.entityDefinitions, entityDef, match { it.data[prop1Id.value] == "value" })
+    }
+  }
+
+  @Test
+  fun `updateAppData invokes the aggregation inline hook with the old and new app data`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(prop1, "value", emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValue(prop2, null, emptyList()) } returns emptyList()
+    justRun { appDataRepository.save(any()) }
+
+    val data = mapOf("prop_${prop1Id.value}" to listOf("value"))
+    val result = service.updateAppData(userId, installedAppId.value, "data-1", data)
+
+    assertThat(result.isRight()).isTrue()
+    verify {
+      aggregationInlineUpdate.onAppDataUpdated(
+        installedAppId,
+        appVersion.entityDefinitions,
+        entityDef,
+        existingAppData,
+        match { it.data[prop1Id.value] == "value" },
+      )
+    }
+  }
+
+  @Test
+  fun `deleteAppData invokes the aggregation inline hook for the deleted item`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppId(installedAppId) } returns listOf(existingAppData)
+    justRun { appDataRepository.delete(AppDataId("data-1")) }
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify { aggregationInlineUpdate.onAppDataDeleted(installedAppId, appVersion.entityDefinitions, entityDef, existingAppData) }
+  }
+
+  @Test
+  fun `deleteAppData invokes the aggregation inline hook as an update for each nulled reference`() {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersionWithRef
+    every { appDataRepository.findAllByInstalledAppId(installedAppId) } returns listOf(existingAppData, referencingData)
+    justRun { appDataRepository.save(any()) }
+    justRun { appDataRepository.delete(AppDataId("data-1")) }
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify {
+      aggregationInlineUpdate.onAppDataUpdated(
+        installedAppId,
+        appVersionWithRef.entityDefinitions,
+        refEntityDef,
+        referencingData,
+        match { it.data[refPropId.value] == null },
+      )
+    }
   }
 
   // endregion

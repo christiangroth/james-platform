@@ -37,7 +37,7 @@ class AppVersionMigrationServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
-  private val appDataPort: AppDataPort = AppDataService(mockk(), appVersionRepository, appDataRepository, PropertyConstraintService())
+  private val appDataPort: AppDataPort = AppDataService(mockk(), appVersionRepository, appDataRepository, PropertyConstraintService(), mockk(relaxed = true))
   private val service =
     AppVersionMigrationService(appVersionRepository, appDataRepository, appDataPort, installedAppRepository, ScriptMetrics(SimpleMeterRegistry()), 30_000L)
 

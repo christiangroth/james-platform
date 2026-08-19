@@ -5,6 +5,9 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.app.PropertyConstraintService
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.error.TokenError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppId
@@ -1005,6 +1008,52 @@ class ImportServiceTests {
     assertThat(savedAppData.captured.data).isEqualTo(mapOf("prop-1" to "Alice"))
     verify(exactly = 1) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) }
     verify(exactly = 1) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `handle accept dry run enqueues a recompute for every aggregation declared on the target entity`() {
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Count", function = AggregationFunction.COUNT, sourceProperty = PropertyId("prop-1"))
+    val entityDefinitionWithAggregation = entityDefinition.copy(aggregations = listOf(aggregation))
+    val appVersionWithAggregation = appVersion.copy(entityDefinitions = listOf(entityDefinitionWithAggregation))
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersionWithAggregation
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { appDataRepository.save(any()) }
+    justRun { importJobRepository.delete(job.id) }
+    val enqueued = slot<DomainOutboxEvent.RecomputeAggregation>()
+    justRun { outboxPort.enqueue(capture(enqueued)) }
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.RecomputeAggregation(installedAppId = "installed-1", aggregationDefinitionId = "agg-1"))
+  }
+
+  @Test
+  fun `handle accept dry run does not enqueue a recompute when nothing was saved and replaceExisting is false`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":null}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { importJobRepository.delete(job.id) }
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { outboxPort.enqueue(any()) }
   }
 
   @Test

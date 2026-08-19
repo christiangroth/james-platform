@@ -40,6 +40,7 @@ class AppDataService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
+  private val aggregationInlineUpdate: AggregationInlineUpdateService,
 ) : AppDataPort {
 
   override fun createAppData(
@@ -106,6 +107,7 @@ class AppDataService(
       data = parsedData,
     )
     appDataRepository.save(appData)
+    aggregationInlineUpdate.onAppDataCreated(InstalledAppId(installedAppId), appVersion.entityDefinitions, entityDef, appData)
     logger.info { "App data created: ${appData.id.value} for installed app: $installedAppId entity: $entityTypeId" }
     return appData.right()
   }
@@ -198,6 +200,7 @@ class AppDataService(
       data = parsedData,
     )
     appDataRepository.save(updatedAppData)
+    aggregationInlineUpdate.onAppDataUpdated(InstalledAppId(installedAppId), appVersion.entityDefinitions, entityDef, existingAppData, updatedAppData)
     logger.info { "App data updated: ${updatedAppData.id.value} for installed app: $installedAppId" }
     return updatedAppData.right()
   }
@@ -244,13 +247,21 @@ class AppDataService(
 
     // Null out all nullable references before deleting
     val now = Instant.now()
+    val entityDefsById = appVersion.entityDefinitions.associateBy { it.id }
     for ((referencingData, refProp) in references) {
       val updatedData = referencingData.data.toMutableMap()
       updatedData[refProp.id.value] = null
-      appDataRepository.save(referencingData.copy(objectVersion = referencingData.objectVersion + 1, lastChangedAt = now, data = updatedData))
+      val updatedReferencingData = referencingData.copy(objectVersion = referencingData.objectVersion + 1, lastChangedAt = now, data = updatedData)
+      appDataRepository.save(updatedReferencingData)
+      entityDefsById[referencingData.entityType]?.let { referencingEntityDef ->
+        aggregationInlineUpdate.onAppDataUpdated(InstalledAppId(installedAppId), appVersion.entityDefinitions, referencingEntityDef, referencingData, updatedReferencingData)
+      }
     }
 
     appDataRepository.delete(AppDataId(dataId))
+    entityDefsById[appDataItem.entityType]?.let { deletedEntityDef ->
+      aggregationInlineUpdate.onAppDataDeleted(InstalledAppId(installedAppId), appVersion.entityDefinitions, deletedEntityDef, appDataItem)
+    }
     logger.info { "App data deleted: $dataId for installed app: $installedAppId (${references.size} reference(s) cleared)" }
     return references.size.right()
   }
