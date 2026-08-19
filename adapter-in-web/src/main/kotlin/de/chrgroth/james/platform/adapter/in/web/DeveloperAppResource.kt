@@ -24,6 +24,7 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGenerationOutcome
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
 import io.quarkus.qute.Location
@@ -54,6 +55,13 @@ data class DeveloperApiResult(
   val fieldErrors: Map<String, String>? = null,
   val propertyId: String? = null,
   val errorDetails: List<String>? = null,
+  /** Set for [TestDataGeneratorPort.generateTestData] once a large run was enqueued instead of generated inline (see docs/dev-tests.md, "Execution model"). */
+  val queued: Boolean = false,
+)
+
+/** Polled by the version editor page while a generation run enqueued via [DeveloperAppResource.generateTestData] runs in the background. */
+data class TestDataGenerationStatusResponse(
+  val generating: Boolean,
 )
 
 data class AppStatusResponse(
@@ -703,8 +711,29 @@ class DeveloperAppResource {
     val seedValue = seed?.trim()?.takeIf { it.isNotEmpty() }?.toLongOrNull()
     testDataGenerator.generateTestData(appId, installedAppId, entityId, count, developerId, seedValue).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, testDataGeneratorErrorMessage(error.code))).build() },
-      ifRight = { generated -> Response.ok(DeveloperApiResult(true, devMsg.developerGenerateTestDataSuccessMessage(generated.size))).build() },
+      ifRight = { outcome ->
+        when (outcome) {
+          is TestDataGenerationOutcome.Completed ->
+            Response.ok(DeveloperApiResult(true, devMsg.developerGenerateTestDataSuccessMessage(outcome.objects.size))).build()
+          is TestDataGenerationOutcome.Enqueued ->
+            Response.ok(DeveloperApiResult(true, devMsg.developerGenerateTestDataQueuedMessage(), queued = true)).build()
+        }
+      },
     )
+  }
+
+  /** Polled by the version editor page while a generation run enqueued by [generateTestData] runs in the background (see docs/dev-tests.md, "Execution model"). */
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/generate-test-data/status")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun generateTestDataStatus(
+    @PathParam("appId") appId: String,
+    @PathParam("entityId") entityId: String,
+    @QueryParam("installedAppId") installedAppId: String,
+  ): Response = httpResponseMetrics.timed("rest.developer.test-data-generate-status") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.ok(TestDataGenerationStatusResponse(false)).build()
+    Response.ok(TestDataGenerationStatusResponse(testDataGenerator.isGenerating(appId, installedAppId, entityId, developerId))).build()
   }
 
   @POST
@@ -1247,6 +1276,7 @@ class DeveloperAppResource {
     TestDataGeneratorError.ENTITY_NOT_FOUND.code -> devMsg.developerGenerateTestDataEntityNotFoundError()
     TestDataGeneratorError.INVALID_COUNT.code -> devMsg.developerGenerateTestDataInvalidCountError()
     TestDataGeneratorError.GENERATION_FAILED.code -> devMsg.developerGenerateTestDataGenerationFailedError()
+    TestDataGeneratorError.ALREADY_GENERATING.code -> devMsg.developerGenerateTestDataAlreadyGeneratingError()
     else -> msg.commonUnexpectedError()
   }
 

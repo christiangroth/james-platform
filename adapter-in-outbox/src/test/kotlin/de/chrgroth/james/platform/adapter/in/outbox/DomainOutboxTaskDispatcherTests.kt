@@ -9,8 +9,10 @@ import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
+import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
+import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
@@ -28,7 +30,9 @@ class DomainOutboxTaskDispatcherTests {
   private val appManagementPort = mockk<AppManagementPort>()
   private val adminUserManagementPort = mockk<AdminUserManagementPort>()
   private val appVersionManagementPort = mockk<AppVersionManagementPort>()
-  private val dispatcher = DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort, adminUserManagementPort, appVersionManagementPort)
+  private val testDataGeneratorPort = mockk<TestDataGeneratorPort>()
+  private val dispatcher =
+    DomainOutboxTaskDispatcher(importPort, userAppStorePort, appManagementPort, adminUserManagementPort, appVersionManagementPort, testDataGeneratorPort)
 
   private val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = true)
   private val uninstallEvent = DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1")
@@ -36,10 +40,12 @@ class DomainOutboxTaskDispatcherTests {
   private val deleteUserEvent = DomainOutboxEvent.DeleteUser(userId = "user-1", username = "user")
   private val autoUpgradeEvent =
     DomainOutboxEvent.AutoUpgradeInstallation(installedAppId = "inst-1", appId = "app-1", fromVersionNumber = "1.0.0", toVersionNumber = "1.1.0")
+  private val generateTestDataEvent =
+    DomainOutboxEvent.GenerateTestData(appId = "app-1", installedAppId = "inst-1", entityId = "entity-1", count = 150, developerId = "dev-1", seed = 42L)
 
   @Test
-  fun `all partitions returns the single domain partition`() {
-    assertThat(dispatcher.getAllPartitions()).containsExactly(DomainOutboxPartition.Domain)
+  fun `all partitions returns the domain and test data generation partitions`() {
+    assertThat(dispatcher.getAllPartitions()).containsExactly(DomainOutboxPartition.Domain, DomainOutboxPartition.TestDataGeneration)
   }
 
   @Test
@@ -178,6 +184,31 @@ class DomainOutboxTaskDispatcherTests {
     every { appVersionManagementPort.handle(autoUpgradeEvent) } returns AppVersionError.VERSION_NOT_FOUND.left()
 
     val result = dispatcher.dispatch(autoUpgradeEvent)
+
+    assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
+  }
+
+  @Test
+  fun `deserialize reconstructs a GenerateTestData event from its serialized payload`() {
+    val deserialized = dispatcher.deserialize(DomainOutboxPartition.TestDataGeneration, DomainOutboxEvent.GenerateTestData.KEY, generateTestDataEvent.serializePayload)
+
+    assertThat(deserialized).isEqualTo(generateTestDataEvent)
+  }
+
+  @Test
+  fun `dispatch routes GenerateTestData to TestDataGeneratorPort#handle and returns success when it succeeds`() {
+    every { testDataGeneratorPort.handle(generateTestDataEvent) } returns Unit.right()
+
+    val result = dispatcher.dispatch(generateTestDataEvent)
+
+    assertThat(result).isEqualTo(DispatchResult.Success)
+  }
+
+  @Test
+  fun `dispatch returns failed when the GenerateTestData handler reports an error`() {
+    every { testDataGeneratorPort.handle(generateTestDataEvent) } returns TestDataGeneratorError.GENERATION_FAILED.left()
+
+    val result = dispatcher.dispatch(generateTestDataEvent)
 
     assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
   }

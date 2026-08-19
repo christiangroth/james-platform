@@ -19,12 +19,15 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
+import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGenerationOutcome
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.math.BigDecimal
@@ -56,6 +59,7 @@ class TestDataGeneratorService(
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val appDataPort: AppDataPort,
+  private val outbox: OutboxPort,
 ) : TestDataGeneratorPort {
 
   override fun generateTestData(
@@ -65,7 +69,7 @@ class TestDataGeneratorService(
     count: Int,
     developerId: String,
     seed: Long?,
-  ): Either<DomainError, List<AppData>> {
+  ): Either<DomainError, TestDataGenerationOutcome> {
     val app = appRepository.findById(AppId(appId))
     if (app == null || app.developerId != developerId) {
       logger.warn { "Generate test data failed: app not found: $appId for developer: $developerId" }
@@ -95,6 +99,17 @@ class TestDataGeneratorService(
       return TestDataGeneratorError.INVALID_COUNT.left()
     }
 
+    if (count > ASYNC_GENERATION_THRESHOLD) {
+      if (installedApp.generatingEntityId != null) {
+        logger.warn { "Generate test data failed: a run is already in progress for installed app: $installedAppId" }
+        return TestDataGeneratorError.ALREADY_GENERATING.left()
+      }
+      installedAppRepository.save(installedApp.copy(generatingEntityId = entityDef.id))
+      outbox.enqueue(DomainOutboxEvent.GenerateTestData(appId = appId, installedAppId = installedAppId, entityId = entityId, count = count, developerId = developerId, seed = seed))
+      logger.info { "Test data generation enqueued: count=$count for entity $entityId in installed app: $installedAppId" }
+      return TestDataGenerationOutcome.Enqueued.right()
+    }
+
     val context = GenerationContext(
       rng = seed?.let { Random(it) } ?: Random.Default,
       installedApp = installedApp,
@@ -103,7 +118,57 @@ class TestDataGeneratorService(
     )
     val result = generateEntityObjects(entityDef, count, context)
     result.onRight { logger.info { "Test data generated: ${it.size} object(s) for entity $entityId in installed app: $installedAppId" } }
-    return result
+    return result.map { TestDataGenerationOutcome.Completed(it) }
+  }
+
+  override fun isGenerating(appId: String, installedAppId: String, entityId: String, developerId: String): Boolean {
+    val app = appRepository.findById(AppId(appId)) ?: return false
+    if (app.developerId != developerId) return false
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId)) ?: return false
+    if (installedApp.appId != app.id) return false
+    return installedApp.generatingEntityId?.value == entityId
+  }
+
+  override fun handle(event: DomainOutboxEvent.GenerateTestData): Either<DomainError, Unit> {
+    val app = appRepository.findById(AppId(event.appId))
+    if (app == null) {
+      logger.info { "Generate test data handler: app already gone, treating as already processed: appId=${event.appId}" }
+      return Unit.right()
+    }
+    val installedApp = installedAppRepository.findById(InstalledAppId(event.installedAppId))
+    if (installedApp == null) {
+      logger.info { "Generate test data handler: test installation already gone, treating as already processed: installedAppId=${event.installedAppId}" }
+      return Unit.right()
+    }
+
+    val appVersion = resolveAppVersion(installedApp)
+    if (appVersion == null) {
+      logger.warn { "Generate test data handler failed: app version not found for installed app: ${event.installedAppId}" }
+      clearGenerating(installedApp)
+      return TestDataGeneratorError.INSTALLATION_NOT_FOUND.left()
+    }
+    val entityDef = appVersion.entityDefinitions.find { it.id.value == event.entityId }
+    if (entityDef == null) {
+      logger.warn { "Generate test data handler failed: entity not found: ${event.entityId} in version ${appVersion.id.value}" }
+      clearGenerating(installedApp)
+      return TestDataGeneratorError.ENTITY_NOT_FOUND.left()
+    }
+
+    val context = GenerationContext(
+      rng = event.seed?.let { Random(it) } ?: Random.Default,
+      installedApp = installedApp,
+      entitiesById = appVersion.entityDefinitions.associateBy { it.id },
+      visiting = mutableSetOf(entityDef.id),
+    )
+    val result = generateEntityObjects(entityDef, event.count, context)
+    clearGenerating(installedApp)
+    result.onRight { logger.info { "Test data generated in background: ${it.size} object(s) for entity ${event.entityId} in installed app: ${event.installedAppId}" } }
+    result.onLeft { logger.warn { "Generate test data handler failed: ${it.code} for entity ${event.entityId} in installed app: ${event.installedAppId}" } }
+    return result.map { }
+  }
+
+  private fun clearGenerating(installedApp: InstalledApp) {
+    installedAppRepository.save(installedApp.copy(generatingEntityId = null))
   }
 
   /** Test installations (see docs/dev-tests.md) pin their version by id since a DRAFT version has no [InstalledApp.installedVersionNumber] yet. */
@@ -357,6 +422,9 @@ class TestDataGeneratorService(
 
   companion object : KLogging() {
     private const val MAX_GENERATE_COUNT = 500
+
+    /** Above this object count a run is enqueued via the outbox instead of generated in-request (see docs/dev-tests.md, "Execution model"). */
+    private const val ASYNC_GENERATION_THRESHOLD = 100
     private const val PERCENT_RANGE = 100
     private const val NULL_PROBABILITY_PERCENT = 15
     private const val MAX_UNIQUE_ATTEMPTS = 30

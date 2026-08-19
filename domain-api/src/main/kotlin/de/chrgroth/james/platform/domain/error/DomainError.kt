@@ -120,6 +120,8 @@ enum class TestDataGeneratorError(override val code: String) : DomainError {
   ENTITY_NOT_FOUND("TESTDATA-003"),
   INVALID_COUNT("TESTDATA-004"),
   GENERATION_FAILED("TESTDATA-005"),
+  /** Returned by an async (enqueue) [de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort.generateTestData] call while a run for the same entity is already queued/running. */
+  ALREADY_GENERATING("TESTDATA-006"),
   ;
 }
 

@@ -1,29 +1,37 @@
 package de.chrgroth.james.platform.domain.app
 
+import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.app
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
 import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
+import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
+import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGenerationOutcome
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import io.mockk.every
+import io.mockk.justRun
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -38,7 +46,11 @@ class TestDataGeneratorServiceTests {
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val appDataPort: AppDataPort = mockk()
-  private val service = TestDataGeneratorService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, appDataPort)
+  private val outboxPort: OutboxPort = mockk()
+  private val service = TestDataGeneratorService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, appDataPort, outboxPort)
+
+  private fun Either<DomainError, TestDataGenerationOutcome>.completed(): List<AppData> =
+    (getOrNull() as TestDataGenerationOutcome.Completed).objects
 
   private val store = mutableListOf<AppData>()
 
@@ -166,7 +178,7 @@ class TestDataGeneratorServiceTests {
     val result = service.generateTestData("app-1", "installed-1", "entity-1", 5, "dev-1")
 
     assertThat(result.isRight()).isTrue()
-    val generated = result.getOrNull()!!
+    val generated = result.completed()
     assertThat(generated).hasSize(5)
     assertThat(store).hasSize(5)
     generated.forEach {
@@ -191,7 +203,7 @@ class TestDataGeneratorServiceTests {
     val result = service.generateTestData("app-1", "installed-1", "entity-1", 50, "dev-1")
 
     assertThat(result.isRight()).isTrue()
-    result.getOrNull()!!.forEach {
+    result.completed().forEach {
       val value = it.data.getValue("p-1")!!.toLong()
       assertThat(value).isBetween(1L, 5L)
     }
@@ -215,7 +227,7 @@ class TestDataGeneratorServiceTests {
     val result = service.generateTestData("app-1", "installed-1", "entity-1", 20, "dev-1")
 
     assertThat(result.isRight()).isTrue()
-    result.getOrNull()!!.forEach {
+    result.completed().forEach {
       val items = decodeListValue(it.data.getValue("p-1"))
       assertThat(items.size).isBetween(2, 3)
     }
@@ -240,7 +252,7 @@ class TestDataGeneratorServiceTests {
     val result = service.generateTestData("app-1", "installed-1", "entity-1", 1, "dev-1")
 
     assertThat(result.isRight()).isTrue()
-    val generated = result.getOrNull()!!.single()
+    val generated = result.completed().single()
     val refValue = generated.data.getValue("p-1")
     assertThat(refValue).isNotNull()
     val targetObject = store.single { it.entityType == targetEntityId }
@@ -275,11 +287,11 @@ class TestDataGeneratorServiceTests {
     setupInstalledVersion(entityDef, "installed-a")
     stubStore()
     every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns Unit.right()
-    val firstRun = service.generateTestData("app-1", "installed-a", "entity-1", 10, "dev-1", seed = 42L).getOrNull()!!
+    val firstRun = service.generateTestData("app-1", "installed-a", "entity-1", 10, "dev-1", seed = 42L).completed()
 
     store.clear()
     setupInstalledVersion(entityDef, "installed-a")
-    val secondRun = service.generateTestData("app-1", "installed-a", "entity-1", 10, "dev-1", seed = 42L).getOrNull()!!
+    val secondRun = service.generateTestData("app-1", "installed-a", "entity-1", 10, "dev-1", seed = 42L).completed()
 
     assertThat(firstRun.map { it.data["p-1"] }).isEqualTo(secondRun.map { it.data["p-1"] })
   }
@@ -362,12 +374,135 @@ class TestDataGeneratorServiceTests {
 
     val realPropertyConstraint: PropertyConstraintPort = PropertyConstraintService()
     val realAppData = AppDataService(installedAppRepository, appVersionRepository, appDataRepository, realPropertyConstraint)
-    val realService = TestDataGeneratorService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, realAppData)
+    val realService = TestDataGeneratorService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, realAppData, outboxPort)
 
     val result = realService.generateTestData("app-1", "installed-1", "entity-1", 30, "dev-1", seed = 7L)
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()).hasSize(30)
+    assertThat(result.completed()).hasSize(30)
+  }
+
+  // endregion
+
+  // region async / outbox threshold (see docs/dev-tests.md, "Execution model")
+
+  @Test
+  fun `generateTestData enqueues via the outbox instead of generating inline above the async threshold`() {
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = emptyList())
+    setupInstalledVersion(entityDef)
+    val savedInstalledApp = slot<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedInstalledApp)) }
+    val enqueued = slot<DomainOutboxEvent.GenerateTestData>()
+    justRun { outboxPort.enqueue(capture(enqueued)) }
+
+    val result = service.generateTestData("app-1", "installed-1", "entity-1", 150, "dev-1", seed = 42L)
+
+    assertThat(result.getOrNull()).isEqualTo(TestDataGenerationOutcome.Enqueued)
+    assertThat(savedInstalledApp.captured.generatingEntityId).isEqualTo(entityId)
+    assertThat(enqueued.captured).isEqualTo(
+      DomainOutboxEvent.GenerateTestData(appId = "app-1", installedAppId = "installed-1", entityId = "entity-1", count = 150, developerId = "dev-1", seed = 42L),
+    )
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `generateTestData fails with ALREADY_GENERATING when a run is already queued for the same entity`() {
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = emptyList())
+    val ver = version(id = "ver-1", appId = "app-1").copy(entityDefinitions = listOf(entityDef))
+    val installed = installedApp(id = "installed-1", userId = "dev-1", appId = "app-1", isTest = true)
+      .copy(installedVersionId = ver.id, generatingEntityId = entityId)
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installed
+    every { appVersionRepository.findById(ver.id) } returns ver
+
+    val result = service.generateTestData("app-1", "installed-1", "entity-1", 150, "dev-1")
+
+    assertThat(result).isEqualTo(TestDataGeneratorError.ALREADY_GENERATING.left())
+    verify(exactly = 0) { outboxPort.enqueue(any()) }
+  }
+
+  // endregion
+
+  // region isGenerating
+
+  @Test
+  fun `isGenerating returns true only while the installation's generatingEntityId matches`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns
+      installedApp(id = "installed-1", userId = "dev-1", appId = "app-1", isTest = true).copy(generatingEntityId = entityId)
+
+    assertThat(service.isGenerating("app-1", "installed-1", "entity-1", "dev-1")).isTrue()
+    assertThat(service.isGenerating("app-1", "installed-1", "other-entity", "dev-1")).isFalse()
+  }
+
+  @Test
+  fun `isGenerating returns false when the app is not owned by the developer`() {
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+
+    assertThat(service.isGenerating("app-1", "installed-1", "entity-1", "dev-2")).isFalse()
+  }
+
+  // endregion
+
+  // region handle (async worker)
+
+  @Test
+  fun `handle generates the requested objects in the background and clears generatingEntityId`() {
+    val prop = property(id = "p-1", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.MinLength(3), PropertyConstraint.MaxLength(10)))
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = listOf(prop))
+    val ver = version(id = "ver-1", appId = "app-1").copy(entityDefinitions = listOf(entityDef))
+    val installed = installedApp(id = "installed-1", userId = "dev-1", appId = "app-1", isTest = true)
+      .copy(installedVersionId = ver.id, generatingEntityId = entityId)
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installed
+    every { appVersionRepository.findById(ver.id) } returns ver
+    stubStore()
+    every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns Unit.right()
+    val savedInstalledApp = slot<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedInstalledApp)) }
+
+    val result = service.handle(
+      DomainOutboxEvent.GenerateTestData(appId = "app-1", installedAppId = "installed-1", entityId = "entity-1", count = 5, developerId = "dev-1", seed = null),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(store).hasSize(5)
+    assertThat(savedInstalledApp.captured.generatingEntityId).isNull()
+  }
+
+  @Test
+  fun `handle clears generatingEntityId even when generation fails`() {
+    val prop = property(id = "p-1", type = PropertyType.STRING, nullable = false)
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = listOf(prop))
+    val ver = version(id = "ver-1", appId = "app-1").copy(entityDefinitions = listOf(entityDef))
+    val installed = installedApp(id = "installed-1", userId = "dev-1", appId = "app-1", isTest = true)
+      .copy(installedVersionId = ver.id, generatingEntityId = entityId)
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installed
+    every { appVersionRepository.findById(ver.id) } returns ver
+    stubStore()
+    every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns TestDataGeneratorError.GENERATION_FAILED.left()
+    val savedInstalledApp = slot<InstalledApp>()
+    justRun { installedAppRepository.save(capture(savedInstalledApp)) }
+
+    val result = service.handle(
+      DomainOutboxEvent.GenerateTestData(appId = "app-1", installedAppId = "installed-1", entityId = "entity-1", count = 5, developerId = "dev-1", seed = null),
+    )
+
+    assertThat(result).isEqualTo(TestDataGeneratorError.GENERATION_FAILED.left())
+    assertThat(savedInstalledApp.captured.generatingEntityId).isNull()
+  }
+
+  @Test
+  fun `handle is a no-op success when the app or test installation is already gone`() {
+    every { appRepository.findById(AppId("missing")) } returns null
+
+    val result = service.handle(
+      DomainOutboxEvent.GenerateTestData(appId = "missing", installedAppId = "installed-1", entityId = "entity-1", count = 5, developerId = "dev-1", seed = null),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appDataRepository.save(any()) }
   }
 
   // endregion

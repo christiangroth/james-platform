@@ -4,6 +4,7 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
@@ -63,6 +64,7 @@ class InstalledAppRepositoryAdapter(
     installedAt = installedAt,
     isTest = isTest,
     installedVersionId = installedVersionId?.let { AppVersionId(it) },
+    generatingEntityId = generatingEntityId?.let { EntityDefinitionId(it) },
   )
 
   private fun InstalledApp.toDocument() = InstalledAppDocument().also { doc ->
@@ -73,6 +75,7 @@ class InstalledAppRepositoryAdapter(
     doc.installedAt = installedAt
     doc.isTest = isTest
     doc.installedVersionId = installedVersionId?.value
+    doc.generatingEntityId = generatingEntityId?.value
   }
 
   companion object {
