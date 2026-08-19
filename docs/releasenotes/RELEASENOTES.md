@@ -1,3 +1,12 @@
+# 0.102.3 (2026.08.19)
+
+## Bugfixes / Chore
+* Aggregation time-bucketing (SUM per day/week/month/year) can now be based on a chosen date or date-time property of the entity instead of always using the creation timestamp.
+
+
+
+---
+
 # 0.102.1 (2026.08.19)
 
 ## Bugfixes / Chore
