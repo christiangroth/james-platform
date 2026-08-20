@@ -32,6 +32,8 @@ import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
@@ -46,6 +48,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
@@ -63,6 +66,7 @@ class ImportServiceTests {
 
   private val installedAppRepository = mockk<InstalledAppRepositoryPort>()
   private val importJobRepository = mockk<ImportJobRepositoryPort>()
+  private val importDefinitionRepository = mockk<ImportDefinitionRepositoryPort>()
   private val importConnectionRepository = mockk<ImportConnectionRepositoryPort>()
   private val importFetch = mockk<ImportFetchPort>()
   private val tokenEncryption = mockk<TokenEncryptionPort>()
@@ -74,6 +78,7 @@ class ImportServiceTests {
   private val service = ImportService(
     installedAppRepository,
     importJobRepository,
+    importDefinitionRepository,
     importConnectionRepository,
     importFetch,
     tokenEncryption,
@@ -100,18 +105,21 @@ class ImportServiceTests {
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"foo":"bar"}""".right()
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.installedAppId).isEqualTo(InstalledAppId("installed-1"))
     assertThat(saved.captured.userId).isEqualTo("user-1")
-    assertThat(saved.captured.connectionId).isEqualTo(ImportConnectionId("conn-1"))
-    assertThat(saved.captured.targetEntityDefinitionId).isEqualTo(EntityDefinitionId("entity-1"))
+    assertThat(saved.captured.importDefinitionId).isEqualTo(savedDefinition.captured.id)
+    assertThat(savedDefinition.captured.connectionId).isEqualTo(ImportConnectionId("conn-1"))
+    assertThat(savedDefinition.captured.targetEntityDefinitionId).isEqualTo(EntityDefinitionId("entity-1"))
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
     assertThat(saved.captured.payload).isEqualTo("""{"foo":"bar"}""")
     assertThat(saved.captured.detectedDataPaths).isEmpty()
-    assertThat(saved.captured.selectedDataPath).isNull()
+    assertThat(savedDefinition.captured.selectedDataPath).isNull()
     verify(exactly = 1) { importJobRepository.save(any()) }
   }
 
@@ -122,13 +130,14 @@ class ImportServiceTests {
     every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
     every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data/latest", "secret-token") } returns """{"foo":"bar"}""".right()
-    val saved = slot<ImportJob>()
-    justRun { importJobRepository.save(capture(saved)) }
+    justRun { importJobRepository.save(any()) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1", "/latest")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(saved.captured.urlPostfix).isEqualTo("/latest")
+    assertThat(savedDefinition.captured.urlPostfix).isEqualTo("/latest")
     verify(exactly = 1) { importFetch.fetch("https://example.com/data/latest", "secret-token") }
   }
 
@@ -139,13 +148,14 @@ class ImportServiceTests {
     every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
     every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"foo":"bar"}""".right()
-    val saved = slot<ImportJob>()
-    justRun { importJobRepository.save(capture(saved)) }
+    justRun { importJobRepository.save(any()) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1", "   ")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(saved.captured.urlPostfix).isNull()
+    assertThat(savedDefinition.captured.urlPostfix).isNull()
   }
 
   @Test
@@ -155,6 +165,7 @@ class ImportServiceTests {
     every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection.copy(encryptedBearerToken = null)
     every { importFetch.fetch("https://example.com/data", "") } returns """{"foo":"bar"}""".right()
     justRun { importJobRepository.save(any()) }
+    justRun { importDefinitionRepository.save(any()) }
 
     val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
@@ -171,12 +182,14 @@ class ImportServiceTests {
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"a":1},{"a":2}]}""".right()
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
-    assertThat(saved.captured.selectedDataPath).isEqualTo("items")
+    assertThat(savedDefinition.captured.selectedDataPath).isEqualTo("items")
     assertThat(saved.captured.detectedDataPaths).containsExactly(DataPath("items", 2))
     assertThat(saved.captured.detectedSchema).containsExactly(
       SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true, numericRange = NumericRange(min = 1.0, max = 2.0)),
@@ -193,12 +206,14 @@ class ImportServiceTests {
     every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"a":[{"x":1}],"b":[{"y":1},{"y":2}]}""".right()
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val result = service.triggerImport("user-1", "installed-1", "conn-1", "entity-1")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
-    assertThat(saved.captured.selectedDataPath).isNull()
+    assertThat(savedDefinition.captured.selectedDataPath).isNull()
     assertThat(saved.captured.detectedDataPaths).containsExactlyInAnyOrder(DataPath("a", 1), DataPath("b", 2))
     assertThat(saved.captured.detectedSchema).isEmpty()
   }
@@ -352,12 +367,14 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val result = service.selectDataPath("user-1", job.id.value, "items")
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
-    assertThat(saved.captured.selectedDataPath).isEqualTo("items")
+    assertThat(savedDefinition.captured.selectedDataPath).isEqualTo("items")
     assertThat(saved.captured.detectedSchema).containsExactly(
       SchemaProperty("a", mapOf(SchemaPropertyType.LONG to 2), mandatory = true, numericRange = NumericRange(min = 1.0, max = 2.0)),
     )
@@ -448,14 +465,15 @@ class ImportServiceTests {
       selectedDataPath = "items",
     )
     every { importJobRepository.findById(job.id) } returns job
-    val saved = slot<ImportJob>()
-    justRun { importJobRepository.save(capture(saved)) }
+    justRun { importJobRepository.save(any()) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
 
     val rules = listOf(FilterRule(FilterMode.EXCLUDE, "country", FilterOperator.EQUALS, "US"))
     val result = service.updateFilter("user-1", job.id.value, rules)
 
     assertThat(result.isRight()).isTrue()
-    assertThat(saved.captured.filterRules).isEqualTo(rules)
+    assertThat(savedDefinition.captured.filterRules).isEqualTo(rules)
     val view = result.getOrNull()!!
     assertThat(view.totalRecordCount).isEqualTo(2)
     assertThat(view.matchingRecordCount).isEqualTo(1)
@@ -472,6 +490,7 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
 
     val rules = listOf(FilterRule(FilterMode.INCLUDE, "name", FilterOperator.IS_NOT_NULL))
     val result = service.updateFilter("user-1", job.id.value, rules)
@@ -708,6 +727,7 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
 
     val result = service.updateMapping(
       "user-1",
@@ -738,6 +758,7 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
 
     val result = service.updateMapping(
       "user-1",
@@ -758,6 +779,7 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
 
     val result = service.updateMapping("user-1", job.id.value, emptyList())
 
@@ -1128,6 +1150,34 @@ class ImportServiceTests {
     createdAt = Instant.now(),
   )
 
+  /** Builds an [ImportDefinition], stubs [importDefinitionRepository] to serve it, and returns it - the counterpart to [importJob]'s definition. */
+  private fun importDefinition(
+    userId: String = "user-1",
+    createdAt: Instant = Instant.now(),
+    selectedDataPath: String? = null,
+    filterRules: List<FilterRule> = emptyList(),
+    mapping: Mapping? = null,
+    targetEntityDefinitionId: EntityDefinitionId = EntityDefinitionId("entity-1"),
+    connectionId: ImportConnectionId = ImportConnectionId("conn-1"),
+    urlPostfix: String? = null,
+  ): ImportDefinition {
+    val definition = ImportDefinition(
+      id = ImportDefinitionId("def-${System.nanoTime()}"),
+      userId = userId,
+      connectionId = connectionId,
+      name = "Test Definition",
+      urlPostfix = urlPostfix,
+      targetEntityDefinitionId = targetEntityDefinitionId,
+      selectedDataPath = selectedDataPath,
+      filterRules = filterRules,
+      mapping = mapping,
+      createdAt = createdAt,
+      lastChangedAt = createdAt,
+    )
+    every { importDefinitionRepository.findById(definition.id) } returns definition
+    return definition
+  }
+
   private fun importJob(
     installedAppId: InstalledAppId = InstalledAppId("installed-1"),
     userId: String = "user-1",
@@ -1140,20 +1190,26 @@ class ImportServiceTests {
     filterRules: List<FilterRule> = emptyList(),
     mapping: Mapping? = null,
     targetEntityDefinitionId: EntityDefinitionId = EntityDefinitionId("entity-1"),
-  ) = ImportJob(
-    id = ImportJobId("job-${System.nanoTime()}"),
-    userId = userId,
-    installedAppId = installedAppId,
-    connectionId = ImportConnectionId("conn-1"),
-    targetEntityDefinitionId = targetEntityDefinitionId,
-    selectedDataPath = selectedDataPath,
-    filterRules = filterRules,
-    mapping = mapping,
-    status = status,
-    payload = payload,
-    detectedSchema = detectedSchema,
-    filteredSchema = filteredSchema,
-    createdAt = createdAt,
-    lastChangedAt = createdAt,
-  )
+  ): ImportJob {
+    val definition = importDefinition(
+      userId = userId,
+      createdAt = createdAt,
+      selectedDataPath = selectedDataPath,
+      filterRules = filterRules,
+      mapping = mapping,
+      targetEntityDefinitionId = targetEntityDefinitionId,
+    )
+    return ImportJob(
+      id = ImportJobId("job-${System.nanoTime()}"),
+      userId = userId,
+      installedAppId = installedAppId,
+      importDefinitionId = definition.id,
+      status = status,
+      payload = payload,
+      detectedSchema = detectedSchema,
+      filteredSchema = filteredSchema,
+      createdAt = createdAt,
+      lastChangedAt = createdAt,
+    )
+  }
 }

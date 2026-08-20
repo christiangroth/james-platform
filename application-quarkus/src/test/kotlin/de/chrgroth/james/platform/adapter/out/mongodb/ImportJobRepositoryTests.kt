@@ -1,7 +1,6 @@
 package de.chrgroth.james.platform.adapter.out.mongodb
 
-import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
-import de.chrgroth.james.platform.domain.model.imports.ImportJobId
+import com.mongodb.client.model.Filters
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
@@ -20,6 +19,12 @@ class ImportJobRepositoryTests {
   @Inject
   lateinit var importJobDocumentRepository: ImportJobDocumentRepository
 
+  /**
+   * This migration (ADR 0017) already ran to completion against production data before ADR 0021 moved `mapping` off
+   * `ImportJobDocument` onto `ImportDefinitionDocument` - it is kept operating on the legacy `import_job.mapping`
+   * subdocument path as dead-but-harmless cleanup code (see [ImportJobRepositoryAdapter]), so this test reads back
+   * the raw BSON rather than the domain model, which no longer exposes `mapping` on `ImportJob`.
+   */
   @Test
   fun `migrateLongToDurationFieldMappingConversion rewrites legacy LONG_TO_DURATION conversion to NONE`() {
     val id = UUID.randomUUID().toString()
@@ -42,9 +47,7 @@ class ImportJobRepositoryTests {
 
     importJobRepository.migrateLongToDurationFieldMappingConversion()
 
-    val migrated = importJobRepository.findById(ImportJobId(id))
-    assertThat(migrated).isNotNull()
-    assertThat(migrated!!.mapping!!.fieldMappings.single().conversion).isEqualTo(FieldMappingConversion.NONE)
+    assertThat(migratedConversion(id)).isEqualTo("NONE")
   }
 
   @Test
@@ -69,25 +72,26 @@ class ImportJobRepositoryTests {
 
     importJobRepository.migrateLongToDurationFieldMappingConversion()
 
-    val untouched = importJobRepository.findById(ImportJobId(id))
-    assertThat(untouched).isNotNull()
-    assertThat(untouched!!.mapping!!.fieldMappings.single().conversion).isEqualTo(FieldMappingConversion.STRING_TO_LONG)
+    assertThat(migratedConversion(id)).isEqualTo("STRING_TO_LONG")
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  private fun migratedConversion(id: String): String? {
+    val document = importJobDocumentRepository.mongoCollection().withDocumentClass(Document::class.java).find(Filters.eq("_id", id)).first()!!
+    val fieldMapping = (document.get("mapping", Document::class.java).get("fieldMappings") as List<Document>).single()
+    return fieldMapping.getString("conversion")
   }
 
   private fun legacyImportJobDocument(id: String) = Document()
     .append("_id", id)
     .append("userId", "user-1")
     .append("installedAppId", "app-1")
-    .append("connectionId", "connection-1")
-    .append("urlPostfix", null)
-    .append("targetEntityDefinitionId", "entity-1")
+    .append("importDefinitionId", "definition-1")
     .append("status", "READY")
     .append("payload", "[]")
     .append("detectedDataPaths", emptyList<Document>())
-    .append("selectedDataPath", null)
     .append("detectedSchema", emptyList<Document>())
     .append("filteredSchema", emptyList<Document>())
-    .append("filterRules", emptyList<Document>())
     .append("createdAt", Instant.now())
     .append("lastChangedAt", Instant.now())
 }
