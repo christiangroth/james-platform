@@ -52,6 +52,7 @@ import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionReposi
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.NotificationPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import io.mockk.every
@@ -75,6 +76,7 @@ class ImportServiceTests {
   private val appDataRepository = mockk<AppDataRepositoryPort>()
   private val propertyConstraint = PropertyConstraintService()
   private val outboxPort = mockk<OutboxPort>()
+  private val notificationPort = mockk<NotificationPort>(relaxed = true)
 
   private val service = ImportService(
     installedAppRepository,
@@ -87,6 +89,7 @@ class ImportServiceTests {
     appDataRepository,
     propertyConstraint,
     outboxPort,
+    notificationPort,
   )
 
   private val installedApp = InstalledApp(
@@ -998,6 +1001,54 @@ class ImportServiceTests {
     verify(exactly = 1) { appDataRepository.save(any()) }
     verify(exactly = 1) { importJobRepository.delete(job.id) }
     verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
+    verify(exactly = 0) { notificationPort.notify(any()) }
+  }
+
+  @Test
+  fun `handle accept dry run notifies via Slack when the job was system-triggered and the definition opted in`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":"Alice"},{"name":null}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+      triggeredBy = ImportTrigger.SYSTEM,
+      notifyOnSlack = true,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { appDataRepository.save(any()) }
+    justRun { importJobRepository.delete(job.id) }
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { notificationPort.notify(match { it.contains("Test Definition") && it.contains("1 saved") && it.contains("1 discarded") }) }
+  }
+
+  @Test
+  fun `handle accept dry run does not notify for a manually-triggered accept even when notifyOnSlack is set`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+      triggeredBy = ImportTrigger.USER,
+      notifyOnSlack = true,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { appDataRepository.save(any()) }
+    justRun { importJobRepository.delete(job.id) }
+
+    service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
+
+    verify(exactly = 0) { notificationPort.notify(any()) }
   }
 
   @Test
@@ -1290,6 +1341,7 @@ class ImportServiceTests {
     targetEntityDefinitionId: EntityDefinitionId = EntityDefinitionId("entity-1"),
     connectionId: ImportConnectionId = ImportConnectionId("conn-1"),
     urlPostfix: String? = null,
+    notifyOnSlack: Boolean = false,
   ): ImportDefinition {
     val definition = ImportDefinition(
       id = ImportDefinitionId("def-${System.nanoTime()}"),
@@ -1301,6 +1353,7 @@ class ImportServiceTests {
       selectedDataPath = selectedDataPath,
       filterRules = filterRules,
       mapping = mapping,
+      notifyOnSlack = notifyOnSlack,
       createdAt = createdAt,
       lastChangedAt = createdAt,
     )
@@ -1320,6 +1373,8 @@ class ImportServiceTests {
     filterRules: List<FilterRule> = emptyList(),
     mapping: Mapping? = null,
     targetEntityDefinitionId: EntityDefinitionId = EntityDefinitionId("entity-1"),
+    triggeredBy: ImportTrigger = ImportTrigger.USER,
+    notifyOnSlack: Boolean = false,
   ): ImportJob {
     val definition = importDefinition(
       userId = userId,
@@ -1328,6 +1383,7 @@ class ImportServiceTests {
       filterRules = filterRules,
       mapping = mapping,
       targetEntityDefinitionId = targetEntityDefinitionId,
+      notifyOnSlack = notifyOnSlack,
     )
     return ImportJob(
       id = ImportJobId("job-${System.nanoTime()}"),
@@ -1338,6 +1394,7 @@ class ImportServiceTests {
       payload = payload,
       detectedSchema = detectedSchema,
       filteredSchema = filteredSchema,
+      triggeredBy = triggeredBy,
       createdAt = createdAt,
       lastChangedAt = createdAt,
     )

@@ -72,6 +72,7 @@ class ImportDefinitionRepositoryAdapter(
     schedule = schedule,
     lastRunAt = lastRunAt,
     lastKnownSchema = lastKnownSchema.map { it.toDomain() },
+    notifyOnSlack = notifyOnSlack,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -132,6 +133,7 @@ class ImportDefinitionRepositoryAdapter(
     doc.schedule = schedule
     doc.lastRunAt = lastRunAt
     doc.lastKnownSchema = lastKnownSchema.map { it.toDocument() }
+    doc.notifyOnSlack = notifyOnSlack
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }

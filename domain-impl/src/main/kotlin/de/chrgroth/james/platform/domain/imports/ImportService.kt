@@ -44,6 +44,7 @@ import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionReposi
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.infra.NotificationPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
 import jakarta.enterprise.context.ApplicationScoped
@@ -64,6 +65,7 @@ class ImportService(
   private val appDataRepository: AppDataRepositoryPort,
   private val propertyConstraint: PropertyConstraintPort,
   private val outbox: OutboxPort,
+  private val notificationPort: NotificationPort,
 ) : ImportPort {
 
   override fun listAllImportJobs(userId: String): List<ImportJob> =
@@ -596,6 +598,9 @@ class ImportService(
 
     importJobRepository.delete(existing.id)
     logger.info { "Dry run accepted: importJobId=${event.importJobId} saved=$savedCount discarded=$discardedCount" }
+    if (existing.triggeredBy == ImportTrigger.SYSTEM && definition.notifyOnSlack) {
+      notificationPort.notify("Scheduled import \"${definition.name}\" completed: $savedCount saved, $discardedCount discarded.")
+    }
     return Unit.right()
   }
 
