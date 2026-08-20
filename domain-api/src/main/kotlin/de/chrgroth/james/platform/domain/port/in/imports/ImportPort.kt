@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
@@ -15,6 +16,9 @@ import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 interface ImportPort {
   /** Lists all of [userId]'s import jobs across every installed app, newest first. */
   fun listAllImportJobs(userId: String): List<ImportJob>
+
+  /** Lists all of [userId]'s import definitions, for bulk-joining connection/target entity/mapping data onto [listAllImportJobs] (see [ImportDefinition]). */
+  fun listAllImportDefinitions(userId: String): List<ImportDefinition>
 
   /**
    * Fetches from the connection's base URL - or, when [urlPostfix] is given, from the base URL with it appended -
@@ -26,7 +30,7 @@ interface ImportPort {
   fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob>
   fun getFilterView(userId: String, importJobId: String): Either<DomainError, FilterView>
 
-  /** Replaces the job's filter rules, applied in order before mapping/dry-run ever see a source record (see [FilterRule]). */
+  /** Replaces the job's definition's filter rules, applied in order before mapping/dry-run ever see a source record (see [FilterRule]). */
   fun updateFilter(userId: String, importJobId: String, filterRules: List<FilterRule>): Either<DomainError, FilterView>
 
   /** Distinct textual values found in the job's source records at [sourcePath], for the filter UI to offer as picks instead of free text (see [de.chrgroth.james.platform.domain.imports.FilterEvaluator.distinctValues]). */
@@ -66,8 +70,9 @@ interface ImportPort {
 
   /**
    * Performs the actual accept: saves every valid object from the current dry-run, discards invalid ones, and
-   * deletes the [ImportJob] (including its raw payload). When [DomainOutboxEvent.AcceptDryRun.replaceExisting] is
-   * set, every existing instance of the target entity is deleted first, and the dry-run is re-evaluated against
+   * deletes the [ImportJob] (including its raw payload) - its [de.chrgroth.james.platform.domain.model.imports.ImportDefinition]
+   * is left untouched so it can be reused for a later import. When [DomainOutboxEvent.AcceptDryRun.replaceExisting]
+   * is set, every existing instance of the target entity is deleted first, and the dry-run is re-evaluated against
    * that now-empty state — so a record only skipped because it collided with data that is about to be deleted ends
    * up saved instead. Called by the outbox dispatcher, not directly by inbound adapters. A no-longer-existing
    * import job (already processed by a prior delivery, or deleted by the user) is treated as a no-op success.

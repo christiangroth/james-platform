@@ -41,10 +41,10 @@ fun FilterOperator.applicableSchemaTypes(): Set<SchemaPropertyType> = when (this
 
 /**
  * A single filter rule evaluated against a source record's [sourcePath] (a path into the detected schema). Rules of
- * an [ImportJob.filterRules] list are applied in order as a pipeline: an [FilterMode.INCLUDE] rule narrows the
- * current record set down to matches, an [FilterMode.EXCLUDE] rule removes matches from it - so include and exclude
- * rules can be freely mixed, and each rule only sees the records that survived every rule before it. [value] is
- * unused for [FilterOperator.IS_NULL] and [FilterOperator.IS_NOT_NULL]. [includeAbsent], when set, additionally
+ * an [ImportDefinition.filterRules] list are applied in order as a pipeline: an [FilterMode.INCLUDE] rule narrows
+ * the current record set down to matches, an [FilterMode.EXCLUDE] rule removes matches from it - so include and
+ * exclude rules can be freely mixed, and each rule only sees the records that survived every rule before it. [value]
+ * is unused for [FilterOperator.IS_NULL] and [FilterOperator.IS_NOT_NULL]. [includeAbsent], when set, additionally
  * treats a missing/null source value as a match regardless of [operator] - this lets a single rule express "field is
  * empty or has value X" (e.g. `EQUALS` with `includeAbsent = true`) without a second import job.
  */
@@ -56,9 +56,10 @@ data class FilterRule(
   val includeAbsent: Boolean = false,
 )
 
-/** Bundles everything the filter UI needs to render: the import job and how many of its source records currently match the configured [ImportJob.filterRules]. */
+/** Bundles everything the filter UI needs to render: the import job, its definition, and how many of the definition's source records currently match the configured [ImportDefinition.filterRules]. */
 data class FilterView(
   val importJob: ImportJob,
+  val importDefinition: ImportDefinition,
   val totalRecordCount: Int,
   val matchingRecordCount: Int,
 )

@@ -4,23 +4,14 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
 import com.mongodb.client.model.UpdateOptions
 import com.mongodb.client.model.Updates
-import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
-import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.imports.DataPath
-import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
-import de.chrgroth.james.platform.domain.model.imports.FilterMode
-import de.chrgroth.james.platform.domain.model.imports.FilterOperator
-import de.chrgroth.james.platform.domain.model.imports.FilterRule
-import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
-import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
-import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
-import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
@@ -79,17 +70,12 @@ class ImportJobRepositoryAdapter(
     id = ImportJobId(id),
     userId = userId,
     installedAppId = InstalledAppId(installedAppId),
-    connectionId = ImportConnectionId(connectionId),
-    urlPostfix = urlPostfix,
-    targetEntityDefinitionId = EntityDefinitionId(targetEntityDefinitionId),
+    importDefinitionId = ImportDefinitionId(importDefinitionId),
     status = ImportStatus.valueOf(status),
     payload = payload,
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
-    selectedDataPath = selectedDataPath,
     detectedSchema = detectedSchema.map { it.toDomain() },
     filteredSchema = filteredSchema.map { it.toDomain() },
-    filterRules = filterRules.map { it.toDomain() },
-    mapping = mapping?.toDomain(),
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -112,51 +98,16 @@ class ImportJobRepositoryAdapter(
     max = max,
   )
 
-  private fun FilterRuleDocument.toDomain() = FilterRule(
-    mode = FilterMode.valueOf(mode),
-    sourcePath = sourcePath,
-    operator = FilterOperator.valueOf(operator),
-    value = value,
-    includeAbsent = includeAbsent,
-  )
-
-  private fun MappingDocument.toDomain() = Mapping(
-    fieldMappings = fieldMappings.map { it.toDomain() },
-  )
-
-  private fun FieldMappingDocument.toDomain() = FieldMapping(
-    targetPropertyId = PropertyId(targetPropertyId),
-    sourcePath = sourcePath,
-    conversion = FieldMappingConversion.valueOf(conversion),
-    importGranularity = importGranularity,
-    fallbackValue = fallbackValue,
-    referenceLookup = referenceLookup?.toDomain(),
-  )
-
-  private fun ReferenceLookupDocument.toDomain() = ReferenceLookup(
-    criteria = criteria.map { it.toDomain() },
-  )
-
-  private fun ReferenceLookupCriterionDocument.toDomain() = ReferenceLookupCriterion(
-    targetPropertyId = PropertyId(targetPropertyId),
-    sourcePath = sourcePath,
-  )
-
   private fun ImportJob.toDocument() = ImportJobDocument().also { doc ->
     doc.id = id.value
     doc.userId = userId
     doc.installedAppId = installedAppId.value
-    doc.connectionId = connectionId.value
-    doc.urlPostfix = urlPostfix
-    doc.targetEntityDefinitionId = targetEntityDefinitionId.value
+    doc.importDefinitionId = importDefinitionId.value
     doc.status = status.name
     doc.payload = payload
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
-    doc.selectedDataPath = selectedDataPath
     doc.detectedSchema = detectedSchema.map { it.toDocument() }
     doc.filteredSchema = filteredSchema.map { it.toDocument() }
-    doc.filterRules = filterRules.map { it.toDocument() }
-    doc.mapping = mapping?.toDocument()
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }
@@ -179,36 +130,6 @@ class ImportJobRepositoryAdapter(
     doc.max = max
   }
 
-  private fun FilterRule.toDocument() = FilterRuleDocument().also { doc ->
-    doc.mode = mode.name
-    doc.sourcePath = sourcePath
-    doc.operator = operator.name
-    doc.value = value
-    doc.includeAbsent = includeAbsent
-  }
-
-  private fun Mapping.toDocument() = MappingDocument().also { doc ->
-    doc.fieldMappings = fieldMappings.map { it.toDocument() }
-  }
-
-  private fun FieldMapping.toDocument() = FieldMappingDocument().also { doc ->
-    doc.targetPropertyId = targetPropertyId.value
-    doc.sourcePath = sourcePath
-    doc.conversion = conversion.name
-    doc.importGranularity = importGranularity
-    doc.fallbackValue = fallbackValue
-    doc.referenceLookup = referenceLookup?.toDocument()
-  }
-
-  private fun ReferenceLookup.toDocument() = ReferenceLookupDocument().also { doc ->
-    doc.criteria = criteria.map { it.toDocument() }
-  }
-
-  private fun ReferenceLookupCriterion.toDocument() = ReferenceLookupCriterionDocument().also { doc ->
-    doc.targetPropertyId = targetPropertyId.value
-    doc.sourcePath = sourcePath
-  }
-
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val USER_ID_FIELD = "userId"
@@ -218,7 +139,9 @@ class ImportJobRepositoryAdapter(
     internal const val MATCHED_ELEMENT_CONVERSION_FIELD = "elem.conversion"
 
     // ADR 0017: FieldMappingConversion.LONG_TO_DURATION was removed together with the DURATION property type; see
-    // migrateLongToDurationFieldMappingConversion().
+    // migrateLongToDurationFieldMappingConversion(). Kept operating on the legacy import_job.mapping subdocument
+    // path (rather than moving to import_definition) since this one-off cleanup already completed against
+    // production data before ADR 0021 split mapping out of ImportJob - see docs/adr/0021-import-definition-job-split.md.
     internal const val LEGACY_LONG_TO_DURATION_CONVERSION = "LONG_TO_DURATION"
   }
 }

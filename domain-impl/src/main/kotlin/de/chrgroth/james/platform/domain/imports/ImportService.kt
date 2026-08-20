@@ -23,6 +23,8 @@ import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
@@ -37,6 +39,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
@@ -51,6 +54,7 @@ import java.util.UUID
 class ImportService(
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val importJobRepository: ImportJobRepositoryPort,
+  private val importDefinitionRepository: ImportDefinitionRepositoryPort,
   private val importConnectionRepository: ImportConnectionRepositoryPort,
   private val importFetch: ImportFetchPort,
   private val tokenEncryption: TokenEncryptionPort,
@@ -62,6 +66,9 @@ class ImportService(
 
   override fun listAllImportJobs(userId: String): List<ImportJob> =
     importJobRepository.findAllByUserId(userId).sortedByDescending { it.createdAt }
+
+  override fun listAllImportDefinitions(userId: String): List<ImportDefinition> =
+    importDefinitionRepository.findAllByUserId(userId)
 
   override fun triggerImport(
     userId: String,
@@ -103,17 +110,27 @@ class ImportService(
     val schema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty()
 
     val now = Instant.now()
+    val definition = ImportDefinition(
+      id = ImportDefinitionId(UUID.randomUUID().toString()),
+      userId = userId,
+      connectionId = connection.id,
+      name = "${connection.name}: ${entityDefinition.name}",
+      urlPostfix = trimmedUrlPostfix,
+      targetEntityDefinitionId = entityDefinition.id,
+      selectedDataPath = singleMatch?.path,
+      createdAt = now,
+      lastChangedAt = now,
+    )
+    importDefinitionRepository.save(definition)
+
     val importJob = ImportJob(
       id = ImportJobId(UUID.randomUUID().toString()),
       userId = userId,
       installedAppId = installedApp.id,
-      connectionId = connection.id,
-      urlPostfix = trimmedUrlPostfix,
-      targetEntityDefinitionId = entityDefinition.id,
+      importDefinitionId = definition.id,
       status = if (singleMatch != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
       payload = rawPayload,
       detectedDataPaths = detectedDataPaths,
-      selectedDataPath = singleMatch?.path,
       detectedSchema = schema,
       filteredSchema = schema,
       createdAt = now,
@@ -137,6 +154,10 @@ class ImportService(
       logger.warn { "Select data path failed: blank data path for importJobId: $importJobId" }
       return ImportError.BLANK_DATA_PATH.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Select data path failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
 
     val parsed = objectMapper.readTree(existing.payload)
     val resolved = DataPathDetector.resolve(parsed, dataPath.trim())
@@ -146,9 +167,9 @@ class ImportService(
     }
 
     val schema = SchemaDetector.detect(parsed, resolved.path)
+    importDefinitionRepository.save(definition.copy(selectedDataPath = resolved.path, lastChangedAt = Instant.now()))
     val updated = existing.copy(
       status = ImportStatus.DATA_IDENTIFIED,
-      selectedDataPath = resolved.path,
       detectedSchema = schema,
       filteredSchema = schema,
       lastChangedAt = Instant.now(),
@@ -163,7 +184,11 @@ class ImportService(
       logger.warn { "Get filter view failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
-    return filterView(existing).right()
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Get filter view failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    return filterView(existing, definition).right()
   }
 
   override fun updateFilter(userId: String, importJobId: String, filterRules: List<FilterRule>): Either<DomainError, FilterView> {
@@ -175,21 +200,26 @@ class ImportService(
       logger.warn { "Update filter failed: import job not filterable: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_FILTERABLE.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Update filter failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
 
-    val filteredRecords = FilterEvaluator.apply(rawRecordsAt(existing), filterRules)
-    val updated = existing.copy(
-      filterRules = filterRules,
+    val filteredRecords = FilterEvaluator.apply(rawRecordsAt(existing, definition), filterRules)
+    val updatedDefinition = definition.copy(filterRules = filterRules, lastChangedAt = Instant.now())
+    importDefinitionRepository.save(updatedDefinition)
+    val updatedJob = existing.copy(
       filteredSchema = SchemaDetector.detect(filteredRecords),
       lastChangedAt = Instant.now(),
     )
-    importJobRepository.save(updated)
+    importJobRepository.save(updatedJob)
     logger.info { "Filter updated: importJobId=$importJobId rules=${filterRules.size}" }
-    return filterView(updated).right()
+    return filterView(updatedJob, updatedDefinition).right()
   }
 
-  private fun filterView(existing: ImportJob): FilterView {
-    val allRecords = rawRecordsAt(existing)
-    return FilterView(existing, allRecords.size, FilterEvaluator.apply(allRecords, existing.filterRules).size)
+  private fun filterView(existing: ImportJob, definition: ImportDefinition): FilterView {
+    val allRecords = rawRecordsAt(existing, definition)
+    return FilterView(existing, definition, allRecords.size, FilterEvaluator.apply(allRecords, definition.filterRules).size)
   }
 
   override fun resolveFilterFieldValues(userId: String, importJobId: String, sourcePath: String): Either<DomainError, List<String>> {
@@ -197,7 +227,11 @@ class ImportService(
       logger.warn { "Resolve filter field values failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
-    return FilterEvaluator.distinctValues(rawRecordsAt(existing), sourcePath).right()
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Resolve filter field values failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    return FilterEvaluator.distinctValues(rawRecordsAt(existing, definition), sourcePath).right()
   }
 
   override fun resolveFilterSample(userId: String, importJobId: String, matched: Boolean, index: Int): Either<DomainError, FilterSample> {
@@ -205,8 +239,12 @@ class ImportService(
       logger.warn { "Resolve filter sample failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
-    val allRecords = rawRecordsAt(existing)
-    val records = if (matched) FilterEvaluator.apply(allRecords, existing.filterRules) else FilterEvaluator.excluded(allRecords, existing.filterRules)
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Resolve filter sample failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    val allRecords = rawRecordsAt(existing, definition)
+    val records = if (matched) FilterEvaluator.apply(allRecords, definition.filterRules) else FilterEvaluator.excluded(allRecords, definition.filterRules)
     return FilterSample(records.size, records.getOrNull(index)?.toString()).right()
   }
 
@@ -215,20 +253,24 @@ class ImportService(
       logger.warn { "Get mapping view failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Get mapping view failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
     val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
       logger.warn { "Get mapping view failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val targetEntityDefinition = entityDefinitionsOf(installedApp).find { it.id == existing.targetEntityDefinitionId } ?: run {
+    val targetEntityDefinition = entityDefinitionsOf(installedApp).find { it.id == definition.targetEntityDefinitionId } ?: run {
       logger.warn { "Get mapping view failed: target entity definition not found for importJobId: $importJobId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
 
     val entityDefinitions = entityDefinitionsOf(installedApp)
-    val validation = existing.mapping?.let { mapping ->
+    val validation = definition.mapping?.let { mapping ->
       MappingValidator.validate(mapping, targetEntityDefinition, existing.filteredSchema, entityDefinitions, propertyConstraint)
     }
-    return MappingView(existing, targetEntityDefinition, entityDefinitions, validation).right()
+    return MappingView(existing, definition, targetEntityDefinition, entityDefinitions, validation).right()
   }
 
   override fun updateMapping(
@@ -240,6 +282,10 @@ class ImportService(
       logger.warn { "Update mapping failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Update mapping failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
     val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
       logger.warn { "Update mapping failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
@@ -250,7 +296,7 @@ class ImportService(
     }
 
     val entityDefinitions = entityDefinitionsOf(installedApp)
-    val targetEntityDefinition = entityDefinitions.find { it.id == existing.targetEntityDefinitionId } ?: run {
+    val targetEntityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId } ?: run {
       logger.warn { "Update mapping failed: target entity definition not found for importJobId: $importJobId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
@@ -264,14 +310,15 @@ class ImportService(
       fieldMappings = fieldMappings,
     )
     val validation = MappingValidator.validate(mapping, targetEntityDefinition, existing.filteredSchema, entityDefinitions, propertyConstraint)
-    val updated = existing.copy(
+    val updatedDefinition = definition.copy(mapping = mapping, lastChangedAt = Instant.now())
+    importDefinitionRepository.save(updatedDefinition)
+    val updatedJob = existing.copy(
       status = if (validation.isReady) ImportStatus.READY else ImportStatus.DATA_IDENTIFIED,
-      mapping = mapping,
       lastChangedAt = Instant.now(),
     )
-    importJobRepository.save(updated)
-    logger.info { "Mapping updated: importJobId=$importJobId status=${updated.status}" }
-    return MappingView(updated, targetEntityDefinition, entityDefinitions, validation).right()
+    importJobRepository.save(updatedJob)
+    logger.info { "Mapping updated: importJobId=$importJobId status=${updatedJob.status}" }
+    return MappingView(updatedJob, updatedDefinition, targetEntityDefinition, entityDefinitions, validation).right()
   }
 
   override fun dryRun(userId: String, importJobId: String): Either<DomainError, DryRunReport> {
@@ -279,16 +326,20 @@ class ImportService(
       logger.warn { "Dry run failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Dry run failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
     val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
       logger.warn { "Dry run failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val (mapping, entityDefinition) = mappingAndEntity(existing, installedApp) ?: run {
+    val (mapping, entityDefinition) = mappingAndEntity(definition, installedApp) ?: run {
       logger.warn { "Dry run failed: import job has no mapping: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
 
-    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp)
+    val objects = executeDryRun(existing, definition, mapping, entityDefinition, installedApp)
     logger.info { "Dry run executed: importJobId=$importJobId total=${objects.size} invalid=${objects.count { it.isInvalid }} skipped=${objects.count { it.isSkipped }}" }
     return DryRunReport(existing.id, objects).right()
   }
@@ -298,12 +349,16 @@ class ImportService(
       logger.warn { "Resolve mapping sample failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Resolve mapping sample failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
     val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
       logger.warn { "Resolve mapping sample failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
     val entityDefinitions = entityDefinitionsOf(installedApp)
-    val targetEntityDefinition = entityDefinitions.find { it.id == existing.targetEntityDefinitionId } ?: run {
+    val targetEntityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId } ?: run {
       logger.warn { "Resolve mapping sample failed: target entity definition not found for importJobId: $importJobId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
@@ -313,7 +368,7 @@ class ImportService(
       return ImportError.MAPPING_PROPERTY_NOT_FOUND.left()
     }
 
-    val records = recordsAt(existing)
+    val records = recordsAt(existing, definition)
     val record = records.getOrNull(index) ?: return MappingSample(records.size, null).right()
 
     val dryRunObject = DryRunExecutor.executeSingle(
@@ -333,11 +388,15 @@ class ImportService(
       logger.warn { "Accept dry run failed: import job not found: $importJobId for user: $userId" }
       return ImportError.IMPORT_JOB_NOT_FOUND.left()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Accept dry run failed: import definition not found: ${existing.importDefinitionId} for importJobId: $importJobId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
     val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
       logger.warn { "Accept dry run failed: installed app not found: ${existing.installedAppId} for importJobId: $importJobId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    readyMappingAndEntity(existing, installedApp) ?: run {
+    readyMappingAndEntity(existing, definition, installedApp) ?: run {
       logger.warn { "Accept dry run failed: import job not ready: $importJobId" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
@@ -354,22 +413,26 @@ class ImportService(
       logger.info { "Accept dry run handler: import job already gone, treating as already processed: importJobId=${event.importJobId}" }
       return Unit.right()
     }
+    val definition = definitionOf(existing) ?: run {
+      logger.warn { "Accept dry run handler failed: import definition not found: ${existing.importDefinitionId} for importJobId: ${event.importJobId}" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
     val installedApp = installedAppRepository.findById(existing.installedAppId) ?: run {
       logger.warn { "Accept dry run handler failed: installed app not found: ${existing.installedAppId} for importJobId: ${event.importJobId}" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val (mapping, entityDefinition) = mappingAndEntity(existing, installedApp) ?: run {
+    val (mapping, entityDefinition) = mappingAndEntity(definition, installedApp) ?: run {
       logger.warn { "Accept dry run handler failed: import job has no mapping: ${event.importJobId}" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
-    val connection = importConnectionRepository.findById(existing.connectionId) ?: run {
-      logger.warn { "Accept dry run handler failed: connection not found: ${existing.connectionId} for importJobId: ${event.importJobId}" }
+    val connection = importConnectionRepository.findById(definition.connectionId) ?: run {
+      logger.warn { "Accept dry run handler failed: connection not found: ${definition.connectionId} for importJobId: ${event.importJobId}" }
       return ImportError.CONNECTION_NOT_FOUND.left()
     }
     val importProvenance = ImportProvenance(
       connectionId = connection.id,
       connectionName = connection.name,
-      sourceUrl = resolveImportUrl(connection.baseUrl, existing.urlPostfix),
+      sourceUrl = resolveImportUrl(connection.baseUrl, definition.urlPostfix),
     )
 
     if (event.replaceExisting) {
@@ -377,7 +440,7 @@ class ImportService(
       logger.info { "Accept dry run: cleared existing data before replace import: installedAppId=${installedApp.id} entityType=${entityDefinition.id}" }
     }
 
-    val objects = executeDryRun(existing, mapping, entityDefinition, installedApp)
+    val objects = executeDryRun(existing, definition, mapping, entityDefinition, installedApp)
     val now = Instant.now()
     var savedCount = 0
     for (obj in objects.filter { it.isValid }) {
@@ -425,27 +488,28 @@ class ImportService(
     }
   }
 
-  private fun readyMappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
+  private fun readyMappingAndEntity(existing: ImportJob, definition: ImportDefinition, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
     if (existing.status != ImportStatus.READY) return null
-    return mappingAndEntity(existing, installedApp)
+    return mappingAndEntity(definition, installedApp)
   }
 
   /**
-   * Mapping and target entity definition for a job that merely has a mapping configured, regardless of whether
-   * it is free of blocking [de.chrgroth.james.platform.domain.model.imports.MappingIssue]s. Used for [dryRun],
-   * which is read-only and should surface mapping issues per record rather than refuse to run, and for [handle],
-   * which by the time it runs always finds the job in [ImportStatus.ACCEPTING] rather than [ImportStatus.READY] -
-   * [acceptDryRun] itself still requires [ImportStatus.READY] via [readyMappingAndEntity] before enqueueing.
+   * Mapping and target entity definition for a definition that merely has a mapping configured, regardless of
+   * whether it is free of blocking [de.chrgroth.james.platform.domain.model.imports.MappingIssue]s. Used for
+   * [dryRun], which is read-only and should surface mapping issues per record rather than refuse to run, and for
+   * [handle], which by the time it runs always finds the job in [ImportStatus.ACCEPTING] rather than
+   * [ImportStatus.READY] - [acceptDryRun] itself still requires [ImportStatus.READY] via [readyMappingAndEntity]
+   * before enqueueing.
    */
-  private fun mappingAndEntity(existing: ImportJob, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
-    val mapping = existing.mapping ?: return null
-    val entityDefinition = entityDefinitionsOf(installedApp).find { it.id == existing.targetEntityDefinitionId } ?: return null
+  private fun mappingAndEntity(definition: ImportDefinition, installedApp: InstalledApp): Pair<Mapping, EntityDefinition>? {
+    val mapping = definition.mapping ?: return null
+    val entityDefinition = entityDefinitionsOf(installedApp).find { it.id == definition.targetEntityDefinitionId } ?: return null
     return mapping to entityDefinition
   }
 
-  private fun executeDryRun(existing: ImportJob, mapping: Mapping, entityDefinition: EntityDefinition, installedApp: InstalledApp): List<DryRunObject> =
+  private fun executeDryRun(existing: ImportJob, definition: ImportDefinition, mapping: Mapping, entityDefinition: EntityDefinition, installedApp: InstalledApp): List<DryRunObject> =
     DryRunExecutor.execute(
-      records = recordsAt(existing),
+      records = recordsAt(existing, definition),
       mapping = mapping,
       entityDefinition = entityDefinition,
       existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id),
@@ -463,11 +527,11 @@ class ImportService(
     return referencedEntityIds.associateWith { appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, it) }
   }
 
-  /** Records at the job's selected data path, with [ImportJob.filterRules] applied - this is what mapping and dry-run operate on. */
-  private fun recordsAt(existing: ImportJob): List<JsonNode> = FilterEvaluator.apply(rawRecordsAt(existing), existing.filterRules)
+  /** Records at the definition's selected data path, with [ImportDefinition.filterRules] applied - this is what mapping and dry-run operate on. */
+  private fun recordsAt(existing: ImportJob, definition: ImportDefinition): List<JsonNode> = FilterEvaluator.apply(rawRecordsAt(existing, definition), definition.filterRules)
 
-  private fun rawRecordsAt(existing: ImportJob): List<JsonNode> {
-    val path = existing.selectedDataPath ?: return emptyList()
+  private fun rawRecordsAt(existing: ImportJob, definition: ImportDefinition): List<JsonNode> {
+    val path = definition.selectedDataPath ?: return emptyList()
     var current = objectMapper.readTree(existing.payload)
     for (segment in path.split(".")) {
       current = current.get(segment) ?: return emptyList()
@@ -497,6 +561,8 @@ class ImportService(
     val existing = importJobRepository.findById(ImportJobId(importJobId))
     return if (existing != null && existing.userId == userId) existing else null
   }
+
+  private fun definitionOf(existing: ImportJob): ImportDefinition? = importDefinitionRepository.findById(existing.importDefinitionId)
 
   companion object : KLogging() {
     private val objectMapper = jacksonObjectMapper()
