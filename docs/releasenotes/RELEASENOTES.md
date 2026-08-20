@@ -1,3 +1,18 @@
+# 0.104.0 (2026.08.20)
+
+## New Features
+* The metadata panel of imported data entries now shows which import connection and source URL the data came from.
+
+## Bugfixes / Chore
+* Refreshed the README feature list to reflect the actual feature set of the app.
+* Updated the architecture documentation with the Aggregations, App Version Migrations and Developer Test Data features, and fixed outdated cross-references.
+* Removed outdated standalone design docs whose content is now covered elsewhere, and cleaned up their remaining cross-references.
+* Accepting an import now fails with a clear error if the underlying import connection was deleted in the meantime, instead of importing the data without any origin information.
+
+
+
+---
+
 # 0.103.0 (2026.08.20)
 
 ## New Features
