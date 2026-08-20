@@ -1,7 +1,9 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.ImportProvenance
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
@@ -338,6 +340,33 @@ class UserAppDetailPageTests {
 
     val appVersion = Regex("""data-testid="detail-app-version">([^<]*)<""").find(html)?.groupValues?.get(1)?.trim()
     assertTrue(!appVersion.isNullOrBlank(), "Expected the app version metadata field to be rendered, but was: $appVersion")
+  }
+
+  @Test
+  fun `edit data page shows the import provenance metadata field when the data was created from an import`() {
+    val appName = "Import Provenance App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+    val dataId = createDataAndGetId(installedAppId, entityId)
+
+    val appDataItem = appDataRepository.findById(AppDataId(dataId))!!
+    appDataRepository.save(
+      appDataItem.copy(
+        importProvenance = ImportProvenance(connectionId = null, connectionName = "My API", sourceUrl = "https://example.com/data"),
+      ),
+    )
+
+    val html = given()
+      .`when`()
+      .get("/ui/user/apps/$installedAppId/data/$dataId")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(html.contains("data-testid=\"detail-import-provenance\""), "Expected the import provenance metadata field to be rendered")
+    assertTrue(html.contains("My API"), "Expected the connection name to be rendered")
+    assertTrue(html.contains("https://example.com/data"), "Expected the source URL to be rendered")
   }
 
   @Test

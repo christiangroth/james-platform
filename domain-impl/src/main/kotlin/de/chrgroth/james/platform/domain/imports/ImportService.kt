@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.ImportProvenance
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
@@ -361,6 +362,15 @@ class ImportService(
       logger.warn { "Accept dry run handler failed: import job has no mapping: ${event.importJobId}" }
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
+    val connection = importConnectionRepository.findById(existing.connectionId) ?: run {
+      logger.warn { "Accept dry run handler failed: connection not found: ${existing.connectionId} for importJobId: ${event.importJobId}" }
+      return ImportError.CONNECTION_NOT_FOUND.left()
+    }
+    val importProvenance = ImportProvenance(
+      connectionId = connection.id,
+      connectionName = connection.name,
+      sourceUrl = resolveImportUrl(connection.baseUrl, existing.urlPostfix),
+    )
 
     if (event.replaceExisting) {
       appDataRepository.deleteAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id)
@@ -384,6 +394,7 @@ class ImportService(
           createdAt = now,
           lastChangedAt = now,
           data = data,
+          importProvenance = importProvenance,
         ),
       )
       savedCount++

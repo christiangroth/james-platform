@@ -16,6 +16,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.ImportProvenance
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -950,6 +951,7 @@ class ImportServiceTests {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
     val job = importJob(
       status = ImportStatus.ACCEPTING,
       payload = """{"items":[{"name":"Alice"},{"name":null}]}""",
@@ -967,9 +969,33 @@ class ImportServiceTests {
     assertThat(savedAppData.captured.data).isEqualTo(mapOf("prop-1" to "Alice"))
     assertThat(savedAppData.captured.installedAppId).isEqualTo(InstalledAppId("installed-1"))
     assertThat(savedAppData.captured.entityType).isEqualTo(EntityDefinitionId("entity-1"))
+    assertThat(savedAppData.captured.importProvenance).isEqualTo(
+      ImportProvenance(connectionId = ImportConnectionId("conn-1"), connectionName = "My API", sourceUrl = "https://example.com/data"),
+    )
     verify(exactly = 1) { appDataRepository.save(any()) }
     verify(exactly = 1) { importJobRepository.delete(job.id) }
     verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
+  }
+
+  @Test
+  fun `handle accept dry run fails when the import connection was deleted before processing`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns null
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
+
+    assertThat(result).isEqualTo(ImportError.CONNECTION_NOT_FOUND.left())
+    verify(exactly = 0) { appDataRepository.save(any()) }
+    verify(exactly = 0) { importJobRepository.delete(any()) }
   }
 
   @Test
@@ -990,6 +1016,7 @@ class ImportServiceTests {
     )
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returnsMany
       listOf(listOf(existingAppData), emptyList())
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
     justRun { appDataRepository.deleteAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) }
     val job = importJob(
       status = ImportStatus.ACCEPTING,
@@ -1018,6 +1045,7 @@ class ImportServiceTests {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersionWithAggregation
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
     val job = importJob(
       status = ImportStatus.ACCEPTING,
       payload = """{"items":[{"name":"Alice"}]}""",
@@ -1041,6 +1069,7 @@ class ImportServiceTests {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
     val job = importJob(
       status = ImportStatus.ACCEPTING,
       payload = """{"items":[{"name":null}]}""",

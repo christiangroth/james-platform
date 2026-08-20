@@ -21,4 +21,13 @@ class AppDataDocument {
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
   var data: Map<String, String?> = emptyMap()
+
+  // Null for data not created via import, and for documents saved before this field existed.
+  var importProvenance: ImportProvenanceDocument? = null
+}
+
+class ImportProvenanceDocument {
+  var connectionId: String? = null
+  lateinit var connectionName: String
+  lateinit var sourceUrl: String
 }

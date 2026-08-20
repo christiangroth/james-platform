@@ -745,6 +745,9 @@ interface UserMessages {
   fun userAppVersionLabel(): String
 
   @Message
+  fun userImportProvenanceLabel(): String
+
+  @Message
   fun userComputedPropertiesLabel(): String
 
   @Message
