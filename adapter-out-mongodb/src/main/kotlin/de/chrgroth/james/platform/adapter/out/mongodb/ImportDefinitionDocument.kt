@@ -20,6 +20,7 @@ class ImportDefinitionDocument {
   var schedule: String? = null
   var lastRunAt: Instant? = null
   var lastKnownSchema: List<SchemaPropertyDocument> = emptyList()
+  var notifyOnSlack: Boolean = false
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
 }

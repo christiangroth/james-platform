@@ -18,6 +18,8 @@ value class ImportDefinitionId(val value: String)
  * trigger unattended runs (see `ImportService.triggerScheduledImport`). [lastKnownSchema] is the raw schema detected
  * by the most recent run that was allowed to proceed to accept; a later run whose freshly detected schema deviates
  * from it aborts without accepting, to avoid silently importing data that no longer matches the configured mapping.
+ * [notifyOnSlack], when set, sends a best-effort Slack summary (via `NotificationPort`) after every scheduled run of
+ * this definition - see `ImportScheduleService` and `ImportService.handle`.
  */
 data class ImportDefinition(
   val id: ImportDefinitionId,
@@ -32,6 +34,7 @@ data class ImportDefinition(
   val schedule: String? = null,
   val lastRunAt: Instant? = null,
   val lastKnownSchema: List<SchemaProperty> = emptyList(),
+  val notifyOnSlack: Boolean = false,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )
