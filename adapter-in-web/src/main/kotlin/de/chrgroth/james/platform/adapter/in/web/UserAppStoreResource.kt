@@ -103,6 +103,12 @@ data class AppDataDetail(
   val displayText: String,
   val properties: List<AppDataPropertyView>,
   val computedProperties: List<AppDataComputedPropertyView>,
+  val importProvenance: AppDataImportProvenanceView? = null,
+)
+
+data class AppDataImportProvenanceView(
+  val connectionName: String,
+  val sourceUrl: String,
 )
 
 data class EntityTab(
@@ -418,6 +424,9 @@ class UserAppStoreResource {
           appVersion = appDataItem.appVersion.value,
           referenceText = computeReferenceText(entityDef, appDataItem.id.value, appDataItem.data),
           displayText = computeDisplayText(entityDef, appDataItem.id.value, appDataItem.data),
+          importProvenance = appDataItem.importProvenance?.let {
+            AppDataImportProvenanceView(connectionName = it.connectionName, sourceUrl = it.sourceUrl)
+          },
           properties = entityDef.properties.map { prop ->
             AppDataPropertyView(
               id = prop.id.value,
