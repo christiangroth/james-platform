@@ -1,3 +1,12 @@
+# 0.104.1 (2026.08.20)
+
+## Bugfixes / Chore
+* Internal restructuring of the data import feature to prepare reusable import configurations for a later release; no visible change.
+
+
+
+---
+
 # 0.104.0 (2026.08.20)
 
 ## New Features
