@@ -105,7 +105,7 @@ interface DeveloperMessages {
   @Message
   fun developerDiffButton(): String
 
-  // developer test installations (see docs/dev-tests.md)
+  // developer test installations
   @Message
   fun developerTestInstallationsHeading(): String
 
@@ -145,7 +145,7 @@ interface DeveloperMessages {
   @Message
   fun developerTestInstallationNotFoundError(): String
 
-  // developer test data generator (see docs/dev-tests.md, "Phase 1 - Automatic Test Data Generator")
+  // developer test data generator
   @Message
   fun developerGenerateTestDataAriaLabel(): String
 
@@ -170,7 +170,7 @@ interface DeveloperMessages {
   @Message
   fun developerGenerateTestDataSuccessMessage(count: Int): String
 
-  /** Shown once a large run was enqueued via the outbox instead of generated inline (see docs/dev-tests.md, "Execution model"). */
+  /** Shown once a large run was enqueued via the outbox instead of generated inline. */
   @Message
   fun developerGenerateTestDataQueuedMessage(): String
 

@@ -384,7 +384,7 @@ class TestDataGeneratorServiceTests {
 
   // endregion
 
-  // region async / outbox threshold (see docs/dev-tests.md, "Execution model")
+  // region async / outbox threshold
 
   @Test
   fun `generateTestData enqueues via the outbox instead of generating inline above the async threshold`() {

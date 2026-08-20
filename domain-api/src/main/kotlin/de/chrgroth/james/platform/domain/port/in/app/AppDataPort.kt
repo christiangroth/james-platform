@@ -36,7 +36,7 @@ interface AppDataPort {
 
   /**
    * Runs the same constraint validation [createAppData]/[updateAppData] apply, against already-stored-form [data] (no unit conversion or
-   * form-value decoding), for reuse by callers that already hold data in that form, e.g. App Version Migration (see docs/app-version-migration.md).
+   * form-value decoding), for reuse by callers that already hold data in that form, e.g. App Version Migration.
    * [excludingDataId], if given, excludes that object's own AppData row from sibling-uniqueness checks (as when re-validating that same object).
    */
   fun validateEntityData(entityDef: EntityDefinition, data: Map<String, String?>, installedAppId: String, excludingDataId: String? = null): Either<DomainError, Unit>

@@ -124,8 +124,7 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
 
   /**
    * Generates [count] test objects for entity [entityId] into test installation [installedAppId] (belonging to
-   * [appId]) in the background instead of blocking the request (see docs/dev-tests.md, "Execution model - synchronous
-   * vs. outbox"). Runs on its own [DomainOutboxPartition.TestDataGeneration] partition per ADR 0019's mandatory
+   * [appId]) in the background instead of blocking the request. Runs on its own [DomainOutboxPartition.TestDataGeneration] partition per ADR 0019's mandatory
    * per-operation partition separation, so a backlog here never delays the other domain operations sharing
    * [DomainOutboxPartition.Domain]. Deduplicated per installation and entity so a repeated/double-submitted generate
    * click while a run for the same entity is already queued does not enqueue a second one.

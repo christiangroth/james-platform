@@ -139,7 +139,7 @@ sharing, and Report data sources. Within a test installation a Developer can:
   they don't block the request.
 - Hand-craft data via the same generic create/edit UI Users have, reachable from the Developer's App view.
 
-Testing Reports against a test installation is deferred until Report execution/sandboxing is finalized — see [docs/dev-tests.md](../dev-tests.md).
+Testing Reports against a test installation is deferred until Report execution/sandboxing is finalized.
 
 ### Aggregations
 

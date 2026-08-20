@@ -11,7 +11,7 @@ data class InstalledApp(
   val appId: AppId,
   val installedVersionNumber: VersionNumber,
   val installedAt: Instant,
-  /** Marks a Developer-owned test installation (see docs/dev-tests.md), excluded from normal User-facing listings, sharing, and Report data sources. */
+  /** Marks a Developer-owned test installation, excluded from normal User-facing listings, sharing, and Report data sources. */
   val isTest: Boolean = false,
   /** Set only for test installations, so they can pin a DRAFT version (which has no [installedVersionNumber] yet). Real installations resolve their version by number instead. */
   val installedVersionId: AppVersionId? = null,

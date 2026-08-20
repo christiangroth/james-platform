@@ -117,7 +117,7 @@ class AppManagementService(
     }
     val updatedApp = app.copy(status = AppStatus.INACTIVE, updatedAt = Instant.now())
     appRepository.save(updatedApp)
-    // Test installations (see docs/dev-tests.md) are not real Users, so they are excluded from this count.
+    // Test installations are not real Users, so they are excluded from this count.
     val activeInstallationCount = installedAppRepository.findAllByAppId(updatedApp.id).count { !it.isTest }
     logger.info { "App deactivated: $appId, active installations unaffected: $activeInstallationCount" }
     return AppDeactivationResult(app = updatedApp, activeInstallationCount = activeInstallationCount).right()
@@ -151,7 +151,7 @@ class AppManagementService(
       logger.warn { "Delete app failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
-    // Test installations (see docs/dev-tests.md) don't block deletion; any left over are cleaned up in the handler below.
+    // Test installations don't block deletion; any left over are cleaned up in the handler below.
     if (installedAppRepository.findAllByAppId(app.id).any { !it.isTest }) {
       logger.warn { "Delete app failed: has active installations: $appId" }
       return AppError.HAS_ACTIVE_INSTALLATIONS.left()
@@ -186,7 +186,7 @@ class AppManagementService(
       logger.warn { "Get active installation count failed: not owned by developer: $appId" }
       return AppError.APP_NOT_FOUND.left()
     }
-    // Test installations (see docs/dev-tests.md) are not real Users, so they are excluded from this count.
+    // Test installations are not real Users, so they are excluded from this count.
     return installedAppRepository.findAllByAppId(app.id).count { !it.isTest }.right()
   }
 

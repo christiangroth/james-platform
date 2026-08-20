@@ -7,7 +7,7 @@ sealed interface DomainOutboxPartition : ApplicationOutboxPartition {
     override val key = "domain"
   }
 
-  /** Dedicated partition for [DomainOutboxEvent.GenerateTestData] (see docs/dev-tests.md, "Execution model"), kept separate from [Domain] per ADR 0019's mandatory per-operation partition separation. */
+  /** Dedicated partition for [DomainOutboxEvent.GenerateTestData], kept separate from [Domain] per ADR 0019's mandatory per-operation partition separation. */
   data object TestDataGeneration : DomainOutboxPartition {
     override val key = "test-data-generation"
   }

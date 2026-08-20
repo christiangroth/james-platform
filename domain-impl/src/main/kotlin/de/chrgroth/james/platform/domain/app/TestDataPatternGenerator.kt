@@ -10,7 +10,7 @@ import kotlin.random.Random
  * [UNBOUNDED_REPEAT_CAP] repeats to keep generated values bounded.
  *
  * This is not a general regex engine - patterns using backreferences, lookaround, or other unsupported syntax produce best-effort
- * output that the caller must still verify against the real [Regex] (see docs/dev-tests.md's open question on Pattern generation);
+ * output that the caller must still verify against the real [Regex];
  * [TestDataGeneratorService] retries a bounded number of times and fails generation cleanly if no candidate ever matches.
  */
 internal object TestDataPatternGenerator {

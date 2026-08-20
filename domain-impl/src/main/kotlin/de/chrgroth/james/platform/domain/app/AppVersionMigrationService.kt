@@ -34,7 +34,7 @@ import javax.script.ScriptEngineManager
 
 /**
  * Executes Developer-authored Entity migration scripts as part of the installation upgrade flow, reusing the same JSR-223 Kotlin script
- * sandbox as [ComputedPropertyService]. See docs/app-version-migration.md and docs/adr/0018-app-version-migration-execution-trigger.md.
+ * sandbox as [ComputedPropertyService]. See docs/adr/0018-app-version-migration-execution-trigger.md.
  */
 @ApplicationScoped
 @Suppress("Unused")

@@ -83,7 +83,7 @@ class UserAppStoreService(
   }
 
   override fun getInstalledApps(userId: String): List<InstalledAppInfo> {
-    // Test installations (see docs/dev-tests.md) are excluded from this normal User-facing listing.
+    // Test installations are excluded from this normal User-facing listing.
     val installed = installedAppRepository.findAllByUserId(userId).filter { !it.isTest }
     return installed.mapNotNull { installedApp ->
       val app = appRepository.findById(installedApp.appId) ?: return@mapNotNull null

@@ -55,7 +55,7 @@ data class DeveloperApiResult(
   val fieldErrors: Map<String, String>? = null,
   val propertyId: String? = null,
   val errorDetails: List<String>? = null,
-  /** Set for [TestDataGeneratorPort.generateTestData] once a large run was enqueued instead of generated inline (see docs/dev-tests.md, "Execution model"). */
+  /** Set for [TestDataGeneratorPort.generateTestData] once a large run was enqueued instead of generated inline. */
   val queued: Boolean = false,
 )
 
@@ -75,7 +75,7 @@ data class DashboardAppInfo(
   val latestVersionPublishedAt: Instant?,
 )
 
-/** A Developer-owned test installation shown on the app overview page (see docs/dev-tests.md). */
+/** A Developer-owned test installation shown on the app overview page. */
 data class TestInstallationInfo(
   val installedAppId: String,
   val version: AppVersion,
@@ -300,7 +300,7 @@ class DeveloperAppResource {
     )
   }
 
-  /** See docs/dev-tests.md ("Test Installations"): a test installation for any version of a Developer's own app, without a real User account. */
+  /** A test installation for any version of a Developer's own app, without a real User account. */
   @POST
   @Path("/apps/{appId}/test-installations")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -695,7 +695,7 @@ class DeveloperAppResource {
     )
   }
 
-  /** See docs/dev-tests.md ("Phase 1 - Automatic Test Data Generator"): the synchronous, bounded generation case triggered from the entity editor. */
+  /** The synchronous, bounded generation case triggered from the entity editor. */
   @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/generate-test-data")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -723,7 +723,7 @@ class DeveloperAppResource {
     )
   }
 
-  /** Polled by the version editor page while a generation run enqueued by [generateTestData] runs in the background (see docs/dev-tests.md, "Execution model"). */
+  /** Polled by the version editor page while a generation run enqueued by [generateTestData] runs in the background. */
   @GET
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/generate-test-data/status")
   @Produces(MediaType.APPLICATION_JSON)
