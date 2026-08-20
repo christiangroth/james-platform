@@ -67,6 +67,9 @@ class ImportService(
   override fun listAllImportJobs(userId: String): List<ImportJob> =
     importJobRepository.findAllByUserId(userId).sortedByDescending { it.createdAt }
 
+  override fun listAllImportDefinitions(userId: String): List<ImportDefinition> =
+    importDefinitionRepository.findAllByUserId(userId)
+
   override fun triggerImport(
     userId: String,
     installedAppId: String,

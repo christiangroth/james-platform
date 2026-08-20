@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
@@ -15,6 +16,9 @@ import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 interface ImportPort {
   /** Lists all of [userId]'s import jobs across every installed app, newest first. */
   fun listAllImportJobs(userId: String): List<ImportJob>
+
+  /** Lists all of [userId]'s import definitions, for bulk-joining connection/target entity/mapping data onto [listAllImportJobs] (see [ImportDefinition]). */
+  fun listAllImportDefinitions(userId: String): List<ImportDefinition>
 
   /**
    * Fetches from the connection's base URL - or, when [urlPostfix] is given, from the base URL with it appended -
