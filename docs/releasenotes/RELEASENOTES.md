@@ -1,3 +1,13 @@
+# 0.103.0 (2026.08.20)
+
+## New Features
+* Aggregationswerte (Kennzahlen) werden nun auf der Entitäts-Detailseite installierter Apps angezeigt.
+* Bei einer ausstehenden Aktualisierung einer Kennzahl erscheint ein dezenter Hinweis, bis die Anzeige beim nächsten Laden der Seite wieder aktuell ist.
+
+
+
+---
+
 # 0.102.3 (2026.08.19)
 
 ## Bugfixes / Chore
