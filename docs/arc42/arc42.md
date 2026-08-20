@@ -30,6 +30,10 @@ James Platform is a personal Low Code system for building and running data-centr
   - *Non-breaking change* → Developer chooses between **Feature** or **Bugfix** release.
   - The version number is never entered manually.
 - A released Version records a release date and release notes.
+- A Developer can attach an optional **migration script** (Kotlin, same JSR-223 sandbox as Computed Properties) to an Entity, transforming existing `AppData` when an
+  installation upgrades past that Version. A migration that provably brings all existing data into a valid state (checked via a dry-run at publish time) can neutralize
+  what would otherwise be a breaking change, avoiding a mandatory Major bump. Migrations run synchronously as part of the upgrade (auto-upgrade for non-breaking
+  Versions, or explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md).
 
 ### Entities and Properties
 
@@ -124,6 +128,35 @@ The shared installation is treated as a separate installation. Supported sharing
 - A set of built-in helper functions (charts, aggregation, date handling, …) is available to every Report; this code is maintained as part of the platform and is not user-supplied.
 - A Report may only access data from its own App installation (sandbox boundary).
 - The platform must prevent Developers from embedding malicious code in Reports (concept to be finalised — see the sandboxing trade-off already accepted for computed properties in ADR [0008](../adr/0008-computed-property-script-execution.md), which Reports will likely need to revisit given Reports execute in the browser, not backend-side).
+
+### Developer Test Data
+
+A Developer can create a **test installation** of any Version of an App they own — an `InstalledApp` flagged as test-only, excluded from normal User-facing listings,
+sharing, and Report data sources. Within a test installation a Developer can:
+
+- Generate constraint-aware test data automatically per Entity (type- and constraint-driven, unit-aware, `ref`-aware with topological generation of referenced objects,
+  reproducible via a seed); large generation runs are routed through the outbox (ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)) so
+  they don't block the request.
+- Hand-craft data via the same generic create/edit UI Users have, reachable from the Developer's App view.
+
+Testing Reports against a test installation is deferred until Report execution/sandboxing is finalized — see [docs/dev-tests.md](../dev-tests.md).
+
+### Aggregations
+
+A Developer can declare an **`AggregationDefinition`** on an `EntityDefinition` — a precomputed rollup over that Entity's data, analogous in spirit to a Computed
+Property but declarative rather than scripted (see ADR [0020](../adr/0020-aggregation-definitions.md)):
+
+- A **function** (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`) applied to a numeric `sourceProperty` (`COUNT` accepts any type).
+- An optional **`refPath`** (a single-hop `ref` property) groups the aggregation's values per instance of the referenced Entity instead of producing one value across all
+  instances, e.g. total kilometers per running shoe via a `Lauf.laufschuhId` reference.
+- An optional **`timeBucket`** (`TAG`/`WOCHE`/`MONAT`/`JAHR`) buckets values by day/week/month/year, derived from an optional `timeProperty` (a `date`/`datetime`
+  property) or, if unset, the object's `createdAt`.
+- An optional **`groupBy`** groups values by another top-level property of the same Entity.
+
+Values are stored as precomputed read-model documents (reusing the storage convention from ADR [0013](../adr/0013-precomputed-read-models-per-ui-page.md)), each carrying
+a `status` (`UP_TO_DATE`/`STALE`). Single-object writes update affected aggregations inline via a statically derived dependency index; bulk recomputation (e.g. on
+`AppVersion` publish) runs through the outbox (ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)). Aggregation values are shown directly
+on the app installation page. Transitive (multi-hop) `ref` chains and true percentiles are deliberately out of scope for the first iteration.
 
 ### Data Import (ETL)
 
@@ -534,7 +567,7 @@ repository secrets (`gradle.yml`), and at runtime via the Docker stack's `enviro
 config, but redact values for keys listed in `app.health.masked-config-keys` /
 `app.health.masked-env-keys` (`adapter-in-web` `application.properties`). Any new
 secret-backed config key must be added to this list in the same change that introduces it —
-this has been missed twice historically (see `docs/backport.md` section 3).
+this has been missed historically.
 
 **Other notable non-secret config:** `app.script.timeout-ms` (computed-property/smart-default
 script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
@@ -565,8 +598,10 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0014](../adr/0014-app-lifecycle.md)                          | App Lifecycle: Non-Blocking Deactivation, Blocking Hard Delete |
 | [0015](../adr/0015-import-object-preview-endpoint.md)         | Import Filter Preview: Per-Record Sample Endpoint Reusing FilterEvaluator |
 | [0016](../adr/0016-property-units-storage-granularity.md)     | Property Units: Fixed Numeric Storage Granularity, Immutable After Creation |
+| [0017](../adr/0017-duration-migration-and-removal.md)         | Duration Type: Migration to Property Units and Removal |
 | [0018](../adr/0018-app-version-migration-execution-trigger.md) | App Version Migrations: Synchronous, In-Request Execution on Upgrade |
 | [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md) | Persistent Outbox for Long-Running Domain Operations |
+| [0020](../adr/0020-aggregation-definitions.md)                | Aggregation Definitions: Combining Precomputed Read Models and the Outbox |
 
 # Risks and Technical Debts
 
@@ -577,8 +612,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
   if that trust model ever changes (e.g. multi-tenant, non-trusted Developers), this needs
   revisiting before Reports (which are meant to run Developer-supplied code too) are built.
 - **No static analysis tooling.** detekt was removed while fixing an unrelated session-cookie
-  bug (see `docs/backport.md` section 1) and never reinstated; regressions in code quality/
-  complexity are currently only caught by review, not CI.
+  bug and never reinstated; regressions in code quality/complexity are currently only caught
+  by review, not CI.
 - **Single external dependency for auth secrets.** `APP_TOKEN_ENCRYPTION_KEY` must never
   change in production (invalidates all sessions) and has no rotation mechanism.
 

@@ -1,6 +1,8 @@
 # App Version Migrations — Concept
 
-Status: draft (concept only, not yet implemented)
+> **Status: implemented**, per ADR [0018](adr/0018-app-version-migration-execution-trigger.md) (issues #607–#616, #609). Kept as the detailed design rationale — code
+> throughout `domain-api`/`domain-impl` (e.g. `EntityDefinition.migrationScript`, `AppVersionMigrationPort`, `AppVersionMigrationService`) cites specific sections of
+> this document, and the arc42 summary lives under [Apps and Versions](arc42/arc42.md#apps-and-versions). The sections below describe the shipped design, not a proposal.
 
 ## 1. Problem Statement
 

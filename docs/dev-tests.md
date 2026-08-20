@@ -1,5 +1,10 @@
 # Developer Test Data & Testing Concept
 
+> **Status: Phases 1–2 implemented.** Test installations, the automatic test data generator (`TestDataGeneratorPort`), its outbox-backed execution for large runs, and the
+> Developer UI for triggering generation are all implemented (issue series [#321](https://github.com/christiangroth/james-platform/issues/321), #635–#648). Phase 3
+> (testing Reports) remains deferred — see that section below — since it depends on Report execution/sandboxing, which does not exist yet
+> (see [arc42.md – Reports](arc42/arc42.md#reports)). This document is kept as the design rationale for Phases 1–2 and the concept for the still-open Phase 3.
+
 ## Purpose and Scope
 
 This document addresses [issue #321](https://github.com/christiangroth/james-platform/issues/321): as Developers build increasingly complex Apps (more Entities, more Properties,
