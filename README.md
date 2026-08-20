@@ -5,11 +5,26 @@ single-developer tool on a personal VPS and provides a web UI for managing users
 
 ## Features
 
-- **User Management** – Admins can register, activate/deactivate, set passwords, and delete user accounts. Roles (USER, DEVELOPER, ADMIN) are assigned per account.
+- **Low-Code App Builder** – Developers define **Apps** as a series of semantically versioned **Entities**, each with typed, constrained **Properties** (`long`, `Double`,
+  `boolean`, `String`, `date`, `time`, `datetime`, `ref`, `List`, `object`) — no infrastructure or CRUD boilerplate to write.
+- **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
+  forward) and Snapshot mode (reusable form templates).
+- **Computed Properties & Smart Defaults** – Derived values and form defaults backed by Developer-authored Kotlin scripts, executed backend-side with a timeout guard.
+- **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, optional day/week/month/year bucketing, optional grouping via a `ref`) over an Entity's
+  data, shown directly on the app installation.
+- **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by a Developer-authored
+  migration script that transforms existing data on upgrade.
+- **Data Import (ETL)** – Users import external JSON data into an installed App through a guided fetch → detect → map → dry-run → accept flow, including SSRF-hardened
+  fetching and unit-aware value mapping.
+- **Data Sharing** – A User can invite others to share an installed App's data, either with full read/write/delete or read-all/edit-own permissions.
+- **Developer Test Data** – Developers generate constraint-aware test data (or hand-craft it) in dedicated test installations, without touching real User data.
+- **User Management** – Admins can register, activate/deactivate, set passwords, and delete user accounts. Roles (USER, DEVELOPER, ADMIN, MONITORING, DATA_IMPORT) are
+  assigned per account.
 - **Authentication** – Cookie-based login with bcrypt password hashing and persistent sessions (14-day lifetime with automatic renewal).
 - **Profile** – Authenticated users can view and update their username, password, and account metadata.
-- **In-App Documentation** – Architecture docs and coding guidelines are served and rendered directly in the UI.
-- **Monitoring** – Prometheus metrics and structured logs shipped to Grafana Cloud.
+- **Reliability** – Long-running operations (import accept, uninstall, app/user deletion, version auto-upgrade) run through a persistent outbox for at-least-once execution.
+- **In-App Documentation** – Architecture docs, ADRs, and release notes are served and rendered directly in the UI.
+- **Monitoring** – Health/config/logs/metrics pages in-app, plus Prometheus metrics and structured logs shipped to Grafana Cloud.
 
 ## Tech Stack
 

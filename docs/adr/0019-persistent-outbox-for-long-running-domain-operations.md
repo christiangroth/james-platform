@@ -26,7 +26,7 @@ platform execute these long-running operations reliably and resumably, without w
 
 The five operations above are the first, concrete instances of a general shape, not a closed list. The platform will keep growing additional long-running domain/business
 operations (fachliche Operationen) and technical operations (e.g. maintenance/reindexing jobs) that face the identical in-request-timeout problem – bulk test-data generation
-and Report test runs (see [docs/dev-tests.md](../dev-tests.md)) are already-identified future candidates. Deciding the outbox question again from scratch for every such
+and Report test runs are already-identified future candidates. Deciding the outbox question again from scratch for every such
 operation would be wasteful; this ADR is written to authorize the outbox as the platform's standing mechanism for long-running work in general, business or technical, with
 the five operations of series #543 as its first adopters.
 
@@ -91,7 +91,7 @@ operations identified in series [#543](https://github.com/christiangroth/james-p
 Import (ETL) accept, App uninstall/data deletion, App deletion, User deletion, and App Version Migration on
 publish/bulk auto-upgrade). Those five remain the first concrete adopters and the ones with event types defined
 by the follow-up tickets in this series (2/6–6/6); a future long-running operation (e.g. bulk test-data
-generation or Report test runs, see [docs/dev-tests.md](../dev-tests.md)) may add its own
+generation or Report test runs) may add its own
 `DomainOutboxEvent`/`DomainOutboxPartition` without requiring a new or amended ADR, as long as it follows the
 partitioning rule below. This is still not a general-purpose event bus for arbitrary messaging or decoupling
 between bounded contexts – it exists specifically for the request-timeout/crash-recovery problem stated above,

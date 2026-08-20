@@ -7,7 +7,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 
-/** Result of running a single Entity's [EntityDefinition.migrationScript], see docs/app-version-migration.md section 5.3. */
+/** Result of running a single Entity's [EntityDefinition.migrationScript]. */
 sealed interface MigrationScriptResult {
   data class Success(val data: Map<String, String?>) : MigrationScriptResult
   data class Failure(val reason: String) : MigrationScriptResult
@@ -15,7 +15,7 @@ sealed interface MigrationScriptResult {
 
 /**
  * Executes Developer-authored Entity migration scripts (distinct from the platform-internal, one-time [AppDataMigrationPort]) as part of the
- * installation upgrade flow. See docs/app-version-migration.md.
+ * installation upgrade flow.
  */
 interface AppVersionMigrationPort {
 
@@ -33,9 +33,9 @@ interface AppVersionMigrationPort {
 
   /**
    * Dry-runs each (previous, new) Entity pair in [entityMigrations] against every existing AppData row of [appId], across all installations,
-   * without persisting anything. Used by `AppVersionManagementService.publishVersion()`/`computeVersionBump()` (see
-   * docs/app-version-migration.md section 5.4) to check whether a migration neutralizes an otherwise-breaking change before a Version is
-   * published. Returns [Unit] on success (including when there is no matching data); on failure, the [DomainError] describing the first
+   * without persisting anything. Used by `AppVersionManagementService.publishVersion()`/`computeVersionBump()` to check whether a migration
+   * neutralizes an otherwise-breaking change before a Version is published. Returns [Unit] on success (including when there is no matching
+   * data); on failure, the [DomainError] describing the first
    * failing object.
    */
   fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit>

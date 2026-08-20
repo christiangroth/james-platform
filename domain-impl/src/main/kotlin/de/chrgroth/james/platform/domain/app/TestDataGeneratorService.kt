@@ -41,7 +41,7 @@ import java.util.UUID
 import kotlin.random.Random
 
 /**
- * Implements the automatic test data generator (see docs/dev-tests.md, "Phase 1"). One generation strategy per [PropertyType],
+ * Implements the automatic test data generator. One generation strategy per [PropertyType],
  * respecting every [PropertyConstraint], [Property.nullable], and (for `LONG`/`DOUBLE`) the property's [de.chrgroth.james.platform.domain.model.app.PropertyUnit] -
  * generated numeric values are already expressed in the property's fixed `storageGranularity` (see ADR 0016), the same
  * representation constraints and [AppData.data] use, so no unit-text conversion is needed here.
@@ -171,7 +171,7 @@ class TestDataGeneratorService(
     installedAppRepository.save(installedApp.copy(generatingEntityId = null))
   }
 
-  /** Test installations (see docs/dev-tests.md) pin their version by id since a DRAFT version has no [InstalledApp.installedVersionNumber] yet. */
+  /** Test installations pin their version by id since a DRAFT version has no [InstalledApp.installedVersionNumber] yet. */
   private fun resolveAppVersion(installedApp: InstalledApp): AppVersion? =
     installedApp.installedVersionId?.let { appVersionRepository.findById(it) }
       ?: appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)
@@ -423,7 +423,7 @@ class TestDataGeneratorService(
   companion object : KLogging() {
     private const val MAX_GENERATE_COUNT = 500
 
-    /** Above this object count a run is enqueued via the outbox instead of generated in-request (see docs/dev-tests.md, "Execution model"). */
+    /** Above this object count a run is enqueued via the outbox instead of generated in-request. */
     private const val ASYNC_GENERATION_THRESHOLD = 100
     private const val PERCENT_RANGE = 100
     private const val NULL_PROBABILITY_PERCENT = 15

@@ -106,7 +106,6 @@ enum class UserAppStoreError(override val code: String) : DomainError {
   ;
 }
 
-/** See docs/dev-tests.md ("Test Installations"). */
 enum class DeveloperTestInstallationError(override val code: String) : DomainError {
   APP_NOT_FOUND("TESTINST-001"),
   VERSION_NOT_FOUND("TESTINST-002"),
@@ -114,7 +113,6 @@ enum class DeveloperTestInstallationError(override val code: String) : DomainErr
   ;
 }
 
-/** See docs/dev-tests.md ("Phase 1 – Automatic Test Data Generator"). */
 enum class TestDataGeneratorError(override val code: String) : DomainError {
   APP_NOT_FOUND("TESTDATA-001"),
   INSTALLATION_NOT_FOUND("TESTDATA-002"),
@@ -126,7 +124,7 @@ enum class TestDataGeneratorError(override val code: String) : DomainError {
   ;
 }
 
-/** See docs/app-version-migration.md and docs/adr/0018-app-version-migration-execution-trigger.md. */
+/** See docs/adr/0018-app-version-migration-execution-trigger.md. */
 enum class AppVersionMigrationError(override val code: String) : DomainError {
   SCRIPT_FAILED("MIGRATION-001"),
   VALIDATION_FAILED_AFTER_MIGRATION("MIGRATION-002"),
@@ -206,7 +204,7 @@ data class PathedConstraintViolation(
   val violation: PropertyConstraintViolation,
 )
 
-/** An Entity's migration script (see docs/app-version-migration.md) threw or timed out while migrating one AppData object during an installation upgrade. */
+/** An Entity's migration script threw or timed out while migrating one AppData object during an installation upgrade. */
 data class AppVersionMigrationScriptFailedError(
   val entityName: String,
   val appDataId: String,

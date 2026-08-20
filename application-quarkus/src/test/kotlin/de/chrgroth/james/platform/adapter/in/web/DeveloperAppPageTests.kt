@@ -775,7 +775,7 @@ class DeveloperAppPageTests {
       .statusCode(200)
   }
 
-  /** See docs/dev-tests.md ("Test Installations"): mirrors [awaitAppDeleted], but for a single test installation removed via the same outbox event. */
+  /** Mirrors [awaitAppDeleted], but for a single test installation removed via the same outbox event. */
   private fun awaitInstalledAppDeleted(installedAppId: String) {
     val deadlineMs = System.currentTimeMillis() + 5000
     while (System.currentTimeMillis() < deadlineMs) {
@@ -1118,7 +1118,7 @@ class DeveloperAppPageTests {
       .body(containsString("\"ok\":false"))
   }
 
-  /** See docs/dev-tests.md ("Execution model"): mirrors [awaitAppDeleted], but for a large generation run enqueued via the outbox. */
+  /** Mirrors [awaitAppDeleted], but for a large generation run enqueued via the outbox. */
   private fun awaitTestDataGenerated(appId: String, versionId: String, entityId: String, installedAppId: String) {
     val deadlineMs = System.currentTimeMillis() + 5000
     while (System.currentTimeMillis() < deadlineMs) {

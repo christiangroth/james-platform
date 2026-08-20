@@ -434,9 +434,9 @@ class UserAppDetailPageTests {
   }
 
   /**
-   * See docs/dev-tests.md ("Phase 2 - Manual Test Data Sets"): a test installation pinned to a DRAFT version (issue
-   * #635) must be reachable through the same generic CRUD pages as a real installation, and manually-entered data must
-   * coexist with data generated via the test data generator (issues #636/#637/#646/#647).
+   * A test installation pinned to a DRAFT version (issue #635) must be reachable through the same generic CRUD pages
+   * as a real installation, and manually-entered data must coexist with data generated via the test data generator
+   * (issues #636/#637/#646/#647).
    */
   @Test
   fun `test installation pinned to a draft version is reachable through the generic app detail page and mixes manual with generated data`() {

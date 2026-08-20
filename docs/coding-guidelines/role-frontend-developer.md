@@ -103,12 +103,11 @@ Dark, technical appearance – fitting a developer tool. No generic Bootstrap de
 - Empty states are designed – no raw "No data found" text; include a descriptive message and context
 - Error states are designed – Bootstrap toast notifications with clear, user-friendly messages
 
-Both a dark and a light theme are implemented, see [design-light-mode-proposal.md](design-light-mode-proposal.md) for the light palette rationale and contrast ratios. All colors
-are defined as CSS custom properties in `layout.html` under `:root` (dark, default) and `[data-theme="light"]` (light override) – **never hardcode a hex color in a template**;
-always reference the existing variable (e.g. `var(--color-text-muted)`) so both themes stay correct automatically.
+Both a dark and a light theme are implemented. All colors are defined as CSS custom properties in `layout.html` under `:root` (dark, default) and `[data-theme="light"]`
+(light override) – **never hardcode a hex color in a template**; always reference the existing variable (e.g. `var(--color-text-muted)`) so both themes stay correct
+automatically.
 
-Icons are the [Bootstrap Icons](https://icons.getbootstrap.com/) webfont (`org.webjars.npm:bootstrap-icons`, linked in `layout.html`) rendered as `<i class="bi bi-name"></i>`. The only remaining hand-drawn SVGs are genuine brand logos that aren't in that icon set: the app's own gradient logo (`#icon-nav-app` in the shared SVG sprite, also embedded standalone in `favicon.svg`), the Grafana logo (`#icon-nav-grafana`), and the MongoDB logo (`#icon-nav-mongodb`). The app logo and the login page's landing-style hero panel are documented in
-[design-branding-login-proposal.md](design-branding-login-proposal.md), including alternative background treatments that were considered but not implemented.
+Icons are the [Bootstrap Icons](https://icons.getbootstrap.com/) webfont (`org.webjars.npm:bootstrap-icons`, linked in `layout.html`) rendered as `<i class="bi bi-name"></i>`. The only remaining hand-drawn SVGs are genuine brand logos that aren't in that icon set: the app's own gradient logo (`#icon-nav-app` in the shared SVG sprite, also embedded standalone in `favicon.svg`), the Grafana logo (`#icon-nav-grafana`), and the MongoDB logo (`#icon-nav-mongodb`).
 
 ### Theme switching
 

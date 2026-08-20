@@ -58,10 +58,26 @@ Always format new and edited files according to `.editorconfig` before committin
 
 - **Architecture:** [docs/arc42/arc42.md](docs/arc42/arc42.md)
 - **Architecture decision records:** [docs/adr](docs/adr)
+- **Concepts & plans:** [docs/plans](docs/plans) — proposals and implementation plans for work not yet built
 - **Architect role guidelines:** [docs/coding-guidelines/role-architect.md](docs/coding-guidelines/role-architect.md)
 - **Backend developer role guidelines:** [docs/coding-guidelines/role-backend-developer.md](docs/coding-guidelines/role-backend-developer.md)
 - **Frontend developer role guidelines:** [docs/coding-guidelines/role-frontend-developer.md](docs/coding-guidelines/role-frontend-developer.md)
 - **Test engineer role guidelines:** [docs/coding-guidelines/role-test-engineer.md](docs/coding-guidelines/role-test-engineer.md)
+
+## Keeping Documentation Current
+
+Documentation updates are part of a feature PR's definition of done, not a follow-up cleanup task:
+
+- **README & arc42:** When a PR ships a user-visible feature, update the README feature list and the relevant section of `docs/arc42/arc42.md` in the *same* PR — or explicitly note in the PR why no doc change is needed.
+- **New ADRs:** When adding an ADR, add its entry to the ADR summary table in `docs/arc42/arc42.md` in the same PR.
+- **Status banners:** Docs that carry a "not yet implemented" / proposal status (see "Concepts & Plans" below) must be updated or removed in the same PR that ships the corresponding feature — not left stale for a later cleanup pass.
+- **Before deleting a doc file:** grep the whole repo (docs, ADRs, KDoc/comments in `domain-api`, `domain-impl`, etc.) for the file name/path and remove or update every reference in the same commit that deletes the file.
+
+## Concepts & Plans
+
+- Collect proposals, concepts, and implementation plans for work that isn't built yet in `docs/plans/` — not directly under `docs/`, and not under `docs/coding-guidelines/`.
+- `docs/coding-guidelines/` is for role guidelines only (architect, backend developer, frontend developer, test engineer) — design/architecture proposals don't belong there.
+- Once a plan in `docs/plans/` has been implemented, delete it rather than leaving it as stale documentation (see "Keeping Documentation Current" above). If any of its content should live on as reference architecture, fold that into `docs/arc42/arc42.md` or an ADR as part of the same PR.
 
 ## Creating GitHub Issues
 

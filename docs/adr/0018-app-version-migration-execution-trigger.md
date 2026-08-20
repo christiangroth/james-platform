@@ -4,7 +4,7 @@
 * Deciders: Chris
 * Date: 2026-08-17
 
-Technical Story: [docs/app-version-migration.md](../app-version-migration.md), issue #607 (refs #327)
+Technical Story: issue #607 (refs #327)
 
 ## Context and Problem Statement
 
@@ -67,8 +67,7 @@ via the outbox worker) changes.
 ### Negative Consequences
 
 * A slow migration (many `AppData` rows, or a script close to the timeout for each) directly extends the latency of the upgrade request; there is no progress UI for
-  large datasets. Acceptable at the project's current single-user/personal scale (see Non-Goals in `docs/app-version-migration.md`), but would need revisiting if the
-  platform ever serves many installations per App.
+  large datasets. Acceptable at the project's current single-user/personal scale, but would need revisiting if the platform ever serves many installations per App.
 * `autoUpgradeInstallations()` (bulk, triggered synchronously from `publishVersion()`) now does meaningfully more work per installation than before; a Developer
   publishing a Version with a migration script pays that cost inline as part of the publish request.
 
@@ -92,14 +91,13 @@ via the outbox worker) changes.
 
 * Good, because it would spread migration cost across individual reads instead of one upgrade request.
 * Bad, because every read path (not just upgrade) would need migration-awareness, multiplying the number of places that must handle script failure.
-* Bad, because it contradicts `lastValidatedWithVersion`'s purpose (see `docs/app-version-migration.md` § 5.1) of cheaply knowing an object is already valid — reads
-  would need to re-check migration pendingness on every access instead of trusting that field.
+* Bad, because it contradicts `lastValidatedWithVersion`'s purpose of cheaply knowing an object is already valid — reads would need to re-check migration pendingness
+  on every access instead of trusting that field.
 
 ## Links
 
 * [`AppVersionMigrationService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppVersionMigrationService.kt)
 * [`AppVersionMigrationPort.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/port/in/app/AppVersionMigrationPort.kt)
-* [docs/app-version-migration.md](../app-version-migration.md)
 * Reuses the execution model from [ADR 0008](0008-computed-property-script-execution.md)
 * Follows the error-handling convention from [ADR 0006](0006-error-handling-concept.md)
 * Partially superseded by [ADR 0019](0019-persistent-outbox-for-long-running-domain-operations.md) (App Version

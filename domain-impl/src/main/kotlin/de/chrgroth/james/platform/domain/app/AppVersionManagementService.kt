@@ -221,7 +221,7 @@ class AppVersionManagementService(
   private fun autoUpgradeInstallations(appId: AppId, previousVersionNumber: VersionNumber?, newVersionNumber: VersionNumber) {
     if (previousVersionNumber == null) return
     val installations = installedAppRepository.findAllByAppId(appId)
-    // Test installations (see docs/dev-tests.md) stay pinned to the version the Developer explicitly chose for them.
+    // Test installations stay pinned to the version the Developer explicitly chose for them.
     val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber && !it.isTest }
     toUpgrade.forEach { installedApp ->
       outbox.enqueue(
@@ -1286,8 +1286,8 @@ class AppVersionManagementService(
     draft.entityDefinitions != published.entityDefinitions || draft.reports != published.reports
 
   /**
-   * Determines whether [draft] has breaking changes relative to [published], applying docs/app-version-migration.md section 5.4: if the
-   * change is breaking and [draft] declares a migration script for every Entity whose change made it breaking, dry-runs those migrations
+   * Determines whether [draft] has breaking changes relative to [published]: if the change is breaking and [draft] declares a migration
+   * script for every Entity whose change made it breaking, dry-runs those migrations
    * (via [appVersionMigration]) against all existing AppData of [appId] across every installation. A fully successful dry-run reclassifies
    * the change as non-breaking, allowing publish as Feature/Bugfix instead of a forced Major bump; a failed or incomplete dry-run leaves the
    * change breaking, exactly as before this reclassification existed.
@@ -1309,7 +1309,7 @@ class AppVersionManagementService(
     )
   }
 
-  /** The ids of Entities (present in [published]) whose change from [published] to [draft] is breaking, see docs/app-version-migration.md section 2.1. */
+  /** The ids of Entities (present in [published]) whose change from [published] to [draft] is breaking. */
   private fun breakingChangeEntityIds(published: AppVersion, draft: AppVersion): Set<EntityDefinitionId> {
     val draftEntitiesById = draft.entityDefinitions.associateBy { it.id }
     return published.entityDefinitions.mapNotNullTo(mutableSetOf()) { publishedEntity ->

@@ -29,7 +29,7 @@ data class EntityDefinition(
   val sortBy: List<SortCriteria> = emptyList(),
   val computedProperties: List<ComputedProperty> = emptyList(),
   val aggregations: List<AggregationDefinition> = emptyList(),
-  // Kotlin script transforming existing AppData when an installation upgrades past the Version this script is authored in, see docs/app-version-migration.md.
+  // Kotlin script transforming existing AppData when an installation upgrades past the Version this script is authored in.
   val migrationScript: String? = null,
 )
 
