@@ -576,7 +576,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 `app.imports.cleanup.retention-days` (import job cleanup cronjob, default 14 days),
 `app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
 `app.imports.schedule.poll-cron` (how often the `ImportDefinition` schedule poller checks for due definitions,
-default every minute, `adapter-in-scheduler` `application.properties`),
+default every 15 minutes - matching the minimum interval `CronSchedule` enforces on a definition's own schedule,
+`adapter-in-scheduler` `application.properties`),
 `quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`),
 `outbox.archive.enabled` (outbox archive collection disabled, `false`), `outbox.archive.retention-days`
 (outbox archive cleanup, default 30 days, currently unused while archiving is disabled; see ADR
