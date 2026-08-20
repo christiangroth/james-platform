@@ -11,49 +11,14 @@ class ImportJobDocument {
   lateinit var id: String
   lateinit var userId: String
   lateinit var installedAppId: String
-  lateinit var connectionId: String
-  var urlPostfix: String? = null
-  lateinit var targetEntityDefinitionId: String
+  lateinit var importDefinitionId: String
   lateinit var status: String
   lateinit var payload: String
   var detectedDataPaths: List<DataPathDocument> = emptyList()
-  var selectedDataPath: String? = null
   var detectedSchema: List<SchemaPropertyDocument> = emptyList()
   var filteredSchema: List<SchemaPropertyDocument> = emptyList()
-  var filterRules: List<FilterRuleDocument> = emptyList()
-  var mapping: MappingDocument? = null
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
-}
-
-class FilterRuleDocument {
-  lateinit var mode: String
-  lateinit var sourcePath: String
-  lateinit var operator: String
-  var value: String? = null
-  var includeAbsent: Boolean = false
-}
-
-class MappingDocument {
-  var fieldMappings: List<FieldMappingDocument> = emptyList()
-}
-
-class FieldMappingDocument {
-  lateinit var targetPropertyId: String
-  var sourcePath: String? = null
-  lateinit var conversion: String
-  var importGranularity: String? = null
-  var fallbackValue: String? = null
-  var referenceLookup: ReferenceLookupDocument? = null
-}
-
-class ReferenceLookupDocument {
-  var criteria: List<ReferenceLookupCriterionDocument> = emptyList()
-}
-
-class ReferenceLookupCriterionDocument {
-  lateinit var targetPropertyId: String
-  lateinit var sourcePath: String
 }
 
 class DataPathDocument {
