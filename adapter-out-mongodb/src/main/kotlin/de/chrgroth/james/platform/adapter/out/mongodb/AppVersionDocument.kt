@@ -25,6 +25,7 @@ class EntityDefinitionDocument {
   var properties: List<PropertyDocument> = emptyList()
   var sortBy: List<SortCriteriaDocument> = emptyList()
   var computedProperties: List<ComputedPropertyDocument> = emptyList()
+  var aggregations: List<AggregationDefinitionDocument> = emptyList()
   var migrationScript: String? = null
 }
 
@@ -75,4 +76,15 @@ class ComputedPropertyDocument {
   lateinit var name: String
   lateinit var type: String
   var script: String? = null
+}
+
+class AggregationDefinitionDocument {
+  lateinit var id: String
+  lateinit var name: String
+  lateinit var function: String
+  lateinit var sourceProperty: String
+  var refPath: String? = null
+  var timeBucket: String? = null
+  var timeProperty: String? = null
+  var groupBy: String? = null
 }

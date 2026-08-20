@@ -4,6 +4,9 @@ import com.mongodb.MongoNamespace
 import com.mongodb.client.MongoClient
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.ReplaceOptions
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
@@ -23,6 +26,7 @@ import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
@@ -204,6 +208,7 @@ class AppVersionRepositoryAdapter(
     properties = properties.map { it.toDomain() },
     sortBy = sortBy.mapNotNull { it.toDomain() },
     computedProperties = computedProperties.mapNotNull { it.toDomain() },
+    aggregations = aggregations.mapNotNull { it.toDomain() },
     migrationScript = migrationScript,
   )
 
@@ -247,6 +252,20 @@ class AppVersionRepositoryAdapter(
       name = name,
       type = propertyType,
       script = script,
+    )
+  }
+
+  private fun AggregationDefinitionDocument.toDomain(): AggregationDefinition? {
+    val parsedFunction = runCatching { AggregationFunction.valueOf(function) }.getOrNull() ?: return null
+    return AggregationDefinition(
+      id = AggregationDefinitionId(id),
+      name = name,
+      function = parsedFunction,
+      sourceProperty = PropertyId(sourceProperty),
+      refPath = refPath?.let { PropertyId(it) },
+      timeBucket = timeBucket?.let { runCatching { TimeBucket.valueOf(it) }.getOrNull() },
+      timeProperty = timeProperty?.let { PropertyId(it) },
+      groupBy = groupBy?.let { PropertyId(it) },
     )
   }
 
@@ -297,6 +316,7 @@ class AppVersionRepositoryAdapter(
     doc.properties = properties.map { it.toDocument() }
     doc.sortBy = sortBy.map { it.toDocument() }
     doc.computedProperties = computedProperties.map { it.toDocument() }
+    doc.aggregations = aggregations.map { it.toDocument() }
     doc.migrationScript = migrationScript
   }
 
@@ -334,6 +354,17 @@ class AppVersionRepositoryAdapter(
     doc.name = name
     doc.type = type.name
     doc.script = script
+  }
+
+  private fun AggregationDefinition.toDocument() = AggregationDefinitionDocument().also { doc ->
+    doc.id = id.value
+    doc.name = name
+    doc.function = function.name
+    doc.sourceProperty = sourceProperty.value
+    doc.refPath = refPath?.value
+    doc.timeBucket = timeBucket?.name
+    doc.timeProperty = timeProperty?.value
+    doc.groupBy = groupBy?.value
   }
 
   private fun PropertyConstraint.toDocument() = ConstraintDocument().also { doc ->

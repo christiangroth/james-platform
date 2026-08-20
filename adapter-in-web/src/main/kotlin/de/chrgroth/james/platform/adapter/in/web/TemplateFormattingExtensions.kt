@@ -12,6 +12,8 @@ import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.unitFormatHint as domainUnitFormatHint
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -91,6 +93,12 @@ object TemplateFormattingExtensions {
 
   @JvmStatic
   fun formatted(value: Int): String = String.format(Locale.US, "%,d", value).replace(",", ".")
+
+  private val AGGREGATION_VALUE_FORMAT by lazy { DecimalFormat("#,##0.##", DecimalFormatSymbols(Locale.GERMANY)) }
+
+  /** Formats an aggregation value (see `AggregationRepositoryPort`) with up to two decimals, German grouping/decimal separators. */
+  @JvmStatic
+  fun formatted(value: Double): String = AGGREGATION_VALUE_FORMAT.format(value)
 
   @JvmStatic
   fun formatted(instant: Instant): String = DATETIME_FORMATTER.format(instant.toJavaInstant())

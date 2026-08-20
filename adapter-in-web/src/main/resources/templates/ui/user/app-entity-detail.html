@@ -28,6 +28,25 @@
             </a>
         </div>
 
+        {#if !aggregations.isEmpty}
+        <div class="card app-card p-4 mb-4" data-testid="aggregation-panel">
+            <h2 class="app-section-label mb-3">{user:userAggregationsHeading()}</h2>
+            <div class="d-flex flex-wrap gap-4">
+                {#for agg in aggregations}
+                <div class="d-flex flex-column" data-testid="aggregation-item">
+                    <span class="app-section-label">{agg.name}</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fs-4 fw-semibold" data-testid="aggregation-value">{agg.valueFormatted}</span>
+                        {#if agg.stale}
+                        <span class="badge app-badge-muted" data-testid="aggregation-stale-badge" title="{user:userAggregationStaleHint()}">{user:userAggregationStaleHint()}</span>
+                        {/if}
+                    </div>
+                </div>
+                {/for}
+            </div>
+        </div>
+        {/if}
+
         <div class="card app-card p-4">
             {#if entity.rows.isEmpty}
             <p class="mb-0 app-section-label" data-testid="no-data-message">{user:userNoDataYetMessage()}</p>
