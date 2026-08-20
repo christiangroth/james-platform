@@ -4,6 +4,7 @@ assertJ = "3.27.7"
 bootstrap = "5.3.8"
 bootstrapIcons = "1.13.1"
 buildTimeTracker = "5.0.1"
+cronUtils = "9.2.1"
 junit = "6.0.3"
 kotlin = "2.3.10"
 kotlinLogging = "3.0.5"
@@ -25,6 +26,7 @@ arrowCore = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 assertJ = { module = "org.assertj:assertj-core", version.ref = "assertJ" }
 bootstrap = { module = "org.webjars:bootstrap", version.ref = "bootstrap" }
 bootstrapIcons = { module = "org.webjars.npm:bootstrap-icons", version.ref = "bootstrapIcons" }
+cronUtils = { module = "com.cronutils:cron-utils", version.ref = "cronUtils" }
 junit = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinGradleSerializationPlugin = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }

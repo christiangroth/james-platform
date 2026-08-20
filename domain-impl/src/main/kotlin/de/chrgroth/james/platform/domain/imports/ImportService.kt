@@ -28,9 +28,11 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.ImportTrigger
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
+import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
@@ -139,6 +141,130 @@ class ImportService(
     importJobRepository.save(importJob)
     logger.info { "Import job created: installedAppId=$installedAppId connectionId=$connectionId targetEntityDefinitionId=$targetEntityDefinitionId detectedDataPaths=${detectedDataPaths.size}" }
     return importJob.right()
+  }
+
+  override fun triggerScheduledImport(definitionId: String): Either<DomainError, ImportJob> {
+    val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId)) ?: run {
+      logger.warn { "Trigger scheduled import failed: import definition not found: $definitionId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    var acceptedSchema = definition.lastKnownSchema
+    val result = runScheduledImport(definition) { acceptedSchema = it }
+    importDefinitionRepository.save(definition.copy(lastKnownSchema = acceptedSchema, lastRunAt = Instant.now(), lastChangedAt = Instant.now()))
+    return result
+  }
+
+  /**
+   * Fetch-to-accept pipeline for an unattended run, reusing [definition]'s already-configured
+   * [ImportDefinition.selectedDataPath]/[ImportDefinition.filterRules]/[ImportDefinition.mapping] unchanged instead
+   * of running the interactive Filter/Mapping steps. Only ever advances to [acceptDryRun] - invoking [onAccepted]
+   * with the newly detected schema so the caller ([triggerScheduledImport]) can update
+   * [ImportDefinition.lastKnownSchema] in the single save it always performs afterwards regardless of outcome - when
+   * the freshly detected schema does not deviate from the definition's stored baseline and the mapping is still
+   * blocking-issue-free; every other outcome returns without creating or accepting any [ImportJob], leaving prior
+   * data untouched.
+   */
+  private fun runScheduledImport(definition: ImportDefinition, onAccepted: (List<SchemaProperty>) -> Unit): Either<DomainError, ImportJob> {
+    val mapping = definition.mapping ?: run {
+      logger.warn { "Scheduled import skipped: import definition has no mapping configured: ${definition.id.value}" }
+      return ImportError.DEFINITION_NOT_CONFIGURED.left()
+    }
+    val selectedDataPath = definition.selectedDataPath ?: run {
+      logger.warn { "Scheduled import skipped: import definition has no data path selected: ${definition.id.value}" }
+      return ImportError.DEFINITION_NOT_CONFIGURED.left()
+    }
+    val installedApp = installedAppFor(definition) ?: run {
+      logger.warn { "Scheduled import failed: installed app not found for definitionId: ${definition.id.value}" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val entityDefinitions = entityDefinitionsOf(installedApp)
+    val entityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId } ?: run {
+      logger.warn { "Scheduled import failed: target entity definition not found: ${definition.targetEntityDefinitionId.value} for definitionId: ${definition.id.value}" }
+      return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
+    }
+    val connection = importConnectionRepository.findById(definition.connectionId) ?: run {
+      logger.warn { "Scheduled import failed: connection not found: ${definition.connectionId.value} for definitionId: ${definition.id.value}" }
+      return ImportError.CONNECTION_NOT_FOUND.left()
+    }
+
+    val bearerToken = connection.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
+    val rawPayload = importFetch.fetch(resolveImportUrl(connection.baseUrl, definition.urlPostfix), bearerToken).fold({ return it.left() }, { it })
+
+    val parsed = try {
+      objectMapper.readTree(rawPayload)
+    } catch (e: Exception) {
+      logger.warn { "Scheduled import failed: invalid JSON response: definitionId=${definition.id.value} connectionId=${connection.id.value}" }
+      return ImportError.INVALID_JSON_RESPONSE.left()
+    }
+    if (!parsed.isObject) {
+      logger.warn { "Scheduled import failed: response is not a JSON object: definitionId=${definition.id.value} connectionId=${connection.id.value}" }
+      return ImportError.NOT_A_JSON_OBJECT.left()
+    }
+    val resolved = DataPathDetector.resolve(parsed, selectedDataPath) ?: run {
+      logger.warn { "Scheduled import failed: data path no longer resolvable: definitionId=${definition.id.value} path=$selectedDataPath" }
+      return ImportError.INVALID_DATA_PATH.left()
+    }
+
+    val detectedSchema = SchemaDetector.detect(parsed, resolved.path)
+    if (definition.lastKnownSchema.isNotEmpty() && SchemaDrift.detected(definition.lastKnownSchema, detectedSchema)) {
+      logger.warn { "Scheduled import aborted: detected schema differs from the last accepted run, no accept performed: definitionId=${definition.id.value}" }
+      return ImportError.SCHEMA_DRIFT_DETECTED.left()
+    }
+
+    val now = Instant.now()
+    val importJob = ImportJob(
+      id = ImportJobId(UUID.randomUUID().toString()),
+      userId = definition.userId,
+      installedAppId = installedApp.id,
+      importDefinitionId = definition.id,
+      status = ImportStatus.DATA_IDENTIFIED,
+      payload = rawPayload,
+      detectedDataPaths = listOf(resolved),
+      detectedSchema = detectedSchema,
+      triggeredBy = ImportTrigger.SYSTEM,
+      createdAt = now,
+      lastChangedAt = now,
+    )
+    val filteredSchema = SchemaDetector.detect(recordsAt(importJob, definition))
+    val validation = MappingValidator.validate(mapping, entityDefinition, filteredSchema, entityDefinitions, propertyConstraint)
+    if (!validation.isReady) {
+      logger.warn { "Scheduled import aborted: mapping not ready, no accept performed: definitionId=${definition.id.value} issues=${validation.blockingIssues.size}" }
+      return ImportError.IMPORT_JOB_NOT_READY.left()
+    }
+
+    val readyJob = importJob.copy(status = ImportStatus.READY, filteredSchema = filteredSchema)
+    importJobRepository.save(readyJob)
+    onAccepted(detectedSchema)
+    logger.info { "Scheduled import job created: definitionId=${definition.id.value} importJobId=${readyJob.id.value}" }
+    return acceptDryRun(definition.userId, readyJob.id.value, replaceExisting = false)
+  }
+
+  /** [definition]'s owner's installed app whose entity definitions include [ImportDefinition.targetEntityDefinitionId] - not stored on the definition directly, so derived this way. */
+  private fun installedAppFor(definition: ImportDefinition): InstalledApp? =
+    installedAppRepository.findAllByUserId(definition.userId).find { installedApp ->
+      entityDefinitionsOf(installedApp).any { it.id == definition.targetEntityDefinitionId }
+    }
+
+  override fun updateSchedule(userId: String, definitionId: String, schedule: String?): Either<DomainError, ImportDefinition> {
+    val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
+      logger.warn { "Update schedule failed: import definition not found: $definitionId for user: $userId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    val trimmedSchedule = schedule?.trim()?.takeIf { it.isNotBlank() }
+    if (trimmedSchedule != null) {
+      if (definition.selectedDataPath == null || definition.mapping == null) {
+        logger.warn { "Update schedule failed: import definition not fully configured yet: $definitionId" }
+        return ImportError.DEFINITION_NOT_CONFIGURED.left()
+      }
+      if (!CronSchedule.isValid(trimmedSchedule)) {
+        logger.warn { "Update schedule failed: invalid cron expression for definitionId: $definitionId" }
+        return ImportError.INVALID_CRON_SCHEDULE.left()
+      }
+    }
+    val updated = definition.copy(schedule = trimmedSchedule, lastChangedAt = Instant.now())
+    importDefinitionRepository.save(updated)
+    logger.info { "Schedule updated: definitionId=$definitionId schedule=${trimmedSchedule ?: "none"}" }
+    return updated.right()
   }
 
   override fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob> {

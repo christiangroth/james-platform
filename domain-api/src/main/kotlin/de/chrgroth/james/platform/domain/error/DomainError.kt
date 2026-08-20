@@ -164,6 +164,13 @@ enum class ImportError(override val code: String) : DomainError {
   CONNECTION_NOT_FOUND("IMPORT-018"),
   IMPORT_JOB_NOT_FILTERABLE("IMPORT-019"),
   DEFINITION_NOT_FOUND("IMPORT-020"),
+  INVALID_CRON_SCHEDULE("IMPORT-021"),
+
+  /** The definition has no selected data path/mapping configured yet, so a schedule cannot be set or run for it. */
+  DEFINITION_NOT_CONFIGURED("IMPORT-022"),
+
+  /** A scheduled run's freshly detected schema deviates from the definition's stored baseline; the run aborts without accepting (see `ImportService.triggerScheduledImport`). */
+  SCHEMA_DRIFT_DETECTED("IMPORT-023"),
   ;
 }
 

@@ -17,6 +17,9 @@ class ImportDefinitionDocument {
   var selectedDataPath: String? = null
   var filterRules: List<FilterRuleDocument> = emptyList()
   var mapping: MappingDocument? = null
+  var schedule: String? = null
+  var lastRunAt: Instant? = null
+  var lastKnownSchema: List<SchemaPropertyDocument> = emptyList()
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
 }

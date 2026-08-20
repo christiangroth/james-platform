@@ -13,8 +13,11 @@ import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.Mapping
+import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
+import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
+import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 
@@ -32,6 +35,11 @@ class ImportDefinitionRepositoryAdapter(
   override fun findById(id: ImportDefinitionId): ImportDefinition? =
     mongoQueryMetrics.timed("import_definition.findById") {
       importDefinitionDocumentRepository.findById(id.value)?.toDomain()
+    }
+
+  override fun findAllWithScheduleSet(): List<ImportDefinition> =
+    mongoQueryMetrics.timed("import_definition.findAllWithScheduleSet") {
+      importDefinitionDocumentRepository.find("$SCHEDULE_FIELD is not null").list().map { it.toDomain() }
     }
 
   override fun save(importDefinition: ImportDefinition) {
@@ -61,6 +69,9 @@ class ImportDefinitionRepositoryAdapter(
     selectedDataPath = selectedDataPath,
     filterRules = filterRules.map { it.toDomain() },
     mapping = mapping?.toDomain(),
+    schedule = schedule,
+    lastRunAt = lastRunAt,
+    lastKnownSchema = lastKnownSchema.map { it.toDomain() },
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -95,6 +106,19 @@ class ImportDefinitionRepositoryAdapter(
     sourcePath = sourcePath,
   )
 
+  private fun SchemaPropertyDocument.toDomain() = SchemaProperty(
+    path = path,
+    typeCounts = typeCounts.mapKeys { SchemaPropertyType.valueOf(it.key) },
+    mandatory = mandatory,
+    numericRange = numericRange?.toDomain(),
+    stringLengthCounts = stringLengthCounts.mapKeys { it.key.toInt() },
+  )
+
+  private fun NumericRangeDocument.toDomain() = NumericRange(
+    min = min,
+    max = max,
+  )
+
   private fun ImportDefinition.toDocument() = ImportDefinitionDocument().also { doc ->
     doc.id = id.value
     doc.userId = userId
@@ -105,6 +129,9 @@ class ImportDefinitionRepositoryAdapter(
     doc.selectedDataPath = selectedDataPath
     doc.filterRules = filterRules.map { it.toDocument() }
     doc.mapping = mapping?.toDocument()
+    doc.schedule = schedule
+    doc.lastRunAt = lastRunAt
+    doc.lastKnownSchema = lastKnownSchema.map { it.toDocument() }
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }
@@ -139,8 +166,22 @@ class ImportDefinitionRepositoryAdapter(
     doc.sourcePath = sourcePath
   }
 
+  private fun SchemaProperty.toDocument() = SchemaPropertyDocument().also { doc ->
+    doc.path = path
+    doc.typeCounts = typeCounts.mapKeys { it.key.name }
+    doc.mandatory = mandatory
+    doc.numericRange = numericRange?.toDocument()
+    doc.stringLengthCounts = stringLengthCounts.mapKeys { it.key.toString() }
+  }
+
+  private fun NumericRange.toDocument() = NumericRangeDocument().also { doc ->
+    doc.min = min
+    doc.max = max
+  }
+
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val USER_ID_FIELD = "userId"
+    internal const val SCHEDULE_FIELD = "schedule"
   }
 }

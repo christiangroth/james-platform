@@ -10,6 +10,8 @@ import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.Mapping
+import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
+import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
@@ -67,6 +69,53 @@ class ImportDefinitionRepositoryTests {
 
     assertThat(result).contains(owned)
     assertThat(result).noneMatch { it.userId == "someone-else" }
+  }
+
+  @Test
+  fun `save persists schedule, lastRunAt and lastKnownSchema and find returns them unchanged`() {
+    val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+    val definition = ImportDefinition(
+      id = ImportDefinitionId("def-schedule-${now.toEpochMilli()}"),
+      userId = "user-1",
+      connectionId = ImportConnectionId("conn-1"),
+      name = "My API: Contacts",
+      targetEntityDefinitionId = EntityDefinitionId("entity-1"),
+      selectedDataPath = "items",
+      mapping = Mapping(fieldMappings = listOf(FieldMapping(targetPropertyId = PropertyId("prop-1"), sourcePath = "name"))),
+      schedule = "0 0 3 * * ?",
+      lastRunAt = now,
+      lastKnownSchema = listOf(SchemaProperty(path = "name", typeCounts = mapOf(SchemaPropertyType.STRING to 1), mandatory = true)),
+      createdAt = now,
+      lastChangedAt = now,
+    )
+
+    importDefinitionRepository.save(definition)
+
+    val found = importDefinitionRepository.findById(definition.id)
+    assertThat(found).isEqualTo(definition)
+  }
+
+  @Test
+  fun `findAllWithScheduleSet returns only definitions with a schedule configured`() {
+    val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+    val scheduled = ImportDefinition(
+      id = ImportDefinitionId("def-scheduled-${now.toEpochMilli()}"),
+      userId = "user-1",
+      connectionId = ImportConnectionId("conn-1"),
+      name = "Scheduled",
+      targetEntityDefinitionId = EntityDefinitionId("entity-1"),
+      schedule = "0 0 3 * * ?",
+      createdAt = now,
+      lastChangedAt = now,
+    )
+    val unscheduled = scheduled.copy(id = ImportDefinitionId("def-unscheduled-${now.toEpochMilli()}"), name = "Unscheduled", schedule = null)
+    importDefinitionRepository.save(scheduled)
+    importDefinitionRepository.save(unscheduled)
+
+    val result = importDefinitionRepository.findAllWithScheduleSet()
+
+    assertThat(result).contains(scheduled)
+    assertThat(result).noneMatch { it.id == unscheduled.id }
   }
 
   @Test
