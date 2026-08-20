@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.model.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import java.time.Instant
 
 @JvmInline
@@ -18,6 +19,20 @@ data class AppData(
   val createdAt: Instant,
   val lastChangedAt: Instant,
   val data: Map<String, String?>,
+  val importProvenance: ImportProvenance? = null,
+)
+
+/**
+ * Snapshot of the [de.chrgroth.james.platform.domain.model.imports.ImportConnection] an [AppData] object was created
+ * from, taken at accept time since the underlying [de.chrgroth.james.platform.domain.model.imports.ImportJob] (and its
+ * `connectionId`) is deleted right after. [connectionName] and [sourceUrl] are snapshots rather than live lookups
+ * because the connection can be renamed or deleted afterwards; [connectionId] stays nullable so it can still be
+ * cleared if the connection is deleted later on. `createdAt` on [AppData] already doubles as the import timestamp.
+ */
+data class ImportProvenance(
+  val connectionId: ImportConnectionId?,
+  val connectionName: String,
+  val sourceUrl: String,
 )
 
 // Unit separator control character (Unicode U+001F), used to encode a LIST property's item values into the single string stored in AppData.data.

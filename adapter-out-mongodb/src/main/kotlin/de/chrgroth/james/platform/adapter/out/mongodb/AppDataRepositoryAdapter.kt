@@ -5,8 +5,10 @@ import com.mongodb.client.model.ReplaceOptions
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.ImportProvenance
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 
@@ -86,6 +88,13 @@ class AppDataRepositoryAdapter(
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
     data = data,
+    importProvenance = importProvenance?.let {
+      ImportProvenance(
+        connectionId = it.connectionId?.let { id -> ImportConnectionId(id) },
+        connectionName = it.connectionName,
+        sourceUrl = it.sourceUrl,
+      )
+    },
   )
 
   private fun AppData.toDocument() = AppDataDocument().also { doc ->
@@ -99,6 +108,13 @@ class AppDataRepositoryAdapter(
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
     doc.data = data
+    doc.importProvenance = importProvenance?.let {
+      ImportProvenanceDocument().also { pd ->
+        pd.connectionId = it.connectionId?.value
+        pd.connectionName = it.connectionName
+        pd.sourceUrl = it.sourceUrl
+      }
+    }
   }
 
   companion object {
