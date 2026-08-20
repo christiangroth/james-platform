@@ -7,16 +7,19 @@ import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlin.time.Clock
 import io.quarkus.qute.Location
@@ -110,6 +113,12 @@ data class EntityTab(
   val totalPages: Int,
 )
 
+data class AggregationView(
+  val name: String,
+  val valueFormatted: String,
+  val stale: Boolean,
+)
+
 data class InstalledAppStatusResponse(
   val stillInstalled: Boolean,
 )
@@ -159,6 +168,9 @@ class UserAppStoreResource {
 
   @Inject
   private lateinit var computedProperty: ComputedPropertyPort
+
+  @Inject
+  private lateinit var aggregationRepository: AggregationRepositoryPort
 
   @Inject
   private lateinit var msg: AppMessages
@@ -263,11 +275,13 @@ class UserAppStoreResource {
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
     val entityTab = buildEntityTab(entityDef, entityById, allAppData)
+    val aggregations = buildAggregationViews(entityDef, installedAppId)
 
     Response.ok(
       appEntityDetailTemplate
         .data("info", info)
         .data("entity", entityTab)
+        .data("aggregations", aggregations)
         .data("pageSize", PAGE_SIZE),
     ).build()
   }
@@ -552,6 +566,27 @@ class UserAppStoreResource {
       totalPages = totalPages,
     )
   }
+
+  /**
+   * Builds the "simple value display" aggregation panel entries for an Entity (issue #642): one entry per ungrouped,
+   * non-time-bucketed [AggregationDefinition] (no `refPath`/`timeBucket`), which resolve to exactly one [AggregationValue]
+   * (`groupKey`/`bucketKey` both null). Grouped or time-bucketed aggregations resolve to several values per definition and
+   * don't fit a single number + label display - they're left for the later reports/chart step of #366.
+   */
+  private fun buildAggregationViews(entityDef: EntityDefinition, installedAppId: String): List<AggregationView> =
+    entityDef.aggregations
+      .filter { it.refPath == null && it.timeBucket == null }
+      .mapNotNull { aggregation ->
+        aggregationRepository.findAllByInstalledAppIdAndAggregationDefinitionId(InstalledAppId(installedAppId), aggregation.id)
+          .find { it.id.groupKey == null && it.id.bucketKey == null }
+          ?.let { value ->
+            AggregationView(
+              name = aggregation.name,
+              valueFormatted = TemplateFormattingExtensions.formatted(value.value),
+              stale = value.status == AggregationValueStatus.STALE,
+            )
+          }
+      }
 
   private fun appStoreErrorMessage(code: String): String = when (code) {
     UserAppStoreError.APP_NOT_FOUND.code -> userMsg.userAppNotFoundError()

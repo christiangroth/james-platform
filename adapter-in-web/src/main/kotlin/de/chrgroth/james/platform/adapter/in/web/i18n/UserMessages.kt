@@ -98,6 +98,13 @@ interface UserMessages {
   @Message
   fun userAddMoreDataAriaLabel(): String
 
+  // aggregation panel (entity detail)
+  @Message
+  fun userAggregationsHeading(): String
+
+  @Message
+  fun userAggregationStaleHint(): String
+
   @Message
   fun userPageLabel(): String
 
