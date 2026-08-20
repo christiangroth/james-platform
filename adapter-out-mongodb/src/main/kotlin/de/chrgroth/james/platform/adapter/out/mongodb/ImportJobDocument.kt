@@ -17,6 +17,7 @@ class ImportJobDocument {
   var detectedDataPaths: List<DataPathDocument> = emptyList()
   var detectedSchema: List<SchemaPropertyDocument> = emptyList()
   var filteredSchema: List<SchemaPropertyDocument> = emptyList()
+  var triggeredBy: String = "USER"
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
 }

@@ -12,6 +12,12 @@ value class ImportDefinitionId(val value: String)
  * [selectedDataPath] to import into and read records from, and how to [filterRules]/[mapping] them once fetched.
  * Unlike an [ImportJob], a definition is independent of any single run's payload/schema snapshot and survives an
  * accepted job (see `ImportService.handle`) - see docs/adr/0021-import-definition-job-split.md.
+ *
+ * [schedule], when set, is a Quartz-style cron expression (matching the dialect already used for `@Scheduled(cron =
+ * ...)` elsewhere in this codebase, e.g. `ImportJobCleanupJob`) that a poller evaluates against [lastRunAt] to
+ * trigger unattended runs (see `ImportService.triggerScheduledImport`). [lastKnownSchema] is the raw schema detected
+ * by the most recent run that was allowed to proceed to accept; a later run whose freshly detected schema deviates
+ * from it aborts without accepting, to avoid silently importing data that no longer matches the configured mapping.
  */
 data class ImportDefinition(
   val id: ImportDefinitionId,
@@ -23,6 +29,9 @@ data class ImportDefinition(
   val selectedDataPath: String? = null,
   val filterRules: List<FilterRule> = emptyList(),
   val mapping: Mapping? = null,
+  val schedule: String? = null,
+  val lastRunAt: Instant? = null,
+  val lastKnownSchema: List<SchemaProperty> = emptyList(),
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )

@@ -15,6 +15,14 @@ enum class ImportStatus {
   ACCEPTING,
 }
 
+enum class ImportTrigger {
+  /** Started interactively by a user through `ImportPort.triggerImport`. */
+  USER,
+
+  /** Started unattended by the schedule poller through `ImportService.triggerScheduledImport`, reusing an existing [ImportDefinition]'s stored configuration. */
+  SYSTEM,
+}
+
 data class DataPath(
   val path: String,
   val size: Int,
@@ -69,6 +77,7 @@ data class ImportJob(
   val detectedDataPaths: List<DataPath> = emptyList(),
   val detectedSchema: List<SchemaProperty> = emptyList(),
   val filteredSchema: List<SchemaProperty> = emptyList(),
+  val triggeredBy: ImportTrigger = ImportTrigger.USER,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )

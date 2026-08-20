@@ -26,6 +26,20 @@ interface ImportPort {
    * within [installedAppId].
    */
   fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String, urlPostfix: String? = null): Either<DomainError, ImportJob>
+
+  /**
+   * Runs an unattended import from [definitionId]'s already-configured [ImportDefinition.selectedDataPath],
+   * [ImportDefinition.filterRules] and [ImportDefinition.mapping] - no interactive steps. Aborts without creating or
+   * accepting a job if the definition has no mapping/data path configured, if mapping validation is not blocking-issue-free,
+   * or if the freshly detected schema deviates from [ImportDefinition.lastKnownSchema] (see
+   * [de.chrgroth.james.platform.domain.model.imports.ImportTrigger.SYSTEM]). On every outcome
+   * [ImportDefinition.lastRunAt] is set to now, so the schedule poller (`ImportSchedulePort`) does not re-trigger the
+   * same due definition on its next poll. Called by the schedule poller, not directly by inbound adapters.
+   */
+  fun triggerScheduledImport(definitionId: String): Either<DomainError, ImportJob>
+
+  /** Sets or clears (with `null`) [ImportDefinition.schedule]; requires the definition to already have a [ImportDefinition.selectedDataPath] and [ImportDefinition.mapping]. */
+  fun updateSchedule(userId: String, definitionId: String, schedule: String?): Either<DomainError, ImportDefinition>
   fun deleteImportJob(userId: String, importJobId: String): Either<DomainError, Unit>
   fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob>
   fun getFilterView(userId: String, importJobId: String): Either<DomainError, FilterView>

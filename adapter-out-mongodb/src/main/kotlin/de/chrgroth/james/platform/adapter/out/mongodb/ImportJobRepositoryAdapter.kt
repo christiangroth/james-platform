@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.ImportTrigger
 import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
@@ -76,6 +77,7 @@ class ImportJobRepositoryAdapter(
     detectedDataPaths = detectedDataPaths.map { it.toDomain() },
     detectedSchema = detectedSchema.map { it.toDomain() },
     filteredSchema = filteredSchema.map { it.toDomain() },
+    triggeredBy = ImportTrigger.valueOf(triggeredBy),
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -108,6 +110,7 @@ class ImportJobRepositoryAdapter(
     doc.detectedDataPaths = detectedDataPaths.map { it.toDocument() }
     doc.detectedSchema = detectedSchema.map { it.toDocument() }
     doc.filteredSchema = filteredSchema.map { it.toDocument() }
+    doc.triggeredBy = triggeredBy.name
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }

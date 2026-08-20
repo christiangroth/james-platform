@@ -37,6 +37,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.ImportTrigger
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
@@ -1115,6 +1116,135 @@ class ImportServiceTests {
 
     assertThat(result.isRight()).isTrue()
     verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `trigger scheduled import reuses the definition's stored configuration and accepts via the same outbox handler as a manual accept`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}]}""".right()
+    val savedJobs = mutableListOf<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJobs)) }
+    every { importJobRepository.findById(any()) } answers { savedJobs.lastOrNull() }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
+    val enqueued = slot<DomainOutboxEvent.AcceptDryRun>()
+    justRun { outboxPort.enqueue(capture(enqueued)) }
+
+    val result = service.triggerScheduledImport(definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(ImportStatus.ACCEPTING)
+    assertThat(savedJobs).hasSize(2)
+    assertThat(savedJobs[0].status).isEqualTo(ImportStatus.READY)
+    assertThat(savedJobs[0].triggeredBy).isEqualTo(ImportTrigger.SYSTEM)
+    assertThat(savedJobs[1].status).isEqualTo(ImportStatus.ACCEPTING)
+    assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.AcceptDryRun(importJobId = savedJobs[0].id.value, userId = "user-1", replaceExisting = false))
+    assertThat(savedDefinition.captured.lastRunAt).isNotNull()
+    assertThat(savedDefinition.captured.lastKnownSchema).containsExactly(
+      SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true, stringLengthCounts = mapOf(5 to 1)),
+    )
+  }
+
+  @Test
+  fun `trigger scheduled import fails when the definition is not found`() {
+    every { importDefinitionRepository.findById(ImportDefinitionId("missing")) } returns null
+
+    val result = service.triggerScheduledImport("missing")
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `trigger scheduled import aborts and still stamps lastRunAt when the definition has no mapping configured`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = null)
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
+
+    val result = service.triggerScheduledImport(definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_CONFIGURED.left())
+    assertThat(savedDefinition.captured.lastRunAt).isNotNull()
+    verify(exactly = 0) { importJobRepository.save(any()) }
+  }
+
+  @Test
+  fun `trigger scheduled import aborts without accepting when the detected schema deviates from the last known baseline`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    val baseline = listOf(SchemaProperty("other", mapOf(SchemaPropertyType.STRING to 1), mandatory = true))
+    every { importDefinitionRepository.findById(definition.id) } returns definition.copy(lastKnownSchema = baseline)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}]}""".right()
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
+
+    val result = service.triggerScheduledImport(definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.SCHEMA_DRIFT_DETECTED.left())
+    assertThat(savedDefinition.captured.lastRunAt).isNotNull()
+    assertThat(savedDefinition.captured.lastKnownSchema).isEqualTo(baseline)
+    verify(exactly = 0) { importJobRepository.save(any()) }
+    verify(exactly = 0) { outboxPort.enqueue(any()) }
+  }
+
+  @Test
+  fun `update schedule sets a valid cron expression on a fully configured definition`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    val saved = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(saved)) }
+
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.schedule).isEqualTo("0 0 3 * * ?")
+  }
+
+  @Test
+  fun `update schedule clears the schedule when given a blank value`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { importDefinitionRepository.findById(definition.id) } returns definition.copy(schedule = "0 0 3 * * ?")
+    val saved = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(saved)) }
+
+    val result = service.updateSchedule("user-1", definition.id.value, " ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.schedule).isNull()
+  }
+
+  @Test
+  fun `update schedule rejects an invalid cron expression`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.updateSchedule("user-1", definition.id.value, "not a cron")
+
+    assertThat(result).isEqualTo(ImportError.INVALID_CRON_SCHEDULE.left())
+    verify(exactly = 0) { importDefinitionRepository.save(any()) }
+  }
+
+  @Test
+  fun `update schedule rejects setting a schedule before the definition has a mapping configured`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = null)
+
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?")
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_CONFIGURED.left())
+  }
+
+  @Test
+  fun `update schedule fails when the definition belongs to another user`() {
+    val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?")
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
   }
 
   private val connection = ImportConnection(

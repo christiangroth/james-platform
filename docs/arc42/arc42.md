@@ -175,6 +175,7 @@ The flow:
 - **Dry run** – builds every target object from the source data without persisting anything, surfacing per-object validation issues (including pattern constraints and reference-existence checks). Reachable as soon as a Mapping is saved, even if it still has blocking validation issues, so those issues can be debugged against the actual source records instead of only the abstract per-field checks shown on the Mapping step.
 - **Accept** – re-runs the dry run, persists every valid object as data of the target Entity, discards invalid ones, and deletes the `ImportJob` (including the raw payload) regardless of how many objects were saved or discarded. The referenced `ImportConnection` and `ImportDefinition` are left untouched and stay available for future jobs. Unlike the dry run, Accept still requires a fully valid Mapping (see ADR [0011](../adr/0011-import-single-mapping-scope.md)).
 - **Cleanup** – a daily cronjob deletes import jobs older than a configurable retention period, including any left in an incomplete state (see [Configuration](#configuration)). `ImportConnection`s and `ImportDefinition`s are never deleted automatically.
+- **Scheduled runs** – an `ImportDefinition` with a fully configured data path and Mapping may additionally carry a cron `schedule`. A poller (`ImportDefinitionScheduleJob`, running every minute) evaluates each scheduled definition's cron expression against its `lastRunAt` and, once due, runs an unattended fetch → accept using the definition's stored data path/filter/mapping unchanged - no interactive steps, no manual dry-run accept. To avoid silently importing data that no longer matches the configured Mapping, a scheduled run compares the freshly detected schema against the definition's `lastKnownSchema` baseline (the schema of the last run that was allowed to proceed) and aborts without accepting on any deviation. `lastRunAt` is updated after every scheduled run, successful or not, so the poller never re-triggers the same due definition twice. Notifying the User about a scheduled run's outcome is intentionally out of scope here (see [Import Job Reuse #664](https://github.com/christiangroth/james-platform/issues/664)).
 
 ## Quality Goals
 
@@ -574,6 +575,9 @@ this has been missed historically.
 script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
 `app.imports.cleanup.retention-days` (import job cleanup cronjob, default 14 days),
 `app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
+`app.imports.schedule.poll-cron` (how often the `ImportDefinition` schedule poller checks for due definitions,
+default every 15 minutes - matching the minimum interval `CronSchedule` enforces on a definition's own schedule,
+`adapter-in-scheduler` `application.properties`),
 `quarkus.default-locale`/`quarkus.locales` (i18n, `de` + build-generated pseudo-locale `xx`),
 `outbox.archive.enabled` (outbox archive collection disabled, `false`), `outbox.archive.retention-days`
 (outbox archive cleanup, default 30 days, currently unused while archiving is disabled; see ADR
