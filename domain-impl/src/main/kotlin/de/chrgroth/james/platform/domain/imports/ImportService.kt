@@ -74,6 +74,8 @@ class ImportService(
   override fun listAllImportDefinitions(userId: String): List<ImportDefinition> =
     importDefinitionRepository.findAllByUserId(userId)
 
+  override fun nextScheduledRunAt(schedule: String, after: Instant): Instant? = CronSchedule.nextFireTime(schedule, after)
+
   override fun triggerImport(
     userId: String,
     installedAppId: String,
@@ -173,8 +175,26 @@ class ImportService(
       logger.warn { "Trigger scheduled import failed: import definition not found: $definitionId" }
       return ImportError.DEFINITION_NOT_FOUND.left()
     }
+    return runUnattendedImport(definition, ImportTrigger.SYSTEM)
+  }
+
+  override fun triggerDefinitionRun(userId: String, definitionId: String): Either<DomainError, ImportJob> {
+    val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
+      logger.warn { "Trigger definition run failed: import definition not found: $definitionId for user: $userId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    return runUnattendedImport(definition, ImportTrigger.USER)
+  }
+
+  /**
+   * Shared bookkeeping for both unattended trigger paths ([triggerScheduledImport] for the cron poller,
+   * [triggerDefinitionRun] for a user-initiated one-off re-run): runs [runScheduledImport] with [trigger], then
+   * stamps [ImportDefinition.lastRunAt] to now regardless of outcome, so the schedule poller does not re-trigger the
+   * same due definition on its next poll either way.
+   */
+  private fun runUnattendedImport(definition: ImportDefinition, trigger: ImportTrigger): Either<DomainError, ImportJob> {
     var acceptedSchema = definition.lastKnownSchema
-    val result = runScheduledImport(definition) { acceptedSchema = it }
+    val result = runScheduledImport(definition, trigger) { acceptedSchema = it }
     importDefinitionRepository.save(definition.copy(lastKnownSchema = acceptedSchema, lastRunAt = Instant.now(), lastChangedAt = Instant.now()))
     return result
   }
@@ -183,13 +203,13 @@ class ImportService(
    * Fetch-to-accept pipeline for an unattended run, reusing [definition]'s already-configured
    * [ImportDefinition.selectedDataPath]/[ImportDefinition.filterRules]/[ImportDefinition.mapping] unchanged instead
    * of running the interactive Filter/Mapping steps. Only ever advances to [acceptDryRun] - invoking [onAccepted]
-   * with the newly detected schema so the caller ([triggerScheduledImport]) can update
+   * with the newly detected schema so the caller ([runUnattendedImport]) can update
    * [ImportDefinition.lastKnownSchema] in the single save it always performs afterwards regardless of outcome - when
    * the freshly detected schema does not deviate from the definition's stored baseline and the mapping is still
    * blocking-issue-free; every other outcome returns without creating or accepting any [ImportJob], leaving prior
    * data untouched.
    */
-  private fun runScheduledImport(definition: ImportDefinition, onAccepted: (List<SchemaProperty>) -> Unit): Either<DomainError, ImportJob> {
+  private fun runScheduledImport(definition: ImportDefinition, trigger: ImportTrigger, onAccepted: (List<SchemaProperty>) -> Unit): Either<DomainError, ImportJob> {
     val mapping = definition.mapping ?: run {
       logger.warn { "Scheduled import skipped: import definition has no mapping configured: ${definition.id.value}" }
       return ImportError.DEFINITION_NOT_CONFIGURED.left()
@@ -246,7 +266,7 @@ class ImportService(
       payload = rawPayload,
       detectedDataPaths = listOf(resolved),
       detectedSchema = detectedSchema,
-      triggeredBy = ImportTrigger.SYSTEM,
+      triggeredBy = trigger,
       createdAt = now,
       lastChangedAt = now,
     )
@@ -270,7 +290,7 @@ class ImportService(
       entityDefinitionsOf(installedApp).any { it.id == definition.targetEntityDefinitionId }
     }
 
-  override fun updateSchedule(userId: String, definitionId: String, schedule: String?): Either<DomainError, ImportDefinition> {
+  override fun updateSchedule(userId: String, definitionId: String, schedule: String?, notifyOnSlack: Boolean): Either<DomainError, ImportDefinition> {
     val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
       logger.warn { "Update schedule failed: import definition not found: $definitionId for user: $userId" }
       return ImportError.DEFINITION_NOT_FOUND.left()
@@ -286,9 +306,9 @@ class ImportService(
         return ImportError.INVALID_CRON_SCHEDULE.left()
       }
     }
-    val updated = definition.copy(schedule = trimmedSchedule, lastChangedAt = Instant.now())
+    val updated = definition.copy(schedule = trimmedSchedule, notifyOnSlack = notifyOnSlack, lastChangedAt = Instant.now())
     importDefinitionRepository.save(updated)
-    logger.info { "Schedule updated: definitionId=$definitionId schedule=${trimmedSchedule ?: "none"}" }
+    logger.info { "Schedule updated: definitionId=$definitionId schedule=${trimmedSchedule ?: "none"} notifyOnSlack=$notifyOnSlack" }
     return updated.right()
   }
 
@@ -695,6 +715,16 @@ class ImportService(
 
   private fun entityDefinitionsOf(installedApp: InstalledApp): List<EntityDefinition> =
     appVersionRepository.findByAppIdAndVersionNumber(installedApp.appId, installedApp.installedVersionNumber)?.entityDefinitions.orEmpty()
+
+  override fun deleteImportDefinition(userId: String, definitionId: String): Either<DomainError, Unit> {
+    val existing = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
+      logger.warn { "Delete import definition failed: import definition not found: $definitionId for user: $userId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    importDefinitionRepository.delete(existing.id)
+    logger.info { "Import definition deleted: $definitionId for user: $userId" }
+    return Unit.right()
+  }
 
   override fun deleteImportJob(userId: String, importJobId: String): Either<DomainError, Unit> {
     val existing = requireOwnedImportJob(userId, importJobId) ?: run {

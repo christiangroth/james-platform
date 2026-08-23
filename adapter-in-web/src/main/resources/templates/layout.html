@@ -238,9 +238,12 @@
             -webkit-appearance: none;
             margin: 0;
         }
-        /* Bootstrap's own .form-text color isn't tied to our [data-theme] variables, so it stays unreadable on dark backgrounds */
+        /* Bootstrap's own .form-text/.text-muted color isn't tied to our [data-theme] variables, so it stays unreadable on dark backgrounds */
         .form-text {
             color: var(--color-text-muted);
+        }
+        .text-muted {
+            color: var(--color-text-muted) !important;
         }
         /* Constraint hint tooltips may contain multiple lines (joined with \n) - preserve them instead of collapsing to one line */
         .tooltip .tooltip-inner {

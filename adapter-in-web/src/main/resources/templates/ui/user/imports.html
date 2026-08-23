@@ -12,6 +12,11 @@
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="imports-title">{user:userImportsTitle()}</h1>
             <div class="d-flex gap-2 ms-auto">
+                <a href="/ui/user/imports/definitions"
+                   class="btn btn-app-secondary btn-sm"
+                   data-testid="import-definitions-link">
+                    <i class="bi bi-list-check me-1" aria-hidden="true"></i>{userImportDefinition:userImportDefinitionsNavLabel()}
+                </a>
                 <a href="/ui/user/imports/connections"
                    class="btn btn-app-secondary btn-sm"
                    data-testid="import-connections-link">
