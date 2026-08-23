@@ -28,6 +28,13 @@ interface ImportPort {
   fun triggerImport(userId: String, installedAppId: String, connectionId: String, targetEntityDefinitionId: String, urlPostfix: String? = null): Either<DomainError, ImportJob>
 
   /**
+   * Fetches from the connection's base URL - or, when [urlPostfix] is given, from the base URL with it appended -
+   * through the connection's stored credentials, and checks that the response is a JSON object, without persisting
+   * anything. Lets users verify a "New Import" form's inputs before submitting it.
+   */
+  fun testConnectionUrl(userId: String, connectionId: String, urlPostfix: String?): Either<DomainError, Unit>
+
+  /**
    * Runs an unattended import from [definitionId]'s already-configured [ImportDefinition.selectedDataPath],
    * [ImportDefinition.filterRules] and [ImportDefinition.mapping] - no interactive steps. Aborts without creating or
    * accepting a job if the definition has no mapping/data path configured, if mapping validation is not blocking-issue-free,
