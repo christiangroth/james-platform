@@ -60,4 +60,11 @@ object CronSchedule {
     val next = executionTime.nextExecution(since.atZone(ZoneOffset.UTC)).orElse(null) ?: return false
     return !next.toInstant().isAfter(now)
   }
+
+  /** [expression]'s next occurrence strictly after [after] - for a purely informational "next run" display, e.g. the Import-Definitionen table. Null if [expression] is invalid or has no future occurrence. */
+  fun nextFireTime(expression: String, after: Instant): Instant? = try {
+    ExecutionTime.forCron(parser.parse(expression)).nextExecution(after.atZone(ZoneOffset.UTC)).orElse(null)?.toInstant()
+  } catch (e: IllegalArgumentException) {
+    null
+  }
 }

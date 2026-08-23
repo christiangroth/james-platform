@@ -12,6 +12,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import java.time.Instant
 
 interface ImportPort {
   /** Lists all of [userId]'s import jobs across every installed app, newest first. */
@@ -19,6 +20,13 @@ interface ImportPort {
 
   /** Lists all of [userId]'s import definitions, for bulk-joining connection/target entity/mapping data onto [listAllImportJobs] (see [ImportDefinition]). */
   fun listAllImportDefinitions(userId: String): List<ImportDefinition>
+
+  /**
+   * The next occurrence of [schedule] strictly after [after] - a pure, informational computation (not an actual
+   * trigger), for a definitions overview to display a "next run" column without inbound adapters depending on the
+   * cron evaluation library directly. Null if [schedule] is invalid or has no future occurrence.
+   */
+  fun nextScheduledRunAt(schedule: String, after: Instant): Instant?
 
   /**
    * Fetches from the connection's base URL - or, when [urlPostfix] is given, from the base URL with it appended -
@@ -45,8 +53,26 @@ interface ImportPort {
    */
   fun triggerScheduledImport(definitionId: String): Either<DomainError, ImportJob>
 
-  /** Sets or clears (with `null`) [ImportDefinition.schedule]; requires the definition to already have a [ImportDefinition.selectedDataPath] and [ImportDefinition.mapping]. */
-  fun updateSchedule(userId: String, definitionId: String, schedule: String?): Either<DomainError, ImportDefinition>
+  /**
+   * Sets or clears (with `null`) [ImportDefinition.schedule], and sets [ImportDefinition.notifyOnSlack]; requires
+   * the definition to already have a [ImportDefinition.selectedDataPath] and [ImportDefinition.mapping].
+   */
+  fun updateSchedule(userId: String, definitionId: String, schedule: String?, notifyOnSlack: Boolean): Either<DomainError, ImportDefinition>
+
+  /**
+   * Runs the same unattended fetch-to-accept pipeline as [triggerScheduledImport], but for a user-initiated
+   * one-off re-run of an already-configured [definitionId] - ownership-checked, and recorded with
+   * [de.chrgroth.james.platform.domain.model.imports.ImportTrigger.USER] instead of `SYSTEM`. Shares the same
+   * abort conditions (unconfigured definition, mapping not blocking-issue-free, schema drift) and the same
+   * [ImportDefinition.lastRunAt]/[ImportDefinition.lastKnownSchema] bookkeeping.
+   */
+  fun triggerDefinitionRun(userId: String, definitionId: String): Either<DomainError, ImportJob>
+
+  /**
+   * Deletes [definitionId] itself; any of its still-unaccepted [ImportJob]s are left in place, same as deleting an
+   * [de.chrgroth.james.platform.domain.model.imports.ImportConnection] does not cascade to jobs referencing it.
+   */
+  fun deleteImportDefinition(userId: String, definitionId: String): Either<DomainError, Unit>
   fun deleteImportJob(userId: String, importJobId: String): Either<DomainError, Unit>
   fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob>
   fun getFilterView(userId: String, importJobId: String): Either<DomainError, FilterView>

@@ -69,4 +69,16 @@ class CronScheduleTests {
 
     assertThat(CronSchedule.isDue("0 0 3 * * ?", longAgo, now)).isTrue()
   }
+
+  @Test
+  fun `nextFireTime returns the next occurrence strictly after the given instant`() {
+    val after = Instant.parse("2026-01-01T02:00:00Z")
+
+    assertThat(CronSchedule.nextFireTime("0 0 3 * * ?", after)).isEqualTo(Instant.parse("2026-01-01T03:00:00Z"))
+  }
+
+  @Test
+  fun `nextFireTime returns null for an invalid expression`() {
+    assertThat(CronSchedule.nextFireTime("not a cron", Instant.now())).isNull()
+  }
 }

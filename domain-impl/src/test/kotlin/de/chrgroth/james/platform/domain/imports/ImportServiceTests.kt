@@ -1251,10 +1251,11 @@ class ImportServiceTests {
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
 
-    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?")
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = true)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isEqualTo("0 0 3 * * ?")
+    assertThat(saved.captured.notifyOnSlack).isTrue()
   }
 
   @Test
@@ -1264,7 +1265,7 @@ class ImportServiceTests {
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
 
-    val result = service.updateSchedule("user-1", definition.id.value, " ")
+    val result = service.updateSchedule("user-1", definition.id.value, " ", notifyOnSlack = false)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isNull()
@@ -1274,7 +1275,7 @@ class ImportServiceTests {
   fun `update schedule rejects an invalid cron expression`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
 
-    val result = service.updateSchedule("user-1", definition.id.value, "not a cron")
+    val result = service.updateSchedule("user-1", definition.id.value, "not a cron", notifyOnSlack = false)
 
     assertThat(result).isEqualTo(ImportError.INVALID_CRON_SCHEDULE.left())
     verify(exactly = 0) { importDefinitionRepository.save(any()) }
@@ -1284,7 +1285,7 @@ class ImportServiceTests {
   fun `update schedule rejects setting a schedule before the definition has a mapping configured`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = null)
 
-    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?")
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = false)
 
     assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_CONFIGURED.left())
   }
@@ -1293,9 +1294,73 @@ class ImportServiceTests {
   fun `update schedule fails when the definition belongs to another user`() {
     val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
 
-    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?")
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = false)
 
     assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `trigger definition run reuses the definition's stored configuration and records it as user-triggered`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}]}""".right()
+    val savedJobs = mutableListOf<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJobs)) }
+    every { importJobRepository.findById(any()) } answers { savedJobs.lastOrNull() }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
+    val enqueued = slot<DomainOutboxEvent.AcceptDryRun>()
+    justRun { outboxPort.enqueue(capture(enqueued)) }
+
+    val result = service.triggerDefinitionRun("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedJobs[0].triggeredBy).isEqualTo(ImportTrigger.USER)
+    assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.AcceptDryRun(importJobId = savedJobs[0].id.value, userId = "user-1", replaceExisting = false))
+    assertThat(savedDefinition.captured.lastRunAt).isNotNull()
+  }
+
+  @Test
+  fun `trigger definition run fails when the definition is not found`() {
+    every { importDefinitionRepository.findById(ImportDefinitionId("missing")) } returns null
+
+    val result = service.triggerDefinitionRun("user-1", "missing")
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `trigger definition run fails when the definition belongs to another user`() {
+    val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.triggerDefinitionRun("user-1", definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `delete import definition deletes an owned definition`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    justRun { importDefinitionRepository.delete(definition.id) }
+
+    val result = service.deleteImportDefinition("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    verify { importDefinitionRepository.delete(definition.id) }
+  }
+
+  @Test
+  fun `delete import definition fails when the definition belongs to another user`() {
+    val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.deleteImportDefinition("user-1", definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+    verify(exactly = 0) { importDefinitionRepository.delete(any()) }
   }
 
   private val connection = ImportConnection(

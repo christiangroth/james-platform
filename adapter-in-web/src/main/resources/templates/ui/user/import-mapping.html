@@ -18,9 +18,10 @@
         </div>
         {/if}
 
-        <div class="d-flex align-items-center mb-4 gap-2">
+        <div class="d-flex align-items-center mb-2 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="mapping-title">{pageHeading}</h1>
         </div>
+        <p class="app-section-label mb-4" data-testid="mapping-definition-reuse-hint">{userImportDefinition:userImportDefinitionReuseHint()}</p>
 
         {#import-steps importJobId=importJobId filterable=filterable mappable=mappable readyForDryRun=readyForDryRun activeStep="mapping" /}
 

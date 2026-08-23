@@ -1,0 +1,258 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {userImportDefinition:userImportDefinitionsTitle()}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/imports" class="breadcrumb-link" data-testid="breadcrumb-imports">{user:userImportsTitle()}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-definitions">{userImportDefinition:userImportDefinitionsTitle()}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="definitions-title">{userImportDefinition:userImportDefinitionsTitle()}</h1>
+        </div>
+
+        <div id="definitions-message" class="d-none mb-4" role="alert"></div>
+
+        <div id="definitions-table-container">
+            {#fragment id="definitions_table"}
+            {#if definitions.isEmpty}
+            <div class="card app-card p-4">
+                <p class="mb-0 app-section-label" data-testid="no-definitions-message">{userImportDefinition:userNoImportDefinitionsMessage()}</p>
+            </div>
+            {#else}
+            <div class="card app-card">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0 app-table" data-testid="definitions-table">
+                        <thead>
+                            <tr>
+                                <th>{userImportDefinition:userImportDefinitionColSource()}</th>
+                                <th>{user:userImportTableColApp()}</th>
+                                <th>{user:userImportTableColEntity()}</th>
+                                <th>{userImportDefinition:userImportDefinitionColSchedule()}</th>
+                                <th>{userImportDefinition:userImportDefinitionColNextRun()}</th>
+                                <th>{userImportDefinition:userImportDefinitionColLastRun()}</th>
+                                <th class="text-end">{userImportDefinition:userImportDefinitionColActions()}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for definition in definitions}
+                            <tr data-testid="definition-row"
+                                data-definition-id="{definition.id}"
+                                data-definition-schedule="{definition.schedule}"
+                                data-definition-notify-on-slack="{definition.notifyOnSlack}">
+                                <td data-testid="definition-source">
+                                    {definition.connectionName}
+                                    {#if definition.urlPostfix}<div class="text-muted small" data-testid="definition-url-postfix">{definition.urlPostfix}</div>{/if}
+                                </td>
+                                <td data-testid="definition-app">{definition.installedAppName}</td>
+                                <td data-testid="definition-entity">{definition.targetEntityName}</td>
+                                <td data-testid="definition-schedule">
+                                    {#if definition.hasSchedule}{definition.schedule}{#else}<span class="text-muted">{userImportDefinition:userImportDefinitionScheduleManualLabel()}</span>{/if}
+                                </td>
+                                <td data-testid="definition-next-run">{#if definition.nextRunAt}{definition.nextRunAt.formatted}{#else}–{/if}</td>
+                                <td data-testid="definition-last-run">{#if definition.lastRunAt}{definition.lastRunAt.formatted}{#else}–{/if}</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-app-secondary btn-sm run-definition-button" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionRunButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionRunButton()}" data-testid="run-definition-button">
+                                        <i class="bi bi-play-fill" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-app-secondary btn-sm ms-1 schedule-definition-button" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionScheduleButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionScheduleButton()}" data-testid="schedule-definition-button">
+                                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                                    </button>
+                                    {#btn-icon-delete testId="delete-definition-button" title=msg:commonDelete() extraClass="ms-1" bsTarget="#deleteDefinitionModal" action="" entityId=definition.id propertyId="" reportId="" username="" /}
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {/if}
+            {/fragment}
+        </div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scheduleModalLabel">{userImportDefinition:userImportDefinitionScheduleModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="scheduleForm">
+                    <div class="modal-body">
+                        <div id="schedule-modal-message" class="d-none mb-3" role="alert"></div>
+                        <div class="mb-2">
+                            <label for="scheduleCron" class="form-label">{userImportDefinition:userImportDefinitionScheduleLabel()}</label>
+                            <input type="text" class="form-control app-form-control" id="scheduleCron" name="schedule" autocomplete="off" data-testid="schedule-cron-input">
+                            <div class="form-text">{userImportDefinition:userImportDefinitionScheduleHint()}</div>
+                            <div class="form-text">{userImportDefinition:userImportDefinitionScheduleClearHint()}</div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="scheduleNotifyOnSlack" name="notifyOnSlack" data-testid="schedule-notify-on-slack-checkbox">
+                            <label class="form-check-label" for="scheduleNotifyOnSlack">{userImportDefinition:userImportDefinitionNotifyOnSlackLabel()}</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="schedule-submit-button">{msg:commonSave()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Definition Modal -->
+    <div class="modal fade" id="deleteDefinitionModal" tabindex="-1" aria-labelledby="deleteDefinitionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteDefinitionModalLabel">{userImportDefinition:userDeleteImportDefinitionModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="delete-definition-modal-body">{userImportDefinition:userDeleteImportDefinitionConfirm()}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteDefinitionButton" data-testid="confirm-delete-definition-button">{msg:commonDelete()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/content}
+    {#scripts}
+    <script>
+        (function () {
+            var basePath = '/ui/user/imports/definitions';
+            var networkErrorMessage = '{msg:commonNetworkError()}';
+
+            var messagePanel = document.getElementById('definitions-message');
+            var messageTimer = null;
+
+            function showMessage(ok, message) {
+                if (messageTimer) { clearTimeout(messageTimer); }
+                messagePanel.className = 'alert alert-dismissible mb-4 ' + (ok ? 'alert-success' : 'alert-danger');
+                messagePanel.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
+                messagePanel.innerHTML = message
+                    + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{msg:commonClose()}"></button>';
+                messageTimer = setTimeout(function () {
+                    messagePanel.className = 'd-none mb-4';
+                    messagePanel.removeAttribute('data-testid');
+                }, 5000);
+            }
+
+            var scheduleModalMessage = document.getElementById('schedule-modal-message');
+
+            function showScheduleModalMessage(message) {
+                scheduleModalMessage.className = 'alert alert-danger mb-3';
+                scheduleModalMessage.setAttribute('data-testid', 'error-message');
+                scheduleModalMessage.innerHTML = message;
+            }
+
+            function clearScheduleModalMessage() {
+                scheduleModalMessage.className = 'd-none mb-3';
+                scheduleModalMessage.innerHTML = '';
+                scheduleModalMessage.removeAttribute('data-testid');
+            }
+
+            async function refreshTable() {
+                try {
+                    var response = await fetch(basePath + '/table', { cache: 'no-store' });
+                    var html = await response.text();
+                    document.getElementById('definitions-table-container').innerHTML = html;
+                } catch (e) {
+                    showMessage(false, networkErrorMessage);
+                }
+            }
+
+            async function fetchForm(method, url, formData) {
+                try {
+                    var response = await fetch(url, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(formData).toString()
+                    });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            async function fetchAction(method, url) {
+                try {
+                    var response = await fetch(url, { method: method });
+                    return await response.json();
+                } catch (e) {
+                    return { ok: false, message: networkErrorMessage };
+                }
+            }
+
+            var definitionsTableContainer = document.getElementById('definitions-table-container');
+            if (definitionsTableContainer) {
+                definitionsTableContainer.addEventListener('click', async function (e) {
+                    var runButton = e.target.closest('.run-definition-button');
+                    if (runButton) {
+                        var definitionId = runButton.getAttribute('data-definition-id');
+                        runButton.disabled = true;
+                        var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(definitionId) + '/run');
+                        runButton.disabled = false;
+                        showMessage(result.ok, result.message);
+                        if (result.ok) { await refreshTable(); }
+                    }
+                });
+            }
+
+            var scheduleModal = document.getElementById('scheduleModal');
+            var scheduleForm = document.getElementById('scheduleForm');
+            scheduleModal.addEventListener('show.bs.modal', function (event) {
+                var trigger = event.relatedTarget;
+                var row = trigger ? trigger.closest('[data-definition-id]') : null;
+                scheduleModal.setAttribute('data-definition-id', trigger ? trigger.getAttribute('data-definition-id') : '');
+                scheduleForm.querySelector('#scheduleCron').value = row ? (row.getAttribute('data-definition-schedule') || '') : '';
+                scheduleForm.querySelector('#scheduleNotifyOnSlack').checked = !!row && row.getAttribute('data-definition-notify-on-slack') === 'true';
+            });
+
+            scheduleModal.addEventListener('hidden.bs.modal', function () {
+                clearScheduleModalMessage();
+                scheduleForm.reset();
+            });
+
+            scheduleForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                clearScheduleModalMessage();
+                var definitionId = scheduleModal.getAttribute('data-definition-id') || '';
+                var result = await fetchForm('POST', basePath + '/' + encodeURIComponent(definitionId) + '/schedule', new FormData(this));
+                if (result.ok) {
+                    bootstrap.Modal.getInstance(scheduleModal).hide();
+                    await refreshTable();
+                    showMessage(true, result.message);
+                } else {
+                    showScheduleModalMessage(result.message);
+                }
+            });
+
+            var deleteDefinitionModal = document.getElementById('deleteDefinitionModal');
+            if (deleteDefinitionModal) {
+                deleteDefinitionModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var definitionId = trigger ? trigger.getAttribute('data-entity-id') : '';
+                    deleteDefinitionModal.setAttribute('data-definition-id', definitionId);
+                });
+            }
+
+            var confirmDeleteDefinitionButton = document.getElementById('confirmDeleteDefinitionButton');
+            if (confirmDeleteDefinitionButton) {
+                confirmDeleteDefinitionButton.addEventListener('click', async function () {
+                    var definitionId = deleteDefinitionModal.getAttribute('data-definition-id') || '';
+                    var result = await fetchAction('POST', basePath + '/' + encodeURIComponent(definitionId) + '/delete');
+                    bootstrap.Modal.getInstance(deleteDefinitionModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
+                });
+            }
+        }());
+    </script>
+    {/scripts}
+{/include}

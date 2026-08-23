@@ -394,6 +394,8 @@ interface UserMessages {
 
   // Filter mode/operator labels live in UserImportFilterMessages instead - see its KDoc for why.
 
+  // Import-Definitionen page labels live in UserImportDefinitionMessages instead - see its KDoc for why.
+
   // import connections page
   @Message
   fun userImportConnectionsNavLabel(): String
