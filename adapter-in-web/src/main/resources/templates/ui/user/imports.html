@@ -40,7 +40,7 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>{user:userImportConnectionLabel()}</th>
+                                <th>{user:userImportTableColSource()}</th>
                                 <th>{user:userImportTableColApp()}</th>
                                 <th>{user:userImportTableColEntity()}</th>
                                 <th>{user:userImportTableColCreated()}</th>
@@ -52,7 +52,10 @@
                             {#for job in jobs}
                             <tr class="import-row" data-testid="import-row" data-import-id="{job.id}" data-accepting="{job.accepting}" style="cursor:pointer;">
                                 <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
-                                <td data-testid="import-connection-name">{job.connectionName}</td>
+                                <td data-testid="import-connection-name">
+                                    {job.connectionName}
+                                    {#if job.urlPostfix}<div class="text-muted small" data-testid="import-url-postfix">{job.urlPostfix}</div>{/if}
+                                </td>
                                 <td data-testid="import-installed-app-name">{job.installedAppName}</td>
                                 <td data-testid="import-target-entity">{job.targetEntityName}</td>
                                 <td data-testid="import-created-at">{job.createdAt.formatted}</td>
@@ -87,20 +90,22 @@
                             <label for="importConnectionId" class="form-label">{user:userImportConnectionLabel()}</label>
                             <select class="form-select app-form-control" id="importConnectionId" name="connectionId" required data-testid="import-connection-select">
                                 {#for connection in connectionOptions}
-                                <option value="{connection.id}">{connection.name}</option>
+                                <option value="{connection.id}" data-base-url="{connection.baseUrl}">{connection.name}</option>
                                 {/for}
                             </select>
+                            <div class="form-text" data-testid="import-connection-base-url-hint">{user:userImportConnectionBaseUrlLabel()} <span id="importConnectionBaseUrlValue"></span></div>
                         </div>
                         <div class="mb-3">
                             <label for="importUrlPostfix" class="form-label">{user:userImportUrlPostfixLabel()}</label>
                             <input type="text" class="form-control app-form-control" id="importUrlPostfix" name="urlPostfix" autocomplete="off" data-testid="import-url-postfix-input">
                             <div class="form-text">{user:userImportUrlPostfixHint()}</div>
+                            <button type="button" class="btn btn-app-secondary btn-sm mt-2" id="importTestConnectionButton" data-testid="import-test-connection-button">{user:userImportTestConnectionButton()}</button>
                         </div>
                         <div class="mb-3">
                             <label for="importInstalledAppId" class="form-label">{user:userImportTableColApp()}</label>
                             <select class="form-select app-form-control" id="importInstalledAppId" name="installedAppId" required data-testid="import-app-select">
                                 {#for app in appOptions}
-                                <option value="{app.id}">{app.name}</option>
+                                <option value="{app.id}">{app.name}{#if !app.active} {user:userImportAppDeactivatedOptionSuffix()}{/if}</option>
                                 {/for}
                             </select>
                         </div>
@@ -174,9 +179,9 @@
             // the page-level message panel above is covered by the still-open modal/backdrop.
             var importModalMessage = document.getElementById('import-modal-message');
 
-            function showImportModalMessage(message, errorDetails) {
-                importModalMessage.className = 'alert alert-danger mb-3';
-                importModalMessage.setAttribute('data-testid', 'error-message');
+            function showImportModalMessage(message, errorDetails, ok) {
+                importModalMessage.className = 'alert mb-3 ' + (ok ? 'alert-success' : 'alert-danger');
+                importModalMessage.setAttribute('data-testid', ok ? 'success-message' : 'error-message');
                 importModalMessage.innerHTML = message;
                 if (errorDetails && errorDetails.length) {
                     var list = document.createElement('ul');
@@ -317,8 +322,39 @@
                         await refreshTable();
                         showMessage(true, result.message);
                     } else {
-                        showImportModalMessage(result.message, result.errorDetails);
+                        showImportModalMessage(result.message, result.errorDetails, false);
                     }
+                });
+            }
+
+            // Connection base URL hint: shown under the connection select, kept in sync with the current selection.
+            var connectionSelect = document.getElementById('importConnectionId');
+            var connectionBaseUrlValue = document.getElementById('importConnectionBaseUrlValue');
+
+            function syncConnectionBaseUrlHint() {
+                if (!connectionSelect || !connectionBaseUrlValue) { return; }
+                var selectedOption = connectionSelect.options[connectionSelect.selectedIndex];
+                connectionBaseUrlValue.textContent = selectedOption ? selectedOption.getAttribute('data-base-url') : '';
+            }
+            if (connectionSelect) {
+                connectionSelect.addEventListener('change', syncConnectionBaseUrlHint);
+                syncConnectionBaseUrlHint();
+            }
+
+            // "URL testen" – calls the resulting URL once via the backend (so the connection's stored credentials
+            // can be used) and reports whether data came back, without creating an import job.
+            var importTestConnectionButton = document.getElementById('importTestConnectionButton');
+            var importUrlPostfixInput = document.getElementById('importUrlPostfix');
+            if (importTestConnectionButton) {
+                importTestConnectionButton.addEventListener('click', async function () {
+                    clearImportModalMessage();
+                    importTestConnectionButton.disabled = true;
+                    var result = await fetchForm('POST', basePath + '/test-connection', {
+                        connectionId: connectionSelect ? connectionSelect.value : '',
+                        urlPostfix: importUrlPostfixInput ? importUrlPostfixInput.value : '',
+                    });
+                    importTestConnectionButton.disabled = false;
+                    showImportModalMessage(result.message, result.errorDetails, result.ok);
                 });
             }
             if (newImportModal) {

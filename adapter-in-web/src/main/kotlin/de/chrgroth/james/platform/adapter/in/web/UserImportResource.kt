@@ -81,6 +81,7 @@ data class ImportJobRow(
   val installedAppName: String,
   val targetEntityName: String,
   val connectionName: String,
+  val urlPostfix: String,
   val statusLabel: String,
   val accepting: Boolean,
   val awaitingDataPathSelection: Boolean,
@@ -102,12 +103,14 @@ data class EntityOptionRow(
 data class AppOptionRow(
   val id: String,
   val name: String,
+  val active: Boolean,
   val entityOptions: List<EntityOptionRow>,
 )
 
 data class ConnectionOptionRow(
   val id: String,
   val name: String,
+  val baseUrl: String,
 )
 
 data class SchemaFieldOptionRow(
@@ -316,7 +319,7 @@ class UserImportResource {
       importsTemplate
         .data("jobs", loadAllRows(userId, apps))
         .data("appOptions", apps.map { it.toOptionRow() })
-        .data("connectionOptions", connections.map { ConnectionOptionRow(it.id.value, it.name) })
+        .data("connectionOptions", connections.map { ConnectionOptionRow(it.id.value, it.name, it.baseUrl) })
         .data("hasConnections", connections.isNotEmpty()),
     ).build()
   }
@@ -352,6 +355,24 @@ class UserImportResource {
     importPort.triggerImport(userId, installedAppId, connectionId, targetEntityDefinitionId, urlPostfix).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportCreatedMessage())).build() },
+    )
+  }
+
+  @POST
+  @Path("/test-connection")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun testConnection(
+    @FormParam("connectionId") connectionId: String?,
+    @FormParam("urlPostfix") urlPostfix: String?,
+  ): Response = httpResponseMetrics.timed("rest.user-import.test-connection") {
+    val userId = securityIdentity.principal.name
+    if (connectionId.isNullOrBlank()) {
+      return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportConnectionRequiredError())).build()
+    }
+    importPort.testConnectionUrl(userId, connectionId, urlPostfix).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, importErrorMessage(error.code), errorDetails = importErrorDetails(error))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportTestConnectionSuccessMessage())).build() },
     )
   }
 
@@ -737,6 +758,7 @@ class UserImportResource {
   private fun InstalledAppInfo.toOptionRow() = AppOptionRow(
     id = installedAppId,
     name = appName,
+    active = appActive,
     entityOptions = installedVersion.entityDefinitions.map { EntityOptionRow(it.id.value, it.name) },
   )
 
@@ -753,6 +775,7 @@ class UserImportResource {
       installedAppName = appNamesById[installedAppId.value].orEmpty(),
       targetEntityName = definition?.let { entityNamesById[it.targetEntityDefinitionId.value] }.orEmpty(),
       connectionName = definition?.let { connectionNamesById[it.connectionId.value] }.orEmpty(),
+      urlPostfix = definition?.urlPostfix.orEmpty(),
       statusLabel = statusLabel(status),
       accepting = status == ImportStatus.ACCEPTING,
       awaitingDataPathSelection = status == ImportStatus.DOWNLOADED,

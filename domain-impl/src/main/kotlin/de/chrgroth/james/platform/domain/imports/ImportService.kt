@@ -145,6 +145,29 @@ class ImportService(
     return importJob.right()
   }
 
+  override fun testConnectionUrl(userId: String, connectionId: String, urlPostfix: String?): Either<DomainError, Unit> {
+    val connection = importConnectionRepository.findById(ImportConnectionId(connectionId))?.takeIf { it.userId == userId } ?: run {
+      logger.warn { "Test connection failed: connection not found: $connectionId for user: $userId" }
+      return ImportError.CONNECTION_NOT_FOUND.left()
+    }
+    val trimmedUrlPostfix = urlPostfix?.trim()?.takeIf { it.isNotBlank() }
+
+    val bearerToken = connection.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
+    val rawPayload = importFetch.fetch(resolveImportUrl(connection.baseUrl, trimmedUrlPostfix), bearerToken).fold({ return it.left() }, { it })
+
+    val parsed = try {
+      objectMapper.readTree(rawPayload)
+    } catch (e: Exception) {
+      logger.warn { "Test connection failed: invalid JSON response from connection: $connectionId" }
+      return ImportError.INVALID_JSON_RESPONSE.left()
+    }
+    if (!parsed.isObject) {
+      logger.warn { "Test connection failed: response is not a JSON object from connection: $connectionId" }
+      return ImportError.NOT_A_JSON_OBJECT.left()
+    }
+    return Unit.right()
+  }
+
   override fun triggerScheduledImport(definitionId: String): Either<DomainError, ImportJob> {
     val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId)) ?: run {
       logger.warn { "Trigger scheduled import failed: import definition not found: $definitionId" }

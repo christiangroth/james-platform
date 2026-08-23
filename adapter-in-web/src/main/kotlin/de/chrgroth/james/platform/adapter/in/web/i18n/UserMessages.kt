@@ -167,6 +167,18 @@ interface UserMessages {
   fun userImportConnectionLabel(): String
 
   @Message
+  fun userImportConnectionBaseUrlLabel(): String
+
+  @Message
+  fun userImportAppDeactivatedOptionSuffix(): String
+
+  @Message
+  fun userImportTestConnectionButton(): String
+
+  @Message
+  fun userImportTestConnectionSuccessMessage(): String
+
+  @Message
   fun userImportNoConnectionsHint(): String
 
   @Message
@@ -189,6 +201,9 @@ interface UserMessages {
 
   @Message
   fun userImportColActions(): String
+
+  @Message
+  fun userImportTableColSource(): String
 
   @Message
   fun userImportTableColApp(): String

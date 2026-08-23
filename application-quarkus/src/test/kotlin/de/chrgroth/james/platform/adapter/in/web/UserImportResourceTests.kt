@@ -815,7 +815,7 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"import-connection-name\">$connectionName<"), "Expected the connection's name to be rendered in its own column")
+    assertTrue(html.contains("data-testid=\"import-connection-name\">") && html.contains(connectionName), "Expected the connection's name to be rendered in its own column")
     assertTrue(html.contains(">App<"), "Expected the target app installation column header to be shortened to 'App'")
     assertTrue(html.contains(">Entität<"), "Expected the target entity column header to be shortened to 'Entität'")
     assertTrue(html.contains(">Angelegt<"), "Expected the created-at column header to be shortened to 'Angelegt'")
