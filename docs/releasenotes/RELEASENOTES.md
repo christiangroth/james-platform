@@ -1,3 +1,19 @@
+# 0.108.0 (2026.08.23)
+
+## New Features
+* New "Import-Definitionen" overview lists every configured import, showing its source, target App/Entity, schedule and last/next run.
+* Imports can now be re-run on demand ("Jetzt ausführen") without repeating the setup wizard.
+* A schedule can be set, changed or paused directly from the overview, together with Slack notifications for automated runs.
+* Import definitions that are no longer needed can be deleted from the overview.
+* The import filter and mapping steps now mention that their settings are saved for later reuse.
+
+## Bugfixes / Chore
+* Fixed muted/secondary text (e.g. the connection URL postfix shown under imports) being nearly unreadable in dark mode.
+
+
+
+---
+
 # 0.107.0 (2026.08.23)
 
 ## New Features
