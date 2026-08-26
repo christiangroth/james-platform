@@ -9,8 +9,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      dashboards: ${{ steps.filter.outputs.dashboards }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            dashboards:
+              - 'monitoring/grafana/**'
+            code:
+              - '**'
+              - '!monitoring/grafana/**'
+
   build:
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -26,62 +44,22 @@ jobs:
 
   provision-grafana-dashboard:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' }}
-    needs: release
+    needs: [changes, release]
+    if: always() && github.ref == 'refs/heads/main' && needs.changes.outputs.dashboards == 'true' && (needs.release.result == 'success' || needs.release.result == 'skipped')
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Provision Grafana dashboards
         env:
           GRAFANA_CLOUD_SA_TOKEN: ${{ secrets.GRAFANA_CLOUD_SA_TOKEN }}
-        run: |
-          if [ -z "$GRAFANA_CLOUD_SA_TOKEN" ]; then
-            echo "Error: GRAFANA_CLOUD_SA_TOKEN secret must be set" >&2
-            exit 1
-          fi
-
-          provision_dashboard() {
-            local dashboard_file="$1"
-            if [ ! -f "$dashboard_file" ]; then
-              echo "Error: Dashboard file not found: $dashboard_file" >&2
-              return 1
-            fi
-            local payload
-            payload=$(jq -n \
-              --argjson dashboard "$(cat "$dashboard_file")" \
-              --arg message "Provisioned by GitHub Actions (commit ${{ github.sha }})" \
-              '{dashboard: $dashboard, overwrite: true, message: $message}')
-            local delays=(30 60 120 300)
-            local attempt=0
-            while true; do
-              echo "Provisioning $dashboard_file (attempt $((attempt+1)))..."
-              if curl --fail-with-body -s -X POST \
-                "https://jamesplatform.grafana.net/api/dashboards/db" \
-                -H "Authorization: Bearer $GRAFANA_CLOUD_SA_TOKEN" \
-                -H "Content-Type: application/json" \
-                -d "$payload"; then
-                echo ""
-                echo "Successfully provisioned $dashboard_file"
-                return 0
-              fi
-              if [ "$attempt" -ge "${#delays[@]}" ]; then
-                echo "Error: Failed to provision $dashboard_file after all retries" >&2
-                return 1
-              fi
-              local wait_time="${delays[$attempt]}"
-              echo "Retrying in ${wait_time}s..."
-              sleep "$wait_time"
-              attempt=$((attempt+1))
-            done
-          }
-
-          provision_dashboard "monitoring/grafana/quarkus-metrics.json"
-          provision_dashboard "monitoring/grafana/quarkus-logs.json"
+          GRAFANA_CLOUD_STACK_URL: ${{ secrets.GRAFANA_CLOUD_STACK_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: ./provision-grafana-dashboards.sh
 
   release:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' }}
-    needs: build
+    needs: [build, changes]
+    if: needs.changes.outputs.code == 'true' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
       packages: write
