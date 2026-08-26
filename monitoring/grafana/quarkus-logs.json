@@ -131,7 +131,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"$app\"} |= \"$search\" [$__interval]))",
+          "expr": "sum(count_over_time({service_name=\"$app\"} |~ \"$contains\" !~ \"$notContains\" | json | level=~\"${loglevel:pipe}\" [$__interval]))",
           "queryType": "range",
           "refId": "A"
         }
@@ -174,7 +174,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "{service_name=\"$app\"} |= \"$search\" | json | line_format \"{{.message}}\"",
+          "expr": "{service_name=\"$app\"} |~ \"$contains\" !~ \"$notContains\" | json | level=~\"${loglevel:pipe}\" | line_format \"{{if .message}}{{.message}}{{else}}{{__line__}}{{end}}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -211,18 +211,68 @@
           "type": 1
         },
         "refresh": 1,
-        "regex": "",
+        "regex": "/^james-platform_.*/",
         "regexApplyTo": "value",
         "sort": 1,
         "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "includeAll": true,
+        "label": "Log Level",
+        "multi": true,
+        "name": "loglevel",
+        "options": [
+          {
+            "selected": false,
+            "text": "TRACE",
+            "value": "TRACE"
+          },
+          {
+            "selected": false,
+            "text": "DEBUG",
+            "value": "DEBUG"
+          },
+          {
+            "selected": false,
+            "text": "INFO",
+            "value": "INFO"
+          },
+          {
+            "selected": false,
+            "text": "WARN",
+            "value": "WARN"
+          },
+          {
+            "selected": false,
+            "text": "ERROR",
+            "value": "ERROR"
+          },
+          {
+            "selected": false,
+            "text": "FATAL",
+            "value": "FATAL"
+          }
+        ],
+        "query": "TRACE,DEBUG,INFO,WARN,ERROR,FATAL",
+        "type": "custom"
       },
       {
         "current": {
           "text": "",
           "value": ""
         },
-        "label": "String Match",
-        "name": "search",
+        "description": "Multiple values separated by |",
+        "label": "Line Contains",
+        "name": "contains",
         "options": [
           {
             "selected": true,
@@ -231,6 +281,24 @@
           }
         ],
         "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": ".^",
+          "value": ".^"
+        },
+        "description": "Multiple values separated by |. Default \".^\" is a regex that never matches, i.e. no lines are excluded.",
+        "label": "Line Not Contains",
+        "name": "notContains",
+        "options": [
+          {
+            "selected": true,
+            "text": ".^",
+            "value": ".^"
+          }
+        ],
+        "query": ".^",
         "type": "textbox"
       }
     ]
