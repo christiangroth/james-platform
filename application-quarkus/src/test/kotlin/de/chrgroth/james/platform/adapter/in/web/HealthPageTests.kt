@@ -160,7 +160,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="grafana-logs-link""""))
-      .body(containsString("https://test.grafana.net/d/quarkus-james-platform-logs/quarkus-logs"))
+      .body(containsString("https://test.grafana.net/d/q-james-platform-logs/quarkus-logs"))
   }
 
   @Test
@@ -171,7 +171,7 @@ class HealthPageTests {
       .then()
       .statusCode(200)
       .body(containsString("""data-testid="grafana-metrics-link""""))
-      .body(containsString("https://test.grafana.net/d/quarkus-james-platform-metrics/quarkus-metrics"))
+      .body(containsString("https://test.grafana.net/d/q-james-platform-metrics/quarkus-metrics"))
   }
 
   @Test
