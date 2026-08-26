@@ -563,7 +563,10 @@ repository secrets (`gradle.yml`), and at runtime via the Docker stack's `enviro
 | `SLACK_WEBHOOK_URL`                | Slack incoming webhook for system notifications (optional)        |
 | `TRAEFIK_HTTP_ROUTERS_JAMESPLATFORM_RULE` | Traefik routing rule for the deployed service                |
 | `GHCR_PAT`                         | GitHub Container Registry / Package Registry token (CI + runtime pull) |
-| `GRAFANA_CLOUD_{METRICS,LOGS}_{URL,USERNAME,API_KEY}` | Grafana Cloud remote-write/Loki credentials (Alloy sidecar) |
+| `GRAFANA_CLOUD_{METRICS,LOGS}_{URL,USERNAME}` | Grafana Cloud remote-write/Loki endpoints and usernames (Alloy sidecar) |
+| `GRAFANA_CLOUD_API_KEY`            | Grafana Cloud remote-write/Loki API key, shared across metrics and logs (Alloy sidecar) |
+| `GRAFANA_CLOUD_STACK_URL`          | Grafana Cloud stack base URL (dashboard provisioning workflow + in-app dashboard links) |
+| `GRAFANA_CLOUD_SERVICE_ACCOUNT_TOKEN` | Grafana Cloud service account token (dashboard provisioning workflow) |
 | `CONTABO_SSH_{HOST,USER,PRIVATE_KEY}` | Deployment target SSH access (release workflow)                |
 | `CLAUDE_CODE_OAUTH_TOKEN`          | Claude Code GitHub Action authentication                          |
 
