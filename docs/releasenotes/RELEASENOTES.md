@@ -1,3 +1,13 @@
+# 0.108.1 (2026.08.26)
+
+## Bugfixes / Chore
+* Fixed a Grafana dashboard ID clashing with another app's dashboard, and consolidated Grafana Cloud secrets into fewer, more clearly named values.
+* Grafana dashboard links in the technical menu now adapt to the configured Grafana Cloud stack automatically.
+
+
+
+---
+
 # 0.108.0 (2026.08.23)
 
 ## New Features
