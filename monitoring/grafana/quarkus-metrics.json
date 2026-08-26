@@ -2016,6 +2016,6 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Quarkus Metrics",
-  "uid": "quarkus-james-platform",
+  "uid": "quarkus-james-platform-metrics",
   "version": 1
 }
