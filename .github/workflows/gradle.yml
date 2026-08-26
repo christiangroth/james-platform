@@ -15,6 +15,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       dashboards: ${{ steps.filter.outputs.dashboards }}
     steps:
+      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
