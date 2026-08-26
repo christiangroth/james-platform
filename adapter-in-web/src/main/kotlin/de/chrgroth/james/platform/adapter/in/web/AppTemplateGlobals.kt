@@ -17,6 +17,9 @@ class AppTemplateGlobals {
   @field:ConfigProperty(name = "quarkus.application.version")
   lateinit var version: String
 
+  @field:ConfigProperty(name = "grafana.cloud.stack-url", defaultValue = "")
+  lateinit var grafanaCloudStackUrl: String
+
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
@@ -29,6 +32,7 @@ class AppTemplateGlobals {
     builder.addTemplateInstanceInitializer { instance ->
       instance.data("appBuildVersion", version)
       instance.data("assetVersion", assetVersion)
+      instance.data("grafanaCloudStackUrl", grafanaCloudStackUrl)
       val isAdmin = runCatching { securityIdentity.roles?.contains(UserRole.ADMIN.name) ?: false }.getOrDefault(false)
       instance.data("isAdmin", isAdmin)
       val isDeveloper = runCatching { securityIdentity.roles?.contains(UserRole.DEVELOPER.name) ?: false }.getOrDefault(false)

@@ -107,7 +107,7 @@ class DashboardPageTests {
       .get("/ui/admin/dashboard")
       .then()
       .statusCode(200)
-      .body(containsString("jamesplatform.grafana.net"))
+      .body(containsString("test.grafana.net"))
   }
 
   @Test
