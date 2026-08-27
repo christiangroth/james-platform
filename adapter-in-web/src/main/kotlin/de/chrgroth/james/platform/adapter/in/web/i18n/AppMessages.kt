@@ -218,7 +218,10 @@ interface AppMessages {
   fun layoutNavGrafanaLogsLabel(): String
 
   @Message
-  fun layoutNavGrafanaMetricsLabel(): String
+  fun layoutNavGrafanaOverviewLabel(): String
+
+  @Message
+  fun layoutNavGrafanaTechnicalLabel(): String
 
   @Message
   fun layoutNavMongodbViewerLabel(): String

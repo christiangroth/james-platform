@@ -164,14 +164,25 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page contains grafana metrics link in navbar`() {
+  fun `health page contains grafana overview link in navbar`() {
     given()
       .`when`()
       .get("/health")
       .then()
       .statusCode(200)
-      .body(containsString("""data-testid="grafana-metrics-link""""))
-      .body(containsString("https://test.grafana.net/d/q-james-platform-metrics/quarkus-metrics"))
+      .body(containsString("""data-testid="grafana-overview-link""""))
+      .body(containsString("https://test.grafana.net/d/q-james-platform-overview/overview"))
+  }
+
+  @Test
+  fun `health page contains grafana technical overview link in navbar`() {
+    given()
+      .`when`()
+      .get("/health")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="grafana-technical-overview-link""""))
+      .body(containsString("https://test.grafana.net/d/q-james-platform-technical/technical-overview"))
   }
 
   @Test
