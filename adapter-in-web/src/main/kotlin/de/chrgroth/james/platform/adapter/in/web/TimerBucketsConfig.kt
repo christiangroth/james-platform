@@ -21,7 +21,6 @@ class TimerBucketsConfig {
     override fun configure(id: Meter.Id, config: DistributionStatisticConfig): DistributionStatisticConfig {
       val slos = SLOS[id.name] ?: return config
       return DistributionStatisticConfig.builder()
-        .percentilesHistogram(true)
         .serviceLevelObjectives(*slos)
         .build()
         .merge(config)
