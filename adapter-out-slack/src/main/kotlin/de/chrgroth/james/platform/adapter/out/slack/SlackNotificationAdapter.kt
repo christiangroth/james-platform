@@ -105,6 +105,10 @@ class SlackNotificationAdapter(
 
   companion object : KLogging() {
     private const val HTTP_OK = 200
-    private val httpClient: HttpClient = HttpClient.newHttpClient()
+
+    // Lazy, not eager: java.net.http.HttpClient holds live OS networking state (selector, etc.) that GraalVM
+    // native-image refuses to bake into the build-time image heap ("This type ... is marked for initialization at
+    // image run time"). Deferring construction to first actual use keeps it off the image heap entirely.
+    private val httpClient: HttpClient by lazy { HttpClient.newHttpClient() }
   }
 }
