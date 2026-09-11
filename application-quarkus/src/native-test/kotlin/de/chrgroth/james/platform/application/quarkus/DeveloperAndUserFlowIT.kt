@@ -198,7 +198,8 @@ class DeveloperAndUserFlowIT {
       .find(dashboardHtml)?.groupValues?.get(1)
     assertTrue(!installedAppId.isNullOrBlank(), "Expected to find an installedAppId on the user dashboard for '$appName'")
 
-    // app detail page renders with the entity tile (no data yet)
+    // app detail page renders with the single entity's (empty, no data yet) section - app-detail.html shows the
+    // entity directly (heading + no-data-message) rather than an entity-tile grid when there's exactly one entity
     given()
       .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
@@ -207,7 +208,8 @@ class DeveloperAndUserFlowIT {
       .statusCode(200)
       .body(containsString("""data-testid="app-title""""))
       .body(containsString(appName))
-      .body(containsString("""data-testid="entity-tile""""))
+      .body(containsString("""data-testid="entity-heading""""))
+      .body(containsString("""data-testid="no-data-message""""))
 
     // create one real app-data record for the Widget entity
     given()
