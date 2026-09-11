@@ -14,7 +14,7 @@
 # docker run -i --rm -p 8080:8080 quarkus/application-quarkus
 #
 ###
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.10
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.6
 WORKDIR /work/
 RUN chown 1001 /work \
     && chmod "g+rwX" /work \
@@ -24,8 +24,12 @@ COPY --chown=1001:root build/*-runner /work/application
 EXPOSE 8080
 USER 1001
 
-# The ubi8/ubi-minimal base image ships curl (curl-minimal) by default, so we use it to
+# The ubi9/ubi-minimal base image ships curl (curl-minimal) by default, so we use it to
 # probe the Quarkus readiness endpoint (requires the quarkus-smallrye-health extension).
-HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8080/q/health/ready || exit 1
+# UBI9 (glibc 2.34) is required to match the glibc version the Mandrel container-build
+# produces (Quarkus 3.x / Java 25) - the previous UBI8 base (glibc 2.28) fails at container
+# start with "GLIBC_2.3x not found".
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/q/health/ready || exit 1
 
 ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
