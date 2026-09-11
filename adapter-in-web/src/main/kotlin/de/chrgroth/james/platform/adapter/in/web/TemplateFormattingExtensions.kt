@@ -109,6 +109,15 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun formattedShort(instant: Instant): String = DATETIME_SHORT_FORMATTER.format(instant.toJavaInstant())
 
+  /**
+   * Exposes `kotlin.time.Instant.toEpochMilliseconds()` as a Qute template member. Calling it straight from a
+   * template (`{job.nextExecution.toEpochMilliseconds()}`) relies on runtime reflection against kotlin.time.Instant,
+   * which GraalVM native-image doesn't reliably resolve without explicit registration - this makes it a
+   * build-time-registered @TemplateExtension member instead, avoiding the reflection gap entirely.
+   */
+  @JvmStatic
+  fun toEpochMilliseconds(instant: Instant): Long = instant.toEpochMilliseconds()
+
   /** Formats a duration given in seconds as `m:ss` (e.g. for a recently-played track). */
   @JvmStatic
   fun formattedDuration(durationSeconds: Long): String {
