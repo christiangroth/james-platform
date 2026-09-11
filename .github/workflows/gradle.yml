@@ -57,7 +57,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-      - run: ./gradlew :application-quarkus:testNative -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true -Dquarkus.package.jar.enabled=false -Dquarkus.container-image.build=false -Dquarkus.native.additional-build-args=-Ob
+      # --exclude-config works around a known Kotlin/GraalVM packaging bug (KT-68829): kotlin-compiler-embeddable
+      # (pulled in transitively by kotlin-scripting-jsr223, used for computed properties/smart defaults) shades a
+      # stripped-down jline whose leftover META-INF/native-image/org.jline/jline-terminal/native-image.properties
+      # references a reflection-config.json that was never included in the shading - native-image aborts trying to
+      # read it unless explicitly excluded.
+      - run: ./gradlew :application-quarkus:testNative -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true -Dquarkus.package.jar.enabled=false -Dquarkus.container-image.build=false '-Dquarkus.native.additional-build-args=-Ob,--exclude-config,kotlin-compiler-embeddable.*\.jar\,META-INF/native-image/org\.jline/jline-terminal/.*'
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
@@ -101,7 +106,8 @@ jobs:
       # Cutover to native packaging: the deployed image is now built from Dockerfile.native via the Mandrel
       # container build, replacing the JVM image (see #672). testNative already ran with the quick build (-Ob)
       # in the build-native job above; this full (non-quick) native build is the one actually deployed.
-      - run: ./gradlew release -x test -x testNative -x koverHtmlReport -x koverVerify -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true -Dquarkus.package.jar.enabled=false
+      # --exclude-config works around the same kotlin-compiler-embeddable/jline packaging bug as in build-native.
+      - run: ./gradlew release -x test -x testNative -x koverHtmlReport -x koverVerify -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true -Dquarkus.package.jar.enabled=false '-Dquarkus.native.additional-build-args=--exclude-config,kotlin-compiler-embeddable.*\.jar\,META-INF/native-image/org\.jline/jline-terminal/.*'
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
       - run: |

@@ -15,20 +15,38 @@ import org.junit.jupiter.api.Test
  * InstalledAppInfo/AppDataDetail/AppDataPropertyView object graphs - the largest and riskiest untyped
  * Template.data() bindings in the app outside of /health.
  *
- * Authenticates as the real "admin" bootstrap user (forged session cookie, see SessionCookieForge) - every page
- * exercised here is merely @Authenticated (no role restriction beyond that), so one user covers the whole flow.
+ * Authenticates as the real "admin" bootstrap user (forged session cookie, see SessionCookieForge) for the developer
+ * steps - DeveloperAppResource is merely @Authenticated, no role restriction. The user-facing steps (app store,
+ * install, dashboard, app data) need a separate non-admin account though: UserAppStoreResource and the user
+ * dashboard are annotated @BlockAdminAccess (BlockAdminAccessFilter.kt) and return 403 for the ADMIN role even
+ * though it's otherwise authenticated - so a second user is created via the real admin "create user" endpoint
+ * (default role USER, sufficient for every page exercised here) and used for that half of the flow.
  */
 @QuarkusIntegrationTest
 class DeveloperAndUserFlowIT {
 
   @Test
   fun `developer creates and publishes an app, user installs it and creates data, all pages render`() {
-    val cookie = SessionCookieForge.forgeSessionCookie("admin")
+    val adminCookie = SessionCookieForge.forgeSessionCookie("admin")
     val appName = "Native Test App ${System.nanoTime()}"
+    val testUsername = "native-test-user-${System.nanoTime()}"
+
+    // create a plain USER-role account (as admin) for the user-facing half of the flow below
+    given()
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("password", "native-test-password-1!")
+      .`when`()
+      .put("/ui/admin/users/$testUsername")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val userCookie = SessionCookieForge.forgeSessionCookie(testUsername)
 
     // developer dashboard renders with the (still empty, at this point) apps grid
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .`when`()
       .get("/ui/developer/dashboard")
       .then()
@@ -39,7 +57,7 @@ class DeveloperAndUserFlowIT {
 
     // create app
     val appId = given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", appName)
       .`when`()
@@ -52,7 +70,7 @@ class DeveloperAndUserFlowIT {
 
     // create draft version
     val versionId = given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .`when`()
       .post("/ui/developer/apps/$appId/versions")
       .then()
@@ -62,7 +80,7 @@ class DeveloperAndUserFlowIT {
 
     // app overview page renders with the real app name and the new draft version tile
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .`when`()
       .get("/ui/developer/apps/$appId")
       .then()
@@ -74,7 +92,7 @@ class DeveloperAndUserFlowIT {
 
     // add an entity with a STRING and a LONG property (exercises PropertyType enum + Property @TemplateData binding)
     val entityId = given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "Widget")
       .`when`()
@@ -86,7 +104,7 @@ class DeveloperAndUserFlowIT {
       .substringAfterLast("/")
 
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "Title")
       .formParam("type", "STRING")
@@ -97,7 +115,7 @@ class DeveloperAndUserFlowIT {
       .body(containsString("\"ok\":true"))
 
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "Count")
       .formParam("type", "LONG")
@@ -109,7 +127,7 @@ class DeveloperAndUserFlowIT {
 
     // entity editor page renders with both properties in the properties table
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .`when`()
       .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
       .then()
@@ -121,7 +139,7 @@ class DeveloperAndUserFlowIT {
 
     // publish the version
     val publishedVersionId = given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("bumpType", "FEATURE")
       .formParam("releaseNotes", "Native test release")
@@ -135,7 +153,7 @@ class DeveloperAndUserFlowIT {
 
     // published version page renders with the real version number and release notes
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, adminCookie)
       .`when`()
       .get("/ui/developer/apps/$appId/versions/$publishedVersionId")
       .then()
@@ -144,9 +162,9 @@ class DeveloperAndUserFlowIT {
       .body(containsString("""data-testid="version-release-notes""""))
       .body(containsString("Native test release"))
 
-    // install the app as a user
+    // install the app as the (non-admin) user
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
       .post("/ui/user/app-store/apps/$appId/install")
       .then()
@@ -155,7 +173,7 @@ class DeveloperAndUserFlowIT {
 
     // app store page renders with the published app in the store grid
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
       .get("/ui/user/app-store")
       .then()
@@ -166,7 +184,7 @@ class DeveloperAndUserFlowIT {
 
     // user dashboard renders with the newly installed app tile - extract the installedAppId from it
     val dashboardHtml = given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
       .get("/ui/user/dashboard")
       .then()
@@ -182,7 +200,7 @@ class DeveloperAndUserFlowIT {
 
     // app detail page renders with the entity tile (no data yet)
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
       .get("/ui/user/apps/$installedAppId")
       .then()
@@ -193,7 +211,7 @@ class DeveloperAndUserFlowIT {
 
     // create one real app-data record for the Widget entity
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("entityTypeId", entityId)
       .`when`()
@@ -204,7 +222,7 @@ class DeveloperAndUserFlowIT {
 
     // app detail page now renders the (non-empty) app-data table for the entity
     val appDetailHtml = given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
       .get("/ui/user/apps/$installedAppId")
       .then()
@@ -218,7 +236,7 @@ class DeveloperAndUserFlowIT {
 
     // app-data detail/edit page renders with the real property values (exercises AppDataDetail/AppDataPropertyView)
     given()
-      .cookie(SessionCookieForge.COOKIE_NAME, cookie)
+      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .`when`()
       .get("/ui/user/apps/$installedAppId/data/$dataId")
       .then()
