@@ -1,3 +1,12 @@
+# 0.108.7 (2026.09.13)
+
+## Bugfixes / Chore
+* Switched the deployed application image to Quarkus native mode, cutting memory usage significantly with no change in behavior. Hardened the CI pipeline with a dedicated native build/test job so native-only issues are caught before release, not after.
+
+
+
+---
+
 # 0.108.1 (2026.08.26)
 
 ## Bugfixes / Chore
