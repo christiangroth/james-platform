@@ -42,6 +42,14 @@ dependencies {
 
 tasks.withType<Test> {
   systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
+  testLogging {
+    events("failed")
+    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    showStandardStreams = true
+    showCauses = true
+    showExceptions = true
+    showStackTraces = true
+  }
 }
 
 allOpen {
