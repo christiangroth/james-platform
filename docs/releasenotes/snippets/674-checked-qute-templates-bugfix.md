@@ -1,1 +1,0 @@
-* Internal refactor: Qute page/template rendering in the web UI now uses type-safe `@CheckedTemplate` bindings, so template-expression typos are caught at build time instead of at runtime. No user-facing behavior change.
