@@ -86,6 +86,11 @@ interface UserImportDefinitionMessages {
   @Message
   fun userImportSchemaDriftDetectedError(): String
 
+  // ImportStatus.ACCEPTED's label - kept here rather than on UserMessages, which is already close to the
+  // bytecode-verification wall documented on this interface's class KDoc.
+  @Message
+  fun userImportStatusAccepted(): String
+
   @Message
   fun userImportDefinitionHistoryButton(): String
 

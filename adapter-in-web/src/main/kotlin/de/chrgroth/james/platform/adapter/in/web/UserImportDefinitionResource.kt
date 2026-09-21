@@ -70,7 +70,7 @@ class UserImportDefinitionResource {
     val rows = importPort.listAllImportJobs(userId)
       .filter { it.importDefinitionId.value == definitionId && it.status == ImportStatus.ACCEPTED }
       .sortedByDescending { it.lastChangedAt }
-      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userMsg.userImportStatusAccepted()) }
+      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted()) }
     UserTemplates.`imports$history`(rows)
   }
 

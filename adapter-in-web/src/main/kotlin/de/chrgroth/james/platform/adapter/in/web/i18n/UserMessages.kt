@@ -236,9 +236,6 @@ interface UserMessages {
   fun userImportStatusAccepting(): String
 
   @Message
-  fun userImportStatusAccepted(): String
-
-  @Message
   fun userImportFilterLinkLabel(): String
 
   @Message

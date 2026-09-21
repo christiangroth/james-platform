@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportDefinitionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportFilterMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.DomainError
@@ -305,6 +306,9 @@ class UserImportResource {
 
   @Inject
   private lateinit var userImportFilterMsg: UserImportFilterMessages
+
+  @Inject
+  private lateinit var userImportDefinitionMsg: UserImportDefinitionMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -1026,7 +1030,7 @@ class UserImportResource {
     ImportStatus.DATA_IDENTIFIED -> userMsg.userImportStatusDataIdentified()
     ImportStatus.READY -> userMsg.userImportStatusReady()
     ImportStatus.ACCEPTING -> userMsg.userImportStatusAccepting()
-    ImportStatus.ACCEPTED -> userMsg.userImportStatusAccepted()
+    ImportStatus.ACCEPTED -> userImportDefinitionMsg.userImportStatusAccepted()
   }
 
   private fun importErrorMessage(code: String): String = when (code) {
