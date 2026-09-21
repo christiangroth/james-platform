@@ -191,7 +191,7 @@ class UserImportDefinitionResourceTests {
   }
 
   private fun definitionRow(connectionName: String): String {
-    val tableHtml = given().`when`().get("/ui/user/imports/definitions/table").then().statusCode(200).extract().body().asString()
+    val tableHtml = given().`when`().get("/ui/user/imports/table").then().statusCode(200).extract().body().asString()
     val row = Regex("""<tr data-testid="definition-row"[\s\S]*?</tr>""").findAll(tableHtml).map { it.value }.firstOrNull { it.contains(connectionName) }
     return row ?: error("Expected a definition row for connection '$connectionName'")
   }
@@ -351,9 +351,53 @@ class UserImportDefinitionResourceTests {
   }
 
   @Test
-  fun `imports page links to the definitions overview`() {
+  fun `merged imports page lists a configured definition's row directly, without a separate definitions overview link`() {
+    val (_, connectionName, _) = createConfiguredDefinition()
+
     val html = given().`when`().get("/ui/user/imports").then().statusCode(200).extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"import-definitions-link\""), "Expected a link to the Import-Definitionen overview")
+    assertTrue(html.contains(connectionName), "Expected the definition's connection name to appear directly on the merged imports page")
+    assertTrue(!html.contains("data-testid=\"import-definitions-link\""), "Expected no separate link to a definitions overview since the pages are merged")
+  }
+
+  @Test
+  fun `history endpoint lists an accepted job's run and hides it from the main definition row`() {
+    val app = installAppWithMandatoryStringProperty()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    val connectionName = createConnection()
+    val importId = triggerImportAndGetId(app.installedAppId, connectionName, app.entityId)
+    saveMapping(importId, app.propertyId)
+    val definitionId = definitionIdForConnection(connectionName)
+
+    given().`when`().post("/ui/user/imports/$importId/dry-run/accept").then().statusCode(200).body("ok", equalTo(true))
+    awaitImportAccepted(importId)
+
+    val historyHtml = given().`when`().get("/ui/user/imports/definitions/$definitionId/history").then().statusCode(200).extract().body().asString()
+    assertTrue(historyHtml.contains("data-testid=\"history-row\""), "Expected the accepted job to appear as a history row")
+
+    val row = definitionRow(connectionName)
+    assertTrue(!row.contains("data-testid=\"import-job-link\""), "Expected the accepted job to no longer be listed as an in-progress job on the main row")
+  }
+
+  @Test
+  fun `history endpoint returns no rows for an unowned or unknown definition id, mirroring the run and delete endpoints' ownership check`() {
+    val html = given()
+      .`when`()
+      .get("/ui/user/imports/definitions/unknown-definition/history")
+      .then()
+      .statusCode(200)
+      .extract().body().asString()
+
+    assertTrue(!html.contains("data-testid=\"history-row\""), "Expected no history rows for a definition id this user does not own")
+  }
+
+  private fun awaitImportAccepted(importJobId: String) {
+    val deadlineMs = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadlineMs) {
+      val tableHtml = given().`when`().get("/ui/user/imports/table").then().statusCode(200).extract().body().asString()
+      if (!tableHtml.contains("data-import-id=\"$importJobId\"")) return
+      Thread.sleep(50)
+    }
+    throw AssertionError("Expected import job $importJobId to be accepted by the outbox dispatcher within 5s")
   }
 }

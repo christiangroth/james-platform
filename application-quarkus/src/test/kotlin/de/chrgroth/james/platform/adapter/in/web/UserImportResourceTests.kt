@@ -253,7 +253,7 @@ class UserImportResourceTests {
       .extract().body().asString()
 
     assertTrue(tableHtml.contains("data-testid=\"imports-table\""), "Expected the imports table to be rendered")
-    assertTrue(tableHtml.contains("data-testid=\"import-status\""), "Expected a status cell for the created import job")
+    assertTrue(tableHtml.contains("data-testid=\"import-job-link\""), "Expected the in-progress job to be rendered as a link under its definition")
   }
 
   @Test
@@ -792,17 +792,17 @@ class UserImportResourceTests {
 
     assertTrue(html.contains("data-testid=\"breadcrumb-imports\""), "Expected a top-level, non-app-scoped Imports breadcrumb")
     assertTrue(!html.contains("data-testid=\"breadcrumb-app\""), "Expected the imports list to no longer be scoped under a single app in the breadcrumbs")
-    assertTrue(html.contains("data-testid=\"import-installed-app-name\""), "Expected the target app installation column to be rendered")
+    assertTrue(html.contains("data-testid=\"definition-app\""), "Expected the target app installation column to be rendered on the definition row")
     assertTrue(
-      html.contains("class=\"import-row\" data-testid=\"import-row\" data-import-id=\"$importId\""),
-      "Expected the whole row to be clickable and open the new job overview page, without a separate entity link",
+      html.contains("data-testid=\"import-job-link\" data-import-id=\"$importId\""),
+      "Expected the in-progress job to link to the job overview page under its definition's row",
     )
     assertTrue(html.contains("data-testid=\"import-app-select\""), "Expected the New Import modal to offer an installed app selector now that the list is cross-app")
     assertTrue(html.contains("data-testid=\"import-target-entity-select\""), "Expected the New Import modal to offer a target entity selector for the chosen app")
   }
 
   @Test
-  fun `imports table is compact, shows the connection name and leaves the status and actions column headers blank`() {
+  fun `imports table groups by definition, shows the connection name and leaves the status and actions column headers blank`() {
     val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
     val connectionName = "Compact Table Connection ${System.nanoTime()}"
@@ -815,13 +815,11 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"import-connection-name\">") && html.contains(connectionName), "Expected the connection's name to be rendered in its own column")
+    assertTrue(html.contains("data-testid=\"definition-source\">") && html.contains(connectionName), "Expected the connection's name to be rendered in its own column")
     assertTrue(html.contains(">App<"), "Expected the target app installation column header to be shortened to 'App'")
     assertTrue(html.contains(">Entität<"), "Expected the target entity column header to be shortened to 'Entität'")
-    assertTrue(html.contains(">Angelegt<"), "Expected the created-at column header to be shortened to 'Angelegt'")
-    assertTrue(html.contains(">Aktualisiert<"), "Expected the last-action column header to be renamed to 'Aktualisiert'")
     assertTrue(html.contains("<th></th>"), "Expected the status column header to be blank")
-    assertTrue(html.contains("<th class=\"text-end\"></th>"), "Expected the actions column header to be blank")
+    assertTrue(html.contains("<th class=\"text-end\">"), "Expected the actions column header to be rendered")
   }
 
   @Test
