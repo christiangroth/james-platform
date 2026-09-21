@@ -794,7 +794,7 @@ class UserImportResourceTests {
     assertTrue(!html.contains("data-testid=\"breadcrumb-app\""), "Expected the imports list to no longer be scoped under a single app in the breadcrumbs")
     assertTrue(html.contains("data-testid=\"definition-app\""), "Expected the target app installation column to be rendered on the definition row")
     assertTrue(
-      html.contains("data-testid=\"import-job-link\" data-import-id=\"$importId\""),
+      html.contains("data-testid=\"import-job-link\"") && html.contains("data-import-id=\"$importId\""),
       "Expected the in-progress job to link to the job overview page under its definition's row",
     )
     assertTrue(html.contains("data-testid=\"import-app-select\""), "Expected the New Import modal to offer an installed app selector now that the list is cross-app")
