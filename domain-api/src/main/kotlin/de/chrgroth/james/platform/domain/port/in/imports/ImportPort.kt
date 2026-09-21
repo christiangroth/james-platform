@@ -111,13 +111,16 @@ interface ImportPort {
    * [DomainOutboxEvent.AcceptDryRun] outbox event for background processing (see [handle]), instead of running
    * the accept synchronously in the request - the source data volume is unbounded, so it could otherwise exceed
    * the request timeout. Returns the updated job immediately; the caller must poll or reload to observe completion
-   * (the job is deleted by [handle] once processing finishes).
+   * (the job transitions to [de.chrgroth.james.platform.domain.model.imports.ImportStatus.ACCEPTED] by [handle]
+   * once processing finishes, and is kept as history rather than deleted - see docs/adr/0022-import-job-history.md).
    */
   fun acceptDryRun(userId: String, importJobId: String, replaceExisting: Boolean): Either<DomainError, ImportJob>
 
   /**
-   * Performs the actual accept: saves every valid object from the current dry-run, discards invalid ones, and
-   * deletes the [ImportJob] (including its raw payload) - its [de.chrgroth.james.platform.domain.model.imports.ImportDefinition]
+   * Performs the actual accept: saves every valid object from the current dry-run, discards invalid ones, and marks
+   * the [ImportJob] [de.chrgroth.james.platform.domain.model.imports.ImportStatus.ACCEPTED] instead of deleting it,
+   * so it remains available as a past run in its definition's "Historie" view (see docs/adr/0022-import-job-history.md)
+   * until `ImportCleanupService` removes it by age - its [de.chrgroth.james.platform.domain.model.imports.ImportDefinition]
    * is left untouched so it can be reused for a later import. When [DomainOutboxEvent.AcceptDryRun.replaceExisting]
    * is set, every existing instance of the target entity is deleted first, and the dry-run is re-evaluated against
    * that now-empty state — so a record only skipped because it collided with data that is about to be deleted ends

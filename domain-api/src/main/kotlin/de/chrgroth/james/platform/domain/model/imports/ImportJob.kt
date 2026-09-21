@@ -11,8 +11,16 @@ enum class ImportStatus {
   DATA_IDENTIFIED,
   READY,
 
-  /** Accept was triggered and enqueued via the outbox; the job is kept around until the background dispatcher deletes it on success. */
+  /** Accept was triggered and enqueued via the outbox; the job is kept around until the background dispatcher finishes processing it. */
   ACCEPTING,
+
+  /**
+   * Terminal state: the background dispatcher (`ImportService.handle`) finished accepting the dry run. The job is no
+   * longer deleted on accept (see docs/adr/0022-import-job-history.md) so it can be listed as a past run in the
+   * "Historie" view for its [ImportDefinition] - see `ImportPort.listAllImportJobs`. Retention is still governed by
+   * `ImportCleanupService`, which deletes jobs purely by [ImportJob.lastChangedAt] age regardless of status.
+   */
+  ACCEPTED,
 }
 
 enum class ImportTrigger {
@@ -57,8 +65,10 @@ data class SchemaProperty(
  * A single fetch-to-mapping-to-import run targeting a fixed [installedAppId], built from a reusable
  * [ImportDefinition] (referenced by [importDefinitionId]) that carries the connection, target entity, data path,
  * filter rules and mapping. Unlike the definition, a job only holds the data snapshot for one point in time and is
- * cleaned up automatically when it stays inactive too long; accepting it (see `ImportService.handle`) deletes the
- * job but leaves its definition in place for reuse - see docs/adr/0021-import-definition-job-split.md.
+ * cleaned up automatically when it stays inactive too long; accepting it (see `ImportService.handle`) moves it to
+ * [ImportStatus.ACCEPTED] instead of deleting it, so it remains visible as a past run in its definition's "Historie"
+ * view, while its definition stays in place for reuse - see docs/adr/0021-import-definition-job-split.md and
+ * docs/adr/0022-import-job-history.md.
  *
  * [detectedSchema] is derived once from the raw, unfiltered records at the definition's selected data path and stays
  * unchanged afterwards - it is the field reference panel shown across the Filter and Mapping steps. [filteredSchema]

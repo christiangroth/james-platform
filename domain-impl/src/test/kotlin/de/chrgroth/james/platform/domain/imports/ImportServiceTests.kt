@@ -973,7 +973,7 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `handle accept dry run saves valid objects, discards invalid ones and deletes the import job`() {
+  fun `handle accept dry run saves valid objects, discards invalid ones and marks the import job as accepted instead of deleting it`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
@@ -987,7 +987,8 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val savedAppData = slot<AppData>()
     justRun { appDataRepository.save(capture(savedAppData)) }
-    justRun { importJobRepository.delete(job.id) }
+    val savedJob = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJob)) }
 
     val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
 
@@ -999,7 +1000,10 @@ class ImportServiceTests {
       ImportProvenance(connectionId = ImportConnectionId("conn-1"), connectionName = "My API", sourceUrl = "https://example.com/data"),
     )
     verify(exactly = 1) { appDataRepository.save(any()) }
-    verify(exactly = 1) { importJobRepository.delete(job.id) }
+    verify(exactly = 1) { importJobRepository.save(any()) }
+    verify(exactly = 0) { importJobRepository.delete(any()) }
+    assertThat(savedJob.captured.id).isEqualTo(job.id)
+    assertThat(savedJob.captured.status).isEqualTo(ImportStatus.ACCEPTED)
     verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
     verify(exactly = 0) { notificationPort.notify(any()) }
   }
@@ -1020,7 +1024,7 @@ class ImportServiceTests {
     )
     every { importJobRepository.findById(job.id) } returns job
     justRun { appDataRepository.save(any()) }
-    justRun { importJobRepository.delete(job.id) }
+    justRun { importJobRepository.save(any()) }
 
     val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
 
@@ -1044,7 +1048,7 @@ class ImportServiceTests {
     )
     every { importJobRepository.findById(job.id) } returns job
     justRun { appDataRepository.save(any()) }
-    justRun { importJobRepository.delete(job.id) }
+    justRun { importJobRepository.save(any()) }
 
     service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
 
@@ -1101,7 +1105,7 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val savedAppData = slot<AppData>()
     justRun { appDataRepository.save(capture(savedAppData)) }
-    justRun { importJobRepository.delete(job.id) }
+    justRun { importJobRepository.save(any()) }
 
     val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = true))
 
@@ -1128,7 +1132,7 @@ class ImportServiceTests {
     )
     every { importJobRepository.findById(job.id) } returns job
     justRun { appDataRepository.save(any()) }
-    justRun { importJobRepository.delete(job.id) }
+    justRun { importJobRepository.save(any()) }
     val enqueued = slot<DomainOutboxEvent.RecomputeAggregation>()
     justRun { outboxPort.enqueue(capture(enqueued)) }
 
@@ -1151,7 +1155,7 @@ class ImportServiceTests {
       mapping = readyMapping,
     )
     every { importJobRepository.findById(job.id) } returns job
-    justRun { importJobRepository.delete(job.id) }
+    justRun { importJobRepository.save(any()) }
 
     val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
 
