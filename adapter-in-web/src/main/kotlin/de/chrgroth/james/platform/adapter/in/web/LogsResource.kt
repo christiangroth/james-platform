@@ -1,7 +1,5 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
 import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
@@ -23,8 +21,6 @@ data class UiLogGroup(
 @ApplicationScoped
 @Suppress("Unused")
 class LogsResource(
-  @param:Location("logs.html")
-  private val logsTemplate: Template,
   private val logBuffer: UiLogBuffer,
   private val httpResponseMetrics: HttpResponseMetrics,
 ) {
@@ -35,10 +31,7 @@ class LogsResource(
   fun logs(@QueryParam("view") view: String?): TemplateInstance = httpResponseMetrics.timed("page.logs.view") {
     val entries = logBuffer.getRecent()
     val isGroupedView = view == "grouped"
-    logsTemplate
-      .data("entries", entries)
-      .data("isGroupedView", isGroupedView)
-      .data("groups", entries.toGroupedView())
+    Templates.logs(entries, isGroupedView, entries.toGroupedView())
   }
 
   private fun List<UiLogEntry>.toGroupedView(): List<UiLogGroup> =

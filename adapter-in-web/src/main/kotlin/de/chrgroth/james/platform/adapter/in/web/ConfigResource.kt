@@ -1,8 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.port.out.infra.ConfigurationInfoPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
 import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
@@ -18,10 +16,6 @@ import jakarta.ws.rs.core.MediaType
 class ConfigResource {
 
   @Inject
-  @Location("config.html")
-  private lateinit var configTemplate: Template
-
-  @Inject
   private lateinit var configurationInfo: ConfigurationInfoPort
 
   @Inject
@@ -31,6 +25,6 @@ class ConfigResource {
   @Authenticated
   @Produces(MediaType.TEXT_HTML)
   fun config(): TemplateInstance = httpResponseMetrics.timed("page.config.view") {
-    configTemplate.data("stats", configurationInfo.getConfigurationStats())
+    Templates.config(configurationInfo.getConfigurationStats())
   }
 }

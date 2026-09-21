@@ -9,8 +9,6 @@ import de.chrgroth.james.platform.domain.error.ImportFetchFailedError
 import de.chrgroth.james.platform.domain.error.ImportInvalidUrlError
 import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
@@ -43,10 +41,6 @@ data class ImportConnectionRow(
 class UserImportConnectionResource {
 
   @Inject
-  @Location("ui/user/import-connections.html")
-  private lateinit var connectionsTemplate: Template
-
-  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -66,7 +60,7 @@ class UserImportConnectionResource {
   fun connections(): Response = httpResponseMetrics.timed("page.user-import-connection.list") {
     val userId = securityIdentity.principal.name
     Response.ok(
-      connectionsTemplate.data("connections", loadRows(userId)),
+      UserTemplates.`import-connections`(loadRows(userId)),
     ).build()
   }
 
@@ -75,8 +69,7 @@ class UserImportConnectionResource {
   @Produces(MediaType.TEXT_HTML)
   fun connectionsTable(): Any = httpResponseMetrics.timed("fragment.user-import-connection.table") {
     val userId = securityIdentity.principal.name
-    connectionsTemplate.getFragment("connections_table")
-      .data("connections", loadRows(userId))
+    UserTemplates.`import-connections$connections_table`(loadRows(userId))
   }
 
   @POST

@@ -5,8 +5,6 @@ import de.chrgroth.james.platform.domain.error.LoginError
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.port.`in`.user.LoginServicePort
 import de.chrgroth.james.platform.domain.port.out.user.TokenEncryptionPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.PermitAll
 import jakarta.enterprise.context.ApplicationScoped
@@ -27,10 +25,6 @@ import java.net.URI
 @ApplicationScoped
 @Suppress("Unused")
 class LoginResource {
-
-  @Inject
-  @Location("login.html")
-  private lateinit var loginTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -54,7 +48,7 @@ class LoginResource {
     if (!securityIdentity.isAnonymous) {
       return@timed Response.temporaryRedirect(URI.create(dashboardUri(securityIdentity))).build()
     }
-    Response.ok(loginTemplate.data("errorMessage", error?.let { errorMessage(it) })).build()
+    Response.ok(Templates.login(error?.let { errorMessage(it) })).build()
   }
 
   @POST

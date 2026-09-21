@@ -3,8 +3,6 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.domain.model.viewer.MongoViewerFilter
 import de.chrgroth.james.platform.domain.model.viewer.MongoViewerFilterOperator
 import de.chrgroth.james.platform.domain.port.`in`.infra.MongoViewerPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
 import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
@@ -21,10 +19,6 @@ import jakarta.ws.rs.core.UriInfo
 @ApplicationScoped
 @Suppress("Unused")
 class MongoViewerResource {
-
-  @Inject
-  @Location("mongodb-viewer.html")
-  private lateinit var viewerTemplate: Template
 
   @Inject
   private lateinit var mongoViewer: MongoViewerPort
@@ -80,9 +74,7 @@ class MongoViewerResource {
       pageSize = effectivePageSize,
     )
 
-    viewerTemplate
-      .data("result", result)
-      .data("pageSizes", PAGE_SIZES)
+    Templates.`mongodb-viewer`(result, PAGE_SIZES)
   }
 
   companion object {

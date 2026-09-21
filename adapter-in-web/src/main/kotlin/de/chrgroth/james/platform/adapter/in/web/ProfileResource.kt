@@ -3,8 +3,6 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.domain.error.UserProfileError
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
@@ -24,10 +22,6 @@ import java.net.URI
 @Authenticated
 @Suppress("Unused")
 class ProfileResource {
-
-  @Inject
-  @Location("ui/profile.html")
-  private lateinit var profileTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -113,20 +107,10 @@ class ProfileResource {
     val username = securityIdentity.principal.name
     return userProfileService.getProfile(username).fold(
       ifLeft = {
-        profileTemplate
-          .data("username", username)
-          .data("createdAt", null)
-          .data("lastLoginAt", null)
-          .data("successMessage", successMsg)
-          .data("errorMessage", errorMsg)
+        UiTemplates.profile(username, null, null, successMsg, errorMsg)
       },
       ifRight = { user ->
-        profileTemplate
-          .data("username", user.username.value)
-          .data("createdAt", user.createdAt)
-          .data("lastLoginAt", user.lastLoginAt)
-          .data("successMessage", successMsg)
-          .data("errorMessage", errorMsg)
+        UiTemplates.profile(user.username.value, user.createdAt, user.lastLoginAt, successMsg, errorMsg)
       },
     )
   }
