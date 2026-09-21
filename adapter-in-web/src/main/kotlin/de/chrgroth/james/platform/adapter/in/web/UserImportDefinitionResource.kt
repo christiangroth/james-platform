@@ -4,9 +4,7 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportDefinitionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.ImportError
-import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
-import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
-import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
+import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
@@ -23,18 +21,10 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import java.time.Instant
 
-data class ImportDefinitionRow(
-  val id: String,
-  val connectionName: String,
-  val urlPostfix: String,
-  val installedAppName: String,
-  val targetEntityName: String,
-  val configured: Boolean,
-  val schedule: String,
-  val hasSchedule: Boolean,
-  val notifyOnSlack: Boolean,
-  val lastRunAt: Instant?,
-  val nextRunAt: Instant?,
+/** One past, [ImportStatus.ACCEPTED] run of an [de.chrgroth.james.platform.domain.model.imports.ImportDefinition], for its read-only "Historie" modal (issue #676). */
+data class ImportHistoryRowRow(
+  val date: Instant,
+  val statusLabel: String,
 )
 
 @Path("/ui/user/imports/definitions")
@@ -48,13 +38,7 @@ class UserImportDefinitionResource {
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
-  private lateinit var userAppStore: UserAppStorePort
-
-  @Inject
   private lateinit var importPort: ImportPort
-
-  @Inject
-  private lateinit var importConnectionPort: ImportConnectionPort
 
   @Inject
   private lateinit var msg: AppMessages
@@ -68,19 +52,26 @@ class UserImportDefinitionResource {
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
+  /**
+   * Read-only history fragment for a definition's "Historie" modal (issue #676): every [ImportStatus.ACCEPTED] job
+   * of [definitionId], newest first. Ownership is checked against [ImportPort.listAllImportDefinitions] (itself
+   * already scoped to [userId]) rather than trusting the path parameter, so a definition id belonging to another
+   * user never leaks its history - mirrors the ownership pattern used by [run]/[schedule]/[delete].
+   */
   @GET
+  @Path("/{definitionId}/history")
   @Produces(MediaType.TEXT_HTML)
-  fun definitions(): Response = httpResponseMetrics.timed("page.user-import-definition.list") {
+  fun history(@PathParam("definitionId") definitionId: String): Any = httpResponseMetrics.timed("fragment.user-import-definition.history") {
     val userId = securityIdentity.principal.name
-    Response.ok(UserTemplates.`import-definitions`(loadRows(userId))).build()
-  }
-
-  @GET
-  @Path("/table")
-  @Produces(MediaType.TEXT_HTML)
-  fun definitionsTable(): Any = httpResponseMetrics.timed("fragment.user-import-definition.table") {
-    val userId = securityIdentity.principal.name
-    UserTemplates.`import-definitions$definitions_table`(loadRows(userId))
+    val owned = importPort.listAllImportDefinitions(userId).any { it.id.value == definitionId }
+    if (!owned) {
+      return@timed UserTemplates.`import-history`(emptyList())
+    }
+    val rows = importPort.listAllImportJobs(userId)
+      .filter { it.importDefinitionId.value == definitionId && it.status == ImportStatus.ACCEPTED }
+      .sortedByDescending { it.lastChangedAt }
+      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted()) }
+    UserTemplates.`import-history`(rows)
   }
 
   @POST
@@ -118,39 +109,6 @@ class UserImportDefinitionResource {
     importPort.deleteImportDefinition(userId, definitionId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, definitionErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userImportDefinitionMsg.userImportDefinitionDeletedMessage())).build() },
-    )
-  }
-
-  private fun loadRows(userId: String): List<ImportDefinitionRow> {
-    val apps = userAppStore.getInstalledApps(userId)
-    val appNamesById = apps.associate { it.installedAppId to it.appName }
-    val entityNamesById = apps.flatMap { it.installedVersion.entityDefinitions }.associate { it.id.value to it.name }
-    val entityToAppId = apps.flatMap { app -> app.installedVersion.entityDefinitions.map { it.id.value to app.installedAppId } }.toMap()
-    val connectionNamesById = importConnectionPort.listConnections(userId).getOrNull().orEmpty().associate { it.id.value to it.name }
-    val now = Instant.now()
-    return importPort.listAllImportDefinitions(userId).map { it.toRow(connectionNamesById, entityNamesById, entityToAppId, appNamesById, now) }
-  }
-
-  private fun ImportDefinition.toRow(
-    connectionNamesById: Map<String, String>,
-    entityNamesById: Map<String, String>,
-    entityToAppId: Map<String, String>,
-    appNamesById: Map<String, String>,
-    now: Instant,
-  ): ImportDefinitionRow {
-    val installedAppId = entityToAppId[targetEntityDefinitionId.value]
-    return ImportDefinitionRow(
-      id = id.value,
-      connectionName = connectionNamesById[connectionId.value].orEmpty(),
-      urlPostfix = urlPostfix.orEmpty(),
-      installedAppName = installedAppId?.let { appNamesById[it] }.orEmpty(),
-      targetEntityName = entityNamesById[targetEntityDefinitionId.value].orEmpty(),
-      configured = selectedDataPath != null && mapping != null,
-      schedule = schedule.orEmpty(),
-      hasSchedule = schedule != null,
-      notifyOnSlack = notifyOnSlack,
-      lastRunAt = lastRunAt,
-      nextRunAt = schedule?.let { importPort.nextScheduledRunAt(it, lastRunAt ?: createdAt) }?.takeIf { it.isAfter(now) },
     )
   }
 

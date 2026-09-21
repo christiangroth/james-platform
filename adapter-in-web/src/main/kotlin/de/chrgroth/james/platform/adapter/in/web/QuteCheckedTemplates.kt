@@ -207,21 +207,18 @@ object UserTemplates {
   external fun `import-connections$connections_table`(connections: List<ImportConnectionRow>): TemplateInstance
 
   @JvmStatic
-  external fun `import-definitions`(definitions: List<ImportDefinitionRow>): TemplateInstance
-
-  @JvmStatic
-  external fun `import-definitions$definitions_table`(definitions: List<ImportDefinitionRow>): TemplateInstance
-
-  @JvmStatic
   external fun imports(
-    jobs: List<ImportJobRow>,
+    definitions: List<ImportDefinitionGroupRow>,
     appOptions: List<AppOptionRow>,
     connectionOptions: List<ConnectionOptionRow>,
     hasConnections: Boolean,
   ): TemplateInstance
 
   @JvmStatic
-  external fun `imports$imports_table`(jobs: List<ImportJobRow>): TemplateInstance
+  external fun `imports$imports_table`(definitions: List<ImportDefinitionGroupRow>): TemplateInstance
+
+  @JvmStatic
+  external fun `import-history`(rows: List<ImportHistoryRowRow>): TemplateInstance
 
   @JvmStatic
   external fun `import-job`(

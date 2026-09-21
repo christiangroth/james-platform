@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportDefinitionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportFilterMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.DomainError
@@ -91,6 +92,28 @@ data class ImportJobRow(
   val selectedDataPathDisplay: String?,
   val createdAt: Instant,
   val lastChangedAt: Instant,
+)
+
+/**
+ * One [ImportDefinition] together with its still-in-progress [ImportJob]s (see [ImportStatus]; jobs marked
+ * [ImportStatus.ACCEPTED] are never included here - they only ever appear in the "Historie" modal, see
+ * `UserImportDefinitionResource.history`) for the merged `/ui/user/imports` page (issue #676). [nextRunAt] is only
+ * populated once [inProgressJobs] is empty, so a scheduled definition's "next run" slot never competes for attention
+ * with a job that still needs interactive follow-up.
+ */
+data class ImportDefinitionGroupRow(
+  val id: String,
+  val connectionName: String,
+  val urlPostfix: String,
+  val installedAppName: String,
+  val targetEntityName: String,
+  val configured: Boolean,
+  val schedule: String,
+  val hasSchedule: Boolean,
+  val notifyOnSlack: Boolean,
+  val lastRunAt: Instant?,
+  val nextRunAt: Instant?,
+  val inProgressJobs: List<ImportJobRow>,
 )
 
 data class EntityOptionRow(
@@ -285,6 +308,9 @@ class UserImportResource {
   private lateinit var userImportFilterMsg: UserImportFilterMessages
 
   @Inject
+  private lateinit var userImportDefinitionMsg: UserImportDefinitionMessages
+
+  @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   @GET
@@ -295,7 +321,7 @@ class UserImportResource {
     val connections = importConnectionPort.listConnections(userId).getOrNull().orEmpty()
     Response.ok(
       UserTemplates.imports(
-        loadAllRows(userId, apps),
+        loadDefinitionGroups(userId, apps),
         apps.map { it.toOptionRow() },
         connections.map { ConnectionOptionRow(it.id.value, it.name, it.baseUrl) },
         connections.isNotEmpty(),
@@ -308,7 +334,7 @@ class UserImportResource {
   @Produces(MediaType.TEXT_HTML)
   fun importsTable(): Any = httpResponseMetrics.timed("fragment.user-import.imports-table") {
     val userId = securityIdentity.principal.name
-    UserTemplates.`imports$imports_table`(loadAllRows(userId, userAppStore.getInstalledApps(userId)))
+    UserTemplates.`imports$imports_table`(loadDefinitionGroups(userId, userAppStore.getInstalledApps(userId)))
   }
 
   @POST
@@ -728,12 +754,51 @@ class UserImportResource {
     )
   }
 
-  private fun loadAllRows(userId: String, apps: List<InstalledAppInfo>): List<ImportJobRow> {
+  /**
+   * Groups every [ImportDefinition] with its still-in-progress [ImportJob]s for the merged `/ui/user/imports` page
+   * (issue #676): a job marked [ImportStatus.ACCEPTED] - a finished one-time run, or a scheduled definition's past
+   * run - is excluded here and only ever shown in the definition's "Historie" modal
+   * (`UserImportDefinitionResource.history`). Both lists are small (personal-use data volumes), so this joins them
+   * client-side in the web adapter rather than adding a dedicated repository query.
+   */
+  private fun loadDefinitionGroups(userId: String, apps: List<InstalledAppInfo>): List<ImportDefinitionGroupRow> {
     val appNamesById = apps.associate { it.installedAppId to it.appName }
     val entityNamesById = apps.flatMap { it.installedVersion.entityDefinitions }.associate { it.id.value to it.name }
+    val entityToAppId = apps.flatMap { app -> app.installedVersion.entityDefinitions.map { it.id.value to app.installedAppId } }.toMap()
     val connectionNamesById = importConnectionPort.listConnections(userId).getOrNull().orEmpty().associate { it.id.value to it.name }
-    val definitionsById = importPort.listAllImportDefinitions(userId).associateBy { it.id.value }
-    return importPort.listAllImportJobs(userId).map { it.toRow(definitionsById, entityNamesById, appNamesById, connectionNamesById) }
+    val definitions = importPort.listAllImportDefinitions(userId)
+    val definitionsById = definitions.associateBy { it.id.value }
+    val inProgressJobsByDefinitionId = importPort.listAllImportJobs(userId)
+      .filter { it.status != ImportStatus.ACCEPTED }
+      .groupBy { it.importDefinitionId.value }
+    val now = Instant.now()
+    val rows = definitions.map { definition ->
+      val inProgressJobs = inProgressJobsByDefinitionId[definition.id.value].orEmpty()
+        .sortedByDescending { it.createdAt }
+        .map { it.toRow(definitionsById, entityNamesById, appNamesById, connectionNamesById) }
+      ImportDefinitionGroupRow(
+        id = definition.id.value,
+        connectionName = connectionNamesById[definition.connectionId.value].orEmpty(),
+        urlPostfix = definition.urlPostfix.orEmpty(),
+        installedAppName = entityToAppId[definition.targetEntityDefinitionId.value]?.let { appNamesById[it] }.orEmpty(),
+        targetEntityName = entityNamesById[definition.targetEntityDefinitionId.value].orEmpty(),
+        configured = definition.selectedDataPath != null && definition.mapping != null,
+        schedule = definition.schedule.orEmpty(),
+        hasSchedule = definition.schedule != null,
+        notifyOnSlack = definition.notifyOnSlack,
+        lastRunAt = definition.lastRunAt,
+        nextRunAt = if (inProgressJobs.isEmpty()) {
+          definition.schedule?.let { importPort.nextScheduledRunAt(it, definition.lastRunAt ?: definition.createdAt) }?.takeIf { it.isAfter(now) }
+        } else {
+          null
+        },
+        inProgressJobs = inProgressJobs,
+      )
+    }
+    // Most recently active definition first (its newest in-progress job, falling back to the definition's own last
+    // change) - mirrors the old flat job table's newest-first order closely enough that "the row I just triggered"
+    // stays easy to find at the top instead of wherever the definition happens to sort otherwise.
+    return rows.sortedByDescending { row -> row.inProgressJobs.maxOfOrNull { it.lastChangedAt } ?: definitionsById[row.id]?.lastChangedAt ?: Instant.EPOCH }
   }
 
   private fun InstalledAppInfo.toOptionRow() = AppOptionRow(
@@ -970,6 +1035,7 @@ class UserImportResource {
     ImportStatus.DATA_IDENTIFIED -> userMsg.userImportStatusDataIdentified()
     ImportStatus.READY -> userMsg.userImportStatusReady()
     ImportStatus.ACCEPTING -> userMsg.userImportStatusAccepting()
+    ImportStatus.ACCEPTED -> userImportDefinitionMsg.userImportStatusAccepted()
   }
 
   private fun importErrorMessage(code: String): String = when (code) {

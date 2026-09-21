@@ -639,7 +639,7 @@ class ImportService(
       enqueueAggregationRecompute(installedApp.id, entityDefinitionsOf(installedApp), entityDefinition.id)
     }
 
-    importJobRepository.delete(existing.id)
+    importJobRepository.save(existing.copy(status = ImportStatus.ACCEPTED, lastChangedAt = now))
     logger.info { "Dry run accepted: importJobId=${event.importJobId} saved=$savedCount discarded=$discardedCount" }
     if (existing.triggeredBy == ImportTrigger.SYSTEM && definition.notifyOnSlack) {
       notificationPort.notify("Scheduled import \"${definition.name}\" completed: $savedCount saved, $discardedCount discarded.")
