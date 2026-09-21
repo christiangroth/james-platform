@@ -399,4 +399,16 @@ object TemplateFormattingExtensions {
   /** Returns the script of the computed property, or empty string if not set. */
   @JvmStatic
   fun script(computedProperty: ComputedProperty): String = computedProperty.script ?: ""
+
+  /**
+   * Looks up the reference options for one property id in the app-data-new/app-data-edit "propertyId -> options"
+   * map. Used instead of the plain `referenceOptions.get(prop.id)` map lookup in the templates, because Qute's
+   * checked-template type resolution doesn't fully propagate the nested `Map<String, List<AppDataRow>>` generic
+   * through a chained `.get()` call - it resolves the loop variable's type to the raw `List` element type variable
+   * instead of [AppDataRow], which then fails build-time property validation. A dedicated extension method with a
+   * concrete, non-generic return type sidesteps that limitation entirely.
+   */
+  @JvmStatic
+  fun referenceOptionsFor(referenceOptions: Map<String, List<AppDataRow>>, propertyId: String): List<AppDataRow> =
+    referenceOptions[propertyId].orEmpty()
 }

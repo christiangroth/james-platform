@@ -66,7 +66,7 @@
                                 {#if prop.itemHtmlInputType == "select"}
                                 <select class="form-select app-form-control form-select-sm" name="prop_{prop.id}">
                                     <option value="">{msg:commonSelectPlaceholder()}</option>
-                                    {#for opt in referenceOptions.get(prop.id)}
+                                    {#for opt in referenceOptions.referenceOptionsFor(prop.id)}
                                     <option value="{opt.id}">{opt.displayText}</option>
                                     {/for}
                                 </select>
@@ -122,7 +122,7 @@
                             {#if !prop.nullable}required{/if}
                             data-testid="property-input-{prop.id}">
                         <option value="">{msg:commonSelectPlaceholder()}</option>
-                        {#for opt in referenceOptions.get(prop.id)}
+                        {#for opt in referenceOptions.referenceOptionsFor(prop.id)}
                         <option value="{opt.id}">{opt.displayText}</option>
                         {/for}
                     </select>

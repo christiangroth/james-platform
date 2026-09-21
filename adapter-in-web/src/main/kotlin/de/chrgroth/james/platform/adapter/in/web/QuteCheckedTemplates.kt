@@ -25,7 +25,15 @@ import java.time.Instant
 // applies within each directory. Templates nested in a subdirectory of src/main/resources/templates (ui/admin,
 // ui/developer, ui, ui/user) need their own @CheckedTemplate class with a matching basePath, since basePath applies
 // to the whole class/object.
-@CheckedTemplate
+//
+// requireTypeSafeExpressions = false on objects whose page templates directly reference the navbar/layout globals
+// (isAdmin, isDeveloper, isMonitoring, isDataImport, appBuildVersion, grafanaCloudStackUrl, currentLanguage, ...)
+// set for every TemplateInstance by AppTemplateGlobals.onEngineBuilder's addTemplateInstanceInitializer - those are
+// deliberately request-scoped ambient data applied after instance creation, not values a resource method passes in,
+// so Qute's build-time checker cannot see them as checked parameters. Relaxing type-safety here only affects those
+// ambient globals; every parameter actually declared below still gets full build-time validation, which is the part
+// this migration (#674) is about.
+@CheckedTemplate(requireTypeSafeExpressions = false)
 object Templates {
 
   @JvmStatic
@@ -71,7 +79,9 @@ object Templates {
   external fun `release-notes`(groups: List<ReleaseNotesMinorVersionGroup>): TemplateInstance
 }
 
-@CheckedTemplate(basePath = "ui/admin")
+// requireTypeSafeExpressions = false: see the comment on Templates above - ui/admin/dashboard.html and
+// ui/admin/users.html directly reference the ambient navbar globals (isAdmin, isMonitoring, grafanaCloudStackUrl).
+@CheckedTemplate(basePath = "ui/admin", requireTypeSafeExpressions = false)
 object AdminTemplates {
 
   @JvmStatic
@@ -84,7 +94,9 @@ object AdminTemplates {
   external fun dashboard(userCount: Int): TemplateInstance
 }
 
-@CheckedTemplate(basePath = "ui/developer")
+// requireTypeSafeExpressions = false: see the comment on Templates above - ui/developer/edit-property.html directly
+// references the ambient navbar global assetVersion.
+@CheckedTemplate(basePath = "ui/developer", requireTypeSafeExpressions = false)
 object DeveloperTemplates {
 
   @JvmStatic
@@ -138,14 +150,18 @@ object DeveloperTemplates {
   external fun `publish-version`(app: App, version: AppVersion): TemplateInstance
 }
 
-@CheckedTemplate(basePath = "ui")
+// requireTypeSafeExpressions = false: see the comment on Templates above - ui/profile.html directly references the
+// ambient navbar global isAdmin.
+@CheckedTemplate(basePath = "ui", requireTypeSafeExpressions = false)
 object UiTemplates {
 
   @JvmStatic
   external fun profile(username: String, createdAt: Instant?, lastLoginAt: Instant?, successMessage: String?, errorMessage: String?): TemplateInstance
 }
 
-@CheckedTemplate(basePath = "ui/user")
+// requireTypeSafeExpressions = false: see the comment on Templates above - ui/user/app-detail.html and
+// ui/user/dashboard.html directly reference the ambient navbar globals (isDataImport, isDeveloper).
+@CheckedTemplate(basePath = "ui/user", requireTypeSafeExpressions = false)
 object UserTemplates {
 
   @JvmStatic
