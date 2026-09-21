@@ -12,11 +12,6 @@
         <div class="d-flex align-items-center mb-4 gap-2">
             <h1 class="fs-4 fw-semibold mb-0" data-testid="imports-title">{user:userImportsTitle()}</h1>
             <div class="d-flex gap-2 ms-auto">
-                <a href="/ui/user/imports/definitions"
-                   class="btn btn-app-secondary btn-sm"
-                   data-testid="import-definitions-link">
-                    <i class="bi bi-list-check me-1" aria-hidden="true"></i>{userImportDefinition:userImportDefinitionsNavLabel()}
-                </a>
                 <a href="/ui/user/imports/connections"
                    class="btn btn-app-secondary btn-sm"
                    data-testid="import-connections-link">
@@ -34,7 +29,7 @@
 
         <div id="imports-table-container">
             {#fragment id="imports_table"}
-            {#if jobs.isEmpty}
+            {#if definitions.isEmpty}
             <div class="card app-card p-4">
                 <p class="mb-0 app-section-label" data-testid="no-imports-message">{user:userNoImportsMessage()}</p>
             </div>
@@ -45,28 +40,60 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>{user:userImportTableColSource()}</th>
+                                <th>{userImportDefinition:userImportDefinitionColSource()}</th>
                                 <th>{user:userImportTableColApp()}</th>
                                 <th>{user:userImportTableColEntity()}</th>
-                                <th>{user:userImportTableColCreated()}</th>
-                                <th>{user:userImportTableColUpdated()}</th>
-                                <th class="text-end"></th>
+                                <th>{userImportDefinition:userImportDefinitionColSchedule()}</th>
+                                <th>{userImportDefinition:userImportDefinitionColLastRun()}</th>
+                                <th class="text-end">{userImportDefinition:userImportDefinitionColActions()}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {#for job in jobs}
-                            <tr class="import-row" data-testid="import-row" data-import-id="{job.id}" data-accepting="{job.accepting}" style="cursor:pointer;">
-                                <td data-testid="import-status"><span class="badge border-0 app-badge-processing">{job.statusLabel}</span></td>
-                                <td data-testid="import-connection-name">
-                                    {job.connectionName}
-                                    {#if job.urlPostfix}<div class="text-muted small" data-testid="import-url-postfix">{job.urlPostfix}</div>{/if}
+                            {#for definition in definitions}
+                            <tr data-testid="definition-row"
+                                data-definition-id="{definition.id}"
+                                data-definition-schedule="{definition.schedule}"
+                                data-definition-notify-on-slack="{definition.notifyOnSlack}">
+                                <td data-testid="definition-status">
+                                    {#if !definition.inProgressJobs.isEmpty}
+                                    {#for job in definition.inProgressJobs}
+                                    <div class="d-flex align-items-center gap-1 mb-1">
+                                        <a href="/ui/user/imports/{job.id}/overview"
+                                           class="badge border-0 app-badge-processing text-decoration-none"
+                                           data-testid="import-job-link"
+                                           data-import-id="{job.id}">{job.statusLabel}</a>
+                                        <button type="button" class="btn btn-app-secondary btn-sm py-0 px-1 delete-import-job-button" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-entity-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-job-button">
+                                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    {/for}
+                                    {#else if definition.nextRunAt}
+                                    <span class="text-muted small" data-testid="definition-next-run">{userImportDefinition:userImportDefinitionColNextRun()}: {definition.nextRunAt.formatted}</span>
+                                    {#else}
+                                    <span class="text-muted">–</span>
+                                    {/if}
                                 </td>
-                                <td data-testid="import-installed-app-name">{job.installedAppName}</td>
-                                <td data-testid="import-target-entity">{job.targetEntityName}</td>
-                                <td data-testid="import-created-at">{job.createdAt.formatted}</td>
-                                <td data-testid="import-last-changed-at">{job.lastChangedAt.formatted}</td>
-                                <td class="text-end">
-                                    {#btn-icon-delete testId="delete-import-button" title=msg:commonDelete() extraClass="" bsTarget="#deleteImportModal" action="" entityId=job.id propertyId="" reportId="" username="" /}
+                                <td data-testid="definition-source">
+                                    {definition.connectionName}
+                                    {#if definition.urlPostfix}<div class="text-muted small" data-testid="definition-url-postfix">{definition.urlPostfix}</div>{/if}
+                                </td>
+                                <td data-testid="definition-app">{definition.installedAppName}</td>
+                                <td data-testid="definition-entity">{definition.targetEntityName}</td>
+                                <td data-testid="definition-schedule">
+                                    {#if definition.hasSchedule}{definition.schedule}{#else}<span class="text-muted">{userImportDefinition:userImportDefinitionScheduleManualLabel()}</span>{/if}
+                                </td>
+                                <td data-testid="definition-last-run">{#if definition.lastRunAt}{definition.lastRunAt.formatted}{#else}–{/if}</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-app-secondary btn-sm history-definition-button" data-bs-toggle="modal" data-bs-target="#historyModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionHistoryButton()}" aria-label="{userImportDefinition:userImportDefinitionHistoryButton()}" data-testid="history-definition-button">
+                                        <i class="bi bi-journal-text" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-app-secondary btn-sm ms-1 run-definition-button" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionRunButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionRunButton()}" data-testid="run-definition-button">
+                                        <i class="bi bi-play-fill" aria-hidden="true"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-app-secondary btn-sm ms-1 schedule-definition-button" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionScheduleButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionScheduleButton()}" data-testid="schedule-definition-button">
+                                        <i class="bi bi-clock-history" aria-hidden="true"></i>
+                                    </button>
+                                    {#btn-icon-delete testId="delete-definition-button" title=msg:commonDelete() extraClass="ms-1" bsTarget="#deleteDefinitionModal" action="" entityId=definition.id propertyId="" reportId="" username="" /}
                                 </td>
                             </tr>
                             {/for}
@@ -78,6 +105,32 @@
             {/fragment}
         </div>
     </div>
+
+    <!-- History fragment (fetched into #historyModalBody, never rendered directly on the page) -->
+    {#fragment id="history"}
+    {#if rows.isEmpty}
+    <p class="mb-0 app-section-label" data-testid="no-history-message">{userImportDefinition:userImportDefinitionNoHistoryMessage()}</p>
+    {#else}
+    <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0 app-table" data-testid="history-table">
+            <thead>
+                <tr>
+                    <th>{userImportDefinition:userImportDefinitionHistoryColDate()}</th>
+                    <th>{userImportDefinition:userImportDefinitionHistoryColStatus()}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#for row in rows}
+                <tr data-testid="history-row">
+                    <td data-testid="history-date">{row.date.formatted}</td>
+                    <td data-testid="history-status"><span class="badge border-0 app-badge-processing">{row.statusLabel}</span></td>
+                </tr>
+                {/for}
+            </tbody>
+        </table>
+    </div>
+    {/if}
+    {/fragment}
 
     <!-- New Import Modal -->
     <div class="modal fade" id="newImportModal" tabindex="-1" aria-labelledby="newImportModalLabel" aria-hidden="true">
@@ -142,7 +195,7 @@
         </div>
     </div>
 
-    <!-- Delete Import Modal -->
+    <!-- Delete Import Job Modal -->
     <div class="modal fade" id="deleteImportModal" tabindex="-1" aria-labelledby="deleteImportModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
@@ -158,11 +211,76 @@
             </div>
         </div>
     </div>
+
+    <!-- History Modal -->
+    <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="historyModalLabel">{userImportDefinition:userImportDefinitionHistoryModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" id="historyModalBody" data-testid="history-modal-body"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonClose()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scheduleModalLabel">{userImportDefinition:userImportDefinitionScheduleModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="scheduleForm">
+                    <div class="modal-body">
+                        <div id="schedule-modal-message" class="d-none mb-3" role="alert"></div>
+                        <div class="mb-2">
+                            <label for="scheduleCron" class="form-label">{userImportDefinition:userImportDefinitionScheduleLabel()}</label>
+                            <input type="text" class="form-control app-form-control" id="scheduleCron" name="schedule" autocomplete="off" data-testid="schedule-cron-input">
+                            <div class="form-text">{userImportDefinition:userImportDefinitionScheduleHint()}</div>
+                            <div class="form-text">{userImportDefinition:userImportDefinitionScheduleClearHint()}</div>
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="scheduleNotifyOnSlack" name="notifyOnSlack" data-testid="schedule-notify-on-slack-checkbox">
+                            <label class="form-check-label" for="scheduleNotifyOnSlack">{userImportDefinition:userImportDefinitionNotifyOnSlackLabel()}</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="schedule-submit-button">{msg:commonSave()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Definition Modal -->
+    <div class="modal fade" id="deleteDefinitionModal" tabindex="-1" aria-labelledby="deleteDefinitionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteDefinitionModalLabel">{userImportDefinition:userDeleteImportDefinitionModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body" data-testid="delete-definition-modal-body">{userImportDefinition:userDeleteImportDefinitionConfirm()}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteDefinitionButton" data-testid="confirm-delete-definition-button">{msg:commonDelete()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
     {/content}
     {#scripts}
     <script>
         (function () {
             var basePath = '/ui/user/imports';
+            var definitionsBasePath = '/ui/user/imports/definitions';
             var networkErrorMessage = '{msg:commonNetworkError()}';
 
             var messagePanel = document.getElementById('imports-message');
@@ -207,6 +325,20 @@
                 importModalMessage.removeAttribute('data-testid');
             }
 
+            var scheduleModalMessage = document.getElementById('schedule-modal-message');
+
+            function showScheduleModalMessage(message) {
+                scheduleModalMessage.className = 'alert alert-danger mb-3';
+                scheduleModalMessage.setAttribute('data-testid', 'error-message');
+                scheduleModalMessage.innerHTML = message;
+            }
+
+            function clearScheduleModalMessage() {
+                scheduleModalMessage.className = 'd-none mb-3';
+                scheduleModalMessage.innerHTML = '';
+                scheduleModalMessage.removeAttribute('data-testid');
+            }
+
             async function refreshTable() {
                 try {
                     var response = await fetch(basePath + '/table', { cache: 'no-store' });
@@ -216,27 +348,6 @@
                     showMessage(false, networkErrorMessage);
                 }
             }
-
-            // A dry-run accept enqueued via the outbox runs in the background: poll the table while any row is
-            // still ACCEPTING, so the row disappears (or its status catches up) without a manual page reload.
-            var acceptingPollTimer = null;
-
-            function hasAcceptingRow() {
-                return !!document.querySelector('.import-row[data-accepting="true"]');
-            }
-
-            function pollWhileAccepting() {
-                if (acceptingPollTimer) { return; }
-                acceptingPollTimer = setInterval(async function () {
-                    await refreshTable();
-                    if (!hasAcceptingRow()) {
-                        clearInterval(acceptingPollTimer);
-                        acceptingPollTimer = null;
-                    }
-                }, 2000);
-            }
-
-            if (hasAcceptingRow()) { pollWhileAccepting(); }
 
             async function fetchForm(method, url, formData) {
                 try {
@@ -260,20 +371,7 @@
                 }
             }
 
-            // Clicking anywhere on a row opens the import job, except when the click targets an
-            // interactive element (the target-entity link or the row's delete button) which already
-            // has its own behavior.
-            var importsTableContainer = document.getElementById('imports-table-container');
-            if (importsTableContainer) {
-                importsTableContainer.addEventListener('click', function (e) {
-                    if (e.target.closest('a, button')) { return; }
-                    var row = e.target.closest('.import-row');
-                    if (!row) { return; }
-                    window.location.href = basePath + '/' + encodeURIComponent(row.getAttribute('data-import-id'));
-                });
-            }
-
-            // Delete import modal – capture the id and confirm
+            // Delete import job modal – capture the id and confirm
             var deleteImportModal = document.getElementById('deleteImportModal');
             if (deleteImportModal) {
                 deleteImportModal.addEventListener('show.bs.modal', function (event) {
@@ -365,6 +463,88 @@
             if (newImportModal) {
                 newImportModal.addEventListener('hidden.bs.modal', function () {
                     clearImportModalMessage();
+                });
+            }
+
+            // Run/Schedule/Delete definition actions, delegated from the table container since rows are re-rendered.
+            var importsTableContainer = document.getElementById('imports-table-container');
+            if (importsTableContainer) {
+                importsTableContainer.addEventListener('click', async function (e) {
+                    var runButton = e.target.closest('.run-definition-button');
+                    if (runButton) {
+                        var definitionId = runButton.getAttribute('data-definition-id');
+                        runButton.disabled = true;
+                        var result = await fetchAction('POST', definitionsBasePath + '/' + encodeURIComponent(definitionId) + '/run');
+                        runButton.disabled = false;
+                        showMessage(result.ok, result.message);
+                        if (result.ok) { await refreshTable(); }
+                    }
+                });
+            }
+
+            // History modal – fetches the read-only history fragment for the clicked definition on open.
+            var historyModal = document.getElementById('historyModal');
+            var historyModalBody = document.getElementById('historyModalBody');
+            if (historyModal) {
+                historyModal.addEventListener('show.bs.modal', async function (event) {
+                    var trigger = event.relatedTarget;
+                    var definitionId = trigger ? trigger.getAttribute('data-definition-id') : '';
+                    historyModalBody.innerHTML = '';
+                    try {
+                        var response = await fetch(definitionsBasePath + '/' + encodeURIComponent(definitionId) + '/history', { cache: 'no-store' });
+                        historyModalBody.innerHTML = await response.text();
+                    } catch (e) {
+                        showMessage(false, networkErrorMessage);
+                    }
+                });
+            }
+
+            var scheduleModal = document.getElementById('scheduleModal');
+            var scheduleForm = document.getElementById('scheduleForm');
+            scheduleModal.addEventListener('show.bs.modal', function (event) {
+                var trigger = event.relatedTarget;
+                var row = trigger ? trigger.closest('[data-definition-id]') : null;
+                scheduleModal.setAttribute('data-definition-id', trigger ? trigger.getAttribute('data-definition-id') : '');
+                scheduleForm.querySelector('#scheduleCron').value = row ? (row.getAttribute('data-definition-schedule') || '') : '';
+                scheduleForm.querySelector('#scheduleNotifyOnSlack').checked = !!row && row.getAttribute('data-definition-notify-on-slack') === 'true';
+            });
+
+            scheduleModal.addEventListener('hidden.bs.modal', function () {
+                clearScheduleModalMessage();
+                scheduleForm.reset();
+            });
+
+            scheduleForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                clearScheduleModalMessage();
+                var definitionId = scheduleModal.getAttribute('data-definition-id') || '';
+                var result = await fetchForm('POST', definitionsBasePath + '/' + encodeURIComponent(definitionId) + '/schedule', new FormData(this));
+                if (result.ok) {
+                    bootstrap.Modal.getInstance(scheduleModal).hide();
+                    await refreshTable();
+                    showMessage(true, result.message);
+                } else {
+                    showScheduleModalMessage(result.message);
+                }
+            });
+
+            var deleteDefinitionModal = document.getElementById('deleteDefinitionModal');
+            if (deleteDefinitionModal) {
+                deleteDefinitionModal.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    var definitionId = trigger ? trigger.getAttribute('data-entity-id') : '';
+                    deleteDefinitionModal.setAttribute('data-definition-id', definitionId);
+                });
+            }
+
+            var confirmDeleteDefinitionButton = document.getElementById('confirmDeleteDefinitionButton');
+            if (confirmDeleteDefinitionButton) {
+                confirmDeleteDefinitionButton.addEventListener('click', async function () {
+                    var definitionId = deleteDefinitionModal.getAttribute('data-definition-id') || '';
+                    var result = await fetchAction('POST', definitionsBasePath + '/' + encodeURIComponent(definitionId) + '/delete');
+                    bootstrap.Modal.getInstance(deleteDefinitionModal).hide();
+                    showMessage(result.ok, result.message);
+                    if (result.ok) { await refreshTable(); }
                 });
             }
         }());
