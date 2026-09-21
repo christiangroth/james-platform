@@ -65,13 +65,13 @@ class UserImportDefinitionResource {
     val userId = securityIdentity.principal.name
     val owned = importPort.listAllImportDefinitions(userId).any { it.id.value == definitionId }
     if (!owned) {
-      return@timed UserTemplates.`imports$history`(emptyList())
+      return@timed UserTemplates.`import-history`(emptyList())
     }
     val rows = importPort.listAllImportJobs(userId)
       .filter { it.importDefinitionId.value == definitionId && it.status == ImportStatus.ACCEPTED }
       .sortedByDescending { it.lastChangedAt }
       .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted()) }
-    UserTemplates.`imports$history`(rows)
+    UserTemplates.`import-history`(rows)
   }
 
   @POST

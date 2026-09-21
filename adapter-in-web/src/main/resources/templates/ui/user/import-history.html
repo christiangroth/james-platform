@@ -1,0 +1,22 @@
+{#if rows.isEmpty}
+<p class="mb-0 app-section-label" data-testid="no-history-message">{userImportDefinition:userImportDefinitionNoHistoryMessage()}</p>
+{#else}
+<div class="table-responsive">
+    <table class="table table-sm table-striped mb-0 app-table" data-testid="history-table">
+        <thead>
+            <tr>
+                <th>{userImportDefinition:userImportDefinitionHistoryColDate()}</th>
+                <th>{userImportDefinition:userImportDefinitionHistoryColStatus()}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#for row in rows}
+            <tr data-testid="history-row">
+                <td data-testid="history-date">{row.date.formatted}</td>
+                <td data-testid="history-status"><span class="badge border-0 app-badge-processing">{row.statusLabel}</span></td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
+</div>
+{/if}

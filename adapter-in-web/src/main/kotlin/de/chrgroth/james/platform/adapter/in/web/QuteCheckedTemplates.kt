@@ -218,7 +218,7 @@ object UserTemplates {
   external fun `imports$imports_table`(definitions: List<ImportDefinitionGroupRow>): TemplateInstance
 
   @JvmStatic
-  external fun `imports$history`(rows: List<ImportHistoryRowRow>): TemplateInstance
+  external fun `import-history`(rows: List<ImportHistoryRowRow>): TemplateInstance
 
   @JvmStatic
   external fun `import-job`(
