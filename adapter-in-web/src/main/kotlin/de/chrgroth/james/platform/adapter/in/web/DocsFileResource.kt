@@ -1,7 +1,5 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
 import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
@@ -21,10 +19,6 @@ import java.nio.charset.StandardCharsets
 class DocsFileResource {
 
   @Inject
-  @Location("docs.html")
-  private lateinit var docsTemplate: Template
-
-  @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   private val allowedSubdirs = setOf("arc42", "adr", "coding-guidelines", "releasenotes")
@@ -42,9 +36,7 @@ class DocsFileResource {
     }
     val content = DocsUtils.readMarkdown("docs/$subdir/$decodedFilename")
       ?: throw NotFoundException("Doc not found: $subdir/$filename")
-    docsTemplate.instance()
-      .data("title", DocsUtils.extractTitle(content, decodedFilename))
-      .data("markdownContent", content)
+    Templates.docs(DocsUtils.extractTitle(content, decodedFilename), content)
   }
 
   private fun isInvalidFilename(filename: String): Boolean =

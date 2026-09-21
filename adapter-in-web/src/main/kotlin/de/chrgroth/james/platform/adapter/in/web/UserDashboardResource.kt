@@ -4,8 +4,6 @@ import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
@@ -34,14 +32,6 @@ data class DashboardInstalledApp(
 @ApplicationScoped
 @Suppress("Unused")
 class UserDashboardResource {
-
-  @Inject
-  @Location("ui/user/dashboard.html")
-  private lateinit var userDashboardTemplate: Template
-
-  @Inject
-  @Location("ui/admin/dashboard.html")
-  private lateinit var adminDashboardTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -84,9 +74,7 @@ class UserDashboardResource {
         entityCounts = entityCounts,
       )
     }
-    userDashboardTemplate
-      .data("username", userId)
-      .data("installedApps", dashboardApps)
+    UserTemplates.dashboard(userId, dashboardApps)
   }
 
   @GET
@@ -94,7 +82,7 @@ class UserDashboardResource {
   @RolesAllowed("ADMIN")
   @Produces(MediaType.TEXT_HTML)
   fun adminDashboard() = httpResponseMetrics.timed("page.dashboard.admin") {
-    adminDashboardTemplate.data("userCount", userRepository.findAll().size)
+    AdminTemplates.dashboard(userRepository.findAll().size)
   }
 }
 

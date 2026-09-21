@@ -22,9 +22,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlin.time.Clock
-import io.quarkus.qute.Location
 import io.quarkus.qute.RawString
-import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
@@ -137,30 +135,6 @@ data class InstalledAppStatusResponse(
 class UserAppStoreResource {
 
   @Inject
-  @Location("ui/user/app-store.html")
-  private lateinit var appStoreTemplate: Template
-
-  @Inject
-  @Location("ui/user/app-store-detail.html")
-  private lateinit var appStoreDetailTemplate: Template
-
-  @Inject
-  @Location("ui/user/app-detail.html")
-  private lateinit var appDetailTemplate: Template
-
-  @Inject
-  @Location("ui/user/app-entity-detail.html")
-  private lateinit var appEntityDetailTemplate: Template
-
-  @Inject
-  @Location("ui/user/app-data-new.html")
-  private lateinit var appDataNewTemplate: Template
-
-  @Inject
-  @Location("ui/user/app-data-edit.html")
-  private lateinit var appDataEditTemplate: Template
-
-  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -195,9 +169,7 @@ class UserAppStoreResource {
     val allApps = userAppStore.listAllPublishedApps()
     val installedAppIds = userAppStore.getInstalledApps(userId).map { it.installedApp.appId.value }.toSet()
     Response.ok(
-      appStoreTemplate
-        .data("apps", allApps)
-        .data("installedAppIds", installedAppIds),
+      UserTemplates.`app-store`(allApps, installedAppIds),
     ).build()
   }
 
@@ -212,9 +184,7 @@ class UserAppStoreResource {
         val installedApps = userAppStore.getInstalledApps(userId)
         val installed = installedApps.find { it.installedApp.appId.value == appId }
         Response.ok(
-          appStoreDetailTemplate
-            .data("detail", detail)
-            .data("installedApp", installed),
+          UserTemplates.`app-store-detail`(detail, installed),
         ).build()
       },
     )
@@ -257,10 +227,7 @@ class UserAppStoreResource {
     val entityTabs = info.installedVersion.entityDefinitions.map { entityDef -> buildEntityTab(entityDef, entityById, allAppData) }
 
     Response.ok(
-      appDetailTemplate
-        .data("info", info)
-        .data("entityTabs", entityTabs)
-        .data("pageSize", PAGE_SIZE),
+      UserTemplates.`app-detail`(info, entityTabs, PAGE_SIZE),
     ).build()
   }
 
@@ -284,11 +251,7 @@ class UserAppStoreResource {
     val aggregations = buildAggregationViews(entityDef, installedAppId)
 
     Response.ok(
-      appEntityDetailTemplate
-        .data("info", info)
-        .data("entity", entityTab)
-        .data("aggregations", aggregations)
-        .data("pageSize", PAGE_SIZE),
+      UserTemplates.`app-entity-detail`(info, entityTab, aggregations, PAGE_SIZE),
     ).build()
   }
 
@@ -330,14 +293,15 @@ class UserAppStoreResource {
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
     val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
     Response.ok(
-      appDataNewTemplate
-        .data("info", info)
-        .data("entity", entityDef)
-        .data("smartDefaults", computedSmartDefaults)
-        .data("referenceOptions", referenceOptions)
-        .data("entityListUrl", entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size))
-        .data("objectFieldsJson", objectFieldsJsonFor(entityDef.properties))
-        .data("referenceOptionsJson", referenceOptionsJsonFor(referenceOptions)),
+      UserTemplates.`app-data-new`(
+        info = info,
+        entity = entityDef,
+        smartDefaults = computedSmartDefaults,
+        referenceOptions = referenceOptions,
+        entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size),
+        objectFieldsJson = objectFieldsJsonFor(entityDef.properties),
+        referenceOptionsJson = referenceOptionsJsonFor(referenceOptions),
+      ),
     ).build()
   }
 
@@ -467,13 +431,14 @@ class UserAppStoreResource {
           },
         )
         Response.ok(
-          appDataEditTemplate
-            .data("info", info)
-            .data("detail", detail)
-            .data("entityListUrl", entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size))
-            .data("objectFieldsJson", objectFieldsJsonFor(entityDef.properties))
-            .data("objectValuesJson", objectValuesJsonFor(entityDef.properties, appDataItem.data))
-            .data("referenceOptionsJson", referenceOptionsJsonFor(referenceOptions)),
+          UserTemplates.`app-data-edit`(
+            info = info,
+            detail = detail,
+            entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size),
+            objectFieldsJson = objectFieldsJsonFor(entityDef.properties),
+            objectValuesJson = objectValuesJsonFor(entityDef.properties, appDataItem.data),
+            referenceOptionsJson = referenceOptionsJsonFor(referenceOptions),
+          ),
         ).build()
       },
     )

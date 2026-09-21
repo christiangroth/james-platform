@@ -27,9 +27,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallation
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGenerationOutcome
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
-import io.quarkus.qute.Location
 import io.quarkus.qute.RawString
-import io.quarkus.qute.Template
 import io.quarkus.security.Authenticated
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
@@ -101,30 +99,6 @@ data class PropertyBreadcrumb(
 class DeveloperAppResource {
 
   @Inject
-  @Location("ui/developer/dashboard.html")
-  private lateinit var developerDashboardTemplate: Template
-
-  @Inject
-  @Location("ui/developer/app-overview.html")
-  private lateinit var appOverviewTemplate: Template
-
-  @Inject
-  @Location("ui/developer/version-editor.html")
-  private lateinit var versionEditorTemplate: Template
-
-  @Inject
-  @Location("ui/developer/version-diff.html")
-  private lateinit var versionDiffTemplate: Template
-
-  @Inject
-  @Location("ui/developer/edit-property.html")
-  private lateinit var editPropertyTemplate: Template
-
-  @Inject
-  @Location("ui/developer/publish-version.html")
-  private lateinit var publishVersionTemplate: Template
-
-  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -171,9 +145,7 @@ class DeveloperAppResource {
         latestVersionPublishedAt = latestPublished?.createdAt,
       )
     }
-    developerDashboardTemplate
-      .data("username", username)
-      .data("apps", appInfos)
+    DeveloperTemplates.dashboard(username, appInfos)
   }
 
   @POST
@@ -288,13 +260,7 @@ class DeveloperAppResource {
           }
           .sortedByDescending { it.installedAt }
         Response.ok(
-          appOverviewTemplate
-            .data("app", app)
-            .data("versions", versions)
-            .data("hasDraft", hasDraft)
-            .data("versionsWithDiff", versionIdsWithPredecessor)
-            .data("installationCount", installationCount)
-            .data("testInstallations", testInstallations),
+          DeveloperTemplates.`app-overview`(app, versions, hasDraft, versionIdsWithPredecessor, installationCount, testInstallations),
         ).build()
       },
     )
@@ -365,20 +331,21 @@ class DeveloperAppResource {
         val isDraft = version.status == AppVersionStatus.DRAFT
         val hasDiff = hasDiffForDraft(appId, isDraft)
         Response.ok(
-          versionEditorTemplate
-            .data("app", app)
-            .data("version", version)
-            .data("isDraft", isDraft)
-            .data("hasDiff", hasDiff)
-            .data("selectedEntity", null)
-            .data("selectedReport", null)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("currentProperties", emptyList<Property>())
-            .data("currentPropertiesJson", EMPTY_JSON_ARRAY)
-            .data("path", "")
-            .data("breadcrumb", emptyList<PropertyBreadcrumb>())
-            .data("isNestedLevel", false)
-            .data("testInstallations", testInstallationsForVersion(appId, version, developerId)),
+          DeveloperTemplates.`version-editor`(
+            app = app,
+            version = version,
+            isDraft = isDraft,
+            hasDiff = hasDiff,
+            selectedEntity = null,
+            selectedReport = null,
+            predefinedSmartDefaultsJson = predefinedSmartDefaultsJson,
+            currentProperties = emptyList<Property>(),
+            currentPropertiesJson = EMPTY_JSON_ARRAY,
+            path = "",
+            breadcrumb = emptyList<PropertyBreadcrumb>(),
+            isNestedLevel = false,
+            testInstallations = testInstallationsForVersion(appId, version, developerId),
+          ),
         ).build()
       },
     )
@@ -414,20 +381,21 @@ class DeveloperAppResource {
           ObjectMapper().writeValueAsString(currentProperties.map { mapOf("id" to it.id.value, "name" to it.name) }),
         )
         Response.ok(
-          versionEditorTemplate
-            .data("app", app)
-            .data("version", version)
-            .data("isDraft", isDraft)
-            .data("hasDiff", hasDiff)
-            .data("selectedEntity", selectedEntity)
-            .data("selectedReport", null)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("currentProperties", currentProperties)
-            .data("currentPropertiesJson", currentPropertiesJson)
-            .data("path", breadcrumb.lastOrNull()?.path ?: "")
-            .data("breadcrumb", breadcrumb)
-            .data("testInstallations", testInstallationsForVersion(appId, version, developerId))
-            .data("isNestedLevel", breadcrumb.isNotEmpty()),
+          DeveloperTemplates.`version-editor`(
+            app = app,
+            version = version,
+            isDraft = isDraft,
+            hasDiff = hasDiff,
+            selectedEntity = selectedEntity,
+            selectedReport = null,
+            predefinedSmartDefaultsJson = predefinedSmartDefaultsJson,
+            currentProperties = currentProperties,
+            currentPropertiesJson = currentPropertiesJson,
+            path = breadcrumb.lastOrNull()?.path ?: "",
+            breadcrumb = breadcrumb,
+            isNestedLevel = breadcrumb.isNotEmpty(),
+            testInstallations = testInstallationsForVersion(appId, version, developerId),
+          ),
         ).build()
       },
     )
@@ -486,17 +454,18 @@ class DeveloperAppResource {
         val parentPropertyId = breadcrumb.lastOrNull()?.id
         val parentPath = if (breadcrumb.size >= 2) breadcrumb[breadcrumb.size - 2].path else ""
         Response.ok(
-          editPropertyTemplate
-            .data("app", app)
-            .data("version", version)
-            .data("selectedEntity", selectedEntity)
-            .data("selectedProperty", selectedProperty)
-            .data("path", breadcrumb.lastOrNull()?.path ?: "")
-            .data("breadcrumb", breadcrumb)
-            .data("parentPropertyId", parentPropertyId)
-            .data("parentPath", parentPath)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("currentPropertiesJson", currentPropertiesJson),
+          DeveloperTemplates.`edit-property`(
+            app = app,
+            version = version,
+            selectedEntity = selectedEntity,
+            selectedProperty = selectedProperty,
+            path = breadcrumb.lastOrNull()?.path ?: "",
+            breadcrumb = breadcrumb,
+            parentPropertyId = parentPropertyId,
+            parentPath = parentPath,
+            predefinedSmartDefaultsJson = predefinedSmartDefaultsJson,
+            currentPropertiesJson = currentPropertiesJson,
+          ),
         ).build()
       },
     )
@@ -520,9 +489,7 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         Response.ok(
-          publishVersionTemplate
-            .data("app", app)
-            .data("version", version),
+          DeveloperTemplates.`publish-version`(app, version),
         ).build()
       },
     )
@@ -550,20 +517,21 @@ class DeveloperAppResource {
         val hasDiff = hasDiffForDraft(appId, isDraft)
         val selectedReport = version.reports.find { it.id.value == reportId }
         Response.ok(
-          versionEditorTemplate
-            .data("app", app)
-            .data("version", version)
-            .data("isDraft", isDraft)
-            .data("hasDiff", hasDiff)
-            .data("selectedEntity", null)
-            .data("selectedReport", selectedReport)
-            .data("predefinedSmartDefaultsJson", predefinedSmartDefaultsJson)
-            .data("currentProperties", emptyList<Property>())
-            .data("currentPropertiesJson", EMPTY_JSON_ARRAY)
-            .data("path", "")
-            .data("breadcrumb", emptyList<PropertyBreadcrumb>())
-            .data("isNestedLevel", false)
-            .data("testInstallations", testInstallationsForVersion(appId, version, developerId)),
+          DeveloperTemplates.`version-editor`(
+            app = app,
+            version = version,
+            isDraft = isDraft,
+            hasDiff = hasDiff,
+            selectedEntity = null,
+            selectedReport = selectedReport,
+            predefinedSmartDefaultsJson = predefinedSmartDefaultsJson,
+            currentProperties = emptyList<Property>(),
+            currentPropertiesJson = EMPTY_JSON_ARRAY,
+            path = "",
+            breadcrumb = emptyList<PropertyBreadcrumb>(),
+            isNestedLevel = false,
+            testInstallations = testInstallationsForVersion(appId, version, developerId),
+          ),
         ).build()
       },
     )
@@ -587,9 +555,7 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { diff ->
         Response.ok(
-          versionDiffTemplate
-            .data("app", app)
-            .data("diff", diff),
+          DeveloperTemplates.`version-diff`(app, diff),
         ).build()
       },
     )

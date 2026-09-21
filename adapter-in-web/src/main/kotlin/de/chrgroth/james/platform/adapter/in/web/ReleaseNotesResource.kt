@@ -1,7 +1,5 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.qute.TemplateInstance
 import io.quarkus.security.Authenticated
 import jakarta.enterprise.context.ApplicationScoped
@@ -25,10 +23,6 @@ private const val RELEASE_NOTES_CLASSPATH_RESOURCE = "docs/releasenotes/RELEASEN
 class ReleaseNotesResource {
 
   @Inject
-  @Location("release-notes.html")
-  private lateinit var releaseNotesTemplate: Template
-
-  @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   @GET
@@ -36,6 +30,6 @@ class ReleaseNotesResource {
   @Produces(MediaType.TEXT_HTML)
   fun releaseNotes(): TemplateInstance = httpResponseMetrics.timed("page.docs.release-notes") {
     val content = DocsUtils.readMarkdown(RELEASE_NOTES_CLASSPATH_RESOURCE).orEmpty()
-    releaseNotesTemplate.data("groups", ReleaseNotesParser.parse(content))
+    Templates.`release-notes`(ReleaseNotesParser.parse(content))
   }
 }

@@ -41,8 +41,6 @@ import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
@@ -266,26 +264,6 @@ data class FilterSaveRequest @JsonCreator constructor(
 class UserImportResource {
 
   @Inject
-  @Location("ui/user/imports.html")
-  private lateinit var importsTemplate: Template
-
-  @Inject
-  @Location("ui/user/import-job.html")
-  private lateinit var importJobTemplate: Template
-
-  @Inject
-  @Location("ui/user/import-filter.html")
-  private lateinit var filterTemplate: Template
-
-  @Inject
-  @Location("ui/user/import-mapping.html")
-  private lateinit var mappingTemplate: Template
-
-  @Inject
-  @Location("ui/user/import-dry-run.html")
-  private lateinit var dryRunTemplate: Template
-
-  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -316,11 +294,12 @@ class UserImportResource {
     val apps = userAppStore.getInstalledApps(userId)
     val connections = importConnectionPort.listConnections(userId).getOrNull().orEmpty()
     Response.ok(
-      importsTemplate
-        .data("jobs", loadAllRows(userId, apps))
-        .data("appOptions", apps.map { it.toOptionRow() })
-        .data("connectionOptions", connections.map { ConnectionOptionRow(it.id.value, it.name, it.baseUrl) })
-        .data("hasConnections", connections.isNotEmpty()),
+      UserTemplates.imports(
+        loadAllRows(userId, apps),
+        apps.map { it.toOptionRow() },
+        connections.map { ConnectionOptionRow(it.id.value, it.name, it.baseUrl) },
+        connections.isNotEmpty(),
+      ),
     ).build()
   }
 
@@ -329,8 +308,7 @@ class UserImportResource {
   @Produces(MediaType.TEXT_HTML)
   fun importsTable(): Any = httpResponseMetrics.timed("fragment.user-import.imports-table") {
     val userId = securityIdentity.principal.name
-    importsTemplate.getFragment("imports_table")
-      .data("jobs", loadAllRows(userId, userAppStore.getInstalledApps(userId)))
+    UserTemplates.`imports$imports_table`(loadAllRows(userId, userAppStore.getInstalledApps(userId)))
   }
 
   @POST
@@ -410,23 +388,21 @@ class UserImportResource {
     val entityCount = info.installedVersion.entityDefinitions.size
     val connection = importConnectionPort.listConnections(userId).getOrNull().orEmpty().firstOrNull { it.id == view.importDefinition.connectionId }
     Response.ok(
-      importJobTemplate
-        .data(
-          "job",
-          view.importJob.toRow(
-            mapOf(view.importDefinition.id.value to view.importDefinition),
-            mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name),
-            mapOf(info.installedAppId to info.appName),
-            emptyMap(),
-          ),
-        )
-        .data("targetEntityName", view.targetEntityDefinition.name)
-        .data("targetEntityUrl", entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount))
-        .data("pageHeading", pageHeading(userId, view.importDefinition.connectionId, info.appName, view.targetEntityDefinition.name))
-        .data("sourceUrl", connection?.let { resolveImportUrl(it.baseUrl, view.importDefinition.urlPostfix) }.orEmpty())
-        .data("structureRows", buildJsonStructureRows(view.importJob, view.importDefinition.selectedDataPath))
-        .data("schemaPanelRows", buildSchemaPanelRows(view.importJob.detectedSchema))
-        .data("appActive", info.appActive),
+      UserTemplates.`import-job`(
+        job = view.importJob.toRow(
+          mapOf(view.importDefinition.id.value to view.importDefinition),
+          mapOf(view.targetEntityDefinition.id.value to view.targetEntityDefinition.name),
+          mapOf(info.installedAppId to info.appName),
+          emptyMap(),
+        ),
+        targetEntityName = view.targetEntityDefinition.name,
+        targetEntityUrl = entityListUrl(info.installedAppId, view.targetEntityDefinition.id.value, entityCount),
+        pageHeading = pageHeading(userId, view.importDefinition.connectionId, info.appName, view.targetEntityDefinition.name),
+        sourceUrl = connection?.let { resolveImportUrl(it.baseUrl, view.importDefinition.urlPostfix) }.orEmpty(),
+        structureRows = buildJsonStructureRows(view.importJob, view.importDefinition.selectedDataPath),
+        schemaPanelRows = buildSchemaPanelRows(view.importJob.detectedSchema),
+        appActive = info.appActive,
+      ),
     ).build()
   }
 
@@ -474,22 +450,25 @@ class UserImportResource {
     val targetEntityName = installedTargetEntityName(info, view.importDefinition.targetEntityDefinitionId.value)
 
     Response.ok(
-      filterTemplate
-        .data("importJobId", importJobId)
-        .data("targetEntityName", targetEntityName)
-        .data("pageHeading", pageHeading(userId, view.importDefinition.connectionId, info.appName, targetEntityName))
-        .data("filterRuleRows", view.importDefinition.filterRules.map { it.toRow() })
-        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) })
-        .data("schemaPanelRows", buildSchemaPanelRows(view.importJob.detectedSchema))
-        .data("modeOptions", FilterMode.entries.map { FilterModeOptionRow(it.name, filterModeLabel(it)) })
-        .data("operatorOptions", FilterOperator.entries.map { FilterOperatorOptionRow(it.name, filterOperatorLabel(it), it.requiresValue, it.applicableSchemaTypes().joinToString(",") { type -> type.name }) })
-        .data("totalRecordCount", view.totalRecordCount)
-        .data("matchingRecordCount", view.matchingRecordCount)
-        .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
-        .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importDefinition.mapping != null)
-        .data("appActive", info.appActive),
+      UserTemplates.`import-filter`(
+        importJobId = importJobId,
+        targetEntityName = targetEntityName,
+        pageHeading = pageHeading(userId, view.importDefinition.connectionId, info.appName, targetEntityName),
+        filterRuleRows = view.importDefinition.filterRules.map { it.toRow() },
+        schemaFieldOptions = view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) },
+        schemaPanelRows = buildSchemaPanelRows(view.importJob.detectedSchema),
+        modeOptions = FilterMode.entries.map { FilterModeOptionRow(it.name, filterModeLabel(it)) },
+        operatorOptions = FilterOperator.entries.map {
+          FilterOperatorOptionRow(it.name, filterOperatorLabel(it), it.requiresValue, it.applicableSchemaTypes().joinToString(",") { type -> type.name })
+        },
+        totalRecordCount = view.totalRecordCount,
+        matchingRecordCount = view.matchingRecordCount,
+        awaitingDataPathSelection = view.importJob.status == ImportStatus.DOWNLOADED,
+        filterable = view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY,
+        mappable = view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY,
+        readyForDryRun = view.importDefinition.mapping != null,
+        appActive = info.appActive,
+      ),
     ).build()
   }
 
@@ -600,20 +579,21 @@ class UserImportResource {
     )
 
     Response.ok(
-      mappingTemplate
-        .data("importJobId", importJobId)
-        .data("isReady", view.importJob.status == ImportStatus.READY)
-        .data("targetEntityName", view.targetEntityDefinition.name)
-        .data("pageHeading", pageHeading(userId, view.importDefinition.connectionId, info.appName, view.targetEntityDefinition.name))
-        .data("propertyRows", buildPropertyRows(view.targetEntityDefinition, view.importDefinition.mapping, view))
-        .data("schemaFieldOptions", view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) })
-        .data("schemaPanelRows", buildSchemaPanelRows(view.importJob.detectedSchema))
-        .data("conversionOptions", FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) })
-        .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
-        .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importDefinition.mapping != null)
-        .data("appActive", info.appActive),
+      UserTemplates.`import-mapping`(
+        importJobId = importJobId,
+        isReady = view.importJob.status == ImportStatus.READY,
+        targetEntityName = view.targetEntityDefinition.name,
+        pageHeading = pageHeading(userId, view.importDefinition.connectionId, info.appName, view.targetEntityDefinition.name),
+        propertyRows = buildPropertyRows(view.targetEntityDefinition, view.importDefinition.mapping, view),
+        schemaFieldOptions = view.importJob.detectedSchema.map { SchemaFieldOptionRow(it.path, schemaFieldLabel(it), dominantSchemaType(it)?.name.orEmpty()) },
+        schemaPanelRows = buildSchemaPanelRows(view.importJob.detectedSchema),
+        conversionOptions = FieldMappingConversion.entries.map { ConversionOptionRow(it.name, conversionLabel(it)) },
+        awaitingDataPathSelection = view.importJob.status == ImportStatus.DOWNLOADED,
+        filterable = view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY,
+        mappable = view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY,
+        readyForDryRun = view.importDefinition.mapping != null,
+        appActive = info.appActive,
+      ),
     ).build()
   }
 
@@ -701,23 +681,24 @@ class UserImportResource {
     )
 
     Response.ok(
-      dryRunTemplate
-        .data("importJobId", importJobId)
-        .data("targetEntityName", view.targetEntityDefinition.name)
-        .data("pageHeading", pageHeading(userId, view.importDefinition.connectionId, info.appName, view.targetEntityDefinition.name))
-        .data("totalCount", report.totalCount)
-        .data("validCount", report.validCount)
-        .data("skippedCount", report.skippedCount)
-        .data("invalidCount", report.invalidCount)
-        .data("validObjectsColumns", view.targetEntityDefinition.properties.map { it.name })
-        .data("validObjects", report.validObjects.map { it.toRow(view.targetEntityDefinition) })
-        .data("invalidObjects", report.invalidObjects.map { it.toRow(view.targetEntityDefinition) })
-        .data("skippedReasons", buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition))
-        .data("awaitingDataPathSelection", view.importJob.status == ImportStatus.DOWNLOADED)
-        .data("filterable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("mappable", view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY)
-        .data("readyForDryRun", view.importDefinition.mapping != null)
-        .data("appActive", info.appActive),
+      UserTemplates.`import-dry-run`(
+        importJobId = importJobId,
+        targetEntityName = view.targetEntityDefinition.name,
+        pageHeading = pageHeading(userId, view.importDefinition.connectionId, info.appName, view.targetEntityDefinition.name),
+        totalCount = report.totalCount,
+        validCount = report.validCount,
+        skippedCount = report.skippedCount,
+        invalidCount = report.invalidCount,
+        validObjectsColumns = view.targetEntityDefinition.properties.map { it.name },
+        validObjects = report.validObjects.map { it.toRow(view.targetEntityDefinition) },
+        invalidObjects = report.invalidObjects.map { it.toRow(view.targetEntityDefinition) },
+        skippedReasons = buildSkippedReasonRows(report.skippedObjects, view.targetEntityDefinition),
+        awaitingDataPathSelection = view.importJob.status == ImportStatus.DOWNLOADED,
+        filterable = view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY,
+        mappable = view.importJob.status == ImportStatus.DATA_IDENTIFIED || view.importJob.status == ImportStatus.READY,
+        readyForDryRun = view.importDefinition.mapping != null,
+        appActive = info.appActive,
+      ),
     ).build()
   }
 

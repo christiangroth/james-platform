@@ -8,8 +8,6 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
@@ -47,10 +45,6 @@ data class ImportDefinitionRow(
 class UserImportDefinitionResource {
 
   @Inject
-  @Location("ui/user/import-definitions.html")
-  private lateinit var definitionsTemplate: Template
-
-  @Inject
   private lateinit var securityIdentity: SecurityIdentity
 
   @Inject
@@ -78,7 +72,7 @@ class UserImportDefinitionResource {
   @Produces(MediaType.TEXT_HTML)
   fun definitions(): Response = httpResponseMetrics.timed("page.user-import-definition.list") {
     val userId = securityIdentity.principal.name
-    Response.ok(definitionsTemplate.data("definitions", loadRows(userId))).build()
+    Response.ok(UserTemplates.`import-definitions`(loadRows(userId))).build()
   }
 
   @GET
@@ -86,8 +80,7 @@ class UserImportDefinitionResource {
   @Produces(MediaType.TEXT_HTML)
   fun definitionsTable(): Any = httpResponseMetrics.timed("fragment.user-import-definition.table") {
     val userId = securityIdentity.principal.name
-    definitionsTemplate.getFragment("definitions_table")
-      .data("definitions", loadRows(userId))
+    UserTemplates.`import-definitions$definitions_table`(loadRows(userId))
   }
 
   @POST

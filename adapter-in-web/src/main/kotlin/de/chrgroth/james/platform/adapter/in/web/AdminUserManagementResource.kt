@@ -5,8 +5,6 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.domain.error.UserAdminError
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
-import io.quarkus.qute.Location
-import io.quarkus.qute.Template
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
 import jakarta.enterprise.context.ApplicationScoped
@@ -32,10 +30,6 @@ data class UserStatusResponse(val stillExists: Boolean)
 @RolesAllowed("ADMIN")
 @Suppress("Unused")
 class AdminUserManagementResource {
-
-  @Inject
-  @Location("ui/admin/users.html")
-  private lateinit var usersTemplate: Template
 
   @Inject
   private lateinit var securityIdentity: SecurityIdentity
@@ -158,16 +152,12 @@ class AdminUserManagementResource {
 
   private fun renderUsers(): Any {
     val users = adminUserManagement.listUsers()
-    return usersTemplate
-      .data("users", users)
-      .data("allRoles", UserRole.entries)
+    return AdminTemplates.users(users, UserRole.entries)
   }
 
   private fun renderUsersTable(): Any {
     val users = adminUserManagement.listUsers()
-    return usersTemplate.getFragment("users_table")
-      .data("users", users)
-      .data("allRoles", UserRole.entries)
+    return AdminTemplates.`users$users_table`(users, UserRole.entries)
   }
 
   private fun errorMessage(code: String): String = when (code) {
