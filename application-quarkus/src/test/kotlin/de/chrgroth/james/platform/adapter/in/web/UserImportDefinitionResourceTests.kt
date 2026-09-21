@@ -336,7 +336,7 @@ class UserImportDefinitionResourceTests {
       .statusCode(200)
       .body("ok", equalTo(true))
 
-    val tableHtml = given().`when`().get("/ui/user/imports/definitions/table").then().statusCode(200).extract().body().asString()
+    val tableHtml = given().`when`().get("/ui/user/imports/table").then().statusCode(200).extract().body().asString()
     assertTrue(!tableHtml.contains(connectionName), "Expected the deleted definition to no longer appear in the table")
   }
 

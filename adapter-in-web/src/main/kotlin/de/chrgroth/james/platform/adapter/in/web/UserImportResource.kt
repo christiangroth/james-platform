@@ -772,8 +772,9 @@ class UserImportResource {
       .filter { it.status != ImportStatus.ACCEPTED }
       .groupBy { it.importDefinitionId.value }
     val now = Instant.now()
-    return definitions.map { definition ->
+    val rows = definitions.map { definition ->
       val inProgressJobs = inProgressJobsByDefinitionId[definition.id.value].orEmpty()
+        .sortedByDescending { it.createdAt }
         .map { it.toRow(definitionsById, entityNamesById, appNamesById, connectionNamesById) }
       ImportDefinitionGroupRow(
         id = definition.id.value,
@@ -794,6 +795,10 @@ class UserImportResource {
         inProgressJobs = inProgressJobs,
       )
     }
+    // Most recently active definition first (its newest in-progress job, falling back to the definition's own last
+    // change) - mirrors the old flat job table's newest-first order closely enough that "the row I just triggered"
+    // stays easy to find at the top instead of wherever the definition happens to sort otherwise.
+    return rows.sortedByDescending { row -> row.inProgressJobs.maxOfOrNull { it.lastChangedAt } ?: definitionsById[row.id]?.lastChangedAt ?: Instant.EPOCH }
   }
 
   private fun InstalledAppInfo.toOptionRow() = AppOptionRow(
