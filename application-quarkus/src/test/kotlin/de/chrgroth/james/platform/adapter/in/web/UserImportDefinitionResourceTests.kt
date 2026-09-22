@@ -306,7 +306,15 @@ class UserImportDefinitionResourceTests {
 
   @Test
   fun `merged imports page wires a start-job action into a definition block with no in-progress job`() {
-    val (_, connectionName, _) = createConfiguredDefinition()
+    val app = installAppWithMandatoryStringProperty()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    val connectionName = createConnection()
+    val importId = triggerImportAndGetId(app.installedAppId, connectionName, app.entityId)
+    saveMapping(importId, app.propertyId)
+    // Deletes the still-unaccepted job so the definition has no in-progress job left, matching the button's
+    // actual render condition (`definition.inProgressJobs.isEmpty`) - a fully configured but freshly created
+    // definition still has one in-progress job (its own mapping job) and would not show the button otherwise.
+    given().`when`().post("/ui/user/imports/$importId/delete").then().statusCode(200).body("ok", equalTo(true))
 
     val row = definitionRow(connectionName)
 
