@@ -13,12 +13,15 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
    * [de.chrgroth.james.platform.domain.model.imports.ImportJob], and - when [replaceExisting] is set - first
    * deletes every existing instance of the target entity (see `ImportPort.acceptDryRun`).
    * Deduplicated per import job so a repeated/double-submitted accept click does not enqueue a second run.
+   * `groupId` = [importJobId], so accepts of unrelated import jobs run concurrently on [DomainOutboxPartition.Domain]'s
+   * multiple workers, while repeated accepts of the *same* import job stay strictly ordered (see ADR 0019).
    * payload = "$importJobId\n$userId\n$replaceExisting"
    */
   data class AcceptDryRun(val importJobId: String, val userId: String, val replaceExisting: Boolean) : DomainOutboxEvent {
     override val key = KEY
     override val deduplicationKey = "$KEY:$importJobId"
     override val partition = DomainOutboxPartition.Domain
+    override val groupId = importJobId
     override val serializePayload = "$importJobId\n$userId\n$replaceExisting"
 
     companion object {
@@ -34,12 +37,16 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
    * Deletes an installed app's [de.chrgroth.james.platform.domain.model.app.AppData] and the installed app itself
    * in the background (see `UserAppStorePort.uninstallApp`). Deduplicated per installed app so a repeated/double
    * submitted uninstall click does not enqueue a second run.
+   * `groupId` = [installedAppId], so uninstalls of unrelated installations run concurrently on
+   * [DomainOutboxPartition.Domain]'s multiple workers, while repeated uninstalls of the *same* installation stay
+   * strictly ordered (see ADR 0019).
    * payload = "$installedAppId\n$userId"
    */
   data class UninstallApp(val installedAppId: String, val userId: String) : DomainOutboxEvent {
     override val key = KEY
     override val deduplicationKey = "$KEY:$installedAppId"
     override val partition = DomainOutboxPartition.Domain
+    override val groupId = installedAppId
     override val serializePayload = "$installedAppId\n$userId"
 
     companion object {
@@ -55,12 +62,15 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
    * Deletes an app and all of its [de.chrgroth.james.platform.domain.model.app.AppVersion]s in the background
    * (see `AppManagementPort.deleteApp`). Deduplicated per app so a repeated/double submitted delete click does not
    * enqueue a second run.
+   * `groupId` = [appId], so deletions of unrelated apps run concurrently on [DomainOutboxPartition.Domain]'s
+   * multiple workers, while repeated deletions of the *same* app stay strictly ordered (see ADR 0019).
    * payload = "$appId\n$developerId"
    */
   data class DeleteApp(val appId: String, val developerId: String) : DomainOutboxEvent {
     override val key = KEY
     override val deduplicationKey = "$KEY:$appId"
     override val partition = DomainOutboxPartition.Domain
+    override val groupId = appId
     override val serializePayload = "$appId\n$developerId"
 
     companion object {
@@ -77,12 +87,15 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
    * [de.chrgroth.james.platform.domain.model.app.AppData]) and the user itself in the background (see
    * `AdminUserManagementService.deleteUser`). Deduplicated per user so a repeated/double submitted delete click
    * does not enqueue a second run.
+   * `groupId` = [userId], so deletions of unrelated users run concurrently on [DomainOutboxPartition.Domain]'s
+   * multiple workers, while repeated deletions of the *same* user stay strictly ordered (see ADR 0019).
    * payload = "$userId\n$username"
    */
   data class DeleteUser(val userId: String, val username: String) : DomainOutboxEvent {
     override val key = KEY
     override val deduplicationKey = "$KEY:$userId"
     override val partition = DomainOutboxPartition.Domain
+    override val groupId = userId
     override val serializePayload = "$userId\n$username"
 
     companion object {
@@ -100,6 +113,9 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
    * `AppVersionManagementService.autoUpgradeInstallations`, part of the bulk auto-upgrade triggered by publishing a
    * non-breaking Version). Deduplicated per installation and target version so a repeated publish does not enqueue
    * the same upgrade twice.
+   * `groupId` = [installedAppId], so migrations of unrelated installations run concurrently on
+   * [DomainOutboxPartition.Domain]'s multiple workers, while repeated migrations of the *same* installation (e.g.
+   * across successive publishes) stay strictly ordered (see ADR 0019).
    * payload = "$installedAppId\n$appId\n$fromVersionNumber\n$toVersionNumber"
    */
   data class AutoUpgradeInstallation(
@@ -111,6 +127,7 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     override val key = KEY
     override val deduplicationKey = "$KEY:$installedAppId:$toVersionNumber"
     override val partition = DomainOutboxPartition.Domain
+    override val groupId = installedAppId
     override val serializePayload = "$installedAppId\n$appId\n$fromVersionNumber\n$toVersionNumber"
 
     companion object {
