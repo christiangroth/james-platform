@@ -1,1 +1,0 @@
-* Import job table: removed the unlabeled "Aktionen" column header, matched the delete button's look to the definition delete button, made whole job rows clickable into the job wizard, and made the "Job starten" action more discoverable when a definition has no active job.

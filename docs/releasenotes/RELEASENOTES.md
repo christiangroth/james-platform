@@ -1,3 +1,12 @@
+# 0.110.1 (2026.09.22)
+
+## Bugfixes / Chore
+* Import job table: removed the unlabeled "Aktionen" column header, matched the delete button's look to the definition delete button, made whole job rows clickable into the job wizard, and made the "Job starten" action more discoverable when a definition has no active job.
+
+
+
+---
+
 # 0.110.0 (2026.09.22)
 
 ## New Features
