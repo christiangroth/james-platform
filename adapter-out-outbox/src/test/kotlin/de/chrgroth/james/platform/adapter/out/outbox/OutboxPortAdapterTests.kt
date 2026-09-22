@@ -115,6 +115,7 @@ class OutboxPortAdapterTests {
         nextRetryAt = null,
         priority = OutboxEventPriority.MEDIUM,
         lastError = null,
+        groupId = null,
       ),
     )
 
