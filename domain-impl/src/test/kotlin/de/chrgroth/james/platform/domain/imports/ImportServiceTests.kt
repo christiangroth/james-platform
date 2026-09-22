@@ -1347,6 +1347,100 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `start import job creates a fresh interactive job attached to the existing definition instead of a new one`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"a":1},{"a":2}]}""".right()
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.importDefinitionId).isEqualTo(definition.id)
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
+    assertThat(saved.captured.userId).isEqualTo("user-1")
+    verify(exactly = 1) { importJobRepository.save(any()) }
+  }
+
+  @Test
+  fun `start import job auto-selects a newly detected single data path onto the existing definition, leaving its mapping untouched`() {
+    val definition = importDefinition(selectedDataPath = null, mapping = null)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"a":1},{"a":2}]}""".right()
+    justRun { importJobRepository.save(any()) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedDefinition.captured.selectedDataPath).isEqualTo("items")
+    assertThat(savedDefinition.captured.mapping).isNull()
+  }
+
+  @Test
+  fun `start import job fails when the definition is not found`() {
+    every { importDefinitionRepository.findById(ImportDefinitionId("missing")) } returns null
+
+    val result = service.startImportJob("user-1", "missing")
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `start import job fails when the definition belongs to another user`() {
+    val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `start import job fails when the installed app can no longer be resolved for the definition`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns emptyList()
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.INSTALLED_APP_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `start import job fails when the connection is no longer found`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns null
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.CONNECTION_NOT_FOUND.left())
+  }
+
+  @Test
+  fun `start import job propagates fetch failure`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns ImportError.FETCH_FAILED.left()
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result).isEqualTo(ImportError.FETCH_FAILED.left())
+  }
+
+  @Test
   fun `delete import definition deletes an owned definition`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     justRun { importDefinitionRepository.delete(definition.id) }
