@@ -1,3 +1,12 @@
+# 0.110.2 (2026.09.22)
+
+## Bugfixes / Chore
+* Import UI: starting a new job for an already fully configured definition ("Job starten") now correctly lands on the Dry-Run step ready to accept, instead of failing with a "Status READY" error when starting the import.
+
+
+
+---
+
 # 0.110.1 (2026.09.22)
 
 ## Bugfixes / Chore
