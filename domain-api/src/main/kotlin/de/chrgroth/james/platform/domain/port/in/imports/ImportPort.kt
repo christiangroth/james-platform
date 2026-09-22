@@ -69,6 +69,18 @@ interface ImportPort {
   fun triggerDefinitionRun(userId: String, definitionId: String): Either<DomainError, ImportJob>
 
   /**
+   * Starts a fresh INTERACTIVE [ImportJob] for an already-existing [definitionId], reusing its
+   * [ImportDefinition.connectionId], [ImportDefinition.urlPostfix] and [ImportDefinition.targetEntityDefinitionId]
+   * instead of creating a new [ImportDefinition] - the escape hatch for a definition whose every job was deleted
+   * (e.g. before the initial data-path/filter/mapping wizard was ever finished), which would otherwise be
+   * permanently stuck: its "Run" ([triggerDefinitionRun]) stays disabled until it is fully configured, and until
+   * now the only way back in was deleting the definition and starting over via "Neuer Import" (issue #679). Mirrors
+   * [triggerImport]'s fetch/detect pipeline, but attaches the new job to [definitionId] rather than a newly created
+   * definition; ownership-checked the same way as [triggerDefinitionRun].
+   */
+  fun startImportJob(userId: String, definitionId: String): Either<DomainError, ImportJob>
+
+  /**
    * Deletes [definitionId] itself; any of its still-unaccepted [ImportJob]s are left in place, same as deleting an
    * [de.chrgroth.james.platform.domain.model.imports.ImportConnection] does not cascade to jobs referencing it.
    */
