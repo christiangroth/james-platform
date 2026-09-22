@@ -40,7 +40,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-      - run: ./gradlew build
+      # testNative is already covered by the dedicated build-native job (or by release itself on main) - running it
+      # here too was redundant, and once build-native/release stopped using container-build, it started actively
+      # breaking: this job has no local GraalVM/Mandrel, so it silently relied on Quarkus's container-build
+      # auto-fallback, and the shared Gradle build cache doesn't key native tasks by that -D flag, so it could pick
+      # up a container-build=false native binary produced by another job and fail to launch it in a container here.
+      - run: ./gradlew build -x testNative
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
