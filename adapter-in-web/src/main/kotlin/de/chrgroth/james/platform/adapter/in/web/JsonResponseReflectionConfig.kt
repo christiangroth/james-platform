@@ -21,6 +21,9 @@ import io.quarkus.runtime.annotations.RegisterForReflection
     VersionBumpResponse::class,
     FilterSampleResponse::class,
     MappingSampleResponse::class,
+    DryRunObjectRow::class,
+    DryRunPropertyRow::class,
+    DryRunIssueRow::class,
     InstalledAppStatusResponse::class,
   ],
 )
