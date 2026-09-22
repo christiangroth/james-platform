@@ -138,12 +138,14 @@ class ImportService(
       importDefinitionRepository.save(definition.copy(selectedDataPath = singleMatch.path, lastChangedAt = Instant.now()))
     }
 
-    return createAndSaveImportJob(definition, installedApp, fetched).right()
+    val job = createAndSaveImportJob(definition, installedApp, fetched, preferredDataPath = definition.selectedDataPath)
+    return applyKnownMapping(job, definition, installedApp).right()
   }
 
   /** The raw, freshly fetched payload behind a new [ImportJob], together with what [fetchAndDetect] found in it. */
   private data class FetchedImportData(
     val rawPayload: String,
+    val parsed: JsonNode,
     val detectedDataPaths: List<DataPath>,
     val schema: List<SchemaProperty>,
   )
@@ -174,22 +176,42 @@ class ImportService(
     val detectedDataPaths = DataPathDetector.detect(parsed)
     val singleMatch = detectedDataPaths.singleOrNull()
     val schema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty()
-    return FetchedImportData(rawPayload, detectedDataPaths, schema).right()
+    return FetchedImportData(rawPayload, parsed, detectedDataPaths, schema).right()
   }
 
-  /** Builds and saves the new [ImportJob] itself, attached to [definition] - the second half of [fetchAndDetect]'s shared tail. */
-  private fun createAndSaveImportJob(definition: ImportDefinition, installedApp: InstalledApp, fetched: FetchedImportData): ImportJob {
+  /**
+   * Builds and saves the new [ImportJob] itself, attached to [definition] - the second half of [fetchAndDetect]'s
+   * shared tail. When [fetched] found multiple, ambiguous candidate data paths but [preferredDataPath] (issue #688:
+   * a definition's already-known [ImportDefinition.selectedDataPath] from a previous run, passed by [startImportJob]
+   * only - [triggerImport] passes none, since a fresh "Neuer Import" has no prior known-good path to prefer) still
+   * resolves against the freshly fetched data, that resolved path is used instead of leaving the job stuck at
+   * [ImportStatus.DOWNLOADED] and forcing the user through manual reselection.
+   */
+  private fun createAndSaveImportJob(
+    definition: ImportDefinition,
+    installedApp: InstalledApp,
+    fetched: FetchedImportData,
+    preferredDataPath: String? = null,
+  ): ImportJob {
+    val singleMatch = fetched.detectedDataPaths.singleOrNull()
+    val resolvedPreferred = if (singleMatch == null && preferredDataPath != null) DataPathDetector.resolve(fetched.parsed, preferredDataPath) else null
+    val schema = when {
+      singleMatch != null -> fetched.schema
+      resolvedPreferred != null -> SchemaDetector.detect(fetched.parsed, resolvedPreferred.path)
+      else -> emptyList()
+    }
+
     val now = Instant.now()
     val importJob = ImportJob(
       id = ImportJobId(UUID.randomUUID().toString()),
       userId = definition.userId,
       installedAppId = installedApp.id,
       importDefinitionId = definition.id,
-      status = if (fetched.detectedDataPaths.singleOrNull() != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
+      status = if (singleMatch != null || resolvedPreferred != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
       payload = fetched.rawPayload,
       detectedDataPaths = fetched.detectedDataPaths,
-      detectedSchema = fetched.schema,
-      filteredSchema = fetched.schema,
+      detectedSchema = schema,
+      filteredSchema = schema,
       createdAt = now,
       lastChangedAt = now,
     )
@@ -198,6 +220,31 @@ class ImportService(
       "Import job created: installedAppId=${installedApp.id.value} connectionId=${definition.connectionId.value} definitionId=${definition.id.value} detectedDataPaths=${fetched.detectedDataPaths.size}"
     }
     return importJob
+  }
+
+  /**
+   * Promotes [job] to [ImportStatus.READY] when [definition] already has a saved [ImportDefinition.mapping] that
+   * re-validates cleanly against [job]'s own freshly detected [ImportJob.filteredSchema] (issue #688: [startImportJob]
+   * creates a brand new job for an existing, possibly already fully mapped, definition - without this, that job would
+   * never reach READY and [acceptDryRun] would always fail with [ImportError.IMPORT_JOB_NOT_READY], even though the
+   * Dry-Run page renders fine since [dryRun] only checks that *a* mapping is present, not that it is still valid for
+   * this job). Leaves [job] as-is (still [ImportStatus.DATA_IDENTIFIED] or [ImportStatus.DOWNLOADED]) when the
+   * mapping doesn't validate anymore (e.g. schema drift) or the job never even reached [ImportStatus.DATA_IDENTIFIED],
+   * so the user is routed to the Mapping (or Overview) step instead of a confusing Accept failure on Dry-Run - the
+   * Mapping step already surfaces per-field issues when landing there normally.
+   */
+  private fun applyKnownMapping(job: ImportJob, definition: ImportDefinition, installedApp: InstalledApp): ImportJob {
+    val mapping = definition.mapping ?: return job
+    if (job.status != ImportStatus.DATA_IDENTIFIED) return job
+    val entityDefinitions = entityDefinitionsOf(installedApp)
+    val entityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId } ?: return job
+    val validation = MappingValidator.validate(mapping, entityDefinition, job.filteredSchema, entityDefinitions, propertyConstraint)
+    if (!validation.isReady) return job
+
+    val readyJob = job.copy(status = ImportStatus.READY, lastChangedAt = Instant.now())
+    importJobRepository.save(readyJob)
+    logger.info { "Import job promoted to READY from known mapping: importJobId=${readyJob.id.value} definitionId=${definition.id.value}" }
+    return readyJob
   }
 
   override fun testConnectionUrl(userId: String, connectionId: String, urlPostfix: String?): Either<DomainError, Unit> {
