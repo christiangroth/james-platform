@@ -47,31 +47,31 @@
                             {#if definition.urlPostfix}<span class="text-muted" data-testid="definition-url-postfix">{definition.urlPostfix}</span>{/if}
                             – <span data-testid="definition-app">{definition.installedAppName}</span> / <span data-testid="definition-entity">{definition.targetEntityName}</span>
                         </h2>
-                        <div class="text-muted small d-flex flex-wrap gap-3">
-                            <span data-testid="definition-schedule">
+                        <div class="text-muted small">
+                            <div data-testid="definition-schedule">
                                 {userImportDefinition:userImportDefinitionColSchedule()}:
                                 {#if definition.hasSchedule}{definition.schedule}{#else}{userImportDefinition:userImportDefinitionScheduleManualLabel()}{/if}
-                            </span>
-                            <span data-testid="definition-last-run">
+                            </div>
+                            <div data-testid="definition-last-run">
                                 {userImportDefinition:userImportDefinitionColLastRun()}:
                                 {#if definition.lastRunAt}{definition.lastRunAt.formatted}{#else}–{/if}
-                            </span>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex gap-2 ms-auto">
-                        <button type="button" class="btn btn-app-secondary btn-sm history-definition-button" data-bs-toggle="modal" data-bs-target="#historyModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionHistoryButton()}" aria-label="{userImportDefinition:userImportDefinitionHistoryButton()}" data-testid="history-definition-button">
-                            <i class="bi bi-journal-text" aria-hidden="true"></i>
-                        </button>
                         {#if definition.inProgressJobs.isEmpty}
-                        <button type="button" class="btn btn-app-secondary btn-sm start-job-definition-button" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionStartJobButton()}" aria-label="{userImportDefinition:userImportDefinitionStartJobButton()}" data-testid="start-job-definition-button">
-                            <i class="bi bi-play-circle" aria-hidden="true"></i>
-                        </button>
                         <button type="button" class="btn btn-app-secondary btn-sm run-definition-button" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionRunButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionRunButton()}" data-testid="run-definition-button">
                             <i class="bi bi-play-fill" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="btn btn-app-secondary btn-sm start-job-definition-button" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionStartJobButton()}" aria-label="{userImportDefinition:userImportDefinitionStartJobButton()}" data-testid="start-job-definition-button">
+                            <i class="bi bi-play-circle" aria-hidden="true"></i>
                         </button>
                         {/if}
                         <button type="button" class="btn btn-app-secondary btn-sm schedule-definition-button" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionScheduleButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionScheduleButton()}" data-testid="schedule-definition-button">
                             <i class="bi bi-clock-history" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="btn btn-app-secondary btn-sm history-definition-button" data-bs-toggle="modal" data-bs-target="#historyModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionHistoryButton()}" aria-label="{userImportDefinition:userImportDefinitionHistoryButton()}" data-testid="history-definition-button">
+                            <i class="bi bi-journal-text" aria-hidden="true"></i>
                         </button>
                         {#btn-icon-delete testId="delete-definition-button" title=msg:commonDelete() extraClass="" bsTarget="#deleteDefinitionModal" action="" entityId=definition.id propertyId="" reportId="" username="" /}
                     </div>
