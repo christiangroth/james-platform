@@ -1,3 +1,12 @@
+# 0.110.3 (2026.09.22)
+
+## Bugfixes / Chore
+* Fixed the import schedule dialog not showing the currently configured cron schedule or Slack notification setting when reopened for editing.
+
+
+
+---
+
 # 0.110.2 (2026.09.22)
 
 ## Bugfixes / Chore
