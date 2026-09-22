@@ -37,6 +37,7 @@ import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -408,8 +409,68 @@ class ImportService(
     }
     val updated = definition.copy(schedule = trimmedSchedule, notifyOnSlack = notifyOnSlack, lastChangedAt = Instant.now())
     importDefinitionRepository.save(updated)
+    rescheduleNextRun(updated)
     logger.info { "Schedule updated: definitionId=$definitionId schedule=${trimmedSchedule ?: "none"} notifyOnSlack=$notifyOnSlack" }
     return updated.right()
+  }
+
+  override fun handle(event: DomainOutboxEvent.RunScheduledImport): Either<DomainError, Unit> {
+    val definition = importDefinitionRepository.findById(ImportDefinitionId(event.importDefinitionId)) ?: run {
+      logger.info { "Scheduled import dispatch skipped: definition already gone, treating as already processed: ${event.importDefinitionId}" }
+      return Unit.right()
+    }
+    if (definition.schedule == null) {
+      logger.info { "Scheduled import dispatch skipped: schedule was cleared since this run was enqueued: ${definition.id.value}" }
+      return Unit.right()
+    }
+
+    triggerScheduledImport(definition.id.value).fold(
+      { error ->
+        logger.warn { "Scheduled import failed: definitionId=${definition.id.value} error=${error.code}" }
+        if (definition.notifyOnSlack) {
+          notificationPort.notify(scheduledImportFailureMessage(definition, error))
+        }
+      },
+      { job -> logger.info { "Scheduled import triggered: definitionId=${definition.id.value} importJobId=${job.id.value}" } },
+    )
+
+    // reload: triggerScheduledImport (via runUnattendedImport) just persisted lastRunAt/lastKnownSchema on this definition
+    val refreshed = importDefinitionRepository.findById(definition.id) ?: return Unit.right()
+    rescheduleNextRun(refreshed)
+    return Unit.right()
+  }
+
+  /**
+   * The run failed before an [de.chrgroth.james.platform.domain.model.imports.ImportJob] could even be queued for
+   * accept (see `ImportPort.triggerScheduledImport`), so this is the only place able to report it - a later success
+   * or failure of the actual accept is instead reported from `ImportService.handle` once known, since accept runs
+   * asynchronously via the outbox.
+   */
+  private fun scheduledImportFailureMessage(definition: ImportDefinition, error: DomainError): String =
+    if (error == ImportError.SCHEMA_DRIFT_DETECTED) {
+      "Scheduled import \"${definition.name}\" aborted: the detected schema no longer matches the last accepted run. Please review the definition's filter/mapping."
+    } else {
+      "Scheduled import \"${definition.name}\" failed: ${error.code}."
+    }
+
+  /**
+   * Cancels any previously enqueued [DomainOutboxEvent.RunScheduledImport] for [definition] (a no-op if nothing is
+   * pending) and, if [definition] still has a schedule, enqueues a fresh one delayed until the schedule's next due
+   * occurrence after now. Called after every schedule create/edit/clear ([updateSchedule]) and after every
+   * dispatched run ([handle]), so a definition never has more than one pending run at a time and a stale/superseded
+   * schedule never fires again.
+   */
+  private fun rescheduleNextRun(definition: ImportDefinition) {
+    val dedupKey = "${DomainOutboxEvent.RunScheduledImport.KEY}:${definition.id.value}"
+    outbox.cancel(DomainOutboxPartition.Domain, dedupKey)
+    val schedule = definition.schedule ?: return
+    val nextDue = CronSchedule.nextFireTime(schedule, Instant.now()) ?: return
+    outbox.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value), notBefore = nextDue)
+  }
+
+  /** Cancels [definitionId]'s pending [DomainOutboxEvent.RunScheduledImport], if any, without re-enqueuing - for a definition that is being deleted. */
+  private fun cancelScheduledRun(definitionId: String) {
+    outbox.cancel(DomainOutboxPartition.Domain, "${DomainOutboxEvent.RunScheduledImport.KEY}:$definitionId")
   }
 
   override fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob> {
@@ -822,6 +883,7 @@ class ImportService(
       return ImportError.DEFINITION_NOT_FOUND.left()
     }
     importDefinitionRepository.delete(existing.id)
+    cancelScheduledRun(existing.id.value)
     logger.info { "Import definition deleted: $definitionId for user: $userId" }
     return Unit.right()
   }

@@ -96,29 +96,6 @@ class ImportDefinitionRepositoryTests {
   }
 
   @Test
-  fun `findAllWithScheduleSet returns only definitions with a schedule configured`() {
-    val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
-    val scheduled = ImportDefinition(
-      id = ImportDefinitionId("def-scheduled-${now.toEpochMilli()}"),
-      userId = "user-1",
-      connectionId = ImportConnectionId("conn-1"),
-      name = "Scheduled",
-      targetEntityDefinitionId = EntityDefinitionId("entity-1"),
-      schedule = "0 0 3 * * ?",
-      createdAt = now,
-      lastChangedAt = now,
-    )
-    val unscheduled = scheduled.copy(id = ImportDefinitionId("def-unscheduled-${now.toEpochMilli()}"), name = "Unscheduled", schedule = null)
-    importDefinitionRepository.save(scheduled)
-    importDefinitionRepository.save(unscheduled)
-
-    val result = importDefinitionRepository.findAllWithScheduleSet()
-
-    assertThat(result).contains(scheduled)
-    assertThat(result).noneMatch { it.id == unscheduled.id }
-  }
-
-  @Test
   fun `delete removes the definition`() {
     val now = Instant.now().truncatedTo(ChronoUnit.MILLIS)
     val definition = ImportDefinition(

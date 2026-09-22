@@ -114,22 +114,54 @@ module as an existing one. Concrete event types are added by the follow-up ticke
 route an operation through the outbox; this ticket introduces the port, the adapter, and the library wiring
 with no concrete event types yet – the dispatcher has nothing to dispatch until a follow-up ticket adds one.
 
-**Partition granularity is per operation type, not per invocation.** `quarkus-outbox` starts exactly one worker
-coroutine per `DomainOutboxPartition` at boot (`PartitionWorkerStarter`, iterating
-`ApplicationOutboxDispatcher.getAllPartitions()` once at startup), and that worker dispatches tasks strictly one
-at a time – claim, dispatch, complete/retry, then claim the next; there is no per-partition concurrency setting,
-only an optional `throttleInterval` that adds delay between dispatches, never parallelism. Splitting partitions
-per operation therefore parallelizes across *different* operations (e.g. a stuck `UserDeletion` no longer delays
-`AppDeletion`), but two invocations of the *same* operation for two different users still serialize through that
-operation's single worker – a second user's deletion enqueued while a first is being processed (or retrying)
-waits behind it. This is accepted for now: none of the five operations in scope are high-frequency,
-latency-sensitive-to-the-user actions – they are low-volume, admin/self-service-triggered operations in a
-single-developer/hobby-scale project – so a short queue behind an in-progress same-type operation is an
-acceptable trade-off, not a functional problem today. If a concrete operation later needs per-invocation (e.g.
-per-user) parallelism, the option is a small, statically-enumerable pool of partitions per operation (e.g.
-`UserDeletion-0`..`UserDeletion-N`, routed by `hash(userId) % N`), not one partition per user – partitions must
-be enumerable up front for `getAllPartitions()`, and an unbounded, per-entity partition count would itself
-become the kind of proliferation this ADR's partitioning rule exists to avoid.
+**Partition granularity was per operation type, not per invocation - superseded by `groupId`/`workerCount` (2026-09
+update, [#690](https://github.com/christiangroth/james-platform/issues/690)).** `quarkus-outbox` originally started
+exactly one worker coroutine per `DomainOutboxPartition` at boot (`PartitionWorkerStarter`, iterating
+`ApplicationOutboxDispatcher.getAllPartitions()` once at startup), dispatching tasks strictly one at a time – claim,
+dispatch, complete/retry, then claim the next; there was no per-partition concurrency setting, only an optional
+`throttleInterval` that added delay between dispatches, never parallelism. Splitting partitions per operation
+therefore parallelized across *different* operations (e.g. a stuck `UserDeletion` no longer delayed `AppDeletion`),
+but two invocations of the *same* operation for two different users still serialized through that operation's single
+worker – e.g. a `DeleteUser` for one user waited behind an entirely unrelated `UninstallApp` for a different
+app/user, both sharing `DomainOutboxPartition.Domain`. This was accepted at the time on the grounds that none of the
+operations in scope were high-frequency, latency-sensitive-to-the-user actions, and the only floated fix was a
+static, statically-enumerable hash-sharded partition pool per operation (e.g. `UserDeletion-0`..`UserDeletion-N`,
+routed by `hash(userId) % N`) - never actually adopted, since it would have meant *N* new `DomainOutboxPartition`s
+per operation needing per-invocation parallelism, worked around the library's limitation rather than solving it, and
+still didn't guarantee a given entity's own operations couldn't run out of order across shards.
+
+`quarkus-outbox` 0.9.0 closed this gap directly: an optional `groupId: String?` on `ApplicationOutboxEvent` and an
+optional `workerCount: Int` (default `1`) on `ApplicationOutboxPartition`, both backward compatible. Tasks sharing a
+`groupId` within a partition still serialize in enqueue order; different `groupId`s dispatch concurrently across the
+partition's `workerCount` workers. This is a strictly better fit than the hash-sharded pool: no new partitions, exact
+(not probabilistic) per-entity ordering, and worker count tunable per partition without enumerating anything up
+front. `DomainOutboxPartition.Domain` - shared by `AcceptDryRun`, `UninstallApp`, `DeleteApp`, `DeleteUser`,
+`AutoUpgradeInstallation` and `RunScheduledImport` (see "Delayed dispatch for scheduled imports" below) - now runs
+`workerCount = 4`, and each event's `groupId` is the id of the entity it operates on (`userId` for `DeleteUser`, the
+installation id for `UninstallApp`/`AutoUpgradeInstallation`/`RunScheduledImport`'s definition, `appId` for
+`DeleteApp`, the import job id for `AcceptDryRun`). Unrelated entities' operations now dispatch concurrently on
+`Domain`'s four workers; repeated operations against the *same* entity still serialize strictly, by `groupId`, in
+enqueue order - the ordering guarantee this ADR always required, now achieved without a shard-count guess.
+`TestDataGeneration` and `AggregationRecompute` keep `workerCount = 1` (the default) and no `groupId` - out of scope
+per [#690](https://github.com/christiangroth/james-platform/issues/690) unless a concrete ordering/throughput
+problem is found there.
+
+### Delayed dispatch for scheduled imports (2026-09 update, [#690](https://github.com/christiangroth/james-platform/issues/690))
+
+`quarkus-outbox` 0.10.0 added delayed/scheduled dispatch: `ApplicationOutboxClient.enqueue(event, notBefore: Instant?
+= null)`, plus `cancel(partition, deduplicationKey)` and `reschedule(partition, deduplicationKey, notBefore)`. This
+replaced `ImportDefinitionScheduleJob`, a `@Scheduled` cron poller (running every 15 minutes) that loaded every
+`ImportDefinition` with a schedule set and re-evaluated each one's cron expression against `lastRunAt` on every tick
+- a full-table poll every cycle, with due-ness granularity bounded by the poll interval. `ImportPort.updateSchedule`
+now cancels any previously pending `DomainOutboxEvent.RunScheduledImport` for the definition (a no-op if none is
+pending) and, when a schedule remains set, enqueues a fresh one delayed until the schedule's next due occurrence
+(`CronSchedule.nextFireTime`, the library's existing next-occurrence logic - not new cron math). `RunScheduledImport`
+runs on `DomainOutboxPartition.Domain` like the other domain operations above; its handler runs the due import, then
+enqueues its own successor for the following occurrence - self-perpetuating scheduling instead of a poll loop.
+Deleting an `ImportDefinition` cancels its pending event so a deleted definition's scheduled run never fires. This
+removed the poll loop, its 15-minute-granularity due-check, and `CronSchedule.isDue` (superseded by
+`nextFireTime`, its only remaining caller) entirely - not just for scheduled imports, but as a template other
+long-running operations with a "run in the future" shape can follow instead of adding their own poller.
 
 **Deferred, not part of this decision:** the previous incarnation also had an in-app outbox viewer/health page
 (`OutboxViewerResource`, `health.html` partition stats). That observability layer is not reintroduced here – it
@@ -246,3 +278,7 @@ Partially superseded, for one of its two call sites only. ADR 0018 covers two in
 * Documented that partition granularity is per operation type, not per invocation (no intra-partition
   parallelism, e.g. across users), per further review feedback on PR
   [#634](https://github.com/christiangroth/james-platform/pull/634)
+* [#690](https://github.com/christiangroth/james-platform/issues/690) adopted `quarkus-outbox` 0.9.0's
+  `groupId`/`workerCount` on `DomainOutboxPartition.Domain` (superseding the hash-sharded partition pool floated
+  above as never actually adopted) and 0.10.0's delayed dispatch to replace `ImportDefinitionScheduleJob`'s cron-poll
+  loop with `DomainOutboxEvent.RunScheduledImport`

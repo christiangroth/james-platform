@@ -10,6 +10,7 @@ import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxClient
 import de.chrgroth.quarkus.outbox.domain.OutboxPartitionStatus
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
+import java.time.Instant
 import kotlin.time.toKotlinInstant
 
 @ApplicationScoped
@@ -18,9 +19,19 @@ class OutboxPortAdapter(
   private val outbox: ApplicationOutboxClient,
 ) : OutboxPort {
 
-  override fun enqueue(event: DomainOutboxEvent) {
-    outbox.enqueue(event)
-    logger.info { "Enqueued outbox event ${event.key} in partition ${event.partition.key}" }
+  override fun enqueue(event: DomainOutboxEvent, notBefore: Instant?) {
+    outbox.enqueue(event, notBefore)
+    logger.info { "Enqueued outbox event ${event.key} in partition ${event.partition.key}${notBefore?.let { " notBefore=$it" } ?: ""}" }
+  }
+
+  override fun cancel(partition: DomainOutboxPartition, deduplicationKey: String) {
+    outbox.cancel(partition, deduplicationKey)
+    logger.info { "Cancelled outbox task $deduplicationKey in partition ${partition.key}" }
+  }
+
+  override fun reschedule(partition: DomainOutboxPartition, deduplicationKey: String, notBefore: Instant) {
+    outbox.reschedule(partition, deduplicationKey, notBefore)
+    logger.info { "Rescheduled outbox task $deduplicationKey in partition ${partition.key} notBefore=$notBefore" }
   }
 
   override fun getPartitionStats(): List<OutboxPartitionStats> {

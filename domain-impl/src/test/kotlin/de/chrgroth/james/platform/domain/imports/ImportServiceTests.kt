@@ -45,6 +45,7 @@ import de.chrgroth.james.platform.domain.model.imports.NumericRange
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -1250,29 +1251,101 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `update schedule sets a valid cron expression on a fully configured definition`() {
+  fun `handle RunScheduledImport runs the definition's scheduled import and enqueues the next occurrence`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping).copy(schedule = "0 0 3 * * ?")
+    every { importDefinitionRepository.findById(definition.id) } returns definition
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}]}""".right()
+    val savedJobs = mutableListOf<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJobs)) }
+    every { importJobRepository.findById(any()) } answers { savedJobs.lastOrNull() }
+    justRun { importDefinitionRepository.save(any()) }
+    justRun { outboxPort.enqueue(any()) }
+    justRun { outboxPort.enqueue(any(), any()) }
+    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+
+    val result = service.handle(DomainOutboxEvent.RunScheduledImport(definition.id.value))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value), any()) }
+  }
+
+  @Test
+  fun `handle RunScheduledImport is a no-op success when the definition no longer exists`() {
+    every { importDefinitionRepository.findById(ImportDefinitionId("missing")) } returns null
+
+    val result = service.handle(DomainOutboxEvent.RunScheduledImport("missing"))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { importJobRepository.save(any()) }
+  }
+
+  @Test
+  fun `handle RunScheduledImport is a no-op success without re-running when the schedule was cleared since it was enqueued`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { importDefinitionRepository.findById(definition.id) } returns definition.copy(schedule = null)
+
+    val result = service.handle(DomainOutboxEvent.RunScheduledImport(definition.id.value))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { importJobRepository.save(any()) }
+    verify(exactly = 0) { outboxPort.cancel(any(), any()) }
+  }
+
+  @Test
+  fun `handle RunScheduledImport notifies on Slack when the run fails and notifyOnSlack is set, and still reschedules the next occurrence`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = null, notifyOnSlack = true).copy(schedule = "0 0 3 * * ?")
+    every { importDefinitionRepository.findById(definition.id) } returns definition
+    justRun { importDefinitionRepository.save(any()) }
+    justRun { outboxPort.enqueue(any(), any()) }
+    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+
+    val result = service.handle(DomainOutboxEvent.RunScheduledImport(definition.id.value))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { notificationPort.notify(any()) }
+    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value), any()) }
+  }
+
+  @Test
+  fun `update schedule sets a valid cron expression on a fully configured definition and enqueues its next delayed run`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
+    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    val enqueued = slot<DomainOutboxEvent.RunScheduledImport>()
+    val notBefore = slot<Instant>()
+    justRun { outboxPort.enqueue(capture(enqueued), capture(notBefore)) }
 
     val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = true)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isEqualTo("0 0 3 * * ?")
     assertThat(saved.captured.notifyOnSlack).isTrue()
+    assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.RunScheduledImport(definition.id.value))
+    assertThat(notBefore.captured).isNotNull()
+    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
   }
 
   @Test
-  fun `update schedule clears the schedule when given a blank value`() {
+  fun `update schedule clears the schedule when given a blank value and cancels any pending delayed run without enqueuing a new one`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     every { importDefinitionRepository.findById(definition.id) } returns definition.copy(schedule = "0 0 3 * * ?")
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
+    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
     val result = service.updateSchedule("user-1", definition.id.value, " ", notifyOnSlack = false)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isNull()
+    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    verify(exactly = 0) { outboxPort.enqueue(any(), any()) }
   }
 
   @Test
@@ -1520,14 +1593,16 @@ class ImportServiceTests {
   }
 
   @Test
-  fun `delete import definition deletes an owned definition`() {
+  fun `delete import definition deletes an owned definition and cancels any pending delayed scheduled run`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     justRun { importDefinitionRepository.delete(definition.id) }
+    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
     val result = service.deleteImportDefinition("user-1", definition.id.value)
 
     assertThat(result.isRight()).isTrue()
     verify { importDefinitionRepository.delete(definition.id) }
+    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
   }
 
   @Test

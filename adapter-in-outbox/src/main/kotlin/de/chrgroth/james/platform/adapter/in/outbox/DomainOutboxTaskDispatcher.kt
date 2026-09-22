@@ -46,6 +46,7 @@ class DomainOutboxTaskDispatcher(
       is DomainOutboxEvent.AutoUpgradeInstallation -> appVersionManagementPort.handle(event)
       is DomainOutboxEvent.GenerateTestData -> testDataGeneratorPort.handle(event)
       is DomainOutboxEvent.RecomputeAggregation -> aggregationPort.handle(event)
+      is DomainOutboxEvent.RunScheduledImport -> importPort.handle(event)
     }
   }
 
