@@ -112,9 +112,6 @@ interface UserImportDefinitionMessages {
   @Message
   fun userImportDefinitionJobsColLastChanged(): String
 
-  @Message
-  fun userImportDefinitionJobsColActions(): String
-
   // shown for a definition with neither an in-progress job nor a schedule, inviting the user to start a new one
   // (issue #679)
   @Message
