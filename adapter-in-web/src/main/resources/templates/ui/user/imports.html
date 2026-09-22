@@ -84,12 +84,12 @@
                             <tr>
                                 <th>{userImportDefinition:userImportDefinitionJobsColStatus()}</th>
                                 <th>{userImportDefinition:userImportDefinitionJobsColLastChanged()}</th>
-                                <th class="text-end">{userImportDefinition:userImportDefinitionJobsColActions()}</th>
+                                <th class="text-end"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {#for job in definition.inProgressJobs}
-                            <tr data-testid="import-job-row" data-import-id="{job.id}">
+                            <tr data-testid="import-job-row" data-import-id="{job.id}" data-import-href="/ui/user/imports/{job.id}/overview" style="cursor:pointer">
                                 <td data-testid="import-job-status">
                                     <a href="/ui/user/imports/{job.id}/overview"
                                        class="badge border-0 app-badge-processing text-decoration-none"
@@ -98,9 +98,7 @@
                                 </td>
                                 <td data-testid="import-job-last-changed">{job.lastChangedAt.formatted}</td>
                                 <td class="text-end">
-                                    <button type="button" class="btn btn-app-secondary btn-sm py-0 px-1 delete-import-job-button" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-entity-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-job-button">
-                                        <i class="bi bi-x-lg" aria-hidden="true"></i>
-                                    </button>
+                                    {#btn-icon-delete testId="delete-import-job-button" title=msg:commonDelete() extraClass="py-0 px-1 delete-import-job-button" bsTarget="#deleteImportModal" action="" entityId=job.id propertyId="" reportId="" username="" /}
                                 </td>
                             </tr>
                             {/for}
@@ -110,7 +108,12 @@
                 {#else if definition.nextRunAt}
                 <p class="text-muted small mb-0" data-testid="definition-next-run">{userImportDefinition:userImportDefinitionColNextRun()}: {definition.nextRunAt.formatted}</p>
                 {#else}
-                <p class="text-muted small mb-0" data-testid="definition-empty-jobs-hint">{userImportDefinition:userImportDefinitionNoJobsHint()}</p>
+                <div class="d-flex align-items-center flex-wrap gap-2" data-testid="definition-empty-jobs-hint">
+                    <p class="text-muted small mb-0">{userImportDefinition:userImportDefinitionNoJobsHint()}</p>
+                    <button type="button" class="btn btn-app-primary btn-sm start-job-definition-button" data-definition-id="{definition.id}" data-testid="start-job-definition-cta-button">
+                        <i class="bi bi-play-circle me-1" aria-hidden="true"></i>{userImportDefinition:userImportDefinitionStartJobButton()}
+                    </button>
+                </div>
                 {/if}
             </div>
             {/for}
@@ -481,6 +484,14 @@
                         } else {
                             showMessage(startResult.ok, startResult.message);
                         }
+                        return;
+                    }
+
+                    // Whole-row navigation into the job wizard (issue #686) - a click on an interactive element inside
+                    // the row (delete button, status badge link) keeps its own behavior instead of also navigating.
+                    var jobRow = e.target.closest('[data-testid="import-job-row"]');
+                    if (jobRow && !e.target.closest('a, button')) {
+                        window.location.href = jobRow.getAttribute('data-import-href');
                     }
                 });
             }
