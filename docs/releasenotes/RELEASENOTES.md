@@ -1,3 +1,12 @@
+# 0.111.1 (2026.09.22)
+
+## Bugfixes / Chore
+* Fixed the mapping-step live preview ("Vorschau ansehen") showing a network error even though the request succeeded, caused by a missing native-image reflection registration.
+
+
+
+---
+
 # 0.111.0 (2026.09.22)
 
 ## New Features
