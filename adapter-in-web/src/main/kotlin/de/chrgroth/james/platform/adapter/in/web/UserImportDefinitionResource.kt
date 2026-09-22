@@ -85,6 +85,26 @@ class UserImportDefinitionResource {
     )
   }
 
+  /**
+   * Starts a fresh interactive [de.chrgroth.james.platform.domain.model.imports.ImportJob] for [definitionId] -
+   * unlike [run], works regardless of whether the definition is fully configured yet, so a definition whose every
+   * job got deleted before the initial data-path/filter/mapping wizard was ever finished (previously a dead end,
+   * only recoverable by deleting the definition and starting over) can be reused (issue #679). The redirect lands on
+   * [UserImportResource.importJob], which itself always opens the furthest step the new job has reached.
+   */
+  @POST
+  @Path("/{definitionId}/start")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun start(@PathParam("definitionId") definitionId: String): Response = httpResponseMetrics.timed("rest.user-import-definition.start") {
+    val userId = securityIdentity.principal.name
+    importPort.startImportJob(userId, definitionId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, definitionErrorMessage(error.code))).build() },
+      ifRight = { job ->
+        Response.ok(DeveloperApiResult(true, userImportDefinitionMsg.userImportDefinitionJobStartedMessage(), redirectUrl = "/ui/user/imports/${job.id.value}")).build()
+      },
+    )
+  }
+
   @POST
   @Path("/{definitionId}/schedule")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)

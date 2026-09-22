@@ -105,4 +105,24 @@ interface UserImportDefinitionMessages {
 
   @Message
   fun userImportDefinitionNoHistoryMessage(): String
+
+  @Message
+  fun userImportDefinitionJobsColStatus(): String
+
+  @Message
+  fun userImportDefinitionJobsColLastChanged(): String
+
+  @Message
+  fun userImportDefinitionJobsColActions(): String
+
+  // shown for a definition with neither an in-progress job nor a schedule, inviting the user to start a new one
+  // (issue #679)
+  @Message
+  fun userImportDefinitionNoJobsHint(): String
+
+  @Message
+  fun userImportDefinitionStartJobButton(): String
+
+  @Message
+  fun userImportDefinitionJobStartedMessage(): String
 }
