@@ -48,14 +48,17 @@ interface ImportPort {
    * accepting a job if the definition has no mapping/data path configured, if mapping validation is not blocking-issue-free,
    * or if the freshly detected schema deviates from [ImportDefinition.lastKnownSchema] (see
    * [de.chrgroth.james.platform.domain.model.imports.ImportTrigger.SYSTEM]). On every outcome
-   * [ImportDefinition.lastRunAt] is set to now, so the schedule poller (`ImportSchedulePort`) does not re-trigger the
-   * same due definition on its next poll. Called by the schedule poller, not directly by inbound adapters.
+   * [ImportDefinition.lastRunAt] is set to now. Called by [handle] when a [DomainOutboxEvent.RunScheduledImport]
+   * dispatches, not directly by inbound adapters.
    */
   fun triggerScheduledImport(definitionId: String): Either<DomainError, ImportJob>
 
   /**
    * Sets or clears (with `null`) [ImportDefinition.schedule], and sets [ImportDefinition.notifyOnSlack]; requires
-   * the definition to already have a [ImportDefinition.selectedDataPath] and [ImportDefinition.mapping].
+   * the definition to already have a [ImportDefinition.selectedDataPath] and [ImportDefinition.mapping]. Cancels any
+   * previously enqueued [DomainOutboxEvent.RunScheduledImport] for this definition and, when a schedule remains set,
+   * enqueues a fresh one delayed until the new schedule's next due occurrence (see ADR 0019's delayed-dispatch
+   * section) - replacing the previous cron-poll loop.
    */
   fun updateSchedule(userId: String, definitionId: String, schedule: String?, notifyOnSlack: Boolean): Either<DomainError, ImportDefinition>
 
@@ -83,6 +86,8 @@ interface ImportPort {
   /**
    * Deletes [definitionId] itself; any of its still-unaccepted [ImportJob]s are left in place, same as deleting an
    * [de.chrgroth.james.platform.domain.model.imports.ImportConnection] does not cascade to jobs referencing it.
+   * Cancels any pending [DomainOutboxEvent.RunScheduledImport] for this definition, so a deleted definition's
+   * previously scheduled run does not still fire.
    */
   fun deleteImportDefinition(userId: String, definitionId: String): Either<DomainError, Unit>
   fun deleteImportJob(userId: String, importJobId: String): Either<DomainError, Unit>
@@ -140,4 +145,14 @@ interface ImportPort {
    * import job (already processed by a prior delivery, or deleted by the user) is treated as a no-op success.
    */
   fun handle(event: DomainOutboxEvent.AcceptDryRun): Either<DomainError, Unit>
+
+  /**
+   * Runs [event.importDefinitionId]'s due scheduled import (same fetch-to-accept pipeline as [triggerScheduledImport]),
+   * notifying on Slack on failure when [ImportDefinition.notifyOnSlack] is set, then enqueues its own successor for
+   * the schedule's next due occurrence - replacing the previous cron-poll loop (`ImportDefinitionScheduleJob`,
+   * removed) with delayed dispatch, per ADR 0019. A no-longer-existing definition, or one whose schedule was cleared
+   * since this event was enqueued, is a no-op success with no successor enqueued. Called by the outbox dispatcher,
+   * not directly by inbound adapters.
+   */
+  fun handle(event: DomainOutboxEvent.RunScheduledImport): Either<DomainError, Unit>
 }

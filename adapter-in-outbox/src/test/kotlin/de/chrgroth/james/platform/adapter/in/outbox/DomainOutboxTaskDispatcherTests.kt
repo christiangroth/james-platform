@@ -53,6 +53,7 @@ class DomainOutboxTaskDispatcherTests {
   private val generateTestDataEvent =
     DomainOutboxEvent.GenerateTestData(appId = "app-1", installedAppId = "inst-1", entityId = "entity-1", count = 150, developerId = "dev-1", seed = 42L)
   private val recomputeAggregationEvent = DomainOutboxEvent.RecomputeAggregation(installedAppId = "inst-1", aggregationDefinitionId = "agg-1")
+  private val runScheduledImportEvent = DomainOutboxEvent.RunScheduledImport(importDefinitionId = "def-1")
 
   @Test
   fun `all partitions returns the domain, test data generation and aggregation recompute partitions`() {
@@ -247,6 +248,31 @@ class DomainOutboxTaskDispatcherTests {
     every { aggregationPort.handle(recomputeAggregationEvent) } returns AggregationError.INSTALLED_APP_NOT_FOUND.left()
 
     val result = dispatcher.dispatch(recomputeAggregationEvent)
+
+    assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
+  }
+
+  @Test
+  fun `deserialize reconstructs a RunScheduledImport event from its serialized payload`() {
+    val deserialized = dispatcher.deserialize(DomainOutboxPartition.Domain, DomainOutboxEvent.RunScheduledImport.KEY, runScheduledImportEvent.serializePayload)
+
+    assertThat(deserialized).isEqualTo(runScheduledImportEvent)
+  }
+
+  @Test
+  fun `dispatch routes RunScheduledImport to ImportPort#handle and returns success when it succeeds`() {
+    every { importPort.handle(runScheduledImportEvent) } returns Unit.right()
+
+    val result = dispatcher.dispatch(runScheduledImportEvent)
+
+    assertThat(result).isEqualTo(DispatchResult.Success)
+  }
+
+  @Test
+  fun `dispatch returns failed when the RunScheduledImport handler reports an error`() {
+    every { importPort.handle(runScheduledImportEvent) } returns ImportError.DEFINITION_NOT_FOUND.left()
+
+    val result = dispatcher.dispatch(runScheduledImportEvent)
 
     assertThat(result).isInstanceOf(DispatchResult.Failed::class.java)
   }

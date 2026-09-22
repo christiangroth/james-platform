@@ -15,11 +15,12 @@ import java.time.ZonedDateTime
  * - the same dialect already used for `@Scheduled(cron = ...)` elsewhere in this codebase (e.g. `ImportJobCleanupJob`'s
  * `app.imports.cleanup.cron`), so a user-facing cron string means the same thing everywhere in the app. Unlike
  * `@Scheduled`, these expressions are per-[de.chrgroth.james.platform.domain.model.imports.ImportDefinition] and
- * evaluated dynamically against a stored `lastRunAt`, so they cannot be registered as static `@Scheduled` triggers.
+ * evaluated dynamically (via [nextFireTime]) to compute each definition's next delayed-dispatch outbox event (see
+ * `ImportService.rescheduleNextRun`), so they cannot be registered as static `@Scheduled` triggers.
  */
 object CronSchedule {
 
-  /** Matches `app.imports.schedule.poll-cron` (see `ImportDefinitionScheduleJob`): a definition's schedule cannot fire more often than the poller actually checks, or runs would silently be skipped down to poll granularity. */
+  /** A sane lower bound on how often a single definition may schedule itself, independent of delayed-dispatch precision - protects against a typo'd cron expression (e.g. every second) flooding the outbox. */
   private val MIN_INTERVAL: Duration = Duration.ofMinutes(15)
 
   /** Number of consecutive occurrences sampled to check the minimum interval - enough to catch schedules with an uneven cadence (e.g. a fixed list of minutes with one short gap). */
@@ -50,18 +51,11 @@ object CronSchedule {
   }
 
   /**
-   * True if [expression]'s next occurrence strictly after [since] (the definition's `lastRunAt`, or its `createdAt`
-   * when it has never run) is at or before [now]. A definition whose schedule was just set on a long-existing
-   * definition is therefore due on the very next poll - matching plain cron semantics, which have no "skip missed
-   * occurrences" concept - and self-corrects afterwards once `lastRunAt` starts tracking real run times.
+   * [expression]'s next occurrence strictly after [after] - used both for a purely informational "next run" display
+   * (e.g. the Import-Definitionen table) and to compute the `notBefore` instant for the delayed-dispatch
+   * `DomainOutboxEvent.RunScheduledImport` outbox event enqueued by `ImportService.rescheduleNextRun` (see ADR 0019).
+   * Null if [expression] is invalid or has no future occurrence.
    */
-  fun isDue(expression: String, since: Instant, now: Instant): Boolean {
-    val executionTime = ExecutionTime.forCron(parser.parse(expression))
-    val next = executionTime.nextExecution(since.atZone(ZoneOffset.UTC)).orElse(null) ?: return false
-    return !next.toInstant().isAfter(now)
-  }
-
-  /** [expression]'s next occurrence strictly after [after] - for a purely informational "next run" display, e.g. the Import-Definitionen table. Null if [expression] is invalid or has no future occurrence. */
   fun nextFireTime(expression: String, after: Instant): Instant? = try {
     ExecutionTime.forCron(parser.parse(expression)).nextExecution(after.atZone(ZoneOffset.UTC)).orElse(null)?.toInstant()
   } catch (e: IllegalArgumentException) {

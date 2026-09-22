@@ -202,9 +202,41 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
     }
   }
 
+  /**
+   * Triggers an unattended run of [importDefinitionId]'s already-configured schedule (see
+   * `ImportPort.triggerScheduledImport`) and enqueues its own successor for the schedule's next due occurrence -
+   * replacing the previous cron-poll loop (`ImportDefinitionScheduleJob`, removed) with delayed dispatch, per ADR
+   * 0019. Deduplicated per definition so a definition never has two of these pending at once;
+   * `ImportPort.updateSchedule`/`deleteImportDefinition` cancel (and, when a schedule remains set, re-enqueue) the
+   * pending event under this same dedup key whenever a definition's schedule changes or the definition is removed.
+   * `groupId` = [importDefinitionId], so unrelated definitions dispatch concurrently on
+   * [DomainOutboxPartition.Domain]'s multiple workers, while a definition's own runs never overlap each other.
+   * payload = "$importDefinitionId"
+   */
+  data class RunScheduledImport(val importDefinitionId: String) : DomainOutboxEvent {
+    override val key = KEY
+    override val deduplicationKey = "$KEY:$importDefinitionId"
+    override val partition = DomainOutboxPartition.Domain
+    override val groupId = importDefinitionId
+    override val serializePayload = importDefinitionId
+
+    companion object {
+      const val KEY = "RunScheduledImport"
+      fun fromPayload(payload: String): RunScheduledImport = RunScheduledImport(importDefinitionId = payload)
+    }
+  }
+
   companion object {
-    val allKeys: List<String> =
-      listOf(AcceptDryRun.KEY, UninstallApp.KEY, DeleteApp.KEY, DeleteUser.KEY, AutoUpgradeInstallation.KEY, GenerateTestData.KEY, RecomputeAggregation.KEY)
+    val allKeys: List<String> = listOf(
+      AcceptDryRun.KEY,
+      UninstallApp.KEY,
+      DeleteApp.KEY,
+      DeleteUser.KEY,
+      AutoUpgradeInstallation.KEY,
+      GenerateTestData.KEY,
+      RecomputeAggregation.KEY,
+      RunScheduledImport.KEY,
+    )
 
     fun fromKey(key: String, payload: String): DomainOutboxEvent = when (key) {
       AcceptDryRun.KEY -> AcceptDryRun.fromPayload(payload)
@@ -214,6 +246,7 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
       AutoUpgradeInstallation.KEY -> AutoUpgradeInstallation.fromPayload(payload)
       GenerateTestData.KEY -> GenerateTestData.fromPayload(payload)
       RecomputeAggregation.KEY -> RecomputeAggregation.fromPayload(payload)
+      RunScheduledImport.KEY -> RunScheduledImport.fromPayload(payload)
       else -> throw IllegalArgumentException("Unknown outbox event type: $key")
     }
   }

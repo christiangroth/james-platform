@@ -14,12 +14,13 @@ value class ImportDefinitionId(val value: String)
  * accepted job (see `ImportService.handle`) - see docs/adr/0021-import-definition-job-split.md.
  *
  * [schedule], when set, is a Quartz-style cron expression (matching the dialect already used for `@Scheduled(cron =
- * ...)` elsewhere in this codebase, e.g. `ImportJobCleanupJob`) that a poller evaluates against [lastRunAt] to
- * trigger unattended runs (see `ImportService.triggerScheduledImport`). [lastKnownSchema] is the raw schema detected
- * by the most recent run that was allowed to proceed to accept; a later run whose freshly detected schema deviates
- * from it aborts without accepting, to avoid silently importing data that no longer matches the configured mapping.
- * [notifyOnSlack], when set, sends a best-effort Slack summary (via `NotificationPort`) after every scheduled run of
- * this definition - see `ImportScheduleService` and `ImportService.handle`.
+ * ...)` elsewhere in this codebase, e.g. `ImportJobCleanupJob`) whose next due occurrence is enqueued as a delayed
+ * `DomainOutboxEvent.RunScheduledImport` outbox event (see `ImportService.rescheduleNextRun`/`triggerScheduledImport`
+ * and ADR 0019's delayed-dispatch section) rather than evaluated by a poller. [lastKnownSchema] is the raw schema
+ * detected by the most recent run that was allowed to proceed to accept; a later run whose freshly detected schema
+ * deviates from it aborts without accepting, to avoid silently importing data that no longer matches the configured
+ * mapping. [notifyOnSlack], when set, sends a best-effort Slack summary (via `NotificationPort`) after every
+ * scheduled run of this definition - see `ImportService.handle`.
  */
 data class ImportDefinition(
   val id: ImportDefinitionId,

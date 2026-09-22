@@ -5,8 +5,9 @@ import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxPartition
 sealed interface DomainOutboxPartition : ApplicationOutboxPartition {
   /**
    * Shared by [DomainOutboxEvent.AcceptDryRun], [DomainOutboxEvent.UninstallApp], [DomainOutboxEvent.DeleteApp],
-   * [DomainOutboxEvent.DeleteUser] and [DomainOutboxEvent.AutoUpgradeInstallation]. [workerCount] lets multiple of
-   * these tasks dispatch concurrently, while each event's `groupId` (the affected entity's id) still serializes
+   * [DomainOutboxEvent.DeleteUser], [DomainOutboxEvent.AutoUpgradeInstallation] and
+   * [DomainOutboxEvent.RunScheduledImport]. [workerCount] lets multiple of these tasks dispatch concurrently, while
+   * each event's `groupId` (the affected entity's id) still serializes
    * operations against the *same* entity in enqueue order - see ADR 0019's "groupId adoption" section. This
    * supersedes the static hash-sharded partition pool (`UserDeletion-0..N`) the ADR previously floated as the only
    * workaround under the old library's one-worker-per-partition model.

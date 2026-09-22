@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.adapter.out.outbox
 
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
+import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxClient
 import de.chrgroth.quarkus.outbox.domain.OutboxEventPriority
 import de.chrgroth.quarkus.outbox.domain.OutboxPartitionInfo
@@ -20,16 +21,46 @@ class OutboxPortAdapterTests {
 
   private val outbox: ApplicationOutboxClient = mockk()
 
-  private val adapter = OutboxPortAdapter(outbox)
+  private val adapter: OutboxPort = OutboxPortAdapter(outbox)
 
   @Test
   fun `enqueue delegates to the outbox client`() {
     val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = false)
-    justRun { outbox.enqueue(event) }
+    justRun { outbox.enqueue(event, null) }
 
     adapter.enqueue(event)
 
-    verify(exactly = 1) { outbox.enqueue(event) }
+    verify(exactly = 1) { outbox.enqueue(event, null) }
+  }
+
+  @Test
+  fun `enqueue with notBefore delegates the delay to the outbox client`() {
+    val event = DomainOutboxEvent.AcceptDryRun(importJobId = "job-1", userId = "user-1", replaceExisting = false)
+    val notBefore = Instant.parse("2026-09-22T10:00:00Z")
+    justRun { outbox.enqueue(event, notBefore) }
+
+    adapter.enqueue(event, notBefore)
+
+    verify(exactly = 1) { outbox.enqueue(event, notBefore) }
+  }
+
+  @Test
+  fun `cancel delegates to the outbox client`() {
+    justRun { outbox.cancel(DomainOutboxPartition.Domain, "dedup-1") }
+
+    adapter.cancel(DomainOutboxPartition.Domain, "dedup-1")
+
+    verify(exactly = 1) { outbox.cancel(DomainOutboxPartition.Domain, "dedup-1") }
+  }
+
+  @Test
+  fun `reschedule delegates to the outbox client`() {
+    val notBefore = Instant.parse("2026-09-22T10:00:00Z")
+    justRun { outbox.reschedule(DomainOutboxPartition.Domain, "dedup-1", notBefore) }
+
+    adapter.reschedule(DomainOutboxPartition.Domain, "dedup-1", notBefore)
+
+    verify(exactly = 1) { outbox.reschedule(DomainOutboxPartition.Domain, "dedup-1", notBefore) }
   }
 
   @Test

@@ -37,11 +37,6 @@ class ImportDefinitionRepositoryAdapter(
       importDefinitionDocumentRepository.findById(id.value)?.toDomain()
     }
 
-  override fun findAllWithScheduleSet(): List<ImportDefinition> =
-    mongoQueryMetrics.timed("import_definition.findAllWithScheduleSet") {
-      importDefinitionDocumentRepository.find("$SCHEDULE_FIELD is not null").list().map { it.toDomain() }
-    }
-
   override fun save(importDefinition: ImportDefinition) {
     mongoQueryMetrics.timed("import_definition.save") {
       val doc = importDefinition.toDocument()
@@ -184,6 +179,5 @@ class ImportDefinitionRepositoryAdapter(
   companion object {
     internal const val ID_FIELD = "_id"
     internal const val USER_ID_FIELD = "userId"
-    internal const val SCHEDULE_FIELD = "schedule"
   }
 }

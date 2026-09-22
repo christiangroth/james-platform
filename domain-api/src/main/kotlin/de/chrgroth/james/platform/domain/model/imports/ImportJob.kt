@@ -27,7 +27,7 @@ enum class ImportTrigger {
   /** Started interactively by a user through `ImportPort.triggerImport`. */
   USER,
 
-  /** Started unattended by the schedule poller through `ImportService.triggerScheduledImport`, reusing an existing [ImportDefinition]'s stored configuration. */
+  /** Started unattended by a dispatched `DomainOutboxEvent.RunScheduledImport` through `ImportService.triggerScheduledImport`, reusing an existing [ImportDefinition]'s stored configuration. */
   SYSTEM,
 }
 
