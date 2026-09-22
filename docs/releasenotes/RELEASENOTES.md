@@ -1,3 +1,20 @@
+# 0.110.0 (2026.09.22)
+
+## New Features
+* The Import overview now shows each import definition with a dedicated table for its running jobs, instead of cramming them into a single shared table row.
+* An import definition can now be reused to start a fresh import even if it was never fully configured (e.g. its last job was deleted mid-setup), via a new "Job starten" action.
+
+## Bugfixes / Chore
+* Updated the release-notes Gradle plugin to fix a bug where the release notes file could be deleted and generation could fail on Windows.
+* Updated quarkus-outbox dependency to 0.8.5.
+* Fixed the CI/CD pipeline so deployments to production run again after the recent native-build speedup change (GitHub Actions was skipping the deploy step entirely). No user-visible change.
+* Removed a leftover redundant native build check that could intermittently fail the pipeline for unrelated reasons. No user-visible change.
+* Sped up the CI/CD pipeline by removing a redundant native-image build step and avoiding unnecessary container overhead during native builds. No user-visible change.
+
+
+
+---
+
 # 0.109.0 (2026.09.21)
 
 ## New Features
