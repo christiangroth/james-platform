@@ -279,6 +279,31 @@ class UserImportDefinitionResourceTests {
   }
 
   @Test
+  fun `start endpoint's fresh job lands on Dry-Run and can be accepted for a definition with a complete, valid, previously-saved mapping (issue 688)`() {
+    val (definitionId, _, _) = createConfiguredDefinition()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"},{"name":"Bob"}]}""".right())
+
+    val redirectUrl = given()
+      .`when`()
+      .post("/ui/user/imports/definitions/$definitionId/start")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+      .extract().body().jsonPath().getString("redirectUrl")
+    val importId = redirectUrl.substringAfterLast("/")
+
+    val html = given().`when`().get(redirectUrl).then().statusCode(200).extract().body().asString()
+    assertTrue(html.contains("data-testid=\"dry-run-title\""), "Expected the fresh job for an already fully mapped definition to land straight on Dry-Run, not Mapping or Overview")
+
+    given()
+      .`when`()
+      .post("/ui/user/imports/$importId/dry-run/accept")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+  }
+
+  @Test
   fun `start endpoint works for a definition that was never fully configured, unlike run`() {
     val app = installAppWithMandatoryStringProperty()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())

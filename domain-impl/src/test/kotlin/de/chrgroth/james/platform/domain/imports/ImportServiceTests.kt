@@ -1441,6 +1441,85 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `start import job promotes the fresh job straight to READY when the definition's known mapping still validates (issue 688)`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}]}""".right()
+    val savedJobs = mutableListOf<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJobs)) }
+    justRun { importDefinitionRepository.save(any()) }
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(ImportStatus.READY)
+    // once when the job is first created at DATA_IDENTIFIED, once more when applyKnownMapping promotes it to READY
+    assertThat(savedJobs.map { it.status }).containsExactly(ImportStatus.DATA_IDENTIFIED, ImportStatus.READY)
+  }
+
+  @Test
+  fun `start import job leaves the fresh job at DATA_IDENTIFIED when the definition's known mapping no longer validates against the fresh schema (issue 688)`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    // the source no longer has the "name" field the mapping relies on - schema drift
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"a":1},{"a":2}]}""".right()
+    val savedJobs = mutableListOf<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJobs)) }
+    justRun { importDefinitionRepository.save(any()) }
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
+    verify(exactly = 1) { importJobRepository.save(any()) }
+  }
+
+  @Test
+  fun `start import job resolves the definition's known selected data path against ambiguous fresh detection instead of forcing manual reselection (issue 688)`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = null)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    // two candidate arrays of objects - ambiguous for a fresh detection, but "items" is already known on the definition
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}],"others":[{"name":"Bob"}]}""".right()
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DATA_IDENTIFIED)
+    assertThat(saved.captured.detectedDataPaths).containsExactlyInAnyOrder(DataPath("items", 1), DataPath("others", 1))
+    assertThat(saved.captured.filteredSchema).isNotEmpty()
+    assertThat(saved.captured.filteredSchema.map { it.path }).containsExactly("name")
+  }
+
+  @Test
+  fun `start import job leaves the fresh job at DOWNLOADED when fresh detection is ambiguous and the definition has no known selected data path yet`() {
+    val definition = importDefinition(selectedDataPath = null, mapping = null)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}],"others":[{"name":"Bob"}]}""".right()
+    val saved = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(saved)) }
+
+    val result = service.startImportJob("user-1", definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.status).isEqualTo(ImportStatus.DOWNLOADED)
+  }
+
+  @Test
   fun `delete import definition deletes an owned definition`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     justRun { importDefinitionRepository.delete(definition.id) }
