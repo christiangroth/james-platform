@@ -5,7 +5,6 @@ import de.chrgroth.james.platform.domain.model.infra.OutboxPartitionStats
 import de.chrgroth.james.platform.domain.model.infra.OutboxTask
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
-import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxClient
 import de.chrgroth.quarkus.outbox.domain.OutboxPartitionStatus
