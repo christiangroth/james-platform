@@ -46,7 +46,7 @@ class OutboxPortAdapterTests {
 
   @Test
   fun `cancel delegates to the outbox client`() {
-    justRun { outbox.cancel(DomainOutboxPartition.Domain, "dedup-1") }
+    every { outbox.cancel(DomainOutboxPartition.Domain, "dedup-1") } returns true
 
     adapter.cancel(DomainOutboxPartition.Domain, "dedup-1")
 
@@ -56,7 +56,7 @@ class OutboxPortAdapterTests {
   @Test
   fun `reschedule delegates to the outbox client`() {
     val notBefore = Instant.parse("2026-09-22T10:00:00Z")
-    justRun { outbox.reschedule(DomainOutboxPartition.Domain, "dedup-1", notBefore) }
+    every { outbox.reschedule(DomainOutboxPartition.Domain, "dedup-1", notBefore) } returns true
 
     adapter.reschedule(DomainOutboxPartition.Domain, "dedup-1", notBefore)
 
