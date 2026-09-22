@@ -390,10 +390,10 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val step = when {
-      view.importDefinition.mapping != null -> "dry-run"
-      view.importJob.status == ImportStatus.DATA_IDENTIFIED -> "mapping"
-      else -> "overview"
+    val step = when (view.importJob.status) {
+      ImportStatus.READY -> "dry-run"
+      ImportStatus.DATA_IDENTIFIED -> "mapping"
+      ImportStatus.DOWNLOADED, ImportStatus.ACCEPTING, ImportStatus.ACCEPTED -> "overview"
     }
     Response.seeOther(URI.create("/ui/user/imports/$importJobId/$step")).build()
   }
