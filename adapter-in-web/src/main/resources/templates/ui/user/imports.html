@@ -517,7 +517,10 @@
             var scheduleForm = document.getElementById('scheduleForm');
             scheduleModal.addEventListener('show.bs.modal', function (event) {
                 var trigger = event.relatedTarget;
-                var row = trigger ? trigger.closest('[data-definition-id]') : null;
+                // closest('[data-definition-id]') would match the trigger button itself first (it also carries
+                // data-definition-id) instead of climbing to the definition card that actually holds
+                // data-definition-schedule/data-definition-notify-on-slack - target the card explicitly.
+                var row = trigger ? trigger.closest('[data-testid="definition-block"]') : null;
                 scheduleModal.setAttribute('data-definition-id', trigger ? trigger.getAttribute('data-definition-id') : '');
                 scheduleForm.querySelector('#scheduleCron').value = row ? (row.getAttribute('data-definition-schedule') || '') : '';
                 scheduleForm.querySelector('#scheduleNotifyOnSlack').checked = !!row && row.getAttribute('data-definition-notify-on-slack') === 'true';
