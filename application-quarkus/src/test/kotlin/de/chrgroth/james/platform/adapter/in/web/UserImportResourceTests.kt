@@ -252,7 +252,7 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(tableHtml.contains("data-testid=\"imports-table\""), "Expected the imports table to be rendered")
+    assertTrue(tableHtml.contains("data-testid=\"definition-block\""), "Expected the definition block to be rendered")
     assertTrue(tableHtml.contains("data-testid=\"import-job-link\""), "Expected the in-progress job to be rendered as a link under its definition")
   }
 
@@ -802,7 +802,7 @@ class UserImportResourceTests {
   }
 
   @Test
-  fun `imports table groups by definition, shows the connection name and leaves the status and actions column headers blank`() {
+  fun `imports page renders one block per definition with a heading and a dedicated jobs table for its in-progress job`() {
     val (installedAppId, entityId) = installApp()
     Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"foo":"bar"}""".right())
     val connectionName = "Compact Table Connection ${System.nanoTime()}"
@@ -815,11 +815,27 @@ class UserImportResourceTests {
       .statusCode(200)
       .extract().body().asString()
 
-    assertTrue(html.contains("data-testid=\"definition-source\">") && html.contains(connectionName), "Expected the connection's name to be rendered in its own column")
-    assertTrue(html.contains(">App<"), "Expected the target app installation column header to be shortened to 'App'")
-    assertTrue(html.contains(">Entität<"), "Expected the target entity column header to be shortened to 'Entität'")
-    assertTrue(html.contains("<th></th>"), "Expected the status column header to be blank")
-    assertTrue(html.contains("<th class=\"text-end\">"), "Expected the actions column header to be rendered")
+    assertTrue(html.contains("data-testid=\"definition-block\""), "Expected a per-definition block instead of a single shared table (issue #679)")
+    assertTrue(html.contains("data-testid=\"definition-source\">") && html.contains(connectionName), "Expected the connection's name to be rendered in the definition heading")
+    assertTrue(html.contains("data-testid=\"definition-jobs-table\""), "Expected a dedicated jobs table listing the definition's in-progress job")
+    assertTrue(html.contains("<h2"), "Expected the definition heading to be an h2, since the page title is already an h1")
+  }
+
+  @Test
+  fun `a definition with no in-progress job and no schedule shows an empty-state hint instead of a jobs table`() {
+    val app = installAppWithMandatoryStringProperty()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    val connectionName = "Orphaned Definition Connection ${System.nanoTime()}"
+    triggerImport(app.installedAppId, createConnection(name = connectionName), app.entityId)
+    val importId = triggerImportAndGetId(app.installedAppId)
+
+    given().`when`().post("/ui/user/imports/$importId/delete").then().statusCode(200).body("ok", equalTo(true))
+
+    val html = given().`when`().get("/ui/user/imports").then().statusCode(200).extract().body().asString()
+
+    assertTrue(html.contains(connectionName), "Expected the orphaned definition to still be listed")
+    assertTrue(html.contains("data-testid=\"definition-empty-jobs-hint\""), "Expected an empty-state hint instead of a jobs table")
+    assertTrue(html.contains("data-testid=\"start-job-definition-button\""), "Expected a start-job action so the orphaned definition can be reused")
   }
 
   @Test

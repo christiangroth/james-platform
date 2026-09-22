@@ -34,73 +34,86 @@
                 <p class="mb-0 app-section-label" data-testid="no-imports-message">{user:userNoImportsMessage()}</p>
             </div>
             {#else}
-            <div class="card app-card">
+            {#for definition in definitions}
+            <div class="card app-card mb-3 p-3"
+                 data-testid="definition-block"
+                 data-definition-id="{definition.id}"
+                 data-definition-schedule="{definition.schedule}"
+                 data-definition-notify-on-slack="{definition.notifyOnSlack}">
+                <div class="d-flex align-items-start flex-wrap gap-2 mb-2">
+                    <div>
+                        <h2 class="fs-6 fw-semibold mb-1" data-testid="definition-heading">
+                            <span data-testid="definition-source">{definition.connectionName}</span>
+                            {#if definition.urlPostfix}<span class="text-muted" data-testid="definition-url-postfix">{definition.urlPostfix}</span>{/if}
+                            – <span data-testid="definition-app">{definition.installedAppName}</span> / <span data-testid="definition-entity">{definition.targetEntityName}</span>
+                        </h2>
+                        <div class="text-muted small d-flex flex-wrap gap-3">
+                            <span data-testid="definition-schedule">
+                                {userImportDefinition:userImportDefinitionColSchedule()}:
+                                {#if definition.hasSchedule}{definition.schedule}{#else}{userImportDefinition:userImportDefinitionScheduleManualLabel()}{/if}
+                            </span>
+                            <span data-testid="definition-last-run">
+                                {userImportDefinition:userImportDefinitionColLastRun()}:
+                                {#if definition.lastRunAt}{definition.lastRunAt.formatted}{#else}–{/if}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-app-secondary btn-sm history-definition-button" data-bs-toggle="modal" data-bs-target="#historyModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionHistoryButton()}" aria-label="{userImportDefinition:userImportDefinitionHistoryButton()}" data-testid="history-definition-button">
+                            <i class="bi bi-journal-text" aria-hidden="true"></i>
+                        </button>
+                        {#if definition.inProgressJobs.isEmpty}
+                        <button type="button" class="btn btn-app-secondary btn-sm start-job-definition-button" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionStartJobButton()}" aria-label="{userImportDefinition:userImportDefinitionStartJobButton()}" data-testid="start-job-definition-button">
+                            <i class="bi bi-play-circle" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="btn btn-app-secondary btn-sm run-definition-button" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionRunButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionRunButton()}" data-testid="run-definition-button">
+                            <i class="bi bi-play-fill" aria-hidden="true"></i>
+                        </button>
+                        {/if}
+                        <button type="button" class="btn btn-app-secondary btn-sm schedule-definition-button" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionScheduleButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionScheduleButton()}" data-testid="schedule-definition-button">
+                            <i class="bi bi-clock-history" aria-hidden="true"></i>
+                        </button>
+                        {#btn-icon-delete testId="delete-definition-button" title=msg:commonDelete() extraClass="" bsTarget="#deleteDefinitionModal" action="" entityId=definition.id propertyId="" reportId="" username="" /}
+                    </div>
+                </div>
+
+                {#if !definition.inProgressJobs.isEmpty}
                 <div class="table-responsive">
-                    <table class="table table-sm table-striped mb-0 app-table" data-testid="imports-table">
+                    <table class="table table-sm table-striped mb-0 app-table" data-testid="definition-jobs-table">
                         <thead>
                             <tr>
-                                <th></th>
-                                <th>{userImportDefinition:userImportDefinitionColSource()}</th>
-                                <th>{user:userImportTableColApp()}</th>
-                                <th>{user:userImportTableColEntity()}</th>
-                                <th>{userImportDefinition:userImportDefinitionColSchedule()}</th>
-                                <th>{userImportDefinition:userImportDefinitionColLastRun()}</th>
-                                <th class="text-end">{userImportDefinition:userImportDefinitionColActions()}</th>
+                                <th>{userImportDefinition:userImportDefinitionJobsColStatus()}</th>
+                                <th>{userImportDefinition:userImportDefinitionJobsColLastChanged()}</th>
+                                <th class="text-end">{userImportDefinition:userImportDefinitionJobsColActions()}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {#for definition in definitions}
-                            <tr data-testid="definition-row"
-                                data-definition-id="{definition.id}"
-                                data-definition-schedule="{definition.schedule}"
-                                data-definition-notify-on-slack="{definition.notifyOnSlack}">
-                                <td data-testid="definition-status">
-                                    {#if !definition.inProgressJobs.isEmpty}
-                                    {#for job in definition.inProgressJobs}
-                                    <div class="d-flex align-items-center gap-1 mb-1">
-                                        <a href="/ui/user/imports/{job.id}/overview"
-                                           class="badge border-0 app-badge-processing text-decoration-none"
-                                           data-testid="import-job-link"
-                                           data-import-id="{job.id}">{job.statusLabel}</a>
-                                        <button type="button" class="btn btn-app-secondary btn-sm py-0 px-1 delete-import-job-button" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-entity-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-job-button">
-                                            <i class="bi bi-x-lg" aria-hidden="true"></i>
-                                        </button>
-                                    </div>
-                                    {/for}
-                                    {#else if definition.nextRunAt}
-                                    <span class="text-muted small" data-testid="definition-next-run">{userImportDefinition:userImportDefinitionColNextRun()}: {definition.nextRunAt.formatted}</span>
-                                    {#else}
-                                    <span class="text-muted">–</span>
-                                    {/if}
+                            {#for job in definition.inProgressJobs}
+                            <tr data-testid="import-job-row" data-import-id="{job.id}">
+                                <td data-testid="import-job-status">
+                                    <a href="/ui/user/imports/{job.id}/overview"
+                                       class="badge border-0 app-badge-processing text-decoration-none"
+                                       data-testid="import-job-link"
+                                       data-import-id="{job.id}">{job.statusLabel}</a>
                                 </td>
-                                <td data-testid="definition-source">
-                                    {definition.connectionName}
-                                    {#if definition.urlPostfix}<div class="text-muted small" data-testid="definition-url-postfix">{definition.urlPostfix}</div>{/if}
-                                </td>
-                                <td data-testid="definition-app">{definition.installedAppName}</td>
-                                <td data-testid="definition-entity">{definition.targetEntityName}</td>
-                                <td data-testid="definition-schedule">
-                                    {#if definition.hasSchedule}{definition.schedule}{#else}<span class="text-muted">{userImportDefinition:userImportDefinitionScheduleManualLabel()}</span>{/if}
-                                </td>
-                                <td data-testid="definition-last-run">{#if definition.lastRunAt}{definition.lastRunAt.formatted}{#else}–{/if}</td>
-                                <td class="text-end text-nowrap">
-                                    <button type="button" class="btn btn-app-secondary btn-sm history-definition-button" data-bs-toggle="modal" data-bs-target="#historyModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionHistoryButton()}" aria-label="{userImportDefinition:userImportDefinitionHistoryButton()}" data-testid="history-definition-button">
-                                        <i class="bi bi-journal-text" aria-hidden="true"></i>
+                                <td data-testid="import-job-last-changed">{job.lastChangedAt.formatted}</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-app-secondary btn-sm py-0 px-1 delete-import-job-button" data-bs-toggle="modal" data-bs-target="#deleteImportModal" data-entity-id="{job.id}" title="{msg:commonDelete()}" aria-label="{msg:commonDelete()}" data-testid="delete-import-job-button">
+                                        <i class="bi bi-x-lg" aria-hidden="true"></i>
                                     </button>
-                                    <button type="button" class="btn btn-app-secondary btn-sm ms-1 run-definition-button" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionRunButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionRunButton()}" data-testid="run-definition-button">
-                                        <i class="bi bi-play-fill" aria-hidden="true"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-app-secondary btn-sm ms-1 schedule-definition-button" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionScheduleButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionScheduleButton()}" data-testid="schedule-definition-button">
-                                        <i class="bi bi-clock-history" aria-hidden="true"></i>
-                                    </button>
-                                    {#btn-icon-delete testId="delete-definition-button" title=msg:commonDelete() extraClass="ms-1" bsTarget="#deleteDefinitionModal" action="" entityId=definition.id propertyId="" reportId="" username="" /}
                                 </td>
                             </tr>
                             {/for}
                         </tbody>
                     </table>
                 </div>
+                {#else if definition.nextRunAt}
+                <p class="text-muted small mb-0" data-testid="definition-next-run">{userImportDefinition:userImportDefinitionColNextRun()}: {definition.nextRunAt.formatted}</p>
+                {#else}
+                <p class="text-muted small mb-0" data-testid="definition-empty-jobs-hint">{userImportDefinition:userImportDefinitionNoJobsHint()}</p>
+                {/if}
             </div>
+            {/for}
             {/if}
             {/fragment}
         </div>
@@ -440,7 +453,7 @@
                 });
             }
 
-            // Run/Schedule/Delete definition actions, delegated from the table container since rows are re-rendered.
+            // Run/Start job/Schedule/Delete definition actions, delegated from the table container since rows are re-rendered.
             var importsTableContainer = document.getElementById('imports-table-container');
             if (importsTableContainer) {
                 importsTableContainer.addEventListener('click', async function (e) {
@@ -452,6 +465,22 @@
                         runButton.disabled = false;
                         showMessage(result.ok, result.message);
                         if (result.ok) { await refreshTable(); }
+                        return;
+                    }
+
+                    // Starts a fresh interactive job for the definition and, on success, follows straight into the
+                    // wizard - unlike "Run", works even for a not-yet-fully-configured definition (issue #679).
+                    var startJobButton = e.target.closest('.start-job-definition-button');
+                    if (startJobButton) {
+                        var startDefinitionId = startJobButton.getAttribute('data-definition-id');
+                        startJobButton.disabled = true;
+                        var startResult = await fetchAction('POST', definitionsBasePath + '/' + encodeURIComponent(startDefinitionId) + '/start');
+                        startJobButton.disabled = false;
+                        if (startResult.ok && startResult.redirectUrl) {
+                            window.location.href = startResult.redirectUrl;
+                        } else {
+                            showMessage(startResult.ok, startResult.message);
+                        }
                     }
                 });
             }

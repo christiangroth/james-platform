@@ -190,10 +190,22 @@ class UserImportDefinitionResourceTests {
     return Triple(definitionId, connectionName, app)
   }
 
+  /**
+   * Splits the rendered `imports_table` fragment into its per-definition blocks (issue #679: an `<h2>` heading plus
+   * a dedicated jobs table per definition, instead of one shared `<table>` row per definition) by slicing between
+   * successive `data-testid="definition-block"` markers - a nesting-aware `[\s\S]*?</div>` regex would stop at the
+   * first nested `</div>` inside a block instead of its own closing tag.
+   */
+  private fun definitionBlocks(tableHtml: String): List<String> {
+    val marker = "data-testid=\"definition-block\""
+    val starts = Regex(Regex.escape(marker)).findAll(tableHtml).map { it.range.first }.toList()
+    return starts.mapIndexed { index, start -> tableHtml.substring(start, starts.getOrNull(index + 1) ?: tableHtml.length) }
+  }
+
   private fun definitionRow(connectionName: String): String {
     val tableHtml = given().`when`().get("/ui/user/imports/table").then().statusCode(200).extract().body().asString()
-    val row = Regex("""<tr data-testid="definition-row"[\s\S]*?</tr>""").findAll(tableHtml).map { it.value }.firstOrNull { it.contains(connectionName) }
-    return row ?: error("Expected a definition row for connection '$connectionName'")
+    return definitionBlocks(tableHtml).firstOrNull { it.contains(connectionName) }
+      ?: error("Expected a definition block for connection '$connectionName'")
   }
 
   private fun definitionIdForConnection(connectionName: String): String =
@@ -247,6 +259,66 @@ class UserImportDefinitionResourceTests {
       .then()
       .statusCode(200)
       .body("ok", equalTo(false))
+  }
+
+  @Test
+  fun `start endpoint starts a fresh interactive job for a fully configured definition and redirects into its wizard`() {
+    val (definitionId, _, _) = createConfiguredDefinition()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"},{"name":"Bob"}]}""".right())
+
+    val response = given()
+      .`when`()
+      .post("/ui/user/imports/definitions/$definitionId/start")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+      .extract().body().jsonPath()
+
+    val redirectUrl = response.getString("redirectUrl")
+    assertTrue(redirectUrl != null && redirectUrl.startsWith("/ui/user/imports/"), "Expected a redirect into the newly started job's wizard")
+  }
+
+  @Test
+  fun `start endpoint works for a definition that was never fully configured, unlike run`() {
+    val app = installAppWithMandatoryStringProperty()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    val connectionName = createConnection()
+    triggerImportAndGetId(app.installedAppId, connectionName, app.entityId)
+    val definitionId = definitionIdForConnection(connectionName)
+
+    given()
+      .`when`()
+      .post("/ui/user/imports/definitions/$definitionId/start")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+  }
+
+  @Test
+  fun `start endpoint reports an error for an unknown or unowned definition id, mirroring the run and delete endpoints' ownership check`() {
+    given()
+      .`when`()
+      .post("/ui/user/imports/definitions/unknown-definition/start")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+  }
+
+  @Test
+  fun `merged imports page wires a start-job action into a definition block with no in-progress job`() {
+    val app = installAppWithMandatoryStringProperty()
+    Mockito.`when`(importFetch.fetch(Mockito.anyString(), Mockito.anyString())).thenReturn("""{"items":[{"name":"Alice"}]}""".right())
+    val connectionName = createConnection()
+    val importId = triggerImportAndGetId(app.installedAppId, connectionName, app.entityId)
+    saveMapping(importId, app.propertyId)
+    // Deletes the still-unaccepted job so the definition has no in-progress job left, matching the button's
+    // actual render condition (`definition.inProgressJobs.isEmpty`) - a fully configured but freshly created
+    // definition still has one in-progress job (its own mapping job) and would not show the button otherwise.
+    given().`when`().post("/ui/user/imports/$importId/delete").then().statusCode(200).body("ok", equalTo(true))
+
+    val row = definitionRow(connectionName)
+
+    assertTrue(row.contains("data-testid=\"start-job-definition-button\""), "Expected the start-job action from the definition block's markup (issue #679)")
   }
 
   @Test

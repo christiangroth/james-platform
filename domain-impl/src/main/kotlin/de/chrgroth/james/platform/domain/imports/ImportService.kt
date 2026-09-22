@@ -16,12 +16,14 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.buildAggregationDependencyIndex
+import de.chrgroth.james.platform.domain.model.imports.DataPath
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.DryRunReport
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import de.chrgroth.james.platform.domain.model.imports.FilterSample
 import de.chrgroth.james.platform.domain.model.imports.FilterView
+import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
@@ -97,23 +99,7 @@ class ImportService(
     }
     val trimmedUrlPostfix = urlPostfix?.trim()?.takeIf { it.isNotBlank() }
 
-    val bearerToken = connection.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
-    val rawPayload = importFetch.fetch(resolveImportUrl(connection.baseUrl, trimmedUrlPostfix), bearerToken).fold({ return it.left() }, { it })
-
-    val parsed = try {
-      objectMapper.readTree(rawPayload)
-    } catch (e: Exception) {
-      logger.warn { "Trigger import failed: invalid JSON response from connection: $connectionId" }
-      return ImportError.INVALID_JSON_RESPONSE.left()
-    }
-    if (!parsed.isObject) {
-      logger.warn { "Trigger import failed: response is not a JSON object from connection: $connectionId" }
-      return ImportError.NOT_A_JSON_OBJECT.left()
-    }
-
-    val detectedDataPaths = DataPathDetector.detect(parsed)
-    val singleMatch = detectedDataPaths.singleOrNull()
-    val schema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty()
+    val fetched = fetchAndDetect(connection, trimmedUrlPostfix).fold({ return it.left() }, { it })
 
     val now = Instant.now()
     val definition = ImportDefinition(
@@ -123,28 +109,95 @@ class ImportService(
       name = "${connection.name}: ${entityDefinition.name}",
       urlPostfix = trimmedUrlPostfix,
       targetEntityDefinitionId = entityDefinition.id,
-      selectedDataPath = singleMatch?.path,
+      selectedDataPath = fetched.detectedDataPaths.singleOrNull()?.path,
       createdAt = now,
       lastChangedAt = now,
     )
     importDefinitionRepository.save(definition)
 
+    return createAndSaveImportJob(definition, installedApp, fetched).right()
+  }
+
+  override fun startImportJob(userId: String, definitionId: String): Either<DomainError, ImportJob> {
+    val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
+      logger.warn { "Start import job failed: import definition not found: $definitionId for user: $userId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    val installedApp = installedAppFor(definition) ?: run {
+      logger.warn { "Start import job failed: installed app not found for definitionId: $definitionId" }
+      return ImportError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val connection = importConnectionRepository.findById(definition.connectionId) ?: run {
+      logger.warn { "Start import job failed: connection not found: ${definition.connectionId.value} for definitionId: $definitionId" }
+      return ImportError.CONNECTION_NOT_FOUND.left()
+    }
+
+    val fetched = fetchAndDetect(connection, definition.urlPostfix).fold({ return it.left() }, { it })
+    val singleMatch = fetched.detectedDataPaths.singleOrNull()
+    if (singleMatch != null && definition.selectedDataPath != singleMatch.path) {
+      importDefinitionRepository.save(definition.copy(selectedDataPath = singleMatch.path, lastChangedAt = Instant.now()))
+    }
+
+    return createAndSaveImportJob(definition, installedApp, fetched).right()
+  }
+
+  /** The raw, freshly fetched payload behind a new [ImportJob], together with what [fetchAndDetect] found in it. */
+  private data class FetchedImportData(
+    val rawPayload: String,
+    val detectedDataPaths: List<DataPath>,
+    val schema: List<SchemaProperty>,
+  )
+
+  /**
+   * Shared tail of [triggerImport] and [startImportJob] (issue #679: an escape hatch that starts a fresh interactive
+   * job for an existing, possibly already fully configured, definition instead of creating a new one): fetches
+   * [connection]'s configured URL (with [urlPostfix] appended) through its stored credentials, parses it as JSON,
+   * and detects candidate data paths (and, when exactly one unambiguously matches, its schema) - deliberately kept
+   * free of any repository writes, so a fetch/parse failure never leaves a definition or job behind, matching
+   * [triggerImport]'s original behavior of creating nothing on failure.
+   */
+  private fun fetchAndDetect(connection: ImportConnection, urlPostfix: String?): Either<DomainError, FetchedImportData> {
+    val bearerToken = connection.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
+    val rawPayload = importFetch.fetch(resolveImportUrl(connection.baseUrl, urlPostfix), bearerToken).fold({ return it.left() }, { it })
+
+    val parsed = try {
+      objectMapper.readTree(rawPayload)
+    } catch (e: Exception) {
+      logger.warn { "Import job creation failed: invalid JSON response from connection: ${connection.id.value}" }
+      return ImportError.INVALID_JSON_RESPONSE.left()
+    }
+    if (!parsed.isObject) {
+      logger.warn { "Import job creation failed: response is not a JSON object from connection: ${connection.id.value}" }
+      return ImportError.NOT_A_JSON_OBJECT.left()
+    }
+
+    val detectedDataPaths = DataPathDetector.detect(parsed)
+    val singleMatch = detectedDataPaths.singleOrNull()
+    val schema = singleMatch?.let { SchemaDetector.detect(parsed, it.path) }.orEmpty()
+    return FetchedImportData(rawPayload, detectedDataPaths, schema).right()
+  }
+
+  /** Builds and saves the new [ImportJob] itself, attached to [definition] - the second half of [fetchAndDetect]'s shared tail. */
+  private fun createAndSaveImportJob(definition: ImportDefinition, installedApp: InstalledApp, fetched: FetchedImportData): ImportJob {
+    val now = Instant.now()
     val importJob = ImportJob(
       id = ImportJobId(UUID.randomUUID().toString()),
-      userId = userId,
+      userId = definition.userId,
       installedAppId = installedApp.id,
       importDefinitionId = definition.id,
-      status = if (singleMatch != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
-      payload = rawPayload,
-      detectedDataPaths = detectedDataPaths,
-      detectedSchema = schema,
-      filteredSchema = schema,
+      status = if (fetched.detectedDataPaths.singleOrNull() != null) ImportStatus.DATA_IDENTIFIED else ImportStatus.DOWNLOADED,
+      payload = fetched.rawPayload,
+      detectedDataPaths = fetched.detectedDataPaths,
+      detectedSchema = fetched.schema,
+      filteredSchema = fetched.schema,
       createdAt = now,
       lastChangedAt = now,
     )
     importJobRepository.save(importJob)
-    logger.info { "Import job created: installedAppId=$installedAppId connectionId=$connectionId targetEntityDefinitionId=$targetEntityDefinitionId detectedDataPaths=${detectedDataPaths.size}" }
-    return importJob.right()
+    logger.info {
+      "Import job created: installedAppId=${installedApp.id.value} connectionId=${definition.connectionId.value} definitionId=${definition.id.value} detectedDataPaths=${fetched.detectedDataPaths.size}"
+    }
+    return importJob
   }
 
   override fun testConnectionUrl(userId: String, connectionId: String, urlPostfix: String?): Either<DomainError, Unit> {
