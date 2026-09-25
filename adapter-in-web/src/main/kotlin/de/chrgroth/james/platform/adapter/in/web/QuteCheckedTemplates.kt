@@ -127,6 +127,8 @@ object DeveloperTemplates {
     breadcrumb: List<PropertyBreadcrumb>,
     isNestedLevel: Boolean,
     testInstallations: List<TestInstallationInfo>,
+    aggregations: List<AggregationEditorRow>,
+    aggregationPropertyOptions: List<AggregationPropertyOptionRow>,
   ): TemplateInstance
 
   @JvmStatic

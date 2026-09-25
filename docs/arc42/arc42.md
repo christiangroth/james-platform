@@ -144,7 +144,8 @@ Testing Reports against a test installation is deferred until Report execution/s
 ### Aggregations
 
 A Developer can declare an **`AggregationDefinition`** on an `EntityDefinition` — a precomputed rollup over that Entity's data, analogous in spirit to a Computed
-Property but declarative rather than scripted (see ADR [0020](../adr/0020-aggregation-definitions.md)):
+Property but declarative rather than scripted (see ADR [0020](../adr/0020-aggregation-definitions.md)). Aggregations are managed per Entity in the version editor
+of a draft; the editor applies the same validation rules as the Version publish and reports violations as form feedback:
 
 - A **function** (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`) applied to a numeric `sourceProperty` (`COUNT` accepts any type).
 - An optional **`refPath`** (a single-hop `ref` property) groups the aggregation's values per instance of the referenced Entity instead of producing one value across all
@@ -155,7 +156,8 @@ Property but declarative rather than scripted (see ADR [0020](../adr/0020-aggreg
 
 Values are stored as precomputed read-model documents (reusing the storage convention from ADR [0013](../adr/0013-precomputed-read-models-per-ui-page.md)), each carrying
 a `status` (`UP_TO_DATE`/`STALE`). Single-object writes update affected aggregations inline via a statically derived dependency index; bulk recomputation (e.g. on
-`AppVersion` publish) runs through the outbox (ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)). Aggregation values are shown directly
+`AppVersion` publish, imports, generated test data) runs through the outbox (ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)). Since
+test installations pin the draft, adding, changing or removing an aggregation in the editor enqueues a recompute for the draft's test installations directly. Aggregation values are shown directly
 on the app installation page. Transitive (multi-hop) `ref` chains and true percentiles are deliberately out of scope for the first iteration.
 
 ### Data Import (ETL)

@@ -259,6 +259,50 @@
                 </div>
                 {/if}
 
+                <!-- Aggregations -->
+                <div class="d-flex align-items-center mb-2 gap-2 mt-4">
+                    <h3 class="fs-6 fw-semibold mb-0">{developerAggregation:developerAggregationsHeading()}</h3>
+                    {#if isDraft}
+                    {#btn-icon-add testId="open-add-aggregation-modal-button" bsTarget="#aggregationModal" entityId=selectedEntity.id action="" extraClass="ms-auto" /}
+                    {/if}
+                </div>
+                {#if aggregations.isEmpty}
+                <p class="app-section-label mb-3" data-testid="no-aggregations">{developerAggregation:developerNoAggregationsMessage()}</p>
+                {#else}
+                <div class="table-responsive">
+                <table class="table table-sm mb-3 app-table" data-testid="aggregations-table">
+                    <thead>
+                        <tr>
+                            <th>{developer:developerColName()}</th>
+                            <th>{developerAggregation:developerColAggregationFunction()}</th>
+                            <th>{developerAggregation:developerColAggregationSource()}</th>
+                            <th>{developerAggregation:developerColAggregationDetails()}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#for agg in aggregations}
+                        <tr {#if isDraft}class="clickable-row" tabindex="0" role="button" data-action="edit-aggregation"{/if} data-testid="aggregation-row"
+                            aria-label="{developerAggregation:developerEditAggregationAriaLabel(agg.name)}"
+                            data-entity-id="{selectedEntity.id}"
+                            data-aggregation-id="{agg.id}"
+                            data-aggregation-name="{agg.name}"
+                            data-aggregation-function="{agg.function}"
+                            data-aggregation-source-property="{agg.sourceProperty}"
+                            data-aggregation-ref-path="{agg.refPath}"
+                            data-aggregation-time-bucket="{agg.timeBucket}"
+                            data-aggregation-time-property="{agg.timeProperty}"
+                            data-aggregation-group-by="{agg.groupBy}">
+                            <td data-testid="aggregation-name">{agg.name}</td>
+                            <td data-testid="aggregation-function">{agg.functionLabel}</td>
+                            <td data-testid="aggregation-source-property">{agg.sourcePropertyName}</td>
+                            <td data-testid="aggregation-details">{#if agg.details}{agg.details}{#else}<span class="app-section-label" style="font-size:0.75rem;">—</span>{/if}</td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                </table>
+                </div>
+                {/if}
+
                 {/if}
                 </div>
 
@@ -767,6 +811,112 @@
     {/if}
     {/if}
 
+    <!-- Aggregation Modal (add + edit) -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="aggregationModal" tabindex="-1" aria-labelledby="aggregationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="aggregationModalLabel">{developerAggregation:developerAddAggregationModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="aggregationForm">
+                    <input type="hidden" id="aggregationEntityId" value="{selectedEntity.id}">
+                    <input type="hidden" id="aggregationId" value="">
+                    <div class="modal-body">
+                        <div id="aggregationError" class="alert alert-danger d-none mb-3" data-testid="aggregation-error"></div>
+                        <div class="mb-3">
+                            <label for="aggregationName" class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonName()} <span style="color:var(--color-required);">*</span></label>
+                            <input type="text" class="form-control app-form-control" id="aggregationName" name="name" required autocomplete="off" placeholder="{developerAggregation:developerAggregationNamePlaceholder()}" data-testid="aggregation-name-input">
+                        </div>
+                        <div class="mb-3">
+                            <label for="aggregationFunction" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationFunctionLabel()} <span style="color:var(--color-required);">*</span></label>
+                            <select class="form-select app-form-control" id="aggregationFunction" name="function" required data-testid="aggregation-function-select">
+                                <option value="SUM">{developerAggregation:developerAggregationFunctionSum()}</option>
+                                <option value="COUNT">{developerAggregation:developerAggregationFunctionCount()}</option>
+                                <option value="AVG">{developerAggregation:developerAggregationFunctionAvg()}</option>
+                                <option value="MIN">{developerAggregation:developerAggregationFunctionMin()}</option>
+                                <option value="MAX">{developerAggregation:developerAggregationFunctionMax()}</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aggregationSourceProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationSourcePropertyLabel()} <span style="color:var(--color-required);">*</span></label>
+                            <select class="form-select app-form-control" id="aggregationSourceProperty" name="sourceProperty" required data-testid="aggregation-source-property-select">
+                                <option value="">{msg:commonSelectPlaceholder()}</option>
+                                {#for opt in aggregationPropertyOptions}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/for}
+                            </select>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationSourcePropertyHelp()}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aggregationRefPath" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationRefPathLabel()}</label>
+                            <select class="form-select app-form-control" id="aggregationRefPath" name="refPath" data-testid="aggregation-ref-path-select">
+                                <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
+                                {#for opt in aggregationPropertyOptions}{#if opt.ref}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/if}{/for}
+                            </select>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationRefPathHelp()}</p>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label for="aggregationTimeBucket" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationTimeBucketLabel()}</label>
+                                <select class="form-select app-form-control" id="aggregationTimeBucket" name="timeBucket" data-testid="aggregation-time-bucket-select">
+                                    <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
+                                    <option value="TAG">{developerAggregation:developerAggregationTimeBucketTag()}</option>
+                                    <option value="WOCHE">{developerAggregation:developerAggregationTimeBucketWoche()}</option>
+                                    <option value="MONAT">{developerAggregation:developerAggregationTimeBucketMonat()}</option>
+                                    <option value="JAHR">{developerAggregation:developerAggregationTimeBucketJahr()}</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="aggregationTimeProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationTimePropertyLabel()}</label>
+                                <select class="form-select app-form-control" id="aggregationTimeProperty" name="timeProperty" data-testid="aggregation-time-property-select">
+                                    <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
+                                    {#for opt in aggregationPropertyOptions}{#if opt.dateTime}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/if}{/for}
+                                </select>
+                            </div>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationTimePropertyHelp()}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aggregationGroupBy" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationGroupByLabel()}</label>
+                            <select class="form-select app-form-control" id="aggregationGroupBy" name="groupBy" data-testid="aggregation-group-by-select">
+                                <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
+                                {#for opt in aggregationPropertyOptions}{#if opt.groupable}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/if}{/for}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-app-danger d-none" id="aggregationDeleteBtn" data-testid="aggregation-delete-button">{msg:commonDelete()}</button>
+                        <div class="d-flex gap-2 ms-auto">
+                            <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                            <button type="submit" class="btn btn-app-primary" data-testid="aggregation-submit-button">{msg:commonSave()}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteAggregationModal" tabindex="-1" aria-labelledby="deleteAggregationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteAggregationModalLabel">{developerAggregation:developerRemoveAggregationModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">{developerAggregation:developerRemoveAggregationConfirm()}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteAggregationBtn"
+                            data-testid="confirm-delete-aggregation-button">{msg:commonRemove()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+
     <!-- Edit Display Text Modal -->
     {#if isDraft}
     {#if selectedEntity != null}
@@ -911,6 +1061,8 @@
             var descendingLabel = '{developer:developerDescendingLabel()}';
             var removeLabel = '{msg:commonRemove()}';
             var editComputedPropertyModalTitlePrefix = '{developer:developerEditComputedPropertyModalTitle()}';
+            var addAggregationModalTitle = '{developerAggregation:developerAddAggregationModalTitle()}';
+            var editAggregationModalTitle = '{developerAggregation:developerEditAggregationModalTitle()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
@@ -1553,6 +1705,126 @@
                         confirmDeleteComputedPropertyBtn.disabled = false;
                     });
                 }
+            }
+
+            // Aggregation modal (add + edit share one form; the hidden aggregationId decides which endpoint is used)
+            var aggregationModal = document.getElementById('aggregationModal');
+            if (aggregationModal) {
+                var aggregationForm = document.getElementById('aggregationForm');
+                var aggregationError = document.getElementById('aggregationError');
+                var aggregationFunction = document.getElementById('aggregationFunction');
+                var aggregationSourceProperty = document.getElementById('aggregationSourceProperty');
+                var aggregationDeleteBtn = document.getElementById('aggregationDeleteBtn');
+                var aggregationFields = {
+                    name: document.getElementById('aggregationName'),
+                    function: aggregationFunction,
+                    sourceProperty: aggregationSourceProperty,
+                    refPath: document.getElementById('aggregationRefPath'),
+                    timeBucket: document.getElementById('aggregationTimeBucket'),
+                    timeProperty: document.getElementById('aggregationTimeProperty'),
+                    groupBy: document.getElementById('aggregationGroupBy')
+                };
+
+                // SUM/AVG/MIN/MAX need a numeric source property, COUNT accepts any - mirrors the domain validation.
+                function updateAggregationSourceOptions() {
+                    var numericOnly = aggregationFunction.value !== 'COUNT';
+                    Array.prototype.forEach.call(aggregationSourceProperty.options, function (option) {
+                        if (!option.value) return;
+                        var allowed = !numericOnly || option.getAttribute('data-numeric') === 'true';
+                        option.hidden = !allowed;
+                        option.disabled = !allowed;
+                    });
+                    var selected = aggregationSourceProperty.selectedOptions[0];
+                    if (selected && selected.disabled) { aggregationSourceProperty.value = ''; }
+                }
+                aggregationFunction.addEventListener('change', updateAggregationSourceOptions);
+
+                function openAggregationModal(row) {
+                    aggregationError.classList.add('d-none');
+                    aggregationError.textContent = '';
+                    aggregationForm.reset();
+                    document.getElementById('aggregationId').value = row ? row.getAttribute('data-aggregation-id') : '';
+                    document.getElementById('aggregationModalLabel').textContent = row
+                        ? editAggregationModalTitle + ' \u2013 ' + row.getAttribute('data-aggregation-name')
+                        : addAggregationModalTitle;
+                    if (row) {
+                        aggregationFields.name.value = row.getAttribute('data-aggregation-name');
+                        aggregationFields.function.value = row.getAttribute('data-aggregation-function');
+                        aggregationFields.sourceProperty.value = row.getAttribute('data-aggregation-source-property');
+                        aggregationFields.refPath.value = row.getAttribute('data-aggregation-ref-path') || '';
+                        aggregationFields.timeBucket.value = row.getAttribute('data-aggregation-time-bucket') || '';
+                        aggregationFields.timeProperty.value = row.getAttribute('data-aggregation-time-property') || '';
+                        aggregationFields.groupBy.value = row.getAttribute('data-aggregation-group-by') || '';
+                    }
+                    aggregationDeleteBtn.classList.toggle('d-none', !row);
+                    updateAggregationSourceOptions();
+                    aggregationForm.querySelector('[type="submit"]').disabled = false;
+                }
+
+                aggregationModal.addEventListener('show.bs.modal', function (event) {
+                    // Opened via the add button (relatedTarget set); edit rows call openAggregationModal themselves before showing.
+                    if (event.relatedTarget) { openAggregationModal(null); }
+                });
+
+                document.querySelectorAll('[data-action="edit-aggregation"]').forEach(function (row) {
+                    function open() {
+                        openAggregationModal(row);
+                        bootstrap.Modal.getOrCreateInstance(aggregationModal).show();
+                    }
+                    row.addEventListener('click', open);
+                    row.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+                    });
+                });
+
+                aggregationForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    aggregationError.classList.add('d-none');
+                    var btn = aggregationForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var entityId = document.getElementById('aggregationEntityId').value;
+                    var aggregationId = document.getElementById('aggregationId').value;
+                    var formData = new FormData();
+                    Object.keys(aggregationFields).forEach(function (key) { formData.set(key, aggregationFields[key].value); });
+                    var url = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/aggregations'
+                        + (aggregationId ? '/' + aggregationId : '');
+                    var result = await apiPost(url, formData, true);
+                    if (!result || !result.ok) {
+                        aggregationError.textContent = result ? result.message : networkErrorMessage;
+                        aggregationError.classList.remove('d-none');
+                        btn.disabled = false;
+                    }
+                });
+
+                var deleteAggregationModal = document.getElementById('deleteAggregationModal');
+                var pendingDeleteAggregation = null;
+                aggregationDeleteBtn.addEventListener('click', function () {
+                    pendingDeleteAggregation = {
+                        entityId: document.getElementById('aggregationEntityId').value,
+                        aggregationId: document.getElementById('aggregationId').value
+                    };
+                    aggregationModal.addEventListener('hidden.bs.modal', function onHide() {
+                        aggregationModal.removeEventListener('hidden.bs.modal', onHide);
+                        bootstrap.Modal.getOrCreateInstance(deleteAggregationModal).show();
+                    });
+                    bootstrap.Modal.getInstance(aggregationModal).hide();
+                });
+                var confirmDeleteAggregationBtn = document.getElementById('confirmDeleteAggregationBtn');
+                confirmDeleteAggregationBtn.addEventListener('click', async function () {
+                    if (!pendingDeleteAggregation) return;
+                    confirmDeleteAggregationBtn.disabled = true;
+                    var modal = bootstrap.Modal.getInstance(deleteAggregationModal);
+                    if (modal) { modal.hide(); }
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeleteAggregation.entityId + '/aggregations/' + pendingDeleteAggregation.aggregationId + '/delete',
+                        null, true
+                    );
+                    confirmDeleteAggregationBtn.disabled = false;
+                });
+                deleteAggregationModal.addEventListener('hidden.bs.modal', function () {
+                    pendingDeleteAggregation = null;
+                    confirmDeleteAggregationBtn.disabled = false;
+                });
             }
 
             // Drag-and-drop computed property reordering
