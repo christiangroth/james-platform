@@ -5,6 +5,7 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
@@ -22,6 +23,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -35,6 +37,7 @@ class UserAppStoreService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
+  private val aggregationRepository: AggregationRepositoryPort,
   private val userRepository: UserRepositoryPort,
   private val appVersionMigration: AppVersionMigrationPort,
   private val outbox: OutboxPort,
@@ -173,6 +176,7 @@ class UserAppStoreService(
     )
     val upgraded = existing.copy(installedVersionNumber = latestVersion.versionNumber!!)
     installedAppRepository.save(upgraded)
+    enqueueAggregationRecompute(upgraded.id, latestVersion.entityDefinitions.flatMap { it.aggregations }.map { it.id }.distinct())
     logger.info { "App upgraded: installedAppId=$installedAppId to version ${latestVersion.versionNumber!!.value}" }
     return upgraded.right()
   }
@@ -197,9 +201,24 @@ class UserAppStoreService(
       return Unit.right()
     }
     appDataRepository.deleteAllByInstalledAppId(existing.id)
+    aggregationRepository.deleteAllByInstalledAppId(existing.id)
     installedAppRepository.delete(existing.id)
     logger.info { "App uninstalled: installedAppId=${event.installedAppId} for user=${event.userId}" }
     return Unit.right()
+  }
+
+  /**
+   * Same as the auto-upgrade path: once an installation has migrated onto a new version, every aggregation declared there is
+   * enqueued for a full outbox recompute, covering both changed AggregationDefinitions and migration scripts invalidating
+   * previously computed values (see docs/adr/0020-aggregation-definitions.md).
+   */
+  private fun enqueueAggregationRecompute(installedAppId: InstalledAppId, aggregationDefinitionIds: List<AggregationDefinitionId>) {
+    aggregationDefinitionIds.forEach { aggregationDefinitionId ->
+      outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = installedAppId.value, aggregationDefinitionId = aggregationDefinitionId.value))
+    }
+    if (aggregationDefinitionIds.isNotEmpty()) {
+      logger.info { "Aggregation recompute enqueued after upgrade: installedAppId=${installedAppId.value} aggregations=${aggregationDefinitionIds.size}" }
+    }
   }
 
   companion object : KLogging()

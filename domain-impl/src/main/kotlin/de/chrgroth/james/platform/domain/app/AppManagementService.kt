@@ -17,6 +17,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -29,6 +30,7 @@ class AppManagementService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
+  private val aggregationRepository: AggregationRepositoryPort,
   private val outbox: OutboxPort,
 ) : AppManagementPort {
 
@@ -169,6 +171,7 @@ class AppManagementService(
     // Only test installations can still exist here, real ones are guarded against in deleteApp above.
     installedAppRepository.findAllByAppId(app.id).forEach { installedApp ->
       appDataRepository.deleteAllByInstalledAppId(installedApp.id)
+      aggregationRepository.deleteAllByInstalledAppId(installedApp.id)
       installedAppRepository.delete(installedApp.id)
     }
     appVersionRepository.findAllByAppId(app.id).forEach { version -> appVersionRepository.delete(version.id) }

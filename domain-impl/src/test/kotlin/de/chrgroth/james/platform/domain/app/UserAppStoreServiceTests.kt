@@ -6,11 +6,17 @@ import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
@@ -19,6 +25,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
@@ -35,10 +42,11 @@ class UserAppStoreServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
+  private val aggregationRepository: AggregationRepositoryPort = mockk()
   private val userRepository: UserRepositoryPort = mockk()
   private val appVersionMigration: AppVersionMigrationPort = mockk()
   private val outboxPort: OutboxPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, userRepository, appVersionMigration, outboxPort)
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, aggregationRepository, userRepository, appVersionMigration, outboxPort)
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
@@ -360,6 +368,23 @@ class UserAppStoreServiceTests {
   }
 
   @Test
+  fun `upgradeApp enqueues a recompute for every aggregation of the target version`() {
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = PropertyId("prop-1"))
+    val entity = EntityDefinition(id = EntityDefinitionId("entity-1"), name = "Lauf", aggregations = listOf(aggregation))
+    val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
+    every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2.copy(entityDefinitions = listOf(entity)))
+    every { appVersionMigration.migrateInstallation(InstalledAppId("inst-1"), AppId("app-1"), VersionNumber("1.0.0"), VersionNumber("2.0.0")) } returns Unit.right()
+    justRun { installedAppRepository.save(any()) }
+    justRun { outboxPort.enqueue(any()) }
+
+    val result = service.upgradeApp("user-1", "inst-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "inst-1", aggregationDefinitionId = "agg-1")) }
+  }
+
+  @Test
   fun `upgradeApp aborts and does not persist when migration fails`() {
     val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
@@ -456,16 +481,18 @@ class UserAppStoreServiceTests {
   // region handle(UninstallApp)
 
   @Test
-  fun `handle uninstall app deletes app data and installed app`() {
+  fun `handle uninstall app deletes app data, aggregation values and installed app`() {
     val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
     justRun { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
+    justRun { aggregationRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
     justRun { installedAppRepository.delete(InstalledAppId("inst-1")) }
 
     val result = service.handle(DomainOutboxEvent.UninstallApp(installedAppId = "inst-1", userId = "user-1"))
 
     assertThat(result.isRight()).isTrue()
     verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
+    verify { aggregationRepository.deleteAllByInstalledAppId(InstalledAppId("inst-1")) }
     verify { installedAppRepository.delete(InstalledAppId("inst-1")) }
   }
 

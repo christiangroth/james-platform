@@ -8,6 +8,9 @@ import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion
 import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
@@ -440,6 +443,89 @@ class TestDataGeneratorServiceTests {
     every { appRepository.findById(AppId("app-1")) } returns existingApp
 
     assertThat(service.isGenerating("app-1", "installed-1", "entity-1", "dev-2")).isFalse()
+  }
+
+  // endregion
+
+  // region aggregation recompute
+
+  @Test
+  fun `generateTestData enqueues a recompute for every aggregation affected by the generated objects`() {
+    val prop = property(id = "p-1", type = PropertyType.LONG, nullable = false)
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = PropertyId("p-1"))
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = listOf(prop), aggregations = listOf(aggregation))
+    setupInstalledVersion(entityDef)
+    stubStore()
+    every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns Unit.right()
+    justRun { outboxPort.enqueue(any()) }
+
+    val result = service.generateTestData("app-1", "installed-1", "entity-1", 5, "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "installed-1", aggregationDefinitionId = "agg-1")) }
+  }
+
+  @Test
+  fun `generateTestData enqueues a recompute for aggregations on transitively generated REF targets`() {
+    val targetEntityId = EntityDefinitionId("target-entity")
+    val targetProp = property(id = "t-p", type = PropertyType.LONG, nullable = false)
+    val targetAggregation = AggregationDefinition(id = AggregationDefinitionId("agg-target"), name = "Count", function = AggregationFunction.COUNT, sourceProperty = PropertyId("t-p"))
+    val targetEntityDef = EntityDefinition(id = targetEntityId, name = "Target", properties = listOf(targetProp), aggregations = listOf(targetAggregation))
+    val refProp = property(id = "p-1", type = PropertyType.REF, nullable = false, targetEntityId = targetEntityId)
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = listOf(refProp))
+
+    val ver = version(id = "ver-1", appId = "app-1").copy(entityDefinitions = listOf(entityDef, targetEntityDef))
+    val installed = installedApp(id = "installed-1", userId = "dev-1", appId = "app-1", isTest = true).copy(installedVersionId = ver.id)
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installed
+    every { appVersionRepository.findById(ver.id) } returns ver
+    stubStore()
+    every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns Unit.right()
+    justRun { outboxPort.enqueue(any()) }
+
+    val result = service.generateTestData("app-1", "installed-1", "entity-1", 1, "dev-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "installed-1", aggregationDefinitionId = "agg-target")) }
+  }
+
+  @Test
+  fun `handle enqueues a recompute for affected aggregations after background generation`() {
+    val prop = property(id = "p-1", type = PropertyType.LONG, nullable = false)
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = PropertyId("p-1"))
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = listOf(prop), aggregations = listOf(aggregation))
+    val ver = version(id = "ver-1", appId = "app-1").copy(entityDefinitions = listOf(entityDef))
+    val installed = installedApp(id = "installed-1", userId = "dev-1", appId = "app-1", isTest = true)
+      .copy(installedVersionId = ver.id, generatingEntityId = entityId)
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installed
+    every { appVersionRepository.findById(ver.id) } returns ver
+    stubStore()
+    every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns Unit.right()
+    justRun { installedAppRepository.save(any()) }
+    justRun { outboxPort.enqueue(any()) }
+
+    val result = service.handle(
+      DomainOutboxEvent.GenerateTestData(appId = "app-1", installedAppId = "installed-1", entityId = "entity-1", count = 5, developerId = "dev-1", seed = null),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "installed-1", aggregationDefinitionId = "agg-1")) }
+  }
+
+  @Test
+  fun `generateTestData enqueues no recompute when nothing was persisted`() {
+    val prop = property(id = "p-1", type = PropertyType.LONG, nullable = false)
+    val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = PropertyId("p-1"))
+    val entityDef = EntityDefinition(id = entityId, name = "Entity", properties = listOf(prop), aggregations = listOf(aggregation))
+    setupInstalledVersion(entityDef)
+    stubStore()
+    every { appDataPort.validateEntityData(any(), any(), any(), any()) } returns TestDataGeneratorError.GENERATION_FAILED.left()
+
+    val result = service.generateTestData("app-1", "installed-1", "entity-1", 5, "dev-1")
+
+    assertThat(result).isEqualTo(TestDataGeneratorError.GENERATION_FAILED.left())
+    verify(exactly = 0) { outboxPort.enqueue(any()) }
   }
 
   // endregion

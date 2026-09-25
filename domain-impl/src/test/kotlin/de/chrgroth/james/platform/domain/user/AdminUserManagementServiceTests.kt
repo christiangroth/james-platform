@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
@@ -28,8 +29,9 @@ class AdminUserManagementServiceTests {
   private val userRepository: UserRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
+  private val aggregationRepository: AggregationRepositoryPort = mockk()
   private val outbox: OutboxPort = mockk()
-  private val service = AdminUserManagementService(userRepository, installedAppRepository, appDataRepository, outbox)
+  private val service = AdminUserManagementService(userRepository, installedAppRepository, appDataRepository, aggregationRepository, outbox)
 
   private val adminUser = User(
     id = UserId(UUID.randomUUID().toString()),
@@ -135,6 +137,7 @@ class AdminUserManagementServiceTests {
     every { userRepository.findById(regularUser.id) } returns regularUser
     every { installedAppRepository.findAllByUserId(regularUser.id.value) } returns listOf(installedApp1, installedApp2)
     justRun { appDataRepository.deleteAllByInstalledAppId(any()) }
+    justRun { aggregationRepository.deleteAllByInstalledAppId(any()) }
     justRun { installedAppRepository.delete(any()) }
     justRun { userRepository.delete(any()) }
 
@@ -143,6 +146,8 @@ class AdminUserManagementServiceTests {
     assertThat(result.isRight()).isTrue()
     verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("installed-1")) }
     verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("installed-2")) }
+    verify { aggregationRepository.deleteAllByInstalledAppId(InstalledAppId("installed-1")) }
+    verify { aggregationRepository.deleteAllByInstalledAppId(InstalledAppId("installed-2")) }
     verify { installedAppRepository.delete(InstalledAppId("installed-1")) }
     verify { installedAppRepository.delete(InstalledAppId("installed-2")) }
     verify { userRepository.delete(regularUser.id) }

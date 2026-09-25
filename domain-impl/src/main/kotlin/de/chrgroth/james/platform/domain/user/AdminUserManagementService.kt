@@ -14,6 +14,7 @@ import de.chrgroth.james.platform.domain.port.`in`.user.AdminUserManagementPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -26,6 +27,7 @@ class AdminUserManagementService(
   private val userRepository: UserRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
+  private val aggregationRepository: AggregationRepositoryPort,
   private val outbox: OutboxPort,
 ) : AdminUserManagementPort {
 
@@ -115,6 +117,7 @@ class AdminUserManagementService(
     }
     installedAppRepository.findAllByUserId(user.id.value).forEach { installedApp ->
       appDataRepository.deleteAllByInstalledAppId(installedApp.id)
+      aggregationRepository.deleteAllByInstalledAppId(installedApp.id)
       installedAppRepository.delete(installedApp.id)
     }
     userRepository.delete(user.id)
