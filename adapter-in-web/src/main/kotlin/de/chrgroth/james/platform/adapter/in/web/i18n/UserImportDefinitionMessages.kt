@@ -104,6 +104,15 @@ interface UserImportDefinitionMessages {
   fun userImportDefinitionHistoryColStatus(): String
 
   @Message
+  fun userImportDefinitionHistoryColAdded(): String
+
+  @Message
+  fun userImportDefinitionHistoryColReplaced(): String
+
+  @Message
+  fun userImportDefinitionHistoryColDiscarded(): String
+
+  @Message
   fun userImportDefinitionNoHistoryMessage(): String
 
   @Message

@@ -471,6 +471,9 @@ class UserImportDefinitionResourceTests {
 
     val historyHtml = given().`when`().get("/ui/user/imports/definitions/$definitionId/history").then().statusCode(200).extract().body().asString()
     assertTrue(historyHtml.contains("data-testid=\"history-row\""), "Expected the accepted job to appear as a history row")
+    assertTrue(historyHtml.contains("data-testid=\"history-added\">1<"), "Expected the accepted run to show one added object")
+    assertTrue(historyHtml.contains("data-testid=\"history-replaced\">0<"), "Expected the add-mode run to show zero replaced objects")
+    assertTrue(historyHtml.contains("data-testid=\"history-discarded\">0<"), "Expected the run to show zero discarded objects")
 
     val row = definitionRow(connectionName)
     assertTrue(!row.contains("data-testid=\"import-job-link\""), "Expected the accepted job to no longer be listed as an in-progress job on the main row")

@@ -1005,6 +1005,9 @@ class ImportServiceTests {
     verify(exactly = 0) { importJobRepository.delete(any()) }
     assertThat(savedJob.captured.id).isEqualTo(job.id)
     assertThat(savedJob.captured.status).isEqualTo(ImportStatus.ACCEPTED)
+    assertThat(savedJob.captured.addedCount).isEqualTo(1)
+    assertThat(savedJob.captured.replacedCount).isEqualTo(0)
+    assertThat(savedJob.captured.discardedCount).isEqualTo(1)
     verify(exactly = 0) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
     verify(exactly = 0) { notificationPort.notify(any()) }
   }
@@ -1106,11 +1109,15 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val savedAppData = slot<AppData>()
     justRun { appDataRepository.save(capture(savedAppData)) }
-    justRun { importJobRepository.save(any()) }
+    val savedJob = slot<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJob)) }
 
     val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = true))
 
     assertThat(result.isRight()).isTrue()
+    assertThat(savedJob.captured.addedCount).isEqualTo(1)
+    assertThat(savedJob.captured.replacedCount).isEqualTo(1)
+    assertThat(savedJob.captured.discardedCount).isEqualTo(0)
     assertThat(savedAppData.captured.data).isEqualTo(mapOf("prop-1" to "Alice"))
     verify(exactly = 1) { appDataRepository.deleteAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) }
     verify(exactly = 1) { appDataRepository.save(any()) }

@@ -25,6 +25,9 @@ import java.time.Instant
 data class ImportHistoryRowRow(
   val date: Instant,
   val statusLabel: String,
+  val added: Int?,
+  val replaced: Int?,
+  val discarded: Int?,
 )
 
 @Path("/ui/user/imports/definitions")
@@ -70,7 +73,7 @@ class UserImportDefinitionResource {
     val rows = importPort.listAllImportJobs(userId)
       .filter { it.importDefinitionId.value == definitionId && it.status == ImportStatus.ACCEPTED }
       .sortedByDescending { it.lastChangedAt }
-      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted()) }
+      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted(), added = it.addedCount, replaced = it.replacedCount, discarded = it.discardedCount) }
     UserTemplates.`import-history`(rows)
   }
 

@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.out.mongodb
 
 import com.mongodb.client.model.Filters
+import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.port.out.imports.ImportJobRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
@@ -73,6 +74,24 @@ class ImportJobRepositoryTests {
     importJobRepository.migrateLongToDurationFieldMappingConversion()
 
     assertThat(migratedConversion(id)).isEqualTo("STRING_TO_LONG")
+  }
+
+  @Test
+  fun `legacy job without accept counts is read back with null counts and saved counts round-trip`() {
+    val id = UUID.randomUUID().toString()
+    importJobDocumentRepository.mongoCollection().withDocumentClass(Document::class.java).insertOne(legacyImportJobDocument(id).append("status", "ACCEPTED"))
+
+    val legacy = importJobRepository.findById(ImportJobId(id))!!
+    assertThat(legacy.addedCount).isNull()
+    assertThat(legacy.replacedCount).isNull()
+    assertThat(legacy.discardedCount).isNull()
+
+    importJobRepository.save(legacy.copy(addedCount = 3, replacedCount = 2, discardedCount = 1))
+
+    val reloaded = importJobRepository.findById(ImportJobId(id))!!
+    assertThat(reloaded.addedCount).isEqualTo(3)
+    assertThat(reloaded.replacedCount).isEqualTo(2)
+    assertThat(reloaded.discardedCount).isEqualTo(1)
   }
 
   @Suppress("UNCHECKED_CAST")

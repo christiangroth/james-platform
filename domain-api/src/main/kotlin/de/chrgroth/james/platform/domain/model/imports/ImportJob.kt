@@ -88,6 +88,12 @@ data class ImportJob(
   val detectedSchema: List<SchemaProperty> = emptyList(),
   val filteredSchema: List<SchemaProperty> = emptyList(),
   val triggeredBy: ImportTrigger = ImportTrigger.USER,
+  /** Number of data objects saved by the accept run; null for legacy jobs accepted before counts were recorded (and for non-accepted jobs). */
+  val addedCount: Int? = null,
+  /** Number of pre-existing data objects removed by a replace-mode accept run (0 in add mode); null like [addedCount]. */
+  val replacedCount: Int? = null,
+  /** Number of mapped objects discarded as invalid by the accept run; null like [addedCount]. */
+  val discardedCount: Int? = null,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )
