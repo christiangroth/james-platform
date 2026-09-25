@@ -102,6 +102,8 @@ import io.quarkus.qute.TemplateData
 @TemplateData(target = AggregationView::class)
 @TemplateData(target = DashboardAppInfo::class)
 @TemplateData(target = TestInstallationInfo::class)
+@TemplateData(target = AggregationEditorRow::class)
+@TemplateData(target = AggregationPropertyOptionRow::class)
 @TemplateData(target = PropertyBreadcrumb::class)
 @TemplateData(target = EntityDataCount::class)
 @TemplateData(target = DashboardInstalledApp::class)

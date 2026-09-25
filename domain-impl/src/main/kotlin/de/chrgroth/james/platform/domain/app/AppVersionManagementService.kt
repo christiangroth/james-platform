@@ -9,6 +9,8 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppStatus
 import de.chrgroth.james.platform.domain.model.app.AppVersion
@@ -38,7 +40,9 @@ import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
 import de.chrgroth.james.platform.domain.model.app.DiffStatus
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
@@ -1164,6 +1168,100 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun addAggregation(appId: String, versionId: String, entityId: String, input: AggregationInput): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Add aggregation failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val aggregation = validatedAggregation(entity, AggregationDefinitionId(UUID.randomUUID().toString()), input).fold({ error ->
+      logger.warn { "Add aggregation failed: ${error.name} for entity $entityId in version $versionId" }
+      return error.left()
+    }, { it })
+    val updated = version.withEntity(entity.copy(aggregations = entity.aggregations + aggregation))
+    appVersionRepository.save(updated)
+    enqueueTestInstallationAggregationRecompute(updated, aggregation.id)
+    logger.info { "Aggregation added: ${aggregation.name} to entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun updateAggregation(appId: String, versionId: String, entityId: String, aggregationId: String, input: AggregationInput): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update aggregation failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.aggregations.none { it.id.value == aggregationId }) {
+      logger.warn { "Update aggregation failed: aggregation not found: $aggregationId in entity $entityId" }
+      return AppVersionError.AGGREGATION_NOT_FOUND.left()
+    }
+    val aggregation = validatedAggregation(entity, AggregationDefinitionId(aggregationId), input).fold({ error ->
+      logger.warn { "Update aggregation failed: ${error.name} for aggregation $aggregationId in entity $entityId" }
+      return error.left()
+    }, { it })
+    val updated = version.withEntity(entity.copy(aggregations = entity.aggregations.map { if (it.id == aggregation.id) aggregation else it }))
+    appVersionRepository.save(updated)
+    enqueueTestInstallationAggregationRecompute(updated, aggregation.id)
+    logger.info { "Aggregation updated: $aggregationId in entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteAggregation(appId: String, versionId: String, entityId: String, aggregationId: String): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Delete aggregation failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.aggregations.none { it.id.value == aggregationId }) {
+      logger.warn { "Delete aggregation failed: aggregation not found: $aggregationId in entity $entityId" }
+      return AppVersionError.AGGREGATION_NOT_FOUND.left()
+    }
+    val updated = version.withEntity(entity.copy(aggregations = entity.aggregations.filter { it.id.value != aggregationId }))
+    appVersionRepository.save(updated)
+    // The recompute handler clears the values of an AggregationDefinition that no longer exists, so the same trigger covers deletion.
+    enqueueTestInstallationAggregationRecompute(updated, AggregationDefinitionId(aggregationId))
+    logger.info { "Aggregation deleted: $aggregationId from entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  private fun AppVersion.withEntity(entity: EntityDefinition): AppVersion =
+    copy(entityDefinitions = entityDefinitions.map { if (it.id == entity.id) entity else it })
+
+  /** Parses [input] and applies the same rules as the Version publish ([aggregationDefinitionError]) plus name uniqueness among [entity]'s other aggregations. */
+  private fun validatedAggregation(entity: EntityDefinition, id: AggregationDefinitionId, input: AggregationInput): Either<AppVersionError, AggregationDefinition> {
+    val function = runCatching { AggregationFunction.valueOf(input.function) }.getOrNull() ?: return AppVersionError.AGGREGATION_FUNCTION_INVALID.left()
+    val timeBucket = input.timeBucket.blankToNull()?.let { runCatching { TimeBucket.valueOf(it) }.getOrNull() ?: return AppVersionError.AGGREGATION_TIME_BUCKET_INVALID.left() }
+    val aggregation = AggregationDefinition(
+      id = id,
+      name = input.name.trim(),
+      function = function,
+      sourceProperty = PropertyId(input.sourceProperty),
+      refPath = input.refPath.blankToNull()?.let { PropertyId(it) },
+      timeBucket = timeBucket,
+      timeProperty = input.timeProperty.blankToNull()?.let { PropertyId(it) },
+      groupBy = input.groupBy.blankToNull()?.let { PropertyId(it) },
+    )
+    aggregationDefinitionError(entity, aggregation)?.let { return it.left() }
+    if (entity.aggregations.any { it.id != id && it.name.trim().equals(aggregation.name, ignoreCase = true) }) return AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS.left()
+    return aggregation.right()
+  }
+
+  private fun String?.blankToNull(): String? = this?.takeIf { it.isNotBlank() }
+
+  /**
+   * Test installations pin the DRAFT version by id, so an AggregationDefinition edited there never reaches them via publish +
+   * auto-upgrade - enqueue a full outbox recompute for each of them instead (see docs/adr/0020-aggregation-definitions.md).
+   */
+  private fun enqueueTestInstallationAggregationRecompute(version: AppVersion, aggregationDefinitionId: AggregationDefinitionId) {
+    val testInstallations = installedAppRepository.findAllByAppId(version.appId).filter { it.isTest && it.installedVersionId == version.id }
+    testInstallations.forEach { installedApp ->
+      outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = installedApp.id.value, aggregationDefinitionId = aggregationDefinitionId.value))
+    }
+    if (testInstallations.isNotEmpty()) {
+      logger.info { "Aggregation recompute enqueued for test installations: aggregationDefinitionId=${aggregationDefinitionId.value} installations=${testInstallations.size}" }
+    }
+  }
+
   override fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add report failed: blank name" }
@@ -1249,25 +1347,28 @@ class AppVersionManagementService(
    * property of [entity], never a chain. [AggregationDefinition.timeProperty], if set, requires [AggregationDefinition.timeBucket] and
    * must be a top-level DATE/DATETIME property of [entity].
    */
-  private fun isValidAggregationDefinition(entity: EntityDefinition, aggregation: AggregationDefinition): Boolean {
-    if (aggregation.name.isBlank()) return false
-    val sourceProperty = entity.properties.find { it.id == aggregation.sourceProperty } ?: return false
-    if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return false
+  private fun isValidAggregationDefinition(entity: EntityDefinition, aggregation: AggregationDefinition): Boolean = aggregationDefinitionError(entity, aggregation) == null
+
+  /** The first rule [aggregation] violates, or null if valid - shared by the Version publish and the aggregation editor's form feedback. */
+  private fun aggregationDefinitionError(entity: EntityDefinition, aggregation: AggregationDefinition): AppVersionError? {
+    if (aggregation.name.isBlank()) return AppVersionError.BLANK_INPUT
+    val sourceProperty = entity.properties.find { it.id == aggregation.sourceProperty } ?: return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
     aggregation.refPath?.let { refPath ->
-      val refProperty = entity.properties.find { it.id == refPath } ?: return false
-      if (refProperty.type != PropertyType.REF) return false
+      val refProperty = entity.properties.find { it.id == refPath } ?: return AppVersionError.AGGREGATION_REF_PATH_INVALID
+      if (refProperty.type != PropertyType.REF) return AppVersionError.AGGREGATION_REF_PATH_INVALID
     }
     aggregation.timeProperty?.let { timeProperty ->
-      if (aggregation.timeBucket == null) return false
-      val timePropertyDefinition = entity.properties.find { it.id == timeProperty } ?: return false
-      if (timePropertyDefinition.type !in DATE_TIME_PROPERTY_TYPES) return false
+      if (aggregation.timeBucket == null) return AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID
+      val timePropertyDefinition = entity.properties.find { it.id == timeProperty } ?: return AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID
+      if (timePropertyDefinition.type !in DATE_TIME_PROPERTY_TYPES) return AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID
     }
     aggregation.groupBy?.let { groupBy ->
-      if (groupBy == aggregation.sourceProperty) return false
-      val groupByProperty = entity.properties.find { it.id == groupBy } ?: return false
-      if (groupByProperty.type == PropertyType.LIST || groupByProperty.type == PropertyType.OBJECT) return false
+      if (groupBy == aggregation.sourceProperty) return AppVersionError.AGGREGATION_GROUP_BY_INVALID
+      val groupByProperty = entity.properties.find { it.id == groupBy } ?: return AppVersionError.AGGREGATION_GROUP_BY_INVALID
+      if (groupByProperty.type == PropertyType.LIST || groupByProperty.type == PropertyType.OBJECT) return AppVersionError.AGGREGATION_GROUP_BY_INVALID
     }
-    return true
+    return null
   }
 
   private fun extractPropertyNames(template: String): Set<String> =

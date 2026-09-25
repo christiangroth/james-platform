@@ -9,8 +9,11 @@ import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
+import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
@@ -21,6 +24,8 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
+import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
@@ -78,6 +83,31 @@ data class TestInstallationInfo(
   val installedAppId: String,
   val version: AppVersion,
   val installedAt: Instant,
+)
+
+/** One AggregationDefinition in the version editor, with enum and property references as plain strings plus display labels. */
+data class AggregationEditorRow(
+  val id: String,
+  val name: String,
+  val function: String,
+  val functionLabel: String,
+  val sourceProperty: String,
+  val sourcePropertyName: String,
+  val refPath: String,
+  val timeBucket: String,
+  val timeProperty: String,
+  val groupBy: String,
+  val details: String,
+)
+
+/** A top-level property offered in the aggregation editor's selects, flagged by the roles it may fill (see docs/adr/0020-aggregation-definitions.md). */
+data class AggregationPropertyOptionRow(
+  val id: String,
+  val name: String,
+  val numeric: Boolean,
+  val ref: Boolean,
+  val dateTime: Boolean,
+  val groupable: Boolean,
 )
 
 data class SortCriteriaRequest @JsonCreator constructor(
@@ -345,6 +375,8 @@ class DeveloperAppResource {
             breadcrumb = emptyList<PropertyBreadcrumb>(),
             isNestedLevel = false,
             testInstallations = testInstallationsForVersion(appId, version, developerId),
+            aggregations = emptyList<AggregationEditorRow>(),
+            aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
           ),
         ).build()
       },
@@ -395,6 +427,8 @@ class DeveloperAppResource {
             breadcrumb = breadcrumb,
             isNestedLevel = breadcrumb.isNotEmpty(),
             testInstallations = testInstallationsForVersion(appId, version, developerId),
+            aggregations = selectedEntity?.let { aggregationRows(it) }.orEmpty(),
+            aggregationPropertyOptions = selectedEntity?.let { aggregationPropertyOptions(it) }.orEmpty(),
           ),
         ).build()
       },
@@ -531,6 +565,8 @@ class DeveloperAppResource {
             breadcrumb = emptyList<PropertyBreadcrumb>(),
             isNestedLevel = false,
             testInstallations = testInstallationsForVersion(appId, version, developerId),
+            aggregations = emptyList<AggregationEditorRow>(),
+            aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
           ),
         ).build()
       },
@@ -603,6 +639,10 @@ class DeveloperAppResource {
           is InvalidObjectStructureError -> {
             val names = error.entityNames.joinToString(", ")
             Response.ok(DeveloperApiResult(false, devMsg.developerInvalidObjectStructureError(names))).build()
+          }
+          is InvalidAggregationDefinitionError -> {
+            val names = error.entityNames.joinToString(", ")
+            Response.ok(DeveloperApiResult(false, devMsg.developerInvalidAggregationDefinitionError(names))).build()
           }
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
@@ -1163,6 +1203,139 @@ class DeveloperAppResource {
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/aggregations")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun addAggregation(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response = httpResponseMetrics.timed("rest.developer.aggregation-add") {
+    val input = aggregationInput(form)
+    if (input.name.isBlank()) {
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerAggregationNameRequiredError())).build()
+    }
+    appVersionManagement.addAggregation(appId, versionId, entityId, input).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, aggregationErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAggregationAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/aggregations/{aggregationId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateAggregation(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("aggregationId") aggregationId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response = httpResponseMetrics.timed("rest.developer.aggregation-update") {
+    val input = aggregationInput(form)
+    if (input.name.isBlank()) {
+      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerAggregationNameRequiredError())).build()
+    }
+    appVersionManagement.updateAggregation(appId, versionId, entityId, aggregationId, input).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, aggregationErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAggregationUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/aggregations/{aggregationId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteAggregation(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("aggregationId") aggregationId: String,
+  ): Response = httpResponseMetrics.timed("rest.developer.aggregation-delete") {
+    appVersionManagement.deleteAggregation(appId, versionId, entityId, aggregationId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, aggregationErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAggregationDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  private fun aggregationInput(form: MultivaluedMap<String, String>): AggregationInput = AggregationInput(
+    name = form.getFirst("name").orEmpty().trim(),
+    function = form.getFirst("function").orEmpty(),
+    sourceProperty = form.getFirst("sourceProperty").orEmpty(),
+    refPath = form.getFirst("refPath"),
+    timeBucket = form.getFirst("timeBucket"),
+    timeProperty = form.getFirst("timeProperty"),
+    groupBy = form.getFirst("groupBy"),
+  )
+
+  private fun aggregationRows(entity: EntityDefinition): List<AggregationEditorRow> {
+    fun nameOf(propertyId: String?): String = propertyId?.let { id -> entity.properties.find { it.id.value == id }?.name ?: id }.orEmpty()
+    return entity.aggregations.map { aggregation ->
+      AggregationEditorRow(
+        id = aggregation.id.value,
+        name = aggregation.name,
+        function = aggregation.function.name,
+        functionLabel = aggregationFunctionLabel(aggregation.function),
+        sourceProperty = aggregation.sourceProperty.value,
+        sourcePropertyName = nameOf(aggregation.sourceProperty.value),
+        refPath = aggregation.refPath?.value.orEmpty(),
+        timeBucket = aggregation.timeBucket?.name.orEmpty(),
+        timeProperty = aggregation.timeProperty?.value.orEmpty(),
+        groupBy = aggregation.groupBy?.value.orEmpty(),
+        details = aggregationDetails(aggregation, ::nameOf),
+      )
+    }
+  }
+
+  private fun aggregationDetails(aggregation: AggregationDefinition, nameOf: (String?) -> String): String = listOfNotNull(
+    aggregation.refPath?.let { devMsg.developerAggregationDetailPerRef(nameOf(it.value)) },
+    aggregation.timeBucket?.let { bucket ->
+      val bucketText = devMsg.developerAggregationDetailPerTimeBucket(timeBucketLabel(bucket))
+      aggregation.timeProperty?.let { "$bucketText (${nameOf(it.value)})" } ?: bucketText
+    },
+    aggregation.groupBy?.let { devMsg.developerAggregationDetailGroupBy(nameOf(it.value)) },
+  ).joinToString(" · ")
+
+  private fun aggregationPropertyOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.properties.map {
+    AggregationPropertyOptionRow(
+      id = it.id.value,
+      name = it.name,
+      numeric = it.type == PropertyType.LONG || it.type == PropertyType.DOUBLE,
+      ref = it.type == PropertyType.REF,
+      dateTime = it.type == PropertyType.DATE || it.type == PropertyType.DATETIME,
+      groupable = it.type != PropertyType.LIST && it.type != PropertyType.OBJECT,
+    )
+  }
+
+  private fun aggregationFunctionLabel(function: AggregationFunction): String = when (function) {
+    AggregationFunction.SUM -> devMsg.developerAggregationFunctionSum()
+    AggregationFunction.COUNT -> devMsg.developerAggregationFunctionCount()
+    AggregationFunction.AVG -> devMsg.developerAggregationFunctionAvg()
+    AggregationFunction.MIN -> devMsg.developerAggregationFunctionMin()
+    AggregationFunction.MAX -> devMsg.developerAggregationFunctionMax()
+  }
+
+  private fun timeBucketLabel(timeBucket: TimeBucket): String = when (timeBucket) {
+    TimeBucket.TAG -> devMsg.developerAggregationTimeBucketTag()
+    TimeBucket.WOCHE -> devMsg.developerAggregationTimeBucketWoche()
+    TimeBucket.MONAT -> devMsg.developerAggregationTimeBucketMonat()
+    TimeBucket.JAHR -> devMsg.developerAggregationTimeBucketJahr()
+  }
+
+  private fun aggregationErrorMessage(code: String): String = when (code) {
+    AppVersionError.BLANK_INPUT.code -> devMsg.developerAggregationNameRequiredError()
+    AppVersionError.AGGREGATION_NOT_FOUND.code -> devMsg.developerAggregationNotFoundError()
+    AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS.code -> devMsg.developerAggregationNameExistsError()
+    AppVersionError.AGGREGATION_FUNCTION_INVALID.code -> devMsg.developerAggregationFunctionInvalidError()
+    AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID.code -> devMsg.developerAggregationSourcePropertyInvalidError()
+    AppVersionError.AGGREGATION_REF_PATH_INVALID.code -> devMsg.developerAggregationRefPathInvalidError()
+    AppVersionError.AGGREGATION_TIME_BUCKET_INVALID.code -> devMsg.developerAggregationTimeBucketInvalidError()
+    AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID.code -> devMsg.developerAggregationTimePropertyInvalidError()
+    AppVersionError.AGGREGATION_GROUP_BY_INVALID.code -> devMsg.developerAggregationGroupByInvalidError()
+    else -> entityErrorMessage(code)
   }
 
   @POST
