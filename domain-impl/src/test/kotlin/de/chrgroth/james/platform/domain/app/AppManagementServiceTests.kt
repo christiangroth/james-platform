@@ -17,6 +17,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -31,8 +32,9 @@ class AppManagementServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
+  private val aggregationRepository: AggregationRepositoryPort = mockk()
   private val outbox: OutboxPort = mockk()
-  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, outbox)
+  private val service: AppManagementService = AppManagementService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, aggregationRepository, outbox)
 
   private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 
@@ -510,6 +512,7 @@ class AppManagementServiceTests {
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(installedApp(id = "installed-1", isTest = true))
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
     justRun { appDataRepository.deleteAllByInstalledAppId(any()) }
+    justRun { aggregationRepository.deleteAllByInstalledAppId(any()) }
     justRun { installedAppRepository.delete(any()) }
     justRun { appRepository.delete(any()) }
 
@@ -517,6 +520,7 @@ class AppManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     verify { appDataRepository.deleteAllByInstalledAppId(InstalledAppId("installed-1")) }
+    verify { aggregationRepository.deleteAllByInstalledAppId(InstalledAppId("installed-1")) }
     verify { installedAppRepository.delete(InstalledAppId("installed-1")) }
     verify { appRepository.delete(AppId("app-1")) }
   }

@@ -17,6 +17,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.buildAggregationDependencyIndex
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
@@ -117,6 +118,7 @@ class TestDataGeneratorService(
       visiting = mutableSetOf(entityDef.id),
     )
     val result = generateEntityObjects(entityDef, count, context)
+    enqueueAggregationRecompute(installedApp.id, appVersion.entityDefinitions, context.generatedEntityIds)
     result.onRight { logger.info { "Test data generated: ${it.size} object(s) for entity $entityId in installed app: $installedAppId" } }
     return result.map { TestDataGenerationOutcome.Completed(it) }
   }
@@ -161,6 +163,7 @@ class TestDataGeneratorService(
       visiting = mutableSetOf(entityDef.id),
     )
     val result = generateEntityObjects(entityDef, event.count, context)
+    enqueueAggregationRecompute(installedApp.id, appVersion.entityDefinitions, context.generatedEntityIds)
     clearGenerating(installedApp)
     result.onRight { logger.info { "Test data generated in background: ${it.size} object(s) for entity ${event.entityId} in installed app: ${event.installedAppId}" } }
     result.onLeft { logger.warn { "Generate test data handler failed: ${it.code} for entity ${event.entityId} in installed app: ${event.installedAppId}" } }
@@ -169,6 +172,23 @@ class TestDataGeneratorService(
 
   private fun clearGenerating(installedApp: InstalledApp) {
     installedAppRepository.save(installedApp.copy(generatingEntityId = null))
+  }
+
+  /**
+   * Test data is written directly via [appDataRepository], bypassing `AppDataService`'s inline aggregation hook - so, as for
+   * imports, every aggregation the dependency index maps to an entity that received generated objects (including transitively
+   * generated `REF` targets) is enqueued for a full outbox recompute (see docs/adr/0020-aggregation-definitions.md). Also runs
+   * after a failed run, since objects persisted before the failure still count.
+   */
+  private fun enqueueAggregationRecompute(installedAppId: InstalledAppId, entityDefinitions: List<EntityDefinition>, generatedEntityIds: Set<EntityDefinitionId>) {
+    val dependencyIndex = buildAggregationDependencyIndex(entityDefinitions)
+    val aggregationDefinitionIds = generatedEntityIds.flatMap { dependencyIndex.affectedBy(it) }.map { it.aggregationId }.distinct()
+    aggregationDefinitionIds.forEach { aggregationDefinitionId ->
+      outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = installedAppId.value, aggregationDefinitionId = aggregationDefinitionId.value))
+    }
+    if (aggregationDefinitionIds.isNotEmpty()) {
+      logger.info { "Aggregation recompute enqueued after test data generation: installedAppId=${installedAppId.value} aggregations=${aggregationDefinitionIds.size}" }
+    }
   }
 
   /** Test installations pin their version by id since a DRAFT version has no [InstalledApp.installedVersionNumber] yet. */
@@ -215,6 +235,7 @@ class TestDataGeneratorService(
         data = dataMap,
       )
       appDataRepository.save(appData)
+      context.generatedEntityIds += entityDef.id
       generated += appData
     }
     return generated.right()
@@ -418,6 +439,7 @@ class TestDataGeneratorService(
     val installedApp: InstalledApp,
     val entitiesById: Map<EntityDefinitionId, EntityDefinition>,
     val visiting: MutableSet<EntityDefinitionId>,
+    val generatedEntityIds: MutableSet<EntityDefinitionId> = mutableSetOf(),
   )
 
   companion object : KLogging() {
