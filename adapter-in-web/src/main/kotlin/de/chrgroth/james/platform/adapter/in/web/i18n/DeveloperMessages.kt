@@ -32,9 +32,6 @@ interface DeveloperMessages {
   fun developerColConstraints(): String
 
   @Message
-  fun developerColTargetEntity(): String
-
-  @Message
   fun developerColDefault(): String
 
   @Message

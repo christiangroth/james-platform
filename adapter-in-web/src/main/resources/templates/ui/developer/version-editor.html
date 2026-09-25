@@ -149,9 +149,7 @@
                             <th>{developer:developerColName()}</th>
                             <th>{developer:developerColType()}</th>
                             <th>{developer:developerColConstraints()}</th>
-                            <th>{developer:developerColTargetEntity()}</th>
                             <th>{developer:developerColDefault()}</th>
-                            <th>{developer:developerColSmartDefault()}</th>
                         </tr>
                     </thead>
                     <tbody id="propertiesTbody" data-entity-id="{selectedEntity.id}" data-path="{path}">
@@ -166,7 +164,7 @@
                             </td>
                             <td>{prop.name}</td>
                             <td>
-                                {prop.type.propertyTypeLabel}{#if prop.nullable}?{/if}
+                                {#property-type-summary prop=prop version=version /}
                                 {#if prop.type.name == "LIST" && prop.listItemType}
                                 <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="property-list-item-type-{prop.id}">&lt;{prop.listItemTypeLabel}&gt;</span>
                                 {/if}
@@ -184,23 +182,13 @@
                                 {/if}
                             </td>
                             <td>
-                                {#if prop.targetEntityName(version)}
-                                <span class="app-section-label" style="font-size:0.85rem;" data-testid="property-target-entity-{prop.id}">{prop.targetEntityName(version)}</span>
-                                {#else}
-                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
-                                {/if}
-                            </td>
-                            <td>
                                 {#if prop.defaultValue}
                                 <span class="app-section-label" style="font-size:0.85rem;" data-testid="property-default-{prop.id}">{prop.defaultValue}</span>
-                                {#else}
-                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
-                            </td>
-                            <td>
                                 {#if prop.smartDefault}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="property-smart-default-{prop.id}" title="{prop.smartDefault}">{developer:developerScriptBadge()}</span>
-                                {#else}
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="property-smart-default-{prop.id}" title="{developer:developerColSmartDefault()}: {prop.smartDefault}">{developer:developerScriptBadge()}</span>
+                                {/if}
+                                {#if !prop.defaultValue && !prop.smartDefault}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
                             </td>
@@ -412,7 +400,7 @@
                             <tr data-testid="property-readonly-row">
                                 <td>{prop.name}</td>
                                 <td>
-                                    {prop.type.propertyTypeLabel}{#if prop.nullable}?{/if}
+                                    {#property-type-summary prop=prop version=version /}
                                     {#if prop.type.name == "LIST" && prop.listItemType}
                                     <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{prop.listItemTypeLabel}&gt;</span>
                                     {/if}

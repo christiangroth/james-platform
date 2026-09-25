@@ -481,6 +481,14 @@ class DeveloperAppPageTests {
       .body(containsString("""data-unit-family="DISTANCE""""))
       .body(containsString("""data-unit-storage-granularity="METERS""""))
       .body(containsString("""data-unit-default-granularity="KILOMETERS""""))
+
+    given()
+      .`when`()
+      .get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")
+      .then()
+      .statusCode(200)
+      .body(containsString("""data-testid="property-unit-$propertyId""""))
+      .body(containsString("Entfernung (m, km)"))
   }
 
   @Test
