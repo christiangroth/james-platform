@@ -221,7 +221,7 @@ interface DeveloperMessages {
 
   // developer version editor
   @Message
-  fun developerBreakingChangesBadge(): String
+  fun developerBreakingChangeBadge(): String
 
   @Message
   fun developerReleaseNotesLabel(): String

@@ -323,6 +323,9 @@ class AppVersionManagementService(
     }
     val hasChanges = hasAnyChanges(latestPublished, draft)
     val hasBreaking = resolveBreakingChanges(AppId(appId), latestPublished, draft)
+    val draftEntityIds = draft.entityDefinitions.map { it.id }.toSet()
+    val breakingEntityIds = if (hasBreaking) breakingChangeEntityIds(latestPublished, draft).intersect(draftEntityIds) else emptySet()
+    val breakingPropertyIds = if (hasBreaking) breakingChangePropertyIds(latestPublished, draft) else emptySet()
     val latestVersionNumber = latestPublished.versionNumber ?: run {
       logger.warn { "Compute version bump failed: latest published version has no version number for app $appId" }
       return AppVersionError.VERSION_NOT_FOUND.left()
@@ -335,6 +338,8 @@ class AppVersionManagementService(
       suggestedVersionOnBreaking = onBreaking,
       suggestedVersionOnFeature = onFeature,
       suggestedVersionOnBugfix = onBugfix,
+      breakingEntityIds = breakingEntityIds,
+      breakingPropertyIds = breakingPropertyIds,
     ).right()
   }
 
@@ -1318,23 +1323,35 @@ class AppVersionManagementService(
     }
   }
 
-  private fun isEntityBreaking(publishedEntity: EntityDefinition, draftEntity: EntityDefinition): Boolean {
-    val publishedPropIds = publishedEntity.properties.map { it.id }.toSet()
-    val draftPropIds = draftEntity.properties.map { it.id }.toSet()
-    if (!draftPropIds.containsAll(publishedPropIds)) return true
-    for (publishedProp in publishedEntity.properties) {
-      val draftProp = draftEntity.properties.find { it.id == publishedProp.id } ?: return true
-      if (draftProp.type != publishedProp.type) return true
-      if (publishedProp.nullable && !draftProp.nullable) return true
-      val addedConstraints = draftProp.constraints - publishedProp.constraints
-      if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
-      val publishedUnit = publishedProp.unit
-      val draftUnit = draftProp.unit
-      if ((publishedUnit == null) != (draftUnit == null)) return true
-      if (publishedUnit != null && draftUnit != null) {
-        if (publishedUnit.family != draftUnit.family) return true
-        if (publishedUnit.storageGranularity != draftUnit.storageGranularity) return true
+  /** The ids of Properties present in both [published] and [draft] whose change is breaking. */
+  private fun breakingChangePropertyIds(published: AppVersion, draft: AppVersion): Set<PropertyId> {
+    val draftEntitiesById = draft.entityDefinitions.associateBy { it.id }
+    return published.entityDefinitions.flatMapTo(mutableSetOf()) { publishedEntity ->
+      val draftEntity = draftEntitiesById[publishedEntity.id] ?: return@flatMapTo emptyList()
+      publishedEntity.properties.mapNotNull { publishedProp ->
+        val draftProp = draftEntity.properties.find { it.id == publishedProp.id }
+        if (draftProp != null && isPropertyBreaking(publishedProp, draftProp)) draftProp.id else null
       }
+    }
+  }
+
+  private fun isEntityBreaking(publishedEntity: EntityDefinition, draftEntity: EntityDefinition): Boolean =
+    publishedEntity.properties.any { publishedProp ->
+      val draftProp = draftEntity.properties.find { it.id == publishedProp.id }
+      draftProp == null || isPropertyBreaking(publishedProp, draftProp)
+    }
+
+  private fun isPropertyBreaking(publishedProp: Property, draftProp: Property): Boolean {
+    if (draftProp.type != publishedProp.type) return true
+    if (publishedProp.nullable && !draftProp.nullable) return true
+    val addedConstraints = draftProp.constraints - publishedProp.constraints
+    if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
+    val publishedUnit = publishedProp.unit
+    val draftUnit = draftProp.unit
+    if ((publishedUnit == null) != (draftUnit == null)) return true
+    if (publishedUnit != null && draftUnit != null) {
+      if (publishedUnit.family != draftUnit.family) return true
+      if (publishedUnit.storageGranularity != draftUnit.storageGranularity) return true
     }
     return false
   }

@@ -578,6 +578,8 @@ class DeveloperAppResource {
             suggestedVersionOnBreaking = bump.suggestedVersionOnBreaking.value,
             suggestedVersionOnFeature = bump.suggestedVersionOnFeature.value,
             suggestedVersionOnBugfix = bump.suggestedVersionOnBugfix.value,
+            breakingEntityIds = bump.breakingEntityIds.map { it.value },
+            breakingPropertyIds = bump.breakingPropertyIds.map { it.value },
           ),
         ).build()
       },

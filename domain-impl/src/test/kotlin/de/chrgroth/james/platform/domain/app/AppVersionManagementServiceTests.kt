@@ -918,6 +918,34 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `computeVersionBump locates breaking changes on the affected entities and properties`() {
+    val changedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val removedProp = Property(id = PropertyId("p-2"), name = "Note", type = PropertyType.STRING)
+    val unchangedProp = Property(id = PropertyId("p-3"), name = "Title", type = PropertyType.STRING)
+    val order = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(changedProp, unchangedProp))
+    val customer = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Customer", properties = listOf(removedProp))
+    val untouched = EntityDefinition(id = EntityDefinitionId("e-3"), name = "Invoice", properties = listOf(unchangedProp.copy(id = PropertyId("p-4"))))
+    val deleted = EntityDefinition(id = EntityDefinitionId("e-4"), name = "Legacy")
+    val pub = publishedVersion.copy(entityDefinitions = listOf(order, customer, untouched, deleted))
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(
+      entityDefinitions = listOf(
+        order.copy(properties = listOf(changedProp.copy(nullable = false), unchangedProp)),
+        customer.copy(properties = emptyList()),
+        untouched,
+      ),
+    )
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val bump = service.computeVersionBump("app-1", "ver-draft").getOrNull()!!
+
+    assertThat(bump.hasBreakingChanges).isTrue()
+    assertThat(bump.breakingEntityIds).containsExactlyInAnyOrder(EntityDefinitionId("e-1"), EntityDefinitionId("e-2"))
+    assertThat(bump.breakingPropertyIds).containsExactly(PropertyId("p-1"))
+  }
+
+  @Test
   fun `computeVersionBump reclassifies a breaking change as non-breaking when the compensating migration dry-run succeeds`() {
     val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
     val draftProp = publishedProp.copy(nullable = false)
@@ -932,6 +960,8 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
+    assertThat(result.getOrNull()!!.breakingEntityIds).isEmpty()
+    assertThat(result.getOrNull()!!.breakingPropertyIds).isEmpty()
     verify(exactly = 1) { appVersionMigration.dryRunMigration(AppId("app-1"), any()) }
   }
 

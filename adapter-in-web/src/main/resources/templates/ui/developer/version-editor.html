@@ -32,17 +32,14 @@
 
         <div id="version-message" class="d-none mb-4" role="alert"></div>
 
+        {#if !isDraft}
         <div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
-            {#if !isDraft}
             <div>
                 <h1 class="fs-4 fw-semibold mb-1" data-testid="version-number">{version.versionNumber}</h1>
                 <div class="app-section-label" data-testid="version-created-at">{version.createdAt.formatted}</div>
             </div>
-            {/if}
-            {#if isDraft}
-            <span class="badge app-badge-failed d-none" id="breaking-changes-badge" data-testid="breaking-changes-badge">{developer:developerBreakingChangesBadge()}</span>
-            {/if}
         </div>
+        {/if}
 
         {#if !isDraft}
         {#if version.releaseNotes}
@@ -67,6 +64,7 @@
             <div class="card app-card p-4" data-testid="entity-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">{developer:developerEntityHeading(selectedEntity.name)}</h2>
+                    <span class="badge app-badge-failed d-none ms-1 breaking-change-badge" data-breaking-entity-id="{selectedEntity.id}" data-testid="entity-heading-breaking-change-badge" style="font-size:0.7rem;">{developer:developerBreakingChangeBadge()}</span>
                     {#if !isNestedLevel}
                     <button type="button" class="btn btn-app-secondary btn-sm"
                             data-bs-toggle="modal" data-bs-target="#generateTestDataModal"
@@ -162,7 +160,7 @@
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="property-drag-handle">
                                 <i class="bi bi-grip-vertical" aria-hidden="true"></i>
                             </td>
-                            <td>{prop.name}</td>
+                            <td>{prop.name}<span class="badge app-badge-failed d-none ms-1 breaking-change-badge" data-breaking-property-id="{prop.id}" data-testid="property-breaking-change-badge-{prop.id}" style="font-size:0.7rem;">{developer:developerBreakingChangeBadge()}</span></td>
                             <td>
                                 {#property-type-summary prop=prop version=version /}
                                 {#if prop.type.name == "LIST" && prop.listItemType}
@@ -313,7 +311,7 @@
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="entity-drag-handle">
                                 <i class="bi bi-grip-vertical" aria-hidden="true"></i>
                             </td>
-                            <td data-testid="entity-name-link">{entity.name}</td>
+                            <td><span data-testid="entity-name-link">{entity.name}</span><span class="badge app-badge-failed d-none ms-1 breaking-change-badge" data-breaking-entity-id="{entity.id}" data-testid="entity-breaking-change-badge-{entity.id}" style="font-size:0.7rem;">{developer:developerBreakingChangeBadge()}</span></td>
                             <td>
                                 {#if entity.properties.isEmpty}
                                 <span class="app-section-label" style="font-size:0.75rem;">{msg:commonNotAvailable()}</span>
@@ -1191,15 +1189,22 @@
                 });
             }
 
-            // Breaking changes badge (informs the user before they navigate to the publish page)
-            var breakingChangesBadge = document.getElementById('breaking-changes-badge');
-            if (breakingChangesBadge) {
+            // Breaking change badges on the affected entities/properties (informs the user before they navigate to the publish page)
+            var breakingChangeBadges = document.querySelectorAll('.breaking-change-badge');
+            if (breakingChangeBadges.length > 0) {
                 fetch('/ui/developer/apps/' + appId + '/versions/' + versionId + '/version-bump')
                     .then(function (r) { return r.json(); })
                     .then(function (bump) {
-                        if (bump.hasBreakingChanges) {
-                            breakingChangesBadge.classList.remove('d-none');
-                        }
+                        if (!bump.hasBreakingChanges) return;
+                        var entityIds = bump.breakingEntityIds || [];
+                        var propertyIds = bump.breakingPropertyIds || [];
+                        breakingChangeBadges.forEach(function (badge) {
+                            var entityId = badge.getAttribute('data-breaking-entity-id');
+                            var propertyId = badge.getAttribute('data-breaking-property-id');
+                            if ((entityId && entityIds.indexOf(entityId) >= 0) || (propertyId && propertyIds.indexOf(propertyId) >= 0)) {
+                                badge.classList.remove('d-none');
+                            }
+                        });
                     })
                     .catch(function () {
                         console.warn('Could not load version bump information for version ' + versionId);
