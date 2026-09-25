@@ -147,5 +147,8 @@ interface DeveloperAggregationMessages {
   fun developerAggregationGroupByInvalidError(): String
 
   @Message
+  fun developerAggregationRefPathAndGroupByExclusiveError(): String
+
+  @Message
   fun developerInvalidAggregationDefinitionError(names: String): String
 }

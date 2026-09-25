@@ -1350,7 +1350,7 @@ class AppVersionManagementService(
   /**
    * Ref-depth 1 only (see docs/adr/0020-aggregation-definitions.md): [AggregationDefinition.refPath], if set, must be a top-level REF
    * property of [entity], never a chain. [AggregationDefinition.timeProperty], if set, requires [AggregationDefinition.timeBucket] and
-   * must be a top-level DATE/DATETIME property of [entity].
+   * must be a top-level DATE/DATETIME property of [entity]. [AggregationDefinition.refPath] and [AggregationDefinition.groupBy] are mutually exclusive.
    */
   private fun isValidAggregationDefinition(entity: EntityDefinition, aggregation: AggregationDefinition): Boolean = aggregationDefinitionError(entity, aggregation) == null
 
@@ -1359,6 +1359,8 @@ class AppVersionManagementService(
     if (aggregation.name.isBlank()) return AppVersionError.BLANK_INPUT
     val sourceProperty = entity.properties.find { it.id == aggregation.sourceProperty } ?: return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
     if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    // No combined grouping: groupKeyOf uses a single group key, so refPath and groupBy are mutually exclusive.
+    if (aggregation.refPath != null && aggregation.groupBy != null) return AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE
     aggregation.refPath?.let { refPath ->
       val refProperty = entity.properties.find { it.id == refPath } ?: return AppVersionError.AGGREGATION_REF_PATH_INVALID
       if (refProperty.type != PropertyType.REF) return AppVersionError.AGGREGATION_REF_PATH_INVALID

@@ -1353,6 +1353,7 @@ class DeveloperAppResource {
     AppVersionError.AGGREGATION_TIME_BUCKET_INVALID.code -> aggregationMsg.developerAggregationTimeBucketInvalidError()
     AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID.code -> aggregationMsg.developerAggregationTimePropertyInvalidError()
     AppVersionError.AGGREGATION_GROUP_BY_INVALID.code -> aggregationMsg.developerAggregationGroupByInvalidError()
+    AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE.code -> aggregationMsg.developerAggregationRefPathAndGroupByExclusiveError()
     else -> entityErrorMessage(code)
   }
 

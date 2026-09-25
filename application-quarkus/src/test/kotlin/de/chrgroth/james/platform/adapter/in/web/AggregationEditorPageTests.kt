@@ -152,6 +152,55 @@ class AggregationEditorPageTests {
   }
 
   @Test
+  fun `adding an aggregation with both a reference and groupBy is rejected with a specific message`() {
+    val draft = setupDraft()
+    val targetEntityId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Customer")
+      .`when`()
+      .post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/entities")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+    val refPropertyId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Customer")
+      .formParam("type", "REF")
+      .formParam("nullable", false)
+      .formParam("targetEntityId", targetEntityId)
+      .`when`()
+      .post("${draft.entityUrl}/properties")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("propertyId")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Umsatz je Kunde und Notiz")
+      .formParam("function", "SUM")
+      .formParam("sourceProperty", draft.amountPropertyId)
+      .formParam("refPath", refPropertyId)
+      .formParam("timeBucket", "")
+      .formParam("timeProperty", "")
+      .formParam("groupBy", draft.notePropertyId)
+      .`when`()
+      .post("${draft.entityUrl}/aggregations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+      .body(containsString("nicht gleichzeitig gesetzt werden"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(containsString("data-testid=\"no-aggregations\""))
+      .body(containsString("updateAggregationGroupingOptions"))
+  }
+
+  @Test
   fun `adding an aggregation without a name is rejected`() {
     val draft = setupDraft()
 

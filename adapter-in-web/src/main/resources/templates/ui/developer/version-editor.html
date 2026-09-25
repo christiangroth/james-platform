@@ -1762,6 +1762,15 @@
                 }
                 aggregationFunction.addEventListener('change', updateAggregationSourceOptions);
 
+                // refPath and groupBy are mutually exclusive - mirrors the domain validation. A select is only disabled while empty,
+                // so a stored draft with both set stays editable and can be fixed by clearing one of them.
+                function updateAggregationGroupingOptions() {
+                    aggregationFields.groupBy.disabled = !!aggregationFields.refPath.value && !aggregationFields.groupBy.value;
+                    aggregationFields.refPath.disabled = !!aggregationFields.groupBy.value && !aggregationFields.refPath.value;
+                }
+                aggregationFields.refPath.addEventListener('change', updateAggregationGroupingOptions);
+                aggregationFields.groupBy.addEventListener('change', updateAggregationGroupingOptions);
+
                 function openAggregationModal(row) {
                     aggregationError.classList.add('d-none');
                     aggregationError.textContent = '';
@@ -1781,6 +1790,7 @@
                     }
                     aggregationDeleteBtn.classList.toggle('d-none', !row);
                     updateAggregationSourceOptions();
+                    updateAggregationGroupingOptions();
                     aggregationForm.querySelector('[type="submit"]').disabled = false;
                 }
 
