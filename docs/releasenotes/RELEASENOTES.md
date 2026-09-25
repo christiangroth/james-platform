@@ -1,3 +1,12 @@
+# 0.114.1 (2026.09.25)
+
+## Bugfixes / Chore
+* Aggregationen: „Je referenziertem Objekt“ und „Gruppieren nach“ können nicht mehr gleichzeitig gewählt werden – bisher wurde „Gruppieren nach“ in diesem Fall stillschweigend ignoriert.
+
+
+
+---
+
 # 0.114.0 (2026.09.25)
 
 ## New Features
