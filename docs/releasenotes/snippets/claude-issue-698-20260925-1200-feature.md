@@ -3,3 +3,4 @@
 * Schedule times and all displayed timestamps now use one shared time zone (Europe/Berlin by default), so "daily at 06:30" runs at 06:30 local time; existing schedules are now interpreted in this zone instead of UTC.
 * Fixed unreadable text in dark mode in the data path overview and the mapping preview.
 * Renamed the "Quelldaten anzeigen" button to "Quelldaten Schema".
+* The version diff now also shows changes to an entity's display text, sort order, aggregations and migration script.

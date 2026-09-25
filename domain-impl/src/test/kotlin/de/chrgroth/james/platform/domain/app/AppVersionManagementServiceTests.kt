@@ -2107,6 +2107,31 @@ class AppVersionManagementServiceTests {
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
   }
 
+  /**
+   * Guard against new fields on the versioned model silently escaping the version diff: adding a field to one of
+   * these classes fails this test until it is either rendered by `entityToDslLines`/`reportToDslLines` (and covered by
+   * a case in [versionDiffCases]) or deliberately listed as ignored here.
+   */
+  @Test
+  fun `every field of the versioned model is either diffed or explicitly ignored`() {
+    fun fieldsOf(type: Class<*>) = type.declaredFields.filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }
+
+    // ids identify a section/line (renames show up as changed names); everything else must be rendered
+    assertThat(fieldsOf(EntityDefinition::class.java)).containsExactlyInAnyOrder(
+      "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationScript",
+    )
+    assertThat(fieldsOf(Property::class.java)).containsExactlyInAnyOrder(
+      "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "valueProposals", "targetEntityId", "listItemType", "itemConstraints",
+      "nestedProperties", "unit",
+    )
+    assertThat(fieldsOf(ComputedProperty::class.java)).containsExactlyInAnyOrder("id", "name", "type", "script")
+    assertThat(fieldsOf(AggregationDefinition::class.java)).containsExactlyInAnyOrder(
+      "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy",
+    )
+    assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "html", "script")
+    assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity")
+  }
+
   @ParameterizedTest(name = "getVersionDiff shows {0} in diff lines")
   @MethodSource("versionDiffCases")
   fun `getVersionDiff shows changes in diff lines`(
@@ -3225,7 +3250,38 @@ class AppVersionManagementServiceTests {
         properties = listOf(unitProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS))),
       )
 
+      val displayTextEntity = defaultEntity.copy(displayText = "Order A")
+      val displayTextUpdatedEntity = defaultEntity.copy(displayText = "Order B")
+
+      val sortByEntity = defaultEntity
+      val sortByUpdatedEntity = defaultEntity.copy(sortBy = listOf(SortCriteria("p-1", SortDirection.DESC)))
+
+      val amountProp = Property(id = PropertyId("p-2"), name = "Amount", type = PropertyType.LONG)
+      val aggregationEntity = defaultEntity.copy(properties = listOf(defaultProp, amountProp))
+      val aggregationUpdatedEntity = aggregationEntity.copy(
+        aggregations = listOf(
+          AggregationDefinition(
+            id = AggregationDefinitionId("agg-1"),
+            name = "Total",
+            function = AggregationFunction.SUM,
+            sourceProperty = PropertyId("p-2"),
+            groupBy = PropertyId("p-1"),
+            timeBucket = TimeBucket.MONAT,
+          ),
+        ),
+      )
+
+      val migrationEntity = defaultEntity.copy(migrationScript = "old()")
+      val migrationUpdatedEntity = defaultEntity.copy(migrationScript = "new()")
+
       return Stream.of(
+        Arguments.of("entity display text", listOf(displayTextEntity), listOf(displayTextUpdatedEntity), listOf(listOf("display-text: Order A"), listOf("display-text: Order B"))),
+        Arguments.of("entity sort-by", listOf(sortByEntity), listOf(sortByUpdatedEntity), listOf(listOf("sort-by: Category DESC"))),
+        Arguments.of(
+          "entity aggregation", listOf(aggregationEntity), listOf(aggregationUpdatedEntity),
+          listOf(listOf("aggregation Total: SUM(Amount)"), listOf("group-by: Category"), listOf("time-bucket: MONAT")),
+        ),
+        Arguments.of("entity migration script", listOf(migrationEntity), listOf(migrationUpdatedEntity), listOf(listOf("old()"), listOf("new()"))),
         Arguments.of("default value", listOf(defaultEntity), listOf(defaultUpdatedEntity), listOf(listOf("default:"))),
         Arguments.of("value-proposals", listOf(valueProposalsEntity), listOf(valueProposalsUpdatedEntity), listOf(listOf("value-proposals:"))),
         Arguments.of(
