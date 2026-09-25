@@ -314,6 +314,14 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun unitDefaultGranularity(property: Property): String = (property.unit?.defaultGranularity as? Enum<*>)?.name ?: ""
 
+  /** Returns the symbol of the unit's storage granularity (e.g. "s"), or empty string if the property has no unit configured. */
+  @JvmStatic
+  fun unitStorageGranularitySymbol(property: Property): String = property.unit?.storageGranularity?.symbol ?: ""
+
+  /** Returns the symbol of the unit's default granularity (e.g. "min"), or empty string if the property has no unit configured. */
+  @JvmStatic
+  fun unitDefaultGranularitySymbol(property: Property): String = property.unit?.defaultGranularity?.symbol ?: ""
+
   /** Returns the placeholder/hint text describing the accepted unit text format, or empty string if the property has no unit configured. */
   @JvmStatic
   fun unitFormatHint(property: Property): String = property.unit?.let { domainUnitFormatHint(it.family) } ?: ""

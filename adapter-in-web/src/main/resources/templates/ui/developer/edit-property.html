@@ -294,9 +294,7 @@
                             <th>{developer:developerColName()}</th>
                             <th>{developer:developerColType()}</th>
                             <th>{developer:developerColConstraints()}</th>
-                            <th>{developer:developerColTargetEntity()}</th>
                             <th>{developer:developerColDefault()}</th>
-                            <th>{developer:developerColSmartDefault()}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -307,7 +305,7 @@
                             onclick="window.location.href=this.getAttribute('data-navigate-url')">
                             <td>{np.name}</td>
                             <td>
-                                {np.type.propertyTypeLabel}{#if np.nullable}?{/if}
+                                {#property-type-summary prop=np version=version /}
                                 {#if np.type.name == "LIST" && np.listItemType}
                                 <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemTypeLabel}&gt;</span>
                                 {/if}
@@ -323,23 +321,13 @@
                                 {/if}
                             </td>
                             <td>
-                                {#if np.targetEntityName(version)}
-                                <span class="app-section-label" style="font-size:0.85rem;">{np.targetEntityName(version)}</span>
-                                {#else}
-                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
-                                {/if}
-                            </td>
-                            <td>
                                 {#if np.defaultValue}
                                 <span class="app-section-label" style="font-size:0.85rem;">{np.defaultValue}</span>
-                                {#else}
-                                <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
-                            </td>
-                            <td>
                                 {#if np.smartDefault}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{np.smartDefault}">{developer:developerScriptBadge()}</span>
-                                {#else}
+                                <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{developer:developerColSmartDefault()}: {np.smartDefault}">{developer:developerScriptBadge()}</span>
+                                {/if}
+                                {#if !np.defaultValue && !np.smartDefault}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
                             </td>

@@ -32,9 +32,6 @@ interface DeveloperMessages {
   fun developerColConstraints(): String
 
   @Message
-  fun developerColTargetEntity(): String
-
-  @Message
   fun developerColDefault(): String
 
   @Message
@@ -224,7 +221,10 @@ interface DeveloperMessages {
 
   // developer version editor
   @Message
-  fun developerBreakingChangesBadge(): String
+  fun developerBreakingChangeBadge(): String
+
+  @Message
+  fun developerRemovedBadge(): String
 
   @Message
   fun developerReleaseNotesLabel(): String

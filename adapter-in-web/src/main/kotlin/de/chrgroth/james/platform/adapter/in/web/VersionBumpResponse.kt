@@ -6,4 +6,6 @@ data class VersionBumpResponse(
   val suggestedVersionOnBreaking: String,
   val suggestedVersionOnFeature: String,
   val suggestedVersionOnBugfix: String,
+  val breakingEntityIds: List<String>,
+  val breakingPropertyIds: List<String>,
 )

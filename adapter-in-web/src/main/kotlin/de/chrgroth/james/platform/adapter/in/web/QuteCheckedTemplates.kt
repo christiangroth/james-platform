@@ -127,6 +127,9 @@ object DeveloperTemplates {
     breadcrumb: List<PropertyBreadcrumb>,
     isNestedLevel: Boolean,
     testInstallations: List<TestInstallationInfo>,
+    publishedVersion: AppVersion?,
+    removedEntities: List<EntityDefinition>,
+    removedProperties: List<Property>,
     aggregations: List<AggregationEditorRow>,
     aggregationPropertyOptions: List<AggregationPropertyOptionRow>,
   ): TemplateInstance
