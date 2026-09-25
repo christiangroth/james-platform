@@ -3,6 +3,8 @@ package de.chrgroth.james.platform.domain.imports
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 class CronScheduleTests {
 
@@ -50,7 +52,19 @@ class CronScheduleTests {
   fun `nextFireTime returns the next occurrence strictly after the given instant`() {
     val after = Instant.parse("2026-01-01T02:00:00Z")
 
-    assertThat(CronSchedule.nextFireTime("0 0 3 * * ?", after)).isEqualTo(Instant.parse("2026-01-01T03:00:00Z"))
+    assertThat(CronSchedule.nextFireTime("0 0 3 * * ?", after, ZoneOffset.UTC)).isEqualTo(Instant.parse("2026-01-01T03:00:00Z"))
+  }
+
+  @Test
+  fun `nextFireTime evaluates the expression in the given zone including DST`() {
+    val berlin = ZoneId.of("Europe/Berlin")
+
+    // winter time (UTC+1): 06:30 local == 05:30Z
+    assertThat(CronSchedule.nextFireTime("0 30 6 * * ?", Instant.parse("2026-01-15T00:00:00Z"), berlin)).isEqualTo(Instant.parse("2026-01-15T05:30:00Z"))
+    // summer time (UTC+2): 06:30 local == 04:30Z
+    assertThat(CronSchedule.nextFireTime("0 30 6 * * ?", Instant.parse("2026-07-15T00:00:00Z"), berlin)).isEqualTo(Instant.parse("2026-07-15T04:30:00Z"))
+    // day after the spring-forward change (2026-03-29): still 06:30 local == 04:30Z
+    assertThat(CronSchedule.nextFireTime("0 30 6 * * ?", Instant.parse("2026-03-29T05:00:00Z"), berlin)).isEqualTo(Instant.parse("2026-03-30T04:30:00Z"))
   }
 
   @Test

@@ -767,7 +767,9 @@ class ImportService(
       sourceUrl = resolveImportUrl(connection.baseUrl, definition.urlPostfix),
     )
 
+    var replacedCount = 0
     if (event.replaceExisting) {
+      replacedCount = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id).size
       appDataRepository.deleteAllByInstalledAppIdAndEntityType(installedApp.id, entityDefinition.id)
       logger.info { "Accept dry run: cleared existing data before replace import: installedAppId=${installedApp.id} entityType=${entityDefinition.id}" }
     }
@@ -800,7 +802,7 @@ class ImportService(
       enqueueAggregationRecompute(installedApp.id, entityDefinitionsOf(installedApp), entityDefinition.id)
     }
 
-    importJobRepository.save(existing.copy(status = ImportStatus.ACCEPTED, lastChangedAt = now))
+    importJobRepository.save(existing.copy(status = ImportStatus.ACCEPTED, addedCount = savedCount, replacedCount = replacedCount, discardedCount = discardedCount, lastChangedAt = now))
     logger.info { "Dry run accepted: importJobId=${event.importJobId} saved=$savedCount discarded=$discardedCount" }
     if (existing.triggeredBy == ImportTrigger.SYSTEM && definition.notifyOnSlack) {
       notificationPort.notify("Scheduled import \"${definition.name}\" completed: $savedCount saved, $discardedCount discarded.")

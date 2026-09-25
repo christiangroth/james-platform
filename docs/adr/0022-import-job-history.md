@@ -48,8 +48,9 @@ Chosen option: **"Add `ImportStatus.ACCEPTED`, keep the job, merge the pages"**.
 a fifth value, `ACCEPTED`, alongside the existing in-progress values (`DOWNLOADED`, `DATA_IDENTIFIED`,
 `READY`, `ACCEPTING`). `ImportService.handle` (the `AcceptDryRun` outbox handler) now saves the job
 with `status = ACCEPTED` instead of deleting it, for both the plain-accept and `replaceExisting`
-paths; the "replace existing" clear-then-reimport branch was already unaffected by this change since
-it clears `AppData`, not the `ImportJob`. `ImportCleanupService`'s age-based deletion is left
+paths (recording `addedCount`, `replacedCount` and `discardedCount` on the accepted job, `null` for
+jobs accepted before these existed); the "replace existing" clear-then-reimport branch was already
+unaffected by this change since it clears `AppData`, not the `ImportJob`. `ImportCleanupService`'s age-based deletion is left
 unchanged - it now doubles as the accepted-job history's retention window, exactly matching the
 existing incomplete-job cleanup behavior the issue explicitly called out as reusable.
 

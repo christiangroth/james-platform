@@ -7,6 +7,9 @@
             <tr>
                 <th>{userImportDefinition:userImportDefinitionHistoryColDate()}</th>
                 <th>{userImportDefinition:userImportDefinitionHistoryColStatus()}</th>
+                <th class="text-end">{userImportDefinition:userImportDefinitionHistoryColAdded()}</th>
+                <th class="text-end">{userImportDefinition:userImportDefinitionHistoryColReplaced()}</th>
+                <th class="text-end">{userImportDefinition:userImportDefinitionHistoryColDiscarded()}</th>
             </tr>
         </thead>
         <tbody>
@@ -14,6 +17,9 @@
             <tr data-testid="history-row">
                 <td data-testid="history-date">{row.date.formatted}</td>
                 <td data-testid="history-status"><span class="badge border-0 app-badge-processing">{row.statusLabel}</span></td>
+                <td class="text-end" data-testid="history-added">{#if row.added != null}{row.added}{#else}–{/if}</td>
+                <td class="text-end" data-testid="history-replaced">{#if row.replaced != null}{row.replaced}{#else}–{/if}</td>
+                <td class="text-end" data-testid="history-discarded">{#if row.discarded != null}{row.discarded}{#else}–{/if}</td>
             </tr>
             {/for}
         </tbody>

@@ -1478,6 +1478,9 @@ class AppVersionManagementService(
   private fun entityToDslLines(entity: EntityDefinition, allEntities: List<EntityDefinition>): List<String> {
     val lines = mutableListOf<String>()
     lines.add("entity ${entity.name} {")
+    if (entity.displayText != null) {
+      lines.add("  display-text: ${entity.displayText}")
+    }
     for (prop in entity.properties.sortedBy { it.name }) {
       lines.addAll(propertyToDslLines(prop, allEntities, "  "))
     }
@@ -1487,7 +1490,30 @@ class AppVersionManagementService(
         lines.add("    script: ${cp.script}")
       }
     }
+    if (entity.sortBy.isNotEmpty()) {
+      lines.add("  sort-by: ${entity.sortBy.joinToString(", ") { "${propertyNameOf(entity, it.propertyId)} ${it.direction}" }}")
+    }
+    for (aggregation in entity.aggregations.sortedBy { it.name }) {
+      lines.addAll(aggregationToDslLines(aggregation, entity))
+    }
+    val migrationScript = entity.migrationScript
+    if (migrationScript != null) {
+      lines.add("  migration-script:")
+      lines.addAll(migrationScript.lines().map { "    $it" })
+    }
     lines.add("}")
+    return lines
+  }
+
+  private fun propertyNameOf(entity: EntityDefinition, propertyId: String): String =
+    entity.properties.find { it.id.value == propertyId }?.name ?: propertyId
+
+  private fun aggregationToDslLines(aggregation: AggregationDefinition, entity: EntityDefinition): List<String> {
+    val lines = mutableListOf("  aggregation ${aggregation.name}: ${aggregation.function}(${propertyNameOf(entity, aggregation.sourceProperty.value)})")
+    aggregation.refPath?.let { lines.add("    ref-path: ${propertyNameOf(entity, it.value)}") }
+    aggregation.groupBy?.let { lines.add("    group-by: ${propertyNameOf(entity, it.value)}") }
+    aggregation.timeBucket?.let { lines.add("    time-bucket: $it") }
+    aggregation.timeProperty?.let { lines.add("    time-property: ${propertyNameOf(entity, it.value)}") }
     return lines
   }
 

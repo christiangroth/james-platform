@@ -48,13 +48,34 @@ interface UserImportDefinitionMessages {
   fun userImportDefinitionScheduleModalTitle(): String
 
   @Message
-  fun userImportDefinitionScheduleLabel(): String
+  fun userImportDefinitionScheduleModeNone(): String
 
   @Message
-  fun userImportDefinitionScheduleHint(): String
+  fun userImportDefinitionScheduleModeDaily(): String
 
   @Message
-  fun userImportDefinitionScheduleClearHint(): String
+  fun userImportDefinitionScheduleModeInterval(): String
+
+  @Message
+  fun userImportDefinitionScheduleTimeZoneHint(): String
+
+  @Message
+  fun userImportDefinitionScheduleCustomHint(expression: String): String
+
+  @Message
+  fun userImportDefinitionScheduleDescDaily(time: String): String
+
+  @Message
+  fun userImportDefinitionScheduleDescEveryMinutes(minutes: Int): String
+
+  @Message
+  fun userImportDefinitionScheduleDescEveryHours(hours: Int): String
+
+  @Message
+  fun userImportDefinitionScheduleDescHourly(): String
+
+  @Message
+  fun userImportDefinitionScheduleDescCustom(expression: String): String
 
   @Message
   fun userImportDefinitionNotifyOnSlackLabel(): String
@@ -102,6 +123,15 @@ interface UserImportDefinitionMessages {
 
   @Message
   fun userImportDefinitionHistoryColStatus(): String
+
+  @Message
+  fun userImportDefinitionHistoryColAdded(): String
+
+  @Message
+  fun userImportDefinitionHistoryColReplaced(): String
+
+  @Message
+  fun userImportDefinitionHistoryColDiscarded(): String
 
   @Message
   fun userImportDefinitionNoHistoryMessage(): String

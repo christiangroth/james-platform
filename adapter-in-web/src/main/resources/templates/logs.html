@@ -55,7 +55,7 @@
                                 <tbody>
                                     {#for entry in group.entries}
                                     <tr>
-                                        <td class="log-timestamp" data-epoch-ms="{entry.timestampEpochMillis}">{entry.timestamp}</td>
+                                        <td class="log-timestamp" data-epoch-ms="{entry.timestampEpochMillis}">{entry.timestamp.formatted}</td>
                                         <td data-testid="log-message">{entry.message}</td>
                                         <td>
                                             {#if entry.stacktrace}
@@ -90,7 +90,7 @@
                         <tbody>
                             {#for entry in entries}
                             <tr>
-                                <td class="log-timestamp" data-epoch-ms="{entry.timestampEpochMillis}">{entry.timestamp}</td>
+                                <td class="log-timestamp" data-epoch-ms="{entry.timestampEpochMillis}">{entry.timestamp.formatted}</td>
                                 <td>
                                     {#if entry.level == 'ERROR'}
                                     <span class="badge app-badge-failed" data-testid="log-level">{entry.level}</span>
@@ -127,14 +127,5 @@
             color: #111111;
         }
     </style>
-    <script>
-        (function () {
-            document.querySelectorAll('.log-timestamp[data-epoch-ms]').forEach(function (cell) {
-                var epochMs = Number(cell.getAttribute('data-epoch-ms'));
-                if (!Number.isFinite(epochMs)) return;
-                cell.textContent = new Date(epochMs).toLocaleString();
-            });
-        })();
-    </script>
     {/content}
 {/include}

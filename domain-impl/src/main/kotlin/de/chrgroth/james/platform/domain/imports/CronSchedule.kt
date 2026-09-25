@@ -5,8 +5,10 @@ import com.cronutils.model.CronType
 import com.cronutils.model.definition.CronDefinitionBuilder
 import com.cronutils.model.time.ExecutionTime
 import com.cronutils.parser.CronParser
+import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 
@@ -55,9 +57,14 @@ object CronSchedule {
    * (e.g. the Import-Definitionen table) and to compute the `notBefore` instant for the delayed-dispatch
    * `DomainOutboxEvent.RunScheduledImport` outbox event enqueued by `ImportService.rescheduleNextRun` (see ADR 0019).
    * Null if [expression] is invalid or has no future occurrence.
+   *
+   * The expression is evaluated in [zone], by default [AppTimeZone] - the very zone the web adapter's `.formatted`
+   * template extension renders instants in - so a user picking "daily at 06:30" gets 06:30 on the clock they see in
+   * the UI, including across DST changes. (The minimum-interval check in [isValid] is zone-independent
+   * and stays on UTC.)
    */
-  fun nextFireTime(expression: String, after: Instant): Instant? = try {
-    ExecutionTime.forCron(parser.parse(expression)).nextExecution(after.atZone(ZoneOffset.UTC)).orElse(null)?.toInstant()
+  fun nextFireTime(expression: String, after: Instant, zone: ZoneId = AppTimeZone.zone): Instant? = try {
+    ExecutionTime.forCron(parser.parse(expression)).nextExecution(after.atZone(zone)).orElse(null)?.toInstant()
   } catch (e: IllegalArgumentException) {
     null
   }

@@ -35,8 +35,6 @@ function connectSse(url, onMessage, onOpen) {
     }, 60000);
 }
 
-var TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-
 function formatCountdown(ms) {
     if (ms <= 0) return 'now';
     var totalSeconds = Math.floor(ms / 1000);
@@ -48,16 +46,3 @@ function formatCountdown(ms) {
         + String(seconds).padStart(2, '0');
 }
 
-function formatBlockedUntil(epochMs) {
-    var d = new Date(epochMs);
-    var hours = String(d.getHours()).padStart(2, '0');
-    var minutes = String(d.getMinutes()).padStart(2, '0');
-    var remaining = epochMs - Date.now();
-    if (remaining < TWENTY_FOUR_HOURS_MS) {
-        return hours + ':' + minutes;
-    }
-    var day = String(d.getDate()).padStart(2, '0');
-    var month = String(d.getMonth() + 1).padStart(2, '0');
-    var year = d.getFullYear();
-    return day + '.' + month + '.' + year + ' ' + hours + ':' + minutes;
-}

@@ -18,6 +18,9 @@ class ImportJobDocument {
   var detectedSchema: List<SchemaPropertyDocument> = emptyList()
   var filteredSchema: List<SchemaPropertyDocument> = emptyList()
   var triggeredBy: String = "USER"
+  var addedCount: Int? = null
+  var replacedCount: Int? = null
+  var discardedCount: Int? = null
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
 }

@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportDefinitionMess
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.ImportError
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.SchedulePreset
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportPort
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
@@ -25,6 +26,9 @@ import java.time.Instant
 data class ImportHistoryRowRow(
   val date: Instant,
   val statusLabel: String,
+  val added: Int?,
+  val replaced: Int?,
+  val discarded: Int?,
 )
 
 @Path("/ui/user/imports/definitions")
@@ -70,7 +74,7 @@ class UserImportDefinitionResource {
     val rows = importPort.listAllImportJobs(userId)
       .filter { it.importDefinitionId.value == definitionId && it.status == ImportStatus.ACCEPTED }
       .sortedByDescending { it.lastChangedAt }
-      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted()) }
+      .map { ImportHistoryRowRow(date = it.lastChangedAt, statusLabel = userImportDefinitionMsg.userImportStatusAccepted(), added = it.addedCount, replaced = it.replacedCount, discarded = it.discardedCount) }
     UserTemplates.`import-history`(rows)
   }
 
@@ -111,11 +115,21 @@ class UserImportDefinitionResource {
   @Produces(MediaType.APPLICATION_JSON)
   fun schedule(
     @PathParam("definitionId") definitionId: String,
-    @FormParam("schedule") schedule: String?,
+    @FormParam("mode") mode: String?,
+    @FormParam("time") time: String?,
+    @FormParam("intervalMinutes") intervalMinutes: String?,
     @FormParam("notifyOnSlack") notifyOnSlack: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import-definition.schedule") {
     val userId = securityIdentity.principal.name
-    importPort.updateSchedule(userId, definitionId, schedule, !notifyOnSlack.isNullOrBlank()).fold(
+    // No free cron input: the structured form values are converted to the stored cron expression here, which then
+    // still goes through ImportPort.updateSchedule's CronSchedule validation.
+    val cron: String? = when (mode) {
+      "NONE" -> null
+      "DAILY" -> SchedulePreset.daily(time)?.toCron() ?: return@timed invalidScheduleResponse()
+      "INTERVAL" -> SchedulePreset.interval(intervalMinutes?.trim()?.toIntOrNull())?.toCron() ?: return@timed invalidScheduleResponse()
+      else -> return@timed invalidScheduleResponse()
+    }
+    importPort.updateSchedule(userId, definitionId, cron, !notifyOnSlack.isNullOrBlank()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, definitionErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userImportDefinitionMsg.userImportDefinitionScheduleSavedMessage())).build() },
     )
@@ -131,6 +145,9 @@ class UserImportDefinitionResource {
       ifRight = { Response.ok(DeveloperApiResult(true, userImportDefinitionMsg.userImportDefinitionDeletedMessage())).build() },
     )
   }
+
+  private fun invalidScheduleResponse(): Response =
+    Response.ok(DeveloperApiResult(false, userImportDefinitionMsg.userImportInvalidCronScheduleError())).build()
 
   private fun definitionErrorMessage(code: String): String = when (code) {
     ImportError.DEFINITION_NOT_FOUND.code -> userImportDefinitionMsg.userImportDefinitionNotFoundError()

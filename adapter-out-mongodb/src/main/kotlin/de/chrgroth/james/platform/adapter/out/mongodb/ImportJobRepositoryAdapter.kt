@@ -78,6 +78,9 @@ class ImportJobRepositoryAdapter(
     detectedSchema = detectedSchema.map { it.toDomain() },
     filteredSchema = filteredSchema.map { it.toDomain() },
     triggeredBy = ImportTrigger.valueOf(triggeredBy),
+    addedCount = addedCount,
+    replacedCount = replacedCount,
+    discardedCount = discardedCount,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
   )
@@ -111,6 +114,9 @@ class ImportJobRepositoryAdapter(
     doc.detectedSchema = detectedSchema.map { it.toDocument() }
     doc.filteredSchema = filteredSchema.map { it.toDocument() }
     doc.triggeredBy = triggeredBy.name
+    doc.addedCount = addedCount
+    doc.replacedCount = replacedCount
+    doc.discardedCount = discardedCount
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
   }

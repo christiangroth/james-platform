@@ -38,7 +38,9 @@
             <div class="card app-card mb-3 p-3"
                  data-testid="definition-block"
                  data-definition-id="{definition.id}"
-                 data-definition-schedule="{definition.schedule}"
+                 data-definition-schedule-mode="{definition.scheduleMode}"
+                 data-definition-schedule-time="{definition.scheduleTime}"
+                 data-definition-schedule-interval="{definition.scheduleIntervalMinutes}"
                  data-definition-notify-on-slack="{definition.notifyOnSlack}">
                 <div class="d-flex align-items-start flex-wrap gap-2 mb-2">
                     <div>
@@ -50,7 +52,8 @@
                         <div class="text-muted small">
                             <div data-testid="definition-schedule">
                                 {userImportDefinition:userImportDefinitionColSchedule()}:
-                                {#if definition.hasSchedule}{definition.schedule}{#else}{userImportDefinition:userImportDefinitionScheduleManualLabel()}{/if}
+                                <span data-testid="definition-schedule-label">{definition.scheduleLabel}</span>
+                                {#if definition.scheduleMode == 'CUSTOM'}<span class="d-none" data-testid="definition-schedule-custom-hint">{userImportDefinition:userImportDefinitionScheduleCustomHint(definition.schedule)}</span>{/if}
                             </div>
                             <div data-testid="definition-last-run">
                                 {userImportDefinition:userImportDefinitionColLastRun()}:
@@ -229,12 +232,31 @@
                 <form id="scheduleForm">
                     <div class="modal-body">
                         <div id="schedule-modal-message" class="d-none mb-3" role="alert"></div>
-                        <div class="mb-2">
-                            <label for="scheduleCron" class="form-label">{userImportDefinition:userImportDefinitionScheduleLabel()}</label>
-                            <input type="text" class="form-control app-form-control" id="scheduleCron" name="schedule" autocomplete="off" data-testid="schedule-cron-input">
-                            <div class="form-text">{userImportDefinition:userImportDefinitionScheduleHint()}</div>
-                            <div class="form-text">{userImportDefinition:userImportDefinitionScheduleClearHint()}</div>
+                        <div id="scheduleCustomHint" class="alert alert-warning d-none" role="note" data-testid="schedule-custom-hint"></div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="mode" id="scheduleModeNone" value="NONE" checked data-testid="schedule-mode-none">
+                            <label class="form-check-label" for="scheduleModeNone">{userImportDefinition:userImportDefinitionScheduleModeNone()}</label>
                         </div>
+                        <div class="form-check mb-2 d-flex align-items-center gap-2">
+                            <input class="form-check-input mt-0" type="radio" name="mode" id="scheduleModeDaily" value="DAILY" data-testid="schedule-mode-daily">
+                            <label class="form-check-label" for="scheduleModeDaily">{userImportDefinition:userImportDefinitionScheduleModeDaily()}</label>
+                            <select class="form-select form-select-sm app-form-control w-auto" id="scheduleTime" name="time" data-testid="schedule-time-select"></select>
+                        </div>
+                        <div class="form-check mb-2 d-flex align-items-center gap-2">
+                            <input class="form-check-input mt-0" type="radio" name="mode" id="scheduleModeInterval" value="INTERVAL" data-testid="schedule-mode-interval">
+                            <label class="form-check-label" for="scheduleModeInterval">{userImportDefinition:userImportDefinitionScheduleModeInterval()}</label>
+                            <select class="form-select form-select-sm app-form-control w-auto" id="scheduleInterval" name="intervalMinutes" data-testid="schedule-interval-select">
+                                <option value="15">15 Min</option>
+                                <option value="30">30 Min</option>
+                                <option value="60">1 Std</option>
+                                <option value="120">2 Std</option>
+                                <option value="180">3 Std</option>
+                                <option value="240">4 Std</option>
+                                <option value="360">6 Std</option>
+                                <option value="720">12 Std</option>
+                            </select>
+                        </div>
+                        <div class="form-text">{userImportDefinition:userImportDefinitionScheduleTimeZoneHint()}</div>
                         <div class="form-check mt-3">
                             <input class="form-check-input" type="checkbox" id="scheduleNotifyOnSlack" name="notifyOnSlack" data-testid="schedule-notify-on-slack-checkbox">
                             <label class="form-check-label" for="scheduleNotifyOnSlack">{userImportDefinition:userImportDefinitionNotifyOnSlackLabel()}</label>
@@ -515,6 +537,26 @@
 
             var scheduleModal = document.getElementById('scheduleModal');
             var scheduleForm = document.getElementById('scheduleForm');
+
+            // 15-minute raster 00:00 ... 23:45
+            var scheduleTimeSelect = scheduleForm.querySelector('#scheduleTime');
+            for (var h = 0; h < 24; h++) {
+                for (var m = 0; m < 60; m += 15) {
+                    var label = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+                    scheduleTimeSelect.add(new Option(label, label));
+                }
+            }
+
+            // only the selects of the chosen mode are editable
+            function updateScheduleControls() {
+                var selected = scheduleForm.querySelector('input[name="mode"]:checked');
+                var mode = selected ? selected.value : 'NONE';
+                scheduleTimeSelect.disabled = mode !== 'DAILY';
+                scheduleForm.querySelector('#scheduleInterval').disabled = mode !== 'INTERVAL';
+            }
+            scheduleForm.querySelectorAll('input[name="mode"]').forEach(function (radio) {
+                radio.addEventListener('change', updateScheduleControls);
+            });
             scheduleModal.addEventListener('show.bs.modal', function (event) {
                 var trigger = event.relatedTarget;
                 // closest('[data-definition-id]') would match the trigger button itself first (it also carries
@@ -522,7 +564,17 @@
                 // data-definition-schedule/data-definition-notify-on-slack - target the card explicitly.
                 var row = trigger ? trigger.closest('[data-testid="definition-block"]') : null;
                 scheduleModal.setAttribute('data-definition-id', trigger ? trigger.getAttribute('data-definition-id') : '');
-                scheduleForm.querySelector('#scheduleCron').value = row ? (row.getAttribute('data-definition-schedule') || '') : '';
+                var mode = row ? (row.getAttribute('data-definition-schedule-mode') || 'NONE') : 'NONE';
+                // a legacy custom cron is not representable - preselect "Kein Zeitplan" and warn that saving replaces it
+                var radioMode = mode === 'CUSTOM' ? 'NONE' : mode;
+                scheduleForm.querySelector('input[name="mode"][value="' + radioMode + '"]').checked = true;
+                scheduleForm.querySelector('#scheduleTime').value = (row && row.getAttribute('data-definition-schedule-time')) || '06:00';
+                scheduleForm.querySelector('#scheduleInterval').value = (row && row.getAttribute('data-definition-schedule-interval')) || '60';
+                var customHint = row ? row.querySelector('[data-testid="definition-schedule-custom-hint"]') : null;
+                var customHintBox = scheduleForm.querySelector('#scheduleCustomHint');
+                customHintBox.textContent = customHint ? customHint.textContent : '';
+                customHintBox.classList.toggle('d-none', !customHint);
+                updateScheduleControls();
                 scheduleForm.querySelector('#scheduleNotifyOnSlack').checked = !!row && row.getAttribute('data-definition-notify-on-slack') === 'true';
             });
 
