@@ -61,7 +61,8 @@ sealed interface SchedulePreset {
     fun fromCron(expression: String?): SchedulePreset? {
       val expr = expression?.trim() ?: return null
       val candidate: SchedulePreset? = DAILY_CRON.matchEntire(expr)?.let { match ->
-        val (hour, minute) = match.destructured
+        // cron field order is "sec min hour", i.e. minute first
+        val (minute, hour) = match.destructured
         runCatching { Daily(hour.toInt(), minute.toInt()) }.getOrNull()
       } ?: MINUTE_INTERVAL_CRON.matchEntire(expr)?.let { interval(it.groupValues[1].toInt()) }
         ?: HOUR_INTERVAL_CRON.matchEntire(expr)?.let { interval(it.groupValues[1].toInt() * 60) }
