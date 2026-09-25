@@ -152,7 +152,8 @@ of a draft; the editor applies the same validation rules as the Version publish 
   instances, e.g. total kilometers per running shoe via a `Lauf.laufschuhId` reference.
 - An optional **`timeBucket`** (`TAG`/`WOCHE`/`MONAT`/`JAHR`) buckets values by day/week/month/year, derived from an optional `timeProperty` (a `date`/`datetime`
   property) or, if unset, the object's `createdAt`.
-- An optional **`groupBy`** groups values by another top-level property of the same Entity.
+- An optional **`groupBy`** groups values by another top-level property of the same Entity. `refPath` and `groupBy` are mutually exclusive — there is no combined
+  group key, so validation (editor and publish) rejects definitions that set both, and the editor disables one select while the other has a value.
 
 Values are stored as precomputed read-model documents (reusing the storage convention from ADR [0013](../adr/0013-precomputed-read-models-per-ui-page.md)), each carrying
 a `status` (`UP_TO_DATE`/`STALE`). Single-object writes update affected aggregations inline via a statically derived dependency index; bulk recomputation (e.g. on

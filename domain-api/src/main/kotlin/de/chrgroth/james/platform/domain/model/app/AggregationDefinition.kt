@@ -33,6 +33,9 @@ enum class TimeBucket { TAG, WOCHE, MONAT, JAHR }
  * Entity, e.g. `Lauf.laufschuhId` producing one value per `Laufschuh`. Without [refPath], the aggregation produces
  * a single, ungrouped value across all instances of the owning Entity.
  *
+ * [refPath] and [groupBy] are mutually exclusive: an aggregation is grouped either per referenced instance or by
+ * another property, never by both (there is no combined group key). Validation rejects definitions setting both.
+ *
  * [timeProperty] only applies when [timeBucket] is set: it overrides which timestamp an item's time bucket is
  * derived from. Must be a top-level property of that same Entity of type [PropertyType.DATE] or
  * [PropertyType.DATETIME]. When unset, bucketing falls back to the item's `AppData.createdAt`.

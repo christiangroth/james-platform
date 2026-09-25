@@ -34,7 +34,8 @@ fun AggregationDefinition.contributionOf(item: AppData): Double? {
 /**
  * The group this aggregation's value for [item] belongs to: the AppData id of the referenced Entity instance
  * (via [AggregationDefinition.refPath]) if set, else the stringified value of [AggregationDefinition.groupBy] if
- * set, else null for a single, ungrouped value across the owning Entity.
+ * set, else null for a single, ungrouped value across the owning Entity. [AggregationDefinition.refPath] and
+ * [AggregationDefinition.groupBy] are mutually exclusive (enforced by the Version validation), so at most one applies.
  */
 fun AggregationDefinition.groupKeyOf(item: AppData): String? =
   refPath?.let { item.data[it.value] } ?: groupBy?.let { item.data[it.value] }

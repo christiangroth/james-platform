@@ -579,6 +579,30 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `publishVersion fails with InvalidAggregationDefinitionError when refPath and groupBy are both set`() {
+    val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
+    val shoeRefProp = Property(id = PropertyId("p-2"), name = "Laufschuh", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-2"))
+    val sportProp = Property(id = PropertyId("p-3"), name = "Sportart", type = PropertyType.STRING)
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"),
+      name = "Total",
+      function = AggregationFunction.SUM,
+      sourceProperty = kilometerProp.id,
+      refPath = shoeRefProp.id,
+      groupBy = sportProp.id,
+    )
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Lauf", properties = listOf(kilometerProp, shoeRefProp, sportProp), aggregations = listOf(aggregation))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull()
+    assertThat(error).isInstanceOf(InvalidAggregationDefinitionError::class.java)
+    assertThat((error as InvalidAggregationDefinitionError).entityNames).containsExactly("Lauf")
+  }
+
+  @Test
   fun `publishVersion fails with InvalidAggregationDefinitionError when refPath is not a REF property`() {
     val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
     val notARefProp = Property(id = PropertyId("p-2"), name = "Note", type = PropertyType.STRING)
@@ -690,7 +714,7 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion succeeds with a valid cross-entity aggregation using refPath, groupBy and timeBucket`() {
+  fun `publishVersion succeeds with a valid cross-entity aggregation using refPath and timeBucket`() {
     val kilometerProp = Property(id = PropertyId("p-1"), name = "Kilometer", type = PropertyType.DOUBLE)
     val laufschuhRefProp = Property(id = PropertyId("p-2"), name = "Laufschuh", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-2"))
     val laufartProp = Property(id = PropertyId("p-3"), name = "Laufart", type = PropertyType.STRING)
@@ -701,7 +725,6 @@ class AppVersionManagementServiceTests {
       sourceProperty = kilometerProp.id,
       refPath = laufschuhRefProp.id,
       timeBucket = TimeBucket.MONAT,
-      groupBy = laufartProp.id,
     )
     val laufEntity = EntityDefinition(
       id = EntityDefinitionId("e-1"),
@@ -3128,7 +3151,7 @@ class AppVersionManagementServiceTests {
 
     val result = service.addAggregation(
       "app-1", "ver-1", "e-run",
-      input(name = "  Kilometer je Schuh  ", refPath = shoeRefProp.id.value, timeBucket = "MONAT", timeProperty = dateProp.id.value, groupBy = noteProp.id.value),
+      input(name = "  Kilometer je Schuh  ", refPath = shoeRefProp.id.value, timeBucket = "MONAT", timeProperty = dateProp.id.value),
     )
 
     assertThat(result.isRight()).isTrue()
@@ -3139,8 +3162,20 @@ class AppVersionManagementServiceTests {
     assertThat(aggregation.refPath).isEqualTo(shoeRefProp.id)
     assertThat(aggregation.timeBucket).isEqualTo(TimeBucket.MONAT)
     assertThat(aggregation.timeProperty).isEqualTo(dateProp.id)
-    assertThat(aggregation.groupBy).isEqualTo(noteProp.id)
+    assertThat(aggregation.groupBy).isNull()
     verify { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `addAggregation adds an aggregation grouped by another property`() {
+    givenDraftWith(runEntity)
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", input(name = "Kilometer je Notiz", groupBy = noteProp.id.value))
+
+    assertThat(result.isRight()).isTrue()
+    val aggregation = result.getOrNull()!!.entityDefinitions.single().aggregations.single()
+    assertThat(aggregation.groupBy).isEqualTo(noteProp.id)
+    assertThat(aggregation.refPath).isNull()
   }
 
   @Test
@@ -3359,6 +3394,7 @@ class AppVersionManagementServiceTests {
         Arguments.of("time property that is no date", input(timeBucket = "TAG", timeProperty = "p-note"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
         Arguments.of("groupBy equal to source property", input(groupBy = "p-km"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
         Arguments.of("groupBy on a LIST property", input(groupBy = "p-tags"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
+        Arguments.of("refPath combined with groupBy", input(refPath = "p-shoe", groupBy = "p-note"), AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE),
       )
     }
 
