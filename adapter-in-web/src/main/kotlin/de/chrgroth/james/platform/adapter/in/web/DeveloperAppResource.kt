@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
@@ -151,6 +152,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var devMsg: DeveloperMessages
+
+  @Inject
+  private lateinit var aggregationMsg: DeveloperAggregationMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -642,7 +646,7 @@ class DeveloperAppResource {
           }
           is InvalidAggregationDefinitionError -> {
             val names = error.entityNames.joinToString(", ")
-            Response.ok(DeveloperApiResult(false, devMsg.developerInvalidAggregationDefinitionError(names))).build()
+            Response.ok(DeveloperApiResult(false, aggregationMsg.developerInvalidAggregationDefinitionError(names))).build()
           }
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
@@ -1217,11 +1221,11 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.aggregation-add") {
     val input = aggregationInput(form)
     if (input.name.isBlank()) {
-      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerAggregationNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, aggregationMsg.developerAggregationNameRequiredError())).build()
     }
     appVersionManagement.addAggregation(appId, versionId, entityId, input).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, aggregationErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAggregationAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, aggregationMsg.developerAggregationAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -1238,11 +1242,11 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.aggregation-update") {
     val input = aggregationInput(form)
     if (input.name.isBlank()) {
-      return@timed Response.ok(DeveloperApiResult(false, devMsg.developerAggregationNameRequiredError())).build()
+      return@timed Response.ok(DeveloperApiResult(false, aggregationMsg.developerAggregationNameRequiredError())).build()
     }
     appVersionManagement.updateAggregation(appId, versionId, entityId, aggregationId, input).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, aggregationErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAggregationUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, aggregationMsg.developerAggregationUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -1257,7 +1261,7 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.aggregation-delete") {
     appVersionManagement.deleteAggregation(appId, versionId, entityId, aggregationId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, aggregationErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerAggregationDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, aggregationMsg.developerAggregationDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -1291,12 +1295,12 @@ class DeveloperAppResource {
   }
 
   private fun aggregationDetails(aggregation: AggregationDefinition, nameOf: (String?) -> String): String = listOfNotNull(
-    aggregation.refPath?.let { devMsg.developerAggregationDetailPerRef(nameOf(it.value)) },
+    aggregation.refPath?.let { aggregationMsg.developerAggregationDetailPerRef(nameOf(it.value)) },
     aggregation.timeBucket?.let { bucket ->
-      val bucketText = devMsg.developerAggregationDetailPerTimeBucket(timeBucketLabel(bucket))
+      val bucketText = aggregationMsg.developerAggregationDetailPerTimeBucket(timeBucketLabel(bucket))
       aggregation.timeProperty?.let { "$bucketText (${nameOf(it.value)})" } ?: bucketText
     },
-    aggregation.groupBy?.let { devMsg.developerAggregationDetailGroupBy(nameOf(it.value)) },
+    aggregation.groupBy?.let { aggregationMsg.developerAggregationDetailGroupBy(nameOf(it.value)) },
   ).joinToString(" · ")
 
   private fun aggregationPropertyOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.properties.map {
@@ -1311,30 +1315,30 @@ class DeveloperAppResource {
   }
 
   private fun aggregationFunctionLabel(function: AggregationFunction): String = when (function) {
-    AggregationFunction.SUM -> devMsg.developerAggregationFunctionSum()
-    AggregationFunction.COUNT -> devMsg.developerAggregationFunctionCount()
-    AggregationFunction.AVG -> devMsg.developerAggregationFunctionAvg()
-    AggregationFunction.MIN -> devMsg.developerAggregationFunctionMin()
-    AggregationFunction.MAX -> devMsg.developerAggregationFunctionMax()
+    AggregationFunction.SUM -> aggregationMsg.developerAggregationFunctionSum()
+    AggregationFunction.COUNT -> aggregationMsg.developerAggregationFunctionCount()
+    AggregationFunction.AVG -> aggregationMsg.developerAggregationFunctionAvg()
+    AggregationFunction.MIN -> aggregationMsg.developerAggregationFunctionMin()
+    AggregationFunction.MAX -> aggregationMsg.developerAggregationFunctionMax()
   }
 
   private fun timeBucketLabel(timeBucket: TimeBucket): String = when (timeBucket) {
-    TimeBucket.TAG -> devMsg.developerAggregationTimeBucketTag()
-    TimeBucket.WOCHE -> devMsg.developerAggregationTimeBucketWoche()
-    TimeBucket.MONAT -> devMsg.developerAggregationTimeBucketMonat()
-    TimeBucket.JAHR -> devMsg.developerAggregationTimeBucketJahr()
+    TimeBucket.TAG -> aggregationMsg.developerAggregationTimeBucketTag()
+    TimeBucket.WOCHE -> aggregationMsg.developerAggregationTimeBucketWoche()
+    TimeBucket.MONAT -> aggregationMsg.developerAggregationTimeBucketMonat()
+    TimeBucket.JAHR -> aggregationMsg.developerAggregationTimeBucketJahr()
   }
 
   private fun aggregationErrorMessage(code: String): String = when (code) {
-    AppVersionError.BLANK_INPUT.code -> devMsg.developerAggregationNameRequiredError()
-    AppVersionError.AGGREGATION_NOT_FOUND.code -> devMsg.developerAggregationNotFoundError()
-    AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS.code -> devMsg.developerAggregationNameExistsError()
-    AppVersionError.AGGREGATION_FUNCTION_INVALID.code -> devMsg.developerAggregationFunctionInvalidError()
-    AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID.code -> devMsg.developerAggregationSourcePropertyInvalidError()
-    AppVersionError.AGGREGATION_REF_PATH_INVALID.code -> devMsg.developerAggregationRefPathInvalidError()
-    AppVersionError.AGGREGATION_TIME_BUCKET_INVALID.code -> devMsg.developerAggregationTimeBucketInvalidError()
-    AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID.code -> devMsg.developerAggregationTimePropertyInvalidError()
-    AppVersionError.AGGREGATION_GROUP_BY_INVALID.code -> devMsg.developerAggregationGroupByInvalidError()
+    AppVersionError.BLANK_INPUT.code -> aggregationMsg.developerAggregationNameRequiredError()
+    AppVersionError.AGGREGATION_NOT_FOUND.code -> aggregationMsg.developerAggregationNotFoundError()
+    AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS.code -> aggregationMsg.developerAggregationNameExistsError()
+    AppVersionError.AGGREGATION_FUNCTION_INVALID.code -> aggregationMsg.developerAggregationFunctionInvalidError()
+    AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID.code -> aggregationMsg.developerAggregationSourcePropertyInvalidError()
+    AppVersionError.AGGREGATION_REF_PATH_INVALID.code -> aggregationMsg.developerAggregationRefPathInvalidError()
+    AppVersionError.AGGREGATION_TIME_BUCKET_INVALID.code -> aggregationMsg.developerAggregationTimeBucketInvalidError()
+    AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID.code -> aggregationMsg.developerAggregationTimePropertyInvalidError()
+    AppVersionError.AGGREGATION_GROUP_BY_INVALID.code -> aggregationMsg.developerAggregationGroupByInvalidError()
     else -> entityErrorMessage(code)
   }
 

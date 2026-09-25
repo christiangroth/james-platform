@@ -261,28 +261,28 @@
 
                 <!-- Aggregations -->
                 <div class="d-flex align-items-center mb-2 gap-2 mt-4">
-                    <h3 class="fs-6 fw-semibold mb-0">{developer:developerAggregationsHeading()}</h3>
+                    <h3 class="fs-6 fw-semibold mb-0">{developerAggregation:developerAggregationsHeading()}</h3>
                     {#if isDraft}
                     {#btn-icon-add testId="open-add-aggregation-modal-button" bsTarget="#aggregationModal" entityId=selectedEntity.id action="" extraClass="ms-auto" /}
                     {/if}
                 </div>
                 {#if aggregations.isEmpty}
-                <p class="app-section-label mb-3" data-testid="no-aggregations">{developer:developerNoAggregationsMessage()}</p>
+                <p class="app-section-label mb-3" data-testid="no-aggregations">{developerAggregation:developerNoAggregationsMessage()}</p>
                 {#else}
                 <div class="table-responsive">
                 <table class="table table-sm mb-3 app-table" data-testid="aggregations-table">
                     <thead>
                         <tr>
                             <th>{developer:developerColName()}</th>
-                            <th>{developer:developerColAggregationFunction()}</th>
-                            <th>{developer:developerColAggregationSource()}</th>
-                            <th>{developer:developerColAggregationDetails()}</th>
+                            <th>{developerAggregation:developerColAggregationFunction()}</th>
+                            <th>{developerAggregation:developerColAggregationSource()}</th>
+                            <th>{developerAggregation:developerColAggregationDetails()}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {#for agg in aggregations}
                         <tr {#if isDraft}class="clickable-row" tabindex="0" role="button" data-action="edit-aggregation"{/if} data-testid="aggregation-row"
-                            aria-label="{developer:developerEditAggregationAriaLabel(agg.name)}"
+                            aria-label="{developerAggregation:developerEditAggregationAriaLabel(agg.name)}"
                             data-entity-id="{selectedEntity.id}"
                             data-aggregation-id="{agg.id}"
                             data-aggregation-name="{agg.name}"
@@ -818,7 +818,7 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="aggregationModalLabel">{developer:developerAddAggregationModalTitle()}</h5>
+                    <h5 class="modal-title" id="aggregationModalLabel">{developerAggregation:developerAddAggregationModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <form id="aggregationForm">
@@ -828,58 +828,58 @@
                         <div id="aggregationError" class="alert alert-danger d-none mb-3" data-testid="aggregation-error"></div>
                         <div class="mb-3">
                             <label for="aggregationName" class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonName()} <span style="color:var(--color-required);">*</span></label>
-                            <input type="text" class="form-control app-form-control" id="aggregationName" name="name" required autocomplete="off" placeholder="{developer:developerAggregationNamePlaceholder()}" data-testid="aggregation-name-input">
+                            <input type="text" class="form-control app-form-control" id="aggregationName" name="name" required autocomplete="off" placeholder="{developerAggregation:developerAggregationNamePlaceholder()}" data-testid="aggregation-name-input">
                         </div>
                         <div class="mb-3">
-                            <label for="aggregationFunction" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerAggregationFunctionLabel()} <span style="color:var(--color-required);">*</span></label>
+                            <label for="aggregationFunction" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationFunctionLabel()} <span style="color:var(--color-required);">*</span></label>
                             <select class="form-select app-form-control" id="aggregationFunction" name="function" required data-testid="aggregation-function-select">
-                                <option value="SUM">{developer:developerAggregationFunctionSum()}</option>
-                                <option value="COUNT">{developer:developerAggregationFunctionCount()}</option>
-                                <option value="AVG">{developer:developerAggregationFunctionAvg()}</option>
-                                <option value="MIN">{developer:developerAggregationFunctionMin()}</option>
-                                <option value="MAX">{developer:developerAggregationFunctionMax()}</option>
+                                <option value="SUM">{developerAggregation:developerAggregationFunctionSum()}</option>
+                                <option value="COUNT">{developerAggregation:developerAggregationFunctionCount()}</option>
+                                <option value="AVG">{developerAggregation:developerAggregationFunctionAvg()}</option>
+                                <option value="MIN">{developerAggregation:developerAggregationFunctionMin()}</option>
+                                <option value="MAX">{developerAggregation:developerAggregationFunctionMax()}</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="aggregationSourceProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerAggregationSourcePropertyLabel()} <span style="color:var(--color-required);">*</span></label>
+                            <label for="aggregationSourceProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationSourcePropertyLabel()} <span style="color:var(--color-required);">*</span></label>
                             <select class="form-select app-form-control" id="aggregationSourceProperty" name="sourceProperty" required data-testid="aggregation-source-property-select">
                                 <option value="">{msg:commonSelectPlaceholder()}</option>
                                 {#for opt in aggregationPropertyOptions}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/for}
                             </select>
-                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developer:developerAggregationSourcePropertyHelp()}</p>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationSourcePropertyHelp()}</p>
                         </div>
                         <div class="mb-3">
-                            <label for="aggregationRefPath" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerAggregationRefPathLabel()}</label>
+                            <label for="aggregationRefPath" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationRefPathLabel()}</label>
                             <select class="form-select app-form-control" id="aggregationRefPath" name="refPath" data-testid="aggregation-ref-path-select">
-                                <option value="">{developer:developerAggregationNoneOption()}</option>
+                                <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
                                 {#for opt in aggregationPropertyOptions}{#if opt.ref}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/if}{/for}
                             </select>
-                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developer:developerAggregationRefPathHelp()}</p>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationRefPathHelp()}</p>
                         </div>
                         <div class="row g-2 mb-3">
                             <div class="col-6">
-                                <label for="aggregationTimeBucket" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerAggregationTimeBucketLabel()}</label>
+                                <label for="aggregationTimeBucket" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationTimeBucketLabel()}</label>
                                 <select class="form-select app-form-control" id="aggregationTimeBucket" name="timeBucket" data-testid="aggregation-time-bucket-select">
-                                    <option value="">{developer:developerAggregationNoneOption()}</option>
-                                    <option value="TAG">{developer:developerAggregationTimeBucketTag()}</option>
-                                    <option value="WOCHE">{developer:developerAggregationTimeBucketWoche()}</option>
-                                    <option value="MONAT">{developer:developerAggregationTimeBucketMonat()}</option>
-                                    <option value="JAHR">{developer:developerAggregationTimeBucketJahr()}</option>
+                                    <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
+                                    <option value="TAG">{developerAggregation:developerAggregationTimeBucketTag()}</option>
+                                    <option value="WOCHE">{developerAggregation:developerAggregationTimeBucketWoche()}</option>
+                                    <option value="MONAT">{developerAggregation:developerAggregationTimeBucketMonat()}</option>
+                                    <option value="JAHR">{developerAggregation:developerAggregationTimeBucketJahr()}</option>
                                 </select>
                             </div>
                             <div class="col-6">
-                                <label for="aggregationTimeProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerAggregationTimePropertyLabel()}</label>
+                                <label for="aggregationTimeProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationTimePropertyLabel()}</label>
                                 <select class="form-select app-form-control" id="aggregationTimeProperty" name="timeProperty" data-testid="aggregation-time-property-select">
-                                    <option value="">{developer:developerAggregationNoneOption()}</option>
+                                    <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
                                     {#for opt in aggregationPropertyOptions}{#if opt.dateTime}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/if}{/for}
                                 </select>
                             </div>
-                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developer:developerAggregationTimePropertyHelp()}</p>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationTimePropertyHelp()}</p>
                         </div>
                         <div class="mb-3">
-                            <label for="aggregationGroupBy" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerAggregationGroupByLabel()}</label>
+                            <label for="aggregationGroupBy" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationGroupByLabel()}</label>
                             <select class="form-select app-form-control" id="aggregationGroupBy" name="groupBy" data-testid="aggregation-group-by-select">
-                                <option value="">{developer:developerAggregationNoneOption()}</option>
+                                <option value="">{developerAggregation:developerAggregationNoneOption()}</option>
                                 {#for opt in aggregationPropertyOptions}{#if opt.groupable}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/if}{/for}
                             </select>
                         </div>
@@ -900,11 +900,11 @@
         <div class="modal-dialog">
             <div class="modal-content app-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deleteAggregationModalLabel">{developer:developerRemoveAggregationModalTitle()}</h5>
+                    <h5 class="modal-title" id="deleteAggregationModalLabel">{developerAggregation:developerRemoveAggregationModalTitle()}</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0">{developer:developerRemoveAggregationConfirm()}</p>
+                    <p class="mb-0">{developerAggregation:developerRemoveAggregationConfirm()}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -1061,8 +1061,8 @@
             var descendingLabel = '{developer:developerDescendingLabel()}';
             var removeLabel = '{msg:commonRemove()}';
             var editComputedPropertyModalTitlePrefix = '{developer:developerEditComputedPropertyModalTitle()}';
-            var addAggregationModalTitle = '{developer:developerAddAggregationModalTitle()}';
-            var editAggregationModalTitle = '{developer:developerEditAggregationModalTitle()}';
+            var addAggregationModalTitle = '{developerAggregation:developerAddAggregationModalTitle()}';
+            var editAggregationModalTitle = '{developerAggregation:developerEditAggregationModalTitle()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }

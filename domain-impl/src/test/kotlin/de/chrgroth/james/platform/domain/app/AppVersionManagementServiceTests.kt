@@ -3307,6 +3307,32 @@ class AppVersionManagementServiceTests {
   companion object {
 
     @JvmStatic
+    fun invalidAggregationInputs(): Stream<Arguments> {
+      fun input(
+        name: String = "Neu",
+        function: String = "SUM",
+        sourceProperty: String = "p-km",
+        refPath: String? = null,
+        timeBucket: String? = null,
+        timeProperty: String? = null,
+        groupBy: String? = null,
+      ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy)
+      return Stream.of(
+        Arguments.of("blank name", input(name = " "), AppVersionError.BLANK_INPUT),
+        Arguments.of("duplicate name ignoring case", input(name = "total"), AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS),
+        Arguments.of("unknown function", input(function = "MEDIAN"), AppVersionError.AGGREGATION_FUNCTION_INVALID),
+        Arguments.of("unknown source property", input(sourceProperty = "gone"), AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID),
+        Arguments.of("SUM on non-numeric property", input(sourceProperty = "p-note"), AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID),
+        Arguments.of("refPath that is not a REF", input(refPath = "p-note"), AppVersionError.AGGREGATION_REF_PATH_INVALID),
+        Arguments.of("unknown time bucket", input(timeBucket = "QUARTAL"), AppVersionError.AGGREGATION_TIME_BUCKET_INVALID),
+        Arguments.of("time property without time bucket", input(timeProperty = "p-date"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
+        Arguments.of("time property that is no date", input(timeBucket = "TAG", timeProperty = "p-note"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
+        Arguments.of("groupBy equal to source property", input(groupBy = "p-km"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
+        Arguments.of("groupBy on a LIST property", input(groupBy = "p-tags"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
+      )
+    }
+
+    @JvmStatic
     fun breakingChangeCases(): Stream<Arguments> {
       val entityRemoved = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
 
