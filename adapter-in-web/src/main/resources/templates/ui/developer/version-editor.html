@@ -136,7 +136,7 @@
                         <i class="bi bi-plus-lg" aria-hidden="true"></i>
                     </a>
                 </div>
-                {#if currentProperties.isEmpty}
+                {#if currentProperties.isEmpty && removedProperties.isEmpty}
                 <p class="app-section-label mb-3" data-testid="no-properties">{developer:developerNoPropertiesMessage()}</p>
                 {#else}
                 <div class="table-responsive">
@@ -193,6 +193,19 @@
                         </tr>
                         {/for}
                     </tbody>
+                    {#if !removedProperties.isEmpty}
+                    <tbody data-testid="removed-properties">
+                        {#for prop in removedProperties}
+                        <tr data-testid="removed-property-row" style="opacity:0.6;">
+                            <td></td>
+                            <td><span style="text-decoration:line-through;">{prop.name}</span><span class="badge app-badge-failed ms-1" style="font-size:0.7rem;">{developer:developerRemovedBadge()}</span></td>
+                            <td>{#property-type-summary prop=prop version=publishedVersion /}</td>
+                            <td><span class="app-section-label" style="font-size:0.75rem;">—</span></td>
+                            <td><span class="app-section-label" style="font-size:0.75rem;">—</span></td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                    {/if}
                 </table>
                 </div>
                 {/if}
@@ -289,7 +302,7 @@
                     <h2 class="fs-6 fw-semibold mb-0">{developer:developerEntitiesHeading()}</h2>
                     {#btn-icon-add testId="open-add-entity-modal-button" bsTarget="#addEntityModal" extraClass="ms-auto" entityId="" action="" /}
                 </div>
-                {#if version.entityDefinitions.isEmpty}
+                {#if version.entityDefinitions.isEmpty && removedEntities.isEmpty}
                 <p class="app-section-label mb-4" data-testid="no-entities">{developer:developerNoEntitiesMessage()}</p>
                 {#else}
                 <div class="table-responsive">
@@ -322,6 +335,23 @@
                         </tr>
                         {/for}
                     </tbody>
+                    {#if !removedEntities.isEmpty}
+                    <tbody data-testid="removed-entities">
+                        {#for entity in removedEntities}
+                        <tr data-testid="removed-entity-row" style="opacity:0.6;">
+                            <td></td>
+                            <td><span style="text-decoration:line-through;">{entity.name}</span><span class="badge app-badge-failed ms-1" style="font-size:0.7rem;">{developer:developerRemovedBadge()}</span></td>
+                            <td>
+                                {#if entity.properties.isEmpty}
+                                <span class="app-section-label" style="font-size:0.75rem;">{msg:commonNotAvailable()}</span>
+                                {#else}
+                                <span style="font-size:0.85rem;">{entity.propertyNames}</span>
+                                {/if}
+                            </td>
+                        </tr>
+                        {/for}
+                    </tbody>
+                    {/if}
                 </table>
                 </div>
                 {/if}

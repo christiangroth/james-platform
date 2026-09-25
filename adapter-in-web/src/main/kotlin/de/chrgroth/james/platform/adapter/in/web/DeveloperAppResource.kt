@@ -329,7 +329,8 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
-        val hasDiff = hasDiffForDraft(appId, isDraft)
+        val publishedVersion = latestPublishedVersionForDraft(appId, isDraft)
+        val hasDiff = publishedVersion != null
         Response.ok(
           DeveloperTemplates.`version-editor`(
             app = app,
@@ -345,6 +346,9 @@ class DeveloperAppResource {
             breadcrumb = emptyList<PropertyBreadcrumb>(),
             isNestedLevel = false,
             testInstallations = testInstallationsForVersion(appId, version, developerId),
+            publishedVersion = publishedVersion,
+            removedEntities = removedEntities(publishedVersion, version),
+            removedProperties = emptyList<Property>(),
           ),
         ).build()
       },
@@ -371,7 +375,8 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
-        val hasDiff = hasDiffForDraft(appId, isDraft)
+        val publishedVersion = latestPublishedVersionForDraft(appId, isDraft)
+        val hasDiff = publishedVersion != null
         val selectedEntity = version.entityDefinitions.find { it.id.value == entityId }
         val pathIds = parsePath(pathParam)
         val resolved = selectedEntity?.let { resolvePath(it, pathIds) }
@@ -395,6 +400,9 @@ class DeveloperAppResource {
             breadcrumb = breadcrumb,
             isNestedLevel = breadcrumb.isNotEmpty(),
             testInstallations = testInstallationsForVersion(appId, version, developerId),
+            publishedVersion = publishedVersion,
+            removedEntities = removedEntities(publishedVersion, version),
+            removedProperties = if (breadcrumb.isEmpty()) removedProperties(publishedVersion, selectedEntity) else emptyList(),
           ),
         ).build()
       },
@@ -514,7 +522,8 @@ class DeveloperAppResource {
       ifLeft = { Response.seeOther(URI.create("/ui/developer/apps/$appId")).build() },
       ifRight = { version ->
         val isDraft = version.status == AppVersionStatus.DRAFT
-        val hasDiff = hasDiffForDraft(appId, isDraft)
+        val publishedVersion = latestPublishedVersionForDraft(appId, isDraft)
+        val hasDiff = publishedVersion != null
         val selectedReport = version.reports.find { it.id.value == reportId }
         Response.ok(
           DeveloperTemplates.`version-editor`(
@@ -531,6 +540,9 @@ class DeveloperAppResource {
             breadcrumb = emptyList<PropertyBreadcrumb>(),
             isNestedLevel = false,
             testInstallations = testInstallationsForVersion(appId, version, developerId),
+            publishedVersion = publishedVersion,
+            removedEntities = removedEntities(publishedVersion, version),
+            removedProperties = emptyList<Property>(),
           ),
         ).build()
       },
@@ -1249,8 +1261,30 @@ class DeveloperAppResource {
     else -> msg.commonUnexpectedError()
   }
 
-  private fun hasDiffForDraft(appId: String, isDraft: Boolean): Boolean =
-    isDraft && (appVersionManagement.listVersions(appId).getOrNull() ?: emptyList()).any { it.status == AppVersionStatus.PUBLISHED }
+  /** The latest published version of [appId] a draft is compared against, or null if [isDraft] is false or nothing has been published yet. */
+  private fun latestPublishedVersionForDraft(appId: String, isDraft: Boolean): AppVersion? =
+    if (!isDraft) {
+      null
+    } else {
+      appVersionManagement.listVersions(appId).getOrNull().orEmpty()
+        .filter { it.status == AppVersionStatus.PUBLISHED }
+        .maxByOrNull { it.createdAt }
+    }
+
+  /** Entities of [published] that no longer exist in [draft], shown greyed out in the draft editor so removals stay visible. */
+  private fun removedEntities(published: AppVersion?, draft: AppVersion): List<EntityDefinition> {
+    if (published == null) return emptyList()
+    val draftEntityIds = draft.entityDefinitions.map { it.id }.toSet()
+    return published.entityDefinitions.filter { it.id !in draftEntityIds }
+  }
+
+  /** Top-level properties of [draftEntity] in [published] that no longer exist in the draft. */
+  private fun removedProperties(published: AppVersion?, draftEntity: EntityDefinition?): List<Property> {
+    if (published == null || draftEntity == null) return emptyList()
+    val publishedEntity = published.entityDefinitions.find { it.id == draftEntity.id } ?: return emptyList()
+    val draftPropertyIds = draftEntity.properties.map { it.id }.toSet()
+    return publishedEntity.properties.filter { it.id !in draftPropertyIds }
+  }
 
   /** Test installations pinned to [version], the only ones a test data generation run for an entity of this version can target. */
   private fun testInstallationsForVersion(appId: String, version: AppVersion, developerId: String): List<TestInstallationInfo> =

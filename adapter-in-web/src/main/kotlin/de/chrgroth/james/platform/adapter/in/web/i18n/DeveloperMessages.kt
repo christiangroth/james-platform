@@ -224,6 +224,9 @@ interface DeveloperMessages {
   fun developerBreakingChangeBadge(): String
 
   @Message
+  fun developerRemovedBadge(): String
+
+  @Message
   fun developerReleaseNotesLabel(): String
 
   @Message
