@@ -39,6 +39,7 @@ import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
@@ -3095,6 +3096,171 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region aggregation editor
+
+  private val kilometerProp = Property(id = PropertyId("p-km"), name = "Kilometer", type = PropertyType.DOUBLE)
+  private val noteProp = Property(id = PropertyId("p-note"), name = "Notiz", type = PropertyType.STRING)
+  private val shoeRefProp = Property(id = PropertyId("p-shoe"), name = "Laufschuh", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-shoe"))
+  private val dateProp = Property(id = PropertyId("p-date"), name = "Datum", type = PropertyType.DATE)
+  private val tagsProp = Property(id = PropertyId("p-tags"), name = "Tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
+  private val runEntity = EntityDefinition(id = EntityDefinitionId("e-run"), name = "Lauf", properties = listOf(kilometerProp, noteProp, shoeRefProp, dateProp, tagsProp))
+  private val existingAggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = kilometerProp.id)
+
+  private fun givenDraftWith(entity: EntityDefinition, testInstallations: List<InstalledApp> = emptyList()) {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+    justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns testInstallations
+  }
+
+  private fun input(
+    name: String = "Kilometer gesamt",
+    function: String = "SUM",
+    sourceProperty: String = kilometerProp.id.value,
+    refPath: String? = null,
+    timeBucket: String? = null,
+    timeProperty: String? = null,
+    groupBy: String? = null,
+  ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy)
+
+  @Test
+  fun `addAggregation adds a fully configured aggregation to the entity`() {
+    givenDraftWith(runEntity)
+
+    val result = service.addAggregation(
+      "app-1", "ver-1", "e-run",
+      input(name = "  Kilometer je Schuh  ", refPath = shoeRefProp.id.value, timeBucket = "MONAT", timeProperty = dateProp.id.value, groupBy = noteProp.id.value),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val aggregation = result.getOrNull()!!.entityDefinitions.single().aggregations.single()
+    assertThat(aggregation.name).isEqualTo("Kilometer je Schuh")
+    assertThat(aggregation.function).isEqualTo(AggregationFunction.SUM)
+    assertThat(aggregation.sourceProperty).isEqualTo(kilometerProp.id)
+    assertThat(aggregation.refPath).isEqualTo(shoeRefProp.id)
+    assertThat(aggregation.timeBucket).isEqualTo(TimeBucket.MONAT)
+    assertThat(aggregation.timeProperty).isEqualTo(dateProp.id)
+    assertThat(aggregation.groupBy).isEqualTo(noteProp.id)
+    verify { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `addAggregation treats blank optional values as not set`() {
+    givenDraftWith(runEntity)
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", input(refPath = "", timeBucket = " ", timeProperty = "", groupBy = ""))
+
+    val aggregation = result.getOrNull()!!.entityDefinitions.single().aggregations.single()
+    assertThat(aggregation.refPath).isNull()
+    assertThat(aggregation.timeBucket).isNull()
+    assertThat(aggregation.timeProperty).isNull()
+    assertThat(aggregation.groupBy).isNull()
+  }
+
+  @Test
+  fun `addAggregation allows COUNT on a non-numeric property`() {
+    givenDraftWith(runEntity)
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", input(function = "COUNT", sourceProperty = noteProp.id.value))
+
+    assertThat(result.isRight()).isTrue()
+  }
+
+  @Test
+  fun `addAggregation enqueues a recompute for test installations of this draft only`() {
+    val draftTestInstallation = installedApp(id = "inst-draft", isTest = true).copy(installedVersionId = AppVersionId("ver-1"))
+    val otherVersionTestInstallation = installedApp(id = "inst-other", isTest = true).copy(installedVersionId = AppVersionId("ver-2"))
+    val realInstallation = installedApp(id = "inst-real")
+    givenDraftWith(runEntity, listOf(draftTestInstallation, otherVersionTestInstallation, realInstallation))
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", input())
+
+    val aggregationId = result.getOrNull()!!.entityDefinitions.single().aggregations.single().id.value
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "inst-draft", aggregationDefinitionId = aggregationId)) }
+    verify(exactly = 1) { outbox.enqueue(any()) }
+  }
+
+  @ParameterizedTest(name = "addAggregation rejects {0}")
+  @MethodSource("invalidAggregationInputs")
+  fun `addAggregation rejects invalid input with a specific error and does not save`(case: String, invalid: AggregationInput, expected: AppVersionError) {
+    givenDraftWith(runEntity.copy(aggregations = listOf(existingAggregation)))
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", invalid)
+
+    assertThat(result.leftOrNull()).describedAs(case).isEqualTo(expected)
+    verify(exactly = 0) { appVersionRepository.save(any()) }
+    verify(exactly = 0) { outbox.enqueue(any()) }
+  }
+
+  @Test
+  fun `addAggregation fails when entity not found`() {
+    givenDraftWith(runEntity)
+
+    val result = service.addAggregation("app-1", "ver-1", "missing", input())
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `addAggregation fails when version is not a draft`() {
+    every { appVersionRepository.findById(AppVersionId("ver-2")) } returns publishedVersion.copy(entityDefinitions = listOf(runEntity))
+
+    val result = service.addAggregation("app-1", "ver-2", "e-run", input())
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_FOUND)
+  }
+
+  @Test
+  fun `updateAggregation replaces the aggregation and keeps its id and own name`() {
+    givenDraftWith(runEntity.copy(aggregations = listOf(existingAggregation)))
+
+    val result = service.updateAggregation("app-1", "ver-1", "e-run", "agg-1", input(name = "Total", function = "MAX"))
+
+    val aggregation = result.getOrNull()!!.entityDefinitions.single().aggregations.single()
+    assertThat(aggregation.id).isEqualTo(existingAggregation.id)
+    assertThat(aggregation.function).isEqualTo(AggregationFunction.MAX)
+  }
+
+  @Test
+  fun `updateAggregation fails with AGGREGATION_NAME_ALREADY_EXISTS when renamed to another aggregation's name`() {
+    val other = existingAggregation.copy(id = AggregationDefinitionId("agg-2"), name = "Other")
+    givenDraftWith(runEntity.copy(aggregations = listOf(existingAggregation, other)))
+
+    val result = service.updateAggregation("app-1", "ver-1", "e-run", "agg-1", input(name = "other"))
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `updateAggregation fails when aggregation not found`() {
+    givenDraftWith(runEntity)
+
+    val result = service.updateAggregation("app-1", "ver-1", "e-run", "missing", input())
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.AGGREGATION_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteAggregation removes the aggregation and enqueues a recompute that clears test installation values`() {
+    val draftTestInstallation = installedApp(id = "inst-draft", isTest = true).copy(installedVersionId = AppVersionId("ver-1"))
+    givenDraftWith(runEntity.copy(aggregations = listOf(existingAggregation)), listOf(draftTestInstallation))
+
+    val result = service.deleteAggregation("app-1", "ver-1", "e-run", "agg-1")
+
+    assertThat(result.getOrNull()!!.entityDefinitions.single().aggregations).isEmpty()
+    verify { outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId = "inst-draft", aggregationDefinitionId = "agg-1")) }
+  }
+
+  @Test
+  fun `deleteAggregation fails when aggregation not found`() {
+    givenDraftWith(runEntity)
+
+    val result = service.deleteAggregation("app-1", "ver-1", "e-run", "missing")
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.AGGREGATION_NOT_FOUND)
+  }
+
+  // endregion
+
   // region handle(AutoUpgradeInstallation)
 
   @Test
@@ -3169,6 +3335,32 @@ class AppVersionManagementServiceTests {
   // endregion
 
   companion object {
+
+    @JvmStatic
+    fun invalidAggregationInputs(): Stream<Arguments> {
+      fun input(
+        name: String = "Neu",
+        function: String = "SUM",
+        sourceProperty: String = "p-km",
+        refPath: String? = null,
+        timeBucket: String? = null,
+        timeProperty: String? = null,
+        groupBy: String? = null,
+      ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy)
+      return Stream.of(
+        Arguments.of("blank name", input(name = " "), AppVersionError.BLANK_INPUT),
+        Arguments.of("duplicate name ignoring case", input(name = "total"), AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS),
+        Arguments.of("unknown function", input(function = "MEDIAN"), AppVersionError.AGGREGATION_FUNCTION_INVALID),
+        Arguments.of("unknown source property", input(sourceProperty = "gone"), AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID),
+        Arguments.of("SUM on non-numeric property", input(sourceProperty = "p-note"), AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID),
+        Arguments.of("refPath that is not a REF", input(refPath = "p-note"), AppVersionError.AGGREGATION_REF_PATH_INVALID),
+        Arguments.of("unknown time bucket", input(timeBucket = "QUARTAL"), AppVersionError.AGGREGATION_TIME_BUCKET_INVALID),
+        Arguments.of("time property without time bucket", input(timeProperty = "p-date"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
+        Arguments.of("time property that is no date", input(timeBucket = "TAG", timeProperty = "p-note"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
+        Arguments.of("groupBy equal to source property", input(groupBy = "p-km"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
+        Arguments.of("groupBy on a LIST property", input(groupBy = "p-tags"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
+      )
+    }
 
     @JvmStatic
     fun breakingChangeCases(): Stream<Arguments> {

@@ -130,6 +130,8 @@ object DeveloperTemplates {
     publishedVersion: AppVersion?,
     removedEntities: List<EntityDefinition>,
     removedProperties: List<Property>,
+    aggregations: List<AggregationEditorRow>,
+    aggregationPropertyOptions: List<AggregationPropertyOptionRow>,
   ): TemplateInstance
 
   @JvmStatic

@@ -109,6 +109,9 @@ interface AppVersionManagementPort {
   fun setComputedPropertyScript(appId: String, versionId: String, entityId: String, computedPropertyId: String, script: String?): Either<DomainError, AppVersion>
   fun reorderComputedProperties(appId: String, versionId: String, entityId: String, computedPropertyIds: List<String>): Either<DomainError, AppVersion>
   fun deleteComputedProperty(appId: String, versionId: String, entityId: String, computedPropertyId: String): Either<DomainError, AppVersion>
+  fun addAggregation(appId: String, versionId: String, entityId: String, input: AggregationInput): Either<DomainError, AppVersion>
+  fun updateAggregation(appId: String, versionId: String, entityId: String, aggregationId: String, input: AggregationInput): Either<DomainError, AppVersion>
+  fun deleteAggregation(appId: String, versionId: String, entityId: String, aggregationId: String): Either<DomainError, AppVersion>
   fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
   fun updateReport(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion>
   fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion>
@@ -117,3 +120,18 @@ interface AppVersionManagementPort {
   /** Called by the outbox dispatcher, not directly by inbound adapters. */
   fun handle(event: DomainOutboxEvent.AutoUpgradeInstallation): Either<DomainError, Unit>
 }
+
+/**
+ * Raw editor input for an `AggregationDefinition` (see docs/adr/0020-aggregation-definitions.md). [function] and [timeBucket] are enum
+ * names, the property references are property IDs of the owning Entity; blank optional values mean "not set". Parsing and validation
+ * happen in the domain, using the same rules the Version publish applies.
+ */
+data class AggregationInput(
+  val name: String,
+  val function: String,
+  val sourceProperty: String,
+  val refPath: String? = null,
+  val timeBucket: String? = null,
+  val timeProperty: String? = null,
+  val groupBy: String? = null,
+)
