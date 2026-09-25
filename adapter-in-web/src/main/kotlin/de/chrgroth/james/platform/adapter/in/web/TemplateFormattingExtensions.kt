@@ -10,11 +10,11 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.unitFormatHint as domainUnitFormatHint
+import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import de.chrgroth.james.platform.domain.model.user.User
 import io.quarkus.qute.TemplateExtension
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.time.Instant
@@ -82,8 +82,9 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun id(property: Property): String = property.id.value
 
-  private val DATETIME_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault()) }
-  private val DATETIME_SHORT_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault()) }
+  // Instants are stored in UTC and always rendered in the one shared UI zone, never the JVM default (see AppTimeZone).
+  private val DATETIME_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(AppTimeZone.zone) }
+  private val DATETIME_SHORT_FORMATTER by lazy { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(AppTimeZone.zone) }
 
   private const val SECONDS_PER_MINUTE = 60L
   private const val SECONDS_PER_HOUR = 3600L

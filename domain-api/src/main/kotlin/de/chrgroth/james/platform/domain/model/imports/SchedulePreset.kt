@@ -6,8 +6,8 @@ package de.chrgroth.james.platform.domain.model.imports
  * ([toCron] / [fromCron]). A stored cron that is not exactly one of the expressions generated here (e.g. a legacy
  * custom expression) maps to `null` in [fromCron] and is shown as "benutzerdefiniert" by the UI.
  *
- * Wall-clock times ([Daily]) are interpreted in the same time zone the UI renders instants in (the JVM default zone),
- * see `CronSchedule.nextFireTime`.
+ * Wall-clock times ([Daily]) are interpreted in the same time zone the UI renders instants in
+ * ([de.chrgroth.james.platform.domain.model.infra.AppTimeZone]), see `CronSchedule.nextFireTime`.
  */
 sealed interface SchedulePreset {
 

@@ -336,6 +336,22 @@
             font-weight: 600;
             border-bottom-width: 2px;
         }
+        /* Bootstrap's contextual row states (.table-active, .table-danger) ship fixed light-theme colors
+           (--bs-table-active-color / --bs-table-color: #000 - Bootstrap's own dark mode is keyed on data-bs-theme,
+           which this app does not use). Combined with the transparent cell backgrounds above that produced black
+           text on the dark card background in the data path overview (selected row) and the mapping preview (rows with
+           issues). Re-point them at the theme tokens so both themes stay readable. */
+        .app-table {
+            --bs-table-active-color: var(--color-text-primary);
+            --bs-table-active-bg: var(--color-row-hover-overlay);
+            --bs-table-hover-color: var(--color-text-primary);
+        }
+        .app-table tr.table-danger {
+            --bs-table-color: var(--color-text-primary);
+        }
+        .app-table tr.table-danger > * {
+            background-color: var(--color-alert-danger-bg) !important;
+        }
         /* Override Bootstrap's dark table border and text color with app values */
         .table-dark {
             --bs-table-color: var(--color-text-primary);
