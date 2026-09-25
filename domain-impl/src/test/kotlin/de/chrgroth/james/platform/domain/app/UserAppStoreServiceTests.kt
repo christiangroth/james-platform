@@ -50,10 +50,13 @@ class UserAppStoreServiceTests {
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
-  private val v1 = version(id = "ver-1", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-  private val v2 = version(id = "ver-2", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.PUBLISHED)
-  private val v3 = version(id = "ver-3", appId = "app-2", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
-  private val draft = version(id = "ver-draft", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
+  // deterministic, strictly increasing timestamps: the latest published version is selected by createdAt,
+  // and Instant.now() may return identical values for consecutive calls on platforms with coarse clock resolution
+  private val baseTime = Instant.parse("2026-01-01T00:00:00Z")
+  private val v1 = version(id = "ver-1", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED, createdAt = baseTime)
+  private val v2 = version(id = "ver-2", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.PUBLISHED, createdAt = baseTime.plusSeconds(60))
+  private val v3 = version(id = "ver-3", appId = "app-2", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED, createdAt = baseTime.plusSeconds(120))
+  private val draft = version(id = "ver-draft", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT, createdAt = baseTime.plusSeconds(180))
 
   // region listAllPublishedApps
 

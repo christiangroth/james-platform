@@ -617,6 +617,7 @@ class AppManagementServiceTests {
       appId: String = "app-1",
       versionNumber: String? = null,
       status: AppVersionStatus = AppVersionStatus.DRAFT,
+      createdAt: Instant = Instant.now(),
     ) = AppVersion(
       id = AppVersionId(id),
       appId = AppId(appId),
@@ -625,7 +626,7 @@ class AppManagementServiceTests {
       entityDefinitions = emptyList(),
       reports = emptyList(),
       status = status,
-      createdAt = Instant.now(),
+      createdAt = createdAt,
     )
 
     fun installedApp(id: String = "installed-1", userId: String = "user-1", appId: String = "app-1", isTest: Boolean = false) = InstalledApp(
