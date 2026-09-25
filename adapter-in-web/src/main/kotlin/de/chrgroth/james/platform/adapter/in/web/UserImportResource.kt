@@ -35,6 +35,7 @@ import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookupCriterion
+import de.chrgroth.james.platform.domain.model.imports.SchedulePreset
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.model.imports.resolveImportUrl
@@ -108,8 +109,17 @@ data class ImportDefinitionGroupRow(
   val installedAppName: String,
   val targetEntityName: String,
   val configured: Boolean,
+  /** Raw stored cron expression, empty if none - only surfaced to the user for a non-representable (mode `CUSTOM`) legacy expression. */
   val schedule: String,
   val hasSchedule: Boolean,
+  /** Readable German description of the schedule (e.g. "Täglich um 06:30"), or the "Manuell" label if none. */
+  val scheduleLabel: String,
+  /** One of `NONE`, `DAILY`, `INTERVAL`, `CUSTOM` - pre-selects the schedule modal. */
+  val scheduleMode: String,
+  /** `HH:mm` for `DAILY`, otherwise empty. */
+  val scheduleTime: String,
+  /** Minutes for `INTERVAL`, otherwise empty. */
+  val scheduleIntervalMinutes: String,
   val notifyOnSlack: Boolean,
   val lastRunAt: Instant?,
   val nextRunAt: Instant?,
@@ -785,6 +795,14 @@ class UserImportResource {
         configured = definition.selectedDataPath != null && definition.mapping != null,
         schedule = definition.schedule.orEmpty(),
         hasSchedule = definition.schedule != null,
+        scheduleLabel = scheduleLabel(definition.schedule),
+        scheduleMode = when (SchedulePreset.fromCron(definition.schedule)) {
+          null -> if (definition.schedule == null) "NONE" else "CUSTOM"
+          is SchedulePreset.Daily -> "DAILY"
+          is SchedulePreset.Interval -> "INTERVAL"
+        },
+        scheduleTime = (SchedulePreset.fromCron(definition.schedule) as? SchedulePreset.Daily)?.timeLabel().orEmpty(),
+        scheduleIntervalMinutes = (SchedulePreset.fromCron(definition.schedule) as? SchedulePreset.Interval)?.minutes?.toString().orEmpty(),
         notifyOnSlack = definition.notifyOnSlack,
         lastRunAt = definition.lastRunAt,
         nextRunAt = if (inProgressJobs.isEmpty()) {
@@ -799,6 +817,16 @@ class UserImportResource {
     // change) - mirrors the old flat job table's newest-first order closely enough that "the row I just triggered"
     // stays easy to find at the top instead of wherever the definition happens to sort otherwise.
     return rows.sortedByDescending { row -> row.inProgressJobs.maxOfOrNull { it.lastChangedAt } ?: definitionsById[row.id]?.lastChangedAt ?: Instant.EPOCH }
+  }
+
+  private fun scheduleLabel(cron: String?): String = when (val preset = SchedulePreset.fromCron(cron)) {
+    null -> if (cron == null) userImportDefinitionMsg.userImportDefinitionScheduleManualLabel() else userImportDefinitionMsg.userImportDefinitionScheduleDescCustom(cron)
+    is SchedulePreset.Daily -> userImportDefinitionMsg.userImportDefinitionScheduleDescDaily(preset.timeLabel())
+    is SchedulePreset.Interval -> when {
+      preset.minutes < 60 -> userImportDefinitionMsg.userImportDefinitionScheduleDescEveryMinutes(preset.minutes)
+      preset.minutes == 60 -> userImportDefinitionMsg.userImportDefinitionScheduleDescHourly()
+      else -> userImportDefinitionMsg.userImportDefinitionScheduleDescEveryHours(preset.minutes / 60)
+    }
   }
 
   private fun InstalledAppInfo.toOptionRow() = AppOptionRow(

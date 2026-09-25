@@ -1,10 +1,12 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import arrow.core.right
+import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
 import de.chrgroth.james.platform.domain.model.user.Username
+import de.chrgroth.james.platform.domain.port.out.imports.ImportDefinitionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.test.InjectMock
@@ -29,6 +31,9 @@ class UserImportDefinitionResourceTests {
 
   @Inject
   lateinit var userRepository: UserRepositoryPort
+
+  @Inject
+  lateinit var definitionRepository: ImportDefinitionRepositoryPort
 
   @BeforeEach
   fun setup() {
@@ -347,12 +352,13 @@ class UserImportDefinitionResourceTests {
   }
 
   @Test
-  fun `schedule endpoint sets a valid cron expression and the notify-on-slack flag`() {
+  fun `schedule endpoint sets a daily schedule and the notify-on-slack flag and the card shows a readable description`() {
     val (definitionId, connectionName, _) = createConfiguredDefinition()
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("schedule", "0 0 3 * * ?")
+      .formParam("mode", "DAILY")
+      .formParam("time", "06:30")
       .formParam("notifyOnSlack", "on")
       .`when`()
       .post("/ui/user/imports/definitions/$definitionId/schedule")
@@ -361,30 +367,75 @@ class UserImportDefinitionResourceTests {
       .body("ok", equalTo(true))
 
     val row = definitionRow(connectionName)
-    assertTrue(row.contains("0 0 3 * * ?"), "Expected the cron expression to be rendered")
+    assertTrue(row.contains("Täglich um 06:30"), "Expected the readable schedule description to be rendered")
+    assertTrue(!row.contains("0 30 6 * * ?"), "Expected the raw cron expression not to be rendered")
+    assertTrue(row.contains("""data-definition-schedule-mode="DAILY""""), "Expected the parsed mode on the card for modal prefill")
+    assertTrue(row.contains("""data-definition-schedule-time="06:30""""), "Expected the parsed time on the card for modal prefill")
     assertTrue(row.contains("""data-definition-notify-on-slack="true""""), "Expected notifyOnSlack to be persisted")
   }
 
   @Test
-  fun `schedule endpoint rejects an invalid cron expression`() {
-    val (definitionId, _, _) = createConfiguredDefinition()
+  fun `a legacy custom cron is shown as benutzerdefiniert with a replace hint and no preset prefill`() {
+    val (definitionId, connectionName, _) = createConfiguredDefinition()
+    val definition = definitionRepository.findById(ImportDefinitionId(definitionId))!!
+    definitionRepository.save(definition.copy(schedule = "0 0 3 * * MON"))
+
+    val row = definitionRow(connectionName)
+
+    assertTrue(row.contains("0 0 3 * * MON (benutzerdefiniert)"), "Expected the raw expression labelled as custom")
+    assertTrue(row.contains("""data-definition-schedule-mode="CUSTOM""""), "Expected the custom mode on the card")
+    assertTrue(row.contains("data-testid=\"definition-schedule-custom-hint\""), "Expected the replace hint for the modal")
+  }
+
+  @Test
+  fun `schedule endpoint sets an interval schedule`() {
+    val (definitionId, connectionName, _) = createConfiguredDefinition()
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("schedule", "not a cron")
+      .formParam("mode", "INTERVAL")
+      .formParam("intervalMinutes", "120")
       .`when`()
       .post("/ui/user/imports/definitions/$definitionId/schedule")
       .then()
       .statusCode(200)
-      .body("ok", equalTo(false))
+      .body("ok", equalTo(true))
+
+    val row = definitionRow(connectionName)
+    assertTrue(row.contains("Alle 2 Stunden"), "Expected the readable interval description to be rendered")
+    assertTrue(row.contains("""data-definition-schedule-interval="120""""), "Expected the parsed interval on the card for modal prefill")
   }
 
   @Test
-  fun `schedule endpoint clears the schedule when given a blank value`() {
+  fun `schedule endpoint rejects invalid structured schedule input`() {
+    val (definitionId, _, _) = createConfiguredDefinition()
+
+    listOf(
+      mapOf("mode" to "DAILY", "time" to "06:10"),
+      mapOf("mode" to "DAILY"),
+      mapOf("mode" to "INTERVAL", "intervalMinutes" to "5"),
+      mapOf("mode" to "INTERVAL", "intervalMinutes" to "abc"),
+      mapOf("mode" to "CRON", "schedule" to "0 0 3 * * ?"),
+      emptyMap(),
+    ).forEach { params ->
+      given()
+        .contentType("application/x-www-form-urlencoded")
+        .formParams(params)
+        .`when`()
+        .post("/ui/user/imports/definitions/$definitionId/schedule")
+        .then()
+        .statusCode(200)
+        .body("ok", equalTo(false))
+    }
+  }
+
+  @Test
+  fun `schedule endpoint clears the schedule when given mode NONE`() {
     val (definitionId, connectionName, _) = createConfiguredDefinition()
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("schedule", "0 0 3 * * ?")
+      .formParam("mode", "DAILY")
+      .formParam("time", "03:00")
       .`when`()
       .post("/ui/user/imports/definitions/$definitionId/schedule")
       .then()
@@ -393,7 +444,7 @@ class UserImportDefinitionResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("schedule", " ")
+      .formParam("mode", "NONE")
       .`when`()
       .post("/ui/user/imports/definitions/$definitionId/schedule")
       .then()
@@ -414,7 +465,8 @@ class UserImportDefinitionResourceTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("schedule", "0 0 3 * * ?")
+      .formParam("mode", "DAILY")
+      .formParam("time", "03:00")
       .`when`()
       .post("/ui/user/imports/definitions/$definitionId/schedule")
       .then()
