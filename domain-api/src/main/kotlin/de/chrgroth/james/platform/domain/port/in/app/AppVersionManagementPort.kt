@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.port.`in`.app
 import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
@@ -31,6 +32,13 @@ interface AppVersionManagementPort {
    */
   fun suggestMigrationSteps(appId: String, versionId: String, entityId: String): Either<DomainError, List<MigrationStepInput>>
   fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion>
+
+  /**
+   * Interactive preview of [entityId]'s draft migration steps and script against one of its existing AppData objects at [index] - see
+   * docs/adr/0023-migration-steps.md. [index] out of range yields a [MigrationPreviewSample] with a null `previewObject`, not a
+   * [DomainError]. Returns an empty sample (`total = 0`) if there is no predecessor Version to migrate from.
+   */
+  fun resolveMigrationPreviewSample(appId: String, versionId: String, entityId: String, index: Int): Either<DomainError, MigrationPreviewSample>
   fun updateEntitySortCriteria(appId: String, versionId: String, entityId: String, sortBy: List<SortCriteria>): Either<DomainError, AppVersion>
   fun addProperty(
     appId: String,

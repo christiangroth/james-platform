@@ -16,9 +16,13 @@ import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewIssue
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewObject
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
@@ -203,6 +207,118 @@ class AppVersionMigrationService(
       }
     }
     return Unit.right()
+  }
+
+  override fun resolveMigrationPreviewSample(appId: AppId, previousEntity: EntityDefinition, newEntity: EntityDefinition, index: Int): MigrationPreviewSample {
+    val installations = installedAppRepository.findAllByAppId(appId)
+    val candidates = installations
+      .flatMap { appDataRepository.findAllByInstalledAppIdAndEntityType(it.id, newEntity.id) }
+      .take(MIGRATION_PREVIEW_SAMPLE_LIMIT)
+    val appDataRow = candidates.getOrNull(index) ?: return MigrationPreviewSample(candidates.size, null)
+    return MigrationPreviewSample(candidates.size, previewMigrationObject(previousEntity, newEntity, appDataRow, index))
+  }
+
+  /**
+   * Builds a [MigrationPreviewObject] for [existingAppData]: applies [newEntity]'s migration steps and script to its data (see
+   * [previewMigrationSteps]), then re-validates the result with the same [AppDataPort.validateEntityData] used by the real
+   * dry-run/publish flow, so a preview finding can never disagree with what would actually happen. Unlike [runAndValidate], this never
+   * aborts early - every stage's issues are collected so the preview always shows the full picture for one object.
+   */
+  private fun previewMigrationObject(previousEntity: EntityDefinition, newEntity: EntityDefinition, existingAppData: AppData, index: Int): MigrationPreviewObject {
+    val (afterSteps, issues) = previewMigrationSteps(previousEntity, newEntity, existingAppData.data)
+
+    val afterScript = when (val scriptResult = runScript(previousEntity, newEntity, afterSteps)) {
+      is MigrationScriptResult.Failure -> {
+        issues += MigrationPreviewIssue.ScriptFailed(scriptResult.reason)
+        afterSteps
+      }
+      is MigrationScriptResult.Success -> scriptResult.data
+    }
+
+    val validation = appData.validateEntityData(newEntity, afterScript, existingAppData.installedAppId.value, excludingDataId = existingAppData.id.value)
+    if (validation is Either.Left) {
+      val propertyViolations = (validation.value as? AppDataConstraintViolationError)?.propertyViolations.orEmpty()
+      propertyViolations.forEach { (propertyId, violations) ->
+        violations.forEach { violation -> issues += MigrationPreviewIssue.ConstraintViolated(PropertyId(propertyId), violation) }
+      }
+    }
+
+    return MigrationPreviewObject(index, existingAppData.id, existingAppData.data, afterScript, issues)
+  }
+
+  /**
+   * Non-short-circuiting counterpart to [applyMigrationSteps] for [resolveMigrationPreviewSample]: applies every step of [newEntity] to
+   * [data] with the exact same semantics per step type, but a step that cannot be applied is skipped - its property's value stays
+   * unchanged - rather than aborting every remaining step, and is recorded as a [MigrationPreviewIssue.StepFailed] instead of failing the
+   * whole preview, so the preview always shows a full row rather than stopping at the first problem.
+   */
+  private fun previewMigrationSteps(
+    previousEntity: EntityDefinition,
+    newEntity: EntityDefinition,
+    data: Map<String, String?>,
+  ): Pair<Map<String, String?>, MutableList<MigrationPreviewIssue>> {
+    var result = data
+    val issues = mutableListOf<MigrationPreviewIssue>()
+    for (step in newEntity.migrationSteps) {
+      when (step) {
+        is MigrationStep.ConvertType -> {
+          val sourceProp = previousEntity.properties.find { it.id == step.propertyId }
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+          if (sourceProp == null || targetProp == null) {
+            issues += MigrationPreviewIssue.StepFailed(step.propertyId, "Property ${step.propertyId.value} not found")
+            continue
+          }
+          convertValue(sourceProp, targetProp, result[step.propertyId.value]).fold(
+            { reason -> issues += MigrationPreviewIssue.StepFailed(step.propertyId, reason) },
+            { converted -> result = result + (step.propertyId.value to converted) },
+          )
+        }
+        is MigrationStep.CopyValue -> {
+          val sourceProp = previousEntity.properties.find { it.id == step.sourcePropertyId }
+          val targetProp = newEntity.properties.find { it.id == step.targetPropertyId }
+          if (sourceProp == null || targetProp == null) {
+            issues += MigrationPreviewIssue.StepFailed(step.targetPropertyId, "Property not found for CopyValue step")
+            continue
+          }
+          convertValue(sourceProp, targetProp, result[step.sourcePropertyId.value]).fold(
+            { reason -> issues += MigrationPreviewIssue.StepFailed(step.targetPropertyId, reason) },
+            { converted -> result = result + (step.targetPropertyId.value to converted) },
+          )
+        }
+        is MigrationStep.ConvertUnit -> {
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+          val targetUnit = targetProp?.unit
+          if (targetProp == null || targetUnit == null) {
+            issues += MigrationPreviewIssue.StepFailed(step.propertyId, "Property ${step.propertyId.value} has no unit")
+            continue
+          }
+          val raw = result[step.propertyId.value]
+          if (!raw.isNullOrBlank()) result = result + (step.propertyId.value to ValueConversion.convertGranularity(targetUnit, step.sourceGranularity, raw))
+        }
+        is MigrationStep.FillEmptyValue -> {
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+          if (targetProp == null) {
+            issues += MigrationPreviewIssue.StepFailed(step.propertyId, "Property ${step.propertyId.value} not found")
+            continue
+          }
+          val raw = result[step.propertyId.value]
+          if (raw.isNullOrBlank()) {
+            val fillValue = step.value ?: targetProp.default
+            if (fillValue != null) result = result + (step.propertyId.value to fillValue)
+          }
+        }
+        is MigrationStep.AdjustToConstraints -> {
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+          if (targetProp == null) {
+            issues += MigrationPreviewIssue.StepFailed(step.propertyId, "Property ${step.propertyId.value} not found")
+            continue
+          }
+          val raw = result[step.propertyId.value]
+          if (!raw.isNullOrBlank()) result = result + (step.propertyId.value to adjustToConstraints(targetProp, raw))
+        }
+      }
+    }
+    return result to issues
   }
 
   /**
@@ -402,5 +518,8 @@ class AppVersionMigrationService(
     private const val BINDING_PREVIOUS = "_migrationPreviousEntity"
     private const val BINDING_NEW = "_migrationNewEntity"
     private const val MIGRATION_METRIC_LABEL = "migration"
+
+    /** Caps how many existing AppData objects [resolveMigrationPreviewSample] considers, so the preview stays responsive while editing. */
+    private const val MIGRATION_PREVIEW_SAMPLE_LIMIT = 50
   }
 }

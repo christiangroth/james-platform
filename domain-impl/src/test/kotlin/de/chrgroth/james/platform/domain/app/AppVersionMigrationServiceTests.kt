@@ -621,4 +621,117 @@ class AppVersionMigrationServiceTests {
   }
 
   // endregion
+
+  // region resolveMigrationPreviewSample
+
+  @Test
+  fun `resolveMigrationPreviewSample returns an empty sample when there is no existing AppData`() {
+    val entity = EntityDefinition(id = entityId, name = "Order")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(installedApp(id = "inst-1"))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(any(), entityId) } returns emptyList()
+
+    val sample = service.resolveMigrationPreviewSample(appId, entity, entity, 0)
+
+    assertThat(sample.total).isEqualTo(0)
+    assertThat(sample.previewObject).isNull()
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample returns null previewObject when index is out of range`() {
+    val entity = EntityDefinition(id = entityId, name = "Order")
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
+
+    val sample = service.resolveMigrationPreviewSample(appId, entity, entity, 5)
+
+    assertThat(sample.total).isEqualTo(1)
+    assertThat(sample.previewObject).isNull()
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample previews before and after values with no issues when migration succeeds`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Active", type = PropertyType.STRING, nullable = true)
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val convertedProp = prop.copy(type = PropertyType.BOOLEAN)
+    val newEntity = previousEntity.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+    )
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "TRUE")))
+
+    val sample = service.resolveMigrationPreviewSample(appId, previousEntity, newEntity, 0)
+
+    assertThat(sample.total).isEqualTo(1)
+    val previewObject = sample.previewObject
+    assertThat(previewObject).isNotNull
+    assertThat(previewObject!!.isValid).isTrue()
+    assertThat(previewObject.before[prop.id.value]).isEqualTo("TRUE")
+    assertThat(previewObject.after[prop.id.value]).isEqualTo("true")
+    assertThat(previewObject.issues).isEmpty()
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample records a StepFailed issue but still returns the object when a step cannot be applied`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING, nullable = true)
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val convertedProp = prop.copy(type = PropertyType.LONG)
+    val newEntity = previousEntity.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+    )
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "not-a-number")))
+
+    val sample = service.resolveMigrationPreviewSample(appId, previousEntity, newEntity, 0)
+
+    val previewObject = sample.previewObject
+    assertThat(previewObject).isNotNull
+    assertThat(previewObject!!.isValid).isFalse()
+    assertThat(previewObject.before[prop.id.value]).isEqualTo("not-a-number")
+    // the failed step leaves the property's value unchanged rather than aborting the whole preview
+    assertThat(previewObject.after[prop.id.value]).isEqualTo("not-a-number")
+    assertThat(previewObject.issues).hasSize(1)
+    assertThat(previewObject.issues.single()).isInstanceOf(de.chrgroth.james.platform.domain.model.app.MigrationPreviewIssue.StepFailed::class.java)
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample records a ConstraintViolated issue when migrated data fails re-validation`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = true, constraints = setOf(PropertyConstraint.MinLong(100)))
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val newEntity = previousEntity.copy(migrationScript = "it + (\"${prop.id.value}\" to \"5\")")
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
+
+    val sample = service.resolveMigrationPreviewSample(appId, previousEntity, newEntity, 0)
+
+    val previewObject = sample.previewObject
+    assertThat(previewObject).isNotNull
+    assertThat(previewObject!!.isValid).isFalse()
+    assertThat(previewObject.after[prop.id.value]).isEqualTo("5")
+    assertThat(previewObject.issues).hasSize(1)
+    assertThat(previewObject.issues.single()).isInstanceOf(de.chrgroth.james.platform.domain.model.app.MigrationPreviewIssue.ConstraintViolated::class.java)
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample records a ScriptFailed issue but still returns the object when the migration script throws`() {
+    val previousEntity = EntityDefinition(id = entityId, name = "Order")
+    val newEntity = previousEntity.copy(migrationScript = "throw RuntimeException(\"boom\")")
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf("a" to "1")))
+
+    val sample = service.resolveMigrationPreviewSample(appId, previousEntity, newEntity, 0)
+
+    val previewObject = sample.previewObject
+    assertThat(previewObject).isNotNull
+    assertThat(previewObject!!.isValid).isFalse()
+    assertThat(previewObject.issues.single()).isInstanceOf(de.chrgroth.james.platform.domain.model.app.MigrationPreviewIssue.ScriptFailed::class.java)
+  }
+
+  // endregion
 }

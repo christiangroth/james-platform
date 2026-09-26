@@ -44,7 +44,10 @@ James Platform is a personal Low Code system for building and running data-centr
   ready to create with one click. The dry-run also accounts for installations whose auto-upgrade fell behind, applying their own pending migrations first rather than
   assuming every installation is already on the latest published Version. Migrations run synchronously as part of the upgrade (auto-upgrade for non-breaking Versions, or
   explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md) and ADR
-  [0023](../adr/0023-migration-steps.md).
+  [0023](../adr/0023-migration-steps.md). The Migration section also offers an interactive preview, analogous to the Data Import Mapping step's live preview: it applies
+  the draft's already-saved migration steps and script to one existing `AppData` object at a time (a bounded sample across the App's installations) and shows the
+  before/after value per Property plus any validation issues found while re-validating the result — without running a real dry-run or publish — with Prev/Next
+  navigation across the sampled objects. See ADR [0015](../adr/0015-import-object-preview-endpoint.md).
 
 ### Entities and Properties
 

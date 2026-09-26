@@ -120,6 +120,34 @@ reflect the *currently edited*, not yet saved, mapping form state.
   filtered set - the AJAX call triggered by a mapping rule change (debounced client-side) cannot
   turn into a full dry-run by accident.
 
+## Extension: Migration Steps Preview (#721)
+
+The Version editor's Migration section reuses the same index-based `total`/sample building block for a different
+pipeline: instead of previewing the Data Import Mapping step against unsaved form state, it previews a draft
+Entity's already-*persisted* migration steps and script (see ADR [0023](0023-migration-steps.md)) against one
+existing `AppData` object at a time - the interactive preview requested in
+[#721](https://github.com/christiangroth/james-platform/issues/721), split out of the Migrationsbausteine work in
+[#709](https://github.com/christiangroth/james-platform/issues/709).
+
+* `MigrationPreviewSample(total, previewObject: MigrationPreviewObject?)`
+  ([`MigrationPreview.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/MigrationPreview.kt))
+  mirrors `MappingSample`. `AppVersionMigrationPort.resolveMigrationPreviewSample(appId, previousEntity, newEntity,
+  index)` builds its candidate set the same way `dryRunMigration` does (every `AppData` row of the entity across
+  every installation of the App), capped at a fixed sample size so the preview stays responsive regardless of how
+  much data an installation holds - unlike `dryRunMigration`/`migrateInstallation`, which read every row.
+* **Never short-circuits, unlike every other migration execution path.** `dryRunMigration`/`migrateInstallation`
+  both abort on the first failing object, since a real dry-run/persisted migration is all-or-nothing. A preview of
+  one already-selected object must instead show *everything* wrong with that one object - so
+  `AppVersionMigrationService.previewMigrationSteps`/`previewMigrationObject` are non-short-circuiting siblings of
+  `applyMigrationSteps`/`runAndValidate`: a step that cannot be applied is skipped (recorded as a
+  `MigrationPreviewIssue.StepFailed`) rather than aborting the remaining steps, and re-validation still runs
+  afterwards via the same `AppDataPort.validateEntityData` the real migration paths use, so a preview finding can
+  never disagree with what an actual dry-run/publish would find.
+* Since migration steps/script are edited via immediately-persisting endpoints (`addMigrationStep`,
+  `updateEntityMigrationScript`, ...), unlike the Import Mapping form's client-side-until-saved state, the preview
+  endpoint is a plain `GET .../migration-preview/sample?index=` with no request body - it always previews what is
+  currently saved on the draft.
+
 ## Pros and Cons of the Options
 
 ### New dedicated sample endpoint (chosen)
@@ -153,11 +181,17 @@ reflect the *currently edited*, not yet saved, mapping form state.
 
 * Refs [#567](https://github.com/christiangroth/james-platform/issues/567),
   [#568](https://github.com/christiangroth/james-platform/issues/568),
-  [#544](https://github.com/christiangroth/james-platform/issues/544)
+  [#544](https://github.com/christiangroth/james-platform/issues/544),
+  [#721](https://github.com/christiangroth/james-platform/issues/721)
 * [`FilterEvaluator.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/FilterEvaluator.kt)
 * [`DryRunExecutor.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/DryRunExecutor.kt)
 * [`ImportService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/imports/ImportService.kt)
 * [`UserImportResource.kt`](../../adapter-in-web/src/main/kotlin/de/chrgroth/james/platform/adapter/in/web/UserImportResource.kt)
 * [`import-filter.html`](../../adapter-in-web/src/main/resources/templates/ui/user/import-filter.html)
 * [`import-mapping.html`](../../adapter-in-web/src/main/resources/templates/ui/user/import-mapping.html)
+* [`MigrationPreview.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/MigrationPreview.kt)
+* [`AppVersionMigrationService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppVersionMigrationService.kt)
+* [`DeveloperAppResource.kt`](../../adapter-in-web/src/main/kotlin/de/chrgroth/james/platform/adapter/in/web/DeveloperAppResource.kt)
+* [`version-editor.html`](../../adapter-in-web/src/main/resources/templates/ui/developer/version-editor.html)
 * [arc42: Data Import (ETL)](../arc42/arc42.md#data-import-etl)
+* [arc42: Apps and Versions](../arc42/arc42.md#apps-and-versions)
