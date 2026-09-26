@@ -119,8 +119,9 @@ class AggregationComputationTests {
   @Test
   fun `bucketKeyOf encodes QUARTAL with the calendar default period start`() {
     fun aggregationForDate(date: String) =
-      AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId, timeBucket = TimeBucket.QUARTAL)
-        .bucketKeyOf(appData("d1", emptyMap(), Instant.parse("${date}T00:00:00Z")))
+      AggregationDefinition(
+        id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId, timeBucket = TimeBucket.QUARTAL,
+      ).bucketKeyOf(appData("d1", emptyMap(), Instant.parse("${date}T00:00:00Z")))
 
     assertThat(aggregationForDate("2026-01-01")).isEqualTo("2026-Q1")
     assertThat(aggregationForDate("2026-03-31")).isEqualTo("2026-Q1")
@@ -132,8 +133,9 @@ class AggregationComputationTests {
   fun `bucketKeyOf JAHR and QUARTAL respect a configured periodStart, per the issue 711 example table`() {
     val periodStart = MonthDay.of(4, 10)
     fun aggregationWith(bucket: TimeBucket, date: String) =
-      AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId, timeBucket = bucket, periodStart = periodStart)
-        .bucketKeyOf(appData("d1", emptyMap(), Instant.parse("${date}T00:00:00Z")))
+      AggregationDefinition(
+        id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId, timeBucket = bucket, periodStart = periodStart,
+      ).bucketKeyOf(appData("d1", emptyMap(), Instant.parse("${date}T00:00:00Z")))
 
     assertThat(aggregationWith(TimeBucket.JAHR, "2026-09-25")).isEqualTo("2026")
     assertThat(aggregationWith(TimeBucket.QUARTAL, "2026-09-25")).isEqualTo("2026-Q2")

@@ -1393,7 +1393,9 @@ class AppVersionManagementService(
       val groupByProperty = entity.properties.find { it.id == groupBy } ?: return AppVersionError.AGGREGATION_GROUP_BY_INVALID
       if (groupByProperty.type == PropertyType.LIST || groupByProperty.type == PropertyType.OBJECT) return AppVersionError.AGGREGATION_GROUP_BY_INVALID
     }
-    if (aggregation.periodStart != null && aggregation.timeBucket != TimeBucket.JAHR && aggregation.timeBucket != TimeBucket.QUARTAL) return AppVersionError.AGGREGATION_PERIOD_START_INVALID
+    if (aggregation.periodStart != null && aggregation.timeBucket != TimeBucket.JAHR && aggregation.timeBucket != TimeBucket.QUARTAL) {
+      return AppVersionError.AGGREGATION_PERIOD_START_INVALID
+    }
     return null
   }
 

@@ -3412,12 +3412,36 @@ class AppVersionManagementServiceTests {
         Arguments.of("groupBy equal to source property", input(groupBy = "p-km"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
         Arguments.of("groupBy on a LIST property", input(groupBy = "p-tags"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
         Arguments.of("refPath combined with groupBy", input(refPath = "p-shoe", groupBy = "p-note"), AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE),
-        Arguments.of("periodStart without JAHR/QUARTAL time bucket", input(timeBucket = "TAG", periodStartDay = "10", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
-        Arguments.of("periodStart without any time bucket", input(periodStartDay = "10", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
-        Arguments.of("periodStart on 29.02.", input(timeBucket = "JAHR", periodStartDay = "29", periodStartMonth = "2"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
-        Arguments.of("periodStart with non-existing day/month combination", input(timeBucket = "JAHR", periodStartDay = "31", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
-        Arguments.of("periodStart with non-numeric day", input(timeBucket = "JAHR", periodStartDay = "abc", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
-        Arguments.of("periodStart with only day set", input(timeBucket = "JAHR", periodStartDay = "10"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
+        Arguments.of(
+          "periodStart without JAHR/QUARTAL time bucket",
+          input(timeBucket = "TAG", periodStartDay = "10", periodStartMonth = "4"),
+          AppVersionError.AGGREGATION_PERIOD_START_INVALID,
+        ),
+        Arguments.of(
+          "periodStart without any time bucket",
+          input(periodStartDay = "10", periodStartMonth = "4"),
+          AppVersionError.AGGREGATION_PERIOD_START_INVALID,
+        ),
+        Arguments.of(
+          "periodStart on 29.02.",
+          input(timeBucket = "JAHR", periodStartDay = "29", periodStartMonth = "2"),
+          AppVersionError.AGGREGATION_PERIOD_START_INVALID,
+        ),
+        Arguments.of(
+          "periodStart with non-existing day/month combination",
+          input(timeBucket = "JAHR", periodStartDay = "31", periodStartMonth = "4"),
+          AppVersionError.AGGREGATION_PERIOD_START_INVALID,
+        ),
+        Arguments.of(
+          "periodStart with non-numeric day",
+          input(timeBucket = "JAHR", periodStartDay = "abc", periodStartMonth = "4"),
+          AppVersionError.AGGREGATION_PERIOD_START_INVALID,
+        ),
+        Arguments.of(
+          "periodStart with only day set",
+          input(timeBucket = "JAHR", periodStartDay = "10"),
+          AppVersionError.AGGREGATION_PERIOD_START_INVALID,
+        ),
       )
     }
 

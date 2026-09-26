@@ -10,8 +10,8 @@ single-developer tool on a personal VPS and provides a web UI for managing users
 - **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
   forward) and Snapshot mode (reusable form templates).
 - **Computed Properties & Smart Defaults** – Derived values and form defaults backed by Developer-authored Kotlin scripts, executed backend-side with a timeout guard.
-- **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, optional day/week/month/year bucketing, optional grouping via a `ref`) over an Entity's
-  data in the version editor, shown directly on the app installation.
+- **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, optional day/week/month/quarter/year bucketing with a configurable period start,
+  optional grouping via a `ref`) over an Entity's data in the version editor, shown directly on the app installation.
 - **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by a Developer-authored
   migration script that transforms existing data on upgrade.
 - **Data Import (ETL)** – Users import external JSON data into an installed App through a guided fetch → detect → map → dry-run → accept flow, including SSRF-hardened
