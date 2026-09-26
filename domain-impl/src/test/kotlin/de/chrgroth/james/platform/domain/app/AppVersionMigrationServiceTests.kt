@@ -21,6 +21,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
@@ -396,6 +397,136 @@ class AppVersionMigrationServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationStepFailedError::class.java)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `migrateInstallation converts a value's granularity via a ConvertUnit step`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.LONG, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val propWithUnit = prop.copy(unit = PropertyUnit(UnitFamily.TIME, TimeGranularity.MILLISECONDS, TimeGranularity.SECONDS))
+    val entityV2 = entityV1.copy(
+      properties = listOf(propWithUnit),
+      migrationSteps = listOf(MigrationStep.ConvertUnit(MigrationStepId("step-1"), prop.id, TimeGranularity.SECONDS)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "5")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("5000")
+  }
+
+  @Test
+  fun `migrateInstallation fills a blank value with the fixed value via a FillEmptyValue step`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val nonNullableProp = prop.copy(nullable = false)
+    val entityV2 = entityV1.copy(
+      properties = listOf(nonNullableProp),
+      migrationSteps = listOf(MigrationStep.FillEmptyValue(MigrationStepId("step-1"), prop.id, "active")),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to null)))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("active")
+  }
+
+  @Test
+  fun `migrateInstallation fills a blank value with the property's own default via a FillEmptyValue step`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val nonNullableProp = prop.copy(nullable = false, default = "unknown")
+    val entityV2 = entityV1.copy(
+      properties = listOf(nonNullableProp),
+      migrationSteps = listOf(MigrationStep.FillEmptyValue(MigrationStepId("step-1"), prop.id, null)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("unknown")
+  }
+
+  @Test
+  fun `migrateInstallation clamps an out-of-range value via an AdjustToConstraints step`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val constrainedProp = prop.copy(constraints = setOf(PropertyConstraint.MaxLong(100)))
+    val entityV2 = entityV1.copy(
+      properties = listOf(constrainedProp),
+      migrationSteps = listOf(MigrationStep.AdjustToConstraints(MigrationStepId("step-1"), prop.id)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "150")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("100")
+  }
+
+  @Test
+  fun `migrateInstallation truncates an over-long STRING value via an AdjustToConstraints step`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val constrainedProp = prop.copy(constraints = setOf(PropertyConstraint.MaxLength(5)))
+    val entityV2 = entityV1.copy(
+      properties = listOf(constrainedProp),
+      migrationSteps = listOf(MigrationStep.AdjustToConstraints(MigrationStepId("step-1"), prop.id)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "abcdefghij")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("abcde")
+  }
+
+  @Test
+  fun `dryRunMigration fails when an AdjustToConstraints step cannot make an existing value satisfy a Pattern constraint`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING, nullable = true)
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val constrainedProp = prop.copy(constraints = setOf(PropertyConstraint.Pattern("[A-Z]+")))
+    val newEntity = previousEntity.copy(
+      properties = listOf(constrainedProp),
+      migrationSteps = listOf(MigrationStep.AdjustToConstraints(MigrationStepId("step-1"), prop.id)),
+    )
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "lowercase")))
+
+    val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationValidationFailedError::class.java)
     verify(exactly = 0) { appDataRepository.save(any()) }
   }
 
