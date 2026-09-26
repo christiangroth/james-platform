@@ -112,7 +112,9 @@
                                 data-migration-step-type="{step.type}"
                                 data-migration-step-property-id="{step.propertyId}"
                                 data-migration-step-source-property-id="{step.sourcePropertyId}"
-                                data-migration-step-target-property-id="{step.targetPropertyId}">
+                                data-migration-step-target-property-id="{step.targetPropertyId}"
+                                data-migration-step-source-granularity="{step.sourceGranularity}"
+                                data-migration-step-value="{step.value}">
                                 <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);width:1.5rem;" title="{developer:developerDragToReorderTitle()}" data-testid="migration-step-drag-handle">
                                     <i class="bi bi-grip-vertical" aria-hidden="true"></i>
                                 </td>
@@ -1052,6 +1054,9 @@
                             <select class="form-select app-form-control" id="migrationStepType" name="type" required data-testid="migration-step-type-select">
                                 <option value="CONVERT_TYPE">{developerMigrationStep:developerMigrationStepTypeConvertType()}</option>
                                 <option value="COPY_VALUE">{developerMigrationStep:developerMigrationStepTypeCopyValue()}</option>
+                                <option value="CONVERT_UNIT">{developerMigrationStep:developerMigrationStepTypeConvertUnit()}</option>
+                                <option value="FILL_EMPTY_VALUE">{developerMigrationStep:developerMigrationStepTypeFillEmptyValue()}</option>
+                                <option value="ADJUST_TO_CONSTRAINTS">{developerMigrationStep:developerMigrationStepTypeAdjustToConstraints()}</option>
                             </select>
                         </div>
                         <div id="migrationStepConvertTypeFields" class="mb-3">
@@ -1076,6 +1081,42 @@
                                     {#for opt in copyValueTargetPropertyOptions}<option value="{opt.id}">{opt.name}</option>{/for}
                                 </select>
                             </div>
+                        </div>
+                        <div id="migrationStepConvertUnitFields" class="d-none">
+                            <div class="mb-3">
+                                <label for="migrationStepConvertUnitPropertyId" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepPropertyLabel()}</label>
+                                <select class="form-select app-form-control" id="migrationStepConvertUnitPropertyId" data-testid="migration-step-convert-unit-property-select">
+                                    <option value="">{developerMigrationStep:developerMigrationStepPropertyPlaceholder()}</option>
+                                    {#for opt in convertUnitPropertyOptions}<option value="{opt.id}" data-unit-family="{opt.unitFamily}">{opt.name}</option>{/for}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="migrationStepSourceGranularity" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepSourceGranularityLabel()}</label>
+                                <select class="form-select app-form-control" id="migrationStepSourceGranularity" name="sourceGranularity" data-testid="migration-step-source-granularity-select">
+                                    <option value="">{developerMigrationStep:developerMigrationStepSourceGranularityPlaceholder()}</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="migrationStepFillEmptyValueFields" class="d-none">
+                            <div class="mb-3">
+                                <label for="migrationStepFillEmptyValuePropertyId" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepPropertyLabel()}</label>
+                                <select class="form-select app-form-control" id="migrationStepFillEmptyValuePropertyId" data-testid="migration-step-fill-empty-value-property-select">
+                                    <option value="">{developerMigrationStep:developerMigrationStepPropertyPlaceholder()}</option>
+                                    {#for opt in fillEmptyValuePropertyOptions}<option value="{opt.id}">{opt.name}</option>{/for}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="migrationStepValue" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepValueLabel()}</label>
+                                <input type="text" class="form-control app-form-control" id="migrationStepValue" name="value" data-testid="migration-step-value-input">
+                                <div class="form-text">{developerMigrationStep:developerMigrationStepValueHelp()}</div>
+                            </div>
+                        </div>
+                        <div id="migrationStepAdjustToConstraintsFields" class="d-none mb-3">
+                            <label for="migrationStepAdjustToConstraintsPropertyId" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepPropertyLabel()}</label>
+                            <select class="form-select app-form-control" id="migrationStepAdjustToConstraintsPropertyId" data-testid="migration-step-adjust-to-constraints-property-select">
+                                <option value="">{developerMigrationStep:developerMigrationStepPropertyPlaceholder()}</option>
+                                {#for opt in adjustToConstraintsPropertyOptions}<option value="{opt.id}">{opt.name}</option>{/for}
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer justify-content-between">
@@ -1196,6 +1237,7 @@
 
     {/content}
     {#scripts}
+    <script src="/unit-value-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
             var appId = '{app.id}';
@@ -1212,6 +1254,7 @@
             var editAggregationModalTitle = '{developerAggregation:developerEditAggregationModalTitle()}';
             var addMigrationStepModalTitle = '{developerMigrationStep:developerAddMigrationStepModalTitle()}';
             var editMigrationStepModalTitle = '{developerMigrationStep:developerEditMigrationStepModalTitle()}';
+            var migrationStepSourceGranularityPlaceholder = '{developerMigrationStep:developerMigrationStepSourceGranularityPlaceholder()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
@@ -2019,16 +2062,54 @@
                 var migrationStepDeleteBtn = document.getElementById('migrationStepDeleteBtn');
                 var migrationStepConvertTypeFields = document.getElementById('migrationStepConvertTypeFields');
                 var migrationStepCopyValueFields = document.getElementById('migrationStepCopyValueFields');
+                var migrationStepConvertUnitFields = document.getElementById('migrationStepConvertUnitFields');
+                var migrationStepFillEmptyValueFields = document.getElementById('migrationStepFillEmptyValueFields');
+                var migrationStepAdjustToConstraintsFields = document.getElementById('migrationStepAdjustToConstraintsFields');
                 var migrationStepFields = {
                     propertyId: document.getElementById('migrationStepPropertyId'),
                     sourcePropertyId: document.getElementById('migrationStepSourcePropertyId'),
-                    targetPropertyId: document.getElementById('migrationStepTargetPropertyId')
+                    targetPropertyId: document.getElementById('migrationStepTargetPropertyId'),
+                    convertUnitPropertyId: document.getElementById('migrationStepConvertUnitPropertyId'),
+                    sourceGranularity: document.getElementById('migrationStepSourceGranularity'),
+                    fillEmptyValuePropertyId: document.getElementById('migrationStepFillEmptyValuePropertyId'),
+                    value: document.getElementById('migrationStepValue'),
+                    adjustToConstraintsPropertyId: document.getElementById('migrationStepAdjustToConstraintsPropertyId')
                 };
 
+                /** The property select currently in effect for the selected migration step type - each type keeps its own candidate list. */
+                function currentPropertyIdField() {
+                    switch (migrationStepType.value) {
+                        case 'CONVERT_TYPE': return migrationStepFields.propertyId;
+                        case 'CONVERT_UNIT': return migrationStepFields.convertUnitPropertyId;
+                        case 'FILL_EMPTY_VALUE': return migrationStepFields.fillEmptyValuePropertyId;
+                        case 'ADJUST_TO_CONSTRAINTS': return migrationStepFields.adjustToConstraintsPropertyId;
+                        default: return null;
+                    }
+                }
+
+                function populateMigrationStepSourceGranularityOptions(preserveValue) {
+                    var select = migrationStepFields.sourceGranularity;
+                    var selectedOption = migrationStepFields.convertUnitPropertyId.options[migrationStepFields.convertUnitPropertyId.selectedIndex];
+                    var family = selectedOption ? selectedOption.getAttribute('data-unit-family') : '';
+                    var current = preserveValue ? select.value : '';
+                    select.innerHTML = '<option value="">' + migrationStepSourceGranularityPlaceholder + '</option>';
+                    unitGranularitiesFor(family).forEach(function (g) {
+                        var option = document.createElement('option');
+                        option.value = g.value;
+                        option.textContent = g.symbol;
+                        select.appendChild(option);
+                    });
+                    select.value = current;
+                }
+                migrationStepFields.convertUnitPropertyId.addEventListener('change', function () { populateMigrationStepSourceGranularityOptions(false); });
+
                 function updateMigrationStepTypeFields() {
-                    var isCopyValue = migrationStepType.value === 'COPY_VALUE';
-                    migrationStepConvertTypeFields.classList.toggle('d-none', isCopyValue);
-                    migrationStepCopyValueFields.classList.toggle('d-none', !isCopyValue);
+                    var type = migrationStepType.value;
+                    migrationStepConvertTypeFields.classList.toggle('d-none', type !== 'CONVERT_TYPE');
+                    migrationStepCopyValueFields.classList.toggle('d-none', type !== 'COPY_VALUE');
+                    migrationStepConvertUnitFields.classList.toggle('d-none', type !== 'CONVERT_UNIT');
+                    migrationStepFillEmptyValueFields.classList.toggle('d-none', type !== 'FILL_EMPTY_VALUE');
+                    migrationStepAdjustToConstraintsFields.classList.toggle('d-none', type !== 'ADJUST_TO_CONSTRAINTS');
                 }
                 migrationStepType.addEventListener('change', updateMigrationStepTypeFields);
 
@@ -2039,10 +2120,20 @@
                     document.getElementById('migrationStepId').value = row ? row.getAttribute('data-migration-step-id') : '';
                     document.getElementById('migrationStepModalLabel').textContent = row ? editMigrationStepModalTitle : addMigrationStepModalTitle;
                     if (row) {
-                        migrationStepType.value = row.getAttribute('data-migration-step-type');
-                        migrationStepFields.propertyId.value = row.getAttribute('data-migration-step-property-id') || '';
+                        var type = row.getAttribute('data-migration-step-type');
+                        migrationStepType.value = type;
+                        var propertyId = row.getAttribute('data-migration-step-property-id') || '';
+                        migrationStepFields.propertyId.value = propertyId;
                         migrationStepFields.sourcePropertyId.value = row.getAttribute('data-migration-step-source-property-id') || '';
                         migrationStepFields.targetPropertyId.value = row.getAttribute('data-migration-step-target-property-id') || '';
+                        migrationStepFields.convertUnitPropertyId.value = type === 'CONVERT_UNIT' ? propertyId : '';
+                        migrationStepFields.fillEmptyValuePropertyId.value = type === 'FILL_EMPTY_VALUE' ? propertyId : '';
+                        migrationStepFields.adjustToConstraintsPropertyId.value = type === 'ADJUST_TO_CONSTRAINTS' ? propertyId : '';
+                        migrationStepFields.value.value = row.getAttribute('data-migration-step-value') || '';
+                        populateMigrationStepSourceGranularityOptions(false);
+                        migrationStepFields.sourceGranularity.value = row.getAttribute('data-migration-step-source-granularity') || '';
+                    } else {
+                        populateMigrationStepSourceGranularityOptions(false);
                     }
                     migrationStepDeleteBtn.classList.toggle('d-none', !row);
                     updateMigrationStepTypeFields();
@@ -2072,11 +2163,14 @@
                     btn.disabled = true;
                     var entityId = document.getElementById('migrationStepEntityId').value;
                     var stepId = document.getElementById('migrationStepId').value;
+                    var propertyIdField = currentPropertyIdField();
                     var formData = new FormData();
                     formData.set('type', migrationStepType.value);
-                    formData.set('propertyId', migrationStepFields.propertyId.value);
+                    formData.set('propertyId', propertyIdField ? propertyIdField.value : '');
                     formData.set('sourcePropertyId', migrationStepFields.sourcePropertyId.value);
                     formData.set('targetPropertyId', migrationStepFields.targetPropertyId.value);
+                    formData.set('sourceGranularity', migrationStepFields.sourceGranularity.value);
+                    formData.set('value', migrationStepFields.value.value);
                     var url = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/migration-steps'
                         + (stepId ? '/' + stepId : '');
                     var result = await apiPost(url, formData, true);
