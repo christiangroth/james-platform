@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.time.MonthDay
 
 class AggregationComputationTests {
 
@@ -113,6 +114,40 @@ class AggregationComputationTests {
     assertThat(aggregationWith(TimeBucket.MONAT).bucketKeyOf(appData("d1", emptyMap(), createdAt))).isEqualTo("2026-08")
     assertThat(aggregationWith(TimeBucket.JAHR).bucketKeyOf(appData("d1", emptyMap(), createdAt))).isEqualTo("2026")
     assertThat(aggregationWith(TimeBucket.WOCHE).bucketKeyOf(appData("d1", emptyMap(), createdAt))).isEqualTo("2026-W34")
+  }
+
+  @Test
+  fun `bucketKeyOf encodes QUARTAL with the calendar default period start`() {
+    fun aggregationForDate(date: String) =
+      AggregationDefinition(
+        id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId, timeBucket = TimeBucket.QUARTAL,
+      ).bucketKeyOf(appData("d1", emptyMap(), Instant.parse("${date}T00:00:00Z")))
+
+    assertThat(aggregationForDate("2026-01-01")).isEqualTo("2026-Q1")
+    assertThat(aggregationForDate("2026-03-31")).isEqualTo("2026-Q1")
+    assertThat(aggregationForDate("2026-04-01")).isEqualTo("2026-Q2")
+    assertThat(aggregationForDate("2026-12-31")).isEqualTo("2026-Q4")
+  }
+
+  @Test
+  fun `bucketKeyOf JAHR and QUARTAL respect a configured periodStart, per the issue 711 example table`() {
+    val periodStart = MonthDay.of(4, 10)
+    fun aggregationWith(bucket: TimeBucket, date: String) =
+      AggregationDefinition(
+        id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId, timeBucket = bucket, periodStart = periodStart,
+      ).bucketKeyOf(appData("d1", emptyMap(), Instant.parse("${date}T00:00:00Z")))
+
+    assertThat(aggregationWith(TimeBucket.JAHR, "2026-09-25")).isEqualTo("2026")
+    assertThat(aggregationWith(TimeBucket.QUARTAL, "2026-09-25")).isEqualTo("2026-Q2")
+
+    assertThat(aggregationWith(TimeBucket.JAHR, "2026-01-01")).isEqualTo("2025")
+    assertThat(aggregationWith(TimeBucket.QUARTAL, "2026-01-01")).isEqualTo("2025-Q3")
+
+    assertThat(aggregationWith(TimeBucket.JAHR, "2026-04-09")).isEqualTo("2025")
+    assertThat(aggregationWith(TimeBucket.QUARTAL, "2026-04-09")).isEqualTo("2025-Q4")
+
+    assertThat(aggregationWith(TimeBucket.JAHR, "2026-04-10")).isEqualTo("2026")
+    assertThat(aggregationWith(TimeBucket.QUARTAL, "2026-04-10")).isEqualTo("2026-Q1")
   }
 
   @Test

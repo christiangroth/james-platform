@@ -134,4 +134,6 @@ data class AggregationInput(
   val timeBucket: String? = null,
   val timeProperty: String? = null,
   val groupBy: String? = null,
+  val periodStartDay: String? = null,
+  val periodStartMonth: String? = null,
 )

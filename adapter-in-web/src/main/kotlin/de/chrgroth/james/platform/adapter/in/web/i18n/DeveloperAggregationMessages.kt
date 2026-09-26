@@ -96,6 +96,21 @@ interface DeveloperAggregationMessages {
   fun developerAggregationTimeBucketJahr(): String
 
   @Message
+  fun developerAggregationTimeBucketQuartal(): String
+
+  @Message
+  fun developerAggregationPeriodStartLabel(): String
+
+  @Message
+  fun developerAggregationPeriodStartHelp(): String
+
+  @Message
+  fun developerAggregationPeriodStartDayPlaceholder(): String
+
+  @Message
+  fun developerAggregationPeriodStartMonthPlaceholder(): String
+
+  @Message
   fun developerAggregationDetailPerRef(name: String): String
 
   @Message
@@ -103,6 +118,9 @@ interface DeveloperAggregationMessages {
 
   @Message
   fun developerAggregationDetailGroupBy(name: String): String
+
+  @Message
+  fun developerAggregationDetailPeriodStart(date: String): String
 
   @Message
   fun developerRemoveAggregationModalTitle(): String
@@ -148,6 +166,9 @@ interface DeveloperAggregationMessages {
 
   @Message
   fun developerAggregationRefPathAndGroupByExclusiveError(): String
+
+  @Message
+  fun developerAggregationPeriodStartInvalidError(): String
 
   @Message
   fun developerInvalidAggregationDefinitionError(names: String): String

@@ -150,8 +150,11 @@ of a draft; the editor applies the same validation rules as the Version publish 
 - A **function** (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`) applied to a numeric `sourceProperty` (`COUNT` accepts any type).
 - An optional **`refPath`** (a single-hop `ref` property) groups the aggregation's values per instance of the referenced Entity instead of producing one value across all
   instances, e.g. total kilometers per running shoe via a `Lauf.laufschuhId` reference.
-- An optional **`timeBucket`** (`TAG`/`WOCHE`/`MONAT`/`JAHR`) buckets values by day/week/month/year, derived from an optional `timeProperty` (a `date`/`datetime`
-  property) or, if unset, the object's `createdAt`.
+- An optional **`timeBucket`** (`TAG`/`WOCHE`/`MONAT`/`JAHR`/`QUARTAL`) buckets values by day/week/month/year/quarter, derived from an optional `timeProperty` (a
+  `date`/`datetime` property) or, if unset, the object's `createdAt`. For `JAHR`/`QUARTAL`, an optional **`periodStart`** (day + month) shifts the start of a "year"
+  away from the calendar 01.01. — e.g. 10.04. for a sports season — so a date belongs to the period year it falls on or after that year's `periodStart`, else the
+  previous one; quarters are consecutive three-month blocks from there. Unset means the calendar default (01.01.); 29.02. is rejected since it does not exist most
+  years. See ADR [0020](../adr/0020-aggregation-definitions.md), "Configurable period start".
 - An optional **`groupBy`** groups values by another top-level property of the same Entity. `refPath` and `groupBy` are mutually exclusive — there is no combined
   group key, so validation (editor and publish) rejects definitions that set both, and the editor disables one select while the other has a value.
 

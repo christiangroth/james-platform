@@ -290,7 +290,9 @@
                             data-aggregation-ref-path="{agg.refPath}"
                             data-aggregation-time-bucket="{agg.timeBucket}"
                             data-aggregation-time-property="{agg.timeProperty}"
-                            data-aggregation-group-by="{agg.groupBy}">
+                            data-aggregation-group-by="{agg.groupBy}"
+                            data-aggregation-period-start-day="{agg.periodStartDay}"
+                            data-aggregation-period-start-month="{agg.periodStartMonth}">
                             <td data-testid="aggregation-name">{agg.name}</td>
                             <td data-testid="aggregation-function">{agg.functionLabel}</td>
                             <td data-testid="aggregation-source-property">{agg.sourcePropertyName}</td>
@@ -881,6 +883,7 @@
                                     <option value="WOCHE">{developerAggregation:developerAggregationTimeBucketWoche()}</option>
                                     <option value="MONAT">{developerAggregation:developerAggregationTimeBucketMonat()}</option>
                                     <option value="JAHR">{developerAggregation:developerAggregationTimeBucketJahr()}</option>
+                                    <option value="QUARTAL">{developerAggregation:developerAggregationTimeBucketQuartal()}</option>
                                 </select>
                             </div>
                             <div class="col-6">
@@ -891,6 +894,20 @@
                                 </select>
                             </div>
                             <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationTimePropertyHelp()}</p>
+                        </div>
+                        <div class="row g-2 mb-3 d-none" id="aggregationPeriodStartRow">
+                            <div class="col-12">
+                                <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationPeriodStartLabel()}</label>
+                            </div>
+                            <div class="col-6">
+                                <input type="number" min="1" max="31" class="form-control app-form-control" id="aggregationPeriodStartDay" name="periodStartDay" autocomplete="off"
+                                       placeholder="{developerAggregation:developerAggregationPeriodStartDayPlaceholder()}" data-testid="aggregation-period-start-day-input">
+                            </div>
+                            <div class="col-6">
+                                <input type="number" min="1" max="12" class="form-control app-form-control" id="aggregationPeriodStartMonth" name="periodStartMonth" autocomplete="off"
+                                       placeholder="{developerAggregation:developerAggregationPeriodStartMonthPlaceholder()}" data-testid="aggregation-period-start-month-input">
+                            </div>
+                            <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationPeriodStartHelp()}</p>
                         </div>
                         <div class="mb-3">
                             <label for="aggregationGroupBy" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationGroupByLabel()}</label>
@@ -1745,8 +1762,22 @@
                     refPath: document.getElementById('aggregationRefPath'),
                     timeBucket: document.getElementById('aggregationTimeBucket'),
                     timeProperty: document.getElementById('aggregationTimeProperty'),
-                    groupBy: document.getElementById('aggregationGroupBy')
+                    groupBy: document.getElementById('aggregationGroupBy'),
+                    periodStartDay: document.getElementById('aggregationPeriodStartDay'),
+                    periodStartMonth: document.getElementById('aggregationPeriodStartMonth')
                 };
+                var aggregationPeriodStartRow = document.getElementById('aggregationPeriodStartRow');
+
+                // periodStart only makes sense for JAHR/QUARTAL - mirrors the domain validation.
+                function updateAggregationPeriodStartVisibility() {
+                    var allowed = aggregationFields.timeBucket.value === 'JAHR' || aggregationFields.timeBucket.value === 'QUARTAL';
+                    aggregationPeriodStartRow.classList.toggle('d-none', !allowed);
+                    if (!allowed) {
+                        aggregationFields.periodStartDay.value = '';
+                        aggregationFields.periodStartMonth.value = '';
+                    }
+                }
+                aggregationFields.timeBucket.addEventListener('change', updateAggregationPeriodStartVisibility);
 
                 // SUM/AVG/MIN/MAX need a numeric source property, COUNT accepts any - mirrors the domain validation.
                 function updateAggregationSourceOptions() {
@@ -1787,10 +1818,13 @@
                         aggregationFields.timeBucket.value = row.getAttribute('data-aggregation-time-bucket') || '';
                         aggregationFields.timeProperty.value = row.getAttribute('data-aggregation-time-property') || '';
                         aggregationFields.groupBy.value = row.getAttribute('data-aggregation-group-by') || '';
+                        aggregationFields.periodStartDay.value = row.getAttribute('data-aggregation-period-start-day') || '';
+                        aggregationFields.periodStartMonth.value = row.getAttribute('data-aggregation-period-start-month') || '';
                     }
                     aggregationDeleteBtn.classList.toggle('d-none', !row);
                     updateAggregationSourceOptions();
                     updateAggregationGroupingOptions();
+                    updateAggregationPeriodStartVisibility();
                     aggregationForm.querySelector('[type="submit"]').disabled = false;
                 }
 
