@@ -1,5 +1,7 @@
 package de.chrgroth.james.platform.domain.model.app
 
+import java.time.MonthDay
+
 @JvmInline
 value class AggregationDefinitionId(val value: String)
 
@@ -22,7 +24,7 @@ enum class AggregationFunction {
 }
 
 /** Time bucket an aggregation's values are additionally grouped by, e.g. SUM per MONAT. */
-enum class TimeBucket { TAG, WOCHE, MONAT, JAHR }
+enum class TimeBucket { TAG, WOCHE, MONAT, JAHR, QUARTAL }
 
 /**
  * Declares a precomputed rollup over instances of the [EntityDefinition] this is part of (analogous to
@@ -39,6 +41,11 @@ enum class TimeBucket { TAG, WOCHE, MONAT, JAHR }
  * [timeProperty] only applies when [timeBucket] is set: it overrides which timestamp an item's time bucket is
  * derived from. Must be a top-level property of that same Entity of type [PropertyType.DATE] or
  * [PropertyType.DATETIME]. When unset, bucketing falls back to the item's `AppData.createdAt`.
+ *
+ * [periodStart] only applies when [timeBucket] is [TimeBucket.JAHR] or [TimeBucket.QUARTAL] — it shifts the start of
+ * a "year" away from the calendar 01.01, e.g. to a sports season starting 10.04. (see
+ * docs/adr/0020-aggregation-definitions.md, "Configurable period start"). Unset means the calendar default. 29.02.
+ * is rejected by validation since it does not exist most years.
  */
 data class AggregationDefinition(
   val id: AggregationDefinitionId,
@@ -49,4 +56,5 @@ data class AggregationDefinition(
   val timeBucket: TimeBucket? = null,
   val timeProperty: PropertyId? = null,
   val groupBy: PropertyId? = null,
+  val periodStart: MonthDay? = null,
 )

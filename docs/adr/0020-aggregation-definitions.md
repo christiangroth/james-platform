@@ -163,3 +163,31 @@ latter) before being added.
 * Series: [#366](https://github.com/christiangroth/james-platform/issues/366); this ticket:
   [#640](https://github.com/christiangroth/james-platform/issues/640) (1/3); followed by 2/3 (computation/
   incremental update) and 3/3 (display)
+
+## Addendum (2026-09-26): Configurable period start for JAHR/QUARTAL
+
+Technical Story: [#711](https://github.com/christiangroth/james-platform/issues/711) (follow-up to this series)
+
+`timeBucket` gains a new value `QUARTAL`, and `AggregationDefinition` an optional `periodStart` (day + month),
+applicable only to `JAHR`/`QUARTAL`. This lets a Developer declare a rollup keyed to a period that does not start
+on the calendar year boundary (01.01.) — e.g. a sports season starting 10.04. ("distance per season per running
+shoe") — without touching anything decided above: `periodStart` stays a plain, declarative field, so the
+dependency index, inline updates and outbox recompute this ADR already established are unaffected; only the pure
+function computing a bucket key (`AggregationComputation.encodeTimeBucket`) changes. This is recorded as an
+addendum to this ADR, not a new one, since it extends the existing period-key encoding rather than changing the
+storage/recompute mechanism.
+
+Rules:
+
+* The **period year** of a date is that date's calendar year if the date falls on or after that year's
+  `periodStart`, else the previous year (e.g. with `periodStart` 10.04., 09.04.2026 belongs to period year 2025,
+  10.04.2026 already to 2026).
+* **Quarters** are consecutive three-month blocks starting at `periodStart` within the period year, numbered
+  Q1..Q4 (e.g. `periodStart` 10.04.: Q1 10.04.–09.07., Q2 10.07.–09.10., Q3 10.10.–09.01., Q4 10.01.–09.04.).
+* Unset `periodStart` keeps the pre-existing calendar behavior (01.01.) unchanged — existing `JAHR` aggregations
+  without a `periodStart` are unaffected.
+* 29.02. is rejected as a `periodStart` value, since it does not exist most years.
+
+An irregular period (e.g. a season start that itself changes year to year) and Computed Properties as an
+aggregation source remain out of scope — see "Abgrenzung" in
+[#711](https://github.com/christiangroth/james-platform/issues/711).

@@ -38,6 +38,7 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.MonthDay
 
 @ApplicationScoped
 class AppVersionRepositoryAdapter(
@@ -266,6 +267,7 @@ class AppVersionRepositoryAdapter(
       timeBucket = timeBucket?.let { runCatching { TimeBucket.valueOf(it) }.getOrNull() },
       timeProperty = timeProperty?.let { PropertyId(it) },
       groupBy = groupBy?.let { PropertyId(it) },
+      periodStart = periodStartDay?.let { day -> periodStartMonth?.let { month -> runCatching { MonthDay.of(month, day) }.getOrNull() } },
     )
   }
 
@@ -365,6 +367,8 @@ class AppVersionRepositoryAdapter(
     doc.timeBucket = timeBucket?.name
     doc.timeProperty = timeProperty?.value
     doc.groupBy = groupBy?.value
+    doc.periodStartDay = periodStart?.dayOfMonth
+    doc.periodStartMonth = periodStart?.monthValue
   }
 
   private fun PropertyConstraint.toDocument() = ConstraintDocument().also { doc ->

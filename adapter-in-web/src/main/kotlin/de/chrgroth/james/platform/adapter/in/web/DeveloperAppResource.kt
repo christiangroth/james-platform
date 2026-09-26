@@ -98,6 +98,8 @@ data class AggregationEditorRow(
   val timeBucket: String,
   val timeProperty: String,
   val groupBy: String,
+  val periodStartDay: String,
+  val periodStartMonth: String,
   val details: String,
 )
 
@@ -1287,6 +1289,8 @@ class DeveloperAppResource {
     timeBucket = form.getFirst("timeBucket"),
     timeProperty = form.getFirst("timeProperty"),
     groupBy = form.getFirst("groupBy"),
+    periodStartDay = form.getFirst("periodStartDay"),
+    periodStartMonth = form.getFirst("periodStartMonth"),
   )
 
   private fun aggregationRows(entity: EntityDefinition): List<AggregationEditorRow> {
@@ -1303,6 +1307,8 @@ class DeveloperAppResource {
         timeBucket = aggregation.timeBucket?.name.orEmpty(),
         timeProperty = aggregation.timeProperty?.value.orEmpty(),
         groupBy = aggregation.groupBy?.value.orEmpty(),
+        periodStartDay = aggregation.periodStart?.dayOfMonth?.toString().orEmpty(),
+        periodStartMonth = aggregation.periodStart?.monthValue?.toString().orEmpty(),
         details = aggregationDetails(aggregation, ::nameOf),
       )
     }
@@ -1314,6 +1320,7 @@ class DeveloperAppResource {
       val bucketText = aggregationMsg.developerAggregationDetailPerTimeBucket(timeBucketLabel(bucket))
       aggregation.timeProperty?.let { "$bucketText (${nameOf(it.value)})" } ?: bucketText
     },
+    aggregation.periodStart?.let { aggregationMsg.developerAggregationDetailPeriodStart("%02d.%02d.".format(it.dayOfMonth, it.monthValue)) },
     aggregation.groupBy?.let { aggregationMsg.developerAggregationDetailGroupBy(nameOf(it.value)) },
   ).joinToString(" · ")
 
@@ -1341,6 +1348,7 @@ class DeveloperAppResource {
     TimeBucket.WOCHE -> aggregationMsg.developerAggregationTimeBucketWoche()
     TimeBucket.MONAT -> aggregationMsg.developerAggregationTimeBucketMonat()
     TimeBucket.JAHR -> aggregationMsg.developerAggregationTimeBucketJahr()
+    TimeBucket.QUARTAL -> aggregationMsg.developerAggregationTimeBucketQuartal()
   }
 
   private fun aggregationErrorMessage(code: String): String = when (code) {
@@ -1354,6 +1362,7 @@ class DeveloperAppResource {
     AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID.code -> aggregationMsg.developerAggregationTimePropertyInvalidError()
     AppVersionError.AGGREGATION_GROUP_BY_INVALID.code -> aggregationMsg.developerAggregationGroupByInvalidError()
     AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE.code -> aggregationMsg.developerAggregationRefPathAndGroupByExclusiveError()
+    AppVersionError.AGGREGATION_PERIOD_START_INVALID.code -> aggregationMsg.developerAggregationPeriodStartInvalidError()
     else -> entityErrorMessage(code)
   }
 

@@ -241,6 +241,62 @@ class AggregationEditorPageTests {
   }
 
   @Test
+  fun `adding a QUARTAL aggregation with a periodStart shows the period start in the entity editor`() {
+    val draft = setupDraft()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Umsatz pro Saison-Quartal")
+      .formParam("function", "SUM")
+      .formParam("sourceProperty", draft.amountPropertyId)
+      .formParam("refPath", "")
+      .formParam("timeBucket", "QUARTAL")
+      .formParam("timeProperty", "")
+      .formParam("groupBy", "")
+      .formParam("periodStartDay", "10")
+      .formParam("periodStartMonth", "4")
+      .`when`()
+      .post("${draft.entityUrl}/aggregations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(containsString("Umsatz pro Saison-Quartal"))
+      .body(containsString("pro Quartal"))
+      .body(containsString("ab 10.04."))
+      .body(containsString("data-aggregation-period-start-day=\"10\""))
+      .body(containsString("data-aggregation-period-start-month=\"4\""))
+  }
+
+  @Test
+  fun `adding an aggregation with an invalid periodStart is rejected with a specific message`() {
+    val draft = setupDraft()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Umsatz gesamt")
+      .formParam("function", "SUM")
+      .formParam("sourceProperty", draft.amountPropertyId)
+      .formParam("refPath", "")
+      .formParam("timeBucket", "JAHR")
+      .formParam("timeProperty", "")
+      .formParam("groupBy", "")
+      .formParam("periodStartDay", "29")
+      .formParam("periodStartMonth", "2")
+      .`when`()
+      .post("${draft.entityUrl}/aggregations")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+      .body(containsString("Periodenbeginn"))
+  }
+
+  @Test
   fun `a draft with an aggregation added through the editor can be published`() {
     val draft = setupDraft()
     postAggregation("${draft.entityUrl}/aggregations", "Umsatz gesamt", "SUM", draft.amountPropertyId)

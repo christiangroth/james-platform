@@ -8,7 +8,9 @@ import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.MonthDay
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import java.time.temporal.WeekFields
 
 /**
@@ -45,7 +47,7 @@ fun AggregationDefinition.groupKeyOf(item: AppData): String? =
  * property of [item]'s Entity), else by [AppData.createdAt]; null when [AggregationDefinition.timeBucket] is
  * unset, or when [timeProperty] is set but [item] has no (parseable) value for it.
  */
-fun AggregationDefinition.bucketKeyOf(item: AppData): String? = timeBucket?.let { bucket -> bucketDateOf(item)?.let { encodeTimeBucket(bucket, it) } }
+fun AggregationDefinition.bucketKeyOf(item: AppData): String? = timeBucket?.let { bucket -> bucketDateOf(item)?.let { encodeTimeBucket(bucket, it, periodStart) } }
 
 private fun AggregationDefinition.bucketDateOf(item: AppData): LocalDate? {
   val timeProperty = timeProperty ?: return item.createdAt.atZone(ZoneOffset.UTC).toLocalDate()
@@ -53,7 +55,10 @@ private fun AggregationDefinition.bucketDateOf(item: AppData): LocalDate? {
   return runCatching { LocalDate.parse(raw) }.getOrNull() ?: runCatching { LocalDateTime.parse(raw).toLocalDate() }.getOrNull()
 }
 
-private fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate): String {
+/** Calendar default period start: a "year"/"quarter" begins 01.01, exactly the pre-existing JAHR behavior. */
+private val CALENDAR_PERIOD_START: MonthDay = MonthDay.of(1, 1)
+
+private fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate, periodStart: MonthDay?): String {
   return when (bucket) {
     TimeBucket.TAG -> date.toString()
     TimeBucket.WOCHE -> {
@@ -61,9 +66,23 @@ private fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate): String {
       "%04d-W%02d".format(date.get(weekFields.weekBasedYear()), date.get(weekFields.weekOfWeekBasedYear()))
     }
     TimeBucket.MONAT -> "%04d-%02d".format(date.year, date.monthValue)
-    TimeBucket.JAHR -> date.year.toString()
+    TimeBucket.JAHR -> periodYearOf(date, periodStart ?: CALENDAR_PERIOD_START).toString()
+    TimeBucket.QUARTAL -> {
+      val start = periodStart ?: CALENDAR_PERIOD_START
+      val year = periodYearOf(date, start)
+      val periodStartDate = LocalDate.of(year, start.monthValue, start.dayOfMonth)
+      val monthsSincePeriodStart = ChronoUnit.MONTHS.between(periodStartDate, date)
+      "%04d-Q%d".format(year, monthsSincePeriodStart / 3 + 1)
+    }
   }
 }
+
+/**
+ * The "period year" [date] belongs to for a [periodStart]-anchored JAHR/QUARTAL: the year of [date] if [date] is on
+ * or after that year's [periodStart], else the previous year — e.g. with [periodStart] 10.04., 09.04.2026 belongs to
+ * period year 2025, while 10.04.2026 already belongs to 2026.
+ */
+private fun periodYearOf(date: LocalDate, periodStart: MonthDay): Int = if (MonthDay.from(date) >= periodStart) date.year else date.year - 1
 
 /** Builds the [AggregationValueId] this aggregation's value for [item] is stored under, for installation [installedAppId]. */
 fun AggregationDefinition.valueIdFor(installedAppId: InstalledAppId, item: AppData): AggregationValueId =
