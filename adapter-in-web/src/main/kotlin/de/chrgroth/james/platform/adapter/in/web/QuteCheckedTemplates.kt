@@ -136,6 +136,9 @@ object DeveloperTemplates {
     convertTypePropertyOptions: List<MigrationStepPropertyOptionRow>,
     copyValueSourcePropertyOptions: List<MigrationStepPropertyOptionRow>,
     copyValueTargetPropertyOptions: List<MigrationStepPropertyOptionRow>,
+    convertUnitPropertyOptions: List<MigrationStepPropertyOptionRow>,
+    fillEmptyValuePropertyOptions: List<MigrationStepPropertyOptionRow>,
+    adjustToConstraintsPropertyOptions: List<MigrationStepPropertyOptionRow>,
   ): TemplateInstance
 
   @JvmStatic

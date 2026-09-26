@@ -18,6 +18,8 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.infra.ScriptType
@@ -30,6 +32,9 @@ import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
@@ -208,8 +213,14 @@ class AppVersionMigrationService(
   /**
    * Applies [newEntity]'s [MigrationStep]s to [data], in order: [MigrationStep.ConvertType] converts a property's value in place using
    * its type/unit in [previousEntity] as the source and in [newEntity] as the target; [MigrationStep.CopyValue] copies a value from a
-   * property that only exists in [previousEntity] into one that only exists in [newEntity]. Returns a failure reason if a referenced
-   * property is missing (e.g. because the version chain has diverged) or [ValueConversion.convert] fails, otherwise the resulting data.
+   * property that only exists in [previousEntity] into one that only exists in [newEntity]; [MigrationStep.ConvertUnit] converts a
+   * property's value in place from its declared [MigrationStep.ConvertUnit.sourceGranularity] to its new unit's `storageGranularity`;
+   * [MigrationStep.FillEmptyValue] fills a `null`/blank value with a fixed value or the property's own default;
+   * [MigrationStep.AdjustToConstraints] clamps/truncates an out-of-range value to the property's current constraints. Returns a failure
+   * reason if a referenced property is missing (e.g. because the version chain has diverged) or [ValueConversion.convert] fails,
+   * otherwise the resulting data. [MigrationStep.AdjustToConstraints] never fails here - a value it cannot meaningfully adjust is left
+   * unchanged and instead fails the shared re-validation that follows step execution (see `runAndValidate`), by design (no fallback to
+   * `null`).
    */
   private fun applyMigrationSteps(previousEntity: EntityDefinition, newEntity: EntityDefinition, data: Map<String, String?>): Either<String, Map<String, String?>> {
     if (newEntity.migrationSteps.isEmpty()) return data.right()
@@ -233,10 +244,94 @@ class AppVersionMigrationService(
             { converted -> result + (step.targetPropertyId.value to converted) },
           )
         }
+        is MigrationStep.ConvertUnit -> {
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+            ?: return "Property ${step.propertyId.value} not found in entity definition".left()
+          val targetUnit = targetProp.unit ?: return "Property ${targetProp.name} has no unit".left()
+          val raw = result[step.propertyId.value]
+          if (raw.isNullOrBlank()) result else result + (step.propertyId.value to ValueConversion.convertGranularity(targetUnit, step.sourceGranularity, raw))
+        }
+        is MigrationStep.FillEmptyValue -> {
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+            ?: return "Property ${step.propertyId.value} not found in entity definition".left()
+          val raw = result[step.propertyId.value]
+          if (!raw.isNullOrBlank()) {
+            result
+          } else {
+            val fillValue = step.value ?: targetProp.default
+            if (fillValue == null) result else result + (step.propertyId.value to fillValue)
+          }
+        }
+        is MigrationStep.AdjustToConstraints -> {
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+            ?: return "Property ${step.propertyId.value} not found in entity definition".left()
+          val raw = result[step.propertyId.value]
+          if (raw.isNullOrBlank()) result else result + (step.propertyId.value to adjustToConstraints(targetProp, raw))
+        }
       }
     }
     return result.right()
   }
+
+  /**
+   * Clamps [rawValue] (already in [property]'s storage format) to its current numeric/date/time min/max constraints, or truncates it to
+   * its `maxLength` if it is a `STRING`. A value that cannot be parsed as [property]'s type, or a constraint this cannot express as a
+   * clamp/truncation (e.g. `Pattern`), is returned unchanged - left to fail the shared re-validation that follows step execution.
+   */
+  private fun adjustToConstraints(property: Property, rawValue: String): String = when (property.type) {
+    PropertyType.LONG -> {
+      val value = rawValue.toLongOrNull()
+      if (value == null) {
+        rawValue
+      } else {
+        val min = property.constraints.filterIsInstance<PropertyConstraint.MinLong>().firstOrNull()?.min
+        val max = property.constraints.filterIsInstance<PropertyConstraint.MaxLong>().firstOrNull()?.max
+        value.coerceIn(min ?: Long.MIN_VALUE, max ?: Long.MAX_VALUE).toString()
+      }
+    }
+    PropertyType.DOUBLE -> {
+      val value = rawValue.toDoubleOrNull()
+      if (value == null) {
+        rawValue
+      } else {
+        val min = property.constraints.filterIsInstance<PropertyConstraint.MinDouble>().firstOrNull()?.min
+        val max = property.constraints.filterIsInstance<PropertyConstraint.MaxDouble>().firstOrNull()?.max
+        formatDouble(value.coerceIn(min ?: -Double.MAX_VALUE, max ?: Double.MAX_VALUE))
+      }
+    }
+    PropertyType.STRING -> {
+      val maxLength = property.constraints.filterIsInstance<PropertyConstraint.MaxLength>().firstOrNull()?.max
+      if (maxLength != null && rawValue.length > maxLength) rawValue.substring(0, maxLength) else rawValue
+    }
+    PropertyType.DATE -> {
+      val min = property.constraints.filterIsInstance<PropertyConstraint.MinDate>().firstOrNull()?.min
+      val max = property.constraints.filterIsInstance<PropertyConstraint.MaxDate>().firstOrNull()?.max
+      adjustToRange(rawValue, { LocalDate.parse(it) }, min, max)
+    }
+    PropertyType.TIME -> {
+      val min = property.constraints.filterIsInstance<PropertyConstraint.MinTime>().firstOrNull()?.min
+      val max = property.constraints.filterIsInstance<PropertyConstraint.MaxTime>().firstOrNull()?.max
+      adjustToRange(rawValue, { LocalTime.parse(it) }, min, max)
+    }
+    PropertyType.DATETIME -> {
+      val min = property.constraints.filterIsInstance<PropertyConstraint.MinDatetime>().firstOrNull()?.min
+      val max = property.constraints.filterIsInstance<PropertyConstraint.MaxDatetime>().firstOrNull()?.max
+      adjustToRange(rawValue, { LocalDateTime.parse(it) }, min, max)
+    }
+    else -> rawValue
+  }
+
+  private fun <T : Comparable<T>> adjustToRange(rawValue: String, parse: (String) -> T, min: T?, max: T?): String {
+    val value = runCatching { parse(rawValue) }.getOrNull() ?: return rawValue
+    val clamped = when {
+      min != null && value < min -> min
+      max != null && value > max -> max
+      else -> value
+    }
+    return clamped.toString()
+  }
+
+  private fun formatDouble(value: Double): String = value.toBigDecimal().stripTrailingZeros().toPlainString()
 
   /** Converts [rawValue] from [source]'s type/unit to [target]'s, via [ValueConversion.convert] and, if both carry a unit, [ValueConversion.convertGranularity]. */
   private fun convertValue(source: Property, target: Property, rawValue: String?): Either<String, String?> {

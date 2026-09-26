@@ -45,6 +45,9 @@ class MigrationStepEditorPageTests {
     val codePropertyId: String,
     val legacyPropertyId: String,
     val newPropertyId: String,
+    val durationPropertyId: String,
+    val nicknamePropertyId: String,
+    val scorePropertyId: String,
   ) {
     val entityUrl = "/ui/developer/apps/$appId/versions/$v2VersionId/entities/$entityId"
   }
@@ -62,7 +65,9 @@ class MigrationStepEditorPageTests {
   /**
    * A Version 1.0.0 with an entity carrying a `STRING` "Code" property and a "Legacy" property, published, followed by a Version 2
    * draft where "Code" was retyped to `LONG` in place and "Legacy" was deleted and replaced by a new "LegacyNew" property - the two
-   * scenarios a `ConvertType`/`CopyValue` migration step addresses.
+   * scenarios a `ConvertType`/`CopyValue` migration step addresses. Also carries a "Duration" (`LONG`, no unit yet), a "Nickname"
+   * (nullable `STRING`) and a "Score" (`LONG`, unconstrained) property unchanged from Version 1 into the Version 2 draft, for tests
+   * to mutate there - the scenarios a `ConvertUnit`/`FillEmptyValue`/`AdjustToConstraints` migration step addresses.
    */
   private fun setupDraft(): Draft {
     val appId = given()
@@ -96,6 +101,9 @@ class MigrationStepEditorPageTests {
     val v1EntityUrl = "/ui/developer/apps/$appId/versions/$v1VersionId/entities/$entityId"
     val codePropertyId = addProperty(v1EntityUrl, "Code", "STRING")
     val legacyPropertyId = addProperty(v1EntityUrl, "Legacy", "STRING")
+    val durationPropertyId = addProperty(v1EntityUrl, "Duration", "LONG")
+    val nicknamePropertyId = addProperty(v1EntityUrl, "Nickname", "STRING")
+    val scorePropertyId = addProperty(v1EntityUrl, "Score", "LONG")
 
     given()
       .contentType("application/x-www-form-urlencoded")
@@ -135,7 +143,7 @@ class MigrationStepEditorPageTests {
       .body(containsString("\"ok\":true"))
     val newPropertyId = addProperty(v2EntityUrl, "LegacyNew", "LONG")
 
-    return Draft(appId, v2VersionId, entityId, codePropertyId, legacyPropertyId, newPropertyId)
+    return Draft(appId, v2VersionId, entityId, codePropertyId, legacyPropertyId, newPropertyId, durationPropertyId, nicknamePropertyId, scorePropertyId)
   }
 
   private fun migrationStepIdOnPage(draft: Draft): String {
@@ -292,6 +300,157 @@ class MigrationStepEditorPageTests {
       .contentType("application/x-www-form-urlencoded")
       .formParam("bumpType", "BUGFIX")
       .formParam("releaseNotes", "Code ist jetzt eine Zahl")
+      .`when`()
+      .post("/ui/developer/apps/${draft.appId}/versions/publish")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+  }
+
+  @Test
+  fun `adding a convert-unit migration step shows it in the entity editor`() {
+    val draft = setupDraft()
+    val durationPropertyId = draft.durationPropertyId
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("family", "TIME")
+      .formParam("storageGranularity", "MILLISECONDS")
+      .formParam("defaultGranularity", "SECONDS")
+      .`when`()
+      .post("${draft.entityUrl}/properties/$durationPropertyId/unit")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "CONVERT_UNIT")
+      .formParam("propertyId", durationPropertyId)
+      .formParam("sourceGranularity", "SECONDS")
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(containsString("Einheit umrechnen: Duration (von s)"))
+  }
+
+  @Test
+  fun `adding a convert-unit migration step without a unit on the target property is rejected`() {
+    val draft = setupDraft()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "CONVERT_UNIT")
+      .formParam("propertyId", draft.durationPropertyId)
+      .formParam("sourceGranularity", "SECONDS")
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+  }
+
+  @Test
+  fun `adding a fill-empty-value migration step shows it in the entity editor`() {
+    val draft = setupDraft()
+    val nicknamePropertyId = draft.nicknamePropertyId
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Nickname")
+      .formParam("type", "STRING")
+      .formParam("nullable", "false")
+      .`when`()
+      .post("${draft.entityUrl}/properties/$nicknamePropertyId")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "FILL_EMPTY_VALUE")
+      .formParam("propertyId", nicknamePropertyId)
+      .formParam("value", "unknown")
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(containsString("Leere Werte befüllen: Nickname = unknown"))
+  }
+
+  @Test
+  fun `adding an adjust-to-constraints migration step shows it in the entity editor`() {
+    val draft = setupDraft()
+    val scorePropertyId = draft.scorePropertyId
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("maxLong", "100")
+      .`when`()
+      .post("${draft.entityUrl}/properties/$scorePropertyId/constraints")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "ADJUST_TO_CONSTRAINTS")
+      .formParam("propertyId", scorePropertyId)
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(containsString("Werte an Constraints anpassen: Score"))
+  }
+
+  @Test
+  fun `a draft with valid ConvertUnit, FillEmptyValue and AdjustToConstraints steps can be published`() {
+    val draft = setupDraft()
+    val durationPropertyId = draft.durationPropertyId
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("family", "TIME")
+      .formParam("storageGranularity", "MILLISECONDS")
+      .formParam("defaultGranularity", "SECONDS")
+      .`when`()
+      .post("${draft.entityUrl}/properties/$durationPropertyId/unit")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "CONVERT_UNIT")
+      .formParam("propertyId", durationPropertyId)
+      .formParam("sourceGranularity", "SECONDS")
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("bumpType", "BUGFIX")
+      .formParam("releaseNotes", "Dauer bekommt eine Einheit")
       .`when`()
       .post("/ui/developer/apps/${draft.appId}/versions/publish")
       .then()
