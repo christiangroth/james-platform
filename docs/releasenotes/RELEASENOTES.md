@@ -1,3 +1,16 @@
+# 0.115.0 (2026.09.26)
+
+## New Features
+* Aggregationen unterstützen jetzt den Zeitraum "Quartal".
+* Bei den Zeiträumen "Jahr" und "Quartal" kann ein Periodenbeginn (Tag/Monat) festgelegt werden, z. B. für eine Saison ab dem 10.04. statt dem Kalenderjahr.
+
+## Bugfixes / Chore
+* Extracted the value-conversion logic used by the data import mapping into a shared, reusable component. No user-visible change.
+
+
+
+---
+
 # 0.114.1 (2026.09.25)
 
 ## Bugfixes / Chore
