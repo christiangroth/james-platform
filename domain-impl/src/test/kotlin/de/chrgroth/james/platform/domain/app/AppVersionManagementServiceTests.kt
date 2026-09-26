@@ -2849,6 +2849,146 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region suggestMigrationSteps
+
+  @Test
+  fun `suggestMigrationSteps suggests a ConvertType step for a convertible type change without an existing step`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.STRING)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly(MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+  }
+
+  @Test
+  fun `suggestMigrationSteps does not suggest a ConvertType step when the types are not convertible`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Flag", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(type = PropertyType.OBJECT, nestedProperties = emptyList())
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEmpty()
+  }
+
+  @Test
+  fun `suggestMigrationSteps suggests a FillEmptyValue step when a property became non-nullable`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly(MigrationStepInput(type = "FILL_EMPTY_VALUE", propertyId = "p-1"))
+  }
+
+  @Test
+  fun `suggestMigrationSteps suggests an AdjustToConstraints step when a more restrictive constraint was added`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(constraints = setOf(PropertyConstraint.MaxLong(100)))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly(MigrationStepInput(type = "ADJUST_TO_CONSTRAINTS", propertyId = "p-1"))
+  }
+
+  @Test
+  fun `suggestMigrationSteps suggests a ConvertUnit step when a unit was added`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly(MigrationStepInput(type = "CONVERT_UNIT", propertyId = "p-1"))
+  }
+
+  @Test
+  fun `suggestMigrationSteps suggests a CopyValue step pairing a removed and an added property`() {
+    val removedProp = Property(id = PropertyId("p-1"), name = "Strecke", type = PropertyType.LONG)
+    val addedProp = Property(id = PropertyId("p-2"), name = "Strecke (m)", type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(removedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Trip", properties = listOf(addedProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).containsExactly(MigrationStepInput(type = "COPY_VALUE", sourcePropertyId = "p-1", targetPropertyId = "p-2"))
+  }
+
+  @Test
+  fun `suggestMigrationSteps does not suggest a step for a property already covered by an existing step`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.STRING)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Order",
+      properties = listOf(draftProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("p-1"))),
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEmpty()
+  }
+
+  @Test
+  fun `suggestMigrationSteps returns an empty list when there is no predecessor version`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "e-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEmpty()
+  }
+
+  @Test
+  fun `suggestMigrationSteps fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.suggestMigrationSteps("app-1", "ver-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
   // region deleteProperty with display text
 
   @Test

@@ -130,6 +130,33 @@
                     </table>
                     </div>
                     {/if}
+                    {#if !migrationSuggestions.isEmpty}
+                    <div class="mb-3">
+                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developerMigrationStep:developerMigrationSuggestionHeading()}</div>
+                        <div class="table-responsive">
+                        <table class="table table-sm mb-0 app-table" data-testid="migration-suggestions-table">
+                            <tbody>
+                                {#for suggestion in migrationSuggestions}
+                                <tr class="clickable-row" data-testid="migration-suggestion-row" tabindex="0" role="button"
+                                    data-action="apply-migration-suggestion"
+                                    data-migration-step-id=""
+                                    data-migration-step-type="{suggestion.type}"
+                                    data-migration-step-property-id="{suggestion.propertyId}"
+                                    data-migration-step-source-property-id="{suggestion.sourcePropertyId}"
+                                    data-migration-step-target-property-id="{suggestion.targetPropertyId}"
+                                    data-migration-step-source-granularity="{suggestion.sourceGranularity}"
+                                    data-migration-step-value="{suggestion.value}">
+                                    <td data-testid="migration-suggestion-description">{suggestion.description}</td>
+                                    <td style="width:1%;white-space:nowrap;">
+                                        <i class="bi bi-plus-circle" aria-hidden="true" title="{developerMigrationStep:developerMigrationSuggestionApplyAriaLabel()}"></i>
+                                    </td>
+                                </tr>
+                                {/for}
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                    {/if}
                     <div class="mt-3">
                         <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developerMigrationStep:developerMigrationScriptSubheading()}</div>
                         <div class="d-flex align-items-center gap-2">
@@ -2117,8 +2144,10 @@
                     migrationStepError.classList.add('d-none');
                     migrationStepError.textContent = '';
                     migrationStepForm.reset();
-                    document.getElementById('migrationStepId').value = row ? row.getAttribute('data-migration-step-id') : '';
-                    document.getElementById('migrationStepModalLabel').textContent = row ? editMigrationStepModalTitle : addMigrationStepModalTitle;
+                    // A suggestion row also has a `row` with data to prefill, but no step id - the id (not the row itself) decides add vs. edit.
+                    var stepId = row ? (row.getAttribute('data-migration-step-id') || '') : '';
+                    document.getElementById('migrationStepId').value = stepId;
+                    document.getElementById('migrationStepModalLabel').textContent = stepId ? editMigrationStepModalTitle : addMigrationStepModalTitle;
                     if (row) {
                         var type = row.getAttribute('data-migration-step-type');
                         migrationStepType.value = type;
@@ -2135,7 +2164,7 @@
                     } else {
                         populateMigrationStepSourceGranularityOptions(false);
                     }
-                    migrationStepDeleteBtn.classList.toggle('d-none', !row);
+                    migrationStepDeleteBtn.classList.toggle('d-none', !stepId);
                     updateMigrationStepTypeFields();
                     migrationStepForm.querySelector('[type="submit"]').disabled = false;
                 }
@@ -2145,7 +2174,7 @@
                     if (event.relatedTarget) { openMigrationStepModal(null); }
                 });
 
-                document.querySelectorAll('[data-action="edit-migration-step"]').forEach(function (row) {
+                document.querySelectorAll('[data-action="edit-migration-step"], [data-action="apply-migration-suggestion"]').forEach(function (row) {
                     function open() {
                         openMigrationStepModal(row);
                         bootstrap.Modal.getOrCreateInstance(migrationStepModal).show();

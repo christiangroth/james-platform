@@ -4,7 +4,9 @@
 * Deciders: Chris
 * Date: 2026-09-26
 
-Technical Story: issue #707 (refs #705, builds on #706), extended by issue #708 (`ConvertUnit`, `FillEmptyValue`, `AdjustToConstraints`)
+Technical Story: issue #707 (refs #705, builds on #706), extended by issue #708 (`ConvertUnit`, `FillEmptyValue`, `AdjustToConstraints`) and by
+issue #709 (structured breaking-change reasons, migration-step suggestions, a `dryRunMigration` fix for installations lagging behind
+auto-upgrade)
 
 ## Context and Problem Statement
 
@@ -96,8 +98,25 @@ Chosen option: **"A sealed `MigrationStep` list on `EntityDefinition`, executed 
   Property's own constraints, or — if unset — the target Property to have a default configured (so the fixed value can never
   itself violate the constraints it is meant to satisfy).
 * Only top-level Properties are supported; nested `OBJECT` Properties and `List` items are out of scope for this iteration.
-
-### Positive Consequences
+* **(issue #709)** `isPropertyBreaking`'s per-Property comparison is extracted into a pure, reusable function -
+  `propertyChangeReasons(published, draft): Set<PropertyChangeReason>` (`domain-api/.../model/app/PropertyChange.kt`) - so that
+  breaking-change classification and migration-step suggestions are driven by exactly one comparison, not two. `isPropertyBreaking`
+  becomes `propertyChangeReasons(...).isNotEmpty()`.
+* **(issue #709)** `AppVersionManagementPort.suggestMigrationSteps(appId, versionId, entityId)` proposes a `MigrationStep` (as
+  prefilled editor input) for every `PropertyChangeReason` on the draft Entity not yet covered by an existing step, plus a
+  `CopyValue` pairing a removed and an added Property (preferring a convertible-type pairing) - one suggestion per Property, in
+  priority order `TYPE_CHANGED` → `UNIT_ADDED_OR_CHANGED` → `BECAME_REQUIRED` → `CONSTRAINT_TIGHTENED`, since only one step may
+  target a given Property anyway. A fixed `value`/`sourceGranularity` is deliberately left blank in the suggestion for the
+  Developer to fill in, rather than guessed. The version editor's Migration section renders suggestions as a second table reusing
+  the existing add/edit modal - a suggestion row carries the same `data-migration-step-*` attributes as a real step row but a blank
+  step id, so opening it prefills the modal in "add" mode instead of "edit".
+* **(issue #709)** `AppVersionMigrationService.dryRunMigration` previously applied only the (last-published, draft) step to every
+  installation's current `AppData`, implicitly assuming every installation is already on the latest published Version. An
+  installation whose auto-upgrade fell behind (see ADR [0019](0019-persistent-outbox-for-long-running-domain-operations.md)) could
+  still be on an older shape,
+  so the dry-run now first applies that installation's own pending published-Version migrations in memory (without persisting,
+  mirroring `migrateInstallation`'s version-walk) before dry-running the actual breaking change - otherwise the dry-run could
+  reject a change that a real upgrade would in fact reconcile.
 
 * The most common real-world Entity changes (retype a field, replace a field, add/change a unit, tighten nullability or a
   constraint) need no script at all, and no longer force a mandatory Major version bump as long as the existing data actually
@@ -146,6 +165,8 @@ Chosen option: **"A sealed `MigrationStep` list on `EntityDefinition`, executed 
 ## Links
 
 * [`MigrationStep.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/MigrationStep.kt)
+* [`PropertyChange.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/PropertyChange.kt) (issue #709 -
+  `propertyChangeReasons`, the shared breaking-change/suggestion comparison)
 * [`AppVersionMigrationService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppVersionMigrationService.kt)
 * [`AppVersionManagementService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/AppVersionManagementService.kt)
 * [`ValueConversion.kt`](../../domain-api/src/main/kotlin/de/chrgroth/james/platform/domain/model/app/ValueConversion.kt)

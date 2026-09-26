@@ -39,8 +39,11 @@ James Platform is a personal Low Code system for building and running data-centr
   numeric/date/time values, or truncating over-long `String` values). Convert type/value/unit convert the value automatically if the source/target type or unit differ;
   Fill empty value/Adjust to constraints deliberately never fall back to `null` — a value they cannot fill/adjust fails the migration instead. Steps run first, in the
   order they are defined, followed by the script if one is set. A migration that provably brings all existing data into a valid state (checked via a dry-run at publish
-  time) can neutralize what would otherwise be a breaking change, avoiding a mandatory Major bump. Migrations run synchronously as part of the upgrade (auto-upgrade for
-  non-breaking Versions, or explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md) and ADR
+  time) can neutralize what would otherwise be a breaking change, avoiding a mandatory Major bump. The version editor's Migration section proposes a matching migration
+  step for every detected breaking Property change not yet covered by one (e.g. a type change, a tightened constraint, or a removed/added Property pair), pre-filled and
+  ready to create with one click. The dry-run also accounts for installations whose auto-upgrade fell behind, applying their own pending migrations first rather than
+  assuming every installation is already on the latest published Version. Migrations run synchronously as part of the upgrade (auto-upgrade for non-breaking Versions, or
+  explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md) and ADR
   [0023](../adr/0023-migration-steps.md).
 
 ### Entities and Properties

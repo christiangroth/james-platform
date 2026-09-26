@@ -157,14 +157,47 @@ class AppVersionMigrationService(
     return Unit.right()
   }
 
+  /**
+   * Dry-runs [entityMigrations] (each a (last-published-shape, draft-shape) pair) against every existing AppData row of [appId],
+   * across all installations. An installation that fell behind auto-upgrade (its row's [AppData.lastValidatedWithVersion] is older
+   * than the immediately preceding published Version, not just the latest one) first has every pending published-Version migration
+   * for that same Entity applied in memory, exactly as [migrateInstallation] would on the real upgrade - only then is the actual
+   * (last-published, draft) pair dry-run, so the check reflects the shape that installation's data is really in rather than assuming
+   * every installation is already on the latest published Version.
+   */
   override fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit> {
     if (entityMigrations.isEmpty()) return Unit.right()
     val installations = installedAppRepository.findAllByAppId(appId)
+    val publishedVersions = appVersionRepository.findAllByAppId(appId)
+      .filter { it.status == AppVersionStatus.PUBLISHED }
+      .sortedBy { it.createdAt }
+    val latestPublishedIndex = publishedVersions.lastIndex
+
     for ((previousEntity, newEntity) in entityMigrations) {
       for (installedApp in installations) {
         val existingAppData = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, newEntity.id)
         for (existingAppDataRow in existingAppData) {
-          runAndValidate(previousEntity, newEntity, existingAppDataRow, installedApp.id, "", "dry-run for appId=${appId.value}")
+          val fromIndex = publishedVersions.indexOfFirst { it.versionNumber == existingAppDataRow.lastValidatedWithVersion }
+          val pendingVersions = publishedVersions.subList(fromIndex + 1, latestPublishedIndex + 1)
+
+          var caughtUpRow = existingAppDataRow
+          for (pendingVersion in pendingVersions) {
+            val pendingEntity = pendingVersion.entityDefinitions.find { it.id == newEntity.id } ?: continue
+            if (pendingEntity.migrationScript == null && pendingEntity.migrationSteps.isEmpty()) continue
+            val pendingVersionIndex = publishedVersions.indexOfFirst { it.versionNumber == pendingVersion.versionNumber }
+            val pendingPreviousEntity = previousEntityDefinition(publishedVersions, pendingVersionIndex, pendingEntity)
+            val migratedData = runAndValidate(
+              pendingPreviousEntity,
+              pendingEntity,
+              caughtUpRow,
+              installedApp.id,
+              "",
+              "dry-run catch-up for appId=${appId.value}",
+            ).fold({ return it.left() }, { it })
+            caughtUpRow = caughtUpRow.copy(data = migratedData)
+          }
+
+          runAndValidate(previousEntity, newEntity, caughtUpRow, installedApp.id, "", "dry-run for appId=${appId.value}")
             .fold({ return it.left() }, {})
         }
       }
