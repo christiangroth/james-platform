@@ -29,6 +29,8 @@ data class EntityDefinition(
   val sortBy: List<SortCriteria> = emptyList(),
   val computedProperties: List<ComputedProperty> = emptyList(),
   val aggregations: List<AggregationDefinition> = emptyList(),
+  // Declarative migration building blocks, executed in order before migrationScript on upgrade — see MigrationStep.
+  val migrationSteps: List<MigrationStep> = emptyList(),
   // Kotlin script transforming existing AppData when an installation upgrades past the Version this script is authored in.
   val migrationScript: String? = null,
 )

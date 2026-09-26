@@ -26,7 +26,17 @@ class EntityDefinitionDocument {
   var sortBy: List<SortCriteriaDocument> = emptyList()
   var computedProperties: List<ComputedPropertyDocument> = emptyList()
   var aggregations: List<AggregationDefinitionDocument> = emptyList()
+  var migrationSteps: List<MigrationStepDocument> = emptyList()
   var migrationScript: String? = null
+}
+
+class MigrationStepDocument {
+  lateinit var id: String
+  // "CONVERT_TYPE" or "COPY_VALUE"
+  lateinit var type: String
+  var propertyId: String? = null
+  var sourcePropertyId: String? = null
+  var targetPropertyId: String? = null
 }
 
 class SortCriteriaDocument {

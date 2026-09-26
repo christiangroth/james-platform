@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -22,12 +23,15 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationStep
+import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
@@ -45,6 +49,7 @@ import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -207,6 +212,13 @@ class AppVersionManagementService(
     if (invalidAggregationEntityNames.isNotEmpty()) {
       logger.warn { "Publish version failed: invalid aggregation definitions in entities: $invalidAggregationEntityNames" }
       return InvalidAggregationDefinitionError(invalidAggregationEntityNames).left()
+    }
+    val invalidMigrationStepEntityNames = version.entityDefinitions
+      .filter { entity -> hasInvalidMigrationSteps(latestPublished?.entityDefinitions?.find { it.id == entity.id }, entity) }
+      .map { it.name }
+    if (invalidMigrationStepEntityNames.isNotEmpty()) {
+      logger.warn { "Publish version failed: invalid migration steps in entities: $invalidMigrationStepEntityNames" }
+      return InvalidMigrationStepError(invalidMigrationStepEntityNames).left()
     }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
@@ -442,6 +454,138 @@ class AppVersionManagementService(
     logger.info { "Entity display text updated: $entityId in version $versionId" }
     return updated.right()
   }
+
+  override fun addMigrationStep(appId: String, versionId: String, entityId: String, input: MigrationStepInput): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Add migration step failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val step = parseMigrationStep(MigrationStepId(UUID.randomUUID().toString()), input).fold({ return it.left() }, { it })
+    val previousEntity = latestPublishedVersion(AppId(appId))?.entityDefinitions?.find { it.id == entity.id }
+    validateMigrationStep(previousEntity, entity, step)?.let { error ->
+      logger.warn { "Add migration step failed: $error in entity $entityId" }
+      return error.left()
+    }
+    val updatedEntity = entity.copy(migrationSteps = entity.migrationSteps + step)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Migration step added: ${step.id.value} (${input.type}) to entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun updateMigrationStep(appId: String, versionId: String, entityId: String, stepId: String, input: MigrationStepInput): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Update migration step failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val existingStep = entity.migrationSteps.find { it.id.value == stepId } ?: run {
+      logger.warn { "Update migration step failed: step not found: $stepId in entity $entityId" }
+      return AppVersionError.MIGRATION_STEP_NOT_FOUND.left()
+    }
+    val step = parseMigrationStep(existingStep.id, input).fold({ return it.left() }, { it })
+    val previousEntity = latestPublishedVersion(AppId(appId))?.entityDefinitions?.find { it.id == entity.id }
+    validateMigrationStep(previousEntity, entity, step, ignoringStepId = existingStep.id)?.let { error ->
+      logger.warn { "Update migration step failed: $error in entity $entityId" }
+      return error.left()
+    }
+    val updatedEntity = entity.copy(migrationSteps = entity.migrationSteps.map { if (it.id == existingStep.id) step else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Migration step updated: $stepId (${input.type}) in entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun deleteMigrationStep(appId: String, versionId: String, entityId: String, stepId: String): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Delete migration step failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (entity.migrationSteps.none { it.id.value == stepId }) {
+      logger.warn { "Delete migration step failed: step not found: $stepId in entity $entityId" }
+      return AppVersionError.MIGRATION_STEP_NOT_FOUND.left()
+    }
+    val updatedEntity = entity.copy(migrationSteps = entity.migrationSteps.filter { it.id.value != stepId })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Migration step deleted: $stepId from entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  override fun reorderMigrationSteps(appId: String, versionId: String, entityId: String, stepIds: List<String>): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Reorder migration steps failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val existingIds = entity.migrationSteps.map { it.id.value }.toSet()
+    if (stepIds.toSet() != existingIds || stepIds.size != entity.migrationSteps.size) {
+      logger.warn { "Reorder migration steps failed: IDs mismatch for entity $entityId" }
+      return AppVersionError.MIGRATION_STEP_IDS_MISMATCH.left()
+    }
+    val reordered = stepIds.mapNotNull { id -> entity.migrationSteps.find { it.id.value == id } }
+    val updatedEntity = entity.copy(migrationSteps = reordered)
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Migration steps reordered in entity $entityId in version $versionId" }
+    return updated.right()
+  }
+
+  private fun latestPublishedVersion(appId: AppId): AppVersion? =
+    appVersionRepository.findAllByAppId(appId).filter { it.status == AppVersionStatus.PUBLISHED }.maxByOrNull { it.createdAt }
+
+  private fun parseMigrationStep(id: MigrationStepId, input: MigrationStepInput): Either<AppVersionError, MigrationStep> = when (input.type.trim().uppercase()) {
+    "CONVERT_TYPE" -> {
+      val propertyId = input.propertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
+      MigrationStep.ConvertType(id, PropertyId(propertyId)).right()
+    }
+    "COPY_VALUE" -> {
+      val sourcePropertyId = input.sourcePropertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
+      val targetPropertyId = input.targetPropertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
+      MigrationStep.CopyValue(id, PropertyId(sourcePropertyId), PropertyId(targetPropertyId)).right()
+    }
+    else -> AppVersionError.MIGRATION_STEP_TYPE_INVALID.left()
+  }
+
+  /** The property a [MigrationStep] writes its (possibly converted) value into — used to detect two steps of the same Entity targeting the same property. */
+  private fun migrationStepTargetPropertyId(step: MigrationStep): PropertyId = when (step) {
+    is MigrationStep.ConvertType -> step.propertyId
+    is MigrationStep.CopyValue -> step.targetPropertyId
+  }
+
+  /**
+   * Validates [step] against [previousEntity] (the Entity's shape in the last published Version, `null` if there is none yet) and [entity]
+   * (the draft): its source property must exist in [previousEntity] and its target in [entity] (both top-level only), the source/target type
+   * pair must be convertible (see [ValueConversion.isConvertible]), and no other step of [entity] (other than [ignoringStepId], when updating
+   * an existing one) may already target the same property. Returns the specific [AppVersionError], or `null` if the step is valid.
+   */
+  private fun validateMigrationStep(
+    previousEntity: EntityDefinition?,
+    entity: EntityDefinition,
+    step: MigrationStep,
+    ignoringStepId: MigrationStepId? = null,
+  ): AppVersionError? {
+    val sourcePropertyId = when (step) {
+      is MigrationStep.ConvertType -> step.propertyId
+      is MigrationStep.CopyValue -> step.sourcePropertyId
+    }
+    val targetPropertyId = when (step) {
+      is MigrationStep.ConvertType -> step.propertyId
+      is MigrationStep.CopyValue -> step.targetPropertyId
+    }
+    val sourceProperty = previousEntity?.properties?.find { it.id == sourcePropertyId } ?: return AppVersionError.MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND
+    val targetProperty = entity.properties.find { it.id == targetPropertyId } ?: return AppVersionError.MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND
+    if (!ValueConversion.isConvertible(sourceProperty.type, targetProperty.type)) return AppVersionError.MIGRATION_STEP_TYPE_NOT_CONVERTIBLE
+    val targetAlreadyUsed = entity.migrationSteps.any { it.id != ignoringStepId && migrationStepTargetPropertyId(it) == targetPropertyId }
+    if (targetAlreadyUsed) return AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED
+    return null
+  }
+
+  /** Whether any of [entity]'s migration steps is no longer valid against [previousEntity] — see [validateMigrationStep]. */
+  private fun hasInvalidMigrationSteps(previousEntity: EntityDefinition?, entity: EntityDefinition): Boolean =
+    entity.migrationSteps.any { validateMigrationStep(previousEntity, entity, it, ignoringStepId = it.id) != null }
 
   override fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
@@ -1425,7 +1569,7 @@ class AppVersionManagementService(
     val breakingEntityIds = breakingChangeEntityIds(published, draft)
     if (breakingEntityIds.isEmpty()) return false
     val entityMigrations = breakingEntityIds.map { entityId ->
-      val draftEntity = draft.entityDefinitions.find { it.id == entityId && it.migrationScript != null } ?: return true
+      val draftEntity = draft.entityDefinitions.find { it.id == entityId && (it.migrationScript != null || it.migrationSteps.isNotEmpty()) } ?: return true
       val previousEntity = published.entityDefinitions.find { it.id == entityId } ?: draftEntity
       previousEntity to draftEntity
     }
@@ -1636,6 +1780,17 @@ class AppVersionManagementService(
     }
     for (aggregation in entity.aggregations.sortedBy { it.name }) {
       lines.addAll(aggregationToDslLines(aggregation, entity))
+    }
+    if (entity.migrationSteps.isNotEmpty()) {
+      lines.add("  migration-steps:")
+      for (step in entity.migrationSteps) {
+        lines.add(
+          when (step) {
+            is MigrationStep.ConvertType -> "    convert-type: ${propertyNameOf(entity, step.propertyId.value)}"
+            is MigrationStep.CopyValue -> "    copy-value: ${propertyNameOf(entity, step.sourcePropertyId.value)} -> ${propertyNameOf(entity, step.targetPropertyId.value)}"
+          },
+        )
+      }
     }
     val migrationScript = entity.migrationScript
     if (migrationScript != null) {

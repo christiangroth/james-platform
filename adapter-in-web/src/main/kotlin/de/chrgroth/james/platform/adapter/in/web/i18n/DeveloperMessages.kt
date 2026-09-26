@@ -239,10 +239,64 @@ interface DeveloperMessages {
   fun developerEditDisplayTextAriaLabel(): String
 
   @Message
+  fun developerMigrationHeading(): String
+
+  @Message
+  fun developerMigrationScriptSubheading(): String
+
+  @Message
   fun developerMigrationScriptHeading(): String
 
   @Message
   fun developerEditMigrationScriptAriaLabel(): String
+
+  @Message
+  fun developerNoMigrationStepsMessage(): String
+
+  @Message
+  fun developerOpenAddMigrationStepModalAriaLabel(): String
+
+  @Message
+  fun developerAddMigrationStepModalTitle(): String
+
+  @Message
+  fun developerEditMigrationStepModalTitle(): String
+
+  @Message
+  fun developerMigrationStepTypeLabel(): String
+
+  @Message
+  fun developerMigrationStepTypeConvertType(): String
+
+  @Message
+  fun developerMigrationStepTypeCopyValue(): String
+
+  @Message
+  fun developerMigrationStepPropertyLabel(): String
+
+  @Message
+  fun developerMigrationStepSourcePropertyLabel(): String
+
+  @Message
+  fun developerMigrationStepTargetPropertyLabel(): String
+
+  @Message
+  fun developerMigrationStepPropertyPlaceholder(): String
+
+  @Message
+  fun developerMigrationStepConvertTypeDescription(propertyName: String): String
+
+  @Message
+  fun developerMigrationStepCopyValueDescription(sourceName: String, targetName: String): String
+
+  @Message
+  fun developerMigrationStepInvalidBadge(): String
+
+  @Message
+  fun developerRemoveMigrationStepModalTitle(): String
+
+  @Message
+  fun developerRemoveMigrationStepConfirmMessage(): String
 
   @Message
   fun developerSortOrderHeading(): String
@@ -664,6 +718,39 @@ interface DeveloperMessages {
 
   @Message
   fun developerMigrationScriptSavedMessage(): String
+
+  @Message
+  fun developerMigrationStepAddedMessage(): String
+
+  @Message
+  fun developerMigrationStepUpdatedMessage(): String
+
+  @Message
+  fun developerMigrationStepDeletedMessage(): String
+
+  @Message
+  fun developerMigrationStepsReorderedMessage(): String
+
+  @Message
+  fun developerMigrationStepNotFoundError(): String
+
+  @Message
+  fun developerMigrationStepSourcePropertyNotFoundError(): String
+
+  @Message
+  fun developerMigrationStepTargetPropertyNotFoundError(): String
+
+  @Message
+  fun developerMigrationStepTypeNotConvertibleError(): String
+
+  @Message
+  fun developerMigrationStepTargetAlreadyUsedError(): String
+
+  @Message
+  fun developerMigrationStepTypeInvalidError(): String
+
+  @Message
+  fun developerInvalidMigrationStepError(names: String): String
 
   @Message
   fun developerPropertyNameRequiredError(): String

@@ -17,6 +17,8 @@ import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
+import de.chrgroth.james.platform.domain.model.app.MigrationStep
+import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -210,6 +212,7 @@ class AppVersionRepositoryAdapter(
     sortBy = sortBy.mapNotNull { it.toDomain() },
     computedProperties = computedProperties.mapNotNull { it.toDomain() },
     aggregations = aggregations.mapNotNull { it.toDomain() },
+    migrationSteps = migrationSteps.mapNotNull { it.toDomain() },
     migrationScript = migrationScript,
   )
 
@@ -271,6 +274,12 @@ class AppVersionRepositoryAdapter(
     )
   }
 
+  private fun MigrationStepDocument.toDomain(): MigrationStep? = when (type) {
+    "CONVERT_TYPE" -> propertyId?.let { MigrationStep.ConvertType(MigrationStepId(id), PropertyId(it)) }
+    "COPY_VALUE" -> sourcePropertyId?.let { source -> targetPropertyId?.let { target -> MigrationStep.CopyValue(MigrationStepId(id), PropertyId(source), PropertyId(target)) } }
+    else -> null
+  }
+
   private fun ConstraintDocument.toDomain(): PropertyConstraint? = when (constraintType) {
     "UniqueKey" -> PropertyConstraint.UniqueKey
     "MinLong" -> longValue?.let { PropertyConstraint.MinLong(it) }
@@ -319,7 +328,23 @@ class AppVersionRepositoryAdapter(
     doc.sortBy = sortBy.map { it.toDocument() }
     doc.computedProperties = computedProperties.map { it.toDocument() }
     doc.aggregations = aggregations.map { it.toDocument() }
+    doc.migrationSteps = migrationSteps.map { it.toDocument() }
     doc.migrationScript = migrationScript
+  }
+
+  private fun MigrationStep.toDocument() = MigrationStepDocument().also { doc ->
+    doc.id = id.value
+    when (this) {
+      is MigrationStep.ConvertType -> {
+        doc.type = "CONVERT_TYPE"
+        doc.propertyId = propertyId.value
+      }
+      is MigrationStep.CopyValue -> {
+        doc.type = "COPY_VALUE"
+        doc.sourcePropertyId = sourcePropertyId.value
+        doc.targetPropertyId = targetPropertyId.value
+      }
+    }
   }
 
   private fun SortCriteria.toDocument() = SortCriteriaDocument().also { doc ->
