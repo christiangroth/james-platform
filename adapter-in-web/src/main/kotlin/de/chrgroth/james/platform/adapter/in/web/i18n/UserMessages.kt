@@ -105,6 +105,8 @@ interface UserMessages {
   @Message
   fun userAggregationStaleHint(): String
 
+  // Aggregation table labels (grouped/time-bucketed aggregations) live in UserAggregationMessages instead - see its KDoc for why.
+
   @Message
   fun userPageLabel(): String
 

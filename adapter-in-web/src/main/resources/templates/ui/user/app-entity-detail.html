@@ -31,8 +31,9 @@
         {#if !aggregations.isEmpty}
         <div class="card app-card p-4 mb-4" data-testid="aggregation-panel">
             <h2 class="app-section-label mb-3">{user:userAggregationsHeading()}</h2>
-            <div class="d-flex flex-wrap gap-4">
-                {#for agg in aggregations}
+            {#if !aggregations.simpleValues.isEmpty}
+            <div class="d-flex flex-wrap gap-4 mb-4">
+                {#for agg in aggregations.simpleValues}
                 <div class="d-flex flex-column" data-testid="aggregation-item">
                     <span class="app-section-label">{agg.name}</span>
                     <div class="d-flex align-items-center gap-2">
@@ -44,6 +45,43 @@
                 </div>
                 {/for}
             </div>
+            {/if}
+            {#for table in aggregations.tables}
+            <div class="mb-4" data-testid="aggregation-table">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="app-section-label">{table.name}</span>
+                    {#if table.stale}
+                    <span class="badge app-badge-muted" data-testid="aggregation-table-stale-badge" title="{user:userAggregationStaleHint()}">{user:userAggregationStaleHint()}</span>
+                    {/if}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 app-table" data-testid="aggregation-table-values">
+                        <thead>
+                            <tr>
+                                {#if table.hasPeriod}<th>{userAggregation:userAggregationTablePeriodHeading()}</th>{/if}
+                                {#if table.hasGroup}<th>{userAggregation:userAggregationTableGroupHeading()}</th>{/if}
+                                <th>{userAggregation:userAggregationTableValueHeading()}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#for row in table.rows}
+                            <tr data-testid="aggregation-table-row">
+                                {#if table.hasPeriod}<td data-testid="aggregation-table-row-period">{row.periodLabel}</td>{/if}
+                                {#if table.hasGroup}<td data-testid="aggregation-table-row-group">{row.groupLabel}</td>{/if}
+                                <td data-testid="aggregation-table-row-value">
+                                    {row.valueFormatted}
+                                    {#if row.stale}<span class="badge app-badge-muted ms-1" data-testid="aggregation-table-row-stale-badge" title="{user:userAggregationStaleHint()}">{user:userAggregationStaleHint()}</span>{/if}
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                </div>
+                {#if table.truncated}
+                <p class="app-section-label mb-0 mt-1" data-testid="aggregation-table-truncated-hint">{userAggregation:userAggregationTableTruncatedHint(table.visibleCount, table.totalCount)}</p>
+                {/if}
+            </div>
+            {/for}
         </div>
         {/if}
 

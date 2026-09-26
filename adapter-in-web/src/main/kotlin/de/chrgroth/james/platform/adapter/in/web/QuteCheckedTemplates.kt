@@ -179,7 +179,7 @@ object UserTemplates {
   external fun `app-detail`(info: InstalledAppInfo, entityTabs: List<EntityTab>, pageSize: Int): TemplateInstance
 
   @JvmStatic
-  external fun `app-entity-detail`(info: InstalledAppInfo, entity: EntityTab, aggregations: List<AggregationView>, pageSize: Int): TemplateInstance
+  external fun `app-entity-detail`(info: InstalledAppInfo, entity: EntityTab, aggregations: AggregationPanelViews, pageSize: Int): TemplateInstance
 
   @JvmStatic
   external fun `app-data-new`(

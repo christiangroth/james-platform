@@ -1,10 +1,13 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
+import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
@@ -12,8 +15,11 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.formatUnitValue
+import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
@@ -37,8 +43,13 @@ import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
+import java.math.BigDecimal
 import java.net.URI
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 data class AppDataRow(
   val id: String,
@@ -123,6 +134,39 @@ data class AggregationView(
   val stale: Boolean,
 )
 
+/** One row of an [AggregationTableView]: `periodLabel`/`groupLabel` are null for the dimension the aggregation doesn't have. */
+data class AggregationTableRow(
+  val periodLabel: String?,
+  val groupLabel: String?,
+  val valueFormatted: String,
+  val stale: Boolean,
+)
+
+/**
+ * Compact table display for one grouped and/or time-bucketed [AggregationDefinition] (issue #713), rendered as a flat,
+ * sorted row list rather than a Zeitraum×Gruppe matrix - simpler to render and equally valid per the issue's own
+ * "oder gruppierte Zeilen" fallback. [rows] is already capped at [MAX_AGGREGATION_TABLE_ROWS]; [truncated] indicates
+ * whether [totalCount] exceeds [visibleCount].
+ */
+data class AggregationTableView(
+  val name: String,
+  val hasPeriod: Boolean,
+  val hasGroup: Boolean,
+  val rows: List<AggregationTableRow>,
+  val stale: Boolean,
+  val truncated: Boolean,
+  val visibleCount: Int,
+  val totalCount: Int,
+)
+
+/** The two kinds of aggregation display built for the entity detail page's aggregation panel (see `buildAggregationViews`). */
+data class AggregationPanelViews(
+  val simpleValues: List<AggregationView>,
+  val tables: List<AggregationTableView>,
+) {
+  val isEmpty: Boolean get() = simpleValues.isEmpty() && tables.isEmpty()
+}
+
 data class InstalledAppStatusResponse(
   val stillInstalled: Boolean,
 )
@@ -157,6 +201,9 @@ class UserAppStoreResource {
 
   @Inject
   private lateinit var userMsg: UserMessages
+
+  @Inject
+  private lateinit var aggMsg: UserAggregationMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -248,7 +295,7 @@ class UserAppStoreResource {
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
     val entityTab = buildEntityTab(entityDef, entityById, allAppData)
-    val aggregations = buildAggregationViews(entityDef, installedAppId)
+    val aggregations = buildAggregationViews(entityDef, installedAppId, entityById, allAppData)
 
     Response.ok(
       UserTemplates.`app-entity-detail`(info, entityTab, aggregations, PAGE_SIZE),
@@ -542,25 +589,149 @@ class UserAppStoreResource {
   }
 
   /**
-   * Builds the "simple value display" aggregation panel entries for an Entity (issue #642): one entry per ungrouped,
-   * non-time-bucketed [AggregationDefinition] (no `refPath`/`timeBucket`), which resolve to exactly one [AggregationValue]
-   * (`groupKey`/`bucketKey` both null). Grouped or time-bucketed aggregations resolve to several values per definition and
-   * don't fit a single number + label display - they're left for the later reports/chart step of #366.
+   * Builds the entity detail page's aggregation panel (issue #642, extended by #713): [AggregationDefinition]s with
+   * no `refPath`/`timeBucket`/`groupBy` resolve to exactly one [AggregationValue] (`groupKey`/`bucketKey` both null)
+   * and are shown as a single value ([AggregationPanelViews.simpleValues]); every other aggregation - grouped via
+   * `refPath`/`groupBy`, bucketed via `timeBucket`, or both - resolves to several values and is shown as a compact
+   * table ([AggregationPanelViews.tables], see [buildAggregationTableView]). One read-model query per
+   * [AggregationDefinition] either way; reference display texts for `refPath` groups are resolved from [allAppData],
+   * already loaded once for the whole page, so no additional per-row lookups are needed.
    */
-  private fun buildAggregationViews(entityDef: EntityDefinition, installedAppId: String): List<AggregationView> =
-    entityDef.aggregations
-      .filter { it.refPath == null && it.timeBucket == null }
-      .mapNotNull { aggregation ->
-        aggregationRepository.findAllByInstalledAppIdAndAggregationDefinitionId(InstalledAppId(installedAppId), aggregation.id)
-          .find { it.id.groupKey == null && it.id.bucketKey == null }
-          ?.let { value ->
-            AggregationView(
-              name = aggregation.name,
-              valueFormatted = TemplateFormattingExtensions.formatted(value.value),
-              stale = value.status == AggregationValueStatus.STALE,
-            )
-          }
+  private fun buildAggregationViews(
+    entityDef: EntityDefinition,
+    installedAppId: String,
+    entityById: Map<String, EntityDefinition>,
+    allAppData: List<AppData>,
+  ): AggregationPanelViews {
+    val (grouped, simple) = entityDef.aggregations.partition { it.refPath != null || it.timeBucket != null || it.groupBy != null }
+
+    val simpleValues = simple.mapNotNull { aggregation ->
+      aggregationRepository.findAllByInstalledAppIdAndAggregationDefinitionId(InstalledAppId(installedAppId), aggregation.id)
+        .find { it.id.groupKey == null && it.id.bucketKey == null }
+        ?.let { value ->
+          AggregationView(
+            name = aggregation.name,
+            valueFormatted = TemplateFormattingExtensions.formatted(value.value),
+            stale = value.status == AggregationValueStatus.STALE,
+          )
+        }
+    }
+
+    val tables = grouped.mapNotNull { aggregation -> buildAggregationTableView(aggregation, entityDef, installedAppId, entityById, allAppData) }
+
+    return AggregationPanelViews(simpleValues = simpleValues, tables = tables)
+  }
+
+  /** Builds the table view for one grouped/time-bucketed [aggregation], or null if it has no values yet (nothing computed so far). */
+  private fun buildAggregationTableView(
+    aggregation: AggregationDefinition,
+    entityDef: EntityDefinition,
+    installedAppId: String,
+    entityById: Map<String, EntityDefinition>,
+    allAppData: List<AppData>,
+  ): AggregationTableView? {
+    val values = aggregationRepository.findAllByInstalledAppIdAndAggregationDefinitionId(InstalledAppId(installedAppId), aggregation.id)
+    if (values.isEmpty()) return null
+
+    val hasPeriod = aggregation.timeBucket != null
+    val hasGroup = aggregation.refPath != null || aggregation.groupBy != null
+    val refTargetLabels = refTargetDisplayTexts(aggregation, entityDef, entityById, allAppData)
+    val groupByProperty = aggregation.groupBy?.let { groupBy -> entityDef.properties.find { it.id == groupBy } }
+
+    fun groupLabelOf(value: AggregationValue): String? {
+      if (!hasGroup) return null
+      val key = value.id.groupKey ?: return aggMsg.userAggregationTableNoGroupLabel()
+      return when {
+        aggregation.refPath != null -> refTargetLabels[key] ?: key
+        groupByProperty != null -> formatGroupValue(groupByProperty, key)
+        else -> key
       }
+    }
+
+    fun periodLabelOf(value: AggregationValue): String? {
+      if (!hasPeriod) return null
+      val key = value.id.bucketKey ?: return aggMsg.userAggregationTableNoPeriodLabel()
+      return formatBucketLabel(aggregation.timeBucket!!, key)
+    }
+
+    val sourceProperty = entityDef.properties.find { it.id == aggregation.sourceProperty }
+    val rowsWithSortKeys = values.map { value ->
+      Triple(value, groupLabelOf(value), periodLabelOf(value))
+    }
+    val sorted = when {
+      hasPeriod -> rowsWithSortKeys.sortedWith(compareByDescending<Triple<AggregationValue, String?, String?>> { it.first.id.bucketKey ?: "" }.thenBy { it.second ?: "" })
+      else -> rowsWithSortKeys.sortedBy { it.second ?: "" }
+    }
+
+    val totalCount = sorted.size
+    val limited = sorted.take(MAX_AGGREGATION_TABLE_ROWS)
+    val rows = limited.map { (value, groupLabel, periodLabel) ->
+      AggregationTableRow(
+        periodLabel = periodLabel,
+        groupLabel = groupLabel,
+        valueFormatted = formatAggregationValue(aggregation, sourceProperty, value.value),
+        stale = value.status == AggregationValueStatus.STALE,
+      )
+    }
+
+    return AggregationTableView(
+      name = aggregation.name,
+      hasPeriod = hasPeriod,
+      hasGroup = hasGroup,
+      rows = rows,
+      stale = values.any { it.status == AggregationValueStatus.STALE },
+      truncated = totalCount > rows.size,
+      visibleCount = rows.size,
+      totalCount = totalCount,
+    )
+  }
+
+  /** Resolves the referenced Entity's Display Text per AppData id, for [aggregation]'s `refPath` target - empty map if [aggregation] has no `refPath`. */
+  private fun refTargetDisplayTexts(
+    aggregation: AggregationDefinition,
+    entityDef: EntityDefinition,
+    entityById: Map<String, EntityDefinition>,
+    allAppData: List<AppData>,
+  ): Map<String, String> {
+    val refPath = aggregation.refPath ?: return emptyMap()
+    val refProperty = entityDef.properties.find { it.id == refPath } ?: return emptyMap()
+    val targetEntity = refProperty.targetEntityId?.let { entityById[it.value] } ?: return emptyMap()
+    return allAppData.filter { it.entityType == targetEntity.id }
+      .associate { it.id.value to computeDisplayText(targetEntity, it.id.value, it.data) }
+  }
+
+  /** Formats an aggregation's raw numeric value, applying the source property's unit granularity if it has one (COUNT never carries the source property's unit). */
+  private fun formatAggregationValue(aggregation: AggregationDefinition, sourceProperty: Property?, value: Double): String {
+    val unit = sourceProperty?.unit
+    return if (unit != null && aggregation.function != AggregationFunction.COUNT) {
+      formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity)
+    } else {
+      TemplateFormattingExtensions.formatted(value)
+    }
+  }
+
+  /** Formats a `groupBy` group key (the raw property value of [property]) for display, respecting date/time formatting and the property's unit if any. */
+  private fun formatGroupValue(property: Property, raw: String): String = when (property.type) {
+    PropertyType.DATE -> runCatching { LocalDate.parse(raw) }.getOrNull()?.let { BUCKET_DATE_FORMATTER.format(it) } ?: raw
+    PropertyType.DATETIME -> runCatching { LocalDateTime.parse(raw) }.getOrNull()?.let { GROUP_DATETIME_FORMATTER.format(it) } ?: raw
+    PropertyType.TIME -> runCatching { LocalTime.parse(raw) }.getOrNull()?.let { GROUP_TIME_FORMATTER.format(it) } ?: raw
+    PropertyType.LONG -> raw.toLongOrNull()?.let { formatGroupNumeric(property, it.toDouble()) } ?: raw
+    PropertyType.DOUBLE -> raw.toDoubleOrNull()?.let { formatGroupNumeric(property, it) } ?: raw
+    else -> raw
+  }
+
+  private fun formatGroupNumeric(property: Property, value: Double): String {
+    val unit = property.unit
+    return if (unit != null) formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity) else TemplateFormattingExtensions.formatted(value)
+  }
+
+  /** Formats a time bucket key (see `AggregationComputation.encodeTimeBucket`) as a human-readable label, e.g. "25.09.2026", "KW 39/2026", "09/2026", "2026". */
+  private fun formatBucketLabel(bucket: TimeBucket, bucketKey: String): String = when (bucket) {
+    TimeBucket.TAG -> runCatching { LocalDate.parse(bucketKey) }.getOrNull()?.let { BUCKET_DATE_FORMATTER.format(it) } ?: bucketKey
+    TimeBucket.WOCHE -> WEEK_BUCKET_REGEX.matchEntire(bucketKey)?.let { "KW ${it.groupValues[2].toInt()}/${it.groupValues[1]}" } ?: bucketKey
+    TimeBucket.MONAT -> MONTH_BUCKET_REGEX.matchEntire(bucketKey)?.let { "${it.groupValues[2]}/${it.groupValues[1]}" } ?: bucketKey
+    TimeBucket.JAHR -> bucketKey
+  }
 
   private fun appStoreErrorMessage(code: String): String = when (code) {
     UserAppStoreError.APP_NOT_FOUND.code -> userMsg.userAppNotFoundError()
@@ -717,5 +888,16 @@ class UserAppStoreResource {
   companion object {
     private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
     private const val PAGE_SIZE = 50
+
+    /** Row cap for one aggregation's table in the aggregation panel, so a long-running installation's page doesn't explode (issue #713). */
+    private const val MAX_AGGREGATION_TABLE_ROWS = 30
+
+    private val BUCKET_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    private val GROUP_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+    private val GROUP_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
+
+    // Matches AggregationComputation.encodeTimeBucket's "%04d-W%02d" / "%04d-%02d" bucket key formats.
+    private val WEEK_BUCKET_REGEX = Regex("""(\d{4})-W(\d{2})""")
+    private val MONTH_BUCKET_REGEX = Regex("""(\d{4})-(\d{2})""")
   }
 }

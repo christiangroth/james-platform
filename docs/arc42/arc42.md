@@ -158,8 +158,16 @@ of a draft; the editor applies the same validation rules as the Version publish 
 Values are stored as precomputed read-model documents (reusing the storage convention from ADR [0013](../adr/0013-precomputed-read-models-per-ui-page.md)), each carrying
 a `status` (`UP_TO_DATE`/`STALE`). Single-object writes update affected aggregations inline via a statically derived dependency index; bulk recomputation (e.g. on
 `AppVersion` publish, imports, generated test data) runs through the outbox (ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md)). Since
-test installations pin the draft, adding, changing or removing an aggregation in the editor enqueues a recompute for the draft's test installations directly. Aggregation values are shown directly
-on the app installation page. Transitive (multi-hop) `ref` chains and true percentiles are deliberately out of scope for the first iteration.
+test installations pin the draft, adding, changing or removing an aggregation in the editor enqueues a recompute for the draft's test installations directly.
+
+Aggregation values are shown directly on the Entity's installation page (`UserAppStoreResource.buildAggregationViews`), split by shape: an ungrouped, non-bucketed
+`AggregationDefinition` (no `refPath`/`timeBucket`/`groupBy`) resolves to exactly one value and is shown as a single labeled number; every other definition - grouped via
+`refPath`/`groupBy`, bucketed via `timeBucket`, or both - resolves to several values and is shown as a compact table instead, one row per value (Zeitraum and/or Gruppe
+column plus the formatted value), sorted chronologically descending for the time dimension and alphabetically by label for the group dimension. A `refPath` group's label
+is the referenced instance's Display Text (falling back to its id); a `groupBy` group's label is the formatted source property value. Each table is capped at a fixed row
+count with a "showing X of Y" hint once exceeded, so a long-running installation's page can't grow unbounded; a definition with no computed values yet is omitted entirely,
+same as the single-value display. `STALE` values are flagged the same way in both displays. Transitive (multi-hop) `ref` chains and true percentiles are deliberately out
+of scope for the first iteration.
 
 ### Data Import (ETL)
 
