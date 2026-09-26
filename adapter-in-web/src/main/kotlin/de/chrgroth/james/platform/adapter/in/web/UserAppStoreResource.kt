@@ -725,11 +725,12 @@ class UserAppStoreResource {
     return if (unit != null) formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity) else TemplateFormattingExtensions.formatted(value)
   }
 
-  /** Formats a time bucket key (see `AggregationComputation.encodeTimeBucket`) as a human-readable label, e.g. "25.09.2026", "KW 39/2026", "09/2026", "2026". */
+  /** Formats a time bucket key (see `AggregationComputation.encodeTimeBucket`) as a human-readable label, e.g. "25.09.2026", "KW 39/2026", "09/2026", "Q1/2026", "2026". */
   private fun formatBucketLabel(bucket: TimeBucket, bucketKey: String): String = when (bucket) {
     TimeBucket.TAG -> runCatching { LocalDate.parse(bucketKey) }.getOrNull()?.let { BUCKET_DATE_FORMATTER.format(it) } ?: bucketKey
     TimeBucket.WOCHE -> WEEK_BUCKET_REGEX.matchEntire(bucketKey)?.let { "KW ${it.groupValues[2].toInt()}/${it.groupValues[1]}" } ?: bucketKey
     TimeBucket.MONAT -> MONTH_BUCKET_REGEX.matchEntire(bucketKey)?.let { "${it.groupValues[2]}/${it.groupValues[1]}" } ?: bucketKey
+    TimeBucket.QUARTAL -> QUARTER_BUCKET_REGEX.matchEntire(bucketKey)?.let { "Q${it.groupValues[2]}/${it.groupValues[1]}" } ?: bucketKey
     TimeBucket.JAHR -> bucketKey
   }
 
@@ -896,8 +897,9 @@ class UserAppStoreResource {
     private val GROUP_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
     private val GROUP_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
 
-    // Matches AggregationComputation.encodeTimeBucket's "%04d-W%02d" / "%04d-%02d" bucket key formats.
+    // Matches AggregationComputation.encodeTimeBucket's "%04d-W%02d" / "%04d-%02d" / "%04d-Q%d" bucket key formats.
     private val WEEK_BUCKET_REGEX = Regex("""(\d{4})-W(\d{2})""")
     private val MONTH_BUCKET_REGEX = Regex("""(\d{4})-(\d{2})""")
+    private val QUARTER_BUCKET_REGEX = Regex("""(\d{4})-Q(\d)""")
   }
 }
