@@ -53,6 +53,7 @@ import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
+import java.time.MonthDay
 import java.util.UUID
 
 @ApplicationScoped
@@ -1236,6 +1237,7 @@ class AppVersionManagementService(
   private fun validatedAggregation(entity: EntityDefinition, id: AggregationDefinitionId, input: AggregationInput): Either<AppVersionError, AggregationDefinition> {
     val function = runCatching { AggregationFunction.valueOf(input.function) }.getOrNull() ?: return AppVersionError.AGGREGATION_FUNCTION_INVALID.left()
     val timeBucket = input.timeBucket.blankToNull()?.let { runCatching { TimeBucket.valueOf(it) }.getOrNull() ?: return AppVersionError.AGGREGATION_TIME_BUCKET_INVALID.left() }
+    val periodStart = parsePeriodStart(input).fold({ return it.left() }, { it })
     val aggregation = AggregationDefinition(
       id = id,
       name = input.name.trim(),
@@ -1245,10 +1247,26 @@ class AppVersionManagementService(
       timeBucket = timeBucket,
       timeProperty = input.timeProperty.blankToNull()?.let { PropertyId(it) },
       groupBy = input.groupBy.blankToNull()?.let { PropertyId(it) },
+      periodStart = periodStart,
     )
     aggregationDefinitionError(entity, aggregation)?.let { return it.left() }
     if (entity.aggregations.any { it.id != id && it.name.trim().equals(aggregation.name, ignoreCase = true) }) return AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS.left()
     return aggregation.right()
+  }
+
+  /**
+   * Parses [AggregationInput.periodStartDay]/[AggregationInput.periodStartMonth] into a [MonthDay], or null if both are blank (no
+   * periodStart set). Rejects non-numeric input, day/month combinations that don't form a valid date (e.g. 31.04.), and 29.02. — a
+   * period start that doesn't exist most years (see docs/adr/0020-aggregation-definitions.md, "Configurable period start").
+   */
+  private fun parsePeriodStart(input: AggregationInput): Either<AppVersionError, MonthDay?> {
+    val day = input.periodStartDay.blankToNull()
+    val month = input.periodStartMonth.blankToNull()
+    if (day == null && month == null) return null.right()
+    val parsedDay = day?.toIntOrNull() ?: return AppVersionError.AGGREGATION_PERIOD_START_INVALID.left()
+    val parsedMonth = month?.toIntOrNull() ?: return AppVersionError.AGGREGATION_PERIOD_START_INVALID.left()
+    if (parsedMonth == 2 && parsedDay == 29) return AppVersionError.AGGREGATION_PERIOD_START_INVALID.left()
+    return runCatching { MonthDay.of(parsedMonth, parsedDay) }.getOrNull()?.right() ?: AppVersionError.AGGREGATION_PERIOD_START_INVALID.left()
   }
 
   private fun String?.blankToNull(): String? = this?.takeIf { it.isNotBlank() }
@@ -1375,6 +1393,7 @@ class AppVersionManagementService(
       val groupByProperty = entity.properties.find { it.id == groupBy } ?: return AppVersionError.AGGREGATION_GROUP_BY_INVALID
       if (groupByProperty.type == PropertyType.LIST || groupByProperty.type == PropertyType.OBJECT) return AppVersionError.AGGREGATION_GROUP_BY_INVALID
     }
+    if (aggregation.periodStart != null && aggregation.timeBucket != TimeBucket.JAHR && aggregation.timeBucket != TimeBucket.QUARTAL) return AppVersionError.AGGREGATION_PERIOD_START_INVALID
     return null
   }
 
@@ -1634,6 +1653,7 @@ class AppVersionManagementService(
     aggregation.groupBy?.let { lines.add("    group-by: ${propertyNameOf(entity, it.value)}") }
     aggregation.timeBucket?.let { lines.add("    time-bucket: $it") }
     aggregation.timeProperty?.let { lines.add("    time-property: ${propertyNameOf(entity, it.value)}") }
+    aggregation.periodStart?.let { lines.add("    period-start: %02d.%02d.".format(it.dayOfMonth, it.monthValue)) }
     return lines
   }
 

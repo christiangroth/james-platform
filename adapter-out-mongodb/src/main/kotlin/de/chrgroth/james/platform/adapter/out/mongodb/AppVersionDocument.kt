@@ -87,4 +87,6 @@ class AggregationDefinitionDocument {
   var timeBucket: String? = null
   var timeProperty: String? = null
   var groupBy: String? = null
+  var periodStartDay: Int? = null
+  var periodStartMonth: Int? = null
 }
