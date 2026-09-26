@@ -1,3 +1,18 @@
+# 0.119.0 (2026.09.26)
+
+## New Features
+* Version editor: for a breaking property change without a matching migration step yet, the Migration section now suggests one
+  (type conversion, unit conversion, filling empty values, adjusting to constraints, or pairing a removed and a newly added
+  property), ready to create with a single click.
+
+## Bugfixes / Chore
+* Fixed the breaking-change check assuming every installation is already on the latest published version; installations that
+  fell behind auto-upgrade now have their own pending migrations applied first before the check runs.
+
+
+
+---
+
 # 0.118.0 (2026.09.26)
 
 ## New Features
