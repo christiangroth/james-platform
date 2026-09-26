@@ -58,6 +58,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import java.time.Instant
+import java.time.MonthDay
 import java.util.stream.Stream
 
 class AppVersionManagementServiceTests {
@@ -2180,7 +2181,7 @@ class AppVersionManagementServiceTests {
     )
     assertThat(fieldsOf(ComputedProperty::class.java)).containsExactlyInAnyOrder("id", "name", "type", "script")
     assertThat(fieldsOf(AggregationDefinition::class.java)).containsExactlyInAnyOrder(
-      "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy",
+      "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy", "periodStart",
     )
     assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "html", "script")
     assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity")
@@ -3143,7 +3144,9 @@ class AppVersionManagementServiceTests {
     timeBucket: String? = null,
     timeProperty: String? = null,
     groupBy: String? = null,
-  ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy)
+    periodStartDay: String? = null,
+    periodStartMonth: String? = null,
+  ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy, periodStartDay, periodStartMonth)
 
   @Test
   fun `addAggregation adds a fully configured aggregation to the entity`() {
@@ -3198,6 +3201,18 @@ class AppVersionManagementServiceTests {
     val result = service.addAggregation("app-1", "ver-1", "e-run", input(function = "COUNT", sourceProperty = noteProp.id.value))
 
     assertThat(result.isRight()).isTrue()
+  }
+
+  @Test
+  fun `addAggregation stores periodStart for a QUARTAL aggregation`() {
+    givenDraftWith(runEntity)
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", input(timeBucket = "QUARTAL", periodStartDay = "10", periodStartMonth = "4"))
+
+    assertThat(result.isRight()).isTrue()
+    val aggregation = result.getOrNull()!!.entityDefinitions.single().aggregations.single()
+    assertThat(aggregation.timeBucket).isEqualTo(TimeBucket.QUARTAL)
+    assertThat(aggregation.periodStart).isEqualTo(MonthDay.of(4, 10))
   }
 
   @Test
@@ -3381,7 +3396,9 @@ class AppVersionManagementServiceTests {
         timeBucket: String? = null,
         timeProperty: String? = null,
         groupBy: String? = null,
-      ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy)
+        periodStartDay: String? = null,
+        periodStartMonth: String? = null,
+      ) = AggregationInput(name, function, sourceProperty, refPath, timeBucket, timeProperty, groupBy, periodStartDay, periodStartMonth)
       return Stream.of(
         Arguments.of("blank name", input(name = " "), AppVersionError.BLANK_INPUT),
         Arguments.of("duplicate name ignoring case", input(name = "total"), AppVersionError.AGGREGATION_NAME_ALREADY_EXISTS),
@@ -3389,12 +3406,18 @@ class AppVersionManagementServiceTests {
         Arguments.of("unknown source property", input(sourceProperty = "gone"), AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID),
         Arguments.of("SUM on non-numeric property", input(sourceProperty = "p-note"), AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID),
         Arguments.of("refPath that is not a REF", input(refPath = "p-note"), AppVersionError.AGGREGATION_REF_PATH_INVALID),
-        Arguments.of("unknown time bucket", input(timeBucket = "QUARTAL"), AppVersionError.AGGREGATION_TIME_BUCKET_INVALID),
+        Arguments.of("unknown time bucket", input(timeBucket = "SAISON"), AppVersionError.AGGREGATION_TIME_BUCKET_INVALID),
         Arguments.of("time property without time bucket", input(timeProperty = "p-date"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
         Arguments.of("time property that is no date", input(timeBucket = "TAG", timeProperty = "p-note"), AppVersionError.AGGREGATION_TIME_PROPERTY_INVALID),
         Arguments.of("groupBy equal to source property", input(groupBy = "p-km"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
         Arguments.of("groupBy on a LIST property", input(groupBy = "p-tags"), AppVersionError.AGGREGATION_GROUP_BY_INVALID),
         Arguments.of("refPath combined with groupBy", input(refPath = "p-shoe", groupBy = "p-note"), AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE),
+        Arguments.of("periodStart without JAHR/QUARTAL time bucket", input(timeBucket = "TAG", periodStartDay = "10", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
+        Arguments.of("periodStart without any time bucket", input(periodStartDay = "10", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
+        Arguments.of("periodStart on 29.02.", input(timeBucket = "JAHR", periodStartDay = "29", periodStartMonth = "2"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
+        Arguments.of("periodStart with non-existing day/month combination", input(timeBucket = "JAHR", periodStartDay = "31", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
+        Arguments.of("periodStart with non-numeric day", input(timeBucket = "JAHR", periodStartDay = "abc", periodStartMonth = "4"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
+        Arguments.of("periodStart with only day set", input(timeBucket = "JAHR", periodStartDay = "10"), AppVersionError.AGGREGATION_PERIOD_START_INVALID),
       )
     }
 
@@ -3524,7 +3547,8 @@ class AppVersionManagementServiceTests {
             function = AggregationFunction.SUM,
             sourceProperty = PropertyId("p-2"),
             groupBy = PropertyId("p-1"),
-            timeBucket = TimeBucket.MONAT,
+            timeBucket = TimeBucket.QUARTAL,
+            periodStart = MonthDay.of(4, 10),
           ),
         ),
       )
@@ -3537,7 +3561,7 @@ class AppVersionManagementServiceTests {
         Arguments.of("entity sort-by", listOf(sortByEntity), listOf(sortByUpdatedEntity), listOf(listOf("sort-by: Category DESC"))),
         Arguments.of(
           "entity aggregation", listOf(aggregationEntity), listOf(aggregationUpdatedEntity),
-          listOf(listOf("aggregation Total: SUM(Amount)"), listOf("group-by: Category"), listOf("time-bucket: MONAT")),
+          listOf(listOf("aggregation Total: SUM(Amount)"), listOf("group-by: Category"), listOf("time-bucket: QUARTAL"), listOf("period-start: 10.04.")),
         ),
         Arguments.of("entity migration script", listOf(migrationEntity), listOf(migrationUpdatedEntity), listOf(listOf("old()"), listOf("new()"))),
         Arguments.of("default value", listOf(defaultEntity), listOf(defaultUpdatedEntity), listOf(listOf("default:"))),
