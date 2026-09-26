@@ -157,4 +157,22 @@ interface DeveloperMigrationStepMessages {
 
   @Message
   fun developerInvalidMigrationStepError(names: String): String
+
+  @Message
+  fun developerMigrationPreviewTriggerLabel(): String
+
+  @Message
+  fun developerMigrationPreviewColProperty(): String
+
+  @Message
+  fun developerMigrationPreviewColBefore(): String
+
+  @Message
+  fun developerMigrationPreviewColAfter(): String
+
+  @Message
+  fun developerMigrationPreviewPositionLabel(position: String, total: String): String
+
+  @Message
+  fun developerMigrationPreviewEmptyMessage(): String
 }

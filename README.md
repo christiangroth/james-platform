@@ -16,7 +16,8 @@ single-developer tool on a personal VPS and provides a web UI for managing users
 - **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by declarative migration
   steps (convert a property's type or unit, carry a value over to its replacement, fill empty values, or adjust values to tightened constraints) and/or a
   Developer-authored migration script that transform existing data on upgrade. The version editor suggests a matching migration step for every breaking change not
-  yet covered by one, ready to create with a single click.
+  yet covered by one, ready to create with a single click, and offers an interactive preview showing before/after values and validation issues for one existing
+  object at a time, without requiring a real dry-run or publish.
 - **Data Import (ETL)** – Users import external JSON data into an installed App through a guided fetch → detect → map → dry-run → accept flow, including SSRF-hardened
   fetching and unit-aware value mapping.
 - **Data Sharing** – A User can invite others to share an installed App's data, either with full read/write/delete or read-all/edit-own permissions.

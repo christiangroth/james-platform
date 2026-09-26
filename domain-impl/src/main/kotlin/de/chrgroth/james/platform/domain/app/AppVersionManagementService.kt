@@ -23,6 +23,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -584,6 +585,17 @@ class AppVersionManagementService(
     }
 
     return suggestions.right()
+  }
+
+  override fun resolveMigrationPreviewSample(appId: String, versionId: String, entityId: String, index: Int): Either<DomainError, MigrationPreviewSample> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Resolve migration preview sample failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val previousEntity = latestPublishedVersion(AppId(appId))?.entityDefinitions?.find { it.id == entity.id }
+      ?: return MigrationPreviewSample(0, null).right()
+    return appVersionMigration.resolveMigrationPreviewSample(AppId(appId), previousEntity, entity, index).right()
   }
 
   private fun latestPublishedVersion(appId: AppId): AppVersion? =

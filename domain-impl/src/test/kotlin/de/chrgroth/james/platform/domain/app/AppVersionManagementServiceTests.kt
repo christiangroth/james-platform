@@ -25,6 +25,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -2982,6 +2983,52 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
 
     val result = service.suggestMigrationSteps("app-1", "ver-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region resolveMigrationPreviewSample
+
+  @Test
+  fun `resolveMigrationPreviewSample delegates to AppVersionMigrationPort with the entity's previous published shape`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.STRING)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val publishedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(publishedEntity))
+    val draft = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    val expectedSample = MigrationPreviewSample(3, null)
+    every { appVersionMigration.resolveMigrationPreviewSample(AppId("app-1"), publishedEntity, draftEntity, 1) } returns expectedSample
+
+    val result = service.resolveMigrationPreviewSample("app-1", "ver-1", "e-1", 1)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(expectedSample)
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample returns an empty sample when there is no predecessor version`() {
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val draft = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+
+    val result = service.resolveMigrationPreviewSample("app-1", "ver-1", "e-1", 0)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()).isEqualTo(MigrationPreviewSample(0, null))
+  }
+
+  @Test
+  fun `resolveMigrationPreviewSample fails when entity not found`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.resolveMigrationPreviewSample("app-1", "ver-1", "unknown", 0)
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)

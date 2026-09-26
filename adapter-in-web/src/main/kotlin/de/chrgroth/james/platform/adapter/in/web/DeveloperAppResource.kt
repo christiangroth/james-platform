@@ -22,6 +22,8 @@ import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.Granularity
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewIssue
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewObject
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -143,6 +145,35 @@ data class MigrationStepPropertyOptionRow(
   val name: String,
   /** `CONVERT_UNIT` options only: the property's unit family, e.g. `"TIME"`, used to filter the source granularity select client-side. */
   val unitFamily: String = "",
+)
+
+data class MigrationPreviewIssueRow(
+  val message: String,
+)
+
+/** One Property's before/after value in the migration preview, with the issues found while re-validating [after]. */
+data class MigrationPreviewPropertyRow(
+  val name: String,
+  val typeLabel: String,
+  val before: String,
+  val after: String,
+  val changed: Boolean,
+  val hasIssue: Boolean,
+  val issues: List<MigrationPreviewIssueRow>,
+)
+
+data class MigrationPreviewObjectRow(
+  val index: Int,
+  /** Issues not tied to a single property, e.g. the migration script failing outright. */
+  val objectIssues: List<String>,
+  val properties: List<MigrationPreviewPropertyRow>,
+  val isValid: Boolean,
+)
+
+/** [sample] is null when the requested index falls outside the previewed object set - see [de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample]. */
+data class MigrationPreviewSampleResponse(
+  val total: Int,
+  val sample: MigrationPreviewObjectRow?,
 )
 
 data class SortCriteriaRequest @JsonCreator constructor(
@@ -958,6 +989,33 @@ class DeveloperAppResource {
     )
   }
 
+  /**
+   * Interactive preview of [entityId]'s draft migration steps and script (already persisted, see [addMigrationStep]/[updateEntityMigrationScript])
+   * against one of its existing AppData objects at [index] - see docs/adr/0023-migration-steps.md. GET rather than POST since, unlike the
+   * import Mapping form, there is no unsaved client-side state to send along: the editor always previews what is currently saved.
+   */
+  @GET
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/migration-preview/sample")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun migrationPreviewSample(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @QueryParam("index") index: Int?,
+  ): Response = httpResponseMetrics.timed("rest.developer.migration-preview-sample") {
+    val version = appVersionManagement.getVersion(appId, versionId).fold(
+      ifLeft = { return@timed Response.ok(MigrationPreviewSampleResponse(0, null)).build() },
+      ifRight = { it },
+    )
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: return@timed Response.ok(MigrationPreviewSampleResponse(0, null)).build()
+    val previousEntity = latestPublishedVersionForDraft(appId, version.status == AppVersionStatus.DRAFT)?.entityDefinitions?.find { it.id == entity.id }
+
+    appVersionManagement.resolveMigrationPreviewSample(appId, versionId, entityId, index?.takeIf { it >= 0 } ?: 0).fold(
+      ifLeft = { Response.ok(MigrationPreviewSampleResponse(0, null)).build() },
+      ifRight = { sample -> Response.ok(MigrationPreviewSampleResponse(sample.total, sample.previewObject?.toRow(previousEntity, entity))).build() },
+    )
+  }
+
   @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -1660,6 +1718,39 @@ class DeveloperAppResource {
     description = description,
     valid = valid,
   )
+
+  /**
+   * Maps a [MigrationPreviewObject] to its display row: [MigrationPreviewObject.before]/[MigrationPreviewObject.after] are shown for every
+   * property of [newEntity], plus any property that was dropped since [previousEntity] but still carries a [MigrationPreviewObject.before]
+   * value (e.g. covered by a `CopyValue` step's source), so a removed property's original value stays visible in the preview.
+   */
+  private fun MigrationPreviewObject.toRow(previousEntity: EntityDefinition?, newEntity: EntityDefinition): MigrationPreviewObjectRow {
+    val objectIssues = issues.filter { it.propertyId == null }.map { migrationPreviewIssueMessage(it) }
+    val issuesByProperty = issues.filter { it.propertyId != null }.groupBy { it.propertyId }
+
+    val draftPropertyIds = newEntity.properties.map { it.id }.toSet()
+    val removedProperties = previousEntity?.properties.orEmpty().filter { it.id !in draftPropertyIds && before.containsKey(it.id.value) }
+
+    val properties = (newEntity.properties + removedProperties).map { property ->
+      val propertyIssues = issuesByProperty[property.id].orEmpty()
+      MigrationPreviewPropertyRow(
+        name = property.name,
+        typeLabel = PropertyLabelTemplateExtensions.propertyTypeLabel(property.type),
+        before = before[property.id.value].orEmpty(),
+        after = after[property.id.value].orEmpty(),
+        changed = before[property.id.value] != after[property.id.value],
+        hasIssue = propertyIssues.isNotEmpty(),
+        issues = propertyIssues.map { MigrationPreviewIssueRow(migrationPreviewIssueMessage(it)) },
+      )
+    }
+    return MigrationPreviewObjectRow(index + 1, objectIssues, properties, isValid)
+  }
+
+  private fun migrationPreviewIssueMessage(issue: MigrationPreviewIssue): String = when (issue) {
+    is MigrationPreviewIssue.StepFailed -> issue.reason
+    is MigrationPreviewIssue.ScriptFailed -> issue.reason
+    is MigrationPreviewIssue.ConstraintViolated -> PropertyLabelTemplateExtensions.constraintViolationMessage(issue.violation)
+  }
 
   /** Whether [step] still resolves to an existing, convertible source/target pair and is the only step of [entity] targeting that property. */
   private fun isMigrationStepValid(previousEntity: EntityDefinition?, entity: EntityDefinition, step: MigrationStep): Boolean {

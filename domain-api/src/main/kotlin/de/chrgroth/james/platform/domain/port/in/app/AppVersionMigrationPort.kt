@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 
 /** Result of running a single Entity's [EntityDefinition.migrationScript]. */
@@ -40,4 +41,14 @@ interface AppVersionMigrationPort {
    * failure, the [DomainError] describing the first failing object.
    */
   fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit>
+
+  /**
+   * Builds a [MigrationPreviewSample] of [newEntity]'s migration steps and script, applied to one of the existing
+   * AppData objects of [newEntity] across every installation of [appId] - the Version editor's interactive preview
+   * (see docs/adr/0023-migration-steps.md), a lighter-weight sibling of [dryRunMigration]: it never persists, never
+   * aborts on the first failing object (every finding for the object at [index] is collected instead), and is capped
+   * to a bounded sample rather than reading every object, so it stays responsive while the Developer is still
+   * editing steps/script. [index] out of range yields a sample with a null `previewObject`, not a [DomainError].
+   */
+  fun resolveMigrationPreviewSample(appId: AppId, previousEntity: EntityDefinition, newEntity: EntityDefinition, index: Int): MigrationPreviewSample
 }

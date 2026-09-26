@@ -171,6 +171,35 @@
                             </button>
                         </div>
                     </div>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-app-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#migrationPreviewPanel" aria-expanded="false" aria-controls="migrationPreviewPanel" data-testid="migration-preview-trigger">
+                            <i class="bi bi-eye me-1" aria-hidden="true"></i>{developerMigrationStep:developerMigrationPreviewTriggerLabel()}
+                        </button>
+                        <div class="collapse mt-3" id="migrationPreviewPanel" data-entity-id="{selectedEntity.id}" data-testid="migration-preview-panel">
+                            <div class="card app-card p-3">
+                                <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-app-secondary btn-sm" id="migrationPreviewPrevButton" disabled data-testid="migration-preview-prev-button">{user:userPreviousLabel()}</button>
+                                        <span class="app-section-label small" id="migrationPreviewPosition" data-testid="migration-preview-position"></span>
+                                        <button type="button" class="btn btn-app-secondary btn-sm" id="migrationPreviewNextButton" disabled data-testid="migration-preview-next-button">{user:userNextLabel()}</button>
+                                    </div>
+                                </div>
+                                <div id="migrationPreviewObjectIssues" data-testid="migration-preview-object-issues"></div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0 app-table" data-testid="migration-preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th>{developerMigrationStep:developerMigrationPreviewColProperty()}</th>
+                                                <th>{developerMigrationStep:developerMigrationPreviewColBefore()}</th>
+                                                <th>{developerMigrationStep:developerMigrationPreviewColAfter()}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="migrationPreviewTbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Sort Order -->
@@ -1282,6 +1311,120 @@
             var addMigrationStepModalTitle = '{developerMigrationStep:developerAddMigrationStepModalTitle()}';
             var editMigrationStepModalTitle = '{developerMigrationStep:developerEditMigrationStepModalTitle()}';
             var migrationStepSourceGranularityPlaceholder = '{developerMigrationStep:developerMigrationStepSourceGranularityPlaceholder()}';
+
+            var migrationPreviewPanel = document.getElementById('migrationPreviewPanel');
+            if (migrationPreviewPanel) {
+                var migrationPreviewEntityId = migrationPreviewPanel.getAttribute('data-entity-id');
+                var migrationPreviewBasePath = '/ui/developer/apps/' + encodeURIComponent(appId) + '/versions/' + encodeURIComponent(versionId)
+                    + '/entities/' + encodeURIComponent(migrationPreviewEntityId) + '/migration-preview';
+                var migrationPreviewPrevButton = document.getElementById('migrationPreviewPrevButton');
+                var migrationPreviewNextButton = document.getElementById('migrationPreviewNextButton');
+                var migrationPreviewPosition = document.getElementById('migrationPreviewPosition');
+                var migrationPreviewObjectIssues = document.getElementById('migrationPreviewObjectIssues');
+                var migrationPreviewTbody = document.getElementById('migrationPreviewTbody');
+                var migrationPreviewPositionTemplate = '{developerMigrationStep:developerMigrationPreviewPositionLabel("__POSITION__","__TOTAL__")}';
+                var migrationPreviewEmptyMessage = '{developerMigrationStep:developerMigrationPreviewEmptyMessage()}';
+
+                // Lazily loads one AppData object's migration preview at a time from /migration-preview/sample (see
+                // DeveloperAppResource#migrationPreviewSample) - migration steps/script are already persisted, so unlike the
+                // import Mapping preview there is no unsaved form state to send along.
+                var migrationPreviewState = { index: 0, loaded: false };
+
+                function renderMigrationPreview(result) {
+                    migrationPreviewObjectIssues.innerHTML = '';
+                    migrationPreviewTbody.innerHTML = '';
+
+                    if (!result.sample) {
+                        var emptyRow = document.createElement('tr');
+                        var emptyCell = document.createElement('td');
+                        emptyCell.colSpan = 3;
+                        emptyCell.className = 'app-section-label';
+                        emptyCell.textContent = migrationPreviewEmptyMessage;
+                        emptyRow.appendChild(emptyCell);
+                        migrationPreviewTbody.appendChild(emptyRow);
+                        migrationPreviewPosition.textContent = '';
+                        migrationPreviewPrevButton.disabled = true;
+                        migrationPreviewNextButton.disabled = true;
+                        return;
+                    }
+
+                    result.sample.objectIssues.forEach(function (message) {
+                        var alert = document.createElement('div');
+                        alert.className = 'alert alert-danger py-2 px-3 mb-2 small';
+                        alert.setAttribute('data-testid', 'migration-preview-object-issue');
+                        alert.textContent = message;
+                        migrationPreviewObjectIssues.appendChild(alert);
+                    });
+
+                    result.sample.properties.forEach(function (property) {
+                        var row = document.createElement('tr');
+                        if (property.hasIssue) row.className = 'table-danger';
+                        row.setAttribute('data-testid', 'migration-preview-property-row');
+                        var nameCell = document.createElement('td');
+                        nameCell.className = 'fw-semibold';
+                        nameCell.textContent = property.name;
+                        var typeDiv = document.createElement('div');
+                        typeDiv.className = 'app-section-label small';
+                        typeDiv.textContent = property.typeLabel;
+                        nameCell.appendChild(typeDiv);
+                        var beforeCell = document.createElement('td');
+                        beforeCell.setAttribute('data-testid', 'migration-preview-before-value');
+                        beforeCell.textContent = property.before;
+                        var afterCell = document.createElement('td');
+                        afterCell.setAttribute('data-testid', 'migration-preview-after-value');
+                        afterCell.textContent = property.after;
+                        if (property.changed) afterCell.className = 'fw-semibold';
+                        row.appendChild(nameCell);
+                        row.appendChild(beforeCell);
+                        row.appendChild(afterCell);
+                        migrationPreviewTbody.appendChild(row);
+
+                        property.issues.forEach(function (issue) {
+                            var issueRow = document.createElement('tr');
+                            var issueCell = document.createElement('td');
+                            issueCell.colSpan = 3;
+                            issueCell.className = 'small text-danger';
+                            issueCell.setAttribute('data-testid', 'migration-preview-issue');
+                            issueCell.textContent = issue.message;
+                            issueRow.appendChild(issueCell);
+                            migrationPreviewTbody.appendChild(issueRow);
+                        });
+                    });
+
+                    migrationPreviewPosition.textContent = migrationPreviewPositionTemplate
+                        .replace('__POSITION__', String(migrationPreviewState.index + 1))
+                        .replace('__TOTAL__', String(result.total));
+                    migrationPreviewPrevButton.disabled = migrationPreviewState.index <= 0;
+                    migrationPreviewNextButton.disabled = migrationPreviewState.index >= result.total - 1;
+                }
+
+                function loadMigrationPreview() {
+                    migrationPreviewPrevButton.disabled = true;
+                    migrationPreviewNextButton.disabled = true;
+                    fetch(migrationPreviewBasePath + '/sample?index=' + migrationPreviewState.index, { headers: { 'Accept': 'application/json' } })
+                        .then(function (response) { return response.json(); })
+                        .then(renderMigrationPreview)
+                        .catch(function () { });
+                }
+
+                migrationPreviewPanel.addEventListener('show.bs.collapse', function () {
+                    if (migrationPreviewState.loaded) return;
+                    migrationPreviewState.loaded = true;
+                    loadMigrationPreview();
+                });
+
+                migrationPreviewPrevButton.addEventListener('click', function () {
+                    if (migrationPreviewPrevButton.disabled) return;
+                    migrationPreviewState.index -= 1;
+                    loadMigrationPreview();
+                });
+
+                migrationPreviewNextButton.addEventListener('click', function () {
+                    if (migrationPreviewNextButton.disabled) return;
+                    migrationPreviewState.index += 1;
+                    loadMigrationPreview();
+                });
+            }
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
