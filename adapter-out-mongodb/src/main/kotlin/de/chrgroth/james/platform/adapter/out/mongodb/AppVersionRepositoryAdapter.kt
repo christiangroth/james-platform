@@ -277,7 +277,17 @@ class AppVersionRepositoryAdapter(
   private fun MigrationStepDocument.toDomain(): MigrationStep? = when (type) {
     "CONVERT_TYPE" -> propertyId?.let { MigrationStep.ConvertType(MigrationStepId(id), PropertyId(it)) }
     "COPY_VALUE" -> sourcePropertyId?.let { source -> targetPropertyId?.let { target -> MigrationStep.CopyValue(MigrationStepId(id), PropertyId(source), PropertyId(target)) } }
+    "CONVERT_UNIT" -> convertUnitToDomain()
+    "FILL_EMPTY_VALUE" -> propertyId?.let { MigrationStep.FillEmptyValue(MigrationStepId(id), PropertyId(it), value) }
+    "ADJUST_TO_CONSTRAINTS" -> propertyId?.let { MigrationStep.AdjustToConstraints(MigrationStepId(id), PropertyId(it)) }
     else -> null
+  }
+
+  private fun MigrationStepDocument.convertUnitToDomain(): MigrationStep.ConvertUnit? {
+    val property = propertyId ?: return null
+    val family = sourceGranularityFamily?.let { runCatching { UnitFamily.valueOf(it) }.getOrNull() } ?: return null
+    val granularity = sourceGranularityName?.let { granularityOrNull(family, it) } ?: return null
+    return MigrationStep.ConvertUnit(MigrationStepId(id), PropertyId(property), granularity)
   }
 
   private fun ConstraintDocument.toDomain(): PropertyConstraint? = when (constraintType) {
@@ -343,6 +353,21 @@ class AppVersionRepositoryAdapter(
         doc.type = "COPY_VALUE"
         doc.sourcePropertyId = sourcePropertyId.value
         doc.targetPropertyId = targetPropertyId.value
+      }
+      is MigrationStep.ConvertUnit -> {
+        doc.type = "CONVERT_UNIT"
+        doc.propertyId = propertyId.value
+        doc.sourceGranularityFamily = sourceGranularity.family.name
+        doc.sourceGranularityName = sourceGranularity.enumName()
+      }
+      is MigrationStep.FillEmptyValue -> {
+        doc.type = "FILL_EMPTY_VALUE"
+        doc.propertyId = propertyId.value
+        doc.value = value
+      }
+      is MigrationStep.AdjustToConstraints -> {
+        doc.type = "ADJUST_TO_CONSTRAINTS"
+        doc.propertyId = propertyId.value
       }
     }
   }
