@@ -1,20 +1,25 @@
 package de.chrgroth.james.platform.domain.model.imports
 
 import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 
-/** Simple, lossless-intent conversions that may be applied to a mapped field to resolve small type mismatches between source and target. */
-enum class FieldMappingConversion {
-  NONE,
-  STRING_TO_LONG,
-  STRING_TO_DOUBLE,
-  STRING_TO_BOOLEAN,
-  LONG_TO_DOUBLE,
-  LONG_TO_STRING,
-  DOUBLE_TO_STRING,
-  BOOLEAN_TO_STRING,
-  STRING_TO_DATE,
-  STRING_TO_DATETIME,
-  DATETIME_TO_DATE,
+/**
+ * Simple, lossless-intent conversions that may be applied to a mapped field to resolve small type mismatches between
+ * source and target. Every entry other than [NONE] names the exact (source, target) [PropertyType] pair it resolves,
+ * which [de.chrgroth.james.platform.domain.model.app.ValueConversion] must in turn support.
+ */
+enum class FieldMappingConversion(val sourceType: PropertyType?, val targetType: PropertyType?) {
+  NONE(null, null),
+  STRING_TO_LONG(PropertyType.STRING, PropertyType.LONG),
+  STRING_TO_DOUBLE(PropertyType.STRING, PropertyType.DOUBLE),
+  STRING_TO_BOOLEAN(PropertyType.STRING, PropertyType.BOOLEAN),
+  LONG_TO_DOUBLE(PropertyType.LONG, PropertyType.DOUBLE),
+  LONG_TO_STRING(PropertyType.LONG, PropertyType.STRING),
+  DOUBLE_TO_STRING(PropertyType.DOUBLE, PropertyType.STRING),
+  BOOLEAN_TO_STRING(PropertyType.BOOLEAN, PropertyType.STRING),
+  STRING_TO_DATE(PropertyType.STRING, PropertyType.DATE),
+  STRING_TO_DATETIME(PropertyType.STRING, PropertyType.DATETIME),
+  DATETIME_TO_DATE(PropertyType.DATETIME, PropertyType.DATE),
 }
 
 /**

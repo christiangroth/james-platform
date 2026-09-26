@@ -1,11 +1,11 @@
 package de.chrgroth.james.platform.domain.imports
 
+import arrow.core.getOrElse
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
-import java.math.BigDecimal
-import java.math.MathContext
 
 /** Converts a raw string value (from a source record or a static fallback/lookup value) into the type [de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort] expects for the given target property type. Returns null for blank input. */
 internal fun parseScalarValue(type: PropertyType, rawValue: String?): Any? {
@@ -19,13 +19,13 @@ internal fun parseScalarValue(type: PropertyType, rawValue: String?): Any? {
 }
 
 /**
- * Applies a [FieldMappingConversion] to a raw source value before it is interpreted as the target property type by
- * [parseScalarValue], then - if the target property carries a [unit] - converts it from [importGranularity] (a
+ * Applies a [FieldMappingConversion] to a raw source value via [ValueConversion.convert], then - if the target
+ * property carries a [unit] - converts it from [importGranularity] (a
  * [de.chrgroth.james.platform.domain.model.app.Granularity] name of the unit's family, e.g. `"KILOMETERS"`) to the
- * unit's `storageGranularity`. Most [FieldMappingConversion]s (e.g. STRING_TO_LONG) only relax type-compatibility
- * checks and do not need any actual value transformation, since [parseScalarValue] already parses purely based on
- * the target property type; DATETIME_TO_DATE is the exception, as its target's expected textual format differs from
- * the raw source value. Returns [rawValue] unchanged for every other conversion (including NONE) and when [unit] is null.
+ * unit's `storageGranularity` via [ValueConversion.convertGranularity]. Falls back to [rawValue] unchanged if
+ * [conversion] is [FieldMappingConversion.NONE] or the conversion fails (an incompatible/unparseable source value is
+ * instead reported downstream, either statically by `MappingValidator` or per-record by `DryRunExecutor`'s constraint
+ * checks). Returns null for a null [rawValue] and when [unit] is null skips the granularity step.
  */
 internal fun applyConversion(
   conversion: FieldMappingConversion,
@@ -34,20 +34,19 @@ internal fun applyConversion(
   rawValue: String?,
 ): String? {
   if (rawValue == null) return null
-  val converted = when (conversion) {
-    FieldMappingConversion.DATETIME_TO_DATE -> rawValue.substringBefore('T').substringBefore(' ')
-    else -> rawValue
+  val sourceType = conversion.sourceType
+  val targetType = conversion.targetType
+  val converted = if (sourceType != null && targetType != null) {
+    ValueConversion.convert(sourceType, targetType, rawValue).getOrElse { rawValue } ?: rawValue
+  } else {
+    rawValue
   }
   return applyGranularityConversion(unit, importGranularity, converted)
 }
 
-/** Converts [rawValue] from [importGranularity] to a [PropertyUnit]'s `storageGranularity`, using each granularity's `factorToSmallestUnit`. */
+/** Converts [rawValue] from [importGranularity] to a [PropertyUnit]'s `storageGranularity`. */
 private fun applyGranularityConversion(unit: PropertyUnit?, importGranularity: String?, rawValue: String): String {
   if (unit == null) return rawValue
   val sourceGranularity = granularityByName(unit.family, importGranularity) ?: return rawValue
-  if (sourceGranularity == unit.storageGranularity) return rawValue
-  val amount = rawValue.toBigDecimalOrNull() ?: return rawValue
-  val converted = amount.multiply(BigDecimal(sourceGranularity.factorToSmallestUnit))
-    .divide(BigDecimal(unit.storageGranularity.factorToSmallestUnit), MathContext.DECIMAL64)
-  return converted.stripTrailingZeros().toPlainString()
+  return ValueConversion.convertGranularity(unit, sourceGranularity, rawValue)
 }

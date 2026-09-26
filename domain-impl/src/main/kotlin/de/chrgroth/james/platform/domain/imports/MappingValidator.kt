@@ -6,6 +6,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.Mapping
@@ -31,29 +32,20 @@ import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
  */
 object MappingValidator {
 
-  /** Types directly assignable to a target property type without any conversion. */
-  private val DIRECT_COMPATIBILITY: Map<SchemaPropertyType, PropertyType> = mapOf(
-    SchemaPropertyType.STRING to PropertyType.STRING,
-    SchemaPropertyType.DATE to PropertyType.DATE,
-    SchemaPropertyType.DATETIME to PropertyType.DATETIME,
-    SchemaPropertyType.LONG to PropertyType.LONG,
-    SchemaPropertyType.DOUBLE to PropertyType.DOUBLE,
-    SchemaPropertyType.BOOLEAN to PropertyType.BOOLEAN,
-  )
-
-  /** Source/target type pair each conversion resolves. */
-  private val CONVERSIONS: Map<FieldMappingConversion, Pair<SchemaPropertyType, PropertyType>> = mapOf(
-    FieldMappingConversion.STRING_TO_LONG to (SchemaPropertyType.STRING to PropertyType.LONG),
-    FieldMappingConversion.STRING_TO_DOUBLE to (SchemaPropertyType.STRING to PropertyType.DOUBLE),
-    FieldMappingConversion.STRING_TO_BOOLEAN to (SchemaPropertyType.STRING to PropertyType.BOOLEAN),
-    FieldMappingConversion.LONG_TO_DOUBLE to (SchemaPropertyType.LONG to PropertyType.DOUBLE),
-    FieldMappingConversion.LONG_TO_STRING to (SchemaPropertyType.LONG to PropertyType.STRING),
-    FieldMappingConversion.DOUBLE_TO_STRING to (SchemaPropertyType.DOUBLE to PropertyType.STRING),
-    FieldMappingConversion.BOOLEAN_TO_STRING to (SchemaPropertyType.BOOLEAN to PropertyType.STRING),
-    FieldMappingConversion.STRING_TO_DATE to (SchemaPropertyType.STRING to PropertyType.DATE),
-    FieldMappingConversion.STRING_TO_DATETIME to (SchemaPropertyType.STRING to PropertyType.DATETIME),
-    FieldMappingConversion.DATETIME_TO_DATE to (SchemaPropertyType.DATETIME to PropertyType.DATE),
-  )
+  /**
+   * Maps a detected [SchemaPropertyType] onto the [PropertyType] of the same name it corresponds to, so
+   * compatibility can be checked via [ValueConversion] - which only knows about [PropertyType]. Returns null for
+   * [SchemaPropertyType.OBJECT], [SchemaPropertyType.ARRAY] and [SchemaPropertyType.NULL], which have no [PropertyType] equivalent.
+   */
+  private fun SchemaPropertyType.asPropertyType(): PropertyType? = when (this) {
+    SchemaPropertyType.STRING -> PropertyType.STRING
+    SchemaPropertyType.DATE -> PropertyType.DATE
+    SchemaPropertyType.DATETIME -> PropertyType.DATETIME
+    SchemaPropertyType.LONG -> PropertyType.LONG
+    SchemaPropertyType.DOUBLE -> PropertyType.DOUBLE
+    SchemaPropertyType.BOOLEAN -> PropertyType.BOOLEAN
+    SchemaPropertyType.OBJECT, SchemaPropertyType.ARRAY, SchemaPropertyType.NULL -> null
+  }
 
   fun validate(
     mapping: Mapping,
@@ -181,12 +173,14 @@ object MappingValidator {
       .map { MappingIssue.FallbackValueViolatesConstraint(property.id, it) }
   }
 
-  private fun isCompatible(sourceType: SchemaPropertyType, targetType: PropertyType, conversion: FieldMappingConversion): Boolean =
-    if (conversion == FieldMappingConversion.NONE) {
-      DIRECT_COMPATIBILITY[sourceType] == targetType
+  private fun isCompatible(sourceType: SchemaPropertyType, targetType: PropertyType, conversion: FieldMappingConversion): Boolean {
+    val sourcePropertyType = sourceType.asPropertyType() ?: return false
+    return if (conversion == FieldMappingConversion.NONE) {
+      sourcePropertyType == targetType
     } else {
-      CONVERSIONS[conversion] == (sourceType to targetType)
+      conversion.sourceType == sourcePropertyType && conversion.targetType == targetType && ValueConversion.isConvertible(sourcePropertyType, targetType)
     }
+  }
 
   private fun checkNumericRange(property: Property, sourceProperty: SchemaProperty): MappingIssue.NumericRangeViolation? {
     val range = sourceProperty.numericRange ?: return null
