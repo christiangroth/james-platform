@@ -36,6 +36,15 @@ interface DeveloperMigrationStepMessages {
   fun developerMigrationStepTypeCopyValue(): String
 
   @Message
+  fun developerMigrationStepTypeConvertUnit(): String
+
+  @Message
+  fun developerMigrationStepTypeFillEmptyValue(): String
+
+  @Message
+  fun developerMigrationStepTypeAdjustToConstraints(): String
+
+  @Message
   fun developerMigrationStepPropertyLabel(): String
 
   @Message
@@ -48,10 +57,34 @@ interface DeveloperMigrationStepMessages {
   fun developerMigrationStepPropertyPlaceholder(): String
 
   @Message
+  fun developerMigrationStepSourceGranularityLabel(): String
+
+  @Message
+  fun developerMigrationStepSourceGranularityPlaceholder(): String
+
+  @Message
+  fun developerMigrationStepValueLabel(): String
+
+  @Message
+  fun developerMigrationStepValueHelp(): String
+
+  @Message
   fun developerMigrationStepConvertTypeDescription(propertyName: String): String
 
   @Message
   fun developerMigrationStepCopyValueDescription(sourceName: String, targetName: String): String
+
+  @Message
+  fun developerMigrationStepConvertUnitDescription(propertyName: String, sourceGranularity: String): String
+
+  @Message
+  fun developerMigrationStepFillEmptyValueDescriptionWithValue(propertyName: String, value: String): String
+
+  @Message
+  fun developerMigrationStepFillEmptyValueDescriptionWithDefault(propertyName: String): String
+
+  @Message
+  fun developerMigrationStepAdjustToConstraintsDescription(propertyName: String): String
 
   @Message
   fun developerMigrationStepInvalidBadge(): String
@@ -91,6 +124,15 @@ interface DeveloperMigrationStepMessages {
 
   @Message
   fun developerMigrationStepTypeInvalidError(): String
+
+  @Message
+  fun developerMigrationStepUnitRequiredError(): String
+
+  @Message
+  fun developerMigrationStepUnitGranularityInvalidError(): String
+
+  @Message
+  fun developerMigrationStepFillValueInvalidError(): String
 
   @Message
   fun developerInvalidMigrationStepError(names: String): String

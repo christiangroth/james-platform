@@ -21,6 +21,7 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.Granularity
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
@@ -128,6 +129,10 @@ data class MigrationStepEditorRow(
   val sourcePropertyName: String,
   val targetPropertyId: String,
   val targetPropertyName: String,
+  /** `CONVERT_UNIT` only: the source granularity enum name, e.g. `"SECONDS"`. */
+  val sourceGranularity: String,
+  /** `FILL_EMPTY_VALUE` only: the fixed value, blank meaning "use the property's own default". */
+  val value: String,
   val description: String,
   val valid: Boolean,
 )
@@ -136,6 +141,8 @@ data class MigrationStepEditorRow(
 data class MigrationStepPropertyOptionRow(
   val id: String,
   val name: String,
+  /** `CONVERT_UNIT` options only: the property's unit family, e.g. `"TIME"`, used to filter the source granularity select client-side. */
+  val unitFamily: String = "",
 )
 
 data class SortCriteriaRequest @JsonCreator constructor(
@@ -419,6 +426,9 @@ class DeveloperAppResource {
             convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueSourcePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueTargetPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            convertUnitPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            fillEmptyValuePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            adjustToConstraintsPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
           ),
         ).build()
       },
@@ -479,6 +489,11 @@ class DeveloperAppResource {
             convertTypePropertyOptions = selectedEntity?.let { convertTypePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
             copyValueSourcePropertyOptions = selectedEntity?.let { copyValueSourcePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
             copyValueTargetPropertyOptions = selectedEntity?.let { copyValueTargetPropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            convertUnitPropertyOptions = selectedEntity?.let { convertUnitPropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            fillEmptyValuePropertyOptions = selectedEntity?.let { fillEmptyValuePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            adjustToConstraintsPropertyOptions = selectedEntity
+              ?.let { adjustToConstraintsPropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }
+              .orEmpty(),
           ),
         ).build()
       },
@@ -625,6 +640,9 @@ class DeveloperAppResource {
             convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueSourcePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueTargetPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            convertUnitPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            fillEmptyValuePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            adjustToConstraintsPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
           ),
         ).build()
       },
@@ -1447,15 +1465,11 @@ class DeveloperAppResource {
     when (step) {
       is MigrationStep.ConvertType -> {
         val propertyName = entity.properties.find { it.id == step.propertyId }?.name ?: step.propertyId.value
-        MigrationStepEditorRow(
-          id = step.id.value,
+        migrationStepRow(
+          step = step,
           type = "CONVERT_TYPE",
           propertyId = step.propertyId.value,
           propertyName = propertyName,
-          sourcePropertyId = "",
-          sourcePropertyName = "",
-          targetPropertyId = "",
-          targetPropertyName = "",
           description = migrationStepMsg.developerMigrationStepConvertTypeDescription(propertyName),
           valid = isMigrationStepValid(previousEntity, entity, step),
         )
@@ -1463,11 +1477,9 @@ class DeveloperAppResource {
       is MigrationStep.CopyValue -> {
         val sourceName = previousEntity?.properties?.find { it.id == step.sourcePropertyId }?.name ?: step.sourcePropertyId.value
         val targetName = entity.properties.find { it.id == step.targetPropertyId }?.name ?: step.targetPropertyId.value
-        MigrationStepEditorRow(
-          id = step.id.value,
+        migrationStepRow(
+          step = step,
           type = "COPY_VALUE",
-          propertyId = "",
-          propertyName = "",
           sourcePropertyId = step.sourcePropertyId.value,
           sourcePropertyName = sourceName,
           targetPropertyId = step.targetPropertyId.value,
@@ -1476,8 +1488,73 @@ class DeveloperAppResource {
           valid = isMigrationStepValid(previousEntity, entity, step),
         )
       }
+      is MigrationStep.ConvertUnit -> {
+        val propertyName = entity.properties.find { it.id == step.propertyId }?.name ?: step.propertyId.value
+        migrationStepRow(
+          step = step,
+          type = "CONVERT_UNIT",
+          propertyId = step.propertyId.value,
+          propertyName = propertyName,
+          sourceGranularity = step.sourceGranularity.enumName(),
+          description = migrationStepMsg.developerMigrationStepConvertUnitDescription(propertyName, step.sourceGranularity.symbol),
+          valid = isMigrationStepValid(previousEntity, entity, step),
+        )
+      }
+      is MigrationStep.FillEmptyValue -> {
+        val propertyName = entity.properties.find { it.id == step.propertyId }?.name ?: step.propertyId.value
+        val description = step.value?.let { migrationStepMsg.developerMigrationStepFillEmptyValueDescriptionWithValue(propertyName, it) }
+          ?: migrationStepMsg.developerMigrationStepFillEmptyValueDescriptionWithDefault(propertyName)
+        migrationStepRow(
+          step = step,
+          type = "FILL_EMPTY_VALUE",
+          propertyId = step.propertyId.value,
+          propertyName = propertyName,
+          value = step.value.orEmpty(),
+          description = description,
+          valid = isMigrationStepValid(previousEntity, entity, step),
+        )
+      }
+      is MigrationStep.AdjustToConstraints -> {
+        val propertyName = entity.properties.find { it.id == step.propertyId }?.name ?: step.propertyId.value
+        migrationStepRow(
+          step = step,
+          type = "ADJUST_TO_CONSTRAINTS",
+          propertyId = step.propertyId.value,
+          propertyName = propertyName,
+          description = migrationStepMsg.developerMigrationStepAdjustToConstraintsDescription(propertyName),
+          valid = isMigrationStepValid(previousEntity, entity, step),
+        )
+      }
     }
   }
+
+  private fun migrationStepRow(
+    step: MigrationStep,
+    type: String,
+    description: String,
+    valid: Boolean,
+    propertyId: String = "",
+    propertyName: String = "",
+    sourcePropertyId: String = "",
+    sourcePropertyName: String = "",
+    targetPropertyId: String = "",
+    targetPropertyName: String = "",
+    sourceGranularity: String = "",
+    value: String = "",
+  ) = MigrationStepEditorRow(
+    id = step.id.value,
+    type = type,
+    propertyId = propertyId,
+    propertyName = propertyName,
+    sourcePropertyId = sourcePropertyId,
+    sourcePropertyName = sourcePropertyName,
+    targetPropertyId = targetPropertyId,
+    targetPropertyName = targetPropertyName,
+    sourceGranularity = sourceGranularity,
+    value = value,
+    description = description,
+    valid = valid,
+  )
 
   /** Whether [step] still resolves to an existing, convertible source/target pair and is the only step of [entity] targeting that property. */
   private fun isMigrationStepValid(previousEntity: EntityDefinition?, entity: EntityDefinition, step: MigrationStep): Boolean {
@@ -1491,11 +1568,17 @@ class DeveloperAppResource {
   private fun migrationStepSourceId(step: MigrationStep): String = when (step) {
     is MigrationStep.ConvertType -> step.propertyId.value
     is MigrationStep.CopyValue -> step.sourcePropertyId.value
+    is MigrationStep.ConvertUnit -> step.propertyId.value
+    is MigrationStep.FillEmptyValue -> step.propertyId.value
+    is MigrationStep.AdjustToConstraints -> step.propertyId.value
   }
 
   private fun migrationStepTargetId(step: MigrationStep): String = when (step) {
     is MigrationStep.ConvertType -> step.propertyId.value
     is MigrationStep.CopyValue -> step.targetPropertyId.value
+    is MigrationStep.ConvertUnit -> step.propertyId.value
+    is MigrationStep.FillEmptyValue -> step.propertyId.value
+    is MigrationStep.AdjustToConstraints -> step.propertyId.value
   }
 
   /** Top-level properties of [entity] whose type/unit changed from [previousEntity] and remain convertible — candidates for a `ConvertType` step. */
@@ -1523,11 +1606,43 @@ class DeveloperAppResource {
     return entity.properties.filter { it.id !in previousPropertyIds }.map { MigrationStepPropertyOptionRow(id = it.id.value, name = it.name) }
   }
 
+  /** Top-level properties of [entity] whose unit was added or changed from [previousEntity] — candidates for a `ConvertUnit` step. */
+  private fun convertUnitPropertyOptions(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepPropertyOptionRow> {
+    if (previousEntity == null) return emptyList()
+    return entity.properties.mapNotNull { property ->
+      val previousProperty = previousEntity.properties.find { it.id == property.id } ?: return@mapNotNull null
+      val unit = property.unit ?: return@mapNotNull null
+      if (previousProperty.unit == unit) return@mapNotNull null
+      MigrationStepPropertyOptionRow(id = property.id.value, name = property.name, unitFamily = unit.family.name)
+    }
+  }
+
+  /** Top-level properties of [entity] that changed from nullable to non-nullable since [previousEntity] — candidates for a `FillEmptyValue` step. */
+  private fun fillEmptyValuePropertyOptions(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepPropertyOptionRow> {
+    if (previousEntity == null) return emptyList()
+    return entity.properties.mapNotNull { property ->
+      val previousProperty = previousEntity.properties.find { it.id == property.id } ?: return@mapNotNull null
+      if (!(previousProperty.nullable && !property.nullable)) return@mapNotNull null
+      MigrationStepPropertyOptionRow(id = property.id.value, name = property.name)
+    }
+  }
+
+  /** Top-level properties of [entity] that already existed in [previousEntity] — candidates for an `AdjustToConstraints` step. */
+  private fun adjustToConstraintsPropertyOptions(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepPropertyOptionRow> {
+    if (previousEntity == null) return emptyList()
+    val previousPropertyIds = previousEntity.properties.map { it.id }.toSet()
+    return entity.properties.filter { it.id in previousPropertyIds }.map { MigrationStepPropertyOptionRow(id = it.id.value, name = it.name) }
+  }
+
+  private fun Granularity.enumName(): String = (this as Enum<*>).name
+
   private fun migrationStepInput(form: MultivaluedMap<String, String>): MigrationStepInput = MigrationStepInput(
     type = form.getFirst("type").orEmpty(),
     propertyId = form.getFirst("propertyId"),
     sourcePropertyId = form.getFirst("sourcePropertyId"),
     targetPropertyId = form.getFirst("targetPropertyId"),
+    sourceGranularity = form.getFirst("sourceGranularity"),
+    value = form.getFirst("value"),
   )
 
   private fun migrationStepErrorMessage(code: String): String = when (code) {
@@ -1538,6 +1653,9 @@ class DeveloperAppResource {
     AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED.code -> migrationStepMsg.developerMigrationStepTargetAlreadyUsedError()
     AppVersionError.MIGRATION_STEP_TYPE_INVALID.code -> migrationStepMsg.developerMigrationStepTypeInvalidError()
     AppVersionError.MIGRATION_STEP_IDS_MISMATCH.code -> devMsg.developerEntityIdsMismatchError()
+    AppVersionError.MIGRATION_STEP_UNIT_REQUIRED.code -> migrationStepMsg.developerMigrationStepUnitRequiredError()
+    AppVersionError.MIGRATION_STEP_UNIT_GRANULARITY_INVALID.code -> migrationStepMsg.developerMigrationStepUnitGranularityInvalidError()
+    AppVersionError.MIGRATION_STEP_FILL_VALUE_INVALID.code -> migrationStepMsg.developerMigrationStepFillValueInvalidError()
     AppVersionError.BLANK_INPUT.code -> migrationStepMsg.developerMigrationStepTypeInvalidError()
     else -> entityErrorMessage(code)
   }

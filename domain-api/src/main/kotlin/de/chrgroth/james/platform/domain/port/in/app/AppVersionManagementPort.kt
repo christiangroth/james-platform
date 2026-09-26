@@ -143,13 +143,17 @@ data class AggregationInput(
 )
 
 /**
- * Raw editor input for a `MigrationStep` (see MigrationStep, docs/adr/0023-migration-steps.md). [type] is `CONVERT_TYPE` or `COPY_VALUE`;
- * [propertyId] is used for `CONVERT_TYPE`, [sourcePropertyId]/[targetPropertyId] for `COPY_VALUE`. Property references are property IDs
- * of the owning Entity (top-level only).
+ * Raw editor input for a `MigrationStep` (see MigrationStep, docs/adr/0023-migration-steps.md). [type] is `CONVERT_TYPE`, `COPY_VALUE`,
+ * `CONVERT_UNIT`, `FILL_EMPTY_VALUE` or `ADJUST_TO_CONSTRAINTS`. [propertyId] is used for all types except `COPY_VALUE`, which uses
+ * [sourcePropertyId]/[targetPropertyId] instead. [sourceGranularity] (a [Granularity] enum name, e.g. `"SECONDS"`) is used for
+ * `CONVERT_UNIT`; its family is resolved from the target property's own unit. [value] is used for `FILL_EMPTY_VALUE`; blank/absent
+ * means "use the property's own default". Property references are property IDs of the owning Entity (top-level only).
  */
 data class MigrationStepInput(
   val type: String,
   val propertyId: String? = null,
   val sourcePropertyId: String? = null,
   val targetPropertyId: String? = null,
+  val sourceGranularity: String? = null,
+  val value: String? = null,
 )

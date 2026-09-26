@@ -461,7 +461,7 @@ class AppVersionManagementService(
       logger.warn { "Add migration step failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val step = parseMigrationStep(MigrationStepId(UUID.randomUUID().toString()), input).fold({ return it.left() }, { it })
+    val step = parseMigrationStep(MigrationStepId(UUID.randomUUID().toString()), entity, input).fold({ return it.left() }, { it })
     val previousEntity = latestPublishedVersion(AppId(appId))?.entityDefinitions?.find { it.id == entity.id }
     validateMigrationStep(previousEntity, entity, step)?.let { error ->
       logger.warn { "Add migration step failed: $error in entity $entityId" }
@@ -484,7 +484,7 @@ class AppVersionManagementService(
       logger.warn { "Update migration step failed: step not found: $stepId in entity $entityId" }
       return AppVersionError.MIGRATION_STEP_NOT_FOUND.left()
     }
-    val step = parseMigrationStep(existingStep.id, input).fold({ return it.left() }, { it })
+    val step = parseMigrationStep(existingStep.id, entity, input).fold({ return it.left() }, { it })
     val previousEntity = latestPublishedVersion(AppId(appId))?.entityDefinitions?.find { it.id == entity.id }
     validateMigrationStep(previousEntity, entity, step, ignoringStepId = existingStep.id)?.let { error ->
       logger.warn { "Update migration step failed: $error in entity $entityId" }
@@ -536,7 +536,11 @@ class AppVersionManagementService(
   private fun latestPublishedVersion(appId: AppId): AppVersion? =
     appVersionRepository.findAllByAppId(appId).filter { it.status == AppVersionStatus.PUBLISHED }.maxByOrNull { it.createdAt }
 
-  private fun parseMigrationStep(id: MigrationStepId, input: MigrationStepInput): Either<AppVersionError, MigrationStep> = when (input.type.trim().uppercase()) {
+  private fun parseMigrationStep(
+    id: MigrationStepId,
+    entity: EntityDefinition,
+    input: MigrationStepInput,
+  ): Either<AppVersionError, MigrationStep> = when (input.type.trim().uppercase()) {
     "CONVERT_TYPE" -> {
       val propertyId = input.propertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
       MigrationStep.ConvertType(id, PropertyId(propertyId)).right()
@@ -546,6 +550,20 @@ class AppVersionManagementService(
       val targetPropertyId = input.targetPropertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
       MigrationStep.CopyValue(id, PropertyId(sourcePropertyId), PropertyId(targetPropertyId)).right()
     }
+    "CONVERT_UNIT" -> {
+      val propertyId = input.propertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
+      val targetUnit = entity.properties.find { it.id.value == propertyId }?.unit ?: return AppVersionError.MIGRATION_STEP_UNIT_REQUIRED.left()
+      val sourceGranularity = granularityByName(targetUnit.family, input.sourceGranularity) ?: return AppVersionError.MIGRATION_STEP_UNIT_GRANULARITY_INVALID.left()
+      MigrationStep.ConvertUnit(id, PropertyId(propertyId), sourceGranularity).right()
+    }
+    "FILL_EMPTY_VALUE" -> {
+      val propertyId = input.propertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
+      MigrationStep.FillEmptyValue(id, PropertyId(propertyId), input.value?.trim()?.takeIf { it.isNotBlank() }).right()
+    }
+    "ADJUST_TO_CONSTRAINTS" -> {
+      val propertyId = input.propertyId?.takeIf { it.isNotBlank() } ?: return AppVersionError.BLANK_INPUT.left()
+      MigrationStep.AdjustToConstraints(id, PropertyId(propertyId)).right()
+    }
     else -> AppVersionError.MIGRATION_STEP_TYPE_INVALID.left()
   }
 
@@ -553,13 +571,20 @@ class AppVersionManagementService(
   private fun migrationStepTargetPropertyId(step: MigrationStep): PropertyId = when (step) {
     is MigrationStep.ConvertType -> step.propertyId
     is MigrationStep.CopyValue -> step.targetPropertyId
+    is MigrationStep.ConvertUnit -> step.propertyId
+    is MigrationStep.FillEmptyValue -> step.propertyId
+    is MigrationStep.AdjustToConstraints -> step.propertyId
   }
 
   /**
    * Validates [step] against [previousEntity] (the Entity's shape in the last published Version, `null` if there is none yet) and [entity]
-   * (the draft): its source property must exist in [previousEntity] and its target in [entity] (both top-level only), the source/target type
-   * pair must be convertible (see [ValueConversion.isConvertible]), and no other step of [entity] (other than [ignoringStepId], when updating
-   * an existing one) may already target the same property. Returns the specific [AppVersionError], or `null` if the step is valid.
+   * (the draft): its source property must exist in [previousEntity] and its target in [entity] (both top-level only, and the same property
+   * for every kind except [MigrationStep.CopyValue]), the source/target type pair must be convertible (see [ValueConversion.isConvertible] -
+   * trivially true when source and target are the same property), and no other step of [entity] (other than [ignoringStepId], when updating
+   * an existing one) may already target the same property. [MigrationStep.ConvertUnit] additionally requires the target property to carry a
+   * unit whose family matches [MigrationStep.ConvertUnit.sourceGranularity]'s, and [MigrationStep.FillEmptyValue] requires its fixed value
+   * (if set) to satisfy the target property's own constraints, or - if unset - the target property to have a default configured. Returns the
+   * specific [AppVersionError], or `null` if the step is valid.
    */
   private fun validateMigrationStep(
     previousEntity: EntityDefinition?,
@@ -568,19 +593,33 @@ class AppVersionManagementService(
     ignoringStepId: MigrationStepId? = null,
   ): AppVersionError? {
     val sourcePropertyId = when (step) {
-      is MigrationStep.ConvertType -> step.propertyId
       is MigrationStep.CopyValue -> step.sourcePropertyId
+      else -> migrationStepTargetPropertyId(step)
     }
-    val targetPropertyId = when (step) {
-      is MigrationStep.ConvertType -> step.propertyId
-      is MigrationStep.CopyValue -> step.targetPropertyId
-    }
+    val targetPropertyId = migrationStepTargetPropertyId(step)
     val sourceProperty = previousEntity?.properties?.find { it.id == sourcePropertyId } ?: return AppVersionError.MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND
     val targetProperty = entity.properties.find { it.id == targetPropertyId } ?: return AppVersionError.MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND
     if (!ValueConversion.isConvertible(sourceProperty.type, targetProperty.type)) return AppVersionError.MIGRATION_STEP_TYPE_NOT_CONVERTIBLE
     val targetAlreadyUsed = entity.migrationSteps.any { it.id != ignoringStepId && migrationStepTargetPropertyId(it) == targetPropertyId }
     if (targetAlreadyUsed) return AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED
-    return null
+    return when (step) {
+      is MigrationStep.ConvertUnit -> {
+        val unit = targetProperty.unit ?: return AppVersionError.MIGRATION_STEP_UNIT_REQUIRED
+        if (step.sourceGranularity.family != unit.family) AppVersionError.MIGRATION_STEP_UNIT_GRANULARITY_INVALID else null
+      }
+      is MigrationStep.FillEmptyValue -> validateFillEmptyValue(targetProperty, step)
+      else -> null
+    }
+  }
+
+  private fun validateFillEmptyValue(targetProperty: Property, step: MigrationStep.FillEmptyValue): AppVersionError? {
+    val value = step.value
+    if (value == null) {
+      return if (targetProperty.default == null) AppVersionError.MIGRATION_STEP_FILL_VALUE_INVALID else null
+    }
+    val parsedValue = parseDefaultValue(targetProperty.type, value) ?: return AppVersionError.MIGRATION_STEP_FILL_VALUE_INVALID
+    val violations = propertyConstraint.checkValue(targetProperty, parsedValue, emptyList())
+    return if (violations.isNotEmpty()) AppVersionError.MIGRATION_STEP_FILL_VALUE_INVALID else null
   }
 
   /** Whether any of [entity]'s migration steps is no longer valid against [previousEntity] — see [validateMigrationStep]. */
@@ -1788,6 +1827,9 @@ class AppVersionManagementService(
           when (step) {
             is MigrationStep.ConvertType -> "    convert-type: ${propertyNameOf(entity, step.propertyId.value)}"
             is MigrationStep.CopyValue -> "    copy-value: ${propertyNameOf(entity, step.sourcePropertyId.value)} -> ${propertyNameOf(entity, step.targetPropertyId.value)}"
+            is MigrationStep.ConvertUnit -> "    convert-unit: ${propertyNameOf(entity, step.propertyId.value)} (from ${step.sourceGranularity})"
+            is MigrationStep.FillEmptyValue -> "    fill-empty-value: ${propertyNameOf(entity, step.propertyId.value)}${step.value?.let { " = $it" }.orEmpty()}"
+            is MigrationStep.AdjustToConstraints -> "    adjust-to-constraints: ${propertyNameOf(entity, step.propertyId.value)}"
           },
         )
       }

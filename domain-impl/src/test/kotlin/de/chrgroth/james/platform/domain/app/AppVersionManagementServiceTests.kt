@@ -2645,6 +2645,208 @@ class AppVersionManagementServiceTests {
     assertThat(result.isRight()).isTrue()
   }
 
+  @Test
+  fun `addMigrationStep adds a ConvertUnit step when the target property has a unit and granularity family matches`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(unit = PropertyUnit(UnitFamily.TIME, TimeGranularity.MILLISECONDS, TimeGranularity.SECONDS))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "CONVERT_UNIT", propertyId = "p-1", sourceGranularity = "SECONDS"),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isInstanceOf(MigrationStep.ConvertUnit::class.java)
+    assertThat((step as MigrationStep.ConvertUnit).sourceGranularity).isEqualTo(TimeGranularity.SECONDS)
+  }
+
+  @Test
+  fun `addMigrationStep fails for ConvertUnit when target property has no unit`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "CONVERT_UNIT", propertyId = "p-1", sourceGranularity = "SECONDS"),
+    )
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_UNIT_REQUIRED)
+  }
+
+  @Test
+  fun `addMigrationStep fails for ConvertUnit when source granularity family does not match the unit`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "CONVERT_UNIT", propertyId = "p-1", sourceGranularity = "SECONDS"),
+    )
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_UNIT_GRANULARITY_INVALID)
+  }
+
+  @Test
+  fun `addMigrationStep adds a FillEmptyValue step with a fixed value satisfying constraints`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns emptyList()
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "FILL_EMPTY_VALUE", propertyId = "p-1", value = "active"),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isEqualTo(MigrationStep.FillEmptyValue((step as MigrationStep.FillEmptyValue).id, PropertyId("p-1"), "active"))
+  }
+
+  @Test
+  fun `addMigrationStep fails for FillEmptyValue when the fixed value violates constraints`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false, constraints = setOf(PropertyConstraint.MinLong(10)))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns listOf(PropertyConstraintViolation.MinValueViolation(10L))
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "FILL_EMPTY_VALUE", propertyId = "p-1", value = "5"),
+    )
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_FILL_VALUE_INVALID)
+  }
+
+  @Test
+  fun `addMigrationStep adds a FillEmptyValue step without a value when the property has a default`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false, default = "unknown")
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "FILL_EMPTY_VALUE", propertyId = "p-1"),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isEqualTo(MigrationStep.FillEmptyValue((step as MigrationStep.FillEmptyValue).id, PropertyId("p-1"), null))
+  }
+
+  @Test
+  fun `addMigrationStep fails for FillEmptyValue when no value is given and the property has no default`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(nullable = false)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "FILL_EMPTY_VALUE", propertyId = "p-1"),
+    )
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_FILL_VALUE_INVALID)
+  }
+
+  @Test
+  fun `addMigrationStep adds an AdjustToConstraints step`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(constraints = setOf(PropertyConstraint.MaxLong(100)))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addMigrationStep("app-1", "ver-1", "e-1", MigrationStepInput(type = "ADJUST_TO_CONSTRAINTS", propertyId = "p-1"))
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isEqualTo(MigrationStep.AdjustToConstraints((step as MigrationStep.AdjustToConstraints).id, PropertyId("p-1")))
+  }
+
+  @Test
+  fun `addMigrationStep fails for AdjustToConstraints when another step already targets the same property`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val draftProp = publishedProp.copy(constraints = setOf(PropertyConstraint.MaxLong(100)))
+    val existingStep = MigrationStep.AdjustToConstraints(MigrationStepId("step-existing"), PropertyId("p-1"))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationSteps = listOf(existingStep))),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep("app-1", "ver-1", "e-1", MigrationStepInput(type = "ADJUST_TO_CONSTRAINTS", propertyId = "p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED)
+  }
+
+  @Test
+  fun `publishVersion succeeds with valid ConvertUnit, FillEmptyValue and AdjustToConstraints steps`() {
+    val publishedProps = listOf(
+      Property(id = PropertyId("p-1"), name = "Duration", type = PropertyType.LONG),
+      Property(id = PropertyId("p-2"), name = "Status", type = PropertyType.STRING, nullable = true),
+      Property(id = PropertyId("p-3"), name = "Amount", type = PropertyType.LONG),
+    )
+    val draftProps = listOf(
+      publishedProps[0].copy(unit = PropertyUnit(UnitFamily.TIME, TimeGranularity.MILLISECONDS, TimeGranularity.SECONDS)),
+      publishedProps[1].copy(nullable = false, default = "unknown"),
+      publishedProps[2].copy(constraints = setOf(PropertyConstraint.MaxLong(100))),
+    )
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = publishedProps)))
+    val draftEntity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Order",
+      properties = draftProps,
+      migrationSteps = listOf(
+        MigrationStep.ConvertUnit(MigrationStepId("step-1"), PropertyId("p-1"), TimeGranularity.SECONDS),
+        MigrationStep.FillEmptyValue(MigrationStepId("step-2"), PropertyId("p-2"), null),
+        MigrationStep.AdjustToConstraints(MigrationStepId("step-3"), PropertyId("p-3")),
+      ),
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+  }
+
   // endregion
 
   // region deleteProperty with display text

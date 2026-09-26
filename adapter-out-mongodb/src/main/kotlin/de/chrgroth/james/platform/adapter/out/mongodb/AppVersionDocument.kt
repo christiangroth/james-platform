@@ -32,11 +32,16 @@ class EntityDefinitionDocument {
 
 class MigrationStepDocument {
   lateinit var id: String
-  // "CONVERT_TYPE" or "COPY_VALUE"
+  // "CONVERT_TYPE", "COPY_VALUE", "CONVERT_UNIT", "FILL_EMPTY_VALUE" or "ADJUST_TO_CONSTRAINTS"
   lateinit var type: String
   var propertyId: String? = null
   var sourcePropertyId: String? = null
   var targetPropertyId: String? = null
+  // Used by CONVERT_UNIT only.
+  var sourceGranularityFamily: String? = null
+  var sourceGranularityName: String? = null
+  // Used by FILL_EMPTY_VALUE only; null means "use the property's own default".
+  var value: String? = null
 }
 
 class SortCriteriaDocument {
