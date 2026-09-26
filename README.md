@@ -13,8 +13,8 @@ single-developer tool on a personal VPS and provides a web UI for managing users
 - **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, optional day/week/month/quarter/year bucketing with a configurable period start,
   optional grouping via a `ref` or another property) over an Entity's data in the version editor. Ungrouped values are shown directly on the app installation;
   grouped and/or time-bucketed ones as a compact, capped table.
-- **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by a Developer-authored
-  migration script that transforms existing data on upgrade.
+- **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by declarative migration
+  steps (convert a property's type, or carry a value over to its replacement) and/or a Developer-authored migration script that transform existing data on upgrade.
 - **Data Import (ETL)** – Users import external JSON data into an installed App through a guided fetch → detect → map → dry-run → accept flow, including SSRF-hardened
   fetching and unit-aware value mapping.
 - **Data Sharing** – A User can invite others to share an installed App's data, either with full read/write/delete or read-all/edit-own permissions.

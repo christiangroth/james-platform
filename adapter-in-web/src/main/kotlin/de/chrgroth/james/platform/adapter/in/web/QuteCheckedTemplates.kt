@@ -132,6 +132,10 @@ object DeveloperTemplates {
     removedProperties: List<Property>,
     aggregations: List<AggregationEditorRow>,
     aggregationPropertyOptions: List<AggregationPropertyOptionRow>,
+    migrationSteps: List<MigrationStepEditorRow>,
+    convertTypePropertyOptions: List<MigrationStepPropertyOptionRow>,
+    copyValueSourcePropertyOptions: List<MigrationStepPropertyOptionRow>,
+    copyValueTargetPropertyOptions: List<MigrationStepPropertyOptionRow>,
   ): TemplateInstance
 
   @JvmStatic

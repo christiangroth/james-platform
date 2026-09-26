@@ -93,19 +93,54 @@
                     </div>
                 </div>
 
-                <!-- Migration Script -->
+                <!-- Migration -->
                 <div class="mb-4">
-                    <h3 class="fs-6 fw-semibold mb-2">{developer:developerMigrationScriptHeading()}</h3>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="app-section-label" style="font-size:0.85rem;" data-testid="migration-script-value" data-script-label="{developer:developerScriptLabel()}">
-                            {#if selectedEntity.migrationScript}{developer:developerScriptLabel()}{#else}—{/if}
-                        </span>
-                        <button type="button" class="btn btn-app-secondary btn-sm"
-                                data-bs-toggle="modal" data-bs-target="#editMigrationScriptModal"
-                                title="{developer:developerEditMigrationScriptAriaLabel()}" aria-label="{developer:developerEditMigrationScriptAriaLabel()}"
-                                data-testid="open-migration-script-modal-button">
-                            <i class="bi bi-pencil" aria-hidden="true"></i>
-                        </button>
+                    <div class="d-flex align-items-center mb-2 gap-2">
+                        <h3 class="fs-6 fw-semibold mb-0">{developerMigrationStep:developerMigrationHeading()}</h3>
+                        {#btn-icon-add testId="open-add-migration-step-modal-button" bsTarget="#migrationStepModal" entityId=selectedEntity.id action="" extraClass="ms-auto" /}
+                    </div>
+                    {#if migrationSteps.isEmpty}
+                    <p class="app-section-label mb-3" data-testid="no-migration-steps">{developerMigrationStep:developerNoMigrationStepsMessage()}</p>
+                    {#else}
+                    <div class="table-responsive">
+                    <table class="table table-sm mb-3 app-table" data-testid="migration-steps-table">
+                        <tbody id="migrationStepsTbody" data-entity-id="{selectedEntity.id}">
+                            {#for step in migrationSteps}
+                            <tr class="clickable-row" data-testid="migration-step-row" tabindex="0" role="button"
+                                data-action="edit-migration-step"
+                                data-migration-step-id="{step.id}"
+                                data-migration-step-type="{step.type}"
+                                data-migration-step-property-id="{step.propertyId}"
+                                data-migration-step-source-property-id="{step.sourcePropertyId}"
+                                data-migration-step-target-property-id="{step.targetPropertyId}">
+                                <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);width:1.5rem;" title="{developer:developerDragToReorderTitle()}" data-testid="migration-step-drag-handle">
+                                    <i class="bi bi-grip-vertical" aria-hidden="true"></i>
+                                </td>
+                                <td data-testid="migration-step-description">{step.description}</td>
+                                <td style="width:1%;white-space:nowrap;">
+                                    {#if !step.valid}
+                                    <span class="badge app-badge-failed" style="font-size:0.7rem;" data-testid="migration-step-invalid-badge">{developerMigrationStep:developerMigrationStepInvalidBadge()}</span>
+                                    {/if}
+                                </td>
+                            </tr>
+                            {/for}
+                        </tbody>
+                    </table>
+                    </div>
+                    {/if}
+                    <div class="mt-3">
+                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developerMigrationStep:developerMigrationScriptSubheading()}</div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="app-section-label" style="font-size:0.85rem;" data-testid="migration-script-value" data-script-label="{developer:developerScriptLabel()}">
+                                {#if selectedEntity.migrationScript}{developer:developerScriptLabel()}{#else}—{/if}
+                            </span>
+                            <button type="button" class="btn btn-app-secondary btn-sm"
+                                    data-bs-toggle="modal" data-bs-target="#editMigrationScriptModal"
+                                    title="{developer:developerEditMigrationScriptAriaLabel()}" aria-label="{developer:developerEditMigrationScriptAriaLabel()}"
+                                    data-testid="open-migration-script-modal-button">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -997,6 +1032,85 @@
     {/if}
     {/if}
 
+    <!-- Migration Step Modal (add + edit) -->
+    {#if isDraft}
+    {#if selectedEntity != null}
+    <div class="modal fade" id="migrationStepModal" tabindex="-1" aria-labelledby="migrationStepModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="migrationStepModalLabel">{developerMigrationStep:developerAddMigrationStepModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="migrationStepForm">
+                    <input type="hidden" id="migrationStepEntityId" value="{selectedEntity.id}">
+                    <input type="hidden" id="migrationStepId" value="">
+                    <div class="modal-body">
+                        <div id="migrationStepError" class="alert alert-danger d-none mb-3" data-testid="migration-step-error"></div>
+                        <div class="mb-3">
+                            <label for="migrationStepType" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepTypeLabel()}</label>
+                            <select class="form-select app-form-control" id="migrationStepType" name="type" required data-testid="migration-step-type-select">
+                                <option value="CONVERT_TYPE">{developerMigrationStep:developerMigrationStepTypeConvertType()}</option>
+                                <option value="COPY_VALUE">{developerMigrationStep:developerMigrationStepTypeCopyValue()}</option>
+                            </select>
+                        </div>
+                        <div id="migrationStepConvertTypeFields" class="mb-3">
+                            <label for="migrationStepPropertyId" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepPropertyLabel()}</label>
+                            <select class="form-select app-form-control" id="migrationStepPropertyId" name="propertyId" data-testid="migration-step-property-select">
+                                <option value="">{developerMigrationStep:developerMigrationStepPropertyPlaceholder()}</option>
+                                {#for opt in convertTypePropertyOptions}<option value="{opt.id}">{opt.name}</option>{/for}
+                            </select>
+                        </div>
+                        <div id="migrationStepCopyValueFields" class="d-none">
+                            <div class="mb-3">
+                                <label for="migrationStepSourcePropertyId" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepSourcePropertyLabel()}</label>
+                                <select class="form-select app-form-control" id="migrationStepSourcePropertyId" name="sourcePropertyId" data-testid="migration-step-source-property-select">
+                                    <option value="">{developerMigrationStep:developerMigrationStepPropertyPlaceholder()}</option>
+                                    {#for opt in copyValueSourcePropertyOptions}<option value="{opt.id}">{opt.name}</option>{/for}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="migrationStepTargetPropertyId" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerMigrationStep:developerMigrationStepTargetPropertyLabel()}</label>
+                                <select class="form-select app-form-control" id="migrationStepTargetPropertyId" name="targetPropertyId" data-testid="migration-step-target-property-select">
+                                    <option value="">{developerMigrationStep:developerMigrationStepPropertyPlaceholder()}</option>
+                                    {#for opt in copyValueTargetPropertyOptions}<option value="{opt.id}">{opt.name}</option>{/for}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-app-danger d-none" id="migrationStepDeleteBtn" data-testid="migration-step-delete-button">{msg:commonDelete()}</button>
+                        <div class="d-flex gap-2 ms-auto">
+                            <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                            <button type="submit" class="btn btn-app-primary" data-testid="migration-step-submit-button">{msg:commonSave()}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteMigrationStepModal" tabindex="-1" aria-labelledby="deleteMigrationStepModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteMigrationStepModalLabel">{developerMigrationStep:developerRemoveMigrationStepModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">{developerMigrationStep:developerRemoveMigrationStepConfirmMessage()}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                    <button type="button" class="btn btn-app-danger" id="confirmDeleteMigrationStepBtn"
+                            data-testid="confirm-delete-migration-step-button">{msg:commonRemove()}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/if}
+
     <!-- Edit Migration Script Modal -->
     {#if isDraft}
     {#if selectedEntity != null}
@@ -1096,6 +1210,8 @@
             var editComputedPropertyModalTitlePrefix = '{developer:developerEditComputedPropertyModalTitle()}';
             var addAggregationModalTitle = '{developerAggregation:developerAddAggregationModalTitle()}';
             var editAggregationModalTitle = '{developerAggregation:developerEditAggregationModalTitle()}';
+            var addMigrationStepModalTitle = '{developerMigrationStep:developerAddMigrationStepModalTitle()}';
+            var editMigrationStepModalTitle = '{developerMigrationStep:developerEditMigrationStepModalTitle()}';
 
             function showMessage(ok, message) {
                 if (messageTimer) { clearTimeout(messageTimer); }
@@ -1891,6 +2007,190 @@
                 deleteAggregationModal.addEventListener('hidden.bs.modal', function () {
                     pendingDeleteAggregation = null;
                     confirmDeleteAggregationBtn.disabled = false;
+                });
+            }
+
+            // Migration step modal (add + edit share one form; the hidden migrationStepId decides which endpoint is used)
+            var migrationStepModal = document.getElementById('migrationStepModal');
+            if (migrationStepModal) {
+                var migrationStepForm = document.getElementById('migrationStepForm');
+                var migrationStepError = document.getElementById('migrationStepError');
+                var migrationStepType = document.getElementById('migrationStepType');
+                var migrationStepDeleteBtn = document.getElementById('migrationStepDeleteBtn');
+                var migrationStepConvertTypeFields = document.getElementById('migrationStepConvertTypeFields');
+                var migrationStepCopyValueFields = document.getElementById('migrationStepCopyValueFields');
+                var migrationStepFields = {
+                    propertyId: document.getElementById('migrationStepPropertyId'),
+                    sourcePropertyId: document.getElementById('migrationStepSourcePropertyId'),
+                    targetPropertyId: document.getElementById('migrationStepTargetPropertyId')
+                };
+
+                function updateMigrationStepTypeFields() {
+                    var isCopyValue = migrationStepType.value === 'COPY_VALUE';
+                    migrationStepConvertTypeFields.classList.toggle('d-none', isCopyValue);
+                    migrationStepCopyValueFields.classList.toggle('d-none', !isCopyValue);
+                }
+                migrationStepType.addEventListener('change', updateMigrationStepTypeFields);
+
+                function openMigrationStepModal(row) {
+                    migrationStepError.classList.add('d-none');
+                    migrationStepError.textContent = '';
+                    migrationStepForm.reset();
+                    document.getElementById('migrationStepId').value = row ? row.getAttribute('data-migration-step-id') : '';
+                    document.getElementById('migrationStepModalLabel').textContent = row ? editMigrationStepModalTitle : addMigrationStepModalTitle;
+                    if (row) {
+                        migrationStepType.value = row.getAttribute('data-migration-step-type');
+                        migrationStepFields.propertyId.value = row.getAttribute('data-migration-step-property-id') || '';
+                        migrationStepFields.sourcePropertyId.value = row.getAttribute('data-migration-step-source-property-id') || '';
+                        migrationStepFields.targetPropertyId.value = row.getAttribute('data-migration-step-target-property-id') || '';
+                    }
+                    migrationStepDeleteBtn.classList.toggle('d-none', !row);
+                    updateMigrationStepTypeFields();
+                    migrationStepForm.querySelector('[type="submit"]').disabled = false;
+                }
+
+                migrationStepModal.addEventListener('show.bs.modal', function (event) {
+                    // Opened via the add button (relatedTarget set); edit rows call openMigrationStepModal themselves before showing.
+                    if (event.relatedTarget) { openMigrationStepModal(null); }
+                });
+
+                document.querySelectorAll('[data-action="edit-migration-step"]').forEach(function (row) {
+                    function open() {
+                        openMigrationStepModal(row);
+                        bootstrap.Modal.getOrCreateInstance(migrationStepModal).show();
+                    }
+                    row.addEventListener('click', open);
+                    row.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+                    });
+                });
+
+                migrationStepForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    migrationStepError.classList.add('d-none');
+                    var btn = migrationStepForm.querySelector('[type="submit"]');
+                    btn.disabled = true;
+                    var entityId = document.getElementById('migrationStepEntityId').value;
+                    var stepId = document.getElementById('migrationStepId').value;
+                    var formData = new FormData();
+                    formData.set('type', migrationStepType.value);
+                    formData.set('propertyId', migrationStepFields.propertyId.value);
+                    formData.set('sourcePropertyId', migrationStepFields.sourcePropertyId.value);
+                    formData.set('targetPropertyId', migrationStepFields.targetPropertyId.value);
+                    var url = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/migration-steps'
+                        + (stepId ? '/' + stepId : '');
+                    var result = await apiPost(url, formData, true);
+                    if (!result || !result.ok) {
+                        migrationStepError.textContent = result ? result.message : networkErrorMessage;
+                        migrationStepError.classList.remove('d-none');
+                        btn.disabled = false;
+                    }
+                });
+
+                var deleteMigrationStepModal = document.getElementById('deleteMigrationStepModal');
+                var pendingDeleteMigrationStep = null;
+                migrationStepDeleteBtn.addEventListener('click', function () {
+                    pendingDeleteMigrationStep = {
+                        entityId: document.getElementById('migrationStepEntityId').value,
+                        stepId: document.getElementById('migrationStepId').value
+                    };
+                    migrationStepModal.addEventListener('hidden.bs.modal', function onHide() {
+                        migrationStepModal.removeEventListener('hidden.bs.modal', onHide);
+                        bootstrap.Modal.getOrCreateInstance(deleteMigrationStepModal).show();
+                    });
+                    bootstrap.Modal.getInstance(migrationStepModal).hide();
+                });
+                var confirmDeleteMigrationStepBtn = document.getElementById('confirmDeleteMigrationStepBtn');
+                confirmDeleteMigrationStepBtn.addEventListener('click', async function () {
+                    if (!pendingDeleteMigrationStep) return;
+                    confirmDeleteMigrationStepBtn.disabled = true;
+                    var modal = bootstrap.Modal.getInstance(deleteMigrationStepModal);
+                    if (modal) { modal.hide(); }
+                    await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + pendingDeleteMigrationStep.entityId
+                            + '/migration-steps/' + pendingDeleteMigrationStep.stepId + '/delete',
+                        null, true
+                    );
+                    confirmDeleteMigrationStepBtn.disabled = false;
+                });
+                deleteMigrationStepModal.addEventListener('hidden.bs.modal', function () {
+                    pendingDeleteMigrationStep = null;
+                    confirmDeleteMigrationStepBtn.disabled = false;
+                });
+            }
+
+            // Drag-and-drop migration step reordering
+            var migrationStepsTbody = document.getElementById('migrationStepsTbody');
+            if (migrationStepsTbody) {
+                var msDragSrcRow = null;
+
+                function msHandleDragStart(e) {
+                    msDragSrcRow = this;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.getAttribute('data-migration-step-id'));
+                    this.classList.add('opacity-50');
+                }
+
+                function msHandleDragOver(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    return false;
+                }
+
+                function msHandleDragEnter() { this.classList.add('table-active'); }
+                function msHandleDragLeave() { this.classList.remove('table-active'); }
+
+                function msHandleDrop(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (msDragSrcRow !== this) {
+                        var rows = Array.from(migrationStepsTbody.querySelectorAll('tr'));
+                        var srcIdx = rows.indexOf(msDragSrcRow);
+                        var dstIdx = rows.indexOf(this);
+                        if (srcIdx > dstIdx) {
+                            migrationStepsTbody.insertBefore(msDragSrcRow, this);
+                        } else {
+                            migrationStepsTbody.insertBefore(msDragSrcRow, this.nextSibling);
+                        }
+                        saveMigrationStepOrder();
+                    }
+                    return false;
+                }
+
+                function msHandleDragEnd() {
+                    this.classList.remove('opacity-50');
+                    migrationStepsTbody.querySelectorAll('tr').forEach(function (r) { r.classList.remove('table-active'); });
+                }
+
+                async function saveMigrationStepOrder() {
+                    var entityId = migrationStepsTbody.getAttribute('data-entity-id');
+                    var stepIds = Array.from(migrationStepsTbody.querySelectorAll('tr')).map(function (r) {
+                        return r.getAttribute('data-migration-step-id');
+                    });
+                    try {
+                        var response = await fetch(
+                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/migration-steps/reorder',
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                                body: JSON.stringify(stepIds),
+                            }
+                        );
+                        var result = await response.json();
+                        if (!result.ok) { showMessage(false, result.message); }
+                    } catch (e) {
+                        showMessage(false, networkErrorMessage);
+                    }
+                }
+
+                migrationStepsTbody.querySelectorAll('tr').forEach(function (row) {
+                    row.draggable = true;
+                    row.addEventListener('dragstart', msHandleDragStart);
+                    row.addEventListener('dragover', msHandleDragOver);
+                    row.addEventListener('dragenter', msHandleDragEnter);
+                    row.addEventListener('dragleave', msHandleDragLeave);
+                    row.addEventListener('drop', msHandleDrop);
+                    row.addEventListener('dragend', msHandleDragEnd);
                 });
             }
 

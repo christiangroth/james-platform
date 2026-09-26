@@ -40,8 +40,9 @@ enum class DistanceGranularity(override val symbol: String, override val factorT
 
 /**
  * A unit assigned to a `LONG`/`DOUBLE` [Property]. Values are always stored numerically in [storageGranularity],
- * the field's fixed smallest granularity — chosen once at field creation and immutable afterward, since there is
- * no migration mechanism for existing data; changing it requires recreating the field (see ADR 0016). [defaultGranularity]
+ * the field's fixed smallest granularity — chosen once at field creation and immutable afterward, so changing it
+ * requires recreating the field (see ADR 0016); a `CopyValue` migration step can carry existing values over into
+ * the new field, converting granularity via [ValueConversion.convertGranularity] (see ADR 0023). [defaultGranularity]
  * is only a UI default for new input and may change freely at any time.
  */
 data class PropertyUnit(

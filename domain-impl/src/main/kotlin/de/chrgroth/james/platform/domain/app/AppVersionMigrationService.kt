@@ -1,10 +1,12 @@
 package de.chrgroth.james.platform.domain.app
 
 import arrow.core.Either
+import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
+import de.chrgroth.james.platform.domain.error.AppVersionMigrationStepFailedError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationValidationFailedError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppData
@@ -14,6 +16,9 @@ import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationStep
+import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.model.infra.ScriptType
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
@@ -107,7 +112,9 @@ class AppVersionMigrationService(
     if (fromIndex < 0 || toIndex < 0 || toIndex <= fromIndex) return Unit.right()
 
     val pendingVersions = publishedVersions.subList(fromIndex + 1, toIndex + 1)
-    val entityMigrations = pendingVersions.flatMap { version -> version.entityDefinitions.filter { it.migrationScript != null }.map { version to it } }
+    val entityMigrations = pendingVersions.flatMap { version ->
+      version.entityDefinitions.filter { it.migrationScript != null || it.migrationSteps.isNotEmpty() }.map { version to it }
+    }
     if (entityMigrations.isEmpty()) return Unit.right()
 
     // Held in memory until every pending migration for this installation succeeds — nothing is persisted on failure (see class doc).
@@ -160,7 +167,10 @@ class AppVersionMigrationService(
     return Unit.right()
   }
 
-  /** Runs [newEntity]'s migration script against [existingAppData] and re-validates the result, logging and returning a [DomainError] on failure. */
+  /**
+   * Applies [newEntity]'s migration building blocks (in order) and then its migration script against [existingAppData], re-validating
+   * the result, logging and returning a [DomainError] on failure at either stage.
+   */
   private fun runAndValidate(
     previousEntity: EntityDefinition,
     newEntity: EntityDefinition,
@@ -169,7 +179,14 @@ class AppVersionMigrationService(
     versionNumber: String,
     logContext: String,
   ): Either<DomainError, Map<String, String?>> {
-    when (val scriptResult = runScript(previousEntity, newEntity, existingAppData.data)) {
+    val afterSteps = applyMigrationSteps(previousEntity, newEntity, existingAppData.data).fold(
+      { reason ->
+        logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value}: $reason" }
+        return AppVersionMigrationStepFailedError(newEntity.name, existingAppData.id.value, versionNumber, reason).left()
+      },
+      { it },
+    )
+    when (val scriptResult = runScript(previousEntity, newEntity, afterSteps)) {
       is MigrationScriptResult.Failure -> {
         logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value}: ${scriptResult.reason}" }
         return AppVersionMigrationScriptFailedError(newEntity.name, existingAppData.id.value, versionNumber, scriptResult.reason).left()
@@ -186,6 +203,50 @@ class AppVersionMigrationService(
         }
       }
     }
+  }
+
+  /**
+   * Applies [newEntity]'s [MigrationStep]s to [data], in order: [MigrationStep.ConvertType] converts a property's value in place using
+   * its type/unit in [previousEntity] as the source and in [newEntity] as the target; [MigrationStep.CopyValue] copies a value from a
+   * property that only exists in [previousEntity] into one that only exists in [newEntity]. Returns a failure reason if a referenced
+   * property is missing (e.g. because the version chain has diverged) or [ValueConversion.convert] fails, otherwise the resulting data.
+   */
+  private fun applyMigrationSteps(previousEntity: EntityDefinition, newEntity: EntityDefinition, data: Map<String, String?>): Either<String, Map<String, String?>> {
+    if (newEntity.migrationSteps.isEmpty()) return data.right()
+    var result = data
+    for (step in newEntity.migrationSteps) {
+      result = when (step) {
+        is MigrationStep.ConvertType -> {
+          val sourceProp = previousEntity.properties.find { it.id == step.propertyId }
+            ?: return "Property ${step.propertyId.value} not found in previous entity definition".left()
+          val targetProp = newEntity.properties.find { it.id == step.propertyId }
+            ?: return "Property ${step.propertyId.value} not found in entity definition".left()
+          convertValue(sourceProp, targetProp, result[step.propertyId.value]).fold({ return it.left() }, { converted -> result + (step.propertyId.value to converted) })
+        }
+        is MigrationStep.CopyValue -> {
+          val sourceProp = previousEntity.properties.find { it.id == step.sourcePropertyId }
+            ?: return "Property ${step.sourcePropertyId.value} not found in previous entity definition".left()
+          val targetProp = newEntity.properties.find { it.id == step.targetPropertyId }
+            ?: return "Property ${step.targetPropertyId.value} not found in entity definition".left()
+          convertValue(sourceProp, targetProp, result[step.sourcePropertyId.value]).fold(
+            { return it.left() },
+            { converted -> result + (step.targetPropertyId.value to converted) },
+          )
+        }
+      }
+    }
+    return result.right()
+  }
+
+  /** Converts [rawValue] from [source]'s type/unit to [target]'s, via [ValueConversion.convert] and, if both carry a unit, [ValueConversion.convertGranularity]. */
+  private fun convertValue(source: Property, target: Property, rawValue: String?): Either<String, String?> {
+    val converted = ValueConversion.convert(source.type, target.type, rawValue).getOrElse {
+      return "Value '$rawValue' of property ${source.name} could not be converted to ${target.type}".left()
+    }
+    val sourceUnit = source.unit
+    val targetUnit = target.unit
+    if (converted.isNullOrBlank() || sourceUnit == null || targetUnit == null) return converted.right()
+    return ValueConversion.convertGranularity(targetUnit, sourceUnit.storageGranularity, converted).right()
   }
 
   /** The entity definition [entity] is migrating from: its own shape in the published Version immediately preceding [versionIndex], if any. */

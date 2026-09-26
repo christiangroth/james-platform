@@ -30,10 +30,14 @@ James Platform is a personal Low Code system for building and running data-centr
   - *Non-breaking change* → Developer chooses between **Feature** or **Bugfix** release.
   - The version number is never entered manually.
 - A released Version records a release date and release notes.
-- A Developer can attach an optional **migration script** (Kotlin, same JSR-223 sandbox as Computed Properties) to an Entity, transforming existing `AppData` when an
-  installation upgrades past that Version. A migration that provably brings all existing data into a valid state (checked via a dry-run at publish time) can neutralize
-  what would otherwise be a breaking change, avoiding a mandatory Major bump. Migrations run synchronously as part of the upgrade (auto-upgrade for non-breaking
-  Versions, or explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md).
+- A Developer can attach declarative **migration steps** and/or an optional **migration script** (Kotlin, same JSR-223 sandbox as Computed Properties) to an Entity,
+  transforming existing `AppData` when an installation upgrades past that Version. Migration steps cover the two most common changes without writing a script: **Convert
+  type** (a Property's type changed in place) and **Copy value** (a Property was deleted and replaced by a new one, e.g. to change a `long`/`Double` Property's immutable
+  storage granularity, see [Property Units](#property-units)); both convert the value automatically if the source/target type or unit differ. Steps run first, in the
+  order they are defined, followed by the script if one is set. A migration that provably brings all existing data into a valid state (checked via a dry-run at publish
+  time) can neutralize what would otherwise be a breaking change, avoiding a mandatory Major bump. Migrations run synchronously as part of the upgrade (auto-upgrade for
+  non-breaking Versions, or explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md) and ADR
+  [0023](../adr/0023-migration-steps.md).
 
 ### Entities and Properties
 
@@ -89,10 +93,11 @@ numeric field and a User enter values as unit-suffixed text (e.g. `15km 400m`) i
   input (e.g. `"15km 400m"` → `15400` at `storageGranularity = METERS`) at write time (see ADR
   [0016](../adr/0016-property-units-storage-granularity.md)). For a `long` property, the converted value
   must be an integer (a fractional result is rejected).
-- `storageGranularity` is fixed at field creation and immutable afterward — there is no migration
-  mechanism for existing data, so changing it requires recreating the field (a breaking change, see ADR
-  [0016](../adr/0016-property-units-storage-granularity.md)). `defaultGranularity` — only the granularity
-  pre-selected in the create/edit form — may change freely at any time.
+- `storageGranularity` is fixed at field creation and immutable afterward, so changing it requires
+  recreating the field (a breaking change, see ADR [0016](../adr/0016-property-units-storage-granularity.md)) —
+  a **Copy value** migration step (see ADR [0023](../adr/0023-migration-steps.md)) can carry the existing
+  values over into the new field. `defaultGranularity` — only the granularity pre-selected in the
+  create/edit form — may change freely at any time.
 
 ### Constraints
 
@@ -626,6 +631,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0020](../adr/0020-aggregation-definitions.md)                | Aggregation Definitions: Combining Precomputed Read Models and the Outbox |
 | [0021](../adr/0021-import-definition-job-split.md)            | Data Import: Separate Reusable Definition from Per-Run Job |
 | [0022](../adr/0022-import-job-history.md)                      | Data Import: Merged Imports UI and Accepted-Job History |
+| [0023](../adr/0023-migration-steps.md)                         | Migration Steps: Declarative Building Blocks for the Two Most Common Entity Changes |
 
 # Risks and Technical Debts
 

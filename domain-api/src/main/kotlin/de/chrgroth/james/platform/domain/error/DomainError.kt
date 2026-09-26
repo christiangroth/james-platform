@@ -103,6 +103,14 @@ enum class AppVersionError(override val code: String) : DomainError {
   AGGREGATION_GROUP_BY_INVALID("APPVER-054"),
   AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE("APPVER-055"),
   AGGREGATION_PERIOD_START_INVALID("APPVER-056"),
+  MIGRATION_STEP_NOT_FOUND("APPVER-057"),
+  MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND("APPVER-058"),
+  MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND("APPVER-059"),
+  MIGRATION_STEP_TYPE_NOT_CONVERTIBLE("APPVER-060"),
+  MIGRATION_STEP_TARGET_ALREADY_USED("APPVER-061"),
+  MIGRATION_STEP_IDS_MISMATCH("APPVER-062"),
+  INVALID_MIGRATION_STEP("APPVER-063"),
+  MIGRATION_STEP_TYPE_INVALID("APPVER-064"),
   ;
 }
 
@@ -134,10 +142,11 @@ enum class TestDataGeneratorError(override val code: String) : DomainError {
   ;
 }
 
-/** See docs/adr/0018-app-version-migration-execution-trigger.md. */
+/** See docs/adr/0018-app-version-migration-execution-trigger.md and docs/adr/0023-migration-steps.md. */
 enum class AppVersionMigrationError(override val code: String) : DomainError {
   SCRIPT_FAILED("MIGRATION-001"),
   VALIDATION_FAILED_AFTER_MIGRATION("MIGRATION-002"),
+  STEP_FAILED("MIGRATION-003"),
   ;
 }
 
@@ -232,6 +241,16 @@ data class AppVersionMigrationScriptFailedError(
   override val code: String = AppVersionMigrationError.SCRIPT_FAILED.code
 }
 
+/** An Entity's migration step (see MigrationStep) could not be applied to one AppData object during an installation upgrade, e.g. an unconvertible value. */
+data class AppVersionMigrationStepFailedError(
+  val entityName: String,
+  val appDataId: String,
+  val versionNumber: String,
+  val reason: String,
+) : DomainError {
+  override val code: String = AppVersionMigrationError.STEP_FAILED.code
+}
+
 /** A migration script ran successfully but its transformed data still violates the new EntityDefinition's constraints. */
 data class AppVersionMigrationValidationFailedError(
   val entityName: String,
@@ -259,6 +278,13 @@ data class InvalidAggregationDefinitionError(
   val entityNames: List<String>,
 ) : DomainError {
   override val code: String = AppVersionError.INVALID_AGGREGATION_DEFINITION.code
+}
+
+/** See docs/adr/0023-migration-steps.md — a MigrationStep became invalid, e.g. a property it references was deleted after the step was added. */
+data class InvalidMigrationStepError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_MIGRATION_STEP.code
 }
 
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {

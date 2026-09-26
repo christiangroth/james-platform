@@ -6,11 +6,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMigrationStepMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
@@ -19,6 +21,7 @@ import de.chrgroth.james.platform.domain.model.app.App
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
@@ -26,10 +29,12 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGenerationOutcome
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
@@ -113,6 +118,26 @@ data class AggregationPropertyOptionRow(
   val groupable: Boolean,
 )
 
+/** One MigrationStep in the version editor, with type and property references resolved to display names. */
+data class MigrationStepEditorRow(
+  val id: String,
+  val type: String,
+  val propertyId: String,
+  val propertyName: String,
+  val sourcePropertyId: String,
+  val sourcePropertyName: String,
+  val targetPropertyId: String,
+  val targetPropertyName: String,
+  val description: String,
+  val valid: Boolean,
+)
+
+/** A top-level property offered in one of the migration step editor's selects (see docs/adr/0023-migration-steps.md). */
+data class MigrationStepPropertyOptionRow(
+  val id: String,
+  val name: String,
+)
+
 data class SortCriteriaRequest @JsonCreator constructor(
   @param:JsonProperty("propertyId") val propertyId: String,
   @param:JsonProperty("direction") val direction: SortDirection,
@@ -157,6 +182,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var aggregationMsg: DeveloperAggregationMessages
+
+  @Inject
+  private lateinit var migrationStepMsg: DeveloperMigrationStepMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -387,6 +415,10 @@ class DeveloperAppResource {
             removedProperties = emptyList<Property>(),
             aggregations = emptyList<AggregationEditorRow>(),
             aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
+            migrationSteps = emptyList<MigrationStepEditorRow>(),
+            convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            copyValueSourcePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            copyValueTargetPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
           ),
         ).build()
       },
@@ -443,6 +475,10 @@ class DeveloperAppResource {
             removedProperties = if (breadcrumb.isEmpty()) removedProperties(publishedVersion, selectedEntity) else emptyList(),
             aggregations = selectedEntity?.let { aggregationRows(it) }.orEmpty(),
             aggregationPropertyOptions = selectedEntity?.let { aggregationPropertyOptions(it) }.orEmpty(),
+            migrationSteps = selectedEntity?.let { migrationStepRows(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            convertTypePropertyOptions = selectedEntity?.let { convertTypePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            copyValueSourcePropertyOptions = selectedEntity?.let { copyValueSourcePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            copyValueTargetPropertyOptions = selectedEntity?.let { copyValueTargetPropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
           ),
         ).build()
       },
@@ -585,6 +621,10 @@ class DeveloperAppResource {
             removedProperties = emptyList<Property>(),
             aggregations = emptyList<AggregationEditorRow>(),
             aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
+            migrationSteps = emptyList<MigrationStepEditorRow>(),
+            convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            copyValueSourcePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
+            copyValueTargetPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
           ),
         ).build()
       },
@@ -663,6 +703,10 @@ class DeveloperAppResource {
           is InvalidAggregationDefinitionError -> {
             val names = error.entityNames.joinToString(", ")
             Response.ok(DeveloperApiResult(false, aggregationMsg.developerInvalidAggregationDefinitionError(names))).build()
+          }
+          is InvalidMigrationStepError -> {
+            val names = error.entityNames.joinToString(", ")
+            Response.ok(DeveloperApiResult(false, migrationStepMsg.developerInvalidMigrationStepError(names))).build()
           }
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
@@ -808,6 +852,70 @@ class DeveloperAppResource {
     appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/migration-steps")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun addMigrationStep(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response = httpResponseMetrics.timed("rest.developer.migration-step-add") {
+    appVersionManagement.addMigrationStep(appId, versionId, entityId, migrationStepInput(form)).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/migration-steps/{stepId}")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateMigrationStep(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("stepId") stepId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response = httpResponseMetrics.timed("rest.developer.migration-step-update") {
+    appVersionManagement.updateMigrationStep(appId, versionId, entityId, stepId, migrationStepInput(form)).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/migration-steps/{stepId}/delete")
+  @Produces(MediaType.APPLICATION_JSON)
+  fun deleteMigrationStep(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("stepId") stepId: String,
+  ): Response = httpResponseMetrics.timed("rest.developer.migration-step-delete") {
+    appVersionManagement.deleteMigrationStep(appId, versionId, entityId, stepId).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/migration-steps/reorder")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun reorderMigrationSteps(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    stepIds: List<String>,
+  ): Response = httpResponseMetrics.timed("rest.developer.migration-steps-reorder") {
+    appVersionManagement.reorderMigrationSteps(appId, versionId, entityId, stepIds).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepsReorderedMessage())).build() },
     )
   }
 
@@ -1333,6 +1441,105 @@ class DeveloperAppResource {
       dateTime = it.type == PropertyType.DATE || it.type == PropertyType.DATETIME,
       groupable = it.type != PropertyType.LIST && it.type != PropertyType.OBJECT,
     )
+  }
+
+  private fun migrationStepRows(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepEditorRow> = entity.migrationSteps.map { step ->
+    when (step) {
+      is MigrationStep.ConvertType -> {
+        val propertyName = entity.properties.find { it.id == step.propertyId }?.name ?: step.propertyId.value
+        MigrationStepEditorRow(
+          id = step.id.value,
+          type = "CONVERT_TYPE",
+          propertyId = step.propertyId.value,
+          propertyName = propertyName,
+          sourcePropertyId = "",
+          sourcePropertyName = "",
+          targetPropertyId = "",
+          targetPropertyName = "",
+          description = migrationStepMsg.developerMigrationStepConvertTypeDescription(propertyName),
+          valid = isMigrationStepValid(previousEntity, entity, step),
+        )
+      }
+      is MigrationStep.CopyValue -> {
+        val sourceName = previousEntity?.properties?.find { it.id == step.sourcePropertyId }?.name ?: step.sourcePropertyId.value
+        val targetName = entity.properties.find { it.id == step.targetPropertyId }?.name ?: step.targetPropertyId.value
+        MigrationStepEditorRow(
+          id = step.id.value,
+          type = "COPY_VALUE",
+          propertyId = "",
+          propertyName = "",
+          sourcePropertyId = step.sourcePropertyId.value,
+          sourcePropertyName = sourceName,
+          targetPropertyId = step.targetPropertyId.value,
+          targetPropertyName = targetName,
+          description = migrationStepMsg.developerMigrationStepCopyValueDescription(sourceName, targetName),
+          valid = isMigrationStepValid(previousEntity, entity, step),
+        )
+      }
+    }
+  }
+
+  /** Whether [step] still resolves to an existing, convertible source/target pair and is the only step of [entity] targeting that property. */
+  private fun isMigrationStepValid(previousEntity: EntityDefinition?, entity: EntityDefinition, step: MigrationStep): Boolean {
+    val targetId = migrationStepTargetId(step)
+    val sourceProperty = previousEntity?.properties?.find { it.id.value == migrationStepSourceId(step) } ?: return false
+    val targetProperty = entity.properties.find { it.id.value == targetId } ?: return false
+    if (!ValueConversion.isConvertible(sourceProperty.type, targetProperty.type)) return false
+    return entity.migrationSteps.count { migrationStepTargetId(it) == targetId } <= 1
+  }
+
+  private fun migrationStepSourceId(step: MigrationStep): String = when (step) {
+    is MigrationStep.ConvertType -> step.propertyId.value
+    is MigrationStep.CopyValue -> step.sourcePropertyId.value
+  }
+
+  private fun migrationStepTargetId(step: MigrationStep): String = when (step) {
+    is MigrationStep.ConvertType -> step.propertyId.value
+    is MigrationStep.CopyValue -> step.targetPropertyId.value
+  }
+
+  /** Top-level properties of [entity] whose type/unit changed from [previousEntity] and remain convertible — candidates for a `ConvertType` step. */
+  private fun convertTypePropertyOptions(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepPropertyOptionRow> {
+    if (previousEntity == null) return emptyList()
+    return entity.properties.mapNotNull { property ->
+      val previousProperty = previousEntity.properties.find { it.id == property.id } ?: return@mapNotNull null
+      if (previousProperty.type == property.type && previousProperty.unit == property.unit) return@mapNotNull null
+      if (!ValueConversion.isConvertible(previousProperty.type, property.type)) return@mapNotNull null
+      MigrationStepPropertyOptionRow(id = property.id.value, name = property.name)
+    }
+  }
+
+  /** Top-level properties that existed in [previousEntity] but were removed from [entity] — candidates for a `CopyValue` step's source. */
+  private fun copyValueSourcePropertyOptions(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepPropertyOptionRow> {
+    if (previousEntity == null) return emptyList()
+    val draftPropertyIds = entity.properties.map { it.id }.toSet()
+    return previousEntity.properties.filter { it.id !in draftPropertyIds }.map { MigrationStepPropertyOptionRow(id = it.id.value, name = it.name) }
+  }
+
+  /** Top-level properties newly added to [entity] since [previousEntity] — candidates for a `CopyValue` step's target. */
+  private fun copyValueTargetPropertyOptions(entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepPropertyOptionRow> {
+    if (previousEntity == null) return emptyList()
+    val previousPropertyIds = previousEntity.properties.map { it.id }.toSet()
+    return entity.properties.filter { it.id !in previousPropertyIds }.map { MigrationStepPropertyOptionRow(id = it.id.value, name = it.name) }
+  }
+
+  private fun migrationStepInput(form: MultivaluedMap<String, String>): MigrationStepInput = MigrationStepInput(
+    type = form.getFirst("type").orEmpty(),
+    propertyId = form.getFirst("propertyId"),
+    sourcePropertyId = form.getFirst("sourcePropertyId"),
+    targetPropertyId = form.getFirst("targetPropertyId"),
+  )
+
+  private fun migrationStepErrorMessage(code: String): String = when (code) {
+    AppVersionError.MIGRATION_STEP_NOT_FOUND.code -> migrationStepMsg.developerMigrationStepNotFoundError()
+    AppVersionError.MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND.code -> migrationStepMsg.developerMigrationStepSourcePropertyNotFoundError()
+    AppVersionError.MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND.code -> migrationStepMsg.developerMigrationStepTargetPropertyNotFoundError()
+    AppVersionError.MIGRATION_STEP_TYPE_NOT_CONVERTIBLE.code -> migrationStepMsg.developerMigrationStepTypeNotConvertibleError()
+    AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED.code -> migrationStepMsg.developerMigrationStepTargetAlreadyUsedError()
+    AppVersionError.MIGRATION_STEP_TYPE_INVALID.code -> migrationStepMsg.developerMigrationStepTypeInvalidError()
+    AppVersionError.MIGRATION_STEP_IDS_MISMATCH.code -> devMsg.developerEntityIdsMismatchError()
+    AppVersionError.BLANK_INPUT.code -> migrationStepMsg.developerMigrationStepTypeInvalidError()
+    else -> entityErrorMessage(code)
   }
 
   private fun aggregationFunctionLabel(function: AggregationFunction): String = when (function) {

@@ -20,6 +20,10 @@ interface AppVersionManagementPort {
   fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion>
   fun reorderEntities(appId: String, versionId: String, entityIds: List<String>): Either<DomainError, AppVersion>
   fun updateEntityDisplayText(appId: String, versionId: String, entityId: String, displayText: String?): Either<DomainError, AppVersion>
+  fun addMigrationStep(appId: String, versionId: String, entityId: String, input: MigrationStepInput): Either<DomainError, AppVersion>
+  fun updateMigrationStep(appId: String, versionId: String, entityId: String, stepId: String, input: MigrationStepInput): Either<DomainError, AppVersion>
+  fun deleteMigrationStep(appId: String, versionId: String, entityId: String, stepId: String): Either<DomainError, AppVersion>
+  fun reorderMigrationSteps(appId: String, versionId: String, entityId: String, stepIds: List<String>): Either<DomainError, AppVersion>
   fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion>
   fun updateEntitySortCriteria(appId: String, versionId: String, entityId: String, sortBy: List<SortCriteria>): Either<DomainError, AppVersion>
   fun addProperty(
@@ -136,4 +140,16 @@ data class AggregationInput(
   val groupBy: String? = null,
   val periodStartDay: String? = null,
   val periodStartMonth: String? = null,
+)
+
+/**
+ * Raw editor input for a `MigrationStep` (see MigrationStep, docs/adr/0023-migration-steps.md). [type] is `CONVERT_TYPE` or `COPY_VALUE`;
+ * [propertyId] is used for `CONVERT_TYPE`, [sourcePropertyId]/[targetPropertyId] for `COPY_VALUE`. Property references are property IDs
+ * of the owning Entity (top-level only).
+ */
+data class MigrationStepInput(
+  val type: String,
+  val propertyId: String? = null,
+  val sourcePropertyId: String? = null,
+  val targetPropertyId: String? = null,
 )
