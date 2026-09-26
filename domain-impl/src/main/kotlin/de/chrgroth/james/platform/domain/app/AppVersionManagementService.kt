@@ -26,10 +26,13 @@ import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.MigrationStep
 import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyChangeReason
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.coveredPropertyId
+import de.chrgroth.james.platform.domain.model.app.propertyChangeReasons
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.granularityByName
@@ -531,6 +534,56 @@ class AppVersionManagementService(
     appVersionRepository.save(updated)
     logger.info { "Migration steps reordered in entity $entityId in version $versionId" }
     return updated.right()
+  }
+
+  /**
+   * Proposes a [MigrationStep] for every Property change between the last published Version and [entityId]'s draft shape that
+   * is breaking (see [propertyChangeReasons]) but not yet covered by an existing step. A Property with several simultaneous
+   * reasons only gets one suggestion, in priority order (type change, unit change, became required, tightened constraint) since
+   * only one step may target a given Property anyway. Removed/added Property pairs (a delete-and-replace) are suggested as a
+   * `CopyValue`, preferring a pairing whose types are convertible; a fixed `value`/`sourceGranularity` is deliberately left blank
+   * for the Developer to fill in the editor rather than guessed. Returns an empty list once every breaking change already has a
+   * step, or if there is no predecessor Version to compare against.
+   */
+  override fun suggestMigrationSteps(appId: String, versionId: String, entityId: String): Either<DomainError, List<MigrationStepInput>> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Suggest migration steps failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val previousEntity = latestPublishedVersion(AppId(appId))?.entityDefinitions?.find { it.id == entity.id } ?: return emptyList<MigrationStepInput>().right()
+
+    val coveredPropertyIds = entity.migrationSteps.map { it.coveredPropertyId }.toSet()
+    val suggestions = mutableListOf<MigrationStepInput>()
+
+    for (draftProp in entity.properties) {
+      if (draftProp.id in coveredPropertyIds) continue
+      val publishedProp = previousEntity.properties.find { it.id == draftProp.id } ?: continue
+      val reasons = propertyChangeReasons(publishedProp, draftProp)
+      val suggestion = when {
+        PropertyChangeReason.TYPE_CHANGED in reasons && ValueConversion.isConvertible(publishedProp.type, draftProp.type) ->
+          MigrationStepInput(type = "CONVERT_TYPE", propertyId = draftProp.id.value)
+        PropertyChangeReason.UNIT_ADDED_OR_CHANGED in reasons -> MigrationStepInput(type = "CONVERT_UNIT", propertyId = draftProp.id.value)
+        PropertyChangeReason.BECAME_REQUIRED in reasons -> MigrationStepInput(type = "FILL_EMPTY_VALUE", propertyId = draftProp.id.value)
+        PropertyChangeReason.CONSTRAINT_TIGHTENED in reasons -> MigrationStepInput(type = "ADJUST_TO_CONSTRAINTS", propertyId = draftProp.id.value)
+        else -> null
+      }
+      if (suggestion != null) suggestions += suggestion
+    }
+
+    val copyValueSourceIds = entity.migrationSteps.filterIsInstance<MigrationStep.CopyValue>().map { it.sourcePropertyId }.toSet()
+    val copyValueTargetIds = entity.migrationSteps.filterIsInstance<MigrationStep.CopyValue>().map { it.targetPropertyId }.toSet()
+    val draftPropertyIds = entity.properties.map { it.id }.toSet()
+    val previousPropertyIds = previousEntity.properties.map { it.id }.toSet()
+    val removedProperties = previousEntity.properties.filter { it.id !in draftPropertyIds && it.id !in copyValueSourceIds }
+    val unmatchedAddedProperties = entity.properties.filter { it.id !in previousPropertyIds && it.id !in copyValueTargetIds }.toMutableList()
+    for (removedProperty in removedProperties) {
+      val match = unmatchedAddedProperties.find { ValueConversion.isConvertible(removedProperty.type, it.type) } ?: unmatchedAddedProperties.firstOrNull() ?: continue
+      unmatchedAddedProperties.remove(match)
+      suggestions += MigrationStepInput(type = "COPY_VALUE", sourcePropertyId = removedProperty.id.value, targetPropertyId = match.id.value)
+    }
+
+    return suggestions.right()
   }
 
   private fun latestPublishedVersion(appId: AppId): AppVersion? =
@@ -1648,42 +1701,8 @@ class AppVersionManagementService(
       draftProp == null || isPropertyBreaking(publishedProp, draftProp)
     }
 
-  private fun isPropertyBreaking(publishedProp: Property, draftProp: Property): Boolean {
-    if (draftProp.type != publishedProp.type) return true
-    if (publishedProp.nullable && !draftProp.nullable) return true
-    val addedConstraints = draftProp.constraints - publishedProp.constraints
-    if (addedConstraints.any { isRestrictiveConstraint(it) }) return true
-    val publishedUnit = publishedProp.unit
-    val draftUnit = draftProp.unit
-    if ((publishedUnit == null) != (draftUnit == null)) return true
-    if (publishedUnit != null && draftUnit != null) {
-      if (publishedUnit.family != draftUnit.family) return true
-      if (publishedUnit.storageGranularity != draftUnit.storageGranularity) return true
-    }
-    return false
-  }
-
-  private fun isRestrictiveConstraint(constraint: PropertyConstraint): Boolean = when (constraint) {
-    is PropertyConstraint.MinLong,
-    is PropertyConstraint.MaxLong,
-    is PropertyConstraint.StepLong,
-    is PropertyConstraint.MinDouble,
-    is PropertyConstraint.MaxDouble,
-    is PropertyConstraint.StepDouble,
-    is PropertyConstraint.MinLength,
-    is PropertyConstraint.MaxLength,
-    is PropertyConstraint.Pattern,
-    is PropertyConstraint.MinSize,
-    is PropertyConstraint.MaxSize,
-    is PropertyConstraint.MinDate,
-    is PropertyConstraint.MaxDate,
-    is PropertyConstraint.MinTime,
-    is PropertyConstraint.MaxTime,
-    is PropertyConstraint.MinDatetime,
-    is PropertyConstraint.MaxDatetime,
-    -> true
-    else -> false
-  }
+  private fun isPropertyBreaking(publishedProp: Property, draftProp: Property): Boolean =
+    propertyChangeReasons(publishedProp, draftProp).isNotEmpty()
 
   private fun nextVersions(current: VersionNumber): Triple<VersionNumber, VersionNumber, VersionNumber> {
     val parts = current.value.split(".").map { it.toInt() }

@@ -90,6 +90,27 @@ interface DeveloperMigrationStepMessages {
   fun developerMigrationStepInvalidBadge(): String
 
   @Message
+  fun developerMigrationSuggestionHeading(): String
+
+  @Message
+  fun developerMigrationSuggestionConvertTypeDescription(propertyName: String, oldType: String, newType: String): String
+
+  @Message
+  fun developerMigrationSuggestionCopyValueDescription(sourceName: String, targetName: String): String
+
+  @Message
+  fun developerMigrationSuggestionConvertUnitDescription(propertyName: String): String
+
+  @Message
+  fun developerMigrationSuggestionFillEmptyValueDescription(propertyName: String): String
+
+  @Message
+  fun developerMigrationSuggestionAdjustToConstraintsDescription(propertyName: String): String
+
+  @Message
+  fun developerMigrationSuggestionApplyAriaLabel(): String
+
+  @Message
   fun developerRemoveMigrationStepModalTitle(): String
 
   @Message

@@ -423,6 +423,7 @@ class DeveloperAppResource {
             aggregations = emptyList<AggregationEditorRow>(),
             aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
             migrationSteps = emptyList<MigrationStepEditorRow>(),
+            migrationSuggestions = emptyList<MigrationStepEditorRow>(),
             convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueSourcePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueTargetPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
@@ -486,6 +487,9 @@ class DeveloperAppResource {
             aggregations = selectedEntity?.let { aggregationRows(it) }.orEmpty(),
             aggregationPropertyOptions = selectedEntity?.let { aggregationPropertyOptions(it) }.orEmpty(),
             migrationSteps = selectedEntity?.let { migrationStepRows(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
+            migrationSuggestions = selectedEntity
+              ?.let { migrationSuggestionRows(appId, versionId, it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }
+              .orEmpty(),
             convertTypePropertyOptions = selectedEntity?.let { convertTypePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
             copyValueSourcePropertyOptions = selectedEntity?.let { copyValueSourcePropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
             copyValueTargetPropertyOptions = selectedEntity?.let { copyValueTargetPropertyOptions(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
@@ -637,6 +641,7 @@ class DeveloperAppResource {
             aggregations = emptyList<AggregationEditorRow>(),
             aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
             migrationSteps = emptyList<MigrationStepEditorRow>(),
+            migrationSuggestions = emptyList<MigrationStepEditorRow>(),
             convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueSourcePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
             copyValueTargetPropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
@@ -1526,6 +1531,106 @@ class DeveloperAppResource {
         )
       }
     }
+  }
+
+  /**
+   * Every breaking change on [entity] not yet covered by an existing [MigrationStep], proposed as a click-to-prefill row - see
+   * `AppVersionManagementPort.suggestMigrationSteps`/docs/adr/0023-migration-steps.md. Reuses [MigrationStepEditorRow] with a blank
+   * `id` so the version editor's "add" modal, not "edit", opens when a suggestion row is clicked.
+   */
+  private fun migrationSuggestionRows(appId: String, versionId: String, entity: EntityDefinition, previousEntity: EntityDefinition?): List<MigrationStepEditorRow> {
+    if (previousEntity == null) return emptyList()
+    return appVersionManagement.suggestMigrationSteps(appId, versionId, entity.id.value).getOrNull().orEmpty().map { input ->
+      when (input.type) {
+        "CONVERT_TYPE" -> {
+          val propertyName = entity.properties.find { it.id.value == input.propertyId }?.name ?: input.propertyId.orEmpty()
+          val oldType = previousEntity.properties.find { it.id.value == input.propertyId }?.type?.let { propertyTypeLabel(it) }.orEmpty()
+          val newType = entity.properties.find { it.id.value == input.propertyId }?.type?.let { propertyTypeLabel(it) }.orEmpty()
+          migrationSuggestionRow(
+            input = input,
+            propertyId = input.propertyId.orEmpty(),
+            propertyName = propertyName,
+            description = migrationStepMsg.developerMigrationSuggestionConvertTypeDescription(propertyName, oldType, newType),
+          )
+        }
+        "COPY_VALUE" -> {
+          val sourceName = previousEntity.properties.find { it.id.value == input.sourcePropertyId }?.name ?: input.sourcePropertyId.orEmpty()
+          val targetName = entity.properties.find { it.id.value == input.targetPropertyId }?.name ?: input.targetPropertyId.orEmpty()
+          migrationSuggestionRow(
+            input = input,
+            sourcePropertyId = input.sourcePropertyId.orEmpty(),
+            sourcePropertyName = sourceName,
+            targetPropertyId = input.targetPropertyId.orEmpty(),
+            targetPropertyName = targetName,
+            description = migrationStepMsg.developerMigrationSuggestionCopyValueDescription(sourceName, targetName),
+          )
+        }
+        "CONVERT_UNIT" -> {
+          val propertyName = entity.properties.find { it.id.value == input.propertyId }?.name ?: input.propertyId.orEmpty()
+          migrationSuggestionRow(
+            input = input,
+            propertyId = input.propertyId.orEmpty(),
+            propertyName = propertyName,
+            description = migrationStepMsg.developerMigrationSuggestionConvertUnitDescription(propertyName),
+          )
+        }
+        "FILL_EMPTY_VALUE" -> {
+          val propertyName = entity.properties.find { it.id.value == input.propertyId }?.name ?: input.propertyId.orEmpty()
+          migrationSuggestionRow(
+            input = input,
+            propertyId = input.propertyId.orEmpty(),
+            propertyName = propertyName,
+            description = migrationStepMsg.developerMigrationSuggestionFillEmptyValueDescription(propertyName),
+          )
+        }
+        else -> {
+          val propertyName = entity.properties.find { it.id.value == input.propertyId }?.name ?: input.propertyId.orEmpty()
+          migrationSuggestionRow(
+            input = input,
+            propertyId = input.propertyId.orEmpty(),
+            propertyName = propertyName,
+            description = migrationStepMsg.developerMigrationSuggestionAdjustToConstraintsDescription(propertyName),
+          )
+        }
+      }
+    }
+  }
+
+  private fun migrationSuggestionRow(
+    input: MigrationStepInput,
+    description: String,
+    propertyId: String = "",
+    propertyName: String = "",
+    sourcePropertyId: String = "",
+    sourcePropertyName: String = "",
+    targetPropertyId: String = "",
+    targetPropertyName: String = "",
+  ) = MigrationStepEditorRow(
+    id = "",
+    type = input.type,
+    propertyId = propertyId,
+    propertyName = propertyName,
+    sourcePropertyId = sourcePropertyId,
+    sourcePropertyName = sourcePropertyName,
+    targetPropertyId = targetPropertyId,
+    targetPropertyName = targetPropertyName,
+    sourceGranularity = "",
+    value = "",
+    description = description,
+    valid = true,
+  )
+
+  private fun propertyTypeLabel(type: PropertyType): String = when (type) {
+    PropertyType.STRING -> msg.propertyTypeString()
+    PropertyType.LONG -> msg.propertyTypeLong()
+    PropertyType.DOUBLE -> msg.propertyTypeDouble()
+    PropertyType.BOOLEAN -> msg.propertyTypeBoolean()
+    PropertyType.DATE -> msg.propertyTypeDate()
+    PropertyType.TIME -> msg.propertyTypeTime()
+    PropertyType.DATETIME -> msg.propertyTypeDatetime()
+    PropertyType.REF -> msg.propertyTypeReference()
+    PropertyType.LIST -> msg.propertyTypeList()
+    PropertyType.OBJECT -> msg.propertyTypeObject()
   }
 
   private fun migrationStepRow(

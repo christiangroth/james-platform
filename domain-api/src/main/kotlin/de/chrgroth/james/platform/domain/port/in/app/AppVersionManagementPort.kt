@@ -24,6 +24,12 @@ interface AppVersionManagementPort {
   fun updateMigrationStep(appId: String, versionId: String, entityId: String, stepId: String, input: MigrationStepInput): Either<DomainError, AppVersion>
   fun deleteMigrationStep(appId: String, versionId: String, entityId: String, stepId: String): Either<DomainError, AppVersion>
   fun reorderMigrationSteps(appId: String, versionId: String, entityId: String, stepIds: List<String>): Either<DomainError, AppVersion>
+
+  /**
+   * Proposes a [de.chrgroth.james.platform.domain.model.app.MigrationStep] (as prefilled editor input) for every breaking Property
+   * change on [entityId]'s draft not yet covered by an existing step - see docs/adr/0023-migration-steps.md.
+   */
+  fun suggestMigrationSteps(appId: String, versionId: String, entityId: String): Either<DomainError, List<MigrationStepInput>>
   fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion>
   fun updateEntitySortCriteria(appId: String, versionId: String, entityId: String, sortBy: List<SortCriteria>): Either<DomainError, AppVersion>
   fun addProperty(

@@ -372,6 +372,7 @@ class AppVersionMigrationServiceTests {
     )
     val inst = installedApp(id = "inst-1")
     every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appVersionRepository.findAllByAppId(appId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "true")))
 
     val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
@@ -391,6 +392,7 @@ class AppVersionMigrationServiceTests {
     )
     val inst = installedApp(id = "inst-1")
     every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appVersionRepository.findAllByAppId(appId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "not-a-number")))
 
     val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
@@ -521,6 +523,7 @@ class AppVersionMigrationServiceTests {
     )
     val inst = installedApp(id = "inst-1")
     every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appVersionRepository.findAllByAppId(appId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "lowercase")))
 
     val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
@@ -550,6 +553,7 @@ class AppVersionMigrationServiceTests {
     val inst1 = installedApp(id = "inst-1")
     val inst2 = installedApp(id = "inst-2")
     every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst1, inst2)
+    every { appVersionRepository.findAllByAppId(appId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst1.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst2.id, entityId) } returns listOf(appData("data-2", "1.0.0"))
 
@@ -565,6 +569,7 @@ class AppVersionMigrationServiceTests {
     val newEntity = previousEntity.copy(migrationScript = "throw RuntimeException(\"boom\")")
     val inst = installedApp(id = "inst-1")
     every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appVersionRepository.findAllByAppId(appId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
 
     val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
@@ -581,12 +586,37 @@ class AppVersionMigrationServiceTests {
     val newEntity = previousEntity.copy(migrationScript = "it + (\"${prop.id.value}\" to \"5\")")
     val inst = installedApp(id = "inst-1")
     every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appVersionRepository.findAllByAppId(appId) } returns emptyList()
     every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0"))
 
     val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationValidationFailedError::class.java)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `dryRunMigration first applies an installation's pending published-version migrations before dry-running the current change`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Status", type = PropertyType.STRING, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val nonNullableProp = prop.copy(nullable = false)
+    val entityV2 = entityV1.copy(
+      properties = listOf(nonNullableProp),
+      migrationSteps = listOf(MigrationStep.FillEmptyValue(MigrationStepId("step-1"), prop.id, "active")),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    // this installation's data is still on v1's shape (auto-upgrade to v2 never ran) - the blank value has not been filled yet
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to null)))
+
+    // dry-running v2 (the latest published shape) against itself - as resolveBreakingChanges does for a no-op draft
+    val result = service.dryRunMigration(appId, listOf(entityV2 to entityV2))
+
+    assertThat(result.isRight()).isTrue()
     verify(exactly = 0) { appDataRepository.save(any()) }
   }
 

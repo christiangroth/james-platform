@@ -491,4 +491,75 @@ class MigrationStepEditorPageTests {
       .body(containsString("\"ok\":false"))
       .body(containsString("Ungültige Migrationsbausteine"))
   }
+
+  @Test
+  fun `entity editor suggests a ConvertType and a CopyValue migration step for changes without a matching step`() {
+    val draft = setupDraft()
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(containsString("data-testid=\"migration-suggestions-table\""))
+      .body(containsString("Code: Text → Ganzzahl → Typ konvertieren"))
+      .body(containsString("Legacy entfernt, LegacyNew hinzugefügt → Wert übernehmen"))
+      .body(containsString("data-action=\"apply-migration-suggestion\""))
+      .body(containsString("data-migration-step-property-id=\"${draft.codePropertyId}\""))
+      .body(containsString("data-migration-step-source-property-id=\"${draft.legacyPropertyId}\""))
+      .body(containsString("data-migration-step-target-property-id=\"${draft.newPropertyId}\""))
+  }
+
+  @Test
+  fun `entity editor stops suggesting a ConvertType step once a matching step exists, but keeps the other suggestion`() {
+    val draft = setupDraft()
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "CONVERT_TYPE")
+      .formParam("propertyId", draft.codePropertyId)
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(not(containsString("Code: Text → Ganzzahl → Typ konvertieren")))
+      .body(containsString("Legacy entfernt, LegacyNew hinzugefügt → Wert übernehmen"))
+  }
+
+  @Test
+  fun `entity editor shows no migration suggestions once every breaking change is covered`() {
+    val draft = setupDraft()
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "CONVERT_TYPE")
+      .formParam("propertyId", draft.codePropertyId)
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("type", "COPY_VALUE")
+      .formParam("sourcePropertyId", draft.legacyPropertyId)
+      .formParam("targetPropertyId", draft.newPropertyId)
+      .`when`()
+      .post("${draft.entityUrl}/migration-steps")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    given()
+      .`when`()
+      .get(draft.entityUrl)
+      .then()
+      .statusCode(200)
+      .body(not(containsString("data-testid=\"migration-suggestions-table\"")))
+  }
 }

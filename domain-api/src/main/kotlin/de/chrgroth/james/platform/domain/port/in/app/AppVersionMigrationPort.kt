@@ -33,10 +33,11 @@ interface AppVersionMigrationPort {
 
   /**
    * Dry-runs each (previous, new) Entity pair in [entityMigrations] against every existing AppData row of [appId], across all installations,
-   * without persisting anything. Used by `AppVersionManagementService.publishVersion()`/`computeVersionBump()` to check whether a migration
-   * neutralizes an otherwise-breaking change before a Version is published. Returns [Unit] on success (including when there is no matching
-   * data); on failure, the [DomainError] describing the first
-   * failing object.
+   * without persisting anything. An installation that fell behind auto-upgrade first has its pending published-Version migrations for that
+   * Entity applied in memory, so the row reflects the shape it is actually in rather than assuming it is already on the latest published
+   * Version. Used by `AppVersionManagementService.publishVersion()`/`computeVersionBump()` to check whether a migration neutralizes an
+   * otherwise-breaking change before a Version is published. Returns [Unit] on success (including when there is no matching data); on
+   * failure, the [DomainError] describing the first failing object.
    */
   fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit>
 }
