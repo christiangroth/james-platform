@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMigrationStepMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
@@ -181,6 +182,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var aggregationMsg: DeveloperAggregationMessages
+
+  @Inject
+  private lateinit var migrationStepMsg: DeveloperMigrationStepMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -702,7 +706,7 @@ class DeveloperAppResource {
           }
           is InvalidMigrationStepError -> {
             val names = error.entityNames.joinToString(", ")
-            Response.ok(DeveloperApiResult(false, devMsg.developerInvalidMigrationStepError(names))).build()
+            Response.ok(DeveloperApiResult(false, migrationStepMsg.developerInvalidMigrationStepError(names))).build()
           }
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
@@ -863,7 +867,7 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.migration-step-add") {
     appVersionManagement.addMigrationStep(appId, versionId, entityId, migrationStepInput(form)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerMigrationStepAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -880,7 +884,7 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.migration-step-update") {
     appVersionManagement.updateMigrationStep(appId, versionId, entityId, stepId, migrationStepInput(form)).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerMigrationStepUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -895,7 +899,7 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.migration-step-delete") {
     appVersionManagement.deleteMigrationStep(appId, versionId, entityId, stepId).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerMigrationStepDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepDeletedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -911,7 +915,7 @@ class DeveloperAppResource {
   ): Response = httpResponseMetrics.timed("rest.developer.migration-steps-reorder") {
     appVersionManagement.reorderMigrationSteps(appId, versionId, entityId, stepIds).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, migrationStepErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerMigrationStepsReorderedMessage())).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, migrationStepMsg.developerMigrationStepsReorderedMessage())).build() },
     )
   }
 
@@ -1452,7 +1456,7 @@ class DeveloperAppResource {
           sourcePropertyName = "",
           targetPropertyId = "",
           targetPropertyName = "",
-          description = devMsg.developerMigrationStepConvertTypeDescription(propertyName),
+          description = migrationStepMsg.developerMigrationStepConvertTypeDescription(propertyName),
           valid = isMigrationStepValid(previousEntity, entity, step),
         )
       }
@@ -1468,7 +1472,7 @@ class DeveloperAppResource {
           sourcePropertyName = sourceName,
           targetPropertyId = step.targetPropertyId.value,
           targetPropertyName = targetName,
-          description = devMsg.developerMigrationStepCopyValueDescription(sourceName, targetName),
+          description = migrationStepMsg.developerMigrationStepCopyValueDescription(sourceName, targetName),
           valid = isMigrationStepValid(previousEntity, entity, step),
         )
       }
@@ -1527,14 +1531,14 @@ class DeveloperAppResource {
   )
 
   private fun migrationStepErrorMessage(code: String): String = when (code) {
-    AppVersionError.MIGRATION_STEP_NOT_FOUND.code -> devMsg.developerMigrationStepNotFoundError()
-    AppVersionError.MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND.code -> devMsg.developerMigrationStepSourcePropertyNotFoundError()
-    AppVersionError.MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND.code -> devMsg.developerMigrationStepTargetPropertyNotFoundError()
-    AppVersionError.MIGRATION_STEP_TYPE_NOT_CONVERTIBLE.code -> devMsg.developerMigrationStepTypeNotConvertibleError()
-    AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED.code -> devMsg.developerMigrationStepTargetAlreadyUsedError()
-    AppVersionError.MIGRATION_STEP_TYPE_INVALID.code -> devMsg.developerMigrationStepTypeInvalidError()
+    AppVersionError.MIGRATION_STEP_NOT_FOUND.code -> migrationStepMsg.developerMigrationStepNotFoundError()
+    AppVersionError.MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND.code -> migrationStepMsg.developerMigrationStepSourcePropertyNotFoundError()
+    AppVersionError.MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND.code -> migrationStepMsg.developerMigrationStepTargetPropertyNotFoundError()
+    AppVersionError.MIGRATION_STEP_TYPE_NOT_CONVERTIBLE.code -> migrationStepMsg.developerMigrationStepTypeNotConvertibleError()
+    AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED.code -> migrationStepMsg.developerMigrationStepTargetAlreadyUsedError()
+    AppVersionError.MIGRATION_STEP_TYPE_INVALID.code -> migrationStepMsg.developerMigrationStepTypeInvalidError()
     AppVersionError.MIGRATION_STEP_IDS_MISMATCH.code -> devMsg.developerEntityIdsMismatchError()
-    AppVersionError.BLANK_INPUT.code -> devMsg.developerMigrationStepTypeInvalidError()
+    AppVersionError.BLANK_INPUT.code -> migrationStepMsg.developerMigrationStepTypeInvalidError()
     else -> entityErrorMessage(code)
   }
 

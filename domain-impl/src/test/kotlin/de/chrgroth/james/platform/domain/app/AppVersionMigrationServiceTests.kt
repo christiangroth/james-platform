@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
+import de.chrgroth.james.platform.domain.error.AppVersionMigrationStepFailedError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationValidationFailedError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
@@ -9,13 +10,18 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationStep
+import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationScriptResult
@@ -248,6 +254,149 @@ class AppVersionMigrationServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("20")
     assertThat(savedSlot.captured.lastValidatedWithVersion).isEqualTo(VersionNumber("3.0.0"))
+  }
+
+  // endregion
+
+  // region migration steps
+
+  @Test
+  fun `migrateInstallation converts a value in place via a ConvertType step`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Active", type = PropertyType.STRING, nullable = true)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val convertedProp = prop.copy(type = PropertyType.BOOLEAN)
+    val entityV2 = entityV1.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "TRUE")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("true")
+  }
+
+  @Test
+  fun `migrateInstallation copies and converts a value, including unit granularity, via a CopyValue step`() {
+    val sourceProp = Property(
+      id = PropertyId("p-legacy"),
+      name = "Legacy",
+      type = PropertyType.LONG,
+      nullable = true,
+      unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS),
+    )
+    val targetProp = Property(
+      id = PropertyId("p-new"),
+      name = "LegacyNew",
+      type = PropertyType.LONG,
+      nullable = true,
+      unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.KILOMETERS, DistanceGranularity.KILOMETERS),
+    )
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(sourceProp))
+    val entityV2 = entityV1.copy(
+      properties = listOf(targetProp),
+      migrationSteps = listOf(MigrationStep.CopyValue(MigrationStepId("step-1"), sourceProp.id, targetProp.id)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(sourceProp.id.value to "5000")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[targetProp.id.value]).isEqualTo("5")
+  }
+
+  @Test
+  fun `migration steps run before the migration script`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.STRING, nullable = true)
+    val convertedProp = prop.copy(type = PropertyType.LONG)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val entityV2 = entityV1.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+      migrationScript = "it + (\"${prop.id.value}\" to ((it[\"${prop.id.value}\"]?.toLongOrNull() ?: 0L) + 1).toString())",
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "41")))
+    val savedSlot = slot<AppData>()
+    justRun { appDataRepository.save(capture(savedSlot)) }
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedSlot.captured.data[prop.id.value]).isEqualTo("42")
+  }
+
+  @Test
+  fun `migrateInstallation aborts and persists nothing when a migration step's value cannot be converted`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING, nullable = true)
+    val convertedProp = prop.copy(type = PropertyType.LONG)
+    val entityV1 = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val entityV2 = entityV1.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+    )
+    val v1 = publishedVersion("ver-1", "1.0.0", listOf(entityV1), Instant.parse("2024-01-01T00:00:00Z"))
+    val v2 = publishedVersion("ver-2", "2.0.0", listOf(entityV2), Instant.parse("2024-02-01T00:00:00Z"))
+    every { appVersionRepository.findAllByAppId(appId) } returns listOf(v1, v2)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "not-a-number")))
+
+    val result = service.migrateInstallation(installedAppId, appId, VersionNumber("1.0.0"), VersionNumber("2.0.0"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationStepFailedError::class.java)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `dryRunMigration succeeds via a migration step without a migration script`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Active", type = PropertyType.STRING, nullable = true)
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val convertedProp = prop.copy(type = PropertyType.BOOLEAN)
+    val newEntity = previousEntity.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+    )
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "true")))
+
+    val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `dryRunMigration fails without persisting when a migration step's value cannot be converted`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING, nullable = true)
+    val previousEntity = EntityDefinition(id = entityId, name = "Order", properties = listOf(prop))
+    val convertedProp = prop.copy(type = PropertyType.LONG)
+    val newEntity = previousEntity.copy(
+      properties = listOf(convertedProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), prop.id)),
+    )
+    val inst = installedApp(id = "inst-1")
+    every { installedAppRepository.findAllByAppId(appId) } returns listOf(inst)
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(inst.id, entityId) } returns listOf(appData("data-1", "1.0.0", mapOf(prop.id.value to "not-a-number")))
+
+    val result = service.dryRunMigration(appId, listOf(previousEntity to newEntity))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isInstanceOf(AppVersionMigrationStepFailedError::class.java)
+    verify(exactly = 0) { appDataRepository.save(any()) }
   }
 
   // endregion

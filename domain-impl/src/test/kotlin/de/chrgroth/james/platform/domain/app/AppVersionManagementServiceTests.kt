@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -24,6 +25,8 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.MigrationStep
+import de.chrgroth.james.platform.domain.model.app.MigrationStepId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
@@ -40,6 +43,7 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
+import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
@@ -987,6 +991,29 @@ class AppVersionManagementServiceTests {
     assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
     assertThat(result.getOrNull()!!.breakingEntityIds).isEmpty()
     assertThat(result.getOrNull()!!.breakingPropertyIds).isEmpty()
+    verify(exactly = 1) { appVersionMigration.dryRunMigration(AppId("app-1"), any()) }
+  }
+
+  @Test
+  fun `computeVersionBump reclassifies a breaking change as non-breaking when a compensating migration step's dry-run succeeds`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Order",
+      properties = listOf(draftProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), draftProp.id)),
+    )
+    val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(entityDefinitions = listOf(draftEntity))
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.computeVersionBump("app-1", "ver-draft")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()!!.hasBreakingChanges).isFalse()
     verify(exactly = 1) { appVersionMigration.dryRunMigration(AppId("app-1"), any()) }
   }
 
@@ -2173,7 +2200,7 @@ class AppVersionManagementServiceTests {
 
     // ids identify a section/line (renames show up as changed names); everything else must be rendered
     assertThat(fieldsOf(EntityDefinition::class.java)).containsExactlyInAnyOrder(
-      "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationScript",
+      "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationSteps", "migrationScript",
     )
     assertThat(fieldsOf(Property::class.java)).containsExactlyInAnyOrder(
       "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "valueProposals", "targetEntityId", "listItemType", "itemConstraints",
@@ -2366,6 +2393,256 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  // endregion
+
+  // region migration steps
+
+  @Test
+  fun `addMigrationStep adds a ConvertType step when the type changed and is convertible`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addMigrationStep("app-1", "ver-1", "e-1", MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isInstanceOf(MigrationStep.ConvertType::class.java)
+    assertThat((step as MigrationStep.ConvertType).propertyId).isEqualTo(PropertyId("p-1"))
+  }
+
+  @Test
+  fun `addMigrationStep adds a CopyValue step when source and target are convertible`() {
+    val sourceProp = Property(id = PropertyId("p-1"), name = "Legacy", type = PropertyType.STRING)
+    val targetProp = Property(id = PropertyId("p-2"), name = "LegacyNew", type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(sourceProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(targetProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "COPY_VALUE", sourcePropertyId = "p-1", targetPropertyId = "p-2"),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isEqualTo(MigrationStep.CopyValue((step as MigrationStep.CopyValue).id, PropertyId("p-1"), PropertyId("p-2")))
+  }
+
+  @Test
+  fun `addMigrationStep fails when entity not found`() {
+    val draft = draftVersion.copy(entityDefinitions = emptyList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+
+    val result = service.addMigrationStep("app-1", "ver-1", "unknown", MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
+  }
+
+  @Test
+  fun `addMigrationStep fails when source property does not exist in the last published version`() {
+    val draftProp = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.LONG)
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draft)
+
+    val result = service.addMigrationStep("app-1", "ver-1", "e-1", MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_SOURCE_PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `addMigrationStep fails when target property does not exist in the draft`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Legacy", type = PropertyType.STRING)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = emptyList())))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep(
+      "app-1", "ver-1", "e-1",
+      MigrationStepInput(type = "COPY_VALUE", sourcePropertyId = "p-1", targetPropertyId = "gone"),
+    )
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_TARGET_PROPERTY_NOT_FOUND)
+  }
+
+  @Test
+  fun `addMigrationStep fails when the source and target types are not convertible`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Flag", type = PropertyType.BOOLEAN)
+    val draftProp = Property(id = PropertyId("p-1"), name = "Flag", type = PropertyType.DATE)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp))))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep("app-1", "ver-1", "e-1", MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_TYPE_NOT_CONVERTIBLE)
+  }
+
+  @Test
+  fun `addMigrationStep fails when another step already targets the same property`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val existingStep = MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("p-1"))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationSteps = listOf(existingStep))),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+
+    val result = service.addMigrationStep("app-1", "ver-1", "e-1", MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_TARGET_ALREADY_USED)
+  }
+
+  @Test
+  fun `updateMigrationStep replaces an existing step`() {
+    val publishedProps = listOf(Property(id = PropertyId("p-1"), name = "Legacy", type = PropertyType.STRING))
+    val draftProps = listOf(Property(id = PropertyId("p-2"), name = "LegacyNew", type = PropertyType.LONG))
+    val existingStep = MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("p-1"))
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = publishedProps)))
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(
+        EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = publishedProps + draftProps, migrationSteps = listOf(existingStep)),
+      ),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateMigrationStep(
+      "app-1", "ver-1", "e-1", "step-1",
+      MigrationStepInput(type = "COPY_VALUE", sourcePropertyId = "p-1", targetPropertyId = "p-2"),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val step = result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.single()
+    assertThat(step).isEqualTo(MigrationStep.CopyValue(MigrationStepId("step-1"), PropertyId("p-1"), PropertyId("p-2")))
+  }
+
+  @Test
+  fun `updateMigrationStep fails when step not found`() {
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+
+    val result = service.updateMigrationStep("app-1", "ver-1", "e-1", "unknown", MigrationStepInput(type = "CONVERT_TYPE", propertyId = "p-1"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_NOT_FOUND)
+  }
+
+  @Test
+  fun `deleteMigrationStep removes a step`() {
+    val step = MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("p-1"))
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationSteps = listOf(step))),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.deleteMigrationStep("app-1", "ver-1", "e-1", "step-1")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.migrationSteps).isEmpty()
+  }
+
+  @Test
+  fun `deleteMigrationStep fails when step not found`() {
+    val draft = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+
+    val result = service.deleteMigrationStep("app-1", "ver-1", "e-1", "unknown")
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_NOT_FOUND)
+  }
+
+  @Test
+  fun `reorderMigrationSteps reorders steps`() {
+    val step1 = MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("p-1"))
+    val step2 = MigrationStep.ConvertType(MigrationStepId("step-2"), PropertyId("p-2"))
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationSteps = listOf(step1, step2))),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.reorderMigrationSteps("app-1", "ver-1", "e-1", listOf("step-2", "step-1"))
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.migrationSteps?.map { it.id.value }).containsExactly("step-2", "step-1")
+  }
+
+  @Test
+  fun `reorderMigrationSteps fails when step ids do not match`() {
+    val step1 = MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("p-1"))
+    val draft = draftVersion.copy(
+      entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationSteps = listOf(step1))),
+    )
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draft
+
+    val result = service.reorderMigrationSteps("app-1", "ver-1", "e-1", listOf("unknown"))
+
+    assertThat(result.isLeft()).isTrue()
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.MIGRATION_STEP_IDS_MISMATCH)
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidMigrationStepError when a migration step's source property no longer exists`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING)
+    val entity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Lauf",
+      properties = listOf(prop),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), PropertyId("gone"))),
+    )
+    val draftWithInvalidStep = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithInvalidStep)
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isLeft()).isTrue()
+    val error = result.leftOrNull()
+    assertThat(error).isInstanceOf(InvalidMigrationStepError::class.java)
+    assertThat((error as InvalidMigrationStepError).entityNames).containsExactly("Lauf")
+    assertThat(error.code).isEqualTo(AppVersionError.INVALID_MIGRATION_STEP.code)
+  }
+
+  @Test
+  fun `publishVersion succeeds with a valid migration step`() {
+    val publishedProp = Property(id = PropertyId("p-1"), name = "Code", type = PropertyType.STRING)
+    val draftProp = publishedProp.copy(type = PropertyType.LONG)
+    val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
+    val draftEntity = EntityDefinition(
+      id = EntityDefinitionId("e-1"),
+      name = "Order",
+      properties = listOf(draftProp),
+      migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), draftProp.id)),
+    )
+    val draft = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns emptyList()
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
   }
 
   // endregion
@@ -3580,6 +3857,11 @@ class AppVersionManagementServiceTests {
       val migrationEntity = defaultEntity.copy(migrationScript = "old()")
       val migrationUpdatedEntity = defaultEntity.copy(migrationScript = "new()")
 
+      val migrationStepEntity = defaultEntity
+      val migrationStepUpdatedEntity = defaultEntity.copy(
+        migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), defaultProp.id)),
+      )
+
       return Stream.of(
         Arguments.of("entity display text", listOf(displayTextEntity), listOf(displayTextUpdatedEntity), listOf(listOf("display-text: Order A"), listOf("display-text: Order B"))),
         Arguments.of("entity sort-by", listOf(sortByEntity), listOf(sortByUpdatedEntity), listOf(listOf("sort-by: Category DESC"))),
@@ -3588,6 +3870,10 @@ class AppVersionManagementServiceTests {
           listOf(listOf("aggregation Total: SUM(Amount)"), listOf("group-by: Category"), listOf("time-bucket: QUARTAL"), listOf("period-start: 10.04.")),
         ),
         Arguments.of("entity migration script", listOf(migrationEntity), listOf(migrationUpdatedEntity), listOf(listOf("old()"), listOf("new()"))),
+        Arguments.of(
+          "entity migration step", listOf(migrationStepEntity), listOf(migrationStepUpdatedEntity),
+          listOf(listOf("migration-steps:"), listOf("convert-type: Category")),
+        ),
         Arguments.of("default value", listOf(defaultEntity), listOf(defaultUpdatedEntity), listOf(listOf("default:"))),
         Arguments.of("value-proposals", listOf(valueProposalsEntity), listOf(valueProposalsUpdatedEntity), listOf(listOf("value-proposals:"))),
         Arguments.of(
