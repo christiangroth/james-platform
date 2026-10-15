@@ -29,7 +29,9 @@ USER 1001
 # UBI9 (glibc 2.34) is required to match the glibc version the Mandrel container-build
 # produces (Quarkus 3.x / Java 25) - the previous UBI8 base (glibc 2.28) fails at container
 # start with "GLIBC_2.3x not found".
+# Liveness, not readiness: readiness includes the MongoDB check, so a short network/Atlas outage marked every
+# container unhealthy and Swarm restarted all apps at once (2026-10-15). The driver reconnects on its own.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080/q/health/ready || exit 1
+  CMD curl -f http://localhost:8080/q/health/live || exit 1
 
 ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
