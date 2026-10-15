@@ -21,12 +21,11 @@ class MongoStatsAdapter(
 
   override fun getCollectionStats(): List<MongoCollectionStats> {
     val database = mongoClient.getDatabase(databaseName)
-    return database.listCollectionNames()
-      .toList()
+    return mongoQueryMetrics.timed("mongodb.listCollections") { database.listCollectionNames().toList() }
       .sorted()
       .mapNotNull { collectionName ->
         try {
-          val stats = database.runCommand(Document("collStats", collectionName))
+          val stats = mongoQueryMetrics.timed("mongodb.collStats") { database.runCommand(Document("collStats", collectionName)) }
           MongoCollectionStats(
             name = collectionName,
             documentCount = (stats["count"] as? Number)?.toLong() ?: 0L,
