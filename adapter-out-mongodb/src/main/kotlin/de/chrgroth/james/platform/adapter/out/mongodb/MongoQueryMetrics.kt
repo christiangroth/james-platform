@@ -26,10 +26,11 @@ class MongoQueryMetrics(
 
   fun <T> timed(operation: String, block: () -> T): T {
     val startMs = System.currentTimeMillis()
-    val result = block()
-    val durationMs = System.currentTimeMillis() - startMs
-    recordMetrics(operation, durationMs)
-    return result
+    try {
+      return block()
+    } finally {
+      recordMetrics(operation, System.currentTimeMillis() - startMs)
+    }
   }
 
   fun getQueryStats(): List<MongoQueryStats> {
