@@ -1,3 +1,13 @@
+# 0.120.2 (2026.10.15)
+
+## Bugfixes / Chore
+* Database health checks and statistics are now included in the database monitoring.
+* Updated the outbox and starters libraries.
+
+
+
+---
+
 # 0.120.1 (2026.10.15)
 
 ## Bugfixes / Chore
