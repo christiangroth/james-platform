@@ -1,3 +1,12 @@
+# 0.120.3 (2026.10.26)
+
+## Bugfixes / Chore
+* Health and metrics endpoints are no longer reachable from the internet.
+
+
+
+---
+
 # 0.120.2 (2026.10.15)
 
 ## Bugfixes / Chore
