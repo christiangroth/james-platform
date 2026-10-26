@@ -1,7 +1,7 @@
 package de.chrgroth.james.platform.application.quarkus
 
+import de.chrgroth.james.platform.application.quarkus.ManagementInterface.givenManagement
 import io.quarkus.test.junit.QuarkusTest
-import io.restassured.RestAssured.given
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -40,7 +40,7 @@ class HealthCheckTests {
   }
 
   private fun check(type: String) =
-    given()
+    givenManagement()
       .`when`()
       .get("/q/health/$type")
       .then()

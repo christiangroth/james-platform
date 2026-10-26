@@ -2,7 +2,7 @@
 
 // ── Metrics ──────────────────────────────────────────────────────────────────
 prometheus.scrape "james_platform" {
-  targets = [{ "__address__" = "quarkus:8080", "__metrics_path__" = "/q/metrics" }]
+  targets = [{ "__address__" = "quarkus:9000", "__metrics_path__" = "/q/metrics" }]
   scrape_interval = "30s"
   forward_to = [prometheus.remote_write.grafana_cloud.receiver]
 }

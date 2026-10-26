@@ -459,8 +459,15 @@ flowchart TB
     end
 
     Quarkus --> Mongo["MongoDB Atlas (external, managed)"]
+    Alloy -->|"scrapes /q/metrics on :9000"| Quarkus
     Alloy --> Grafana["Grafana Cloud (external)"]
 ```
+
+**Management interface:** all Quarkus non-application endpoints (`/q/health`, `/q/metrics`, ...) are served on
+the separate management interface (`quarkus.management.enabled=true`, port 9000, test port 9001), not on the
+public HTTP port 8080. Traefik only routes to port 8080, so `/q/*` is not reachable from the internet; inside the
+stack, Alloy scrapes `quarkus:9000/q/metrics` and the container `HEALTHCHECK` probes
+`localhost:9000/q/health/live`. Port 9000 is not published.
 
 ## Infrastructure Level 2
 
