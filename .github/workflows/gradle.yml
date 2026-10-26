@@ -167,7 +167,11 @@ jobs:
             echo $GHCR_PAT | docker login ghcr.io -u christiangroth --password-stdin
 
             echo "deploying docker stack"
+            # A change of config.alloy alone does not change the alloy service spec, so swarm would keep the old process;
+            # the config hash as env var makes swarm restart alloy exactly when its config changes.
+            ALLOY_CONFIG_HASH=$(sha256sum ~/$DOCKER_STACK/alloy/config.alloy | cut -c1-16)
             DOCKER_TAG="$DOCKER_TAG" \
+              ALLOY_CONFIG_HASH="$ALLOY_CONFIG_HASH" \
               MONGODB_CONNECTION_STRING="$MONGODB_CONNECTION_STRING" \
               APP_TOKEN_ENCRYPTION_KEY="$APP_TOKEN_ENCRYPTION_KEY" \
               SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL" \

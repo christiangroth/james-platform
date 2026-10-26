@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.application.quarkus
 
+import de.chrgroth.james.platform.application.quarkus.ManagementInterface.givenManagement
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured.given
 import org.assertj.core.api.Assertions.assertThat
@@ -10,7 +11,7 @@ class MetricsTests {
 
   @Test
   fun `check top-level metrics groups`() {
-    val metrics = given()
+    val metrics = givenManagement()
       .`when`()
       .get("/q/metrics")
       .then()
@@ -25,5 +26,14 @@ class MetricsTests {
       .distinct()
       .sorted()
     assertThat(topLevelGroups).isEqualTo(listOf("http", "import", "jvm", "log", "mongodb", "netty", "outbox", "process", "script", "system", "worker"))
+  }
+
+  @Test
+  fun `metrics are not served on the public HTTP port`() {
+    given()
+      .`when`()
+      .get("/q/metrics")
+      .then()
+      .statusCode(404)
   }
 }

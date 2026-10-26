@@ -32,6 +32,6 @@ USER 1001
 # Liveness, not readiness: readiness includes the MongoDB check, so a short network/Atlas outage marked every
 # container unhealthy and Swarm restarted all apps at once (2026-10-15). The driver reconnects on its own.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080/q/health/live || exit 1
+  CMD curl -f http://localhost:9000/q/health/live || exit 1
 
 ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

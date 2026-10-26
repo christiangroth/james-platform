@@ -39,6 +39,8 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "~/james-platform/alloy/config.alloy:/etc/alloy/config.alloy:ro"
     environment:
+      # Restarts alloy when deploy/alloy/config.alloy changes (set by the deploy job).
+      - ALLOY_CONFIG_HASH=${ALLOY_CONFIG_HASH}
       - GRAFANA_CLOUD_METRICS_URL=${GRAFANA_CLOUD_METRICS_URL}
       - GRAFANA_CLOUD_METRICS_USERNAME=${GRAFANA_CLOUD_METRICS_USERNAME}
       - GRAFANA_CLOUD_LOGS_URL=${GRAFANA_CLOUD_LOGS_URL}
