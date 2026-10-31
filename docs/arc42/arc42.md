@@ -541,17 +541,27 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
 - Users with the `USER` and/or `DEVELOPER` role create tokens on the profile page (`/ui/profile`): a name, one or more scopes and optionally the Apps the
   User scopes are restricted to. The plain token (`jp_…`) is shown exactly once; only its SHA-256 hash is stored (MongoDB collection `api_token`). Tokens
   can be deactivated and activated again at any time without changing the secret, and deleted.
-- Scopes: `USER_READ` / `USER_WRITE` (installed Apps incl. structure, and their data; optionally restricted to selected Apps), `DEVELOPER_READ` (all own
-  Apps, Versions and drafts), `DEVELOPER_WRITE` (create, edit and delete drafts), `DEVELOPER_RELEASE` (publish the draft). Write and release imply read; a
-  scope only takes effect while the owner still has the matching role and is active.
+- Scopes: `USER_READ` / `USER_WRITE` (installed Apps incl. structure, and their data), `USER_INSTALL` (install Apps from the App store, upgrade
+  installations), `USER_IMPORT` (import connections and imports up to the dry-run; requires the `DATA_IMPORT` role), all four optionally restricted to
+  selected Apps; `DEVELOPER_READ` (all own Apps, Versions and drafts), `DEVELOPER_WRITE` (create Apps and change name/description; create, edit and delete
+  drafts), `DEVELOPER_RELEASE` (publish the draft). Write, install, import and release imply the matching read scope; accepting an import (and running a
+  configured import definition) needs `USER_IMPORT` and `USER_WRITE`. A scope only takes effect while the owner still has the matching role and is active.
 - `ApiTokenAuthMechanism` authenticates `Authorization: Bearer <token>` as the token owner with one `API_*` role per effective scope.
   `ApiTokenAccessFilter` rejects token requests outside `/api/`, and every `/api/v1` endpoint requires its scope via `@RolesAllowed` - so a token never
   reaches the UI (or token management), and a session never reaches the API.
 - Endpoints (all JSON, errors as `{code, message, details}` with 404 for "not found" and 400 for other domain errors):
   - `GET /api/v1/token` - token owner and effective scopes.
   - `/api/v1/user/apps` - installed Apps (`GET`), one installation incl. its Version structure (`GET /{installedAppId}`) and its data
-    (`GET`/`POST /{installedAppId}/data`, `GET`/`PUT`/`DELETE /{installedAppId}/data/{dataId}`).
-  - `/api/v1/developer/apps` - own Apps (`GET`), one App with its Versions (`GET /{appId}`), Versions incl. drafts (`GET /{appId}/versions[/{versionId}]`),
+    (`GET`/`POST /{installedAppId}/data`, `GET`/`PUT`/`DELETE /{installedAppId}/data/{dataId}`), upgrade (`POST /{installedAppId}/upgrade`).
+  - `/api/v1/user/app-store` - published Apps (`GET`, `GET /{appId}`) and installing them (`POST /{appId}/install`).
+  - `/api/v1/user/import-connections` - import connections (`GET`, `POST`, `PUT`/`DELETE /{connectionId}`, `POST /{connectionId}/test`); the bearer
+    token of a connection is write-only.
+  - `/api/v1/user/imports` - the import pipeline of the UI: definitions (`GET /definitions`, `DELETE /definitions/{id}`, new job `POST
+    /definitions/{id}/jobs`, unattended run `POST /definitions/{id}/run`), jobs (`GET`/`POST /jobs`, `GET`/`DELETE /jobs/{id}`, `POST /test-url`), data
+    path (`PUT /jobs/{id}/data-path`), filter (`GET`/`PUT /jobs/{id}/filter`, `GET /jobs/{id}/filter/values`, source records `GET /jobs/{id}/records`),
+    mapping (`GET`/`PUT /jobs/{id}/mapping`, preview `POST /jobs/{id}/mapping/sample`), dry-run (`GET /jobs/{id}/dry-run?limit=`) and accept
+    (`POST /jobs/{id}/accept?mode=ADD|REPLACE`, processed in the background).
+  - `/api/v1/developer/apps` - own Apps (`GET`), creating an App (`POST`) and changing its name/description (`PUT /{appId}`), one App with its Versions (`GET /{appId}`), Versions incl. drafts (`GET /{appId}/versions[/{versionId}]`),
     version bump preview, draft creation/deletion (`POST /{appId}/versions`, `DELETE /{appId}/versions/{versionId}`), draft editing (entities, properties,
     constraints, defaults, units, computed properties, aggregations, migration steps, reports below `/{appId}/versions/{versionId}/…`) and release
     (`POST /{appId}/versions/publish`).

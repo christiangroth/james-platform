@@ -38,10 +38,14 @@ Chosen option 1.
   and an `active` flag. Only the SHA-256 hash of the secret (`jp_` + 32 random bytes, base64url) is stored in the `api_token` collection,
   plus an 8-character prefix for recognition in the UI. The plain token is shown exactly once after creation. Usage is recorded in `lastUsedAt`
   with minute granularity.
-* **Scopes**: `USER_READ`, `USER_WRITE` (data of the owner's installed Apps, optionally restricted to `appIds`), `DEVELOPER_READ` (all own Apps,
-  all Versions including drafts), `DEVELOPER_WRITE` (create, edit and delete drafts) and `DEVELOPER_RELEASE` (publish the draft). Write and release
-  imply read. A scope only takes effect while the owner still has the matching role (`USER` resp. `DEVELOPER`) and is active; a token without any
-  effective scope is rejected. Tokens of deleted users are deleted along with the user.
+* **Scopes**: `USER_READ`, `USER_WRITE` (data of the owner's installed Apps), `USER_INSTALL` (install Apps from the App store, upgrade installations)
+  and `USER_IMPORT` (import connections and the import pipeline up to the dry-run, requires the `DATA_IMPORT` role like the import UI) - all four
+  optionally restricted to `appIds`; `DEVELOPER_READ` (all own Apps, all Versions including drafts), `DEVELOPER_WRITE` (create Apps and change their
+  name and description; create, edit and delete drafts) and `DEVELOPER_RELEASE` (publish the draft). Write, install, import and release imply the
+  matching read scope. Accepting an import writes data, so it requires `USER_IMPORT` *and* `USER_WRITE`: a token with `USER_IMPORT` alone can check
+  source data against an App (mapping validation, dry-run) without being able to change any data. A scope only takes effect while the owner still has
+  the matching role (`USER`, `DATA_IMPORT` resp. `DEVELOPER`) and is active; a token without any effective scope is rejected. Tokens of deleted users
+  are deleted along with the user.
 * **Authentication**: `ApiTokenAuthMechanism` (priority above `CookieAuthMechanism`) authenticates `Authorization: Bearer <token>` requests as the
   token owner (principal = username, so all User/Developer ports apply their usual ownership checks), with one `API_*` role per effective scope —
   never the owner's own roles.
@@ -62,7 +66,9 @@ Chosen option 1.
 
 * A second, parallel inbound adapter surface (`/api/v1`) has to be kept in sync with new domain capabilities.
 * Tokens have no expiry date; switching them off is a manual action.
-* Uninstall/install, App management (create/rename/delete Apps) and data import are deliberately not part of the API.
+* Uninstalling Apps, deactivating and deleting Apps, and import schedules are deliberately not part of the API (destructive or long-lived actions
+  stay in the UI). Installing Apps, creating Apps and imports were added after the first draft of this decision to support migrations driven by an
+  agent.
 
 ## Pros and Cons of the Options
 
