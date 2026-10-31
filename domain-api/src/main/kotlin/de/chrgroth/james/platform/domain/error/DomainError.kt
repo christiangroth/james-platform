@@ -16,6 +16,15 @@ enum class TokenError(override val code: String) : DomainError {
   ;
 }
 
+enum class ApiTokenError(override val code: String) : DomainError {
+  NAME_BLANK("API-TOKEN-001"),
+  NO_SCOPES("API-TOKEN-002"),
+  SCOPE_NOT_PERMITTED("API-TOKEN-003"),
+  TOKEN_NOT_FOUND("API-TOKEN-004"),
+  USER_NOT_FOUND("API-TOKEN-005"),
+  ;
+}
+
 enum class UserProfileError(override val code: String) : DomainError {
   USER_NOT_FOUND("PROFILE-001"),
   USERNAME_ALREADY_EXISTS("PROFILE-002"),

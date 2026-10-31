@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.out.mongodb
 
+import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Indexes
 import io.quarkus.runtime.StartupEvent
 import jakarta.enterprise.context.ApplicationScoped
@@ -16,6 +17,7 @@ class MongoIndexInitializer(
   private val userDocumentRepository: UserDocumentRepository,
   private val importJobDocumentRepository: ImportJobDocumentRepository,
   private val importConnectionDocumentRepository: ImportConnectionDocumentRepository,
+  private val apiTokenDocumentRepository: ApiTokenDocumentRepository,
 ) {
 
   fun onStartup(@Observes event: StartupEvent) {
@@ -62,6 +64,15 @@ class MongoIndexInitializer(
     // import_connection: speed up findAllByUserId
     importConnectionDocumentRepository.mongoCollection().createIndex(
       Indexes.ascending(ImportConnectionRepositoryAdapter.USER_ID_FIELD),
+    )
+    // api_token: authenticate looks tokens up by hash on every token request
+    apiTokenDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ApiTokenRepositoryAdapter.TOKEN_HASH_FIELD),
+      IndexOptions().unique(true),
+    )
+    // api_token: speed up findAllByUserId
+    apiTokenDocumentRepository.mongoCollection().createIndex(
+      Indexes.ascending(ApiTokenRepositoryAdapter.USER_ID_FIELD),
     )
     logger.info { "MongoDB indexes ready." }
   }

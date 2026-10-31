@@ -114,4 +114,7 @@ import io.quarkus.qute.TemplateData
 @TemplateData(target = ReleaseNotesMinorVersionGroup::class)
 @TemplateData(target = UiLogGroup::class)
 @TemplateData(target = UiLogEntry::class)
+@TemplateData(target = ApiTokenRow::class)
+@TemplateData(target = ApiTokenScopeOption::class)
+@TemplateData(target = ApiTokenAppOption::class)
 class QuteTemplateDataConfig

@@ -180,6 +180,132 @@ interface AppMessages {
   @Message
   fun profilePasswordsDoNotMatchError(): String
 
+  @Message
+  fun profileApiTokensHeading(): String
+
+  @Message
+  fun profileApiTokensDescription(): String
+
+  @Message
+  fun profileApiTokenNameLabel(): String
+
+  @Message
+  fun profileApiTokenScopesLabel(): String
+
+  @Message
+  fun profileApiTokenAppsLabel(): String
+
+  @Message
+  fun profileApiTokenCreateButton(): String
+
+  @Message
+  fun profileApiTokenCreatedNotice(): String
+
+  @Message
+  fun profileApiTokensEmpty(): String
+
+  @Message
+  fun profileApiTokenPrefixHeader(): String
+
+  @Message
+  fun profileApiTokenAppsHeader(): String
+
+  @Message
+  fun profileApiTokenAllApps(): String
+
+  @Message
+  fun profileApiTokenStatusHeader(): String
+
+  @Message
+  fun profileApiTokenActive(): String
+
+  @Message
+  fun profileApiTokenInactive(): String
+
+  @Message
+  fun profileApiTokenCreatedHeader(): String
+
+  @Message
+  fun profileApiTokenLastUsedHeader(): String
+
+  @Message
+  fun profileApiTokenNeverUsed(): String
+
+  @Message
+  fun profileApiTokenActivateButton(): String
+
+  @Message
+  fun profileApiTokenDeactivateButton(): String
+
+  @Message
+  fun profileApiTokenDeleteButton(): String
+
+  @Message
+  fun profileApiTokenScopeUserRead(): String
+
+  @Message
+  fun profileApiTokenScopeUserReadDescription(): String
+
+  @Message
+  fun profileApiTokenScopeUserWrite(): String
+
+  @Message
+  fun profileApiTokenScopeUserWriteDescription(): String
+
+  @Message
+  fun profileApiTokenScopeUserInstall(): String
+
+  @Message
+  fun profileApiTokenScopeUserInstallDescription(): String
+
+  @Message
+  fun profileApiTokenScopeUserImport(): String
+
+  @Message
+  fun profileApiTokenScopeUserImportDescription(): String
+
+  @Message
+  fun profileApiTokenScopeDeveloperRead(): String
+
+  @Message
+  fun profileApiTokenScopeDeveloperReadDescription(): String
+
+  @Message
+  fun profileApiTokenScopeDeveloperWrite(): String
+
+  @Message
+  fun profileApiTokenScopeDeveloperWriteDescription(): String
+
+  @Message
+  fun profileApiTokenScopeDeveloperRelease(): String
+
+  @Message
+  fun profileApiTokenScopeDeveloperReleaseDescription(): String
+
+  @Message
+  fun profileApiTokenCreatedMessage(): String
+
+  @Message
+  fun profileApiTokenActivatedMessage(): String
+
+  @Message
+  fun profileApiTokenDeactivatedMessage(): String
+
+  @Message
+  fun profileApiTokenDeletedMessage(): String
+
+  @Message
+  fun profileApiTokenNameRequiredError(): String
+
+  @Message
+  fun profileApiTokenScopeRequiredError(): String
+
+  @Message
+  fun profileApiTokenScopeNotPermittedError(): String
+
+  @Message
+  fun profileApiTokenNotFoundError(): String
+
   // layout / navigation
   @Message
   fun layoutLogoLabel(): String

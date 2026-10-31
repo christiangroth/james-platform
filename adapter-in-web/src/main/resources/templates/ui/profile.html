@@ -91,6 +91,103 @@
                 </div>
             </div>
 
+            <!-- Personal access tokens -->
+            {#if apiTokenScopes}
+            <div class="col-12">
+                <div class="card app-card p-4" data-testid="api-tokens-card">
+                    <h2 class="fs-6 fw-semibold mb-2" data-testid="api-tokens-heading">{msg:profileApiTokensHeading()}</h2>
+                    <p class="text-secondary small mb-3">{msg:profileApiTokensDescription()}</p>
+
+                    {#if createdApiToken}
+                    <div class="alert alert-warning mb-3" role="alert" data-testid="api-token-created-notice">
+                        <div class="small mb-1">{msg:profileApiTokenCreatedNotice()}</div>
+                        <code style="word-break:break-all;" data-testid="api-token-created-value">{createdApiToken}</code>
+                    </div>
+                    {/if}
+
+                    <form method="post" action="/ui/profile/api-tokens" class="mb-4" data-testid="api-token-create-form">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-4">
+                                <label for="apiTokenName" class="form-label">{msg:profileApiTokenNameLabel()}</label>
+                                <input type="text" class="form-control app-form-control" id="apiTokenName" name="name" maxlength="100" required data-testid="api-token-name-input">
+                            </div>
+                            <div class="col-12 col-md-8">
+                                <span class="form-label d-block">{msg:profileApiTokenScopesLabel()}</span>
+                                {#for scope in apiTokenScopes}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="scopes" id="apiTokenScope{scope.name}" value="{scope.name}" data-testid="api-token-scope-{scope.name}">
+                                    <label class="form-check-label" for="apiTokenScope{scope.name}">{scope.label} <span class="text-secondary small">– {scope.description}</span></label>
+                                </div>
+                                {/for}
+                            </div>
+                            {#if apiTokenApps}
+                            <div class="col-12">
+                                <span class="form-label d-block">{msg:profileApiTokenAppsLabel()}</span>
+                                {#for app in apiTokenApps}
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="appIds" id="apiTokenApp{app.appId}" value="{app.appId}" data-testid="api-token-app-{app.appId}">
+                                    <label class="form-check-label" for="apiTokenApp{app.appId}">{app.appName}</label>
+                                </div>
+                                {/for}
+                            </div>
+                            {/if}
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-app-primary btn-sm" data-testid="api-token-create-button">{msg:profileApiTokenCreateButton()}</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    {#if apiTokens.isEmpty}
+                    <p class="text-secondary small mb-0" data-testid="api-tokens-empty">{msg:profileApiTokensEmpty()}</p>
+                    {#else}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 app-table align-middle" data-testid="api-tokens-table">
+                            <thead>
+                                <tr>
+                                    <th>{msg:profileApiTokenNameLabel()}</th>
+                                    <th>{msg:profileApiTokenPrefixHeader()}</th>
+                                    <th>{msg:profileApiTokenScopesLabel()}</th>
+                                    <th>{msg:profileApiTokenAppsHeader()}</th>
+                                    <th>{msg:profileApiTokenStatusHeader()}</th>
+                                    <th>{msg:profileApiTokenCreatedHeader()}</th>
+                                    <th>{msg:profileApiTokenLastUsedHeader()}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#for token in apiTokens}
+                                <tr data-testid="api-token-row">
+                                    <td>{token.name}</td>
+                                    <td><code>{token.tokenPrefix}&hellip;</code></td>
+                                    <td class="small">{#for scope in token.scopes}{scope}{#if scope_hasNext}<br>{/if}{/for}</td>
+                                    <td class="small">{#if token.appNames.isEmpty}{msg:profileApiTokenAllApps()}{#else}{#for appName in token.appNames}{appName}{#if appName_hasNext}, {/if}{/for}{/if}</td>
+                                    <td><span class="badge border-0 {#if token.active}app-badge-processing{#else}app-badge-muted{/if}" data-testid="api-token-status">{#if token.active}{msg:profileApiTokenActive()}{#else}{msg:profileApiTokenInactive()}{/if}</span></td>
+                                    <td class="small">{token.createdAt.formatted}</td>
+                                    <td class="small">{#if token.lastUsedAt}{token.lastUsedAt.formatted}{#else}{msg:profileApiTokenNeverUsed()}{/if}</td>
+                                    <td class="text-nowrap">
+                                        {#if token.active}
+                                        <form method="post" action="/ui/profile/api-tokens/{token.id}/deactivate" class="d-inline">
+                                            <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="api-token-deactivate-button">{msg:profileApiTokenDeactivateButton()}</button>
+                                        </form>
+                                        {#else}
+                                        <form method="post" action="/ui/profile/api-tokens/{token.id}/activate" class="d-inline">
+                                            <button type="submit" class="btn btn-app-secondary btn-sm" data-testid="api-token-activate-button">{msg:profileApiTokenActivateButton()}</button>
+                                        </form>
+                                        {/if}
+                                        <form method="post" action="/ui/profile/api-tokens/{token.id}/delete" class="d-inline">
+                                            <button type="submit" class="btn btn-app-danger btn-sm" data-testid="api-token-delete-button">{msg:profileApiTokenDeleteButton()}</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {/for}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/if}
+                </div>
+            </div>
+            {/if}
+
         </div>
     </div>
     {/content}

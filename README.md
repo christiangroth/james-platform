@@ -26,6 +26,9 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   assigned per account.
 - **Authentication** – Cookie-based login with bcrypt password hashing and persistent sessions (14-day lifetime with automatic renewal).
 - **Profile** – Authenticated users can view and update their username, password, and account metadata.
+- **Personal Access Tokens & JSON API** – Users create deactivatable, scoped tokens on their profile for scripts and AI agents: read/write the data of all or
+  selected installed Apps, install Apps, prepare and dry-run imports, and (as Developer) create Apps, read all Apps, Versions and drafts, edit drafts, or
+  release them via the `/api/v1` JSON API.
 - **Reliability** – Long-running operations (import accept, uninstall, app/user deletion, version auto-upgrade) run through a persistent outbox for at-least-once execution.
 - **In-App Documentation** – Architecture docs, ADRs, and release notes are served and rendered directly in the UI.
 - **Monitoring** – Health/config/logs/metrics pages in-app, plus Prometheus metrics and structured logs shipped to Grafana Cloud.

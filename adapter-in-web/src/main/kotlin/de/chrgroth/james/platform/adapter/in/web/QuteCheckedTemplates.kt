@@ -169,7 +169,18 @@ object DeveloperTemplates {
 object UiTemplates {
 
   @JvmStatic
-  external fun profile(username: String, createdAt: Instant?, lastLoginAt: Instant?, successMessage: String?, errorMessage: String?): TemplateInstance
+  @Suppress("LongParameterList")
+  external fun profile(
+    username: String,
+    createdAt: Instant?,
+    lastLoginAt: Instant?,
+    successMessage: String?,
+    errorMessage: String?,
+    apiTokens: List<ApiTokenRow>,
+    apiTokenScopes: List<ApiTokenScopeOption>,
+    apiTokenApps: List<ApiTokenAppOption>,
+    createdApiToken: String?,
+  ): TemplateInstance
 }
 
 // requireTypeSafeExpressions = false: see the comment on Templates above - ui/user/app-detail.html and
