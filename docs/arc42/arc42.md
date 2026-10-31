@@ -534,6 +534,28 @@ Authentication is cookie-based:
 - On logout (`GET /logout`), the cookie is invalidated by setting it to an empty value with `maxAge=0`.
 - Users have one of four roles (`USER`, `DEVELOPER`, `ADMIN`, `MONITORING`), which control which dashboard is shown after login and which navigation items are visible.
 
+### Personal Access Tokens and the JSON API
+
+Scripts and agents use personal access tokens instead of a session (see ADR [0024](../adr/0024-personal-access-tokens.md)):
+
+- Users with the `USER` and/or `DEVELOPER` role create tokens on the profile page (`/ui/profile`): a name, one or more scopes and optionally the Apps the
+  User scopes are restricted to. The plain token (`jp_…`) is shown exactly once; only its SHA-256 hash is stored (MongoDB collection `api_token`). Tokens
+  can be deactivated and activated again at any time without changing the secret, and deleted.
+- Scopes: `USER_READ` / `USER_WRITE` (installed Apps incl. structure, and their data; optionally restricted to selected Apps), `DEVELOPER_READ` (all own
+  Apps, Versions and drafts), `DEVELOPER_WRITE` (create, edit and delete drafts), `DEVELOPER_RELEASE` (publish the draft). Write and release imply read; a
+  scope only takes effect while the owner still has the matching role and is active.
+- `ApiTokenAuthMechanism` authenticates `Authorization: Bearer <token>` as the token owner with one `API_*` role per effective scope.
+  `ApiTokenAccessFilter` rejects token requests outside `/api/`, and every `/api/v1` endpoint requires its scope via `@RolesAllowed` - so a token never
+  reaches the UI (or token management), and a session never reaches the API.
+- Endpoints (all JSON, errors as `{code, message, details}` with 404 for "not found" and 400 for other domain errors):
+  - `GET /api/v1/token` - token owner and effective scopes.
+  - `/api/v1/user/apps` - installed Apps (`GET`), one installation incl. its Version structure (`GET /{installedAppId}`) and its data
+    (`GET`/`POST /{installedAppId}/data`, `GET`/`PUT`/`DELETE /{installedAppId}/data/{dataId}`).
+  - `/api/v1/developer/apps` - own Apps (`GET`), one App with its Versions (`GET /{appId}`), Versions incl. drafts (`GET /{appId}/versions[/{versionId}]`),
+    version bump preview, draft creation/deletion (`POST /{appId}/versions`, `DELETE /{appId}/versions/{versionId}`), draft editing (entities, properties,
+    constraints, defaults, units, computed properties, aggregations, migration steps, reports below `/{appId}/versions/{versionId}/…`) and release
+    (`POST /{appId}/versions/publish`).
+
 ## Error Handling
 
 All domain failures are represented as typed `DomainError` values wrapped in Arrow's `Either<DomainError, T>`.
@@ -651,6 +673,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0021](../adr/0021-import-definition-job-split.md)            | Data Import: Separate Reusable Definition from Per-Run Job |
 | [0022](../adr/0022-import-job-history.md)                      | Data Import: Merged Imports UI and Accepted-Job History |
 | [0023](../adr/0023-migration-steps.md)                         | Migration Steps: Declarative Building Blocks for the Most Common Entity Changes |
+| [0024](../adr/0024-personal-access-tokens.md)                  | Personal Access Tokens for a Scoped JSON API        |
 
 # Risks and Technical Debts
 
