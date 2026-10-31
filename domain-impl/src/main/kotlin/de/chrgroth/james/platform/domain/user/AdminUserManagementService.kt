@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.user.ApiTokenRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
@@ -29,6 +30,7 @@ class AdminUserManagementService(
   private val appDataRepository: AppDataRepositoryPort,
   private val aggregationRepository: AggregationRepositoryPort,
   private val outbox: OutboxPort,
+  private val apiTokenRepository: ApiTokenRepositoryPort,
 ) : AdminUserManagementPort {
 
   override fun listUsers(): List<User> = userRepository.findAll()
@@ -120,6 +122,7 @@ class AdminUserManagementService(
       aggregationRepository.deleteAllByInstalledAppId(installedApp.id)
       installedAppRepository.delete(installedApp.id)
     }
+    apiTokenRepository.deleteAllByUserId(user.id)
     userRepository.delete(user.id)
     logger.info { "User deleted: ${event.username}" }
     return Unit.right()

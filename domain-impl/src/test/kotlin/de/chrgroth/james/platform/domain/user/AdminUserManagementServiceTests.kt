@@ -14,6 +14,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
+import de.chrgroth.james.platform.domain.port.out.user.ApiTokenRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.mockk.every
 import io.mockk.justRun
@@ -31,7 +32,8 @@ class AdminUserManagementServiceTests {
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val aggregationRepository: AggregationRepositoryPort = mockk()
   private val outbox: OutboxPort = mockk()
-  private val service = AdminUserManagementService(userRepository, installedAppRepository, appDataRepository, aggregationRepository, outbox)
+  private val apiTokenRepository: ApiTokenRepositoryPort = mockk(relaxUnitFun = true)
+  private val service = AdminUserManagementService(userRepository, installedAppRepository, appDataRepository, aggregationRepository, outbox, apiTokenRepository)
 
   private val adminUser = User(
     id = UserId(UUID.randomUUID().toString()),
@@ -150,6 +152,7 @@ class AdminUserManagementServiceTests {
     verify { aggregationRepository.deleteAllByInstalledAppId(InstalledAppId("installed-2")) }
     verify { installedAppRepository.delete(InstalledAppId("installed-1")) }
     verify { installedAppRepository.delete(InstalledAppId("installed-2")) }
+    verify { apiTokenRepository.deleteAllByUserId(regularUser.id) }
     verify { userRepository.delete(regularUser.id) }
   }
 
