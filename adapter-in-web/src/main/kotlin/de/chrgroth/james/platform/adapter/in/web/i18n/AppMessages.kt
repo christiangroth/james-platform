@@ -253,6 +253,18 @@ interface AppMessages {
   fun profileApiTokenScopeUserWriteDescription(): String
 
   @Message
+  fun profileApiTokenScopeUserInstall(): String
+
+  @Message
+  fun profileApiTokenScopeUserInstallDescription(): String
+
+  @Message
+  fun profileApiTokenScopeUserImport(): String
+
+  @Message
+  fun profileApiTokenScopeUserImportDescription(): String
+
+  @Message
   fun profileApiTokenScopeDeveloperRead(): String
 
   @Message

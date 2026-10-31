@@ -67,6 +67,9 @@ class ApiRequestContext(
   /** The token owner's [de.chrgroth.james.platform.domain.model.user.UserId], used as `developerId` by the Developer-side ports. */
   fun userId(): String = identity.getAttribute(ApiTokenAuthMechanism.API_TOKEN_USER_ID_ATTRIBUTE)
 
+  /** Whether the token currently holds the scope behind [role] (one of [ApiTokenRoles]), for endpoints needing more than one scope. */
+  fun hasRole(role: String): Boolean = identity.hasRole(role)
+
   /** Whether the token's User scopes cover data of the App [appId] (no App restriction means all Apps). */
   fun coversApp(appId: String): Boolean {
     val appIds: Set<String>? = identity.getAttribute(ApiTokenAuthMechanism.API_TOKEN_APP_IDS_ATTRIBUTE)

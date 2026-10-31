@@ -19,6 +19,11 @@ data class ApiNameRequest @JsonCreator constructor(
   @param:JsonProperty("name") val name: String?,
 )
 
+data class ApiAppRequest @JsonCreator constructor(
+  @param:JsonProperty("name") val name: String?,
+  @param:JsonProperty("description") val description: String?,
+)
+
 data class ApiIdsRequest @JsonCreator constructor(
   @param:JsonProperty("ids") val ids: List<String>?,
   @param:JsonProperty("path") val path: List<String>?,
@@ -103,4 +108,35 @@ data class ApiReportRequest @JsonCreator constructor(
 data class ApiPublishRequest @JsonCreator constructor(
   @param:JsonProperty("bumpType") val bumpType: String?,
   @param:JsonProperty("releaseNotes") val releaseNotes: String?,
+)
+
+data class ApiImportConnectionRequest @JsonCreator constructor(
+  @param:JsonProperty("name") val name: String?,
+  @param:JsonProperty("baseUrl") val baseUrl: String?,
+  @param:JsonProperty("bearerToken") val bearerToken: String?,
+  @param:JsonProperty("clearBearerToken") val clearBearerToken: Boolean?,
+)
+
+data class ApiImportStartRequest @JsonCreator constructor(
+  @param:JsonProperty("installedAppId") val installedAppId: String?,
+  @param:JsonProperty("connectionId") val connectionId: String?,
+  @param:JsonProperty("targetEntityDefinitionId") val targetEntityDefinitionId: String?,
+  @param:JsonProperty("urlPostfix") val urlPostfix: String?,
+)
+
+data class ApiImportTestUrlRequest @JsonCreator constructor(
+  @param:JsonProperty("connectionId") val connectionId: String?,
+  @param:JsonProperty("urlPostfix") val urlPostfix: String?,
+)
+
+data class ApiDataPathRequest @JsonCreator constructor(
+  @param:JsonProperty("dataPath") val dataPath: String?,
+)
+
+data class ApiFilterRulesRequest @JsonCreator constructor(
+  @param:JsonProperty("rules") val rules: List<ApiFilterRuleDto>?,
+)
+
+data class ApiFieldMappingsRequest @JsonCreator constructor(
+  @param:JsonProperty("fieldMappings") val fieldMappings: List<ApiFieldMappingDto>?,
 )

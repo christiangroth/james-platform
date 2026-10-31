@@ -28,7 +28,8 @@ import jakarta.ws.rs.core.Response
 /**
  * The token owner's Apps as Developer:
  * - `DEVELOPER_READ`: all Apps, all Versions including drafts, version bump preview.
- * - `DEVELOPER_WRITE`: create, edit and delete drafts (entities, properties, computed properties, aggregations, migration steps, reports).
+ * - `DEVELOPER_WRITE`: create Apps and change their name and description; create, edit and delete drafts (entities, properties, computed
+ *   properties, aggregations, migration steps, reports). Deactivating and deleting Apps stays UI-only.
  * - `DEVELOPER_RELEASE`: release (publish) the draft.
  *
  * Every endpoint first checks that the App belongs to the token owner; foreign Apps are reported as not found. Edits are only accepted on drafts,
@@ -96,6 +97,35 @@ class ApiDeveloperResource(
         )
       }
     }
+
+  // endregion
+
+  // region apps
+
+  @POST
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
+  fun createApp(request: ApiAppRequest?): Response = httpResponseMetrics.timed("api.developer.app-create") {
+    appManagement.createApp(request?.name?.trim().orEmpty(), request?.description, apiRequest.userId()).fold(
+      ifLeft = { ApiResponses.domainError(it) },
+      ifRight = { ApiResponses.created(ApiDtoMapper.app(it)) },
+    )
+  }
+
+  @PUT
+  @Path("/{appId}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
+  fun updateApp(@PathParam("appId") appId: String, request: ApiAppRequest?): Response = httpResponseMetrics.timed("api.developer.app-update") {
+    owned(appId) {
+      appManagement.updateApp(appId, request?.name?.trim().orEmpty(), request?.description, apiRequest.userId()).fold(
+        ifLeft = { ApiResponses.domainError(it) },
+        ifRight = { ApiResponses.ok(ApiDtoMapper.app(it)) },
+      )
+    }
+  }
 
   // endregion
 

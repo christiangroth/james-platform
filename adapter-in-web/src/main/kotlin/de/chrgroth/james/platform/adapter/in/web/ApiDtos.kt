@@ -17,6 +17,8 @@ import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.user.ApiTokenScope
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
+import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
+import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppInfo
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -167,6 +169,22 @@ data class ApiInstalledAppDto(
   val installedAt: Instant,
 )
 
+data class ApiPublishedAppDto(
+  val appId: String,
+  val appName: String,
+  val developerName: String,
+  val latestVersionNumber: String?,
+)
+
+data class ApiPublishedAppDetailDto(
+  val appId: String,
+  val appName: String,
+  val description: String?,
+  val developerName: String,
+  val latestVersion: ApiVersionDto,
+  val versions: List<ApiVersionSummaryDto>,
+)
+
 data class ApiInstalledAppDetailDto(
   val installedApp: ApiInstalledAppDto,
   val version: ApiVersionDto,
@@ -217,6 +235,17 @@ object ApiDtoMapper {
     breakingPropertyIds = result.breakingPropertyIds.map { it.value },
   )
 
+  fun publishedApp(info: PublishedAppInfo) = ApiPublishedAppDto(info.appId, info.appName, info.developerName, info.latestVersion.versionNumber?.value)
+
+  fun publishedAppDetail(detail: PublishedAppDetail) = ApiPublishedAppDetailDto(
+    appId = detail.appId,
+    appName = detail.appName,
+    description = detail.appDescription,
+    developerName = detail.developerName,
+    latestVersion = version(detail.latestVersion),
+    versions = detail.allVersions.map { versionSummary(it) },
+  )
+
   fun installedApp(info: InstalledAppInfo) = ApiInstalledAppDto(
     installedAppId = info.installedAppId,
     appId = info.installedApp.appId.value,
@@ -243,7 +272,7 @@ object ApiDtoMapper {
     else -> raw
   }
 
-  private fun entity(entity: EntityDefinition) = ApiEntityDto(
+  fun entity(entity: EntityDefinition) = ApiEntityDto(
     id = entity.id.value,
     name = entity.name,
     displayText = entity.displayText,

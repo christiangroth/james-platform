@@ -229,6 +229,8 @@ class ProfileResource {
   private fun scopeLabel(scope: ApiTokenScope): String = when (scope) {
     ApiTokenScope.USER_READ -> msg.profileApiTokenScopeUserRead()
     ApiTokenScope.USER_WRITE -> msg.profileApiTokenScopeUserWrite()
+    ApiTokenScope.USER_INSTALL -> msg.profileApiTokenScopeUserInstall()
+    ApiTokenScope.USER_IMPORT -> msg.profileApiTokenScopeUserImport()
     ApiTokenScope.DEVELOPER_READ -> msg.profileApiTokenScopeDeveloperRead()
     ApiTokenScope.DEVELOPER_WRITE -> msg.profileApiTokenScopeDeveloperWrite()
     ApiTokenScope.DEVELOPER_RELEASE -> msg.profileApiTokenScopeDeveloperRelease()
@@ -237,6 +239,8 @@ class ProfileResource {
   private fun scopeDescription(scope: ApiTokenScope): String = when (scope) {
     ApiTokenScope.USER_READ -> msg.profileApiTokenScopeUserReadDescription()
     ApiTokenScope.USER_WRITE -> msg.profileApiTokenScopeUserWriteDescription()
+    ApiTokenScope.USER_INSTALL -> msg.profileApiTokenScopeUserInstallDescription()
+    ApiTokenScope.USER_IMPORT -> msg.profileApiTokenScopeUserImportDescription()
     ApiTokenScope.DEVELOPER_READ -> msg.profileApiTokenScopeDeveloperReadDescription()
     ApiTokenScope.DEVELOPER_WRITE -> msg.profileApiTokenScopeDeveloperWriteDescription()
     ApiTokenScope.DEVELOPER_RELEASE -> msg.profileApiTokenScopeDeveloperReleaseDescription()

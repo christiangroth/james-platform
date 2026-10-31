@@ -16,6 +16,8 @@ import org.jboss.resteasy.reactive.server.ServerRequestFilter
 object ApiTokenRoles {
   const val USER_READ = "API_USER_READ"
   const val USER_WRITE = "API_USER_WRITE"
+  const val USER_INSTALL = "API_USER_INSTALL"
+  const val USER_IMPORT = "API_USER_IMPORT"
   const val DEVELOPER_READ = "API_DEVELOPER_READ"
   const val DEVELOPER_WRITE = "API_DEVELOPER_WRITE"
   const val DEVELOPER_RELEASE = "API_DEVELOPER_RELEASE"
@@ -23,6 +25,8 @@ object ApiTokenRoles {
   fun of(scope: ApiTokenScope): String = when (scope) {
     ApiTokenScope.USER_READ -> USER_READ
     ApiTokenScope.USER_WRITE -> USER_WRITE
+    ApiTokenScope.USER_INSTALL -> USER_INSTALL
+    ApiTokenScope.USER_IMPORT -> USER_IMPORT
     ApiTokenScope.DEVELOPER_READ -> DEVELOPER_READ
     ApiTokenScope.DEVELOPER_WRITE -> DEVELOPER_WRITE
     ApiTokenScope.DEVELOPER_RELEASE -> DEVELOPER_RELEASE

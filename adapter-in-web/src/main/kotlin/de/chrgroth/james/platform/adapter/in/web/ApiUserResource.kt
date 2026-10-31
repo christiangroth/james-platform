@@ -164,6 +164,25 @@ class ApiUserResource(
     }
   }
 
+  /** Upgrades the installation to the App's latest published version, migrating its data like the UI does. Scope `USER_INSTALL`. */
+  @POST
+  @Path("/{installedAppId}/upgrade")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_INSTALL)
+  fun upgrade(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("api.user.app-upgrade") {
+    withInstalledApp(installedAppId) {
+      userAppStore.upgradeApp(apiRequest.username(), installedAppId).fold(
+        ifLeft = { ApiResponses.domainError(it) },
+        ifRight = { upgraded ->
+          userAppStore.getInstalledApp(apiRequest.username(), upgraded.id.value).fold(
+            ifLeft = { ApiResponses.domainError(it) },
+            ifRight = { ApiResponses.ok(ApiDtoMapper.installedApp(it)) },
+          )
+        },
+      )
+    }
+  }
+
   private fun withInstalledApp(installedAppId: String, block: (InstalledAppInfo) -> Response): Response =
     userAppStore.getInstalledApp(apiRequest.username(), installedAppId).fold(
       ifLeft = { ApiResponses.domainError(it) },
@@ -178,6 +197,62 @@ class ApiUserResource(
 
   private fun entityOf(info: InstalledAppInfo, entityTypeId: String): EntityDefinition? =
     info.installedVersion.entityDefinitions.firstOrNull { it.id.value == entityTypeId }
+}
+
+/**
+ * The App store: published Apps (read with `USER_READ`) and installing them (`USER_INSTALL`). Apps outside the token's App restriction behave as
+ * if they did not exist, so a restricted token can only see and install the Apps it is restricted to.
+ */
+@Path("/api/v1/user/app-store")
+@ApplicationScoped
+@Suppress("Unused")
+class ApiAppStoreResource(
+  private val userAppStore: UserAppStorePort,
+  private val apiRequest: ApiRequestContext,
+  private val httpResponseMetrics: HttpResponseMetrics,
+) {
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_READ)
+  fun listPublishedApps(): Response = httpResponseMetrics.timed("api.user.app-store-list") {
+    ApiResponses.ok(
+      userAppStore.listAllPublishedApps()
+        .filter { apiRequest.coversApp(it.appId) }
+        .sortedBy { it.appName.lowercase() }
+        .map { ApiDtoMapper.publishedApp(it) },
+    )
+  }
+
+  @GET
+  @Path("/{appId}")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_READ)
+  fun getPublishedApp(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("api.user.app-store-get") {
+    if (!apiRequest.coversApp(appId)) return@timed ApiResponses.notFound("App $appId not found")
+    userAppStore.getPublishedApp(appId).fold(
+      ifLeft = { ApiResponses.domainError(it) },
+      ifRight = { ApiResponses.ok(ApiDtoMapper.publishedAppDetail(it)) },
+    )
+  }
+
+  /** Installs the latest published version of the App; answers with the new installation (`installedAppId` is needed for data and imports). */
+  @POST
+  @Path("/{appId}/install")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_INSTALL)
+  fun install(@PathParam("appId") appId: String): Response = httpResponseMetrics.timed("api.user.app-install") {
+    if (!apiRequest.coversApp(appId)) return@timed ApiResponses.notFound("App $appId not found")
+    userAppStore.installApp(apiRequest.username(), appId).fold(
+      ifLeft = { ApiResponses.domainError(it) },
+      ifRight = { installed ->
+        userAppStore.getInstalledApp(apiRequest.username(), installed.id.value).fold(
+          ifLeft = { ApiResponses.domainError(it) },
+          ifRight = { ApiResponses.created(ApiDtoMapper.installedApp(it)) },
+        )
+      },
+    )
+  }
 }
 
 /** Converts the JSON values of [ApiAppDataRequest] into the form-style `prop_<propertyId>` map the [AppDataPort] expects (as submitted by the UI). */

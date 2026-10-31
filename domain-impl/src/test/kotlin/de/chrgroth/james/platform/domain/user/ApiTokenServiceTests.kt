@@ -91,7 +91,25 @@ class ApiTokenServiceTests {
     assertThat(service.createToken("plain", " ", setOf(ApiTokenScope.USER_READ), emptySet()).leftOrNull()).isEqualTo(ApiTokenError.NAME_BLANK)
     assertThat(service.createToken("plain", "x", emptySet(), emptySet()).leftOrNull()).isEqualTo(ApiTokenError.NO_SCOPES)
     assertThat(service.createToken("plain", "x", setOf(ApiTokenScope.DEVELOPER_READ), emptySet()).leftOrNull()).isEqualTo(ApiTokenError.SCOPE_NOT_PERMITTED)
+    assertThat(service.createToken("plain", "x", setOf(ApiTokenScope.USER_IMPORT), emptySet()).leftOrNull()).isEqualTo(ApiTokenError.SCOPE_NOT_PERMITTED)
     verify(exactly = 0) { apiTokenRepository.insert(any()) }
+  }
+
+  @Test
+  fun `createToken allows the import scope for data importers and keeps its app restriction`() {
+    val importer = plainUser.copy(roles = setOf(UserRole.USER, UserRole.DATA_IMPORT))
+    every { userRepository.findByUsername(Username("plain")) } returns importer
+    val stored = slot<ApiToken>()
+    justRun { apiTokenRepository.insert(capture(stored)) }
+
+    service.createToken("plain", "migration", setOf(ApiTokenScope.USER_IMPORT, ApiTokenScope.USER_INSTALL), setOf("app-1"))
+
+    assertThat(stored.captured.scopes).containsExactlyInAnyOrder(ApiTokenScope.USER_IMPORT, ApiTokenScope.USER_INSTALL)
+    assertThat(stored.captured.appIds).containsExactly("app-1")
+    assertThat(stored.captured.effectiveScopes(importer))
+      .containsExactlyInAnyOrder(ApiTokenScope.USER_IMPORT, ApiTokenScope.USER_INSTALL, ApiTokenScope.USER_READ)
+    assertThat(stored.captured.effectiveScopes(importer.copy(roles = setOf(UserRole.USER))))
+      .containsExactlyInAnyOrder(ApiTokenScope.USER_INSTALL, ApiTokenScope.USER_READ)
   }
 
   @Test

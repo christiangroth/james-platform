@@ -58,6 +58,9 @@ class ProfileApiTokenPageTests {
       .body(containsString("""action="/ui/profile/api-tokens""""))
       .body(containsString("""data-testid="api-token-scope-USER_READ""""))
       .body(containsString("""data-testid="api-token-scope-DEVELOPER_RELEASE""""))
+      .body(containsString("""data-testid="api-token-scope-USER_INSTALL""""))
+      // imports need the DATA_IMPORT role, which this user does not have
+      .body(not(containsString("""data-testid="api-token-scope-USER_IMPORT"""")))
       .body(not(containsString("""data-testid="api-token-created-notice"""")))
   }
 

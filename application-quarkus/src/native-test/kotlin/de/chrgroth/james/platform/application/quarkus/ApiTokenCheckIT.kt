@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * Drives the personal access token flow against the packaged native executable: a user creates a token on the profile page (Qute
- * @TemplateData rows), then uses it on the `/api/v1` JSON API - exercising the Bearer auth mechanism, the Jackson serialization of the
+ * @TemplateData rows), then uses it on the `/api/v1` JSON API (install from the app store, read and write data) - exercising the Bearer auth mechanism, the Jackson serialization of the
  * non-empty ApiInstalledAppDetailDto/ApiVersionDto/ApiAppDataDto graphs and the @JsonCreator request deserialization, which are exactly the
  * reflection paths that only break in native mode (see JsonResponseReflectionConfig, #672). App setup follows DeveloperAndUserFlowIT.
  */
@@ -81,19 +81,13 @@ class ApiTokenCheckIT {
       .post("/ui/developer/apps/$appId/versions/publish")
       .then().log().ifValidationFails()
       .statusCode(200)
-    given()
-      .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
-      .`when`()
-      .post("/ui/user/app-store/apps/$appId/install")
-      .then().log().ifValidationFails()
-      .statusCode(200)
-
     // create the token on the profile page, the plain token is rendered exactly once
     val profileHtml = given()
       .cookie(SessionCookieForge.COOKIE_NAME, userCookie)
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "native agent")
       .formParam("scopes", "USER_WRITE")
+      .formParam("scopes", "USER_INSTALL")
       .`when`()
       .post("/ui/profile/api-tokens")
       .then().log().ifValidationFails()
@@ -111,16 +105,38 @@ class ApiTokenCheckIT {
       .then().log().ifValidationFails()
       .statusCode(200)
       .body("username", equalTo(testUsername))
-      .body("scopes", equalTo(listOf("USER_READ", "USER_WRITE")))
+      .body("scopes", equalTo(listOf("USER_INSTALL", "USER_READ", "USER_WRITE")))
 
+    // install via the app store api (ApiPublishedAppDto / ApiPublishedAppDetailDto graphs)
+    given()
+      .header("Authorization", bearer)
+      .`when`()
+      .get("/api/v1/user/app-store")
+      .then().log().ifValidationFails()
+      .statusCode(200)
+      .body("appId", hasItem(appId))
+    given()
+      .header("Authorization", bearer)
+      .`when`()
+      .get("/api/v1/user/app-store/$appId")
+      .then().log().ifValidationFails()
+      .statusCode(200)
+      .body("latestVersion.entities[0].name", equalTo("Widget"))
     val installedAppId = given()
+      .header("Authorization", bearer)
+      .`when`()
+      .post("/api/v1/user/app-store/$appId/install")
+      .then().log().ifValidationFails()
+      .statusCode(201)
+      .body("appId", equalTo(appId))
+      .extract().path<String>("installedAppId")
+    given()
       .header("Authorization", bearer)
       .`when`()
       .get("/api/v1/user/apps")
       .then().log().ifValidationFails()
       .statusCode(200)
-      .body("appId", hasItem(appId))
-      .extract().path<String>("find { it.appId == '$appId' }.installedAppId")
+      .body("installedAppId", hasItem(installedAppId))
 
     val propertyId = given()
       .header("Authorization", bearer)
