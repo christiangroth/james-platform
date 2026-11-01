@@ -1,3 +1,13 @@
+# 0.122.1 (2026.11.01)
+
+## Bugfixes / Chore
+* Beim Import werden Zeitpunkte mit Zeitzone (z. B. UTC) in die lokale Uhrzeit umgerechnet und korrekt angezeigt.
+* Beim Import lassen sich Felder mit gemischten Ganz- und Kommazahlen in Kommazahl-Felder übernehmen.
+
+
+
+---
+
 # 0.122.0 (2026.11.01)
 
 ## New Features
