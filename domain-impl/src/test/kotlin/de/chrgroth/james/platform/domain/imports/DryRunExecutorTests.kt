@@ -267,7 +267,7 @@ class DryRunExecutorTests {
   }
 
   @Test
-  fun `skipped record does not reserve its other unique key values`() {
+  fun `several unique key properties form one composite key, so only a record repeating all of them is skipped`() {
     val codeId = PropertyId("prop-2")
     val entity = entityDefinition(
       Property(id = propertyId, name = "Key", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
@@ -278,11 +278,38 @@ class DryRunExecutorTests {
       FieldMapping(targetPropertyId = codeId, sourcePath = "code"),
     )
 
-    val result = execute(records("""[{"key":"A","code":"X"},{"key":"A","code":"Y"},{"key":"B","code":"Y"}]"""), mapping, entity)
+    val result = execute(records("""[{"key":"A","code":"X"},{"key":"A","code":"Y"},{"key":"B","code":"X"},{"key":"A","code":"X"}]"""), mapping, entity)
 
-    assertThat(result[0].isValid).isTrue()
-    assertThat(result[1].isSkipped).isTrue()
-    assertThat(result[2].isValid).isTrue()
+    assertThat(result.map { it.isValid }).containsExactly(true, true, true, false)
+    assertThat(result[3].isSkipped).isTrue()
+    assertThat(result[3].issues).containsExactlyInAnyOrder(
+      DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.UniqueKeyViolation, staticallyChecked = false, expected = true),
+      DryRunIssue.ConstraintViolated(codeId, PropertyConstraintViolation.UniqueKeyViolation, staticallyChecked = false, expected = true),
+    )
+  }
+
+  @Test
+  fun `composite unique key collides with already persisted data only on the full key`() {
+    val meterId = PropertyId("prop-2")
+    val entity = entityDefinition(
+      Property(id = propertyId, name = "At", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+      Property(id = meterId, name = "Meter", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+    )
+    val mapping = mapping(
+      FieldMapping(targetPropertyId = propertyId, sourcePath = "at"),
+      FieldMapping(targetPropertyId = meterId, sourcePath = "meter"),
+    )
+    val existing = listOf(appData(EntityDefinitionId("entity-1"), mapOf(propertyId.value to "2026-01-01", meterId.value to "Strom")))
+
+    val result = execute(
+      records("""[{"at":"2026-01-01","meter":"Wasser"},{"at":"2026-01-02","meter":"Strom"},{"at":"2026-01-01","meter":"Strom"}]"""),
+      mapping,
+      entity,
+      existing,
+    )
+
+    assertThat(result.map { it.isValid }).containsExactly(true, true, false)
+    assertThat(result[2].isSkipped).isTrue()
   }
 
   @Test

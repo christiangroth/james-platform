@@ -119,7 +119,7 @@ numeric field and a User enter values as unit-suffixed text (e.g. `15km 400m`) i
 | Constraint   | Applies to    | Description                                                     |
 |--------------|---------------|-----------------------------------------------------------------|
 | `NOT NULL`   | all types     | Value must be present                                           |
-| `UNIQUE KEY` | all types     | All values across all objects of this Entity must be distinct (not applicable to `List`/`object`) |
+| `UNIQUE KEY` | all types     | All `UNIQUE KEY` properties of an Entity together form its single (composite) key: no two objects may share the values of *all* of them; with one such property its values must simply be distinct (not applicable to `List`/`object`, see ADR [0025](../adr/0025-composite-unique-keys.md)) |
 
 Additional per-type constraints are supported: `min`/`max`/`step` for `long` and `Double`; `min`/`max` length and a regex `pattern` for `String`; `min`/`max` for `date`, `time`, and `datetime`; `min`/`max` size for `List`. `List` items may carry their own item-level constraints (all of the above except `UNIQUE KEY`).
 
@@ -688,6 +688,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0022](../adr/0022-import-job-history.md)                      | Data Import: Merged Imports UI and Accepted-Job History |
 | [0023](../adr/0023-migration-steps.md)                         | Migration Steps: Declarative Building Blocks for the Most Common Entity Changes |
 | [0024](../adr/0024-personal-access-tokens.md)                  | Personal Access Tokens for a Scoped JSON API        |
+| [0025](../adr/0025-composite-unique-keys.md)                   | Composite Unique Keys                               |
 
 # Risks and Technical Debts
 
