@@ -120,6 +120,32 @@ class DryRunExecutorTests {
   }
 
   @Test
+  fun `decimal source scaled into a LONG unit property is valid when the result is an integer`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
+    val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "km", importGranularity = "KILOMETERS"))
+
+    val result = execute(records("""[{"km":19.7},{"km":6}]"""), mapping, entity)
+
+    assertThat(result.map { it.isValid }).containsExactly(true, true)
+    assertThat(result.map { it.targetData[propertyId] }).containsExactly("19700", "6000")
+  }
+
+  @Test
+  fun `decimal source scaled into a LONG unit property is invalid when the result is not an integer`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
+    val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "km", importGranularity = "KILOMETERS"))
+
+    val result = execute(records("""[{"km":19.7505}]"""), mapping, entity)
+
+    assertThat(result.single().issues).contains(
+      DryRunIssue.ConstraintViolated(propertyId, PropertyConstraintViolation.NonIntegerUnitValueViolation, staticallyChecked = false),
+    )
+    assertThat(result.single().isInvalid).isTrue()
+  }
+
+  @Test
   fun `import granularity matching the storage granularity leaves the raw value unchanged`() {
     val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
     val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))

@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
+import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
 import de.chrgroth.james.platform.domain.model.imports.FieldMappingConversion
 import de.chrgroth.james.platform.domain.model.imports.Mapping
@@ -16,6 +17,8 @@ import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
+import java.math.BigDecimal
+import java.math.MathContext
 
 /**
  * Validates a [Mapping] against its target [EntityDefinition] and the source document's detected schema:
@@ -114,11 +117,11 @@ object MappingValidator {
 
     val conversion = fieldMapping.conversion
     val observedTypes = sourceProperty.typeCounts.keys.filterNot { it == SchemaPropertyType.NULL }
-    val incompatibleType = observedTypes.firstOrNull { !isCompatible(it, property.type, conversion) }
+    val incompatibleType = observedTypes.firstOrNull { !isCompatible(it, property.type, conversion) && !isDecimalScaledIntoLongUnit(it, property, fieldMapping) }
     if (incompatibleType != null) {
       issues += MappingIssue.IncompatibleType(property.id, incompatibleType, property.type)
     } else {
-      checkNumericRange(property, sourceProperty)?.let { issues += it }
+      checkNumericRange(property, sourceProperty, importGranularityFactor(property, fieldMapping))?.let { issues += it }
       checkStringLength(property, sourceProperty)?.let { issues += it }
     }
 
@@ -182,8 +185,29 @@ object MappingValidator {
     }
   }
 
-  private fun checkNumericRange(property: Property, sourceProperty: SchemaProperty): MappingIssue.NumericRangeViolation? {
-    val range = sourceProperty.numericRange ?: return null
+  /**
+   * A decimal source value (e.g. `19.7` km) may target a `LONG` unit property when its import granularity is coarser than the storage
+   * granularity (e.g. meters): the scaled value is usually an integer. Whether it actually is, is checked per record in the dry run
+   * ([PropertyConstraintViolation.NonIntegerUnitValueViolation]), so this is not reported as an incompatible type statically.
+   */
+  private fun isDecimalScaledIntoLongUnit(sourceType: SchemaPropertyType, property: Property, fieldMapping: FieldMapping): Boolean {
+    if (sourceType != SchemaPropertyType.DOUBLE || property.type != PropertyType.LONG || fieldMapping.conversion != FieldMappingConversion.NONE) return false
+    val factor = importGranularityFactor(property, fieldMapping) ?: return false
+    return factor > BigDecimal.ONE
+  }
+
+  /** Ratio from the mapping's import granularity to the property's storage granularity (e.g. `1000` for km into meters), or null if the property has no unit or none is set. */
+  private fun importGranularityFactor(property: Property, fieldMapping: FieldMapping): BigDecimal? {
+    val unit = property.unit ?: return null
+    val importGranularity = granularityByName(unit.family, fieldMapping.importGranularity) ?: return null
+    return BigDecimal(importGranularity.factorToSmallestUnit).divide(BigDecimal(unit.storageGranularity.factorToSmallestUnit), MathContext.DECIMAL64)
+  }
+
+  /** The observed source range is expressed in the import granularity, so it is scaled by [granularityFactor] before comparing it to the property's constraints. */
+  private fun checkNumericRange(property: Property, sourceProperty: SchemaProperty, granularityFactor: BigDecimal?): MappingIssue.NumericRangeViolation? {
+    val sourceRange = sourceProperty.numericRange ?: return null
+    val factor = granularityFactor?.toDouble() ?: 1.0
+    val range = sourceRange.copy(min = sourceRange.min * factor, max = sourceRange.max * factor)
     val min = property.constraints.filterIsInstance<PropertyConstraint.MinLong>().firstOrNull()?.min?.toDouble()
       ?: property.constraints.filterIsInstance<PropertyConstraint.MinDouble>().firstOrNull()?.min
     val max = property.constraints.filterIsInstance<PropertyConstraint.MaxLong>().firstOrNull()?.max?.toDouble()

@@ -79,6 +79,10 @@ object DryRunExecutor {
         }
 
         val parsedValue = parseScalarValue(property.type, rawValue)
+        // a decimal source scaled into a LONG unit property (e.g. 19.75 km into meters) can still end up fractional
+        if (property.type == PropertyType.LONG && property.unit != null && !rawValue.isNullOrBlank() && parsedValue == null) {
+          issues += DryRunIssue.ConstraintViolated(property.id, PropertyConstraintViolation.NonIntegerUnitValueViolation, staticallyChecked = false)
+        }
         val violations = propertyConstraint.checkValue(property, parsedValue, seenValues[property.id].orEmpty())
         issues += violations.map {
           DryRunIssue.ConstraintViolated(
