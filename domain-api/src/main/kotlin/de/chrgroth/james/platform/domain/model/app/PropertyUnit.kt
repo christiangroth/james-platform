@@ -1,9 +1,15 @@
 package de.chrgroth.james.platform.domain.model.app
 
-/** Family of units a [PropertyUnit] belongs to. Determines which [Granularity] enum ([TimeGranularity] or [DistanceGranularity]) is valid for it. */
+/**
+ * Family of units a [PropertyUnit] belongs to. Determines which [Granularity] enum ([TimeGranularity], [DistanceGranularity] or
+ * [CurrencyGranularity]) is valid for it.
+ */
 enum class UnitFamily {
   TIME,
   DISTANCE,
+
+  /** Money, always in euros - there is deliberately no currency code and no exchange-rate conversion. */
+  CURRENCY,
 }
 
 /** A single step of granularity within a [UnitFamily], e.g. `METERS` for [DistanceGranularity]. */
@@ -36,6 +42,15 @@ enum class DistanceGranularity(override val symbol: String, override val factorT
   ;
 
   override val family: UnitFamily = UnitFamily.DISTANCE
+}
+
+/** Granularities of [UnitFamily.CURRENCY]: euro amounts, stored e.g. in [CENTS] to keep a `LONG` field exact. */
+enum class CurrencyGranularity(override val symbol: String, override val factorToSmallestUnit: Long) : Granularity {
+  CENTS("ct", 1L),
+  EUROS("€", 100L),
+  ;
+
+  override val family: UnitFamily = UnitFamily.CURRENCY
 }
 
 /**

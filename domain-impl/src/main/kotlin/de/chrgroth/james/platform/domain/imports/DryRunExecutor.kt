@@ -62,6 +62,7 @@ object DryRunExecutor {
     return records.mapIndexed { index, record ->
       val targetData = mutableMapOf<PropertyId, String?>()
       val issues = mutableListOf<DryRunIssue>()
+      val uniqueValuesOfRecord = mutableMapOf<PropertyId, Any>()
 
       for (property in entityDefinition.properties) {
         val fieldMapping = fieldMappingsByTarget[property.id]
@@ -88,9 +89,15 @@ object DryRunExecutor {
           )
         }
 
-        if (parsedValue != null) {
-          seenValues[property.id]?.add(parsedValue)
+        if (parsedValue != null && isUniqueKey) {
+          uniqueValuesOfRecord[property.id] = parsedValue
         }
+      }
+
+      // Only a record that is actually saved on accept may claim its UniqueKey values: an invalid or skipped record is
+      // discarded, so letting it reserve a value would wrongly discard a later, valid record carrying the same value.
+      if (issues.isEmpty()) {
+        uniqueValuesOfRecord.forEach { (uniquePropertyId, value) -> seenValues[uniquePropertyId]?.add(value) }
       }
 
       DryRunObject(index, record.toString(), targetData, issues)
