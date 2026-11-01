@@ -151,6 +151,55 @@ class MappingValidatorTests {
   }
 
   @Test
+  fun `decimal source mapped onto a LONG unit property with a coarser import granularity is compatible`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = true, unit = unit))
+    val schema = listOf(SchemaProperty("km", mapOf(SchemaPropertyType.LONG to 1, SchemaPropertyType.DOUBLE to 1), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "km", importGranularity = "KILOMETERS"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
+  fun `decimal source mapped onto a LONG unit property with the storage granularity as import granularity stays incompatible`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = true, unit = unit))
+    val schema = listOf(SchemaProperty("m", mapOf(SchemaPropertyType.DOUBLE to 1), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "m", importGranularity = "METERS"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.IncompatibleType(propertyId, SchemaPropertyType.DOUBLE, PropertyType.LONG))
+  }
+
+  @Test
+  fun `decimal source mapped onto a LONG property without a unit stays incompatible`() {
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Count", type = PropertyType.LONG, nullable = true))
+    val schema = listOf(SchemaProperty("count", mapOf(SchemaPropertyType.DOUBLE to 1), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "count"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.IncompatibleType(propertyId, SchemaPropertyType.DOUBLE, PropertyType.LONG))
+  }
+
+  @Test
+  fun `numeric range of a unit property is compared in the storage granularity`() {
+    val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
+    val entityDefinition = entityDefinition(
+      Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = true, unit = unit, constraints = setOf(PropertyConstraint.MinLong(1))),
+    )
+    val schema = listOf(SchemaProperty("km", mapOf(SchemaPropertyType.DOUBLE to 2), mandatory = true, numericRange = NumericRange(min = 0.3, max = 122.0)))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "km", importGranularity = "KILOMETERS"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
   fun `numeric value below the target minimum is reported`() {
     val entityDefinition = entityDefinition(
       Property(id = propertyId, name = "Age", type = PropertyType.LONG, nullable = true, constraints = setOf(PropertyConstraint.MinLong(18))),
