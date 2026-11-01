@@ -1037,6 +1037,131 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `handle accept dry run does not notify via Slack when a system-triggered appending run saved nothing`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returns emptyList()
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":null}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+      triggeredBy = ImportTrigger.SYSTEM,
+      notifyOnSlack = true,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { importJobRepository.save(any()) }
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { notificationPort.notify(any()) }
+  }
+
+  @Test
+  fun `handle accept dry run does not notify via Slack when a system-triggered replacing run saved as many objects as it replaced`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returnsMany
+      listOf(listOf(existingAppData("Alice")), emptyList())
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    justRun { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":"Alice"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+      triggeredBy = ImportTrigger.SYSTEM,
+      notifyOnSlack = true,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { appDataRepository.save(any()) }
+    justRun { importJobRepository.save(any()) }
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = true))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { notificationPort.notify(any()) }
+  }
+
+  @Test
+  fun `handle accept dry run notifies via Slack with the replaced count when a system-triggered replacing run changed the amount of data`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(InstalledAppId("installed-1"), EntityDefinitionId("entity-1")) } returnsMany
+      listOf(listOf(existingAppData("Alice")), emptyList())
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    justRun { appDataRepository.deleteAllByInstalledAppIdAndEntityType(any(), any()) }
+    val job = importJob(
+      status = ImportStatus.ACCEPTING,
+      payload = """{"items":[{"name":"Alice"},{"name":"Bob"}]}""",
+      selectedDataPath = "items",
+      mapping = readyMapping,
+      triggeredBy = ImportTrigger.SYSTEM,
+      notifyOnSlack = true,
+    )
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { appDataRepository.save(any()) }
+    justRun { importJobRepository.save(any()) }
+
+    val result = service.handle(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = true))
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 1) { notificationPort.notify(match { it.contains("2 saved, 1 replaced, 0 discarded") }) }
+  }
+
+  @Test
+  fun `trigger scheduled import replaces existing data when the definition opted in`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping, replaceExistingOnRun = true)
+    every { installedAppRepository.findAllByUserId("user-1") } returns listOf(installedApp)
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/data", "secret-token") } returns """{"items":[{"name":"Alice"}]}""".right()
+    val savedJobs = mutableListOf<ImportJob>()
+    justRun { importJobRepository.save(capture(savedJobs)) }
+    every { importJobRepository.findById(any()) } answers { savedJobs.lastOrNull() }
+    justRun { importDefinitionRepository.save(any()) }
+    val enqueued = slot<DomainOutboxEvent.AcceptDryRun>()
+    justRun { outboxPort.enqueue(capture(enqueued)) }
+
+    val result = service.triggerScheduledImport(definition.id.value)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(enqueued.captured.replaceExisting).isTrue()
+  }
+
+  @Test
+  fun `update schedule stores the replaceExistingOnRun flag`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    val saved = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(saved)) }
+    justRun { outboxPort.cancel(any(), any()) }
+    justRun { outboxPort.enqueue(any(), any()) }
+
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 2 * * ?", notifyOnSlack = true, replaceExistingOnRun = true)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.replaceExistingOnRun).isTrue()
+    assertThat(saved.captured.notifyOnSlack).isTrue()
+  }
+
+  private fun existingAppData(name: String) = AppData(
+    id = AppDataId("existing-$name"),
+    userId = "user-1",
+    installedAppId = InstalledAppId("installed-1"),
+    appVersion = VersionNumber("1.0.0"),
+    lastValidatedWithVersion = VersionNumber("1.0.0"),
+    entityType = EntityDefinitionId("entity-1"),
+    objectVersion = 1,
+    createdAt = Instant.now(),
+    lastChangedAt = Instant.now(),
+    data = mapOf("prop-1" to name),
+  )
+
+  @Test
   fun `handle accept dry run does not notify for a manually-triggered accept even when notifyOnSlack is set`() {
     every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
@@ -1329,7 +1454,7 @@ class ImportServiceTests {
     val notBefore = slot<Instant>()
     justRun { outboxPort.enqueue(capture(enqueued), capture(notBefore)) }
 
-    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = true)
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = true, replaceExistingOnRun = false)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isEqualTo("0 0 3 * * ?")
@@ -1347,7 +1472,7 @@ class ImportServiceTests {
     justRun { importDefinitionRepository.save(capture(saved)) }
     justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
-    val result = service.updateSchedule("user-1", definition.id.value, " ", notifyOnSlack = false)
+    val result = service.updateSchedule("user-1", definition.id.value, " ", notifyOnSlack = false, replaceExistingOnRun = false)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isNull()
@@ -1359,7 +1484,7 @@ class ImportServiceTests {
   fun `update schedule rejects an invalid cron expression`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
 
-    val result = service.updateSchedule("user-1", definition.id.value, "not a cron", notifyOnSlack = false)
+    val result = service.updateSchedule("user-1", definition.id.value, "not a cron", notifyOnSlack = false, replaceExistingOnRun = false)
 
     assertThat(result).isEqualTo(ImportError.INVALID_CRON_SCHEDULE.left())
     verify(exactly = 0) { importDefinitionRepository.save(any()) }
@@ -1369,7 +1494,7 @@ class ImportServiceTests {
   fun `update schedule rejects setting a schedule before the definition has a mapping configured`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = null)
 
-    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = false)
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = false, replaceExistingOnRun = false)
 
     assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_CONFIGURED.left())
   }
@@ -1378,7 +1503,7 @@ class ImportServiceTests {
   fun `update schedule fails when the definition belongs to another user`() {
     val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
 
-    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = false)
+    val result = service.updateSchedule("user-1", definition.id.value, "0 0 3 * * ?", notifyOnSlack = false, replaceExistingOnRun = false)
 
     assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
   }
@@ -1666,6 +1791,7 @@ class ImportServiceTests {
     connectionId: ImportConnectionId = ImportConnectionId("conn-1"),
     urlPostfix: String? = null,
     notifyOnSlack: Boolean = false,
+    replaceExistingOnRun: Boolean = false,
   ): ImportDefinition {
     val definition = ImportDefinition(
       id = ImportDefinitionId("def-${System.nanoTime()}"),
@@ -1678,6 +1804,7 @@ class ImportServiceTests {
       filterRules = filterRules,
       mapping = mapping,
       notifyOnSlack = notifyOnSlack,
+      replaceExistingOnRun = replaceExistingOnRun,
       createdAt = createdAt,
       lastChangedAt = createdAt,
     )

@@ -121,6 +121,7 @@ data class ImportDefinitionGroupRow(
   /** Minutes for `INTERVAL`, otherwise empty. */
   val scheduleIntervalMinutes: String,
   val notifyOnSlack: Boolean,
+  val replaceExistingOnRun: Boolean,
   val lastRunAt: Instant?,
   val nextRunAt: Instant?,
   val inProgressJobs: List<ImportJobRow>,
@@ -804,6 +805,7 @@ class UserImportResource {
         scheduleTime = (SchedulePreset.fromCron(definition.schedule) as? SchedulePreset.Daily)?.timeLabel().orEmpty(),
         scheduleIntervalMinutes = (SchedulePreset.fromCron(definition.schedule) as? SchedulePreset.Interval)?.minutes?.toString().orEmpty(),
         notifyOnSlack = definition.notifyOnSlack,
+        replaceExistingOnRun = definition.replaceExistingOnRun,
         lastRunAt = definition.lastRunAt,
         nextRunAt = if (inProgressJobs.isEmpty()) {
           definition.schedule?.let { importPort.nextScheduledRunAt(it, definition.lastRunAt ?: definition.createdAt) }?.takeIf { it.isAfter(now) }

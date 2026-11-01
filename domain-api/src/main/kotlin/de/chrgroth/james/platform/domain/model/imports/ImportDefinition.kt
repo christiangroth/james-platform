@@ -20,7 +20,9 @@ value class ImportDefinitionId(val value: String)
  * detected by the most recent run that was allowed to proceed to accept; a later run whose freshly detected schema
  * deviates from it aborts without accepting, to avoid silently importing data that no longer matches the configured
  * mapping. [notifyOnSlack], when set, sends a best-effort Slack summary (via `NotificationPort`) after every
- * scheduled run of this definition - see `ImportService.handle`.
+ * scheduled run of this definition that changed data or failed - see `ImportService.handle`. [replaceExistingOnRun], when set,
+ * makes every unattended run (scheduled or "run now") replace all existing data of the target entity instead of appending to
+ * it - meant for sources that are the system of record and whose records carry no usable unique key.
  */
 data class ImportDefinition(
   val id: ImportDefinitionId,
@@ -36,6 +38,7 @@ data class ImportDefinition(
   val lastRunAt: Instant? = null,
   val lastKnownSchema: List<SchemaProperty> = emptyList(),
   val notifyOnSlack: Boolean = false,
+  val replaceExistingOnRun: Boolean = false,
   val createdAt: Instant,
   val lastChangedAt: Instant,
 )

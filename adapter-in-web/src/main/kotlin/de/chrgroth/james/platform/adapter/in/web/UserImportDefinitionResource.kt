@@ -119,6 +119,7 @@ class UserImportDefinitionResource {
     @FormParam("time") time: String?,
     @FormParam("intervalMinutes") intervalMinutes: String?,
     @FormParam("notifyOnSlack") notifyOnSlack: String?,
+    @FormParam("replaceExistingOnRun") replaceExistingOnRun: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import-definition.schedule") {
     val userId = securityIdentity.principal.name
     // No free cron input: the structured form values are converted to the stored cron expression here, which then
@@ -129,7 +130,7 @@ class UserImportDefinitionResource {
       "INTERVAL" -> SchedulePreset.interval(intervalMinutes?.trim()?.toIntOrNull())?.toCron() ?: return@timed invalidScheduleResponse()
       else -> return@timed invalidScheduleResponse()
     }
-    importPort.updateSchedule(userId, definitionId, cron, !notifyOnSlack.isNullOrBlank()).fold(
+    importPort.updateSchedule(userId, definitionId, cron, !notifyOnSlack.isNullOrBlank(), !replaceExistingOnRun.isNullOrBlank()).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, definitionErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userImportDefinitionMsg.userImportDefinitionScheduleSavedMessage())).build() },
     )

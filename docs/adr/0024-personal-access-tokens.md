@@ -66,9 +66,9 @@ Chosen option 1.
 
 * A second, parallel inbound adapter surface (`/api/v1`) has to be kept in sync with new domain capabilities.
 * Tokens have no expiry date; switching them off is a manual action.
-* Uninstalling Apps, deactivating and deleting Apps, and import schedules are deliberately not part of the API (destructive or long-lived actions
-  stay in the UI). Installing Apps, creating Apps and imports were added after the first draft of this decision to support migrations driven by an
-  agent.
+* Uninstalling Apps, deactivating and deleting Apps are deliberately not part of the API (destructive actions stay in the UI). Installing Apps,
+  creating Apps, imports and - later - import schedules (UI presets only, requiring `USER_WRITE` because a schedule accepts data unattended) were
+  added after the first draft of this decision to support migrations driven by an agent.
 
 ## Pros and Cons of the Options
 
