@@ -1,3 +1,13 @@
+# 0.121.1 (2026.11.01)
+
+## Bugfixes / Chore
+* Beim Import blockiert ein ungültiger Datensatz keinen späteren gültigen Datensatz mit demselben eindeutigen Wert mehr.
+* Neue Einheit Währung (Euro) für Zahlenfelder, z. B. für Preise.
+
+
+
+---
+
 # 0.121.0 (2026.10.31)
 
 ## New Features
