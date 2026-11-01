@@ -110,6 +110,18 @@ class ValueConversionTests {
   }
 
   @Test
+  fun `a datetime with offset is converted into the local date-time in the app time zone`() {
+    assertThat(ValueConversion.toLocalDatetime("2026-09-29T19:01:00.000Z")).isEqualTo("2026-09-29T21:01")
+    assertThat(ValueConversion.toLocalDatetime("2026-01-15T22:30:15Z")).isEqualTo("2026-01-15T23:30:15")
+    assertThat(ValueConversion.convert(PropertyType.STRING, PropertyType.DATETIME, "2026-09-29T19:01:00Z").getOrNull()).isEqualTo("2026-09-29T21:01")
+  }
+
+  @Test
+  fun `a local datetime without offset is kept as is`() {
+    assertThat(ValueConversion.toLocalDatetime("2026-09-29T21:01")).isEqualTo("2026-09-29T21:01")
+  }
+
+  @Test
   fun `string to date and string to datetime pass the raw value through unchanged`() {
     assertThat(ValueConversion.convert(PropertyType.STRING, PropertyType.DATE, "2024-01-15").getOrNull()).isEqualTo("2024-01-15")
     assertThat(ValueConversion.convert(PropertyType.STRING, PropertyType.DATETIME, "2024-01-15T10:30:00").getOrNull()).isEqualTo("2024-01-15T10:30:00")

@@ -25,10 +25,12 @@ internal fun parseScalarValue(type: PropertyType, rawValue: String?): Any? {
  * unit's `storageGranularity` via [ValueConversion.convertGranularity]. Falls back to [rawValue] unchanged if
  * [conversion] is [FieldMappingConversion.NONE] or the conversion fails (an incompatible/unparseable source value is
  * instead reported downstream, either statically by `MappingValidator` or per-record by `DryRunExecutor`'s constraint
- * checks). Returns null for a null [rawValue] and when [unit] is null skips the granularity step.
+ * checks). Returns null for a null [rawValue] and when [unit] is null skips the granularity step. A `DATETIME` [propertyType] target additionally gets
+ * an instant with offset converted into the local date-time it is stored as (see [ValueConversion.toLocalDatetime]).
  */
 internal fun applyConversion(
   conversion: FieldMappingConversion,
+  propertyType: PropertyType,
   unit: PropertyUnit?,
   importGranularity: String?,
   rawValue: String?,
@@ -41,7 +43,8 @@ internal fun applyConversion(
   } else {
     rawValue
   }
-  return applyGranularityConversion(unit, importGranularity, converted)
+  val localized = if (propertyType == PropertyType.DATETIME) ValueConversion.toLocalDatetime(converted) else converted
+  return applyGranularityConversion(unit, importGranularity, localized)
 }
 
 /** Converts [rawValue] from [importGranularity] to a [PropertyUnit]'s `storageGranularity`. */

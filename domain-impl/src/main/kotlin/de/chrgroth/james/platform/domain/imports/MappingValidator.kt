@@ -179,7 +179,8 @@ object MappingValidator {
   private fun isCompatible(sourceType: SchemaPropertyType, targetType: PropertyType, conversion: FieldMappingConversion): Boolean {
     val sourcePropertyType = sourceType.asPropertyType() ?: return false
     return if (conversion == FieldMappingConversion.NONE) {
-      sourcePropertyType == targetType
+      // an integer source is losslessly a decimal, so a mixed LONG/DOUBLE source column (e.g. 10415 and 16.763) fits a DOUBLE target as is
+      sourcePropertyType == targetType || (sourcePropertyType == PropertyType.LONG && targetType == PropertyType.DOUBLE)
     } else {
       conversion.sourceType == sourcePropertyType && conversion.targetType == targetType && ValueConversion.isConvertible(sourcePropertyType, targetType)
     }
