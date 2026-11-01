@@ -382,7 +382,7 @@ class ImportService(
     importJobRepository.save(readyJob)
     onAccepted(detectedSchema)
     logger.info { "Scheduled import job created: definitionId=${definition.id.value} importJobId=${readyJob.id.value}" }
-    return acceptDryRun(definition.userId, readyJob.id.value, replaceExisting = false)
+    return acceptDryRun(definition.userId, readyJob.id.value, replaceExisting = definition.replaceExistingOnRun)
   }
 
   /** [definition]'s owner's installed app whose entity definitions include [ImportDefinition.targetEntityDefinitionId] - not stored on the definition directly, so derived this way. */
@@ -391,7 +391,13 @@ class ImportService(
       entityDefinitionsOf(installedApp).any { it.id == definition.targetEntityDefinitionId }
     }
 
-  override fun updateSchedule(userId: String, definitionId: String, schedule: String?, notifyOnSlack: Boolean): Either<DomainError, ImportDefinition> {
+  override fun updateSchedule(
+    userId: String,
+    definitionId: String,
+    schedule: String?,
+    notifyOnSlack: Boolean,
+    replaceExistingOnRun: Boolean,
+  ): Either<DomainError, ImportDefinition> {
     val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
       logger.warn { "Update schedule failed: import definition not found: $definitionId for user: $userId" }
       return ImportError.DEFINITION_NOT_FOUND.left()
@@ -407,12 +413,27 @@ class ImportService(
         return ImportError.INVALID_CRON_SCHEDULE.left()
       }
     }
-    val updated = definition.copy(schedule = trimmedSchedule, notifyOnSlack = notifyOnSlack, lastChangedAt = Instant.now())
+    val updated = definition.copy(
+      schedule = trimmedSchedule,
+      notifyOnSlack = notifyOnSlack,
+      replaceExistingOnRun = replaceExistingOnRun,
+      lastChangedAt = Instant.now(),
+    )
     importDefinitionRepository.save(updated)
     rescheduleNextRun(updated)
-    logger.info { "Schedule updated: definitionId=$definitionId schedule=${trimmedSchedule ?: "none"} notifyOnSlack=$notifyOnSlack" }
+    logger.info {
+      "Schedule updated: definitionId=$definitionId schedule=${trimmedSchedule ?: "none"} notifyOnSlack=$notifyOnSlack replaceExistingOnRun=$replaceExistingOnRun"
+    }
     return updated.right()
   }
+
+  /**
+   * Whether an accepted run changed the target entity's data, i.e. is worth a Slack summary: an appending run that saved
+   * anything, or a replacing run whose saved count differs from the replaced one. A nightly replace of unchanged source data
+   * (same count in and out) stays silent; failures are reported separately in [handle].
+   */
+  private fun changedData(replaceExisting: Boolean, savedCount: Int, replacedCount: Int): Boolean =
+    if (replaceExisting) savedCount != replacedCount else savedCount > 0
 
   override fun handle(event: DomainOutboxEvent.RunScheduledImport): Either<DomainError, Unit> {
     val definition = importDefinitionRepository.findById(ImportDefinitionId(event.importDefinitionId)) ?: run {
@@ -804,8 +825,9 @@ class ImportService(
 
     importJobRepository.save(existing.copy(status = ImportStatus.ACCEPTED, addedCount = savedCount, replacedCount = replacedCount, discardedCount = discardedCount, lastChangedAt = now))
     logger.info { "Dry run accepted: importJobId=${event.importJobId} saved=$savedCount discarded=$discardedCount" }
-    if (existing.triggeredBy == ImportTrigger.SYSTEM && definition.notifyOnSlack) {
-      notificationPort.notify("Scheduled import \"${definition.name}\" completed: $savedCount saved, $discardedCount discarded.")
+    if (existing.triggeredBy == ImportTrigger.SYSTEM && definition.notifyOnSlack && changedData(event.replaceExisting, savedCount, replacedCount)) {
+      val replacedPart = if (event.replaceExisting) ", $replacedCount replaced" else ""
+      notificationPort.notify("Scheduled import \"${definition.name}\" completed: $savedCount saved$replacedPart, $discardedCount discarded.")
     }
     return Unit.right()
   }

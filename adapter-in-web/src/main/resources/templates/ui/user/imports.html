@@ -41,7 +41,8 @@
                  data-definition-schedule-mode="{definition.scheduleMode}"
                  data-definition-schedule-time="{definition.scheduleTime}"
                  data-definition-schedule-interval="{definition.scheduleIntervalMinutes}"
-                 data-definition-notify-on-slack="{definition.notifyOnSlack}">
+                 data-definition-notify-on-slack="{definition.notifyOnSlack}"
+                 data-definition-replace-existing-on-run="{definition.replaceExistingOnRun}">
                 <div class="d-flex align-items-start flex-wrap gap-2 mb-2">
                     <div>
                         <h2 class="fs-6 fw-semibold mb-1" data-testid="definition-heading">
@@ -260,6 +261,11 @@
                         <div class="form-check mt-3">
                             <input class="form-check-input" type="checkbox" id="scheduleNotifyOnSlack" name="notifyOnSlack" data-testid="schedule-notify-on-slack-checkbox">
                             <label class="form-check-label" for="scheduleNotifyOnSlack">{userImportDefinition:userImportDefinitionNotifyOnSlackLabel()}</label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="scheduleReplaceExistingOnRun" name="replaceExistingOnRun" data-testid="schedule-replace-existing-on-run-checkbox">
+                            <label class="form-check-label" for="scheduleReplaceExistingOnRun">{userImportDefinition:userImportDefinitionReplaceExistingOnRunLabel()}</label>
+                            <div class="form-text">{userImportDefinition:userImportDefinitionReplaceExistingOnRunHint()}</div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -576,6 +582,7 @@
                 customHintBox.classList.toggle('d-none', !customHint);
                 updateScheduleControls();
                 scheduleForm.querySelector('#scheduleNotifyOnSlack').checked = !!row && row.getAttribute('data-definition-notify-on-slack') === 'true';
+                scheduleForm.querySelector('#scheduleReplaceExistingOnRun').checked = !!row && row.getAttribute('data-definition-replace-existing-on-run') === 'true';
             });
 
             scheduleModal.addEventListener('hidden.bs.modal', function () {

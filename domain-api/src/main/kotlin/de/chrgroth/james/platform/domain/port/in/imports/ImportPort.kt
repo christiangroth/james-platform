@@ -54,13 +54,20 @@ interface ImportPort {
   fun triggerScheduledImport(definitionId: String): Either<DomainError, ImportJob>
 
   /**
-   * Sets or clears (with `null`) [ImportDefinition.schedule], and sets [ImportDefinition.notifyOnSlack]; requires
+   * Sets or clears (with `null`) [ImportDefinition.schedule], and sets [ImportDefinition.notifyOnSlack] and
+   * [ImportDefinition.replaceExistingOnRun]; requires
    * the definition to already have a [ImportDefinition.selectedDataPath] and [ImportDefinition.mapping]. Cancels any
    * previously enqueued [DomainOutboxEvent.RunScheduledImport] for this definition and, when a schedule remains set,
    * enqueues a fresh one delayed until the new schedule's next due occurrence (see ADR 0019's delayed-dispatch
    * section) - replacing the previous cron-poll loop.
    */
-  fun updateSchedule(userId: String, definitionId: String, schedule: String?, notifyOnSlack: Boolean): Either<DomainError, ImportDefinition>
+  fun updateSchedule(
+    userId: String,
+    definitionId: String,
+    schedule: String?,
+    notifyOnSlack: Boolean,
+    replaceExistingOnRun: Boolean,
+  ): Either<DomainError, ImportDefinition>
 
   /**
    * Runs the same unattended fetch-to-accept pipeline as [triggerScheduledImport], but for a user-initiated

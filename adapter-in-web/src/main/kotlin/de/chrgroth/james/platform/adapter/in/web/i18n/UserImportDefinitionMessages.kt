@@ -81,6 +81,12 @@ interface UserImportDefinitionMessages {
   fun userImportDefinitionNotifyOnSlackLabel(): String
 
   @Message
+  fun userImportDefinitionReplaceExistingOnRunLabel(): String
+
+  @Message
+  fun userImportDefinitionReplaceExistingOnRunHint(): String
+
+  @Message
   fun userDeleteImportDefinitionModalTitle(): String
 
   @Message

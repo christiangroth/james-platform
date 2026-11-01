@@ -97,6 +97,19 @@ class ValueConversionTests {
   }
 
   @Test
+  fun `datetime with offset to date uses the date in the app time zone`() {
+    // Berlin midnight stored as UTC instant, in summer (CEST) and winter (CET)
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2025-08-28T22:00:00.000Z").getOrNull()).isEqualTo("2025-08-29")
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2024-01-14T23:00:00.000Z").getOrNull()).isEqualTo("2024-01-15")
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2024-01-15T00:30:00+01:00").getOrNull()).isEqualTo("2024-01-15")
+  }
+
+  @Test
+  fun `datetime without offset to date keeps its local date`() {
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2024-01-15T23:30:00").getOrNull()).isEqualTo("2024-01-15")
+  }
+
+  @Test
   fun `string to date and string to datetime pass the raw value through unchanged`() {
     assertThat(ValueConversion.convert(PropertyType.STRING, PropertyType.DATE, "2024-01-15").getOrNull()).isEqualTo("2024-01-15")
     assertThat(ValueConversion.convert(PropertyType.STRING, PropertyType.DATETIME, "2024-01-15T10:30:00").getOrNull()).isEqualTo("2024-01-15T10:30:00")

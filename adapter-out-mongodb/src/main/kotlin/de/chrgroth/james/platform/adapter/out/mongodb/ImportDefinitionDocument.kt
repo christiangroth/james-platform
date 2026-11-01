@@ -21,6 +21,7 @@ class ImportDefinitionDocument {
   var lastRunAt: Instant? = null
   var lastKnownSchema: List<SchemaPropertyDocument> = emptyList()
   var notifyOnSlack: Boolean = false
+  var replaceExistingOnRun: Boolean = false
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
 }

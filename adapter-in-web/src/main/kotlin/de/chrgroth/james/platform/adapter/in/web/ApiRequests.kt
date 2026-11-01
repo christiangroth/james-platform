@@ -129,6 +129,18 @@ data class ApiImportTestUrlRequest @JsonCreator constructor(
   @param:JsonProperty("urlPostfix") val urlPostfix: String?,
 )
 
+/**
+ * Schedule of an import definition, using the same presets as the UI: `mode` is `NONE`, `DAILY` (with `time` as `HH:mm` on the 15-minute raster)
+ * or `INTERVAL` (with `intervalMinutes`, one of 15, 30, 60, 120, 180, 240, 360, 720).
+ */
+data class ApiImportScheduleRequest @JsonCreator constructor(
+  @param:JsonProperty("mode") val mode: String?,
+  @param:JsonProperty("time") val time: String?,
+  @param:JsonProperty("intervalMinutes") val intervalMinutes: Int?,
+  @param:JsonProperty("notifyOnSlack") val notifyOnSlack: Boolean?,
+  @param:JsonProperty("replaceExistingOnRun") val replaceExistingOnRun: Boolean?,
+)
+
 data class ApiDataPathRequest @JsonCreator constructor(
   @param:JsonProperty("dataPath") val dataPath: String?,
 )

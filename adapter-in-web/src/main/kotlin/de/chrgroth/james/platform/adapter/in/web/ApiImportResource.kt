@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.domain.model.imports.ImportDefinition
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.MappingView
+import de.chrgroth.james.platform.domain.model.imports.SchedulePreset
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
@@ -183,6 +184,34 @@ class ApiImportResource(
       )
     }
   }
+
+  /**
+   * Sets or clears the schedule of a fully configured definition (UI presets only, see [ApiImportScheduleRequest]) together with its Slack and replace
+   * flags. A schedule makes the definition accept data unattended, so like [runDefinition] this requires `USER_IMPORT` and `USER_WRITE`.
+   */
+  @PUT
+  @Path("/definitions/{definitionId}/schedule")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_IMPORT)
+  fun updateSchedule(@PathParam("definitionId") definitionId: String, request: ApiImportScheduleRequest?): Response =
+    httpResponseMetrics.timed("api.user.import-definition-schedule") {
+      requireWrite()?.let { return@timed it }
+      val body = request ?: return@timed ApiResponses.badRequest("Request body is required")
+      val cron: String? = when (body.mode?.trim()?.uppercase()) {
+        "NONE" -> null
+        "DAILY" -> SchedulePreset.daily(body.time)?.toCron() ?: return@timed ApiResponses.badRequest("DAILY requires time as HH:mm on the 15-minute raster")
+        "INTERVAL" -> SchedulePreset.interval(body.intervalMinutes)?.toCron()
+          ?: return@timed ApiResponses.badRequest("INTERVAL requires intervalMinutes, one of ${SchedulePreset.INTERVAL_MINUTES}")
+        else -> return@timed ApiResponses.badRequest("mode must be NONE, DAILY or INTERVAL")
+      }
+      withDefinition(definitionId) {
+        imports.updateSchedule(apiRequest.username(), definitionId, cron, body.notifyOnSlack == true, body.replaceExistingOnRun == true).fold(
+          ifLeft = { ApiResponses.domainError(it) },
+          ifRight = { Response.ok(mapper.definition(it)).type(MediaType.APPLICATION_JSON).build() },
+        )
+      }
+    }
 
   // endregion
 

@@ -3,8 +3,10 @@ package de.chrgroth.james.platform.domain.model.app
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
+import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import java.math.BigDecimal
 import java.math.MathContext
+import java.time.OffsetDateTime
 
 /** Reason a [ValueConversion.convert] call did not produce a value. */
 enum class ValueConversionError {
@@ -74,5 +76,13 @@ object ValueConversion {
 
   private fun formatDouble(value: BigDecimal): String = value.stripTrailingZeros().toPlainString()
 
-  private fun truncateDatetimeToDate(rawValue: String): String = rawValue.substringBefore('T').substringBefore(' ')
+  /**
+   * A value carrying an offset (e.g. `2025-08-28T22:00:00.000Z`) denotes an instant, so its date is the one in [AppTimeZone] - plain truncation would
+   * put Berlin midnight stored as UTC on the previous day. A value without offset is already a local date-time and is truncated to its date part.
+   */
+  private fun truncateDatetimeToDate(rawValue: String): String {
+    val trimmed = rawValue.trim()
+    val instant = runCatching { OffsetDateTime.parse(trimmed) }.getOrNull()
+    return instant?.atZoneSameInstant(AppTimeZone.zone)?.toLocalDate()?.toString() ?: trimmed.substringBefore('T').substringBefore(' ')
+  }
 }
