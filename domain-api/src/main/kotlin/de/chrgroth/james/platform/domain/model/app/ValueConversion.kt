@@ -60,9 +60,18 @@ object ValueConversion {
       PropertyType.BOOLEAN -> rawValue.equals("true", ignoreCase = true).toString().right()
       PropertyType.STRING -> rawValue.right()
       PropertyType.DATE -> if (from == PropertyType.DATETIME) truncateDatetimeToDate(rawValue).right() else rawValue.right()
-      PropertyType.DATETIME -> rawValue.right()
+      PropertyType.DATETIME -> toLocalDatetime(rawValue).right()
       else -> ValueConversionError.UNSUPPORTED_CONVERSION.left()
     }
+  }
+
+  /**
+   * A `DATETIME` property stores a local date-time in [AppTimeZone] (as entered via `datetime-local`, e.g. `2026-09-29T21:01`). A value carrying an offset
+   * (e.g. `2026-09-29T19:01:00.000Z`) denotes an instant and is converted into that local date-time; any other value is returned unchanged.
+   */
+  fun toLocalDatetime(rawValue: String): String {
+    val instant = runCatching { OffsetDateTime.parse(rawValue.trim()) }.getOrNull() ?: return rawValue
+    return instant.atZoneSameInstant(AppTimeZone.zone).toLocalDateTime().toString()
   }
 
   /** Converts [rawValue] (numeric text expressed in [sourceGranularity]) to [unit]'s `storageGranularity`. Returns [rawValue] unchanged if it is not numeric or already in that granularity. */

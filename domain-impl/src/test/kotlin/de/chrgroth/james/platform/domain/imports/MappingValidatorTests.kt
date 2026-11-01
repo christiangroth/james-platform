@@ -94,6 +94,17 @@ class MappingValidatorTests {
   }
 
   @Test
+  fun `mixed integer and decimal source fits a DOUBLE target without a conversion`() {
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Value", type = PropertyType.DOUBLE, nullable = true))
+    val schema = listOf(SchemaProperty("value", mapOf(SchemaPropertyType.LONG to 3, SchemaPropertyType.DOUBLE to 2), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "value"))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
   fun `incompatible source type without a conversion is reported`() {
     val entityDefinition = entityDefinition(Property(id = propertyId, name = "Age", type = PropertyType.LONG, nullable = true))
     val schema = listOf(SchemaProperty("age", mapOf(SchemaPropertyType.STRING to 1), mandatory = true))

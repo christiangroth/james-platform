@@ -97,6 +97,17 @@ class DryRunExecutorTests {
   }
 
   @Test
+  fun `a datetime source with offset is stored as local date-time in the app time zone`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "At", type = PropertyType.DATETIME, nullable = false))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "date"))
+
+    val result = execute(records("""[{"date":"2026-09-29T19:01:00.000Z"}]"""), mapping, entity)
+
+    assertThat(result.single().isValid).isTrue()
+    assertThat(result.single().targetData).isEqualTo(mapOf(propertyId to "2026-09-29T21:01"))
+  }
+
+  @Test
   fun `datetime to date conversion truncates the raw value to its date part`() {
     val entity = entityDefinition(Property(id = propertyId, name = "Birthday", type = PropertyType.DATE, nullable = false))
     val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "createdAt", conversion = FieldMappingConversion.DATETIME_TO_DATE))
