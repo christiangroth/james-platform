@@ -92,6 +92,8 @@ When creating GitHub issues (e.g. when breaking down work or filing follow-ups):
 
 **Snippet filename:** `docs/releasenotes/snippets/{branch-last-segment}-{type}.md` where `{type}` is one of `bugfix` or `feature`.
 
+**Dashboard-only changes:** A branch that only changes files under `monitoring/grafana/` needs no snippet. The CI path filter skips build and release for it and only provisions the dashboards, so the snippet would just wait for the next release. Keep such branches free of other changes, otherwise the full build and release run.
+
 **Snippet content:** Briefly describe what was changed or added on the branch. Each line should follow the pattern `* Description of the change.` Feel free to use multiple short lines, describing the change without technical detail. Only include **user-facing or dependency changes** in release notes. Do not add implementation details, refactoring notes, or internal structural changes (e.g. package renames, build task additions).
 
 **Type selection:** Use `feature` for new user-facing functionality. Use `bugfix` for fixes and chore/internal changes (e.g. refactoring, configuration restructuring, dependency updates).
