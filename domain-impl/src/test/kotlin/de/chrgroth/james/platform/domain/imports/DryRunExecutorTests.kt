@@ -223,6 +223,43 @@ class DryRunExecutorTests {
   }
 
   @Test
+  fun `invalid record does not reserve its unique key value for a later valid record`() {
+    val distanceId = PropertyId("prop-2")
+    val entity = entityDefinition(
+      Property(id = propertyId, name = "Date", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+      Property(id = distanceId, name = "Distance", type = PropertyType.LONG, nullable = false, constraints = setOf(PropertyConstraint.MinLong(1))),
+    )
+    val mapping = mapping(
+      FieldMapping(targetPropertyId = propertyId, sourcePath = "date"),
+      FieldMapping(targetPropertyId = distanceId, sourcePath = "distance"),
+    )
+
+    val result = execute(records("""[{"date":"2023-07-31","distance":0},{"date":"2023-07-31","distance":6}]"""), mapping, entity)
+
+    assertThat(result[0].isInvalid).isTrue()
+    assertThat(result[1].isValid).isTrue()
+  }
+
+  @Test
+  fun `skipped record does not reserve its other unique key values`() {
+    val codeId = PropertyId("prop-2")
+    val entity = entityDefinition(
+      Property(id = propertyId, name = "Key", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+      Property(id = codeId, name = "Code", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey)),
+    )
+    val mapping = mapping(
+      FieldMapping(targetPropertyId = propertyId, sourcePath = "key"),
+      FieldMapping(targetPropertyId = codeId, sourcePath = "code"),
+    )
+
+    val result = execute(records("""[{"key":"A","code":"X"},{"key":"A","code":"Y"},{"key":"B","code":"Y"}]"""), mapping, entity)
+
+    assertThat(result[0].isValid).isTrue()
+    assertThat(result[1].isSkipped).isTrue()
+    assertThat(result[2].isValid).isTrue()
+  }
+
+  @Test
   fun `reference lookup resolves to the id of the matching referenced entity`() {
     val referencedEntityId = EntityDefinitionId("entity-2")
     val codePropertyId = PropertyId("code-prop")
