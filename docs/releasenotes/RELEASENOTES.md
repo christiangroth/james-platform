@@ -1,3 +1,12 @@
+# 0.122.0 (2026.11.01)
+
+## New Features
+* Mehrere als eindeutig markierte Felder einer Entität bilden jetzt zusammen einen Schlüssel: eindeutig sein muss die Kombination, z. B. Zeitpunkt und Zähler.
+
+
+
+---
+
 # 0.121.3 (2026.11.01)
 
 ## Bugfixes / Chore
