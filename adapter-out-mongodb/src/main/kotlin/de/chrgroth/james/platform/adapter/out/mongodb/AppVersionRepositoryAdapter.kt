@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
+import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
 import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
@@ -247,6 +248,7 @@ class AppVersionRepositoryAdapter(
   private fun granularityOrNull(family: UnitFamily, name: String): Granularity? = when (family) {
     UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(name) }.getOrNull()
     UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(name) }.getOrNull()
+    UnitFamily.CURRENCY -> runCatching { CurrencyGranularity.valueOf(name) }.getOrNull()
   }
 
   private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {

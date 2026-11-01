@@ -23,6 +23,10 @@ var UNIT_GRANULARITIES = {
         { value: 'CENTIMETERS', symbol: 'cm', factor: 10 },
         { value: 'METERS', symbol: 'm', factor: 1000 },
         { value: 'KILOMETERS', symbol: 'km', factor: 1000000 }
+    ],
+    CURRENCY: [
+        { value: 'CENTS', symbol: 'ct', factor: 1 },
+        { value: 'EUROS', symbol: '€', factor: 100 }
     ]
 };
 

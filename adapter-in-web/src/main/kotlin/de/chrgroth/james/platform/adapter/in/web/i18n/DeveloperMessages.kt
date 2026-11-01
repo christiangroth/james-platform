@@ -477,6 +477,9 @@ interface DeveloperMessages {
   fun developerUnitFamilyDistanceLabel(): String
 
   @Message
+  fun developerUnitFamilyCurrencyLabel(): String
+
+  @Message
   fun developerUnitStorageGranularityLabel(): String
 
   @Message

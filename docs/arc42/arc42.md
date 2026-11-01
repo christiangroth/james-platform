@@ -95,10 +95,13 @@ Cyclic reference graphs via `ref` are detected and rejected at schema-definition
 A `long`/`Double` property may carry a **`PropertyUnit`**, letting a Developer attach a unit family to a
 numeric field and a User enter values as unit-suffixed text (e.g. `15km 400m`) instead of a bare number.
 
-- A `PropertyUnit` has a **`family`** (`TIME` or `DISTANCE`), a **`storageGranularity`**, and a
+- A `PropertyUnit` has a **`family`** (`TIME`, `DISTANCE` or `CURRENCY`), a **`storageGranularity`**, and a
   **`defaultGranularity`** — both granularities are one of `TimeGranularity` (`MILLISECONDS`, `SECONDS`,
-  `MINUTES`, `HOURS`, `DAYS`) or `DistanceGranularity` (`MILLIMETERS`, `CENTIMETERS`, `METERS`,
-  `KILOMETERS`), matching the unit's `family`.
+  `MINUTES`, `HOURS`, `DAYS`), `DistanceGranularity` (`MILLIMETERS`, `CENTIMETERS`, `METERS`,
+  `KILOMETERS`) or `CurrencyGranularity` (`CENTS`, `EUROS`), matching the unit's `family`.
+- `CURRENCY` always means euros: there is no currency code and no exchange-rate conversion. Unlike the other
+  families, a currency value is displayed as a single euro amount with two decimals (`12,50€`) rather than
+  as a composite (`12€ 50ct`).
 - Values are always stored numerically in `storageGranularity` — `UnitFormat` parses a User's textual
   input (e.g. `"15km 400m"` → `15400` at `storageGranularity = METERS`) at write time (see ADR
   [0016](../adr/0016-property-units-storage-granularity.md)). For a `long` property, the converted value
@@ -750,6 +753,6 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Reference lookup   | A `find`-only rule, configured per REF Property in a Mapping, that resolves a source value to an existing object of the referenced Entity. Never creates a referenced object as a side effect. |
 | Dry run           | A non-persisting preview of an import's Accept step, surfacing per-object validation issues before any data is written. |
 | Property Unit     | An optional unit (`family`, `storageGranularity`, `defaultGranularity`) attached to a `long`/`Double` Property; values are always stored numerically in `storageGranularity`. See ADR [0016](../adr/0016-property-units-storage-granularity.md). |
-| Unit family       | The kind of unit a Property Unit belongs to: `TIME` or `DISTANCE`. Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`) applies. |
+| Unit family       | The kind of unit a Property Unit belongs to: `TIME`, `DISTANCE` or `CURRENCY` (euros only). Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`/`CurrencyGranularity`) applies. |
 | Storage granularity | A Property Unit's fixed smallest representable unit, chosen at field creation and immutable afterward. |
 | Outbox            | A persistent queue for at-least-once execution of long-running domain operations (import, deletion, migration). Scoped to a single "domain" partition, no rate limiting. See ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |
