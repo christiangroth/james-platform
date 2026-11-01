@@ -115,6 +115,27 @@ class AppDataServiceTests {
   }
 
   @Test
+  fun `createAppData checks each unique key property only against objects matching the other key properties (composite key)`() {
+    val keyA = Property(id = PropertyId("key-a"), name = "KeyA", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey))
+    val keyB = Property(id = PropertyId("key-b"), name = "KeyB", type = PropertyType.STRING, nullable = false, constraints = setOf(PropertyConstraint.UniqueKey))
+    val compositeEntity = EntityDefinition(id = entityId, name = "Composite", properties = listOf(keyA, keyB))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion.copy(entityDefinitions = listOf(compositeEntity))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(
+      existingAppData.copy(id = AppDataId("data-1"), data = mapOf("key-a" to "a", "key-b" to "x")),
+      existingAppData.copy(id = AppDataId("data-2"), data = mapOf("key-a" to "b", "key-b" to "y")),
+    )
+    every { propertyConstraint.checkValue(any(), any(), any()) } returns emptyList()
+    justRun { appDataRepository.save(any()) }
+
+    val result = service.createAppData(userId, installedAppId.value, entityId.value, mapOf("prop_key-a" to listOf("a"), "prop_key-b" to listOf("y")))
+
+    assertThat(result.isRight()).isTrue()
+    verify { propertyConstraint.checkValue(keyA, "a", listOf("b")) }
+    verify { propertyConstraint.checkValue(keyB, "y", listOf("x")) }
+  }
+
+  @Test
   fun `createAppData returns AppDataConstraintViolationError for single property violation`() {
     every { installedAppRepository.findById(installedAppId) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion

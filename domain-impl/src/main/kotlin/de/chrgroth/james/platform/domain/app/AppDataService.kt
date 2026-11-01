@@ -22,6 +22,8 @@ import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.parseUnitValue
+import de.chrgroth.james.platform.domain.model.app.uniqueKeyComparisonValues
+import de.chrgroth.james.platform.domain.model.app.uniqueKeyProperties
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -75,10 +77,12 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     val allPathedViolations = mutableListOf<PathedConstraintViolation>()
+    val converted = entityDef.properties.associate { it.id to unitConvertedValue(it, storedValueFor(it, data)) }
+    val uniqueKeyValues = uniqueKeyComparison(entityDef, existingValues) { parseValue(it, converted.getValue(it.id).first) }
     for (property in entityDef.properties) {
-      val (storedValue, unitViolations) = unitConvertedValue(property, storedValueFor(property, data))
+      val (storedValue, unitViolations) = converted.getValue(property.id)
       val parsedValue = parseValue(property, storedValue)
-      val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
+      val existingParsedValues = uniqueKeyValues(property)
       val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + unitViolations
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
@@ -174,10 +178,12 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     val allPathedViolations = mutableListOf<PathedConstraintViolation>()
+    val converted = entityDef.properties.associate { it.id to unitConvertedValue(it, storedValueFor(it, data)) }
+    val uniqueKeyValues = uniqueKeyComparison(entityDef, existingValues) { parseValue(it, converted.getValue(it.id).first) }
     for (property in entityDef.properties) {
-      val (storedValue, unitViolations) = unitConvertedValue(property, storedValueFor(property, data))
+      val (storedValue, unitViolations) = converted.getValue(property.id)
       val parsedValue = parseValue(property, storedValue)
-      val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
+      val existingParsedValues = uniqueKeyValues(property)
       val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + unitViolations
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
@@ -272,10 +278,11 @@ class AppDataService(
 
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     val allPathedViolations = mutableListOf<PathedConstraintViolation>()
+    val uniqueKeyValues = uniqueKeyComparison(entityDef, existingValues) { parseValue(it, data[it.id.value]) }
     for (property in entityDef.properties) {
       val storedValue = data[property.id.value]
       val parsedValue = parseValue(property, storedValue)
-      val existingParsedValues = existingValues.mapNotNull { it.data[property.id.value]?.let { v -> parseValue(property, v) } }
+      val existingParsedValues = uniqueKeyValues(property)
       val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId))
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
@@ -288,6 +295,18 @@ class AppDataService(
       return AppDataConstraintViolationError(allViolations, allPathedViolations).left()
     }
     return Unit.right()
+  }
+
+  /**
+   * Builds the per-property `existingValues` for the `UniqueKey` check of a candidate object (parsed key values via [candidateValue]) against
+   * [existing] objects of [entityDef]: all key properties together form one composite key, see [uniqueKeyProperties].
+   */
+  private fun uniqueKeyComparison(entityDef: EntityDefinition, existing: List<AppData>, candidateValue: (Property) -> Any?): (Property) -> List<Any?> {
+    val keyProperties = entityDef.uniqueKeyProperties
+    if (keyProperties.isEmpty()) return { emptyList() }
+    val candidate = keyProperties.associate { it.id to candidateValue(it) }
+    val existingKeys = existing.map { appData -> keyProperties.associate { it.id to appData.data[it.id.value]?.let { v -> parseValue(it, v) } } }
+    return { property -> uniqueKeyComparisonValues(property, keyProperties, candidate, existingKeys) }
   }
 
   /** Encodes the raw form values submitted for a top-level property into the single string stored in [AppData.data]. */

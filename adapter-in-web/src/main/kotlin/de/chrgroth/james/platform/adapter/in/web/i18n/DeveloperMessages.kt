@@ -429,6 +429,9 @@ interface DeveloperMessages {
   fun developerUniqueKeyLabel(): String
 
   @Message
+  fun developerUniqueKeyHint(): String
+
+  @Message
   fun developerMinValueLabel(): String
 
   @Message

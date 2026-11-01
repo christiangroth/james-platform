@@ -9,6 +9,8 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.uniqueKeyComparisonValues
+import de.chrgroth.james.platform.domain.model.app.uniqueKeyProperties
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
@@ -52,22 +54,23 @@ object DryRunExecutor {
     propertyConstraint: PropertyConstraintPort,
   ): List<DryRunObject> {
     val fieldMappingsByTarget = mapping.fieldMappings.associateBy { it.targetPropertyId }
-    val uniqueKeyProperties = entityDefinition.properties.filter { it.constraints.contains(PropertyConstraint.UniqueKey) }
-    val seenValues: Map<PropertyId, MutableList<Any?>> = uniqueKeyProperties.associate { property ->
-      property.id to existingAppData.mapNotNullTo(mutableListOf()) { appData ->
-        appData.data[property.id.value]?.let { parseScalarValue(property.type, it) }
-      }
+    // all UniqueKey properties together form one composite key (see uniqueKeyProperties); seenKeys holds the key of every persisted or to-be-saved object
+    val keyProperties = entityDefinition.uniqueKeyProperties
+    val seenKeys: MutableList<Map<PropertyId, Any?>> = existingAppData.mapTo(mutableListOf()) { appData ->
+      keyProperties.associate { it.id to appData.data[it.id.value]?.let { v -> parseScalarValue(it.type, v) } }
     }
 
     return records.mapIndexed { index, record ->
       val targetData = mutableMapOf<PropertyId, String?>()
       val issues = mutableListOf<DryRunIssue>()
-      val uniqueValuesOfRecord = mutableMapOf<PropertyId, Any>()
+      for (property in entityDefinition.properties) {
+        targetData[property.id] = resolveRawValue(record, property, fieldMappingsByTarget[property.id], entityDefinitionsById, referencedAppDataByEntityId)
+      }
+      val keyOfRecord = keyProperties.associate { it.id to parseScalarValue(it.type, targetData[it.id]) }
 
       for (property in entityDefinition.properties) {
         val fieldMapping = fieldMappingsByTarget[property.id]
-        val rawValue = resolveRawValue(record, property, fieldMapping, entityDefinitionsById, referencedAppDataByEntityId)
-        targetData[property.id] = rawValue
+        val rawValue = targetData[property.id]
         val isUniqueKey = property.constraints.contains(PropertyConstraint.UniqueKey)
 
         if (!property.nullable && rawValue.isNullOrBlank()) {
@@ -83,7 +86,7 @@ object DryRunExecutor {
         if (property.type == PropertyType.LONG && property.unit != null && !rawValue.isNullOrBlank() && parsedValue == null) {
           issues += DryRunIssue.ConstraintViolated(property.id, PropertyConstraintViolation.NonIntegerUnitValueViolation, staticallyChecked = false)
         }
-        val violations = propertyConstraint.checkValue(property, parsedValue, seenValues[property.id].orEmpty())
+        val violations = propertyConstraint.checkValue(property, parsedValue, uniqueKeyComparisonValues(property, keyProperties, keyOfRecord, seenKeys))
         issues += violations.map {
           DryRunIssue.ConstraintViolated(
             property.id,
@@ -92,16 +95,12 @@ object DryRunExecutor {
             expected = it is PropertyConstraintViolation.UniqueKeyViolation,
           )
         }
-
-        if (parsedValue != null && isUniqueKey) {
-          uniqueValuesOfRecord[property.id] = parsedValue
-        }
       }
 
-      // Only a record that is actually saved on accept may claim its UniqueKey values: an invalid or skipped record is
-      // discarded, so letting it reserve a value would wrongly discard a later, valid record carrying the same value.
-      if (issues.isEmpty()) {
-        uniqueValuesOfRecord.forEach { (uniquePropertyId, value) -> seenValues[uniquePropertyId]?.add(value) }
+      // Only a record that is actually saved on accept may claim its key: an invalid or skipped record is discarded, so
+      // letting it reserve the key would wrongly discard a later, valid record carrying the same key.
+      if (issues.isEmpty() && keyProperties.isNotEmpty()) {
+        seenKeys += keyOfRecord
       }
 
       DryRunObject(index, record.toString(), targetData, issues)
