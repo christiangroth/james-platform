@@ -1,3 +1,13 @@
+# 0.121.3 (2026.11.01)
+
+## Bugfixes / Chore
+* Beim Import lassen sich Kommazahlen in einer gröberen Einheit (z. B. 19,7 km) in ganzzahlige Felder mit feinerer Einheit (Meter) übernehmen.
+* Die Bereichsprüfung beim Import berücksichtigt die Einheit der Quelldaten.
+
+
+
+---
+
 # 0.121.2 (2026.11.01)
 
 ## Bugfixes / Chore
