@@ -1,3 +1,12 @@
+# 0.127.0 (2026.11.02)
+
+## New Features
+* Neue Einheiten für Zahlenfelder: Gewicht (mg, g, kg), Energie (kJ, kcal, Wh, kWh) und Volumen (ml, l, m³).
+
+
+
+---
+
 # 0.126.0 (2026.11.02)
 
 ## New Features
