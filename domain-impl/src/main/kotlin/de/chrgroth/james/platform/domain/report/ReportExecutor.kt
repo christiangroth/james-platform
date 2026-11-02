@@ -51,6 +51,7 @@ import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
+import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.readmodel.encodeTimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
@@ -197,8 +198,15 @@ internal class ReportExecutor(
     if (query.filter.isNotEmpty()) {
       val records = rows.map { row -> filterRecord(row, fields) to row }
       val rowByRecord = IdentityHashMap<JsonNode, Row>().apply { records.forEach { (record, row) -> put(record, row) } }
-      val rules = query.filter.map { rule -> rule.copy(value = filterValue(rule.value, fields[rule.sourcePath])) }
-      rows = FilterEvaluator.apply(records.map { it.first }, rules).map { rowByRecord.getValue(it) }
+      // A rule whose `config.<field>` value cannot be resolved never matches: an including rule keeps nothing, an excluding one drops nothing.
+      val rules = query.filter.map { rule -> rule to ReportFields.configPath(rule.value)?.let { configFilterValue(it, fields[rule.sourcePath]) } }
+      val unresolved = rules.filter { (rule, value) -> ReportFields.configPath(rule.value) != null && value == null }.map { it.first }
+      rows = if (unresolved.any { it.mode == FilterMode.INCLUDE }) {
+        emptyList()
+      } else {
+        val effective = rules.filter { it.first !in unresolved }.map { (rule, value) -> if (value == null) rule else rule.copy(value = value) }
+        FilterEvaluator.apply(records.map { it.first }, effective).map { rowByRecord.getValue(it) }
+      }
     }
 
     val orderOf = { row: Row -> timeField?.let { row.values[it.path] }?.takeIf { it.isNotEmpty() } ?: row.item.createdAt.toString() }
@@ -230,13 +238,12 @@ internal class ReportExecutor(
   }
 
   /**
-   * A filter rule's value, a `config.<field>` value resolved as the filtered [target] field compares it: a reference by its display text, a
-   * number converted into the target's unit. An unresolvable or empty configuration value never matches (a value no field carries).
+   * The value of a `config.<field>` filter value ([path] being the field) as the filtered [target] field compares it: a reference by its display
+   * text, a number converted into the target's unit; null if the field or its value is missing.
    */
-  private fun filterValue(raw: String?, target: ResolvedField?): String? {
-    val path = ReportFields.configPath(raw) ?: return raw
-    val field = configField(path) ?: return UNMATCHABLE
-    val value = configRaw(field) ?: return UNMATCHABLE
+  private fun configFilterValue(path: String, target: ResolvedField?): String? {
+    val field = configField(path) ?: return null
+    val value = configRaw(field) ?: return null
     return when {
       field.type == PropertyType.REF -> displayTexts.displayTextOf(value)
       ReportFields.isNumericType(field.type) && target != null && ReportFields.isNumericType(target.type) -> {
@@ -638,8 +645,5 @@ internal class ReportExecutor(
     private const val NO_VALUE = "–"
     private const val EMPTY_GROUP = "–"
     private const val PERCENT = 100.0
-
-    /** Filter value of an unresolvable `config.<field>` reference: control characters no stored text contains. */
-    private const val UNMATCHABLE = "\u0000config\u0000"
   }
 }

@@ -22,6 +22,13 @@ import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyId
+import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -36,7 +43,8 @@ class ReportServiceTests {
   private val computedProperty: ComputedPropertyPort = mockk {
     every { computeValues(any(), any(), any(), any()) } answers { mapOf("c-jahr" to secondArg<Map<String, String?>>()["p-datum"]?.take(4)) }
   }
-  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, mockk(relaxed = true)).apply {
+  private val appConfiguration: AppConfigurationPort = mockk()
+  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, appConfiguration).apply {
     clock = Clock.fixed(Instant.parse("2026-06-15T10:00:00Z"), ZoneOffset.UTC)
   }
 
@@ -51,13 +59,13 @@ class ReportServiceTests {
     ReportFixtures.konzertData("k-4", "2024-01-20", "b-1", "Hamburg", 3_000),
   )
 
-  private fun withReport(definition: String) {
+  private fun withReport(definition: String, entities: List<EntityDefinition> = ReportFixtures.entities) {
     val version = AppVersion(
       id = AppVersionId("ver-1"),
       appId = AppId("app-1"),
       versionNumber = VersionNumber("1.0.0"),
       releaseNotes = "x",
-      entityDefinitions = ReportFixtures.entities,
+      entityDefinitions = entities,
       reports = listOf(Report(ReportId("r-1"), "Konzerte", definition.trimIndent())),
       status = AppVersionStatus.PUBLISHED,
       createdAt = Instant.EPOCH,
@@ -74,6 +82,32 @@ class ReportServiceTests {
   }
 
   private fun TablePanelSpec.texts() = rows.map { row -> row.map { it.text } }
+
+  @Test
+  fun `uses the configuration defaults while the configuration object does not exist yet and passes them to computed properties`() {
+    val ziele = EntityDefinition(
+      id = EntityDefinitionId("e-ziele"),
+      name = "Ziele",
+      configuration = true,
+      properties = listOf(Property(PropertyId("p-z-besucher"), "besucherZiel", PropertyType.LONG, nullable = false, default = "1000")),
+    )
+    withReport(
+      """
+      queries:
+        k: { entity: Konzert, fields: [jahr] }
+      tabs:
+        - name: T
+          rows: [[{ stat: Ziel, config: besucherZiel }, { table: Konzerte, query: k }]]
+      """,
+      ReportFixtures.entities + ziele,
+    )
+    every { appConfiguration.configurationValues(installedApp, any()) } returns mapOf("p-z-besucher" to "1000")
+
+    val panels = service.renderReport("alice", "inst-1", "r-1").getOrNull()!!.tabs.single().rows.single().panels
+
+    assertThat((panels[0] as StatPanelSpec).text).isEqualTo("1.000")
+    verify { computedProperty.computeValues(any(), any(), any(), mapOf("p-z-besucher" to "1000")) }
+  }
 
   @Test
   fun `renders tabs, rows and text panels`() {

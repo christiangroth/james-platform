@@ -74,6 +74,26 @@ class ComputedPropertyServiceTests {
   }
 
   @Test
+  fun `computeValues provides config binding with the configuration values`() {
+    val entity = EntityDefinition(
+      id = entityId,
+      name = "Run",
+      computedProperties = listOf(
+        ComputedProperty(
+          id = ComputedPropertyId("cp-1"),
+          name = "Rest",
+          type = PropertyType.LONG,
+          script = "(config[\"p-ziel\"]?.toLong() ?: 0L) - (it[\"km\"]?.toLong() ?: 0L)",
+        ),
+        ComputedProperty(id = ComputedPropertyId("cp-2"), name = "Leer", type = PropertyType.LONG, script = "config.size.toLong()"),
+      ),
+    )
+
+    assertThat(service.computeValues(entity, mapOf("km" to "30"), fixedNow, mapOf("p-ziel" to "100"))["cp-1"]).isEqualTo("70")
+    assertThat(service.computeValues(entity, mapOf("km" to "30"), fixedNow)["cp-2"]).isEqualTo("0")
+  }
+
+  @Test
   fun `computeValues provides now as Instant binding`() {
     val entity = EntityDefinition(
       id = entityId,

@@ -826,4 +826,34 @@ class AppDataServiceTests {
   }
 
   // endregion
+
+  // region configuration (ADR 0027)
+
+  @Test
+  fun `createAppData rejects a second configuration object`() {
+    val configVersion = appVersion.copy(entityDefinitions = listOf(entityDef.copy(configuration = true)))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns configVersion
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(existingAppData)
+
+    val result = service.createAppData(userId, installedAppId.value, entityId.value, mapOf("prop_${prop1Id.value}" to listOf("other")))
+
+    assertThat(result.leftOrNull()).isEqualTo(AppDataError.CONFIGURATION_ALREADY_EXISTS)
+    verify(exactly = 0) { appDataRepository.save(any()) }
+  }
+
+  @Test
+  fun `deleteAppData rejects deleting the configuration object`() {
+    val configVersion = appVersion.copy(entityDefinitions = listOf(entityDef.copy(configuration = true)))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appDataRepository.findById(AppDataId("data-1")) } returns existingAppData
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns configVersion
+
+    val result = service.deleteAppData(userId, installedAppId.value, "data-1")
+
+    assertThat(result.leftOrNull()).isEqualTo(AppDataError.CONFIGURATION_NOT_DELETABLE)
+    verify(exactly = 0) { appDataRepository.delete(any()) }
+  }
+
+  // endregion
 }
