@@ -859,18 +859,6 @@ interface UserMessages {
   fun userInvalidReferenceViolationError(): String
 
   @Message
-  fun userReferenceLookupNotFoundViolationError(): String
-
-  @Message
-  fun userReferenceLookupNewHint(): String
-
-  @Message
-  fun userReferenceLookupUnknownHint(): String
-
-  @Message
-  fun userReferenceLookupNewFieldsTitle(): String
-
-  @Message
   fun userMinDateViolationError(min: String): String
 
   @Message

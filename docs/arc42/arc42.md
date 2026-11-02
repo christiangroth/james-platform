@@ -64,6 +64,10 @@ James Platform is a personal Low Code system for building and running data-centr
   - An optional static **default** value, and/or a **smart default** (see below).
   - For `long`/`Double` properties: an optional **unit** (see [Property Units](#property-units)).
   - Optional **value proposals** – a Developer-configured list of suggested values offered to the User as autocomplete options in the create/edit form.
+  - For top-level `ref` properties: an optional **reference lookup** – the reference is entered as the text of a `String` property of its target Entity
+    (which must be that Entity's only `UNIQUE KEY`), with the existing values as proposals and resolved to the target object on save. With
+    **auto-create**, an unknown text creates a new target object together with the referencing object on save; the target's further properties are
+    asked for inline in the form (see ADR [0026](../adr/0026-reference-lookup.md)).
   - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
   - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
 - **Computed properties** – a Developer may define derived properties by providing a Kotlin script that computes the value based on the entity's other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. Scripts run backend-side via the JSR-223 Kotlin scripting engine, each on its own virtual thread with a configurable timeout (`app.script.timeout-ms`, default 500ms); a timed-out or failing script yields `null` for that property without failing the surrounding request. There is no deeper sandboxing (no memory/IO isolation) beyond the timeout — see ADR [0008](../adr/0008-computed-property-script-execution.md).
@@ -689,6 +693,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0023](../adr/0023-migration-steps.md)                         | Migration Steps: Declarative Building Blocks for the Most Common Entity Changes |
 | [0024](../adr/0024-personal-access-tokens.md)                  | Personal Access Tokens for a Scoped JSON API        |
 | [0025](../adr/0025-composite-unique-keys.md)                   | Composite Unique Keys                               |
+| [0026](../adr/0026-reference-lookup.md)                        | Reference Lookup: Entering References by Text       |
 
 # Risks and Technical Debts
 
@@ -746,6 +751,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Computed property | A Property whose value is derived at read/write time by a backend Kotlin script (see ADR 0008), not stored directly by the User. |
 | Smart default     | A Property's default value computed by a Kotlin script when the create form opens; the User may still overwrite it, unlike a computed property. |
 | Value proposals   | A Developer-configured list of suggested values offered as autocomplete options for a Property in the create/edit form. |
+| Reference lookup  | Entering a `ref` property as the text of its target Entity's unique `String` property, optionally auto-creating unknown targets on save. |
 | Display text      | A per-Entity template string that interpolates Property values into a human-readable label, shown in list views and `ref` pickers instead of a raw ID. |
 | Import connection | A reusable, User-owned source configuration for imports: a name, a URL, and an optional encrypted Bearer token. Independent of any import job; kept until deleted manually. |
 | Import definition | A reusable configuration built from an Import connection: URL postfix, target App/Entity, selected data path, filter rules, and Mapping. Independent of any import job's fetch snapshot; kept until deleted manually. |

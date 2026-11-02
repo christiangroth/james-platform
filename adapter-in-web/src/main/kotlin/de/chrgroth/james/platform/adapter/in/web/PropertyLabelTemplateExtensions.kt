@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserReferenceLookupMessages
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
@@ -21,6 +22,7 @@ object PropertyLabelTemplateExtensions {
   private val appMessages: AppMessages by lazy { Arc.container().instance(AppMessages::class.java).get() }
   private val developerMessages: DeveloperMessages by lazy { Arc.container().instance(DeveloperMessages::class.java).get() }
   private val userMessages: UserMessages by lazy { Arc.container().instance(UserMessages::class.java).get() }
+  private val userReferenceLookupMessages: UserReferenceLookupMessages by lazy { Arc.container().instance(UserReferenceLookupMessages::class.java).get() }
 
   /** Returns the translated label for the given property type (e.g. "Text", "Ganzzahl"). */
   @JvmStatic
@@ -165,6 +167,6 @@ object PropertyLabelTemplateExtensions {
     is PropertyConstraintViolation.StepViolation -> userMessages.userStepViolationError(violation.step.toString())
     is PropertyConstraintViolation.InvalidUnitFormatViolation -> userMessages.userInvalidUnitFormatViolationError()
     is PropertyConstraintViolation.NonIntegerUnitValueViolation -> userMessages.userNonIntegerUnitValueViolationError()
-    is PropertyConstraintViolation.ReferenceLookupNotFoundViolation -> userMessages.userReferenceLookupNotFoundViolationError()
+    is PropertyConstraintViolation.ReferenceLookupNotFoundViolation -> userReferenceLookupMessages.userReferenceLookupNotFoundViolationError()
   }
 }

@@ -195,9 +195,9 @@
             });
 
             initReferenceLookupFields(createForm, JSON.parse(document.getElementById('reference-lookups-data').textContent), {
-                newHint: '{user:userReferenceLookupNewHint()}',
-                unknownHint: '{user:userReferenceLookupUnknownHint()}',
-                newFieldsTitle: '{user:userReferenceLookupNewFieldsTitle()}'
+                newHint: '{userReferenceLookup:userReferenceLookupNewHint()}',
+                unknownHint: '{userReferenceLookup:userReferenceLookupUnknownHint()}',
+                newFieldsTitle: '{userReferenceLookup:userReferenceLookupNewFieldsTitle()}'
             });
 
             function renderObjectFields(objectValues) {
