@@ -75,8 +75,8 @@ Named, executed backend-side so only the needed data leaves the server:
 A per-query pipeline of predefined steps:
 
 * calculated field via a small, safe expression language (`dauer / (distanz / 1000)`), not arbitrary code;
-* cumulative sum, moving average, year over year (shifted series), forecast to period end (linear);
-* delta/consumption from meter readings, resample with fill-forward;
+* cumulative sum, moving average, year over year (shifted series), forecast to period end (linear), resample with fill-forward;
+* delta/consumption from meter readings;
 * "value valid at date" (as-of join), e.g. a work day against the contract valid at that day;
 * join two queries by key (e.g. pay slips and the tax certificate per year);
 * records / top-N (best time per distance), goals vs. actuals;
@@ -129,20 +129,23 @@ installation and its Entities, what happens when an App changes its structure) a
 
 ## Implementation steps
 
-Each step is releasable on its own, in this order; after each step the matching legacy reports are ported to validate the toolkit.
+Each step is releasable on its own, in this order. After each step the legacy reports that become *fully* portable with it are
+ported, to validate the toolkit early.
 
 1. **Reports (1/8): foundation** - YAML definition per App Version replacing `html`/`script`, schema validation, editor with
    preview, report page in the installation with tabs and rows, queries with filter and time range, table and text panels,
-   renderer-neutral panel spec + ECharts adapter skeleton.
-2. **Reports (2/8): time series and stat panels** - aggregation queries, units, stat comparison. Ports Body Metrics, Fahrrad,
-   Rente, Blutwerte, Arbeitsverträge, Konzerte.
+   renderer-neutral panel spec + ECharts adapter skeleton. No report fully portable yet (Konzerte tables as a first smoke test).
+2. **Reports (2/8): time series and stat panels** - aggregation queries, units, stat comparison. Ports Body Metrics,
+   Fahrrad Kilometer, Rente, Blutwerte, Arbeitsverträge (40h normalisation via computed property), Konzerte.
 3. **Reports (3/8): App configuration** - singleton Entity, "Einstellungen" tab, `config.*` in reports and computed properties.
 4. **Reports (4/8): variables and basic transformations** - time range and select variables, calculated field, cumulative,
-   year over year, forecast. Ports Lebensversicherung, Walking Pad.
+   moving average, year over year, forecast, resample with fill-forward. Ports Lebensversicherung.
 5. **Reports (5/8): checks and warnings panel** - gap detection with calendars, value rules.
-6. **Reports (6/8): advanced transformations** - delta, as-of join, join, fill-forward, records and goals. Ports Zählerstände,
-   Arbeitszeiten, Verdienst, Urlaubsplaner, Running.
-7. **Reports (7/8): heatmap, pie and Kotlin step** - calendar heatmap and pie panels, Kotlin script transformation. Ports Journal
-   (without the cross checks).
+6. **Reports (6/8): advanced transformations** - delta/consumption, as-of join, join, records/top-N and goals. Ports Verdienst,
+   Urlaubsplaner (needs the Arbeit/Finanzen decision, see porting notes), Running, Walking Pad.
+7. **Reports (7/8): heatmap, pie and Kotlin step** - calendar heatmap and pie panels, Kotlin script transformation. Ports
+   Zählerstände (PV break-even as Kotlin step), Arbeitszeiten (vehicles pie), Journal (without the cross checks).
 8. **Reports (8/8): personal dashboards** - User-owned, cross-app reports with the same toolkit (to be detailed before starting).
    Ports the Journal cross checks.
+
+The legacy "Lohnsteuerbescheinigung (FAKE als Datenquelle)" report only existed to feed Verdienst with data and is not ported.
