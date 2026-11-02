@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
 import de.chrgroth.james.platform.domain.error.InvalidReportsError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
@@ -55,6 +56,7 @@ object ApiResponses {
     is InvalidReferenceLookupError -> error.entityNames
     is DisplayTextInvalidError -> error.entityNames
     is InvalidReportsError -> error.reportNames
+    is InvalidConfigurationError -> error.entityNames
     is InvalidReportDefinitionError -> error.errors.map { ApiReportDtoMapper.errorDetail(it) }
     else -> emptyList()
   }

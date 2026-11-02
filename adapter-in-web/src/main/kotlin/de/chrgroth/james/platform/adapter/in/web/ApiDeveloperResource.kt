@@ -214,6 +214,22 @@ class ApiDeveloperResource(
     appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, request?.value?.takeIf { it.isNotBlank() })
   }
 
+  /** Marks the entity as the version's configuration (`{"value": true}`) or unmarks it (`false`), see ADR 0027. */
+  @PUT
+  @Path("/{appId}/versions/{versionId}/entities/{entityId}/configuration")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
+  fun setEntityConfiguration(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    request: ApiFlagRequest?,
+  ): Response {
+    val configuration = request?.value ?: return ApiResponses.badRequest("value is required")
+    return edit("entity-configuration", appId) { appVersionManagement.setEntityConfiguration(appId, versionId, entityId, configuration) }
+  }
+
   @PUT
   @Path("/{appId}/versions/{versionId}/entities/{entityId}/sort-criteria")
   @Consumes(MediaType.APPLICATION_JSON)

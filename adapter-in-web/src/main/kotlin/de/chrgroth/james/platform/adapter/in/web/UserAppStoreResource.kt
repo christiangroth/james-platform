@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppConfigMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
@@ -13,6 +14,7 @@ import de.chrgroth.james.platform.domain.model.app.REFERENCE_LOOKUP_FORM_PREFIX
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
@@ -29,6 +31,7 @@ import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
@@ -116,6 +119,8 @@ data class AppDataDetail(
   val properties: List<AppDataPropertyView>,
   val computedProperties: List<AppDataComputedPropertyView>,
   val importProvenance: AppDataImportProvenanceView? = null,
+  /** The installation's configuration object (ADR 0027): shown as "Einstellungen", it cannot be deleted. */
+  val configuration: Boolean = false,
 )
 
 data class AppDataImportProvenanceView(
@@ -209,6 +214,12 @@ class UserAppStoreResource {
   private lateinit var aggMsg: UserAggregationMessages
 
   @Inject
+  private lateinit var appConfigMsg: AppConfigMessages
+
+  @Inject
+  private lateinit var appConfiguration: AppConfigurationPort
+
+  @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   @GET
@@ -274,7 +285,7 @@ class UserAppStoreResource {
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
 
-    val entityTabs = info.installedVersion.entityDefinitions.map { entityDef -> buildEntityTab(entityDef, entityById, allAppData) }
+    val entityTabs = info.installedVersion.dataEntities.map { entityDef -> buildEntityTab(entityDef, entityById, allAppData) }
 
     Response.ok(
       UserTemplates.`app-detail`(info, entityTabs, PAGE_SIZE),
@@ -293,8 +304,10 @@ class UserAppStoreResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityTypeId }
-      ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+    val entityDef = info.installedVersion.dataEntities.find { it.id.value == entityTypeId } ?: run {
+      val configuration = entityTypeId == info.installedVersion.configurationEntity?.id?.value
+      return@timed Response.seeOther(URI.create(if (configuration) settingsUrl(installedAppId) else "/ui/user/apps/$installedAppId")).build()
+    }
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
     val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
     val entityTab = buildEntityTab(entityDef, entityById, allAppData)
@@ -303,6 +316,18 @@ class UserAppStoreResource {
     Response.ok(
       UserTemplates.`app-entity-detail`(info, entityTab, aggregations, PAGE_SIZE),
     ).build()
+  }
+
+  /** The "Einstellungen" of an installation (ADR 0027): the edit form of its configuration object, created from the defaults if missing. */
+  @GET
+  @Path("/user/apps/{installedAppId}/settings")
+  @Produces(MediaType.TEXT_HTML)
+  fun installedAppSettings(@PathParam("installedAppId") installedAppId: String): Response = httpResponseMetrics.timed("page.user-app-store.app-settings") {
+    val userId = securityIdentity.principal.name
+    appConfiguration.getConfiguration(userId, installedAppId).fold(
+      ifLeft = { Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build() },
+      ifRight = { Response.seeOther(URI.create("/ui/user/apps/$installedAppId/data/${it.id.value}")).build() },
+    )
   }
 
   @POST
@@ -340,6 +365,7 @@ class UserAppStoreResource {
     )
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
+    if (entityDef.configuration) return@timed Response.seeOther(URI.create(settingsUrl(installedAppId))).build()
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
     val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
     val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, currentData = null)
@@ -349,7 +375,7 @@ class UserAppStoreResource {
         entity = entityDef,
         smartDefaults = computedSmartDefaults,
         referenceOptions = referenceOptions,
-        entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size),
+        entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion),
         objectFieldsJson = objectFieldsJsonFor(entityDef.properties, lookups),
         referenceOptionsJson = referenceOptionsJsonFor(referenceOptions + lookups.referenceOptions),
         referenceLookupsJson = RawString(ObjectMapper().writeValueAsString(lookups.lookups)),
@@ -403,8 +429,8 @@ class UserAppStoreResource {
         }
       },
       ifRight = {
-        val entityCount = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions?.size ?: 1
-        Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), entityListUrl(installedAppId, entityTypeId, entityCount))).build()
+        val version = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion
+        Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), entityListUrl(installedAppId, entityTypeId, version))).build()
       },
     )
   }
@@ -445,6 +471,7 @@ class UserAppStoreResource {
           importProvenance = appDataItem.importProvenance?.let {
             AppDataImportProvenanceView(connectionName = it.connectionName, sourceUrl = it.sourceUrl)
           },
+          configuration = entityDef.configuration,
           properties = entityDef.properties.map { prop ->
             AppDataPropertyView(
               id = prop.id.value,
@@ -473,7 +500,8 @@ class UserAppStoreResource {
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
             emptyList()
           } else {
-            val computedValues = computedProperty.computeValues(entityDef, appDataItem.data, Clock.System.now())
+            val config = appConfiguration.configurationValues(info.installedApp, info.installedVersion)
+            val computedValues = computedProperty.computeValues(entityDef, appDataItem.data, Clock.System.now(), config)
             entityDef.computedProperties.map { cp ->
               AppDataComputedPropertyView(
                 id = cp.id.value,
@@ -488,7 +516,7 @@ class UserAppStoreResource {
           UserTemplates.`app-data-edit`(
             info = info,
             detail = detail,
-            entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size),
+            entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion),
             objectFieldsJson = objectFieldsJsonFor(entityDef.properties, lookups),
             objectValuesJson = objectValuesJsonFor(entityDef.properties, appDataItem.data),
             referenceOptionsJson = referenceOptionsJsonFor(referenceOptions + lookups.referenceOptions),
@@ -523,8 +551,9 @@ class UserAppStoreResource {
         }
       },
       ifRight = { updated ->
-        val entityCount = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions?.size ?: 1
-        Response.ok(DeveloperApiResult(true, userMsg.userDataUpdatedMessage(), entityListUrl(installedAppId, updated.entityType.value, entityCount))).build()
+        val version = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion
+        val message = if (version?.configurationEntity?.id == updated.entityType) appConfigMsg.appConfigSavedMessage() else userMsg.userDataUpdatedMessage()
+        Response.ok(DeveloperApiResult(true, message, entityListUrl(installedAppId, updated.entityType.value, version))).build()
       },
     )
   }
@@ -563,16 +592,23 @@ class UserAppStoreResource {
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, appDataErrorMessage(error.code))).build() },
       ifRight = { count ->
         val message = if (count > 0) userMsg.userDataDeletedWithReferencesMessage(count) else userMsg.userDataDeletedMessage()
-        val entityCount = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion?.entityDefinitions?.size ?: 1
-        val redirectUrl = entityTypeId?.let { entityListUrl(installedAppId, it, entityCount) } ?: "/ui/user/apps/$installedAppId"
+        val version = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion
+        val redirectUrl = entityTypeId?.let { entityListUrl(installedAppId, it, version) } ?: "/ui/user/apps/$installedAppId"
         Response.ok(DeveloperApiResult(true, message, redirectUrl)).build()
       },
     )
   }
 
-  /** Builds the URL for the entity's data list: the app detail page itself when it is the only entity type, otherwise its dedicated entity page. */
-  private fun entityListUrl(installedAppId: String, entityTypeId: String, entityCount: Int): String =
-    if (entityCount <= 1) "/ui/user/apps/$installedAppId" else "/ui/user/apps/$installedAppId/entities/$entityTypeId"
+  /**
+   * Builds the URL for the entity's data list: the app detail page itself when it is the only data entity type (or the configuration, ADR 0027),
+   * otherwise its dedicated entity page.
+   */
+  private fun entityListUrl(installedAppId: String, entityTypeId: String, version: AppVersion?): String {
+    val configuration = version?.configurationEntity?.id?.value == entityTypeId
+    return if (configuration || (version?.dataEntities?.size ?: 1) <= 1) "/ui/user/apps/$installedAppId" else "/ui/user/apps/$installedAppId/entities/$entityTypeId"
+  }
+
+  private fun settingsUrl(installedAppId: String): String = "/ui/user/apps/$installedAppId/settings"
 
   private fun buildEntityTab(entityDef: EntityDefinition, entityById: Map<String, EntityDefinition>, allAppData: List<AppData>): EntityTab {
     val context = DisplayTextContext(entityById, allAppData)
@@ -739,6 +775,9 @@ class UserAppStoreResource {
     AppDataError.CONSTRAINT_VIOLATION.code -> userMsg.userConstraintViolationError()
     AppDataError.APP_DATA_NOT_FOUND.code -> userMsg.userAppDataNotFoundError()
     AppDataError.REFERENCED_BY_NON_NULLABLE_PROPERTY.code -> userMsg.userReferencedByNonNullablePropertyError()
+    AppDataError.CONFIGURATION_NOT_DEFINED.code -> appConfigMsg.appConfigNotDefinedError()
+    AppDataError.CONFIGURATION_ALREADY_EXISTS.code -> appConfigMsg.appConfigAlreadyExistsError()
+    AppDataError.CONFIGURATION_NOT_DELETABLE.code -> appConfigMsg.appConfigNotDeletableError()
     else -> msg.commonUnexpectedError()
   }
 

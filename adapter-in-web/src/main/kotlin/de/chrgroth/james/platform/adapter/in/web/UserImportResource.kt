@@ -432,7 +432,7 @@ class UserImportResource {
       ifLeft = { return@timed Response.seeOther(URI.create("/ui/user/dashboard")).build() },
       ifRight = { it },
     )
-    val entityCount = info.installedVersion.entityDefinitions.size
+    val entityCount = info.installedVersion.dataEntities.size
     val connection = importConnectionPort.listConnections(userId).getOrNull().orEmpty().firstOrNull { it.id == view.importDefinition.connectionId }
     Response.ok(
       UserTemplates.`import-job`(
@@ -847,7 +847,7 @@ class UserImportResource {
     id = installedAppId,
     name = appName,
     active = appActive,
-    entityOptions = installedVersion.entityDefinitions.map { EntityOptionRow(it.id.value, it.name) },
+    entityOptions = installedVersion.dataEntities.map { EntityOptionRow(it.id.value, it.name) },
   )
 
   private fun ImportJob.toRow(

@@ -192,6 +192,9 @@ class ReportTexts(private val reportMsg: ReportMessages) {
       ReportDefinitionErrorCode.COMPARE_NEEDS_RANGE -> reportMsg.reportErrorCompareNeedsRange(a(0))
       ReportDefinitionErrorCode.INVALID_NUMBER -> reportMsg.reportErrorInvalidNumber(a(0))
       ReportDefinitionErrorCode.INVALID_COLOR -> reportMsg.reportErrorInvalidColor(a(0), a(1))
+      ReportDefinitionErrorCode.CONFIG_NOT_DEFINED -> reportMsg.reportErrorConfigNotDefined(a(0))
+      ReportDefinitionErrorCode.CONFIG_FIELD_NOT_FOUND -> reportMsg.reportErrorConfigFieldNotFound(a(0), a(1))
+      ReportDefinitionErrorCode.CONFIG_UNIT_MISMATCH -> reportMsg.reportErrorConfigUnitMismatch(a(0))
     }
   }
 

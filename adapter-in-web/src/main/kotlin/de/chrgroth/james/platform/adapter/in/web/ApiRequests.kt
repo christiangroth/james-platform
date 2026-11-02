@@ -34,6 +34,10 @@ data class ApiTextRequest @JsonCreator constructor(
   @param:JsonProperty("path") val path: List<String>?,
 )
 
+data class ApiFlagRequest @JsonCreator constructor(
+  @param:JsonProperty("value") val value: Boolean?,
+)
+
 data class ApiTextListRequest @JsonCreator constructor(
   @param:JsonProperty("values") val values: List<String>?,
   @param:JsonProperty("path") val path: List<String>?,

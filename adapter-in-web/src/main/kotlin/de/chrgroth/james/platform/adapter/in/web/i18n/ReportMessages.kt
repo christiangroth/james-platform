@@ -177,5 +177,14 @@ interface ReportMessages {
   @Message
   fun reportErrorInvalidColor(value: String, allowed: String): String
 
+  @Message
+  fun reportErrorConfigNotDefined(value: String): String
+
+  @Message
+  fun reportErrorConfigFieldNotFound(field: String, entity: String): String
+
+  @Message
+  fun reportErrorConfigUnitMismatch(field: String): String
+
   // endregion
 }
