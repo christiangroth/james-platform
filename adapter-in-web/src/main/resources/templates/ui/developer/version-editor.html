@@ -461,7 +461,9 @@
                 <div id="reportPreview" data-testid="report-preview"
                      data-text-empty="{report:reportTableEmpty()}"
                      data-text-truncated="{report:reportTableTruncated()}"
-                     data-text-no-content="{report:reportNoContent()}">
+                     data-text-no-content="{report:reportNoContent()}"
+                     data-text-stat-previous="{report:reportStatPreviousPeriod()}"
+                     data-text-chart-unavailable="{report:reportChartUnavailable()}">
                     <p class="app-section-label mb-0">{report:reportPreviewEmpty()}</p>
                 </div>
                 {/if}
@@ -1798,7 +1800,9 @@
                             JamesReports.render(reportPreview, result.view, {
                                 empty: reportPreview.getAttribute('data-text-empty'),
                                 truncated: reportPreview.getAttribute('data-text-truncated'),
-                                noContent: reportPreview.getAttribute('data-text-no-content')
+                                noContent: reportPreview.getAttribute('data-text-no-content'),
+                                statPrevious: reportPreview.getAttribute('data-text-stat-previous'),
+                                chartUnavailable: reportPreview.getAttribute('data-text-chart-unavailable')
                             });
                         } else if (!result.errors) {
                             showMessage(false, result.message);

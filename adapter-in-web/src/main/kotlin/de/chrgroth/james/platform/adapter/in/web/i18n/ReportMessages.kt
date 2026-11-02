@@ -68,6 +68,12 @@ interface ReportMessages {
   @Message
   fun reportLoadingFailed(): String
 
+  @Message
+  fun reportStatPreviousPeriod(): String
+
+  @Message
+  fun reportChartUnavailable(): String
+
   // endregion
 
   // region validation errors
@@ -109,7 +115,7 @@ interface ReportMessages {
   fun reportErrorTimeFieldInvalid(field: String): String
 
   @Message
-  fun reportErrorTimeFieldMissing(): String
+  fun reportErrorTimeFieldMissing(key: String): String
 
   @Message
   fun reportErrorQueryNotFound(query: String): String
@@ -137,6 +143,39 @@ interface ReportMessages {
 
   @Message
   fun reportErrorNumberOutOfRange(value: String, min: String, max: String): String
+
+  @Message
+  fun reportErrorKeyConflict(key: String, other: String): String
+
+  @Message
+  fun reportErrorPeriodStartInvalid(value: String): String
+
+  @Message
+  fun reportErrorPeriodStartNotApplicable(): String
+
+  @Message
+  fun reportErrorFieldNotNumeric(field: String): String
+
+  @Message
+  fun reportErrorDuplicateResultField(name: String): String
+
+  @Message
+  fun reportErrorChartXMissing(query: String): String
+
+  @Message
+  fun reportErrorSeriesXMismatch(query: String): String
+
+  @Message
+  fun reportErrorAxisUnitMismatch(field: String): String
+
+  @Message
+  fun reportErrorCompareNeedsRange(query: String): String
+
+  @Message
+  fun reportErrorInvalidNumber(value: String): String
+
+  @Message
+  fun reportErrorInvalidColor(value: String, allowed: String): String
 
   // endregion
 }

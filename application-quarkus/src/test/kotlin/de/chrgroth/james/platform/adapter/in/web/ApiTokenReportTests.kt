@@ -18,6 +18,8 @@ import jakarta.inject.Inject
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.hasItem
+import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.empty
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.Test
@@ -85,11 +87,14 @@ class ApiTokenReportTests {
       .body("details[0]", containsString("line 2"))
       .body("details[0]", containsString("ENTITY_NOT_FOUND"))
 
-    val reportId = bearer(token).contentType("application/json").body(mapOf("name" to "Läufe", "definition" to DEFINITION))
+    val created = bearer(token).contentType("application/json").body(mapOf("name" to "Läufe", "definition" to DEFINITION))
       .`when`().post(base)
       .then().statusCode(200)
       .body("reports.name", hasItem("Läufe"))
-      .extract().path<String>("reports[0].id")
+      .extract()
+    val reportId = created.path<String>("reports[0].id")
+    assertThat(created.header("X-Report-Id")).isEqualTo(reportId)
+    assertThat(created.header("Location")).endsWith("$base/$reportId")
 
     bearer(token).`when`().get(base)
       .then().statusCode(200)
@@ -144,7 +149,52 @@ class ApiTokenReportTests {
       .then().statusCode(404)
   }
 
+  @Test
+  fun `user read scope executes stat and timeseries panels over aggregate queries`() {
+    val user = createUser()
+    val (appId, versionId, entityId, distanzId) = createDraft(user)
+    val datumId = appVersionManagement.addProperty(appId, versionId, entityId, "datum", "DATE", nullable = true).getOrNull()!!
+      .entityDefinitions.single().properties.first { it.name == "datum" }.id.value
+    val reportId = appVersionManagement.addReport(appId, versionId, "Statistik", CHART_DEFINITION).getOrNull()!!.reports.single().id.value
+    appVersionManagement.publishVersion(appId, "BUGFIX", "Initial release").getOrNull()!!
+    val installedAppId = userAppStore.installApp(user.username.value, appId).getOrNull()!!.id.value
+    listOf("2026-04-10" to "5000", "2026-05-01" to "12345", "2026-05-20" to "1000").forEach { (datum, distanz) ->
+      appData.createAppData(user.username.value, installedAppId, entityId, mapOf("prop_$distanzId" to listOf(distanz), "prop_$datumId" to listOf(datum))).getOrNull()!!
+    }
+
+    bearer(token(user, ApiTokenScope.USER_READ)).`when`().get("/api/v1/user/apps/$installedAppId/reports/$reportId")
+      .then().statusCode(200)
+      .body("tabs[0].rows[0].panels[0].type", equalTo("stat"))
+      .body("tabs[0].rows[0].panels[0].text", equalTo("13.345"))
+      .body("tabs[0].rows[0].panels[0].color", equalTo("green"))
+      .body("tabs[0].rows[0].panels[0].comparison.previousText", equalTo("5.000"))
+      .body("tabs[0].rows[0].panels[0].comparison.deltaText", equalTo("+8.345"))
+      .body("tabs[0].rows[0].panels[0].comparison.percentText", equalTo("+166,9 %"))
+      .body("tabs[0].rows[0].panels[0].comparison.trend", equalTo("up"))
+      .body("tabs[0].rows[0].panels[0].comparison.periodText", equalTo("01.04.2026 – 30.04.2026"))
+      .body("tabs[0].rows[0].panels[1].type", equalTo("timeseries"))
+      .body("tabs[0].rows[0].panels[1].xAxis.type", equalTo("category"))
+      .body("tabs[0].rows[0].panels[1].xAxis.categories", contains("04/2026", "05/2026"))
+      .body("tabs[0].rows[0].panels[1].yAxes.position", contains("left", "right"))
+      .body("tabs[0].rows[0].panels[1].series.name", contains("km", "laeufe"))
+      .body("tabs[0].rows[0].panels[1].series[0].style", equalTo("column"))
+      .body("tabs[0].rows[0].panels[1].series[1].yAxis", equalTo(1))
+      .body("tabs[0].rows[0].panels[1].series[1].points.y", contains(1.0f, 2.0f))
+      .body("tabs[0].rows[0].panels[1].series[0].points[1].text", equalTo("13.345"))
+  }
+
   companion object {
+    val CHART_DEFINITION = """
+      queries:
+        monate: { entity: Lauf, timeField: datum, aggregate: { bucket: MONAT, values: { km: { sum: distanz }, laeufe: count } } }
+        mai: { entity: Lauf, timeField: datum, range: { from: 2026-05-01, to: 2026-05-31 }, fields: [datum, distanz] }
+      tabs:
+        - name: Übersicht
+          rows:
+            - - { stat: Mai, query: mai, field: distanz, reduce: sum, compare: previous_period, thresholds: [{ value: 0, color: red }, { value: 10000, color: green }] }
+              - { timeseries: Monate, query: monate, series: [{ field: km, style: column }, { field: laeufe, axis: right }] }
+    """.trimIndent()
+
     val DEFINITION = """
       queries:
         laeufe: { entity: Lauf }
