@@ -83,6 +83,28 @@ class MappingValidatorTests {
   }
 
   @Test
+  fun `zero as empty on a mandatory numeric property without a fallback is reported`() {
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Weight", type = PropertyType.DOUBLE, nullable = false))
+    val schema = listOf(SchemaProperty("weight", mapOf(SchemaPropertyType.DOUBLE to 3), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "weight", zeroAsEmpty = true))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.MissingMandatoryField(propertyId))
+  }
+
+  @Test
+  fun `zero as empty on an optional numeric property produces no issue`() {
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "Muscle", type = PropertyType.DOUBLE, nullable = true))
+    val schema = listOf(SchemaProperty("muscle", mapOf(SchemaPropertyType.DOUBLE to 3), mandatory = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "muscle", zeroAsEmpty = true))
+
+    val result = validate(mapping, entityDefinition, schema)
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
   fun `directly compatible types produce no issues`() {
     val entityDefinition = entityDefinition(stringProperty(nullable = true))
     val schema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 3), mandatory = true))

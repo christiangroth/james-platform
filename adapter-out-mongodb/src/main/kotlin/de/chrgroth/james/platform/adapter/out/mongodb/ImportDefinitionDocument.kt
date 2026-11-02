@@ -45,6 +45,7 @@ class FieldMappingDocument {
   var importGranularity: String? = null
   var fallbackValue: String? = null
   var referenceLookup: ReferenceLookupDocument? = null
+  var zeroAsEmpty: Boolean? = null
 }
 
 class ReferenceLookupDocument {

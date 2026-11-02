@@ -49,7 +49,9 @@ data class ReferenceLookup(
  * combination may be set; a property with none of them is considered unmapped. [importGranularity] only applies to
  * a target property that carries a [de.chrgroth.james.platform.domain.model.app.PropertyUnit] and names one of that
  * unit's family granularities (e.g. `"KILOMETERS"`) the raw source value is expressed in; it is converted to the
- * property's `storageGranularity` before being interpreted, and is ignored otherwise.
+ * property's `storageGranularity` before being interpreted, and is ignored otherwise. [zeroAsEmpty] only applies to a
+ * `LONG`/`DOUBLE` target property mapped via [sourcePath]: a source value that is numerically zero is then treated as
+ * absent (the property stays empty, or gets [fallbackValue]) - for legacy sources that store 0 as "not measured".
  */
 data class FieldMapping(
   val targetPropertyId: PropertyId,
@@ -58,6 +60,7 @@ data class FieldMapping(
   val importGranularity: String? = null,
   val fallbackValue: String? = null,
   val referenceLookup: ReferenceLookup? = null,
+  val zeroAsEmpty: Boolean = false,
 )
 
 data class Mapping(

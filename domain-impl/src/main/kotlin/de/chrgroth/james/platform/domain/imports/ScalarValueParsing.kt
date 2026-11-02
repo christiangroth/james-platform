@@ -18,6 +18,10 @@ internal fun parseScalarValue(type: PropertyType, rawValue: String?): Any? {
   }
 }
 
+/** Whether [value] is a numerically zero value of a `LONG`/`DOUBLE` [type] (e.g. `0`, `0.0`, `-0`) - see [de.chrgroth.james.platform.domain.model.imports.FieldMapping.zeroAsEmpty]. */
+internal fun isNumericZero(type: PropertyType, value: String): Boolean =
+  (type == PropertyType.LONG || type == PropertyType.DOUBLE) && value.trim().toBigDecimalOrNull()?.signum() == 0
+
 /**
  * Applies a [FieldMappingConversion] to a raw source value via [ValueConversion.convert], then - if the target
  * property carries a [unit] - converts it from [importGranularity] (a

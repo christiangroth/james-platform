@@ -157,6 +157,47 @@ class DryRunExecutorTests {
   }
 
   @Test
+  fun `zero as empty leaves a numerically zero source value empty`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Muscle", type = PropertyType.DOUBLE, nullable = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "muscle", zeroAsEmpty = true))
+
+    val result = execute(records("""[{"muscle":0},{"muscle":0.0},{"muscle":55.9}]"""), mapping, entity)
+
+    assertThat(result.map { it.isValid }).containsExactly(true, true, true)
+    assertThat(result.map { it.targetData[propertyId] }).containsExactly(null, null, "55.9")
+  }
+
+  @Test
+  fun `zero as empty falls back to the static fallback value`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Count", type = PropertyType.LONG, nullable = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "count", zeroAsEmpty = true, fallbackValue = "7"))
+
+    val result = execute(records("""[{"count":0}]"""), mapping, entity)
+
+    assertThat(result.single().targetData[propertyId]).isEqualTo("7")
+  }
+
+  @Test
+  fun `zero is kept without zero as empty`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Count", type = PropertyType.LONG, nullable = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "count"))
+
+    val result = execute(records("""[{"count":0}]"""), mapping, entity)
+
+    assertThat(result.single().targetData[propertyId]).isEqualTo("0")
+  }
+
+  @Test
+  fun `zero as empty does not affect a string target`() {
+    val entity = entityDefinition(Property(id = propertyId, name = "Code", type = PropertyType.STRING, nullable = true))
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "code", zeroAsEmpty = true))
+
+    val result = execute(records("""[{"code":"0"}]"""), mapping, entity)
+
+    assertThat(result.single().targetData[propertyId]).isEqualTo("0")
+  }
+
+  @Test
   fun `import granularity matching the storage granularity leaves the raw value unchanged`() {
     val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
     val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))

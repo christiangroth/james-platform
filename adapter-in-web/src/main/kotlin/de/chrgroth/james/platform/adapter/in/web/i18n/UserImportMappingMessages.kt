@@ -20,4 +20,10 @@ interface UserImportMappingMessages {
 
   @Message
   fun userImportMappingSampleEmptyMessage(): String
+
+  @Message
+  fun userImportMappingZeroAsEmptyLabel(): String
+
+  @Message
+  fun userImportMappingZeroAsEmptyHint(): String
 }
