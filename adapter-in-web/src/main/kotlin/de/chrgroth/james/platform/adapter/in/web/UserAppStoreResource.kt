@@ -961,7 +961,7 @@ class UserAppStoreResource {
 
   companion object {
     private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
-    private const val PAGE_SIZE = 50
+    private const val PAGE_SIZE = 25
 
     /** Row cap for one aggregation's table in the aggregation panel, so a long-running installation's page doesn't explode (issue #713). */
     private const val MAX_AGGREGATION_TABLE_ROWS = 30
