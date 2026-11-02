@@ -1,3 +1,12 @@
+# 0.126.0 (2026.11.02)
+
+## New Features
+* Imports lassen sich umbenennen (Oberfläche und API); der Name wird auf der Import-Übersicht angezeigt und in den Slack-Meldungen verwendet.
+
+
+
+---
+
 # 0.125.1 (2026.11.02)
 
 ## Bugfixes / Chore
