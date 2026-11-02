@@ -1,3 +1,17 @@
+# 0.123.0 (2026.11.02)
+
+## New Features
+* Referenzfelder können per Text erfasst werden: Statt einer Auswahlliste gibt es ein Textfeld mit Vorschlägen aus der Ziel-Entität, häufig genutzte Werte zuerst.
+* Optional werden unbekannte Werte beim Speichern automatisch als neuer Eintrag angelegt; weitere Felder des neuen Eintrags werden direkt im Formular abgefragt.
+* Entwickler konfigurieren das am Referenzfeld unter „Erfassung per Text“ (auch über die API).
+
+## Bugfixes / Chore
+* Pflichtfelder werden jetzt auch auf dem Server geprüft: Datensätze ohne Wert in einem Pflichtfeld werden beim Anlegen und Ändern abgelehnt, auch über die API.
+
+
+
+---
+
 # 0.122.1 (2026.11.01)
 
 ## Bugfixes / Chore
