@@ -1,3 +1,13 @@
+# 0.125.0 (2026.11.02)
+
+## New Features
+* Neue Import-Umwandlung „Datum/Uhrzeit → Uhrzeit“ übernimmt die Uhrzeit eines Zeitpunkts in Berliner Zeit.
+* Beim Import können auch Felder in Unterobjekten (Objekt-Feldern) zugeordnet werden.
+
+
+
+---
+
 # 0.124.0 (2026.11.02)
 
 ## New Features
