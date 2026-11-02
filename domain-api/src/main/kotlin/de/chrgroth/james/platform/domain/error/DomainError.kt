@@ -123,6 +123,9 @@ enum class AppVersionError(override val code: String) : DomainError {
   MIGRATION_STEP_UNIT_REQUIRED("APPVER-065"),
   MIGRATION_STEP_UNIT_GRANULARITY_INVALID("APPVER-066"),
   MIGRATION_STEP_FILL_VALUE_INVALID("APPVER-067"),
+  REFERENCE_LOOKUP_NOT_SUPPORTED("APPVER-068"),
+  REFERENCE_LOOKUP_PROPERTY_INVALID("APPVER-069"),
+  INVALID_REFERENCE_LOOKUP("APPVER-070"),
   ;
 }
 
@@ -299,6 +302,13 @@ data class InvalidMigrationStepError(
   override val code: String = AppVersionError.INVALID_MIGRATION_STEP.code
 }
 
+/** See docs/adr/0026-reference-lookup.md — a REF property's lookup became invalid, e.g. its lookup property was deleted or is no longer the target's only unique key. */
+data class InvalidReferenceLookupError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_REFERENCE_LOOKUP.code
+}
+
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {
   data object UniqueKeyViolation : PropertyConstraintViolation("PROP-002")
   data class MinValueViolation(val min: Number) : PropertyConstraintViolation("PROP-003")
@@ -319,4 +329,8 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data class StepViolation(val step: Number) : PropertyConstraintViolation("PROP-019")
   data object InvalidUnitFormatViolation : PropertyConstraintViolation("PROP-021")
   data object NonIntegerUnitValueViolation : PropertyConstraintViolation("PROP-022")
+  // A REF property entered by lookup text (ADR 0026) matched no target object and the property does not auto-create one.
+  data object ReferenceLookupNotFoundViolation : PropertyConstraintViolation("PROP-023")
+  // A non-nullable property got no value on create/update (BOOLEAN excluded: an unchecked checkbox submits nothing and means false).
+  data object RequiredValueViolation : PropertyConstraintViolation("PROP-024")
 }

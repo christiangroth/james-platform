@@ -63,6 +63,8 @@ class PropertyDocument {
   var itemConstraints: List<ConstraintDocument> = emptyList()
   var nestedProperties: List<PropertyDocument> = emptyList()
   var unit: PropertyUnitDocument? = null
+  var referenceLookupPropertyId: String? = null
+  var referenceLookupAutoCreate: Boolean = false
 }
 
 class PropertyUnitDocument {

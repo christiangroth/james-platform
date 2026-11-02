@@ -13,8 +13,10 @@ import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
+import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
+import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.App
@@ -599,6 +601,7 @@ class DeveloperAppResource {
             parentPath = parentPath,
             predefinedSmartDefaultsJson = predefinedSmartDefaultsJson,
             currentPropertiesJson = currentPropertiesJson,
+            referenceLookupCandidatesJson = referenceLookupCandidatesJson(version.entityDefinitions),
           ),
         ).build()
       },
@@ -761,6 +764,10 @@ class DeveloperAppResource {
           is InvalidMigrationStepError -> {
             val names = error.entityNames.joinToString(", ")
             Response.ok(DeveloperApiResult(false, migrationStepMsg.developerInvalidMigrationStepError(names))).build()
+          }
+          is InvalidReferenceLookupError -> {
+            val names = error.entityNames.joinToString(", ")
+            Response.ok(DeveloperApiResult(false, devMsg.developerInvalidReferenceLookupError(names))).build()
           }
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
@@ -1184,6 +1191,33 @@ class DeveloperAppResource {
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerValueProposalsSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
+
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/reference-lookup")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun setPropertyReferenceLookup(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    @FormParam("lookupPropertyId") lookupPropertyId: String?,
+    @FormParam("autoCreate") autoCreate: String?,
+  ): Response = httpResponseMetrics.timed("rest.developer.property-reference-lookup-set") {
+    appVersionManagement.setPropertyReferenceLookup(appId, versionId, entityId, propertyId, lookupPropertyId, autoCreate == "true").fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerReferenceLookupSavedMessage(), entityEditorUrl(appId, versionId, entityId, null))).build() },
+    )
+  }
+
+  /** Per entity id, the properties usable as a reference lookup into it (ADR 0026): STRING properties that are its only unique key. */
+  private fun referenceLookupCandidatesJson(entities: List<EntityDefinition>): RawString = RawString(
+    ObjectMapper().writeValueAsString(
+      entities.associate { entity ->
+        entity.id.value to entity.properties.filter { isValidReferenceLookupProperty(entity, it) }.map { mapOf("id" to it.id.value, "name" to it.name) }
+      },
+    ),
+  )
 
   @POST
   @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/target-entity")
@@ -2029,6 +2063,8 @@ class DeveloperAppResource {
     AppVersionError.BOTH_DEFAULTS_SET.code -> devMsg.developerBothDefaultsSetError()
     AppVersionError.PROPERTY_IDS_MISMATCH.code -> devMsg.developerPropertyIdsMismatchError()
     AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.code -> devMsg.developerTargetEntityNotSupportedError()
+    AppVersionError.REFERENCE_LOOKUP_NOT_SUPPORTED.code -> devMsg.developerReferenceLookupNotSupportedError()
+    AppVersionError.REFERENCE_LOOKUP_PROPERTY_INVALID.code -> devMsg.developerReferenceLookupPropertyInvalidError()
     AppVersionError.TARGET_ENTITY_NOT_FOUND.code -> devMsg.developerTargetEntityNotFoundError()
     AppVersionError.TARGET_ENTITY_REQUIRED.code -> devMsg.developerTargetEntityRequiredError()
     AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.code -> devMsg.developerComputedPropertyNotFoundError()

@@ -60,11 +60,23 @@ data class Property(
   val nestedProperties: List<Property> = emptyList(),
   // Unit assigned to a LONG/DOUBLE property's numeric value, e.g. distance stored in meters. Unused for other types.
   val unit: PropertyUnit? = null,
+  // Lets a top-level REF property be entered as text of its target entity (with proposals, optionally auto-creating new targets). See ADR 0026.
+  val referenceLookup: ReferenceLookup? = null,
 ) {
   init {
     require(unit == null || type.supportsUnit()) { "unit is not supported for property type $type" }
   }
 }
+
+/**
+ * Entering a REF property by a STRING value of its target entity instead of picking from a select (ADR 0026): the form proposes the
+ * existing values of [propertyId] (most referenced first) and resolves the typed text to the target object carrying it. With
+ * [autoCreate], an unknown text creates a new target object on save, together with the referencing object.
+ */
+data class ReferenceLookup(
+  val propertyId: PropertyId,
+  val autoCreate: Boolean = false,
+)
 
 sealed interface PropertyConstraint {
   // Unique key constraint (scalar types only — not LIST or OBJECT)

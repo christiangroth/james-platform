@@ -9,7 +9,7 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   `boolean`, `String`, `date`, `time`, `datetime`, `ref`, `List`, `object`) — no infrastructure or CRUD boilerplate to write. Several unique-key properties
   of an Entity form one composite key (e.g. time stamp + meter).
 - **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
-  forward) and Snapshot mode (reusable form templates).
+  forward) and Snapshot mode (reusable form templates). References can be entered as text with proposals, creating unknown targets on save.
 - **Computed Properties & Smart Defaults** – Derived values and form defaults backed by Developer-authored Kotlin scripts, executed backend-side with a timeout guard.
 - **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, optional day/week/month/quarter/year bucketing with a configurable period start,
   optional grouping via a `ref` or another property) over an Entity's data in the version editor. Ungrouped values are shown directly on the app installation;

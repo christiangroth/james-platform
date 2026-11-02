@@ -260,7 +260,9 @@
     <script type="application/json" id="object-fields-data">{objectFieldsJson}</script>
     <script type="application/json" id="object-values-data">{objectValuesJson}</script>
     <script type="application/json" id="reference-options-data">{referenceOptionsJson}</script>
+    <script type="application/json" id="reference-lookups-data">{referenceLookupsJson}</script>
     <script src="/object-property-fields.js?v={assetVersion}"></script>
+    <script src="/reference-lookup-fields.js?v={assetVersion}"></script>
     <script src="/unit-value-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
@@ -268,9 +270,15 @@
                 textModeButton: '{user:userUnitTextModeButton()}',
                 dropdownModeButton: '{user:userUnitDropdownModeButton()}'
             });
+            var editDataForm = document.getElementById('editDataForm');
+            initReferenceLookupFields(editDataForm, JSON.parse(document.getElementById('reference-lookups-data').textContent), {
+                newHint: '{userReferenceLookup:userReferenceLookupNewHint()}',
+                unknownHint: '{userReferenceLookup:userReferenceLookupUnknownHint()}',
+                newFieldsTitle: '{userReferenceLookup:userReferenceLookupNewFieldsTitle()}'
+            });
             renderObjectPropertyFields(
                 JSON.parse(document.getElementById('object-fields-data').textContent),
-                JSON.parse(document.getElementById('object-values-data').textContent),
+                referenceLookupObjectValues(JSON.parse(document.getElementById('object-values-data').textContent)),
                 JSON.parse(document.getElementById('reference-options-data').textContent),
                 {
                     selectPlaceholder: '{msg:commonSelectPlaceholder()}',
@@ -286,6 +294,7 @@
                 }
             );
             initUnitFields(document);
+            syncReferenceLookupFields(editDataForm);
 
             var meta = document.getElementById('app-data-meta');
             var installedAppId = meta.dataset.installedAppId;
@@ -327,7 +336,8 @@
                     var propId = entry[0];
                     var message = entry[1];
                     var unitContainer = form.querySelector('.unit-value-field > [name="prop_' + propId + '"]');
-                    var input = unitContainer ? unitContainer.closest('.unit-value-field') : form.querySelector('[name="prop_' + propId + '"]');
+                    var input = unitContainer ? unitContainer.closest('.unit-value-field')
+                        : (form.querySelector('[name="reflookup_' + propId + '"]') || form.querySelector('[name="prop_' + propId + '"]'));
                     if (input) {
                         input.classList.add('is-invalid');
                         var feedback = document.createElement('div');

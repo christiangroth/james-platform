@@ -6,6 +6,9 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.referenceLookupTarget
+import de.chrgroth.james.platform.domain.model.app.REFERENCE_NEW_FORM_PREFIX
+import de.chrgroth.james.platform.domain.model.app.REFERENCE_LOOKUP_FORM_PREFIX
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
@@ -339,6 +342,7 @@ class UserAppStoreResource {
       ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
     val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
+    val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, currentData = null)
     Response.ok(
       UserTemplates.`app-data-new`(
         info = info,
@@ -346,8 +350,9 @@ class UserAppStoreResource {
         smartDefaults = computedSmartDefaults,
         referenceOptions = referenceOptions,
         entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size),
-        objectFieldsJson = objectFieldsJsonFor(entityDef.properties),
-        referenceOptionsJson = referenceOptionsJsonFor(referenceOptions),
+        objectFieldsJson = objectFieldsJsonFor(entityDef.properties, lookups),
+        referenceOptionsJson = referenceOptionsJsonFor(referenceOptions + lookups.referenceOptions),
+        referenceLookupsJson = RawString(ObjectMapper().writeValueAsString(lookups.lookups)),
       ),
     ).build()
   }
@@ -384,9 +389,7 @@ class UserAppStoreResource {
   ): Response = httpResponseMetrics.timed("rest.user-app-store.data-create") {
     val userId = securityIdentity.principal.name
     val entityTypeId = form.getFirst("entityTypeId") ?: return@timed Response.ok(DeveloperApiResult(false, userMsg.userEntityTypeRequiredError())).build()
-    val data = form.entries
-      .filter { it.key.startsWith("prop_") }
-      .associate { it.key to it.value }
+    val data = appDataFormValues(form)
     appData.createAppData(userId, installedAppId, entityTypeId, data).fold(
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
@@ -424,6 +427,7 @@ class UserAppStoreResource {
         val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == appDataItem.entityType.value }
           ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
         val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
+        val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, appDataItem.data)
         val detail = AppDataDetail(
           id = appDataItem.id.value,
           installedAppId = installedAppId,
@@ -482,9 +486,10 @@ class UserAppStoreResource {
             info = info,
             detail = detail,
             entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion.entityDefinitions.size),
-            objectFieldsJson = objectFieldsJsonFor(entityDef.properties),
+            objectFieldsJson = objectFieldsJsonFor(entityDef.properties, lookups),
             objectValuesJson = objectValuesJsonFor(entityDef.properties, appDataItem.data),
-            referenceOptionsJson = referenceOptionsJsonFor(referenceOptions),
+            referenceOptionsJson = referenceOptionsJsonFor(referenceOptions + lookups.referenceOptions),
+            referenceLookupsJson = RawString(ObjectMapper().writeValueAsString(lookups.lookups)),
           ),
         ).build()
       },
@@ -501,9 +506,7 @@ class UserAppStoreResource {
     form: MultivaluedMap<String, String>,
   ): Response = httpResponseMetrics.timed("rest.user-app-store.data-update") {
     val userId = securityIdentity.principal.name
-    val data = form.entries
-      .filter { it.key.startsWith("prop_") }
-      .associate { it.key to it.value }
+    val data = appDataFormValues(form)
     appData.updateAppData(userId, installedAppId, dataId, data).fold(
       ifLeft = { error ->
         if (error is AppDataConstraintViolationError) {
@@ -871,10 +874,80 @@ class UserAppStoreResource {
     "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
   )
 
-  /** Builds the JSON (propertyId -> field tree) used by object-property-fields.js to render OBJECT property fields. */
-  private fun objectFieldsJsonFor(properties: List<Property>): RawString = RawString(
-    ObjectMapper().writeValueAsString(properties.filter { it.type == PropertyType.OBJECT }.associate { it.id.value to it.toObjectFieldView() }),
+  /**
+   * Builds the JSON (propertyId -> field tree) used by object-property-fields.js to render OBJECT property fields, plus the
+   * `refnew_<propertyId>` pseudo-OBJECT trees of auto-creating reference lookups (the target entity's further fields, ADR 0026).
+   */
+  private fun objectFieldsJsonFor(properties: List<Property>, lookups: ReferenceLookupForms): RawString = RawString(
+    ObjectMapper().writeValueAsString(
+      properties.filter { it.type == PropertyType.OBJECT }.associate { it.id.value to it.toObjectFieldView() } + lookups.newObjectFields,
+    ),
   )
+
+  /** Form values relevant for AppData create/update: property values plus reference lookup texts and new-target values (ADR 0026). */
+  private fun appDataFormValues(form: MultivaluedMap<String, String>): Map<String, List<String>> = form.entries
+    .filter { entry -> listOf("prop_", REFERENCE_LOOKUP_FORM_PREFIX, REFERENCE_NEW_FORM_PREFIX).any { entry.key.startsWith(it) } }
+    .associate { it.key to it.value }
+
+  /** Client-side data for the reference lookup fields of one form (see reference-lookup-fields.js). */
+  private data class ReferenceLookupForms(
+    val lookups: Map<String, Map<String, Any?>>,
+    val newObjectFields: Map<String, Map<String, Any?>>,
+    val referenceOptions: Map<String, List<AppDataRow>>,
+  )
+
+  /**
+   * For every REF property of [entityDef] with a valid reference lookup (ADR 0026): the target's lookup values as proposals (most
+   * referenced by this property first), the current text for [currentData] (edit form) and — with auto-create — the target entity's
+   * further properties as a pseudo-OBJECT field tree with their defaults, plus the reference options its own REF properties need.
+   */
+  private fun referenceLookupForms(
+    userId: String,
+    installedAppId: String,
+    entityDefinitions: List<EntityDefinition>,
+    entityDef: EntityDefinition,
+    currentData: Map<String, String?>?,
+  ): ReferenceLookupForms {
+    val lookupProperties = entityDef.properties.mapNotNull { prop -> prop.referenceLookupTarget(entityDefinitions)?.let { Triple(prop, it.first, it.second) } }
+    if (lookupProperties.isEmpty()) return ReferenceLookupForms(emptyMap(), emptyMap(), emptyMap())
+    val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+    val lookups = mutableMapOf<String, Map<String, Any?>>()
+    val newObjectFields = mutableMapOf<String, Map<String, Any?>>()
+    val referenceOptions = mutableMapOf<String, List<AppDataRow>>()
+    for ((prop, target, lookupProperty) in lookupProperties) {
+      val targets = allData.filter { it.entityType == target.id }
+      val usage = allData.filter { it.entityType == entityDef.id }.mapNotNull { it.data[prop.id.value] }.groupingBy { it }.eachCount()
+      val proposals = targets
+        .mapNotNull { item -> item.data[lookupProperty.id.value]?.takeIf { it.isNotBlank() }?.let { it to (usage[item.id.value] ?: 0) } }
+        .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first.lowercase() })
+        .map { it.first }
+      val currentText = currentData?.get(prop.id.value)?.let { id -> targets.find { it.id.value == id }?.data?.get(lookupProperty.id.value) }
+      val autoCreate = prop.referenceLookup?.autoCreate == true
+      val newProperties = if (autoCreate) target.properties.filter { it.id != lookupProperty.id } else emptyList()
+      if (newProperties.isNotEmpty()) {
+        newObjectFields["$REFERENCE_NEW_FORM_PREFIX${prop.id.value}"] = mapOf(
+          "id" to "$REFERENCE_NEW_FORM_PREFIX${prop.id.value}",
+          "name" to target.name,
+          "type" to PropertyType.OBJECT.name,
+          "nullable" to true,
+          "nestedProperties" to newProperties.map { it.toObjectFieldView() },
+        )
+        referenceOptions += computeReferenceOptions(userId, installedAppId, entityDefinitions, target)
+      }
+      val smartDefaults = if (newProperties.isNotEmpty()) smartDefault.computeSmartDefaults(target, Clock.System.now()) else emptyMap()
+      lookups[prop.id.value] = mapOf(
+        "proposals" to proposals,
+        "value" to currentText,
+        "autoCreate" to autoCreate,
+        "hasNewFields" to newProperties.isNotEmpty(),
+        "targetEntityName" to target.name,
+        "newDefaults" to newProperties.mapNotNull { p -> (p.default ?: smartDefaults[p.id.value])?.let { p.id.value to it } }.toMap(),
+      )
+    }
+    return ReferenceLookupForms(lookups, newObjectFields, referenceOptions)
+  }
+
+
 
   /** Builds the JSON (propertyId -> decoded existing value) used to prefill OBJECT property fields on the edit form. */
   private fun objectValuesJsonFor(properties: List<Property>, data: Map<String, String?>): RawString = RawString(

@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
+import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -31,6 +32,9 @@ import de.chrgroth.james.platform.domain.model.app.PropertyChangeReason
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.referenceLookupTarget
+import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
+import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.coveredPropertyId
 import de.chrgroth.james.platform.domain.model.app.propertyChangeReasons
@@ -223,6 +227,13 @@ class AppVersionManagementService(
     if (invalidMigrationStepEntityNames.isNotEmpty()) {
       logger.warn { "Publish version failed: invalid migration steps in entities: $invalidMigrationStepEntityNames" }
       return InvalidMigrationStepError(invalidMigrationStepEntityNames).left()
+    }
+    val invalidReferenceLookupEntityNames = version.entityDefinitions
+      .filter { entity -> entity.properties.any { it.referenceLookup != null && it.referenceLookupTarget(version.entityDefinitions) == null } }
+      .map { it.name }
+    if (invalidReferenceLookupEntityNames.isNotEmpty()) {
+      logger.warn { "Publish version failed: invalid reference lookups in entities: $invalidReferenceLookupEntityNames" }
+      return InvalidReferenceLookupError(invalidReferenceLookupEntityNames).left()
     }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
@@ -974,6 +985,43 @@ class AppVersionManagementService(
     return updated.right()
   }
 
+  override fun setPropertyReferenceLookup(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    lookupPropertyId: String?,
+    autoCreate: Boolean,
+  ): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set property reference lookup failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    val property = entity.properties.find { it.id.value == propertyId } ?: run {
+      logger.warn { "Set property reference lookup failed: property not found: $propertyId in entity $entityId" }
+      return AppVersionError.PROPERTY_NOT_FOUND.left()
+    }
+    if (property.type != PropertyType.REF) {
+      logger.warn { "Set property reference lookup failed: type ${property.type} does not support a reference lookup: $propertyId" }
+      return AppVersionError.REFERENCE_LOOKUP_NOT_SUPPORTED.left()
+    }
+    val lookup = lookupPropertyId?.takeIf { it.isNotBlank() }?.let { lookupId ->
+      val target = version.entityDefinitions.find { it.id == property.targetEntityId }
+      val lookupProperty = target?.properties?.find { it.id.value == lookupId }
+      if (target == null || lookupProperty == null || !isValidReferenceLookupProperty(target, lookupProperty)) {
+        logger.warn { "Set property reference lookup failed: $lookupId is no STRING sole unique key of the target of $propertyId" }
+        return AppVersionError.REFERENCE_LOOKUP_PROPERTY_INVALID.left()
+      }
+      ReferenceLookup(propertyId = lookupProperty.id, autoCreate = autoCreate)
+    }
+    val updatedEntity = entity.copy(properties = entity.properties.map { if (it.id == property.id) it.copy(referenceLookup = lookup) else it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    appVersionRepository.save(updated)
+    logger.info { "Property reference lookup set: $propertyId in entity $entityId in version $versionId (lookup=${lookup?.propertyId?.value}, autoCreate=${lookup?.autoCreate})" }
+    return updated.right()
+  }
+
   override fun setPropertyTargetEntity(
     appId: String,
     versionId: String,
@@ -1007,7 +1055,8 @@ class AppVersionManagementService(
       return AppVersionError.TARGET_ENTITY_NOT_SUPPORTED.left()
     }
     val resolvedTargetEntityId = resolveTargetEntity(version, targetEntityRequired, targetEntityId).fold({ return it.left() }, { it })
-    return property.copy(targetEntityId = resolvedTargetEntityId).right()
+    val referenceLookup = property.referenceLookup.takeIf { resolvedTargetEntityId == property.targetEntityId }
+    return property.copy(targetEntityId = resolvedTargetEntityId, referenceLookup = referenceLookup).right()
   }
 
   override fun setPropertyListItemType(
@@ -1909,6 +1958,11 @@ class AppVersionManagementService(
     if (targetEntityId != null) {
       val targetName = allEntities.find { it.id == targetEntityId }?.name ?: targetEntityId.value
       lines.add("$indent  target-entity: $targetName")
+    }
+    val referenceLookup = prop.referenceLookup
+    if (referenceLookup != null) {
+      val lookupName = allEntities.find { it.id == targetEntityId }?.properties?.find { it.id == referenceLookup.propertyId }?.name ?: referenceLookup.propertyId.value
+      lines.add("$indent  reference-lookup: $lookupName${if (referenceLookup.autoCreate) " (auto-create)" else ""}")
     }
     if (prop.listItemType != null) {
       val itemConstraintsStr = constraintsToDslString(prop.itemConstraints)

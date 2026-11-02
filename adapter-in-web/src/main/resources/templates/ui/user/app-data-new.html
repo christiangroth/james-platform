@@ -168,7 +168,9 @@
     {#scripts}
     <script type="application/json" id="object-fields-data">{objectFieldsJson}</script>
     <script type="application/json" id="reference-options-data">{referenceOptionsJson}</script>
+    <script type="application/json" id="reference-lookups-data">{referenceLookupsJson}</script>
     <script src="/object-property-fields.js?v={assetVersion}"></script>
+    <script src="/reference-lookup-fields.js?v={assetVersion}"></script>
     <script src="/unit-value-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
@@ -192,12 +194,19 @@
                 dropdownModeButton: '{user:userUnitDropdownModeButton()}'
             });
 
+            initReferenceLookupFields(createForm, JSON.parse(document.getElementById('reference-lookups-data').textContent), {
+                newHint: '{userReferenceLookup:userReferenceLookupNewHint()}',
+                unknownHint: '{userReferenceLookup:userReferenceLookupUnknownHint()}',
+                newFieldsTitle: '{userReferenceLookup:userReferenceLookupNewFieldsTitle()}'
+            });
+
             function renderObjectFields(objectValues) {
                 createForm.querySelectorAll('.object-property-fields[data-property-id]').forEach(function (container) {
                     container.innerHTML = '';
                 });
-                renderObjectPropertyFields(objectFieldsData, objectValues || {}, referenceOptionsData, objectFieldRenderMessages);
+                renderObjectPropertyFields(objectFieldsData, referenceLookupObjectValues(objectValues), referenceOptionsData, objectFieldRenderMessages);
                 initUnitFields(createForm);
+                syncReferenceLookupFields(createForm);
             }
 
             // Create mode and any captured snapshot live only in memory: the editor always starts in Standard
@@ -523,7 +532,8 @@
                     var propId = entry[0];
                     var message = entry[1];
                     var unitContainer = form.querySelector('.unit-value-field > [name="prop_' + propId + '"]');
-                    var input = unitContainer ? unitContainer.closest('.unit-value-field') : form.querySelector('[name="prop_' + propId + '"]');
+                    var input = unitContainer ? unitContainer.closest('.unit-value-field')
+                        : (form.querySelector('[name="reflookup_' + propId + '"]') || form.querySelector('[name="prop_' + propId + '"]'));
                     if (input) {
                         input.classList.add('is-invalid');
                         var feedback = document.createElement('div');

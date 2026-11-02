@@ -94,6 +94,13 @@ data class ApiPropertyDto(
   val itemConstraints: List<ApiConstraintDto>,
   val nestedProperties: List<ApiPropertyDto>,
   val unit: ApiUnitDto?,
+  val referenceLookup: ApiReferenceLookupDto?,
+)
+
+/** See ADR 0026: the REF property is entered by the text of [lookupPropertyId] of its target entity, optionally auto-creating new targets. */
+data class ApiReferenceLookupDto(
+  val lookupPropertyId: String,
+  val autoCreate: Boolean,
 )
 
 /** A property constraint as `type` (e.g. `MIN_LONG`, `PATTERN`, `UNIQUE_KEY`) plus its value as string (ISO format for dates/times, null for `UNIQUE_KEY`). */
@@ -298,6 +305,7 @@ object ApiDtoMapper {
     itemConstraints = property.itemConstraints.map { constraint(it) },
     nestedProperties = property.nestedProperties.map { property(it) },
     unit = property.unit?.let { ApiUnitDto(it.family.name, granularityName(it.storageGranularity), granularityName(it.defaultGranularity)) },
+    referenceLookup = property.referenceLookup?.let { ApiReferenceLookupDto(it.propertyId.value, it.autoCreate) },
   )
 
   private fun computedProperty(computed: ComputedProperty) = ApiComputedPropertyDto(computed.id.value, computed.name, computed.type.name, computed.script)

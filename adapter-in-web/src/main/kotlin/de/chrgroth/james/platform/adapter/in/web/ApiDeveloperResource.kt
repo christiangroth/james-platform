@@ -458,6 +458,21 @@ class ApiDeveloperResource(
   }
 
   @PUT
+  @Path("/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/reference-lookup")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
+  fun setPropertyReferenceLookup(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @PathParam("propertyId") propertyId: String,
+    request: ApiReferenceLookupRequest?,
+  ): Response = edit("property-reference-lookup", appId) {
+    appVersionManagement.setPropertyReferenceLookup(appId, versionId, entityId, propertyId, request?.lookupPropertyId, request?.autoCreate ?: false)
+  }
+
+  @PUT
   @Path("/{appId}/versions/{versionId}/entities/{entityId}/properties/{propertyId}/target-entity")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)

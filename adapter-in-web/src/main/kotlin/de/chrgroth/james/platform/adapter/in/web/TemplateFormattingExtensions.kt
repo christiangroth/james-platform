@@ -298,6 +298,14 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun targetEntityId(property: Property): String = property.targetEntityId?.value ?: ""
 
+  /** Id of the target entity's lookup property of a REF property's reference lookup (ADR 0026), or "" if none is configured. */
+  @JvmStatic
+  fun referenceLookupPropertyId(property: Property): String = property.referenceLookup?.propertyId?.value ?: ""
+
+  /** Whether a REF property's reference lookup auto-creates unknown target objects (ADR 0026). */
+  @JvmStatic
+  fun referenceLookupAutoCreate(property: Property): Boolean = property.referenceLookup?.autoCreate ?: false
+
   /** Returns true if the property has a [de.chrgroth.james.platform.domain.model.app.PropertyUnit] configured. */
   @JvmStatic
   fun hasUnit(property: Property): Boolean = property.unit != null

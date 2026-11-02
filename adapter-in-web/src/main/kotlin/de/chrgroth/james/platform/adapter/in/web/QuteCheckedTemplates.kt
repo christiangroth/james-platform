@@ -157,6 +157,7 @@ object DeveloperTemplates {
     parentPath: String,
     predefinedSmartDefaultsJson: RawString,
     currentPropertiesJson: RawString,
+    referenceLookupCandidatesJson: RawString,
   ): TemplateInstance
 
   @JvmStatic
@@ -209,6 +210,7 @@ object UserTemplates {
     entityListUrl: String,
     objectFieldsJson: RawString,
     referenceOptionsJson: RawString,
+    referenceLookupsJson: RawString,
   ): TemplateInstance
 
   @JvmStatic
@@ -219,6 +221,7 @@ object UserTemplates {
     objectFieldsJson: RawString,
     objectValuesJson: RawString,
     referenceOptionsJson: RawString,
+    referenceLookupsJson: RawString,
   ): TemplateInstance
 
   @JvmStatic
