@@ -22,6 +22,9 @@ interface UserImportMappingMessages {
   fun userImportMappingSampleEmptyMessage(): String
 
   @Message
+  fun userImportMappingConversionDatetimeToTime(): String
+
+  @Message
   fun userImportMappingZeroAsEmptyLabel(): String
 
   @Message

@@ -6,6 +6,7 @@ import arrow.core.right
 import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import java.math.BigDecimal
 import java.math.MathContext
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
 
 /** Reason a [ValueConversion.convert] call did not produce a value. */
@@ -40,6 +41,7 @@ object ValueConversion {
     PropertyType.STRING to PropertyType.DATE,
     PropertyType.STRING to PropertyType.DATETIME,
     PropertyType.DATETIME to PropertyType.DATE,
+    PropertyType.DATETIME to PropertyType.TIME,
   )
 
   /** Whether a value of [from] can be converted to [to], either because they are the same type or via a supported conversion. */
@@ -61,6 +63,7 @@ object ValueConversion {
       PropertyType.STRING -> rawValue.right()
       PropertyType.DATE -> if (from == PropertyType.DATETIME) truncateDatetimeToDate(rawValue).right() else rawValue.right()
       PropertyType.DATETIME -> toLocalDatetime(rawValue).right()
+      PropertyType.TIME -> datetimeToTime(rawValue)?.right() ?: ValueConversionError.INVALID_VALUE.left()
       else -> ValueConversionError.UNSUPPORTED_CONVERSION.left()
     }
   }
@@ -84,6 +87,20 @@ object ValueConversion {
   }
 
   private fun formatDouble(value: BigDecimal): String = value.stripTrailingZeros().toPlainString()
+
+  /**
+   * Extracts the time of day a `TIME` property stores (`HH:mm`, or `HH:mm:ss` when seconds are set). A value carrying an offset (e.g.
+   * `2024-09-02T05:00:00.000Z`) denotes an instant and yields its time in [AppTimeZone] on that instant's date (07:00 here, daylight saving time
+   * included); a local date-time yields its own time part. Returns null for anything else.
+   */
+  private fun datetimeToTime(rawValue: String): String? {
+    val trimmed = rawValue.trim()
+    val instant = runCatching { OffsetDateTime.parse(trimmed) }.getOrNull()
+    val time = instant?.atZoneSameInstant(AppTimeZone.zone)?.toLocalTime()
+      ?: runCatching { LocalDateTime.parse(trimmed).toLocalTime() }.getOrNull()
+      ?: return null
+    return time.withNano(0).toString()
+  }
 
   /**
    * A value carrying an offset (e.g. `2025-08-28T22:00:00.000Z`) denotes an instant, so its date is the one in [AppTimeZone] - plain truncation would
