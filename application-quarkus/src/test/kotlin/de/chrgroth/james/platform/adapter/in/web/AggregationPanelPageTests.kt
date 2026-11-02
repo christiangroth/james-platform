@@ -558,6 +558,58 @@ class AggregationPanelPageTests {
   }
 
   @Test
+  fun `entity list shows a REF placeholder of the display text as the referenced object's display text instead of its id`() {
+    val appName = "Display Text Ref App ${System.nanoTime()}"
+    val setup = createRunShoeApp(appName)
+    // a display text may only reference non-nullable properties, so make ShoeRef and Distance mandatory first
+    val version = appVersionRepository.findById(AppVersionId(setup.versionId))!!
+    appVersionRepository.save(
+      version.copy(
+        entityDefinitions = version.entityDefinitions.map { entity ->
+          if (entity.id.value != setup.runEntityId) {
+            entity
+          } else {
+            entity.copy(
+              displayText = "{ShoeRef} {Distance}",
+              properties = entity.properties.map { if (it.id.value == setup.shoeRefPropertyId || it.id.value == setup.distancePropertyId) it.copy(nullable = false) else it },
+            )
+          }
+        },
+      ),
+    )
+    val installedAppId = publishAndInstall(setup, appName, emptyList())
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("entityTypeId", setup.shoeEntityId)
+      .formParam("prop_${setup.shoeNamePropertyId}", "Asics")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/data")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+    val shoeListHtml = given().`when`().get("/ui/user/apps/$installedAppId/entities/${setup.shoeEntityId}").then().statusCode(200).extract().body().asString()
+    val shoeDataId = Regex("""data-href="/ui/user/apps/$installedAppId/data/([^"]+)"""").find(shoeListHtml)?.groupValues?.get(1) ?: ""
+    assertTrue(shoeDataId.isNotBlank(), "Expected to find the created Shoe's data id")
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("entityTypeId", setup.runEntityId)
+      .formParam("prop_${setup.shoeRefPropertyId}", shoeDataId)
+      .formParam("prop_${setup.distancePropertyId}", "12")
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/data")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":true"))
+
+    val runListHtml = given().`when`().get("/ui/user/apps/$installedAppId/entities/${setup.runEntityId}").then().statusCode(200).extract().body().asString()
+
+    assertTrue(runListHtml.contains("Asics 12"), "Expected the Run's display text to show the referenced Shoe's display text")
+    assertTrue(!runListHtml.contains("$shoeDataId 12"), "Expected the Shoe's id not to be shown in the Run's display text")
+  }
+
+  @Test
   fun `entity detail page shows the update-pending hint for a stale row in a grouped aggregation table`() {
     val appName = "Stale Grouped Aggregation App ${System.nanoTime()}"
     val setup = createRunShoeApp(appName)

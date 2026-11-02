@@ -57,6 +57,8 @@ James Platform is a personal Low Code system for building and running data-centr
   - A globally unique internal ID (immutable).
   - An ordered list of **Properties**.
   - An optional **display text template** – a string that interpolates property values (e.g. `{firstName} {lastName}`) into a human-readable label shown for each object in list views and `ref` pickers, instead of a raw ID.
+    Values are formatted for display (dates `dd.MM.yyyy`, German number separators, unit properties as e.g. `10km 234m`); a `ref` placeholder shows the
+    referenced object's own display text (up to two reference levels deep, e.g. meter reading → meter → home), falling back to its id.
 - A Property has:
   - A name unique within the Entity (mutable).
   - An ID unique within the Entity (immutable).
