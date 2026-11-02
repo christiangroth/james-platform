@@ -4,6 +4,7 @@ import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.user.ApiTokenScope
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.annotation.security.RolesAllowed
@@ -51,6 +52,7 @@ class ApiTokenInfoResource(
 class ApiUserResource(
   private val userAppStore: UserAppStorePort,
   private val appData: AppDataPort,
+  private val reports: ReportPort,
   private val apiRequest: ApiRequestContext,
   private val httpResponseMetrics: HttpResponseMetrics,
 ) {
@@ -160,6 +162,26 @@ class ApiUserResource(
       appData.deleteAppData(apiRequest.username(), installedAppId, dataId).fold(
         ifLeft = { ApiResponses.domainError(it) },
         ifRight = { ApiResponses.noContent() },
+      )
+    }
+  }
+
+  /**
+   * Executes a report of the installation's version and answers with its renderer-neutral panel spec (tabs, rows, panels with formatted
+   * values), the same data the report page renders. Only this installation's data is read.
+   */
+  @GET
+  @Path("/{installedAppId}/reports/{reportId}")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_READ)
+  fun getReport(
+    @PathParam("installedAppId") installedAppId: String,
+    @PathParam("reportId") reportId: String,
+  ): Response = httpResponseMetrics.timed("api.user.report-get") {
+    withInstalledApp(installedAppId) {
+      reports.renderReport(apiRequest.username(), installedAppId, reportId).fold(
+        ifLeft = { ApiResponses.domainError(it) },
+        ifRight = { ApiResponses.ok(ApiReportDtoMapper.view(it)) },
       )
     }
   }

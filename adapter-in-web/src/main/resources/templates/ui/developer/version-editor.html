@@ -403,21 +403,25 @@
             </div>
 
             {#else if selectedReport != null}
-            <!-- Report Editor -->
+            <!-- Report Editor: name and YAML definition, validated on save (see docs/plans/reports.md) -->
             <div class="card app-card p-4" data-testid="report-editor">
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">{developer:developerReportHeading(selectedReport.name)}</h2>
                 </div>
 
                 <form id="updateReportForm" data-report-id="{selectedReport.id}">
-                    <div class="mb-2">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerHtmlLabel()}</label>
-                        <textarea class="form-control app-form-control form-control-sm" name="html" rows="8" style="font-family:monospace;font-size:0.8rem;" data-testid="report-html-input">{selectedReport.html}</textarea>
-                    </div>
                     <div class="mb-3">
-                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerScriptLabel()}</label>
-                        <textarea class="form-control app-form-control form-control-sm" name="script" rows="8" style="font-family:monospace;font-size:0.8rem;" data-testid="report-script-input">{selectedReport.script}</textarea>
+                        <label for="reportNameInput" class="form-label form-label-sm" style="color:var(--color-text-muted);">{msg:commonName()} <span style="color:var(--color-required);">*</span></label>
+                        <input type="text" class="form-control app-form-control form-control-sm" id="reportNameInput" name="name" value="{selectedReport.name}" required autocomplete="off" data-testid="report-name-input">
                     </div>
+                    <div class="mb-2">
+                        <label for="reportDefinitionInput" class="form-label form-label-sm" style="color:var(--color-text-muted);">{report:reportDefinitionLabel()}</label>
+                        <textarea class="form-control app-form-control form-control-sm" id="reportDefinitionInput" name="definition" rows="22" spellcheck="false" autocomplete="off"
+                                  style="font-family:monospace;font-size:0.8rem;tab-size:2;" data-testid="report-definition-input">{selectedReport.definition}</textarea>
+                        <div class="form-text">{report:reportDefinitionHelp()}</div>
+                    </div>
+                    <div id="reportErrors" class="d-none alert alert-danger py-2 px-3 mt-3" role="alert" data-testid="report-errors"
+                         data-heading="{report:reportValidationErrorsHeading()}"></div>
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <button type="button" class="btn btn-app-danger btn-sm"
                                 data-bs-toggle="modal" data-bs-target="#deleteReportModal"
@@ -431,6 +435,36 @@
                         </button>
                     </div>
                 </form>
+            </div>
+
+            <!-- Report preview against a test installation of this draft -->
+            <div class="card app-card p-4 mt-4" data-testid="report-preview-card">
+                <div class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+                    <h2 class="fs-6 fw-semibold mb-0">{report:reportPreviewHeading()}</h2>
+                    {#if !testInstallations.isEmpty}
+                    <label for="reportPreviewInstallation" class="visually-hidden">{report:reportPreviewInstallationLabel()}</label>
+                    <select class="form-select form-select-sm app-form-control ms-auto" id="reportPreviewInstallation" style="width:auto;"
+                            title="{report:reportPreviewInstallationLabel()}" data-testid="report-preview-installation-select">
+                        {#for ti in testInstallations}
+                        <option value="{ti.installedAppId}">{report:reportPreviewInstallationLabel()} {ti.installedAt.formatted}</option>
+                        {/for}
+                    </select>
+                    <button type="button" class="btn btn-app-secondary btn-sm" id="reportPreviewButton" title="{report:reportPreviewButton()}"
+                            aria-label="{report:reportPreviewButton()}" data-testid="report-preview-button">
+                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                    </button>
+                    {/if}
+                </div>
+                {#if testInstallations.isEmpty}
+                <p class="app-section-label mb-0" data-testid="report-preview-no-installation">{report:reportPreviewNoInstallationHint()}</p>
+                {#else}
+                <div id="reportPreview" data-testid="report-preview"
+                     data-text-empty="{report:reportTableEmpty()}"
+                     data-text-truncated="{report:reportTableTruncated()}"
+                     data-text-no-content="{report:reportNoContent()}">
+                    <p class="app-section-label mb-0">{report:reportPreviewEmpty()}</p>
+                </div>
+                {/if}
             </div>
 
             {#else}
@@ -606,19 +640,12 @@
                         </h2>
                         <div id="report-{report.id}-collapse" class="accordion-collapse collapse" aria-labelledby="report-{report.id}-heading">
                             <div class="accordion-body p-0">
-                                {#if report.html}
+                                {#if report.definition}
                                 <div class="p-2">
-                                    <div class="app-section-header mb-1">{developer:developerHtmlLabel()}</div>
-                                    <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:200px;margin:0;">{report.html}</pre>
+                                    <div class="app-section-header mb-1">{report:reportDefinitionLabel()}</div>
+                                    <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:400px;margin:0;" data-testid="report-readonly-definition">{report.definition}</pre>
                                 </div>
-                                {/if}
-                                {#if report.script}
-                                <div class="p-2">
-                                    <div class="app-section-header mb-1">{developer:developerScriptLabel()}</div>
-                                    <pre style="background-color:var(--color-bg-nested);padding:0.5rem;border-radius:4px;font-size:0.75rem;overflow-x:auto;color:var(--color-code-text);max-height:200px;margin:0;">{report.script}</pre>
-                                </div>
-                                {/if}
-                                {#if !report.html && !report.script}
+                                {#else}
                                 <p class="app-section-label p-2 mb-0" style="font-size:0.8rem;">{developer:developerNoContentMessage()}</p>
                                 {/if}
                             </div>
@@ -1294,6 +1321,10 @@
     {/content}
     {#scripts}
     <script src="/unit-value-fields.js?v={assetVersion}"></script>
+    {#if selectedReport != null}
+    <script src="/webjars/echarts/dist/echarts.min.js"></script>
+    <script src="/report-renderer.js?v={assetVersion}"></script>
+    {/if}
     <script>
         (function () {
             var appId = '{app.id}';
@@ -1689,20 +1720,91 @@
                 });
             }
 
-            // Update Report form
+            // Report editor: save (validation errors listed with line and path) and preview against a test installation
             var updateReportForm = document.getElementById('updateReportForm');
+            var reportErrors = document.getElementById('reportErrors');
+            function showReportErrors(result) {
+                if (!reportErrors) return;
+                reportErrors.textContent = '';
+                if (!result || !result.errors || result.errors.length === 0) {
+                    reportErrors.className = 'd-none alert alert-danger py-2 px-3 mt-3';
+                    return;
+                }
+                var heading = document.createElement('div');
+                heading.className = 'fw-semibold mb-1';
+                heading.textContent = reportErrors.getAttribute('data-heading');
+                reportErrors.appendChild(heading);
+                var list = document.createElement('ul');
+                list.className = 'mb-0';
+                result.errors.forEach(function (error) {
+                    var item = document.createElement('li');
+                    item.textContent = error.message;
+                    list.appendChild(item);
+                });
+                reportErrors.appendChild(list);
+                reportErrors.className = 'alert alert-danger py-2 px-3 mt-3';
+            }
+            async function postReportForm(url, formData) {
+                try {
+                    var response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams(formData).toString()
+                    });
+                    return await response.json();
+                } catch (e) {
+                    showMessage(false, networkErrorMessage);
+                    return null;
+                }
+            }
             if (updateReportForm) {
+                var reportUrl = '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + updateReportForm.getAttribute('data-report-id');
                 updateReportForm.addEventListener('submit', async function (e) {
                     e.preventDefault();
                     var btn = updateReportForm.querySelector('[type="submit"]');
                     btn.disabled = true;
-                    var reportId = updateReportForm.getAttribute('data-report-id');
-                    await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/reports/' + reportId,
-                        new FormData(this), true
-                    );
+                    var result = await postReportForm(reportUrl, new FormData(updateReportForm));
                     btn.disabled = false;
+                    if (!result) return;
+                    showReportErrors(result);
+                    if (result.ok && result.redirectUrl) {
+                        window.location.href = result.redirectUrl;
+                    } else if (!result.errors) {
+                        showMessage(result.ok, result.message);
+                    }
                 });
+                var reportDefinitionInput = document.getElementById('reportDefinitionInput');
+                reportDefinitionInput.addEventListener('keydown', function (e) {
+                    // Tab inserts two spaces (YAML indentation) instead of leaving the textarea.
+                    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                        e.preventDefault();
+                        var start = reportDefinitionInput.selectionStart;
+                        var end = reportDefinitionInput.selectionEnd;
+                        reportDefinitionInput.setRangeText('  ', start, end, 'end');
+                    }
+                });
+                var reportPreviewButton = document.getElementById('reportPreviewButton');
+                var reportPreview = document.getElementById('reportPreview');
+                if (reportPreviewButton && reportPreview) {
+                    reportPreviewButton.addEventListener('click', async function () {
+                        reportPreviewButton.disabled = true;
+                        var formData = new FormData(updateReportForm);
+                        formData.append('installedAppId', document.getElementById('reportPreviewInstallation').value);
+                        var result = await postReportForm(reportUrl + '/preview', formData);
+                        reportPreviewButton.disabled = false;
+                        if (!result) return;
+                        showReportErrors(result);
+                        if (result.ok && result.view) {
+                            JamesReports.render(reportPreview, result.view, {
+                                empty: reportPreview.getAttribute('data-text-empty'),
+                                truncated: reportPreview.getAttribute('data-text-truncated'),
+                                noContent: reportPreview.getAttribute('data-text-no-content')
+                            });
+                        } else if (!result.errors) {
+                            showMessage(false, result.message);
+                        }
+                    });
+                }
             }
 
             // Delete Draft Version modal

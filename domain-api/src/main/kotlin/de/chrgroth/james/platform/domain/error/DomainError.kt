@@ -126,6 +126,8 @@ enum class AppVersionError(override val code: String) : DomainError {
   REFERENCE_LOOKUP_NOT_SUPPORTED("APPVER-068"),
   REFERENCE_LOOKUP_PROPERTY_INVALID("APPVER-069"),
   INVALID_REFERENCE_LOOKUP("APPVER-070"),
+  INVALID_REPORT_DEFINITION("APPVER-071"),
+  INVALID_REPORTS("APPVER-072"),
   ;
 }
 
@@ -172,6 +174,13 @@ enum class AppDataError(override val code: String) : DomainError {
   APP_DATA_NOT_FOUND("APPDATA-004"),
   REFERENCED_BY_NON_NULLABLE_PROPERTY("APPDATA-005"),
   PROPERTY_NOT_FOUND("APPDATA-006"),
+  ;
+}
+
+/** Executing a report for an installation, see docs/plans/reports.md. */
+enum class ReportError(override val code: String) : DomainError {
+  INSTALLED_APP_NOT_FOUND("REPORT-001"),
+  REPORT_NOT_FOUND("REPORT-002"),
   ;
 }
 
@@ -311,6 +320,20 @@ data class InvalidReferenceLookupError(
   val entityNames: List<String>,
 ) : DomainError {
   override val code: String = AppVersionError.INVALID_REFERENCE_LOOKUP.code
+}
+
+/** A report definition (YAML) failed parsing or validation on save or preview; [errors] locate every problem found. */
+data class InvalidReportDefinitionError(
+  val errors: List<de.chrgroth.james.platform.domain.model.app.ReportDefinitionError>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_REPORT_DEFINITION.code
+}
+
+/** Publishing failed because the definitions of these reports are invalid, e.g. an entity or property they use was deleted or renamed. */
+data class InvalidReportsError(
+  val reportNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_REPORTS.code
 }
 
 sealed class PropertyConstraintViolation(override val code: String) : DomainError {

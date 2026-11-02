@@ -315,8 +315,7 @@ class AppVersionRepositoryAdapter(
   private fun ReportDocument.toDomain() = Report(
     id = ReportId(id),
     name = name,
-    html = html,
-    script = script,
+    definition = definition,
   )
 
   private fun AppVersion.toDocument() = AppVersionDocument().also { doc ->
@@ -451,8 +450,7 @@ class AppVersionRepositoryAdapter(
   private fun Report.toDocument() = ReportDocument().also { doc ->
     doc.id = id.value
     doc.name = name
-    doc.html = html
-    doc.script = script
+    doc.definition = definition
   }
 
   companion object {

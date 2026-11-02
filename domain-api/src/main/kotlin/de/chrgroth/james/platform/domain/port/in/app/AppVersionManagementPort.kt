@@ -142,8 +142,14 @@ interface AppVersionManagementPort {
   fun addAggregation(appId: String, versionId: String, entityId: String, input: AggregationInput): Either<DomainError, AppVersion>
   fun updateAggregation(appId: String, versionId: String, entityId: String, aggregationId: String, input: AggregationInput): Either<DomainError, AppVersion>
   fun deleteAggregation(appId: String, versionId: String, entityId: String, aggregationId: String): Either<DomainError, AppVersion>
-  fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>
-  fun updateReport(appId: String, versionId: String, reportId: String, html: String, script: String): Either<DomainError, AppVersion>
+  /** Adds a report to the draft; a non-blank [definition] (YAML) is validated like [updateReport] does. */
+  fun addReport(appId: String, versionId: String, name: String, definition: String = ""): Either<DomainError, AppVersion>
+
+  /**
+   * Renames the report (when [name] is not null) and replaces its YAML [definition]. An invalid definition is rejected with an
+   * `InvalidReportDefinitionError` listing every problem found; nothing is saved then.
+   */
+  fun updateReport(appId: String, versionId: String, reportId: String, name: String?, definition: String): Either<DomainError, AppVersion>
   fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion>
   fun getVersionDiff(appId: String, versionId: String): Either<DomainError, VersionDiff>
 

@@ -11,5 +11,6 @@ dependencies {
   implementation("io.quarkus:quarkus-vertx")
   implementation("org.jetbrains.kotlin:kotlin-scripting-jsr223")
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+  implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
   implementation(libs.cronUtils)
 }

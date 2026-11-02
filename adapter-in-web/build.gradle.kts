@@ -27,6 +27,7 @@ dependencies {
   implementation(libs.bootstrapIcons)
   implementation(libs.marked)
   implementation(libs.mermaid)
+  implementation(libs.echartsWebjar)
 }
 
 // Bundle qualifiers to pseudo-localize, matching the `messages/<qualifier>_de.properties` files (see AppMessages, DeveloperMessages, UserMessages, AdminMessages, MonitoringMessages).

@@ -14,6 +14,10 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
+import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidReportsError
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportPort
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
 import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
@@ -227,6 +231,15 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var migrationStepMsg: DeveloperMigrationStepMessages
+
+  @Inject
+  private lateinit var reportMsg: ReportMessages
+
+  @Inject
+  private lateinit var reportPort: ReportPort
+
+  @Inject
+  private lateinit var reportTexts: ReportTexts
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -774,6 +787,7 @@ class DeveloperAppResource {
             val names = error.entityNames.joinToString(", ")
             Response.ok(DeveloperApiResult(false, devMsg.developerInvalidReferenceLookupError(names))).build()
           }
+          is InvalidReportsError -> Response.ok(DeveloperApiResult(false, reportMsg.reportInvalidReportsError(error.reportNames.joinToString(", ")))).build()
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
       },
@@ -1954,6 +1968,7 @@ class DeveloperAppResource {
     )
   }
 
+  /** Saves name and YAML definition of a report; an invalid definition answers with every validation error (path, line, German message). */
   @POST
   @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -1962,12 +1977,59 @@ class DeveloperAppResource {
     @PathParam("appId") appId: String,
     @PathParam("versionId") versionId: String,
     @PathParam("reportId") reportId: String,
-    @FormParam("html") html: String?,
-    @FormParam("script") script: String?,
+    @FormParam("name") name: String?,
+    @FormParam("definition") definition: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.report-update") {
-    appVersionManagement.updateReport(appId, versionId, reportId, html ?: "", script ?: "").fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, reportErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerReportSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build() },
+    val developerId = currentDeveloperUserIdValue()
+    if (developerId == null || appManagement.getApp(appId, developerId).isLeft()) {
+      return@timed Response.ok(ReportEditorResult(false, devMsg.developerReportNotFoundError())).build()
+    }
+    appVersionManagement.updateReport(appId, versionId, reportId, name, definition ?: "").fold(
+      ifLeft = { error ->
+        val result = if (error is InvalidReportDefinitionError) {
+          ReportEditorResult(false, reportMsg.reportValidationErrorsHeading(), errors = reportTexts.errors(error.errors))
+        } else {
+          ReportEditorResult(false, reportErrorMessage(error.code))
+        }
+        Response.ok(result).build()
+      },
+      ifRight = {
+        Response.ok(ReportEditorResult(true, devMsg.developerReportSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/reports/$reportId")).build()
+      },
+    )
+  }
+
+  /**
+   * Executes an unsaved report definition against one of the Developer's test installations of this version and answers with the panel
+   * spec (or the validation errors), for the editor's preview. Only the chosen test installation's data is read.
+   */
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}/preview")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun previewReport(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("reportId") reportId: String,
+    @FormParam("installedAppId") installedAppId: String?,
+    @FormParam("name") name: String?,
+    @FormParam("definition") definition: String?,
+  ): Response = httpResponseMetrics.timed("rest.developer.report-preview") {
+    val developerId = currentDeveloperUserIdValue()
+    val version = developerId?.takeIf { appManagement.getApp(appId, it).isRight() }?.let { appVersionManagement.getVersion(appId, versionId).getOrNull() }
+      ?: return@timed Response.ok(ReportEditorResult(false, devMsg.developerReportNotFoundError())).build()
+    val testInstallation = testInstallationsForVersion(appId, version, developerId).find { it.installedAppId == installedAppId }
+      ?: return@timed Response.ok(ReportEditorResult(false, reportMsg.reportPreviewNoInstallationHint())).build()
+    reportPort.previewReport(securityIdentity.principal.name, testInstallation.installedAppId, name.orEmpty(), definition.orEmpty()).fold(
+      ifLeft = { error ->
+        val result = if (error is InvalidReportDefinitionError) {
+          ReportEditorResult(false, reportMsg.reportValidationErrorsHeading(), errors = reportTexts.errors(error.errors))
+        } else {
+          ReportEditorResult(false, msg.commonUnexpectedError())
+        }
+        Response.ok(result).build()
+      },
+      ifRight = { view -> Response.ok(ReportEditorResult(true, view = ApiReportDtoMapper.view(view))).build() },
     )
   }
 

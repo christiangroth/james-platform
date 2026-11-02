@@ -94,6 +94,7 @@ import io.quarkus.qute.TemplateData
 @TemplateData(target = ImportDefinitionGroupRow::class)
 @TemplateData(target = ImportHistoryRowRow::class)
 @TemplateData(target = AppDataRow::class)
+@TemplateData(target = ReportDefinitionErrorDto::class)
 @TemplateData(target = AppDataPropertyView::class)
 @TemplateData(target = AppDataComputedPropertyView::class)
 @TemplateData(target = AppDataDetail::class)

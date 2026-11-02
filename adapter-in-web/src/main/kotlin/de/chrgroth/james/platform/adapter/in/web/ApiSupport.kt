@@ -2,6 +2,8 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
+import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidReportsError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
@@ -52,6 +54,8 @@ object ApiResponses {
     is InvalidMigrationStepError -> error.entityNames
     is InvalidReferenceLookupError -> error.entityNames
     is DisplayTextInvalidError -> error.entityNames
+    is InvalidReportsError -> error.reportNames
+    is InvalidReportDefinitionError -> error.errors.map { ApiReportDtoMapper.errorDetail(it) }
     else -> emptyList()
   }
 }
