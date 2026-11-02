@@ -105,7 +105,9 @@ function referenceLookupObjectValues(objectValues) {
     var merged = Object.assign({}, objectValues || {});
     Object.keys(referenceLookupData).forEach(function (propertyId) {
         var key = 'refnew_' + propertyId;
-        if (!merged[key] && referenceLookupData[propertyId].newDefaults) merged[key] = referenceLookupData[propertyId].newDefaults;
+        var current = merged[key];
+        var isEmpty = !current || Object.keys(current).length === 0;
+        if (isEmpty && referenceLookupData[propertyId].newDefaults) merged[key] = referenceLookupData[propertyId].newDefaults;
     });
     return merged;
 }
