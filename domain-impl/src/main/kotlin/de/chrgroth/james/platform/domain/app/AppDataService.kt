@@ -79,10 +79,10 @@ class AppDataService(
 
     val lookups = resolveReferenceLookups(installedApp, appVersion, entityDef, data)
     val validated = validateFormData(entityDef, lookups.data, existingValues, installedApp.id, lookups.pendingIds)
-    val allViolations = lookups.violations.mergeViolations(validated.violations)
-    if (allViolations.isNotEmpty()) {
-      logger.warn { "Create app data failed: constraint violations for properties ${allViolations.keys}" }
-      return AppDataConstraintViolationError(allViolations, lookups.pathedViolations + validated.pathedViolations).left()
+    val violationError = lookups.combinedViolations(validated)
+    if (violationError != null) {
+      logger.warn { "Create app data failed: constraint violations for properties ${violationError.propertyViolations.keys}" }
+      return violationError.left()
     }
 
     savePendingReferenceTargets(installedApp, appVersion, lookups.pendingCreates)
@@ -154,10 +154,10 @@ class AppDataService(
 
     val lookups = resolveReferenceLookups(installedApp, appVersion, entityDef, data)
     val validated = validateFormData(entityDef, lookups.data, existingValues, installedApp.id, lookups.pendingIds)
-    val allViolations = lookups.violations.mergeViolations(validated.violations)
-    if (allViolations.isNotEmpty()) {
-      logger.warn { "Update app data failed: constraint violations for properties ${allViolations.keys}" }
-      return AppDataConstraintViolationError(allViolations, lookups.pathedViolations + validated.pathedViolations).left()
+    val violationError = lookups.combinedViolations(validated)
+    if (violationError != null) {
+      logger.warn { "Update app data failed: constraint violations for properties ${violationError.propertyViolations.keys}" }
+      return violationError.left()
     }
 
     savePendingReferenceTargets(installedApp, appVersion, lookups.pendingCreates)
@@ -270,6 +270,8 @@ class AppDataService(
   /**
    * Converts and validates submitted form [data] for [entityDef] against its [existing] objects (unique keys) — the shared core of
    * [createAppData], [updateAppData] and auto-creating reference lookup targets. [pendingIds] are target ids created in the same save.
+   * Non-nullable properties must carry a value ([PropertyConstraintViolation.RequiredValueViolation]); unlike [validateEntityData], which
+   * re-validates stored data on upgrades and deliberately tolerates legacy gaps.
    */
   private fun validateFormData(
     entityDef: EntityDefinition,
@@ -287,7 +289,7 @@ class AppDataService(
       val (storedValue, unitViolations) = converted.getValue(property.id)
       val parsedValue = parseValue(property, storedValue)
       val existingParsedValues = uniqueKeyValues(property)
-      val extraViolations = referenceViolations(property, storedValue, installedAppId, pendingIds) + unitViolations
+      val extraViolations = requiredViolations(property, storedValue) + referenceViolations(property, storedValue, installedAppId, pendingIds) + unitViolations
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
         allViolations[property.id.value] = violations
@@ -298,6 +300,13 @@ class AppDataService(
     }
     return ValidatedFormData(parsedData, allViolations, allPathedViolations)
   }
+
+  private fun requiredViolations(property: Property, storedValue: String?): List<PropertyConstraintViolation> =
+    if (!property.nullable && property.type != PropertyType.BOOLEAN && storedValue.isNullOrBlank()) {
+      listOf(PropertyConstraintViolation.RequiredValueViolation)
+    } else {
+      emptyList()
+    }
 
   /** A target object auto-created by a reference lookup, validated but not yet saved. */
   private data class PendingReferenceTarget(val entityDef: EntityDefinition, val appData: AppData)
@@ -397,9 +406,22 @@ class AppDataService(
     )
   }
 
-  private fun Map<String, List<PropertyConstraintViolation>>.mergeViolations(
-    other: Map<String, List<PropertyConstraintViolation>>,
-  ): Map<String, List<PropertyConstraintViolation>> = (keys + other.keys).associateWith { (this[it].orEmpty() + other[it].orEmpty()).distinct() }
+  /**
+   * All violations of a form: those of its reference lookups plus those of the [validated] form data, or null if there are none. A lookup
+   * that failed already explains why its REF property stayed empty, so the property's own [PropertyConstraintViolation.RequiredValueViolation]
+   * is not reported on top.
+   */
+  private fun ResolvedReferenceLookups.combinedViolations(validated: ValidatedFormData): AppDataConstraintViolationError? {
+    val required = PropertyConstraintViolation.RequiredValueViolation
+    val failedLookupNames = pathedViolationsOwners()
+    val formViolations = validated.violations.mapValues { (propertyId, list) -> if (propertyId in violations) list - required else list }
+    val formPathed = validated.pathedViolations.filterNot { it.violation == required && it.path in failedLookupNames }
+    val all = (violations.keys + formViolations.keys).associateWith { (violations[it].orEmpty() + formViolations[it].orEmpty()).distinct() }
+      .filterValues { it.isNotEmpty() }
+    return if (all.isEmpty()) null else AppDataConstraintViolationError(all, pathedViolations + formPathed)
+  }
+
+  private fun ResolvedReferenceLookups.pathedViolationsOwners(): Set<String> = pathedViolations.map { it.path.substringBefore(" › ") }.toSet()
 
   /**
    * Builds the per-property `existingValues` for the `UniqueKey` check of a candidate object (parsed key values via [candidateValue]) against

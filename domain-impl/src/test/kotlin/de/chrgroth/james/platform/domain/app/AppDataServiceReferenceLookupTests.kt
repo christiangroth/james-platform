@@ -181,6 +181,17 @@ class AppDataServiceReferenceLookupTests {
   }
 
   @Test
+  fun `rejects an auto-created target missing a required value`() {
+    val result = service.createAppData(userId, installedAppId.value, gigId.value, gigForm(locationText = "Zeche"))
+
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[gigLocation.id.value]).containsExactly(PropertyConstraintViolation.RequiredValueViolation)
+    assertThat(error.pathedViolations.map { it.path }).containsExactly("location › stadt")
+    assertThat(storedOf(locationId)).hasSize(1)
+    assertThat(storedOf(gigId)).isEmpty()
+  }
+
+  @Test
   fun `does not create the target when the referencing object itself is invalid`() {
     storedObject("artist-1", artistId, mapOf(artistName.id.value to "Emil Bulls"))
     storedObject("gig-1", gigId, mapOf(gigDate.id.value to "2026-11-02", gigArtist.id.value to "artist-1", gigLocation.id.value to "loc-1"))
@@ -222,11 +233,11 @@ class AppDataServiceReferenceLookupTests {
   }
 
   @Test
-  fun `blank lookup text clears the reference instead of creating a target`() {
-    val created = service.createAppData(userId, installedAppId.value, gigId.value, gigForm(artistText = " ", extra = mapOf("prop_${gigArtist.id.value}" to listOf("stale-id"))))
-      .getOrNull()!!
+  fun `blank lookup text clears the reference, which a required REF then reports as missing`() {
+    val result = service.createAppData(userId, installedAppId.value, gigId.value, gigForm(artistText = " ", extra = mapOf("prop_${gigArtist.id.value}" to listOf("stale-id"))))
 
-    assertThat(created.data[gigArtist.id.value]).isNull()
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations[gigArtist.id.value]).contains(PropertyConstraintViolation.RequiredValueViolation)
     assertThat(storedOf(artistId)).isEmpty()
   }
 

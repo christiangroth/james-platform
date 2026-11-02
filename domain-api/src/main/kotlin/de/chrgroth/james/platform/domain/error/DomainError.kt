@@ -331,4 +331,6 @@ sealed class PropertyConstraintViolation(override val code: String) : DomainErro
   data object NonIntegerUnitValueViolation : PropertyConstraintViolation("PROP-022")
   // A REF property entered by lookup text (ADR 0026) matched no target object and the property does not auto-create one.
   data object ReferenceLookupNotFoundViolation : PropertyConstraintViolation("PROP-023")
+  // A non-nullable property got no value on create/update (BOOLEAN excluded: an unchecked checkbox submits nothing and means false).
+  data object RequiredValueViolation : PropertyConstraintViolation("PROP-024")
 }
