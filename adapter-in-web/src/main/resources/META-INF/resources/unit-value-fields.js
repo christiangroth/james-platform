@@ -27,6 +27,23 @@ var UNIT_GRANULARITIES = {
     CURRENCY: [
         { value: 'CENTS', symbol: 'ct', factor: 1 },
         { value: 'EUROS', symbol: '€', factor: 100 }
+    ],
+    MASS: [
+        { value: 'MILLIGRAMS', symbol: 'mg', factor: 1 },
+        { value: 'GRAMS', symbol: 'g', factor: 1000 },
+        { value: 'KILOGRAMS', symbol: 'kg', factor: 1000000 }
+    ],
+    // factors in millijoules, see EnergyGranularity
+    ENERGY: [
+        { value: 'KILOJOULES', symbol: 'kJ', factor: 1000000 },
+        { value: 'KILOCALORIES', symbol: 'kcal', factor: 4184000 },
+        { value: 'WATT_HOURS', symbol: 'Wh', factor: 3600000 },
+        { value: 'KILOWATT_HOURS', symbol: 'kWh', factor: 3600000000 }
+    ],
+    VOLUME: [
+        { value: 'MILLILITERS', symbol: 'ml', factor: 1 },
+        { value: 'LITERS', symbol: 'l', factor: 1000 },
+        { value: 'CUBIC_METERS', symbol: 'm³', factor: 1000000 }
     ]
 };
 

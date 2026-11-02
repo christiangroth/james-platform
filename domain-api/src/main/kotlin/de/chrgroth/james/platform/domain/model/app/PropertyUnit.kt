@@ -1,15 +1,27 @@
 package de.chrgroth.james.platform.domain.model.app
 
 /**
- * Family of units a [PropertyUnit] belongs to. Determines which [Granularity] enum ([TimeGranularity], [DistanceGranularity] or
- * [CurrencyGranularity]) is valid for it.
+ * Family of units a [PropertyUnit] belongs to. Determines which [Granularity] enum ([TimeGranularity], [DistanceGranularity],
+ * [CurrencyGranularity], [MassGranularity], [EnergyGranularity] or [VolumeGranularity]) is valid for it.
+ *
+ * [compositeFormat] decides how [formatUnitValue] renders a value: as a composite over all granularities (`"15km 400m"`), or as a single
+ * amount in the storage granularity (`"75,3kg"`) for families whose granularities do not read well combined (`"2kWh 300kcal"`).
  */
-enum class UnitFamily {
-  TIME,
-  DISTANCE,
+enum class UnitFamily(val compositeFormat: Boolean) {
+  TIME(compositeFormat = true),
+  DISTANCE(compositeFormat = true),
 
   /** Money, always in euros - there is deliberately no currency code and no exchange-rate conversion. */
-  CURRENCY,
+  CURRENCY(compositeFormat = false),
+
+  /** Weight, e.g. body weight in kilograms. */
+  MASS(compositeFormat = false),
+
+  /** Energy, e.g. food energy in kilocalories or electricity in kilowatt hours; both convert exactly via millijoules. */
+  ENERGY(compositeFormat = false),
+
+  /** Volume, e.g. drinking water in milliliters or gas/water meter readings in cubic meters. */
+  VOLUME(compositeFormat = false),
 }
 
 /** A single step of granularity within a [UnitFamily], e.g. `METERS` for [DistanceGranularity]. */
@@ -51,6 +63,40 @@ enum class CurrencyGranularity(override val symbol: String, override val factorT
   ;
 
   override val family: UnitFamily = UnitFamily.CURRENCY
+}
+
+/** Granularities of [UnitFamily.MASS], with milligrams as the smallest unit. */
+enum class MassGranularity(override val symbol: String, override val factorToSmallestUnit: Long) : Granularity {
+  MILLIGRAMS("mg", 1L),
+  GRAMS("g", 1_000L),
+  KILOGRAMS("kg", 1_000_000L),
+  ;
+
+  override val family: UnitFamily = UnitFamily.MASS
+}
+
+/**
+ * Granularities of [UnitFamily.ENERGY]. The factors are expressed in millijoules (not itself a granularity), which keeps every
+ * conversion exact: 1 kcal = 4.184 kJ, 1 Wh = 3.6 kJ.
+ */
+enum class EnergyGranularity(override val symbol: String, override val factorToSmallestUnit: Long) : Granularity {
+  KILOJOULES("kJ", 1_000_000L),
+  KILOCALORIES("kcal", 4_184_000L),
+  WATT_HOURS("Wh", 3_600_000L),
+  KILOWATT_HOURS("kWh", 3_600_000_000L),
+  ;
+
+  override val family: UnitFamily = UnitFamily.ENERGY
+}
+
+/** Granularities of [UnitFamily.VOLUME], with milliliters as the smallest unit. */
+enum class VolumeGranularity(override val symbol: String, override val factorToSmallestUnit: Long) : Granularity {
+  MILLILITERS("ml", 1L),
+  LITERS("l", 1_000L),
+  CUBIC_METERS("m³", 1_000_000L),
+  ;
+
+  override val family: UnitFamily = UnitFamily.VOLUME
 }
 
 /**

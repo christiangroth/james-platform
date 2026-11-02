@@ -13,8 +13,6 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
-import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
-import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
@@ -33,6 +31,7 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
@@ -247,11 +246,7 @@ class AppVersionRepositoryAdapter(
     return runCatching { PropertyUnit(family = parsedFamily, storageGranularity = storage, defaultGranularity = default) }.getOrNull()
   }
 
-  private fun granularityOrNull(family: UnitFamily, name: String): Granularity? = when (family) {
-    UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(name) }.getOrNull()
-    UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(name) }.getOrNull()
-    UnitFamily.CURRENCY -> runCatching { CurrencyGranularity.valueOf(name) }.getOrNull()
-  }
+  private fun granularityOrNull(family: UnitFamily, name: String): Granularity? = granularityByName(family, name)
 
   private fun ComputedPropertyDocument.toDomain(): ComputedProperty? {
     val propertyType = runCatching { PropertyType.valueOf(type) }.getOrNull() ?: return null
