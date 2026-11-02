@@ -92,6 +92,7 @@ class ImportDefinitionRepositoryAdapter(
     importGranularity = importGranularity,
     fallbackValue = fallbackValue,
     referenceLookup = referenceLookup?.toDomain(),
+    zeroAsEmpty = zeroAsEmpty ?: false,
   )
 
   private fun ReferenceLookupDocument.toDomain() = ReferenceLookup(
@@ -154,6 +155,7 @@ class ImportDefinitionRepositoryAdapter(
     doc.importGranularity = importGranularity
     doc.fallbackValue = fallbackValue
     doc.referenceLookup = referenceLookup?.toDocument()
+    doc.zeroAsEmpty = zeroAsEmpty.takeIf { it }
   }
 
   private fun ReferenceLookup.toDocument() = ReferenceLookupDocument().also { doc ->

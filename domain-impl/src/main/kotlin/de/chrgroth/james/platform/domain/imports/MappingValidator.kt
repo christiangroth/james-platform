@@ -111,7 +111,9 @@ object MappingValidator {
     // on that fallback), so a source field that is not present on every record is not reported here: such records
     // simply produce no value for this property and are skipped, individually, by the dry-run/accept flow instead.
     val isUniqueKey = property.constraints.contains(PropertyConstraint.UniqueKey)
-    if (!property.nullable && !sourceProperty.mandatory && !hasFallback && !isUniqueKey) {
+    // Treating zero as empty means a mandatory property can end up without a value even if the source field is always present.
+    val zeroMayBecomeEmpty = fieldMapping.zeroAsEmpty && (property.type == PropertyType.LONG || property.type == PropertyType.DOUBLE)
+    if (!property.nullable && (!sourceProperty.mandatory || zeroMayBecomeEmpty) && !hasFallback && !isUniqueKey) {
       issues += MappingIssue.MissingMandatoryField(property.id)
     }
 

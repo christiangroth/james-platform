@@ -135,6 +135,12 @@
                                         {/for}
                                     </select>
                                     <select class="form-select form-select-sm app-form-control granularity-select mt-1 {#if !property.hasUnit}d-none{/if}" data-testid="granularity-select" data-unit-family="{property.unitFamily}" data-import-granularity="{property.importGranularity}"></select>
+                                    {#if property.isNumeric}
+                                    <div class="form-check mt-1">
+                                        <input class="form-check-input zero-as-empty-toggle" type="checkbox" id="zero-as-empty-{property.id}" {#if property.zeroAsEmpty}checked{/if} data-testid="zero-as-empty-toggle">
+                                        <label class="form-check-label small" for="zero-as-empty-{property.id}" title="{userImportMapping:userImportMappingZeroAsEmptyHint()}">{userImportMapping:userImportMappingZeroAsEmptyLabel()}</label>
+                                    </div>
+                                    {/if}
                                 </td>
                                 <td>
                                     <input type="text" class="form-control form-control-sm app-form-control fallback-value-input" value="{property.fallbackValue}" placeholder="{user:userImportMappingFallbackValuePlaceholder()}" autocomplete="off" data-testid="fallback-value-input">
@@ -219,7 +225,8 @@
                         conversion: row.querySelector('.conversion-select').value,
                         importGranularity: row.querySelector('.granularity-select').value,
                         fallbackValue: row.querySelector('.fallback-value-input').value,
-                        referenceLookup: null
+                        referenceLookup: null,
+                        zeroAsEmpty: !!(row.querySelector('.zero-as-empty-toggle') || {}).checked
                     };
                     if (useLookup) {
                         var criteria = [];

@@ -20,7 +20,7 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   yet covered by one, ready to create with a single click, and offers an interactive preview showing before/after values and validation issues for one existing
   object at a time, without requiring a real dry-run or publish.
 - **Data Import (ETL)** – Users import external JSON data into an installed App through a guided fetch → detect → map → dry-run → accept flow, including SSRF-hardened
-  fetching and unit-aware value mapping.
+  fetching, unit-aware value mapping and optionally treating a numeric 0 as an empty value.
 - **Data Sharing** – A User can invite others to share an installed App's data, either with full read/write/delete or read-all/edit-own permissions.
 - **Developer Test Data** – Developers generate constraint-aware test data (or hand-craft it) in dedicated test installations, without touching real User data.
 - **User Management** – Admins can register, activate/deactivate, set passwords, and delete user accounts. Roles (USER, DEVELOPER, ADMIN, MONITORING, DATA_IMPORT) are

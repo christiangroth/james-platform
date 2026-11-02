@@ -151,12 +151,13 @@ object DryRunExecutor {
       return found ?: fieldMapping.fallbackValue?.takeIf { it.isNotBlank() }
     }
     val sourceNode = fieldMapping?.sourcePath?.let { resolvePath(record, it) }
-    return when {
-      sourceNode != null && !sourceNode.isNull && !sourceNode.isMissingNode ->
-        applyConversion(fieldMapping.conversion, property.type, property.unit, fieldMapping.importGranularity, sourceNode.asText())
-      !fieldMapping?.fallbackValue.isNullOrBlank() -> fieldMapping.fallbackValue
-      else -> null
+    val sourceValue = if (sourceNode != null && !sourceNode.isNull && !sourceNode.isMissingNode) {
+      applyConversion(fieldMapping.conversion, property.type, property.unit, fieldMapping.importGranularity, sourceNode.asText())
+        ?.takeUnless { fieldMapping.zeroAsEmpty && isNumericZero(property.type, it) }
+    } else {
+      null
     }
+    return sourceValue ?: fieldMapping?.fallbackValue?.takeIf { it.isNotBlank() }
   }
 
   /** Performs the `find`: matches every criterion's source value against the referenced entity's corresponding property value, returning the id of the first matching [AppData], or null if none matches. */

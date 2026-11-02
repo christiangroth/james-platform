@@ -108,6 +108,7 @@ data class ApiFieldMappingDto @JsonCreator constructor(
   @param:JsonProperty("importGranularity") val importGranularity: String?,
   @param:JsonProperty("fallbackValue") val fallbackValue: String?,
   @param:JsonProperty("referenceLookup") val referenceLookup: List<ApiReferenceLookupCriterionDto>?,
+  @param:JsonProperty("zeroAsEmpty") val zeroAsEmpty: Boolean? = null,
 )
 
 data class ApiReferenceLookupCriterionDto @JsonCreator constructor(
@@ -334,6 +335,7 @@ class ApiImportDtoMapper(private val objectMapper: ObjectMapper) {
     importGranularity = mapping.importGranularity,
     fallbackValue = mapping.fallbackValue,
     referenceLookup = mapping.referenceLookup?.criteria?.map { ApiReferenceLookupCriterionDto(it.targetPropertyId.value, it.sourcePath) },
+    zeroAsEmpty = mapping.zeroAsEmpty,
   )
 
   private fun parseJson(json: String): JsonNode = runCatching { objectMapper.readTree(json) }.getOrElse { TextNode(json) }
@@ -358,7 +360,7 @@ class ApiImportDtoMapper(private val objectMapper: ObjectMapper) {
 
     /**
      * Parses field mappings strictly; a mapping needs a target property and at least one of source path, fallback value or reference lookup.
-     * The conversion defaults to `NONE`.
+     * The conversion defaults to `NONE`, [ApiFieldMappingDto.zeroAsEmpty] to false.
      */
     fun parseFieldMappings(mappings: List<ApiFieldMappingDto>): Result<List<FieldMapping>> = runCatching {
       mappings.mapIndexed { index, mapping ->
@@ -384,6 +386,7 @@ class ApiImportDtoMapper(private val objectMapper: ObjectMapper) {
           importGranularity = mapping.importGranularity?.takeIf { it.isNotBlank() },
           fallbackValue = fallbackValue,
           referenceLookup = criteria.takeIf { it.isNotEmpty() }?.let { ReferenceLookup(it) },
+          zeroAsEmpty = mapping.zeroAsEmpty ?: false,
         )
       }
     }

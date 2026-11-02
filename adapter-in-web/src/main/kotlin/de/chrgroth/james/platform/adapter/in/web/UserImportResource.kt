@@ -221,6 +221,8 @@ data class MappingPropertyRow(
   val unitFamily: String,
   val importGranularity: String,
   val fallbackValue: String,
+  val isNumeric: Boolean,
+  val zeroAsEmpty: Boolean,
   val issueMessages: List<String>,
 )
 
@@ -266,6 +268,7 @@ data class FieldMappingRequest @JsonCreator constructor(
   @param:JsonProperty("importGranularity") val importGranularity: String?,
   @param:JsonProperty("fallbackValue") val fallbackValue: String?,
   @param:JsonProperty("referenceLookup") val referenceLookup: ReferenceLookupRequest? = null,
+  @param:JsonProperty("zeroAsEmpty") val zeroAsEmpty: Boolean? = null,
 )
 
 data class MappingSaveRequest @JsonCreator constructor(
@@ -696,6 +699,7 @@ class UserImportResource {
       importGranularity = field.importGranularity?.takeIf { it.isNotBlank() },
       fallbackValue = fallbackValue,
       referenceLookup = referenceLookup,
+      zeroAsEmpty = field.zeroAsEmpty ?: false,
     )
   }
 
@@ -991,6 +995,8 @@ class UserImportResource {
         unitFamily = property.unit?.family?.name.orEmpty(),
         importGranularity = fieldMapping?.importGranularity.orEmpty(),
         fallbackValue = fieldMapping?.fallbackValue.orEmpty(),
+        isNumeric = property.type == PropertyType.LONG || property.type == PropertyType.DOUBLE,
+        zeroAsEmpty = fieldMapping?.zeroAsEmpty ?: false,
         issueMessages = issues.filterNot { it is MappingIssue.NotStaticallyValidated }.map { issueMessage(it) },
       )
     }
