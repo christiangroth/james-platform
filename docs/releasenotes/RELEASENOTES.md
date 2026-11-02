@@ -1,3 +1,13 @@
+# 0.124.0 (2026.11.02)
+
+## New Features
+* Import-Verbindungen können eine optionale Test-URL erhalten, die der Verbindungstest statt der Basis-URL abruft.
+* Beim Import kann pro Zahlenfeld eingestellt werden, dass ein Quellwert 0 als leer übernommen wird.
+
+
+
+---
+
 # 0.123.0 (2026.11.02)
 
 ## New Features
