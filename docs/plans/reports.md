@@ -108,10 +108,11 @@ configuration; values that change over time and are "valid from" (target hours, 
 
 ## Porting notes
 
-* Arbeitszeiten (target hours) and Urlaubsplaner (vacation entitlement) need values that are "valid from" a date. They are stored at
-  the employment contract today, which lives in the *Finanzen* App while work days and vacation live in *Arbeit*. Until the two
-  Apps are merged (planned once the parallel operation with legacy james ends), *Arbeit* needs its own "valid from" Entity for
-  these values, or the merge happens first.
+* Arbeitszeiten (target hours) and Urlaubsplaner (vacation entitlement) need values that are "valid from" a date. They are also
+  stored at the employment contract, which lives in the *Finanzen* App while work days and vacation live in *Arbeit*. **Decision:**
+  *Arbeit* gets its own Entity with "valid from" values (weekly hours / daily target time, vacation days per year) instead of
+  reading across Apps; the small duplication with the contract is accepted (the Apps may be merged after the parallel operation
+  with legacy james ends).
 * The Journal report's two cross checks against runs and bike rides are not part of the App report; they move to a personal
   dashboard (step 8).
 
@@ -142,7 +143,7 @@ ported, to validate the toolkit early.
    moving average, year over year, forecast, resample with fill-forward. Ports Lebensversicherung.
 5. **Reports (5/8): checks and warnings panel** - gap detection with calendars, value rules.
 6. **Reports (6/8): advanced transformations** - delta/consumption, as-of join, join, records/top-N and goals. Ports Verdienst,
-   Urlaubsplaner (needs the Arbeit/Finanzen decision, see porting notes), Running, Walking Pad.
+   Urlaubsplaner (with the new "valid from" Entity in *Arbeit*, see porting notes), Running, Walking Pad.
 7. **Reports (7/8): heatmap, pie and Kotlin step** - calendar heatmap and pie panels, Kotlin script transformation. Ports
    Zählerstände (PV break-even as Kotlin step), Arbeitszeiten (vehicles pie), Journal (without the cross checks).
 8. **Reports (8/8): personal dashboards** - User-owned, cross-app reports with the same toolkit (to be detailed before starting).
