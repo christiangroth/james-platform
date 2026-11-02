@@ -1,3 +1,18 @@
+# 0.129.0 (2026.11.02)
+
+## New Features
+* Dashboard, App-Seite und App-Store zeigen an, wenn ein App-Update im Hintergrund läuft; der Update-Button erscheint nur noch für Updates mit Breaking Changes.
+* App-Updates sind schneller: Migrationsschritte einer Version werden nicht mehr bei jedem späteren Update erneut ausgeführt.
+* Installationen, die mehrere Versionen zurückliegen, werden beim nächsten Release automatisch mit aktualisiert.
+
+## Bugfixes / Chore
+* Anzeigetexte zeigen bei Verweisen den Namen des verwiesenen Eintrags statt seiner ID.
+* Anzeigetexte formatieren Datumswerte (TT.MM.JJJJ), Zahlen und Einheiten (z. B. 10km 234m).
+
+
+
+---
+
 # 0.128.1 (2026.11.02)
 
 ## Bugfixes / Chore
