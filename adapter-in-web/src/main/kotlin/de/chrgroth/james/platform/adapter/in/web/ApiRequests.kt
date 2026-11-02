@@ -121,6 +121,7 @@ data class ApiImportConnectionRequest @JsonCreator constructor(
   @param:JsonProperty("baseUrl") val baseUrl: String?,
   @param:JsonProperty("bearerToken") val bearerToken: String?,
   @param:JsonProperty("clearBearerToken") val clearBearerToken: Boolean?,
+  @param:JsonProperty("testUrl") val testUrl: String? = null,
 )
 
 data class ApiImportStartRequest @JsonCreator constructor(

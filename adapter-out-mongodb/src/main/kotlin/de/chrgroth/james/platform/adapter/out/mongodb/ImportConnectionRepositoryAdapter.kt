@@ -53,6 +53,7 @@ class ImportConnectionRepositoryAdapter(
     userId = userId,
     name = name,
     baseUrl = baseUrl,
+    testUrl = testUrl,
     encryptedBearerToken = encryptedBearerToken,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
@@ -63,6 +64,7 @@ class ImportConnectionRepositoryAdapter(
     doc.userId = userId
     doc.name = name
     doc.baseUrl = baseUrl
+    doc.testUrl = testUrl
     doc.encryptedBearerToken = encryptedBearerToken
     doc.createdAt = createdAt
     doc.lastChangedAt = lastChangedAt
