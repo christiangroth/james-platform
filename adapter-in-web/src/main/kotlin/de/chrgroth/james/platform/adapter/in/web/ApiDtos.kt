@@ -154,8 +154,7 @@ data class ApiMigrationStepDto(
 data class ApiReportDto(
   val id: String,
   val name: String,
-  val html: String,
-  val script: String,
+  val definition: String,
 )
 
 data class ApiVersionBumpDto(
@@ -334,7 +333,7 @@ object ApiDtoMapper {
     is MigrationStep.AdjustToConstraints -> ApiMigrationStepDto(step.id.value, "ADJUST_TO_CONSTRAINTS", step.propertyId.value, null, null, null, null)
   }
 
-  private fun report(report: Report) = ApiReportDto(report.id.value, report.name, report.html, report.script)
+  fun report(report: Report) = ApiReportDto(report.id.value, report.name, report.definition)
 
   private fun granularityName(granularity: Granularity): String = (granularity as Enum<*>).name
 

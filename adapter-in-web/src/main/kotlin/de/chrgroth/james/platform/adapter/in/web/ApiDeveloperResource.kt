@@ -645,14 +645,30 @@ class ApiDeveloperResource(
 
   // region draft: reports
 
+  @GET
+  @Path("/{appId}/versions/{versionId}/reports")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.DEVELOPER_READ)
+  fun listReports(@PathParam("appId") appId: String, @PathParam("versionId") versionId: String): Response =
+    httpResponseMetrics.timed("api.developer.reports-list") {
+      owned(appId) {
+        appVersionManagement.getVersion(appId, versionId).fold(
+          ifLeft = { ApiResponses.domainError(it) },
+          ifRight = { version -> ApiResponses.ok(version.reports.sortedBy { it.name.lowercase() }.map { ApiDtoMapper.report(it) }) },
+        )
+      }
+    }
+
+  /** Adds a report to the draft; a given YAML `definition` is validated (errors list path and line in `details`). */
   @POST
   @Path("/{appId}/versions/{versionId}/reports")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
-  fun addReport(@PathParam("appId") appId: String, @PathParam("versionId") versionId: String, request: ApiNameRequest?): Response =
-    edit("report-add", appId) { appVersionManagement.addReport(appId, versionId, request?.name.orEmpty()) }
+  fun addReport(@PathParam("appId") appId: String, @PathParam("versionId") versionId: String, request: ApiReportRequest?): Response =
+    edit("report-add", appId) { appVersionManagement.addReport(appId, versionId, request?.name.orEmpty(), request?.definition.orEmpty()) }
 
+  /** Renames the report (if `name` is given) and replaces its YAML `definition`; an invalid definition is rejected and nothing is saved. */
   @PUT
   @Path("/{appId}/versions/{versionId}/reports/{reportId}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -663,7 +679,7 @@ class ApiDeveloperResource(
     @PathParam("versionId") versionId: String,
     @PathParam("reportId") reportId: String,
     request: ApiReportRequest?,
-  ): Response = edit("report-update", appId) { appVersionManagement.updateReport(appId, versionId, reportId, request?.html.orEmpty(), request?.script.orEmpty()) }
+  ): Response = edit("report-update", appId) { appVersionManagement.updateReport(appId, versionId, reportId, request?.name, request?.definition.orEmpty()) }
 
   @DELETE
   @Path("/{appId}/versions/{versionId}/reports/{reportId}")

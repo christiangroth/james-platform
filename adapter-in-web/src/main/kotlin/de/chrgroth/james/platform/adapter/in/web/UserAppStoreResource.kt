@@ -13,7 +13,9 @@ import de.chrgroth.james.platform.domain.model.app.REFERENCE_LOOKUP_FORM_PREFIX
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
@@ -51,8 +53,6 @@ import java.math.BigDecimal
 import java.net.URI
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 data class AppDataRow(
@@ -720,19 +720,7 @@ class UserAppStoreResource {
   }
 
   /** Formats a `groupBy` group key (the raw property value of [property]) for display, respecting date/time formatting and the property's unit if any. */
-  private fun formatGroupValue(property: Property, raw: String): String = when (property.type) {
-    PropertyType.DATE -> runCatching { LocalDate.parse(raw) }.getOrNull()?.let { BUCKET_DATE_FORMATTER.format(it) } ?: raw
-    PropertyType.DATETIME -> runCatching { LocalDateTime.parse(raw) }.getOrNull()?.let { GROUP_DATETIME_FORMATTER.format(it) } ?: raw
-    PropertyType.TIME -> runCatching { LocalTime.parse(raw) }.getOrNull()?.let { GROUP_TIME_FORMATTER.format(it) } ?: raw
-    PropertyType.LONG -> raw.toLongOrNull()?.let { formatGroupNumeric(property, it.toDouble()) } ?: raw
-    PropertyType.DOUBLE -> raw.toDoubleOrNull()?.let { formatGroupNumeric(property, it) } ?: raw
-    else -> raw
-  }
-
-  private fun formatGroupNumeric(property: Property, value: Double): String {
-    val unit = property.unit
-    return if (unit != null) formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity) else TemplateFormattingExtensions.formatted(value)
-  }
+  private fun formatGroupValue(property: Property, raw: String): String = PropertyValueFormat.format(property, raw)
 
   /** Formats a time bucket key (see `AggregationComputation.encodeTimeBucket`) as a human-readable label, e.g. "25.09.2026", "KW 39/2026", "09/2026", "Q1/2026", "2026". */
   private fun formatBucketLabel(bucket: TimeBucket, bucketKey: String): String = when (bucket) {
@@ -820,45 +808,16 @@ class UserAppStoreResource {
     return rows.sortedWith(stable)
   }
 
-  /** Renders the entity's Display Text template, falling back to the generic reference text (unique property values) when none is configured. */
   /**
-   * Resolves an entity's display text template. Placeholder values are formatted like the aggregation group labels (dates `dd.MM.yyyy`,
-   * numbers with German separators, unit properties as e.g. `10km 234m`); a REF placeholder shows the referenced object's own display
-   * text when [context] can resolve it (at most [MAX_DISPLAY_TEXT_REF_DEPTH] levels deep, so reference cycles terminate), else its id.
+   * Resolves an entity's display text via the shared [DisplayTextResolver] (same formatting as reports): a REF placeholder shows the
+   * referenced object's own display text when [context] can resolve it, else its id.
    */
-  private fun computeDisplayText(
-    entityDef: EntityDefinition?,
-    dataId: String,
-    data: Map<String, String?>,
-    context: DisplayTextContext? = null,
-    depth: Int = 0,
-  ): String {
-    if (entityDef == null) return dataId
-    val template = entityDef.displayText ?: return computeReferenceText(entityDef, dataId, data)
-    val propertiesByName = entityDef.properties.associateBy { it.name }
-    val result = DISPLAY_TEXT_TOKEN_REGEX.replace(template) { match ->
-      val key = match.groupValues[1]
-      if (key == "id") {
-        dataId
-      } else {
-        val property = propertiesByName[key]
-        if (property == null) "<?>" else formatDisplayTextValue(property, data[property.id.value], context, depth)
-      }
-    }.trim()
-    return result.ifBlank { computeReferenceText(entityDef, dataId, data) }
-  }
-
-  private fun formatDisplayTextValue(property: Property, raw: String?, context: DisplayTextContext?, depth: Int): String {
-    if (raw.isNullOrBlank()) return ""
-    if (property.type != PropertyType.REF) return formatGroupValue(property, raw)
-    if (context == null || depth >= MAX_DISPLAY_TEXT_REF_DEPTH) return raw
-    val target = context.appDataById[raw] ?: return raw
-    return computeDisplayText(context.entityById[target.entityType.value], raw, target.data, context, depth + 1)
-  }
+  private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>, context: DisplayTextContext? = null): String =
+    (context?.resolver ?: DisplayTextResolver(emptyMap(), emptyList())).displayText(entityDef, dataId, data)
 
   /** What [computeDisplayText] needs to resolve REF placeholders: the installed version's entities and the installation's data. */
-  private class DisplayTextContext(val entityById: Map<String, EntityDefinition>, allAppData: List<AppData>) {
-    val appDataById: Map<String, AppData> by lazy { allAppData.associateBy { it.id.value } }
+  private class DisplayTextContext(entityById: Map<String, EntityDefinition>, allAppData: List<AppData>) {
+    val resolver = DisplayTextResolver(entityById, allAppData)
   }
 
   private fun computeReferenceText(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String {
@@ -1003,18 +962,12 @@ class UserAppStoreResource {
   private fun referenceOptionsJsonFor(referenceOptions: Map<String, List<AppDataRow>>): RawString = RawString(ObjectMapper().writeValueAsString(referenceOptions))
 
   companion object {
-    private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
-
-    /** How many REF levels a display text resolves, e.g. Zählerstand -> Zähler -> Zuhause; deeper references show their id. */
-    private const val MAX_DISPLAY_TEXT_REF_DEPTH = 2
     private const val PAGE_SIZE = 25
 
     /** Row cap for one aggregation's table in the aggregation panel, so a long-running installation's page doesn't explode (issue #713). */
     private const val MAX_AGGREGATION_TABLE_ROWS = 30
 
     private val BUCKET_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-    private val GROUP_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
-    private val GROUP_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
 
     // Matches AggregationComputation.encodeTimeBucket's "%04d-W%02d" / "%04d-%02d" / "%04d-Q%d" bucket key formats.
     private val WEEK_BUCKET_REGEX = Regex("""(\d{4})-W(\d{2})""")

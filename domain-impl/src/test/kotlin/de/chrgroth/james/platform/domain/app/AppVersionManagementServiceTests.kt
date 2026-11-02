@@ -40,6 +40,10 @@ import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
+import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
+import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidReportsError
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
@@ -2131,27 +2135,95 @@ class AppVersionManagementServiceTests {
   // region updateReport
 
   @Test
-  fun `updateReport updates html and script of report in draft version`() {
+  fun `updateReport renames the report and stores its normalized definition`() {
     val report = Report(id = ReportId("r-1"), name = "Sales Report")
     val version = draftVersion.copy(reports = listOf(report))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.updateReport("app-1", "ver-1", "r-1", "<h1>Sales</h1>", "console.log('hello')")
+    val result = service.updateReport("app-1", "ver-1", "r-1", " Umsatz ", "tabs:\r\n  - name: Übersicht\r\n\r\n")
 
     assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.reports?.first()?.html).isEqualTo("<h1>Sales</h1>")
-    assertThat(result.getOrNull()?.reports?.first()?.script).isEqualTo("console.log('hello')")
+    assertThat(result.getOrNull()?.reports?.single()?.name).isEqualTo("Umsatz")
+    assertThat(result.getOrNull()?.reports?.single()?.definition).isEqualTo("tabs:\n  - name: Übersicht\n")
+  }
+
+  @Test
+  fun `updateReport keeps the name when none is given`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(reports = listOf(report))
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateReport("app-1", "ver-1", "r-1", null, "")
+
+    assertThat(result.getOrNull()?.reports?.single()?.name).isEqualTo("Sales Report")
+  }
+
+  @Test
+  fun `updateReport rejects a name used by another report`() {
+    val reports = listOf(Report(ReportId("r-1"), "Sales"), Report(ReportId("r-2"), "Costs"))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(reports = reports)
+
+    val result = service.updateReport("app-1", "ver-1", "r-1", "costs", "")
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REPORT_NAME_ALREADY_EXISTS)
+  }
+
+  @Test
+  fun `updateReport rejects an invalid definition without saving`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(reports = listOf(report))
+
+    val result = service.updateReport("app-1", "ver-1", "r-1", null, "queries:\n  q:\n    entity: Unknown\ntabs: []\n")
+
+    val error = result.leftOrNull() as InvalidReportDefinitionError
+    assertThat(error.errors.map { it.code }).containsExactly(ReportDefinitionErrorCode.ENTITY_NOT_FOUND)
+    assertThat(error.errors.single().line).isEqualTo(3)
+    verify(exactly = 0) { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `addReport validates a given definition`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
+
+    val result = service.addReport("app-1", "ver-1", "Sales", "tabs: nope")
+
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidReportDefinitionError::class.java)
   }
 
   @Test
   fun `updateReport fails when report not found`() {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion
 
-    val result = service.updateReport("app-1", "ver-1", "unknown-report", "<h1>x</h1>", "")
+    val result = service.updateReport("app-1", "ver-1", "unknown-report", null, "")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REPORT_NOT_FOUND)
+  }
+
+  @Test
+  fun `publishVersion fails when a report definition became invalid`() {
+    val report = Report(ReportId("r-1"), "Sales", "queries:\n  q: { entity: Gone }\ntabs: []\n")
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(reports = listOf(report)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.leftOrNull()).isEqualTo(InvalidReportsError(listOf("Sales")))
+  }
+
+  @Test
+  fun `getVersionDiff renders report definitions as diff lines`() {
+    val predecessor = version(id = "ver-old", appId = "app-1", versionNumber = "1.0.0", status = AppVersionStatus.PUBLISHED)
+      .copy(reports = listOf(Report(ReportId("r-1"), "Sales", "tabs:\n  - name: Alt\n")), createdAt = publishedVersion.createdAt.minusSeconds(100))
+    val current = version(id = "ver-new", appId = "app-1", versionNumber = "1.1.0", status = AppVersionStatus.PUBLISHED)
+      .copy(reports = listOf(Report(ReportId("r-1"), "Sales", "tabs:\n  - name: Neu\n")))
+    every { appVersionRepository.findById(AppVersionId("ver-new")) } returns current
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(predecessor, current)
+
+    val lines = service.getVersionDiff("app-1", "ver-new").getOrNull()!!.reportDiffs.single().lines
+
+    assertThat(lines.filter { it.status == DiffLineStatus.REMOVED }.map { it.text.trim() }).containsExactly("- name: Alt")
+    assertThat(lines.filter { it.status == DiffLineStatus.ADDED }.map { it.text.trim() }).containsExactly("- name: Neu")
   }
 
   // endregion
@@ -2248,7 +2320,7 @@ class AppVersionManagementServiceTests {
     assertThat(fieldsOf(AggregationDefinition::class.java)).containsExactlyInAnyOrder(
       "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy", "periodStart", "sourcePath",
     )
-    assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "html", "script")
+    assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "definition")
     assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity")
     assertThat(fieldsOf(ReferenceLookup::class.java)).containsExactlyInAnyOrder("propertyId", "autoCreate")
   }

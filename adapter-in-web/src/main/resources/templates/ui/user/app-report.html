@@ -1,0 +1,55 @@
+{#include layout.html}
+    {#title}{msg:commonAppName()} – {info.appName} – {reportName}{/title}
+    {#content}
+    <div class="app-page-container py-4 px-3 px-md-4">
+        <nav aria-label="{msg:commonBreadcrumbAriaLabel()}" class="page-breadcrumb mb-4">
+            <ol class="breadcrumb mb-0">
+                {#breadcrumb-home homeUrl="/ui/user/dashboard" homeLabel=user:userBreadcrumbDashboardLabel() /}
+                <li class="breadcrumb-item"><a href="/ui/user/apps/{info.installedAppId}" class="breadcrumb-link" data-testid="breadcrumb-app-link">{info.appName}</a></li>
+                <li class="breadcrumb-item active" aria-current="page" data-testid="breadcrumb-report">{reportName}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex align-items-center mb-4 gap-2">
+            <h1 class="fs-4 fw-semibold mb-0" data-testid="report-title">{reportName}</h1>
+            {#if info.installedApp.test}
+            <span class="badge app-badge-muted" data-testid="test-installation-badge">{user:userTestInstallationBadge()}</span>
+            {/if}
+        </div>
+
+        {#if !errors.isEmpty}
+        <div class="alert alert-danger" role="alert" data-testid="report-errors">
+            <p class="mb-2">{report:reportNotRenderable()}</p>
+            <ul class="mb-0">
+                {#for error in errors}
+                <li>{error.message}</li>
+                {/for}
+            </ul>
+        </div>
+        {#else}
+        <div id="report-view" data-testid="report-view"
+             data-text-empty="{report:reportTableEmpty()}"
+             data-text-truncated="{report:reportTableTruncated()}"
+             data-text-no-content="{report:reportNoContent()}"></div>
+        <script type="application/json" id="report-view-data">{viewJson}</script>
+        {/if}
+    </div>
+    {/content}
+    {#scripts}
+    {#if errors.isEmpty}
+    <script src="/webjars/echarts/dist/echarts.min.js"></script>
+    <script src="/report-renderer.js?v={assetVersion}"></script>
+    <script>
+        (function () {
+            var container = document.getElementById('report-view');
+            var view = JSON.parse(document.getElementById('report-view-data').textContent);
+            JamesReports.render(container, view, {
+                empty: container.getAttribute('data-text-empty'),
+                truncated: container.getAttribute('data-text-truncated'),
+                noContent: container.getAttribute('data-text-no-content')
+            });
+        })();
+    </script>
+    {/if}
+    {/scripts}
+{/include}

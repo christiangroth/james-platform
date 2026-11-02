@@ -201,6 +201,9 @@ object UserTemplates {
   external fun `app-detail`(info: InstalledAppInfo, entityTabs: List<EntityTab>, pageSize: Int): TemplateInstance
 
   @JvmStatic
+  external fun `app-report`(info: InstalledAppInfo, reportName: String, viewJson: RawString, errors: List<ReportDefinitionErrorDto>): TemplateInstance
+
+  @JvmStatic
   external fun `app-entity-detail`(info: InstalledAppInfo, entity: EntityTab, aggregations: AggregationPanelViews, pageSize: Int): TemplateInstance
 
   @JvmStatic

@@ -296,9 +296,6 @@ interface DeveloperMessages {
   fun developerNoReportsReadonly(): String
 
   @Message
-  fun developerHtmlLabel(): String
-
-  @Message
   fun developerScriptLabel(): String
 
   @Message

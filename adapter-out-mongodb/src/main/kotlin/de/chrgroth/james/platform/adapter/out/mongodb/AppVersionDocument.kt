@@ -81,11 +81,14 @@ class ConstraintDocument {
   var stringValue: String? = null
 }
 
+/**
+ * A report's YAML definition (see docs/plans/reports.md). Documents written before the declarative reports still carry the former `html`
+ * and `script` fields: the POJO codec skips them on read, so those reports load with an empty definition (they were never executable).
+ */
 class ReportDocument {
   lateinit var id: String
   lateinit var name: String
-  var html: String = ""
-  var script: String = ""
+  var definition: String = ""
 }
 
 class ComputedPropertyDocument {

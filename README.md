@@ -16,6 +16,10 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   optional day/week/month/quarter/year bucketing with a configurable period start,
   optional grouping via a `ref` or another property) over an Entity's data in the version editor. Ungrouped values are shown directly on the app installation;
   grouped and/or time-bucketed ones as a compact, capped table.
+- **Reports** – Developers declare reports per App Version in YAML: named queries (Entity, filter rules, time range, fields incl. one `ref` hop, sorting,
+  limit) laid out as tabs, rows and panels (tables with unit-aware formatting, Markdown text). The version editor validates definitions with line
+  numbers and previews them against a test installation; Users open the reports of their installed Apps. Queries run backend-side on the installation's
+  data only.
 - **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by declarative migration
   steps (convert a property's type or unit, carry a value over to its replacement, fill empty values, or adjust values to tightened constraints) and/or a
   Developer-authored migration script that transform existing data on upgrade. The version editor suggests a matching migration step for every breaking change not

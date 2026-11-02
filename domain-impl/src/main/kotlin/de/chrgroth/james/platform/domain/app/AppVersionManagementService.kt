@@ -9,6 +9,8 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
+import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidReportsError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -64,6 +66,7 @@ import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
+import de.chrgroth.james.platform.domain.report.ReportDefinitionParser
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -238,6 +241,11 @@ class AppVersionManagementService(
     if (invalidReferenceLookupEntityNames.isNotEmpty()) {
       logger.warn { "Publish version failed: invalid reference lookups in entities: $invalidReferenceLookupEntityNames" }
       return InvalidReferenceLookupError(invalidReferenceLookupEntityNames).left()
+    }
+    val invalidReportNames = version.reports.filter { ReportDefinitionParser.parse(it.definition, version.entityDefinitions).errors.isNotEmpty() }.map { it.name }
+    if (invalidReportNames.isNotEmpty()) {
+      logger.warn { "Publish version failed: invalid report definitions: $invalidReportNames" }
+      return InvalidReportsError(invalidReportNames).left()
     }
     val publishedVersion = version.copy(versionNumber = versionNumber, releaseNotes = trimmedReleaseNotes, status = AppVersionStatus.PUBLISHED)
     appVersionRepository.save(publishedVersion)
@@ -1592,7 +1600,7 @@ class AppVersionManagementService(
     }
   }
 
-  override fun addReport(appId: String, versionId: String, name: String): Either<DomainError, AppVersion> {
+  override fun addReport(appId: String, versionId: String, name: String, definition: String): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add report failed: blank name" }
       return AppVersionError.BLANK_INPUT.left()
@@ -1602,7 +1610,8 @@ class AppVersionManagementService(
       logger.warn { "Add report failed: report name already exists: $name in version $versionId" }
       return AppVersionError.REPORT_NAME_ALREADY_EXISTS.left()
     }
-    val newReport = Report(id = ReportId(UUID.randomUUID().toString()), name = name.trim())
+    validateReportDefinition(version, definition)?.let { return it.left() }
+    val newReport = Report(id = ReportId(UUID.randomUUID().toString()), name = name.trim(), definition = normalizeDefinition(definition))
     val updated = version.copy(reports = version.reports + newReport)
     appVersionRepository.save(updated)
     logger.info { "Report added: ${name.trim()} to version $versionId" }
@@ -1613,19 +1622,43 @@ class AppVersionManagementService(
     appId: String,
     versionId: String,
     reportId: String,
-    html: String,
-    script: String,
+    name: String?,
+    definition: String,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val report = version.reports.find { it.id.value == reportId } ?: run {
       logger.warn { "Update report failed: report not found: $reportId in version $versionId" }
       return AppVersionError.REPORT_NOT_FOUND.left()
     }
-    val updatedReport = report.copy(html = html, script = script)
+    val newName = name?.trim() ?: report.name
+    if (newName.isBlank()) {
+      logger.warn { "Update report failed: blank name for report $reportId" }
+      return AppVersionError.BLANK_INPUT.left()
+    }
+    if (version.reports.any { it.id != report.id && it.name.equals(newName, ignoreCase = true) }) {
+      logger.warn { "Update report failed: report name already exists: $newName in version $versionId" }
+      return AppVersionError.REPORT_NAME_ALREADY_EXISTS.left()
+    }
+    validateReportDefinition(version, definition)?.let { return it.left() }
+    val updatedReport = report.copy(name = newName, definition = normalizeDefinition(definition))
     val updated = version.copy(reports = version.reports.map { if (it.id.value == reportId) updatedReport else it })
     appVersionRepository.save(updated)
     logger.info { "Report $reportId updated in version $versionId" }
     return updated.right()
+  }
+
+  /** Parses and validates a report definition against [version]'s entities; null when valid. See docs/plans/reports.md. */
+  private fun validateReportDefinition(version: AppVersion, definition: String): InvalidReportDefinitionError? {
+    val errors = ReportDefinitionParser.parse(definition, version.entityDefinitions).errors
+    if (errors.isEmpty()) return null
+    logger.warn { "Report definition invalid in version ${version.id.value}: ${errors.size} error(s)" }
+    return InvalidReportDefinitionError(errors)
+  }
+
+  /** Stores definitions with LF line endings and a trailing newline (or empty), so diffs only show real changes. */
+  private fun normalizeDefinition(definition: String): String {
+    val normalized = definition.replace("\r\n", "\n").replace('\r', '\n').trimEnd()
+    return if (normalized.isBlank()) "" else "$normalized\n"
   }
 
   override fun deleteReport(appId: String, versionId: String, reportId: String): Either<DomainError, AppVersion> {
@@ -2002,10 +2035,7 @@ class AppVersionManagementService(
   private fun reportToDslLines(report: Report): List<String> {
     val lines = mutableListOf<String>()
     lines.add("report ${report.name} {")
-    lines.add("  html:")
-    lines.addAll(report.html.lines().map { "    $it" })
-    lines.add("  script:")
-    lines.addAll(report.script.lines().map { "    $it" })
+    if (report.definition.isNotBlank()) lines.addAll(report.definition.trimEnd().lines().map { "  $it" })
     lines.add("}")
     return lines
   }
