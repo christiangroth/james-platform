@@ -439,7 +439,10 @@ class UserAppStoreResource {
           lastChangedAt = appDataItem.lastChangedAt,
           appVersion = appDataItem.appVersion.value,
           referenceText = computeReferenceText(entityDef, appDataItem.id.value, appDataItem.data),
-          displayText = computeDisplayText(entityDef, appDataItem.id.value, appDataItem.data),
+          displayText = computeDisplayText(
+            entityDef, appDataItem.id.value, appDataItem.data,
+            DisplayTextContext(info.installedVersion.entityDefinitions.associateBy { it.id.value }, appData.listAppData(userId, installedAppId).getOrNull().orEmpty()),
+          ),
           importProvenance = appDataItem.importProvenance?.let {
             AppDataImportProvenanceView(connectionName = it.connectionName, sourceUrl = it.sourceUrl)
           },
@@ -573,13 +576,14 @@ class UserAppStoreResource {
     if (entityCount <= 1) "/ui/user/apps/$installedAppId" else "/ui/user/apps/$installedAppId/entities/$entityTypeId"
 
   private fun buildEntityTab(entityDef: EntityDefinition, entityById: Map<String, EntityDefinition>, allAppData: List<AppData>): EntityTab {
+    val context = DisplayTextContext(entityById, allAppData)
     val entityRows = allAppData
       .filter { it.entityType.value == entityDef.id.value }
       .let { rows -> applySortCriteria(rows, entityDef, entityById, allAppData) }
       .map { item ->
         AppDataRow(
           id = item.id.value,
-          displayText = computeDisplayText(entityDef, item.id.value, item.data),
+          displayText = computeDisplayText(entityDef, item.id.value, item.data, context),
         )
       }
     val totalPages = maxOf(1, (entityRows.size + PAGE_SIZE - 1) / PAGE_SIZE)
@@ -700,8 +704,9 @@ class UserAppStoreResource {
     val refPath = aggregation.refPath ?: return emptyMap()
     val refProperty = entityDef.properties.find { it.id == refPath } ?: return emptyMap()
     val targetEntity = refProperty.targetEntityId?.let { entityById[it.value] } ?: return emptyMap()
+    val context = DisplayTextContext(entityById, allAppData)
     return allAppData.filter { it.entityType == targetEntity.id }
-      .associate { it.id.value to computeDisplayText(targetEntity, it.id.value, it.data) }
+      .associate { it.id.value to computeDisplayText(targetEntity, it.id.value, it.data, context) }
   }
 
   /** Formats an aggregation's raw numeric value, applying the source property's unit granularity if it has one (COUNT never carries the source property's unit). */
@@ -816,19 +821,44 @@ class UserAppStoreResource {
   }
 
   /** Renders the entity's Display Text template, falling back to the generic reference text (unique property values) when none is configured. */
-  private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>): String {
+  /**
+   * Resolves an entity's display text template. Placeholder values are formatted like the aggregation group labels (dates `dd.MM.yyyy`,
+   * numbers with German separators, unit properties as e.g. `10km 234m`); a REF placeholder shows the referenced object's own display
+   * text when [context] can resolve it (at most [MAX_DISPLAY_TEXT_REF_DEPTH] levels deep, so reference cycles terminate), else its id.
+   */
+  private fun computeDisplayText(
+    entityDef: EntityDefinition?,
+    dataId: String,
+    data: Map<String, String?>,
+    context: DisplayTextContext? = null,
+    depth: Int = 0,
+  ): String {
     if (entityDef == null) return dataId
     val template = entityDef.displayText ?: return computeReferenceText(entityDef, dataId, data)
-    val nameToId = entityDef.properties.associate { it.name to it.id.value }
+    val propertiesByName = entityDef.properties.associateBy { it.name }
     val result = DISPLAY_TEXT_TOKEN_REGEX.replace(template) { match ->
       val key = match.groupValues[1]
-      if (key == "id") dataId
-      else {
-        val propId = nameToId[key]
-        if (propId == null) "<?>" else data[propId] ?: ""
+      if (key == "id") {
+        dataId
+      } else {
+        val property = propertiesByName[key]
+        if (property == null) "<?>" else formatDisplayTextValue(property, data[property.id.value], context, depth)
       }
     }.trim()
     return result.ifBlank { computeReferenceText(entityDef, dataId, data) }
+  }
+
+  private fun formatDisplayTextValue(property: Property, raw: String?, context: DisplayTextContext?, depth: Int): String {
+    if (raw.isNullOrBlank()) return ""
+    if (property.type != PropertyType.REF) return formatGroupValue(property, raw)
+    if (context == null || depth >= MAX_DISPLAY_TEXT_REF_DEPTH) return raw
+    val target = context.appDataById[raw] ?: return raw
+    return computeDisplayText(context.entityById[target.entityType.value], raw, target.data, context, depth + 1)
+  }
+
+  /** What [computeDisplayText] needs to resolve REF placeholders: the installed version's entities and the installation's data. */
+  private class DisplayTextContext(val entityById: Map<String, EntityDefinition>, allAppData: List<AppData>) {
+    val appDataById: Map<String, AppData> by lazy { allAppData.associateBy { it.id.value } }
   }
 
   private fun computeReferenceText(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String {
@@ -854,11 +884,12 @@ class UserAppStoreResource {
     val refProperties = collectReferenceProperties(entityDef.properties)
     if (refProperties.isEmpty()) return emptyMap()
     val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+    val context = DisplayTextContext(entityDefinitions.associateBy { it.id.value }, allData)
     return refProperties.associate { prop ->
       val targetEntity = entityDefinitions.find { it.id == prop.targetEntityId }
       val options = targetEntity?.let { target ->
         allData.filter { it.entityType == target.id }
-          .map { AppDataRow(id = it.id.value, displayText = computeDisplayText(target, it.id.value, it.data)) }
+          .map { AppDataRow(id = it.id.value, displayText = computeDisplayText(target, it.id.value, it.data, context)) }
       } ?: emptyList()
       prop.id.value to options
     }
@@ -973,6 +1004,9 @@ class UserAppStoreResource {
 
   companion object {
     private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
+
+    /** How many REF levels a display text resolves, e.g. Zählerstand -> Zähler -> Zuhause; deeper references show their id. */
+    private const val MAX_DISPLAY_TEXT_REF_DEPTH = 2
     private const val PAGE_SIZE = 25
 
     /** Row cap for one aggregation's table in the aggregation panel, so a long-running installation's page doesn't explode (issue #713). */
