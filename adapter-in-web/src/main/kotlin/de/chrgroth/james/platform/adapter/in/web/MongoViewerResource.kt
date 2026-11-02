@@ -79,6 +79,6 @@ class MongoViewerResource {
 
   companion object {
     private val PAGE_SIZES = listOf(10, 25, 50, 100)
-    private const val DEFAULT_PAGE_SIZE = 50
+    private const val DEFAULT_PAGE_SIZE = 25
   }
 }

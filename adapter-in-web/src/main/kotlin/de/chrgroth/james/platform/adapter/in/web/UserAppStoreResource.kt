@@ -575,7 +575,7 @@ class UserAppStoreResource {
   private fun buildEntityTab(entityDef: EntityDefinition, entityById: Map<String, EntityDefinition>, allAppData: List<AppData>): EntityTab {
     val entityRows = allAppData
       .filter { it.entityType.value == entityDef.id.value }
-      .let { rows -> applySortCriteria(rows, entityDef, entityById) }
+      .let { rows -> applySortCriteria(rows, entityDef, entityById, allAppData) }
       .map { item ->
         AppDataRow(
           id = item.id.value,
@@ -757,19 +757,29 @@ class UserAppStoreResource {
     else -> msg.commonUnexpectedError()
   }
 
+  /**
+   * Sorts [rows] by the entity's sort criteria. A REF criterion compares the display texts of the referenced objects (resolved from
+   * [allAppData]) instead of their ids, so it sorts alphabetically by what the user sees. Ties after all criteria are broken by the
+   * object id, so the order is stable across reloads and pages.
+   */
   private fun applySortCriteria(
     rows: List<AppData>,
     entityDef: EntityDefinition,
     entityById: Map<String, EntityDefinition>,
+    allAppData: List<AppData>,
   ): List<AppData> {
     if (entityDef.sortBy.isEmpty()) return rows
+    val appDataById by lazy { allAppData.associateBy { it.id.value } }
+    fun referenceText(refId: String?): String? = refId?.let { id ->
+      appDataById[id]?.let { target -> computeDisplayText(entityById[target.entityType.value], id, target.data) } ?: id
+    }
     var comparator: Comparator<AppData>? = null
     for (criteria in entityDef.sortBy) {
       val propDef = entityDef.properties.find { it.id.value == criteria.propertyId } ?: continue
       val propType = propDef.type
       val singleComparator = Comparator<AppData> { a, b ->
-        val aVal = a.data[criteria.propertyId]
-        val bVal = b.data[criteria.propertyId]
+        val aVal = if (propType == PropertyType.REF) referenceText(a.data[criteria.propertyId]) else a.data[criteria.propertyId]
+        val bVal = if (propType == PropertyType.REF) referenceText(b.data[criteria.propertyId]) else b.data[criteria.propertyId]
         when {
           aVal == null && bVal == null -> 0
           aVal == null -> 1
@@ -801,7 +811,8 @@ class UserAppStoreResource {
       val directedComparator = if (criteria.direction == SortDirection.DESC) singleComparator.reversed() else singleComparator
       comparator = comparator?.thenComparing(directedComparator) ?: directedComparator
     }
-    return if (comparator != null) rows.sortedWith(comparator) else rows
+    val stable = comparator?.thenComparing { row: AppData -> row.id.value } ?: return rows
+    return rows.sortedWith(stable)
   }
 
   /** Renders the entity's Display Text template, falling back to the generic reference text (unique property values) when none is configured. */
@@ -962,7 +973,7 @@ class UserAppStoreResource {
 
   companion object {
     private val DISPLAY_TEXT_TOKEN_REGEX = Regex("\\{([^}]+)\\}")
-    private const val PAGE_SIZE = 50
+    private const val PAGE_SIZE = 25
 
     /** Row cap for one aggregation's table in the aggregation panel, so a long-running installation's page doesn't explode (issue #713). */
     private const val MAX_AGGREGATION_TABLE_ROWS = 30
