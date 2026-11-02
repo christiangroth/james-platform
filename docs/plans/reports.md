@@ -33,8 +33,8 @@ Code is the exception (a small Kotlin escape hatch), not the rule.
   zoom, multiple axes); the library stays swappable by replacing the adapter only.
 * **Escape hatch:** a transformation step may be a **Kotlin script** with a timeout, like computed properties (ADR 0008), for the
   few genuinely special calculations (e.g. the PV break-even). Kept deliberately small.
-* **Scope boundary:** a report only reads data of its own App installation (plus its configuration, see below). Cross-app reports
-  are out of scope for now - see "Out of scope".
+* **Scope boundary:** an App report only reads data of its own App installation (plus its configuration, see below). Cross-app
+  evaluations are personal dashboards owned by the User (last step), not App reports.
 
 ## Model
 
@@ -112,29 +112,37 @@ configuration; values that change over time and are "valid from" (target hours, 
   the employment contract today, which lives in the *Finanzen* App while work days and vacation live in *Arbeit*. Until the two
   Apps are merged (planned once the parallel operation with legacy james ends), *Arbeit* needs its own "valid from" Entity for
   these values, or the merge happens first.
-* The Journal report's two cross checks against runs and bike rides are dropped for now (cross-app).
+* The Journal report's two cross checks against runs and bike rides are not part of the App report; they move to a personal
+  dashboard (step 8).
+
+## Personal dashboards (cross-app)
+
+Reports owned by the *User* instead of an App, built with the same toolkit (queries, transformations, checks, panels) but able to
+read the User's installed Apps directly. App Developers therefore never need to know the internals of other Apps; combining Apps is
+the User's job, like combining data sources in Grafana. Deliberately **without** published App interfaces/exports, which would add
+too much complexity for the benefit. Only the Journal cross checks need this today. Details (how a dashboard addresses an
+installation and its Entities, what happens when an App changes its structure) are worked out right before implementing step 8.
 
 ## Out of scope
 
-* **Cross-app reports.** Only the Journal cross checks need them today. If needed later, the preferred direction is *personal
-  dashboards*: reports owned by the User instead of an App, built with the same toolkit and reading the User's installed Apps
-  directly - without published App interfaces/exports (too much complexity for the benefit).
 * A visual report builder.
 
 ## Implementation steps
 
 Each step is releasable on its own, in this order; after each step the matching legacy reports are ported to validate the toolkit.
 
-1. **Reports (1/7): foundation** - YAML definition per App Version replacing `html`/`script`, schema validation, editor with
+1. **Reports (1/8): foundation** - YAML definition per App Version replacing `html`/`script`, schema validation, editor with
    preview, report page in the installation with tabs and rows, queries with filter and time range, table and text panels,
    renderer-neutral panel spec + ECharts adapter skeleton.
-2. **Reports (2/7): time series and stat panels** - aggregation queries, units, stat comparison. Ports Body Metrics, Fahrrad,
+2. **Reports (2/8): time series and stat panels** - aggregation queries, units, stat comparison. Ports Body Metrics, Fahrrad,
    Rente, Blutwerte, Arbeitsverträge, Konzerte.
-3. **Reports (3/7): App configuration** - singleton Entity, "Einstellungen" tab, `config.*` in reports and computed properties.
-4. **Reports (4/7): variables and basic transformations** - time range and select variables, calculated field, cumulative,
+3. **Reports (3/8): App configuration** - singleton Entity, "Einstellungen" tab, `config.*` in reports and computed properties.
+4. **Reports (4/8): variables and basic transformations** - time range and select variables, calculated field, cumulative,
    year over year, forecast. Ports Lebensversicherung, Walking Pad.
-5. **Reports (5/7): checks and warnings panel** - gap detection with calendars, value rules.
-6. **Reports (6/7): advanced transformations** - delta, as-of join, join, fill-forward, records and goals. Ports Zählerstände,
+5. **Reports (5/8): checks and warnings panel** - gap detection with calendars, value rules.
+6. **Reports (6/8): advanced transformations** - delta, as-of join, join, fill-forward, records and goals. Ports Zählerstände,
    Arbeitszeiten, Verdienst, Urlaubsplaner, Running.
-7. **Reports (7/7): heatmap, pie and Kotlin step** - calendar heatmap and pie panels, Kotlin script transformation. Ports Journal
+7. **Reports (7/8): heatmap, pie and Kotlin step** - calendar heatmap and pie panels, Kotlin script transformation. Ports Journal
    (without the cross checks).
+8. **Reports (8/8): personal dashboards** - User-owned, cross-app reports with the same toolkit (to be detailed before starting).
+   Ports the Journal cross checks.
