@@ -86,6 +86,18 @@ interface AppVersionManagementPort {
     valueProposals: List<String>,
     path: List<String> = emptyList(),
   ): Either<DomainError, AppVersion>
+  /**
+   * Sets (or clears, with a null [lookupPropertyId]) the [de.chrgroth.james.platform.domain.model.app.ReferenceLookup] of a top-level REF
+   * property: [lookupPropertyId] must be a STRING property of the REF's target entity and that entity's only unique key (ADR 0026).
+   */
+  fun setPropertyReferenceLookup(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    propertyId: String,
+    lookupPropertyId: String?,
+    autoCreate: Boolean,
+  ): Either<DomainError, AppVersion>
   fun setPropertyTargetEntity(
     appId: String,
     versionId: String,

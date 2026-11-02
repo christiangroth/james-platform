@@ -165,5 +165,6 @@ object PropertyLabelTemplateExtensions {
     is PropertyConstraintViolation.StepViolation -> userMessages.userStepViolationError(violation.step.toString())
     is PropertyConstraintViolation.InvalidUnitFormatViolation -> userMessages.userInvalidUnitFormatViolationError()
     is PropertyConstraintViolation.NonIntegerUnitValueViolation -> userMessages.userNonIntegerUnitValueViolationError()
+    is PropertyConstraintViolation.ReferenceLookupNotFoundViolation -> userMessages.userReferenceLookupNotFoundViolationError()
   }
 }

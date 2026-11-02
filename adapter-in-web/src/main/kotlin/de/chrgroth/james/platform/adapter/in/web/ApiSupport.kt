@@ -5,6 +5,7 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
+import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
@@ -49,6 +50,7 @@ object ApiResponses {
     is InvalidObjectStructureError -> error.entityNames
     is InvalidAggregationDefinitionError -> error.entityNames
     is InvalidMigrationStepError -> error.entityNames
+    is InvalidReferenceLookupError -> error.entityNames
     is DisplayTextInvalidError -> error.entityNames
     else -> emptyList()
   }

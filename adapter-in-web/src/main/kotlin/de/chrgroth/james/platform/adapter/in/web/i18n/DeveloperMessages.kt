@@ -696,6 +696,36 @@ interface DeveloperMessages {
   fun developerValueProposalsSavedMessage(): String
 
   @Message
+  fun developerReferenceLookupSavedMessage(): String
+
+  @Message
+  fun developerReferenceLookupLabel(): String
+
+  @Message
+  fun developerReferenceLookupHelp(): String
+
+  @Message
+  fun developerReferenceLookupNoneOption(): String
+
+  @Message
+  fun developerReferenceLookupNoCandidatesHelp(): String
+
+  @Message
+  fun developerReferenceLookupAutoCreateLabel(): String
+
+  @Message
+  fun developerReferenceLookupAutoCreateHelp(): String
+
+  @Message
+  fun developerReferenceLookupNotSupportedError(): String
+
+  @Message
+  fun developerReferenceLookupPropertyInvalidError(): String
+
+  @Message
+  fun developerInvalidReferenceLookupError(names: String): String
+
+  @Message
   fun developerTargetEntitySavedMessage(): String
 
   @Message

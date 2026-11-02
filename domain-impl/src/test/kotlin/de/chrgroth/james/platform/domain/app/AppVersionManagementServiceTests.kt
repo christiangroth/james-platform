@@ -1,5 +1,8 @@
 package de.chrgroth.james.platform.domain.app
 
+import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.error.DomainError
+import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.app
@@ -10,6 +13,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedEr
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
+import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -33,6 +37,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
@@ -2205,7 +2210,7 @@ class AppVersionManagementServiceTests {
     )
     assertThat(fieldsOf(Property::class.java)).containsExactlyInAnyOrder(
       "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "valueProposals", "targetEntityId", "listItemType", "itemConstraints",
-      "nestedProperties", "unit",
+      "nestedProperties", "unit", "referenceLookup",
     )
     assertThat(fieldsOf(ComputedProperty::class.java)).containsExactlyInAnyOrder("id", "name", "type", "script")
     assertThat(fieldsOf(AggregationDefinition::class.java)).containsExactlyInAnyOrder(
@@ -2213,6 +2218,7 @@ class AppVersionManagementServiceTests {
     )
     assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "html", "script")
     assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity")
+    assertThat(fieldsOf(ReferenceLookup::class.java)).containsExactlyInAnyOrder("propertyId", "autoCreate")
   }
 
   @ParameterizedTest(name = "getVersionDiff shows {0} in diff lines")
@@ -3172,6 +3178,97 @@ class AppVersionManagementServiceTests {
     val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
+  }
+
+  // endregion
+
+  // region setPropertyReferenceLookup
+
+  private val lookupName = Property(id = PropertyId("t-name"), name = "Name", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.UniqueKey))
+  private val lookupCity = Property(id = PropertyId("t-city"), name = "City", type = PropertyType.STRING)
+  private val lookupTargetEntity = EntityDefinition(id = EntityDefinitionId("e-target"), name = "Location", properties = listOf(lookupName, lookupCity))
+  private val lookupRefProp = Property(id = PropertyId("p-ref"), name = "Location", type = PropertyType.REF, targetEntityId = lookupTargetEntity.id)
+  private val lookupEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Gig", properties = listOf(lookupRefProp))
+
+  private fun givenLookupDraft(vararg entities: EntityDefinition) {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = entities.toList())
+    justRun { appVersionRepository.save(any()) }
+  }
+
+  private fun Either<DomainError, AppVersion>.lookupOf(propertyId: String) =
+    getOrNull()?.entityDefinitions?.flatMap { it.properties }?.first { it.id.value == propertyId }?.referenceLookup
+
+  @Test
+  fun `setPropertyReferenceLookup sets lookup property and auto-create on a REF property`() {
+    givenLookupDraft(lookupEntity, lookupTargetEntity)
+
+    val result = service.setPropertyReferenceLookup("app-1", "ver-1", "e-1", "p-ref", "t-name", autoCreate = true)
+
+    assertThat(result.lookupOf("p-ref")).isEqualTo(ReferenceLookup(PropertyId("t-name"), autoCreate = true))
+  }
+
+  @Test
+  fun `setPropertyReferenceLookup clears the lookup when no lookup property is given`() {
+    givenLookupDraft(lookupEntity.copy(properties = listOf(lookupRefProp.copy(referenceLookup = ReferenceLookup(lookupName.id)))), lookupTargetEntity)
+
+    val result = service.setPropertyReferenceLookup("app-1", "ver-1", "e-1", "p-ref", null, autoCreate = true)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.lookupOf("p-ref")).isNull()
+  }
+
+  @Test
+  fun `setPropertyReferenceLookup fails for a non-REF property`() {
+    givenLookupDraft(lookupEntity.copy(properties = listOf(lookupRefProp, lookupCity.copy(id = PropertyId("p-text")))), lookupTargetEntity)
+
+    val result = service.setPropertyReferenceLookup("app-1", "ver-1", "e-1", "p-text", "t-name", autoCreate = false)
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REFERENCE_LOOKUP_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyReferenceLookup fails when the lookup property is not the target's unique key`() {
+    givenLookupDraft(lookupEntity, lookupTargetEntity)
+
+    val result = service.setPropertyReferenceLookup("app-1", "ver-1", "e-1", "p-ref", "t-city", autoCreate = false)
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REFERENCE_LOOKUP_PROPERTY_INVALID)
+  }
+
+  @Test
+  fun `setPropertyReferenceLookup fails when the target's unique key is composite`() {
+    val compositeTarget = lookupTargetEntity.copy(properties = listOf(lookupName, lookupCity.copy(constraints = setOf(PropertyConstraint.UniqueKey))))
+    givenLookupDraft(lookupEntity, compositeTarget)
+
+    val result = service.setPropertyReferenceLookup("app-1", "ver-1", "e-1", "p-ref", "t-name", autoCreate = false)
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.REFERENCE_LOOKUP_PROPERTY_INVALID)
+  }
+
+  @Test
+  fun `setPropertyTargetEntity drops the reference lookup when the target entity changes`() {
+    val otherTarget = EntityDefinition(id = EntityDefinitionId("e-other"), name = "Venue")
+    givenLookupDraft(lookupEntity.copy(properties = listOf(lookupRefProp.copy(referenceLookup = ReferenceLookup(lookupName.id)))), lookupTargetEntity, otherTarget)
+
+    val unchanged = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-ref", "e-target")
+    val changed = service.setPropertyTargetEntity("app-1", "ver-1", "e-1", "p-ref", "e-other")
+
+    assertThat(unchanged.lookupOf("p-ref")).isEqualTo(ReferenceLookup(lookupName.id))
+    assertThat(changed.lookupOf("p-ref")).isNull()
+  }
+
+  @Test
+  fun `publishVersion fails with InvalidReferenceLookupError when the lookup property is no longer the target's only unique key`() {
+    val compositeTarget = lookupTargetEntity.copy(properties = listOf(lookupName, lookupCity.copy(constraints = setOf(PropertyConstraint.UniqueKey))))
+    val entity = lookupEntity.copy(properties = listOf(lookupRefProp.copy(referenceLookup = ReferenceLookup(lookupName.id))))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity, compositeTarget)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    val error = result.leftOrNull()
+    assertThat(error).isInstanceOf(InvalidReferenceLookupError::class.java)
+    assertThat((error as InvalidReferenceLookupError).entityNames).containsExactly("Gig")
+    assertThat(error.code).isEqualTo(AppVersionError.INVALID_REFERENCE_LOOKUP.code)
   }
 
   // endregion
@@ -4185,6 +4282,12 @@ class AppVersionManagementServiceTests {
         properties = listOf(valueProposalsProp.copy(valueProposals = listOf("p-2")), valueProposalsFilterProp),
       )
 
+      val lookupTargetName = Property(id = PropertyId("t-1"), name = "Name", type = PropertyType.STRING, constraints = setOf(PropertyConstraint.UniqueKey))
+      val lookupTarget = EntityDefinition(id = EntityDefinitionId("e-2"), name = "Artist", properties = listOf(lookupTargetName))
+      val lookupRef = Property(id = PropertyId("p-1"), name = "Artist", type = PropertyType.REF, targetEntityId = lookupTarget.id)
+      val lookupEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Gig", properties = listOf(lookupRef))
+      val lookupUpdatedEntity = lookupEntity.copy(properties = listOf(lookupRef.copy(referenceLookup = ReferenceLookup(lookupTargetName.id, autoCreate = true))))
+
       val computedAddedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
       val addedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
       val computedAddedUpdatedEntity = computedAddedEntity.copy(computedProperties = listOf(addedCp))
@@ -4265,6 +4368,10 @@ class AppVersionManagementServiceTests {
         ),
         Arguments.of("default value", listOf(defaultEntity), listOf(defaultUpdatedEntity), listOf(listOf("default:"))),
         Arguments.of("value-proposals", listOf(valueProposalsEntity), listOf(valueProposalsUpdatedEntity), listOf(listOf("value-proposals:"))),
+        Arguments.of(
+          "reference lookup", listOf(lookupEntity, lookupTarget), listOf(lookupUpdatedEntity, lookupTarget),
+          listOf(listOf("reference-lookup: Name (auto-create)")),
+        ),
         Arguments.of(
           "added computed property", listOf(computedAddedEntity), listOf(computedAddedUpdatedEntity),
           listOf(listOf("computed Total: LONG"), listOf("script: 42L")),

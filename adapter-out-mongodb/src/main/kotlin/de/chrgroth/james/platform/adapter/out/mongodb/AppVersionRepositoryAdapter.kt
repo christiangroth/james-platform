@@ -25,6 +25,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
@@ -236,6 +237,7 @@ class AppVersionRepositoryAdapter(
     itemConstraints = itemConstraints.mapNotNull { it.toDomain() }.toSet(),
     nestedProperties = nestedProperties.map { it.toDomain() },
     unit = unit?.toDomain(),
+    referenceLookup = referenceLookupPropertyId?.let { ReferenceLookup(propertyId = PropertyId(it), autoCreate = referenceLookupAutoCreate) },
   )
 
   private fun PropertyUnitDocument.toDomain(): PropertyUnit? {
@@ -393,6 +395,8 @@ class AppVersionRepositoryAdapter(
     doc.itemConstraints = itemConstraints.map { it.toDocument() }
     doc.nestedProperties = nestedProperties.map { it.toDocument() }
     doc.unit = unit?.toDocument()
+    doc.referenceLookupPropertyId = referenceLookup?.propertyId?.value
+    doc.referenceLookupAutoCreate = referenceLookup?.autoCreate ?: false
   }
 
   private fun PropertyUnit.toDocument() = PropertyUnitDocument().also { doc ->

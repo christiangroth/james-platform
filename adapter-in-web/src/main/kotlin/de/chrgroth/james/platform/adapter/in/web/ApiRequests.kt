@@ -39,6 +39,12 @@ data class ApiTextListRequest @JsonCreator constructor(
   @param:JsonProperty("path") val path: List<String>?,
 )
 
+/** Reference lookup of a REF property (ADR 0026): a null/blank [lookupPropertyId] clears it. */
+data class ApiReferenceLookupRequest @JsonCreator constructor(
+  @param:JsonProperty("lookupPropertyId") val lookupPropertyId: String?,
+  @param:JsonProperty("autoCreate") val autoCreate: Boolean?,
+)
+
 data class ApiSortCriteriaRequest @JsonCreator constructor(
   @param:JsonProperty("sortBy") val sortBy: List<ApiSortCriteriaItem>?,
 )

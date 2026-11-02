@@ -17,6 +17,9 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.referenceLookupTarget
+import de.chrgroth.james.platform.domain.model.app.REFERENCE_NEW_FORM_PREFIX
+import de.chrgroth.james.platform.domain.model.app.REFERENCE_LOOKUP_FORM_PREFIX
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
@@ -74,42 +77,16 @@ class AppDataService(
       EntityDefinitionId(entityTypeId),
     )
 
-    val parsedData = mutableMapOf<String, String?>()
-    val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
-    val allPathedViolations = mutableListOf<PathedConstraintViolation>()
-    val converted = entityDef.properties.associate { it.id to unitConvertedValue(it, storedValueFor(it, data)) }
-    val uniqueKeyValues = uniqueKeyComparison(entityDef, existingValues) { parseValue(it, converted.getValue(it.id).first) }
-    for (property in entityDef.properties) {
-      val (storedValue, unitViolations) = converted.getValue(property.id)
-      val parsedValue = parseValue(property, storedValue)
-      val existingParsedValues = uniqueKeyValues(property)
-      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + unitViolations
-      val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
-      if (violations.isNotEmpty()) {
-        logger.warn { "Create app data failed: constraint violations for property ${property.name}: $violations" }
-        allViolations[property.id.value] = violations
-        allPathedViolations += propertyConstraint.checkValueWithPaths(property, parsedValue, existingParsedValues)
-        allPathedViolations += extraViolations.map { PathedConstraintViolation(property.name, it) }
-      }
-      parsedData[property.id.value] = storedValue
-    }
+    val lookups = resolveReferenceLookups(installedApp, appVersion, entityDef, data)
+    val validated = validateFormData(entityDef, lookups.data, existingValues, installedApp.id, lookups.pendingIds)
+    val allViolations = lookups.violations.mergeViolations(validated.violations)
     if (allViolations.isNotEmpty()) {
-      return AppDataConstraintViolationError(allViolations, allPathedViolations).left()
+      logger.warn { "Create app data failed: constraint violations for properties ${allViolations.keys}" }
+      return AppDataConstraintViolationError(allViolations, lookups.pathedViolations + validated.pathedViolations).left()
     }
 
-    val now = Instant.now()
-    val appData = AppData(
-      id = AppDataId(UUID.randomUUID().toString()),
-      userId = userId,
-      installedAppId = InstalledAppId(installedAppId),
-      appVersion = installedApp.installedVersionNumber,
-      lastValidatedWithVersion = installedApp.installedVersionNumber,
-      entityType = EntityDefinitionId(entityTypeId),
-      objectVersion = 1,
-      createdAt = now,
-      lastChangedAt = now,
-      data = parsedData,
-    )
+    savePendingReferenceTargets(installedApp, appVersion, lookups.pendingCreates)
+    val appData = newAppData(installedApp, entityDef, validated.data)
     appDataRepository.save(appData)
     aggregationInlineUpdate.onAppDataCreated(InstalledAppId(installedAppId), appVersion.entityDefinitions, entityDef, appData)
     logger.info { "App data created: ${appData.id.value} for installed app: $installedAppId entity: $entityTypeId" }
@@ -175,35 +152,21 @@ class AppDataService(
       existingAppData.entityType,
     ).filter { it.id.value != dataId }
 
-    val parsedData = mutableMapOf<String, String?>()
-    val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
-    val allPathedViolations = mutableListOf<PathedConstraintViolation>()
-    val converted = entityDef.properties.associate { it.id to unitConvertedValue(it, storedValueFor(it, data)) }
-    val uniqueKeyValues = uniqueKeyComparison(entityDef, existingValues) { parseValue(it, converted.getValue(it.id).first) }
-    for (property in entityDef.properties) {
-      val (storedValue, unitViolations) = converted.getValue(property.id)
-      val parsedValue = parseValue(property, storedValue)
-      val existingParsedValues = uniqueKeyValues(property)
-      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId)) + unitViolations
-      val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
-      if (violations.isNotEmpty()) {
-        logger.warn { "Update app data failed: constraint violations for property ${property.name}: $violations" }
-        allViolations[property.id.value] = violations
-        allPathedViolations += propertyConstraint.checkValueWithPaths(property, parsedValue, existingParsedValues)
-        allPathedViolations += extraViolations.map { PathedConstraintViolation(property.name, it) }
-      }
-      parsedData[property.id.value] = storedValue
-    }
+    val lookups = resolveReferenceLookups(installedApp, appVersion, entityDef, data)
+    val validated = validateFormData(entityDef, lookups.data, existingValues, installedApp.id, lookups.pendingIds)
+    val allViolations = lookups.violations.mergeViolations(validated.violations)
     if (allViolations.isNotEmpty()) {
-      return AppDataConstraintViolationError(allViolations, allPathedViolations).left()
+      logger.warn { "Update app data failed: constraint violations for properties ${allViolations.keys}" }
+      return AppDataConstraintViolationError(allViolations, lookups.pathedViolations + validated.pathedViolations).left()
     }
 
+    savePendingReferenceTargets(installedApp, appVersion, lookups.pendingCreates)
     val updatedAppData = existingAppData.copy(
       objectVersion = existingAppData.objectVersion + 1,
       lastChangedAt = Instant.now(),
       appVersion = installedApp.installedVersionNumber,
       lastValidatedWithVersion = installedApp.installedVersionNumber,
-      data = parsedData,
+      data = validated.data,
     )
     appDataRepository.save(updatedAppData)
     aggregationInlineUpdate.onAppDataUpdated(InstalledAppId(installedAppId), appVersion.entityDefinitions, entityDef, existingAppData, updatedAppData)
@@ -283,7 +246,7 @@ class AppDataService(
       val storedValue = data[property.id.value]
       val parsedValue = parseValue(property, storedValue)
       val existingParsedValues = uniqueKeyValues(property)
-      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId))
+      val extraViolations = referenceViolations(property, storedValue, InstalledAppId(installedAppId), emptySet())
       val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
       if (violations.isNotEmpty()) {
         allViolations[property.id.value] = violations
@@ -296,6 +259,147 @@ class AppDataService(
     }
     return Unit.right()
   }
+
+  /** Stored property values of one validated form, or the violations that prevent storing it. */
+  private data class ValidatedFormData(
+    val data: Map<String, String?>,
+    val violations: Map<String, List<PropertyConstraintViolation>>,
+    val pathedViolations: List<PathedConstraintViolation>,
+  )
+
+  /**
+   * Converts and validates submitted form [data] for [entityDef] against its [existing] objects (unique keys) — the shared core of
+   * [createAppData], [updateAppData] and auto-creating reference lookup targets. [pendingIds] are target ids created in the same save.
+   */
+  private fun validateFormData(
+    entityDef: EntityDefinition,
+    data: Map<String, List<String>>,
+    existing: List<AppData>,
+    installedAppId: InstalledAppId,
+    pendingIds: Set<String>,
+  ): ValidatedFormData {
+    val parsedData = mutableMapOf<String, String?>()
+    val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
+    val allPathedViolations = mutableListOf<PathedConstraintViolation>()
+    val converted = entityDef.properties.associate { it.id to unitConvertedValue(it, storedValueFor(it, data)) }
+    val uniqueKeyValues = uniqueKeyComparison(entityDef, existing) { parseValue(it, converted.getValue(it.id).first) }
+    for (property in entityDef.properties) {
+      val (storedValue, unitViolations) = converted.getValue(property.id)
+      val parsedValue = parseValue(property, storedValue)
+      val existingParsedValues = uniqueKeyValues(property)
+      val extraViolations = referenceViolations(property, storedValue, installedAppId, pendingIds) + unitViolations
+      val violations = propertyConstraint.checkValue(property, parsedValue, existingParsedValues) + extraViolations
+      if (violations.isNotEmpty()) {
+        allViolations[property.id.value] = violations
+        allPathedViolations += propertyConstraint.checkValueWithPaths(property, parsedValue, existingParsedValues)
+        allPathedViolations += extraViolations.map { PathedConstraintViolation(property.name, it) }
+      }
+      parsedData[property.id.value] = storedValue
+    }
+    return ValidatedFormData(parsedData, allViolations, allPathedViolations)
+  }
+
+  /** A target object auto-created by a reference lookup, validated but not yet saved. */
+  private data class PendingReferenceTarget(val entityDef: EntityDefinition, val appData: AppData)
+
+  /** Form data with every reference lookup resolved into its REF id, plus the target objects to create first and lookup violations. */
+  private data class ResolvedReferenceLookups(
+    val data: Map<String, List<String>>,
+    val pendingCreates: List<PendingReferenceTarget>,
+    val violations: Map<String, List<PropertyConstraintViolation>>,
+    val pathedViolations: List<PathedConstraintViolation>,
+  ) {
+    val pendingIds: Set<String> get() = pendingCreates.map { it.appData.id.value }.toSet()
+  }
+
+  /**
+   * Resolves the lookup text (`reflookup_<id>`) of every REF property with a valid [Property.referenceLookup] into the id of the target
+   * object whose lookup property carries that text (exact match first, else a single case-insensitive match). Unknown texts either
+   * report [PropertyConstraintViolation.ReferenceLookupNotFoundViolation] or — with auto-create — validate a new target object from the
+   * text plus its further `refnew_<id>.<targetPropertyId>` values, which is only saved once the whole form is valid (ADR 0026).
+   * Properties without a submitted lookup key keep their regular `prop_<id>` id value (e.g. API clients).
+   */
+  private fun resolveReferenceLookups(
+    installedApp: InstalledApp,
+    appVersion: AppVersion,
+    entityDef: EntityDefinition,
+    data: Map<String, List<String>>,
+  ): ResolvedReferenceLookups {
+    val resolvedData = data.toMutableMap()
+    val pendingCreates = mutableListOf<PendingReferenceTarget>()
+    val pendingIdsByText = mutableMapOf<Pair<EntityDefinitionId, String>, String>()
+    val violations = mutableMapOf<String, List<PropertyConstraintViolation>>()
+    val pathedViolations = mutableListOf<PathedConstraintViolation>()
+    for (property in entityDef.properties) {
+      val lookupKey = "$REFERENCE_LOOKUP_FORM_PREFIX${property.id.value}"
+      if (lookupKey !in data) continue
+      val (target, lookupProperty) = property.referenceLookupTarget(appVersion.entityDefinitions) ?: continue
+      val formKey = "prop_${property.id.value}"
+      val text = data[lookupKey].orEmpty().firstOrNull { it.isNotBlank() }?.trim()
+      if (text == null) {
+        resolvedData[formKey] = emptyList()
+        continue
+      }
+      val existingTargets = appDataRepository.findAllByInstalledAppIdAndEntityType(installedApp.id, target.id)
+      val match = existingTargets.find { it.data[lookupProperty.id.value] == text }
+        ?: existingTargets.filter { it.data[lookupProperty.id.value].equals(text, ignoreCase = true) }.singleOrNull()
+      val pendingId = pendingIdsByText[target.id to text.lowercase()]
+      when {
+        match != null -> resolvedData[formKey] = listOf(match.id.value)
+        pendingId != null -> resolvedData[formKey] = listOf(pendingId)
+        property.referenceLookup?.autoCreate != true -> {
+          violations[property.id.value] = listOf(PropertyConstraintViolation.ReferenceLookupNotFoundViolation)
+          pathedViolations += PathedConstraintViolation(property.name, PropertyConstraintViolation.ReferenceLookupNotFoundViolation)
+        }
+        else -> {
+          val newPrefix = "$REFERENCE_NEW_FORM_PREFIX${property.id.value}."
+          val targetData = data.filterKeys { it.startsWith(newPrefix) }.mapKeys { "prop_${it.key.removePrefix(newPrefix)}" } +
+            ("prop_${lookupProperty.id.value}" to listOf(text))
+          val pendingIds = pendingCreates.map { it.appData.id.value }.toSet()
+          val validated = validateFormData(target, targetData, existingTargets, installedApp.id, pendingIds)
+          if (validated.violations.isEmpty()) {
+            val created = newAppData(installedApp, target, validated.data)
+            pendingCreates += PendingReferenceTarget(target, created)
+            pendingIdsByText[target.id to text.lowercase()] = created.id.value
+            resolvedData[formKey] = listOf(created.id.value)
+          } else {
+            violations[property.id.value] = validated.violations.values.flatten()
+            pathedViolations += validated.pathedViolations.map { it.copy(path = "${property.name} › ${it.path}") }
+          }
+        }
+      }
+    }
+    return ResolvedReferenceLookups(resolvedData, pendingCreates, violations, pathedViolations)
+  }
+
+  /** Saves the target objects auto-created by reference lookups — only called once the referencing object itself validated. */
+  private fun savePendingReferenceTargets(installedApp: InstalledApp, appVersion: AppVersion, pendingCreates: List<PendingReferenceTarget>) {
+    for (pending in pendingCreates) {
+      appDataRepository.save(pending.appData)
+      aggregationInlineUpdate.onAppDataCreated(installedApp.id, appVersion.entityDefinitions, pending.entityDef, pending.appData)
+      logger.info { "App data auto-created by reference lookup: ${pending.appData.id.value} for installed app: ${installedApp.id.value} entity: ${pending.entityDef.id.value}" }
+    }
+  }
+
+  private fun newAppData(installedApp: InstalledApp, entityDef: EntityDefinition, data: Map<String, String?>): AppData {
+    val now = Instant.now()
+    return AppData(
+      id = AppDataId(UUID.randomUUID().toString()),
+      userId = installedApp.userId,
+      installedAppId = installedApp.id,
+      appVersion = installedApp.installedVersionNumber,
+      lastValidatedWithVersion = installedApp.installedVersionNumber,
+      entityType = entityDef.id,
+      objectVersion = 1,
+      createdAt = now,
+      lastChangedAt = now,
+      data = data,
+    )
+  }
+
+  private fun Map<String, List<PropertyConstraintViolation>>.mergeViolations(
+    other: Map<String, List<PropertyConstraintViolation>>,
+  ): Map<String, List<PropertyConstraintViolation>> = (keys + other.keys).associateWith { (this[it].orEmpty() + other[it].orEmpty()).distinct() }
 
   /**
    * Builds the per-property `existingValues` for the `UniqueKey` check of a candidate object (parsed key values via [candidateValue]) against
@@ -335,8 +439,11 @@ class AppDataService(
     }
   }
 
-  /** Returns violations for Reference property values that do not point to an existing instance of their target entity. */
-  private fun referenceViolations(property: Property, storedValue: String?, installedAppId: InstalledAppId): List<PropertyConstraintViolation> {
+  /**
+   * Returns violations for Reference property values that do not point to an existing instance of their target entity — or to one of
+   * [pendingIds], target objects auto-created by a reference lookup in the same save (ADR 0026).
+   */
+  private fun referenceViolations(property: Property, storedValue: String?, installedAppId: InstalledAppId, pendingIds: Set<String>): List<PropertyConstraintViolation> {
     if (storedValue.isNullOrBlank()) return emptyList()
     val referencedIds = when {
       property.type == PropertyType.REF -> listOf(storedValue)
@@ -345,7 +452,7 @@ class AppDataService(
     }
     val targetEntityId = property.targetEntityId ?: return referencedIds.map { PropertyConstraintViolation.InvalidReferenceViolation }
     val existingTargetIds = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, targetEntityId).map { it.id.value }
-    return referencedIds.filter { it !in existingTargetIds }.map { PropertyConstraintViolation.InvalidReferenceViolation }
+    return referencedIds.filter { it !in existingTargetIds && it !in pendingIds }.map { PropertyConstraintViolation.InvalidReferenceViolation }
   }
 
   /**

@@ -49,6 +49,8 @@
                  data-smart-default="{selectedProperty.smartDefault}"
                  data-value-proposals="{selectedProperty.valueProposals}"
                  data-target-entity-id="{selectedProperty.targetEntityId}"
+                 data-reference-lookup-property-id="{selectedProperty.referenceLookupPropertyId}"
+                 data-reference-lookup-auto-create="{selectedProperty.referenceLookupAutoCreate}"
                  data-list-item-type="{selectedProperty.listItemType}"
                  data-unit-family="{selectedProperty.unitFamily}"
                  data-unit-storage-granularity="{selectedProperty.unitStorageGranularity}"
@@ -111,6 +113,19 @@
                         <option value="{e.id}">{e.name}</option>
                         {/for}
                     </select>
+                    <div id="referenceLookupSection" class="mt-3 d-none" data-testid="edit-property-reference-lookup-section">
+                        <label class="form-label form-label-sm" for="editPropertyReferenceLookup" style="color:var(--color-text-muted);">{developer:developerReferenceLookupLabel()}</label>
+                        <select class="form-select app-form-control form-select-sm" id="editPropertyReferenceLookup" data-testid="edit-property-reference-lookup-select">
+                            <option value="">{developer:developerReferenceLookupNoneOption()}</option>
+                        </select>
+                        <p class="app-section-label mt-1 mb-2" id="referenceLookupHelp" style="font-size:0.75rem;">{developer:developerReferenceLookupHelp()}</p>
+                        <p class="app-section-label mt-1 mb-2 d-none" id="referenceLookupNoCandidates" style="font-size:0.75rem;">{developer:developerReferenceLookupNoCandidatesHelp()}</p>
+                        <div class="form-check" id="referenceLookupAutoCreateGroup">
+                            <input class="form-check-input" type="checkbox" id="editPropertyReferenceLookupAutoCreate" data-testid="edit-property-reference-lookup-auto-create">
+                            <label class="form-check-label" for="editPropertyReferenceLookupAutoCreate" style="color:var(--color-text-muted);">{developer:developerReferenceLookupAutoCreateLabel()}</label>
+                            <p class="app-section-label mt-1 mb-0" style="font-size:0.75rem;">{developer:developerReferenceLookupAutoCreateHelp()}</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" id="editPropertyNullable" name="nullable" value="true" data-testid="edit-property-nullable-check">
@@ -473,6 +488,7 @@
     {#scripts}
     <script type="application/json" id="predefined-smart-defaults-data">{predefinedSmartDefaultsJson}</script>
     <script type="application/json" id="entity-properties-data">{currentPropertiesJson}</script>
+    <script type="application/json" id="reference-lookup-candidates-data">{referenceLookupCandidatesJson}</script>
     <script src="/unit-value-fields.js?v={assetVersion}"></script>
     <script>
         (function () {
@@ -595,7 +611,44 @@
                 var targetEntityRequired = propertyType === 'REF' || (isList && listItemType === 'REF');
                 document.getElementById('targetEntitySection').classList.toggle('d-none', !targetEntityRequired);
                 document.getElementById('editPropertyTargetEntity').required = targetEntityRequired;
+                applyReferenceLookupVisibility();
             }
+
+            // Reference lookup (ADR 0026): only for top-level REF properties of an existing property, offering the target
+            // entity's STRING properties that are its only unique key; auto-create only makes sense with a lookup property.
+            var REFERENCE_LOOKUP_CANDIDATES = JSON.parse(document.getElementById('reference-lookup-candidates-data').textContent);
+            var referenceLookupInitial = (function () {
+                var el = document.getElementById('editPropertyInitialData');
+                return { propertyId: el.dataset.referenceLookupPropertyId || '', autoCreate: el.dataset.referenceLookupAutoCreate === 'true' };
+            })();
+            function applyReferenceLookupVisibility() {
+                var section = document.getElementById('referenceLookupSection');
+                var initialEl = document.getElementById('editPropertyInitialData');
+                var isTopLevelRef = document.getElementById('editPropertyType').value === 'REF'
+                    && !!initialEl.dataset.propertyId && '{path}' === '';
+                section.classList.toggle('d-none', !isTopLevelRef);
+                if (!isTopLevelRef) return;
+                var select = document.getElementById('editPropertyReferenceLookup');
+                var targetEntityId = document.getElementById('editPropertyTargetEntity').value;
+                var candidates = REFERENCE_LOOKUP_CANDIDATES[targetEntityId] || [];
+                var current = select.dataset.initialized ? select.value : referenceLookupInitial.propertyId;
+                while (select.options.length > 1) select.remove(1);
+                candidates.forEach(function (c) {
+                    var opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    select.appendChild(opt);
+                });
+                select.value = candidates.some(function (c) { return c.id === current; }) ? current : '';
+                if (!select.dataset.initialized) {
+                    document.getElementById('editPropertyReferenceLookupAutoCreate').checked = referenceLookupInitial.autoCreate;
+                    select.dataset.initialized = 'true';
+                }
+                document.getElementById('referenceLookupNoCandidates').classList.toggle('d-none', candidates.length > 0);
+                document.getElementById('referenceLookupAutoCreateGroup').classList.toggle('d-none', select.value === '');
+            }
+            document.getElementById('editPropertyTargetEntity').addEventListener('change', applyReferenceLookupVisibility);
+            document.getElementById('editPropertyReferenceLookup').addEventListener('change', applyReferenceLookupVisibility);
 
             var PREDEFINED_SMART_DEFAULTS = JSON.parse(document.getElementById('predefined-smart-defaults-data').textContent);
             var ENTITY_PROPERTIES = JSON.parse(document.getElementById('entity-properties-data').textContent);
@@ -920,6 +973,23 @@
                     );
                     if (!targetEntityResult || !targetEntityResult.ok) {
                         showEditPropertyError(targetEntityResult ? targetEntityResult.message : networkErrorMessage);
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+                if (!document.getElementById('referenceLookupSection').classList.contains('d-none')) {
+                    var referenceLookupFormData = new FormData();
+                    var lookupPropertyId = document.getElementById('editPropertyReferenceLookup').value;
+                    if (lookupPropertyId !== '') {
+                        referenceLookupFormData.set('lookupPropertyId', lookupPropertyId);
+                        referenceLookupFormData.set('autoCreate', document.getElementById('editPropertyReferenceLookupAutoCreate').checked ? 'true' : 'false');
+                    }
+                    var referenceLookupResult = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/reference-lookup',
+                        referenceLookupFormData, false
+                    );
+                    if (!referenceLookupResult || !referenceLookupResult.ok) {
+                        showEditPropertyError(referenceLookupResult ? referenceLookupResult.message : networkErrorMessage);
                         btn.disabled = false;
                         return;
                     }
