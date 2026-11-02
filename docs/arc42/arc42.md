@@ -75,7 +75,14 @@ James Platform is a personal Low Code system for building and running data-centr
     asked for inline in the form (see ADR [0026](../adr/0026-reference-lookup.md)).
   - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
   - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
-- **Computed properties** – a Developer may define derived properties by providing a Kotlin script that computes the value based on the entity's other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. Scripts run backend-side via the JSR-223 Kotlin scripting engine, each on its own virtual thread with a configurable timeout (`app.script.timeout-ms`, default 500ms); a timed-out or failing script yields `null` for that property without failing the surrounding request. There is no deeper sandboxing (no memory/IO isolation) beyond the timeout — see ADR [0008](../adr/0008-computed-property-script-execution.md).
+- **Computed properties** – a Developer may define derived properties by providing a Kotlin script that computes the value based on the entity's other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. Scripts see the bindings `it` (the object's stored values by property id), `computed` (the computed properties evaluated before, by id), `now` (`kotlin.time.Instant`) and `config` (the installation's App configuration values by property id, empty without configuration). Scripts run backend-side via the JSR-223 Kotlin scripting engine, each on its own virtual thread with a configurable timeout (`app.script.timeout-ms`, default 500ms); a timed-out or failing script yields `null` for that property without failing the surrounding request. There is no deeper sandboxing (no memory/IO isolation) beyond the timeout — see ADR [0008](../adr/0008-computed-property-script-execution.md).
+- **App configuration** – an Entity may be marked as the Version's **configuration** (`EntityDefinition.configuration`, at most one per Version, no REF
+  may target it, every required property needs a default): a singleton with exactly one object per installation, created from the defaults on install,
+  test installation and upgrade (also onto the Version introducing it) and migrated like any data. The User edits it under "Einstellungen"
+  (`/ui/user/apps/{installedAppId}/settings`, the generic edit form) but cannot delete it or create a second one; it is no data tile/list, not counted on
+  the dashboard and no import or test data target. Reports read it as `config.<field>`, computed property scripts get a `config` binding (property id to
+  stored value, like `it`). Rule of thumb: settings without a time dimension go into the configuration, "valid from" values into a data Entity - see ADR
+  [0027](../adr/0027-app-configuration.md).
 - **Smart defaults** – like a static default, but computed by a Kotlin script (same execution model, engine, and timeout as computed properties) when the create form is opened, seeded with any static defaults already set on the entity. Unlike computed properties, a smart default is only a starting value — the User may freely overwrite it before saving, and it is not re-evaluated afterwards.
 
 ### Supported Data Types
@@ -153,9 +160,9 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: steps 1-2 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
-see [docs/plans/reports.md](../plans/reports.md) for the remaining steps: App configuration, variables and transformations, checks, heatmap/pie and a
-Kotlin step, personal dashboards).
+**Status: steps 1-3 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
+App configuration via `config.*`, see [docs/plans/reports.md](../plans/reports.md) for the remaining steps: variables and transformations, checks,
+heatmap/pie and a Kotlin step, personal dashboards).
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
 editor, and executed backend-side; no Developer-authored code runs in the browser.
@@ -184,6 +191,23 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   value), optional `compare: previous_period` (needs a closed range; the previous period of the same length - whole calendar months shift by months -
   with absolute and relative change) and `thresholds: [{ value, color }]` (value as number or unit text such as `20km`, color `green`/`red`/`orange`/
   `yellow`/`blue`/`purple`/`gray` or `#rrggbb`; the highest threshold not above the value wins).
+- **App configuration** (ADR [0027](../adr/0027-app-configuration.md)): `config.<field>` reads a field of the installation's configuration object (the
+  defaults while it does not exist yet) - as a filter `value` (numbers converted into the filtered field's unit, references by display text; a missing
+  value never matches), as a threshold `value` (converted into the stat's unit) and as a constant stat panel `{ stat: Jahresziel, config: zielKm }`
+  (with `thresholds`, without `query`/`field`/`reduce`/`compare`). Unknown fields, a version without configuration, non-numeric thresholds and
+  mismatching unit families are validation errors.
+
+  ```yaml
+  queries:
+    km: { entity: Fahrt, timeField: datum, range: this_year, aggregate: { sum: distanz } }
+    lang: { entity: Fahrt, filter: [{ field: distanz, op: GREATER_THAN, value: config.langeTour }] }
+  tabs:
+    - name: Ziele
+      rows:
+        - - { stat: Jahresziel, config: zielKm }
+          - { stat: Gefahren, query: km, thresholds: [{ value: 0, color: red }, { value: config.zielKm, color: green }] }
+          - { stat: Lange Touren, query: lang, reduce: count }
+  ```
 
   ```yaml
   queries:
@@ -667,7 +691,8 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
     (`POST /jobs/{id}/accept?mode=ADD|REPLACE`, processed in the background).
   - `/api/v1/developer/apps` - own Apps (`GET`), creating an App (`POST`) and changing its name/description (`PUT /{appId}`), one App with its Versions (`GET /{appId}`), Versions incl. drafts (`GET /{appId}/versions[/{versionId}]`),
     version bump preview, draft creation/deletion (`POST /{appId}/versions`, `DELETE /{appId}/versions/{versionId}`), draft editing (entities, properties,
-    constraints, defaults, units, computed properties, aggregations, migration steps, reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
+    constraints, defaults, units, computed properties, aggregations, migration steps, the configuration flag (`PUT …/entities/{entityId}/configuration`
+    with `{ "value": true }`), reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
     (`POST /{appId}/versions/publish`).
 
 ## Error Handling
@@ -790,6 +815,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0024](../adr/0024-personal-access-tokens.md)                  | Personal Access Tokens for a Scoped JSON API        |
 | [0025](../adr/0025-composite-unique-keys.md)                   | Composite Unique Keys                               |
 | [0026](../adr/0026-reference-lookup.md)                        | Reference Lookup: Entering References by Text       |
+| [0027](../adr/0027-app-configuration.md)                       | App Configuration as a Singleton Entity             |
 
 # Risks and Technical Debts
 
