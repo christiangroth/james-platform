@@ -1,3 +1,12 @@
+# 0.128.0 (2026.11.02)
+
+## New Features
+* Auswertungen (Summe, Anzahl, Durchschnitt, Minimum, Maximum) funktionieren jetzt auch über Felder in Objekten, z. B. „bewertung > zufriedenheit“.
+
+
+
+---
+
 # 0.127.0 (2026.11.02)
 
 ## New Features
