@@ -125,7 +125,7 @@ object MappingValidator {
     if (incompatibleType != null) {
       issues += MappingIssue.IncompatibleType(property.id, incompatibleType, property.type)
     } else {
-      checkNumericRange(property, sourceProperty, importGranularityFactor(property, fieldMapping))?.let { issues += it }
+      checkNumericRange(property, sourceProperty, importGranularityFactor(property, fieldMapping), fieldMapping.zeroAsEmpty)?.let { issues += it }
       checkStringLength(property, sourceProperty)?.let { issues += it }
     }
 
@@ -209,7 +209,16 @@ object MappingValidator {
   }
 
   /** The observed source range is expressed in the import granularity, so it is scaled by [granularityFactor] before comparing it to the property's constraints. */
-  private fun checkNumericRange(property: Property, sourceProperty: SchemaProperty, granularityFactor: BigDecimal?): MappingIssue.NumericRangeViolation? {
+  /**
+   * With [zeroAsEmpty] a source 0 is never imported, so an observed minimum (or maximum) of exactly 0 says nothing about the values that are
+   * imported - the next smaller/larger value is unknown here. That side of the range is then left to the per-record dry-run check.
+   */
+  private fun checkNumericRange(
+    property: Property,
+    sourceProperty: SchemaProperty,
+    granularityFactor: BigDecimal?,
+    zeroAsEmpty: Boolean,
+  ): MappingIssue.NumericRangeViolation? {
     val sourceRange = sourceProperty.numericRange ?: return null
     val factor = granularityFactor?.toDouble() ?: 1.0
     val range = sourceRange.copy(min = sourceRange.min * factor, max = sourceRange.max * factor)
@@ -218,8 +227,9 @@ object MappingValidator {
     val max = property.constraints.filterIsInstance<PropertyConstraint.MaxLong>().firstOrNull()?.max?.toDouble()
       ?: property.constraints.filterIsInstance<PropertyConstraint.MaxDouble>().firstOrNull()?.max
     if (min == null && max == null) return null
-    val violated = (min != null && range.min < min) || (max != null && range.max > max)
-    return if (violated) MappingIssue.NumericRangeViolation(property.id, min, max, range.min, range.max) else null
+    val minViolated = min != null && range.min < min && !(zeroAsEmpty && sourceRange.min == 0.0)
+    val maxViolated = max != null && range.max > max && !(zeroAsEmpty && sourceRange.max == 0.0)
+    return if (minViolated || maxViolated) MappingIssue.NumericRangeViolation(property.id, min, max, range.min, range.max) else null
   }
 
   private fun checkStringLength(property: Property, sourceProperty: SchemaProperty): MappingIssue.StringLengthViolation? {
