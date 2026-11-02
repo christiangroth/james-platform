@@ -1,3 +1,13 @@
+# 0.131.1 (2026.11.02)
+
+## Bugfixes / Chore
+* Diagramme und Vorperioden-Vergleich in Reports werden in der Produktionsumgebung wieder angezeigt (vorher leer).
+* Die Verweis-Suche einer Property wird über die API wieder vollständig ausgeliefert.
+
+
+
+---
+
 # 0.131.0 (2026.11.02)
 
 ## New Features
