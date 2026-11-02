@@ -153,7 +153,7 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: domain model only (`Report`, `Page` in `domain-api`) — no web adapter, endpoint, or UI exists yet.** The rest of this subsection describes the intended design, not current behavior:
+**Status: domain model only (`Report`, `Page` in `domain-api`) — no web adapter, endpoint, or UI exists yet.** A declarative, low-code replacement for the code-based design below is planned in [docs/plans/reports.md](../plans/reports.md). The rest of this subsection describes the earlier intended design, not current behavior:
 
 - A Report belongs to one App and has a unique name within that App.
 - A Report contains at least one **Page**; each Page provides HTML markup and JavaScript logic.
