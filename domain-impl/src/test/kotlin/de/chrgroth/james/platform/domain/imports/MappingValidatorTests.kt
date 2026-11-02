@@ -136,6 +136,32 @@ class MappingValidatorTests {
   }
 
   @Test
+  fun `zero as empty ignores an observed minimum of zero in the static range check`() {
+    val entityDefinition = entityDefinition(
+      Property(id = propertyId, name = "Rating", type = PropertyType.LONG, nullable = true, constraints = setOf(PropertyConstraint.MinLong(1), PropertyConstraint.MaxLong(5))),
+    )
+    val schema = listOf(SchemaProperty("rating", mapOf(SchemaPropertyType.LONG to 3), mandatory = true, numericRange = NumericRange(0.0, 5.0)))
+
+    val withZeroAsEmpty = validate(mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "rating", zeroAsEmpty = true)), entityDefinition, schema)
+    val withoutZeroAsEmpty = validate(mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "rating")), entityDefinition, schema)
+
+    assertThat(withZeroAsEmpty.issues).isEmpty()
+    assertThat(withoutZeroAsEmpty.blockingIssues).containsExactly(MappingIssue.NumericRangeViolation(propertyId, 1.0, 5.0, 0.0, 5.0))
+  }
+
+  @Test
+  fun `zero as empty still reports a range violation on the other side`() {
+    val entityDefinition = entityDefinition(
+      Property(id = propertyId, name = "Rating", type = PropertyType.LONG, nullable = true, constraints = setOf(PropertyConstraint.MinLong(1), PropertyConstraint.MaxLong(5))),
+    )
+    val schema = listOf(SchemaProperty("rating", mapOf(SchemaPropertyType.LONG to 3), mandatory = true, numericRange = NumericRange(0.0, 7.0)))
+
+    val result = validate(mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "rating", zeroAsEmpty = true)), entityDefinition, schema)
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.NumericRangeViolation(propertyId, 1.0, 5.0, 0.0, 7.0))
+  }
+
+  @Test
   fun `directly compatible types produce no issues`() {
     val entityDefinition = entityDefinition(stringProperty(nullable = true))
     val schema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 3), mandatory = true))
