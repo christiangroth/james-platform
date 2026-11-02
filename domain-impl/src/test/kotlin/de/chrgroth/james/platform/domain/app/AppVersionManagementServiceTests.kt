@@ -91,7 +91,7 @@ class AppVersionManagementServiceTests {
     justRun { enqueue(any()) }
   }
   private val service: AppVersionManagementService =
-    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox)
+    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox, mockk(relaxed = true))
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -2311,6 +2311,7 @@ class AppVersionManagementServiceTests {
     // ids identify a section/line (renames show up as changed names); everything else must be rendered
     assertThat(fieldsOf(EntityDefinition::class.java)).containsExactlyInAnyOrder(
       "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationSteps", "migrationScript",
+      "configuration",
     )
     assertThat(fieldsOf(Property::class.java)).containsExactlyInAnyOrder(
       "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "valueProposals", "targetEntityId", "listItemType", "itemConstraints",
@@ -4489,6 +4490,10 @@ class AppVersionManagementServiceTests {
 
       return Stream.of(
         Arguments.of("entity display text", listOf(displayTextEntity), listOf(displayTextUpdatedEntity), listOf(listOf("display-text: Order A"), listOf("display-text: Order B"))),
+        Arguments.of(
+          "entity configuration", listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Settings")),
+          listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Settings", configuration = true)), listOf(listOf("configuration: true")),
+        ),
         Arguments.of("entity sort-by", listOf(sortByEntity), listOf(sortByUpdatedEntity), listOf(listOf("sort-by: Category DESC"))),
         Arguments.of(
           "entity aggregation", listOf(aggregationEntity), listOf(aggregationUpdatedEntity),

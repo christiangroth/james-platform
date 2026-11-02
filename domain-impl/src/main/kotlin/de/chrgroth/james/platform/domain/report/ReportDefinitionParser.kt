@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
@@ -68,7 +69,8 @@ internal object ReportDefinitionParser {
   private val COLUMN_KEYS = setOf("field", "label")
   private val CHART_KEYS = setOf("query", "field", "name", "style", "axis", "series", "stack", "zoom")
   private val SERIES_KEYS = setOf("query", "field", "name", "style", "axis")
-  private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds")
+  private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds", "config")
+  private val STAT_QUERY_KEYS = listOf("query", "field", "reduce", "compare")
   private val THRESHOLD_KEYS = setOf("value", "color")
   private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
   private const val COUNT_ROWS = "*"
@@ -168,6 +170,9 @@ internal object ReportDefinitionParser {
 
     /** Declared queries; the value is null for a query that could not be read at all. */
     private val queryInfos = mutableMapOf<String, QueryInfo?>()
+
+    /** The App configuration Entity (ADR 0027) `config.<field>` values refer to. */
+    private val configEntity = entities?.find { it.configuration }
 
     fun error(code: ReportDefinitionErrorCode, path: Path, vararg args: String) {
       val line = path.pointers().firstNotNullOfOrNull { lines[it] }
@@ -377,6 +382,26 @@ internal object ReportDefinitionParser {
       return all.find { it.name == name } ?: null.also { error(ReportDefinitionErrorCode.ENTITY_NOT_FOUND, path, name) }
     }
 
+    /** Resolves a `config.<field>` value against the configuration Entity; null for any other value, schema-only checks or an error. */
+    private fun configField(raw: String?, path: Path): ResolvedField? {
+      val configPath = ReportFields.configPath(raw) ?: return null
+      val all = entities ?: return null
+      val entity = configEntity ?: return null.also { error(ReportDefinitionErrorCode.CONFIG_NOT_DEFINED, path, raw!!.trim()) }
+      return when (val resolution = ReportFields.resolve(entity, configPath, all)) {
+        is FieldResolution.Resolved -> resolution.field
+        is FieldResolution.Failed -> null.also { error(ReportDefinitionErrorCode.CONFIG_FIELD_NOT_FOUND, path, configPath, entity.name) }
+      }
+    }
+
+    /** A numeric `config.<field>` value compared with values in [unit]: the field must be numeric and its unit of the same family. */
+    private fun checkConfigNumber(raw: String, path: Path, unit: PropertyUnit?) {
+      val field = configField(raw, path) ?: return
+      when {
+        !ReportFields.isNumericType(field.type) -> error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, raw.trim())
+        unit != null && field.unit != null && unit.family != field.unit?.family -> error(ReportDefinitionErrorCode.CONFIG_UNIT_MISMATCH, path, raw.trim())
+      }
+    }
+
     private fun checkField(entity: EntityDefinition, field: String, path: Path): ResolvedField? =
       when (val resolution = ReportFields.resolve(entity, field, entities.orEmpty())) {
         is FieldResolution.Resolved -> resolution.field
@@ -419,6 +444,7 @@ internal object ReportDefinitionParser {
       val value = map.get("value")?.takeIf { !it.isNull }?.let { text(it, path.key("value")) }
       if (operator != null && operator !in VALUELESS_OPERATORS && value == null) error(ReportDefinitionErrorCode.FILTER_VALUE_MISSING, path, operator.name)
       if (operator in REGEX_OPERATORS && value != null && runCatching { Regex(value) }.isFailure) error(ReportDefinitionErrorCode.INVALID_REGEX, path.key("value"), value)
+      configField(value, path.key("value"))
       if (field == null || operator == null) return null
       return FilterRule(mode, field, operator, value, includeAbsent)
     }
@@ -624,6 +650,7 @@ internal object ReportDefinitionParser {
     @Suppress("CyclomaticComplexMethod")
     private fun statPanel(map: ObjectNode, path: Path, title: String): ReportPanel? {
       checkKeys(map, path, STAT_KEYS + ReportPanelType.STAT.key)
+      if (map.has("config")) return configStatPanel(map, path, title)
       val query = required(map, "query", path)?.let { nonBlankText(it, path.key("query"), "query") }
       val explicitField = map.get("field")?.let { nonBlankText(it, path.key("field"), "field") }
       val reduce = map.get("reduce")?.let { keyed(it, path.key("reduce"), ReportReduce.entries) { r -> r.key } } ?: ReportReduce.LAST
@@ -643,9 +670,24 @@ internal object ReportDefinitionParser {
       if (compare && info != null && !closedRange(info.query)) error(ReportDefinitionErrorCode.COMPARE_NEEDS_RANGE, path.key("compare"), info.query.name)
       val thresholdColumn = column?.takeIf { it.type != null && reduce != ReportReduce.COUNT }
       val thresholds = map.get("thresholds")?.let { node ->
-        list(node, path.key("thresholds"))?.mapIndexedNotNull { i, item -> threshold(item, path.key("thresholds").index(i), thresholdColumn, reduce) }
+        list(node, path.key("thresholds"))?.mapIndexedNotNull { i, item ->
+          threshold(item, path.key("thresholds").index(i), thresholdColumn != null || reduce == ReportReduce.COUNT, thresholdColumn?.unit)
+        }
       }.orEmpty()
       return query?.let { ReportStatPanel(title, it, field, reduce, compare, thresholds) }
+    }
+
+    /** `{ stat: Jahresziel, config: zielKm }`: a numeric configuration field shown as a constant, without query. */
+    private fun configStatPanel(map: ObjectNode, path: Path, title: String): ReportPanel? {
+      STAT_QUERY_KEYS.filter { map.has(it) }.forEach { error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key(it), it, "config") }
+      val name = nonBlankText(map.get("config"), path.key("config"), "config")?.removePrefix(ReportFields.CONFIG_PREFIX)
+      val field = name?.let { configField(ReportFields.CONFIG_PREFIX + it, path.key("config")) }
+      if (field != null && !ReportFields.isNumericType(field.type)) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path.key("config"), name)
+      val unit = field?.unit
+      val thresholds = map.get("thresholds")?.let { node ->
+        list(node, path.key("thresholds"))?.mapIndexedNotNull { i, item -> threshold(item, path.key("thresholds").index(i), field != null, unit) }
+      }.orEmpty()
+      return name?.let { ReportStatPanel(title, null, null, thresholds = thresholds, config = it) }
     }
 
     private fun closedRange(query: ReportQuery): Boolean = when (val range = query.range) {
@@ -654,12 +696,15 @@ internal object ReportDefinitionParser {
       null -> false
     }
 
-    private fun threshold(node: JsonNode, path: Path, column: ResultColumn?, reduce: ReportReduce): ReportThreshold? {
+    /** A threshold; with [checkNumbers] its value must be a number in [unit] (or a numeric `config.<field>` of a fitting unit). */
+    private fun threshold(node: JsonNode, path: Path, checkNumbers: Boolean, unit: PropertyUnit?): ReportThreshold? {
       val map = obj(node, path) ?: return null
       checkKeys(map, path, THRESHOLD_KEYS)
       val value = required(map, "value", path)?.let { nonBlankText(it, path.key("value"), "value") }
       val color = required(map, "color", path)?.let { nonBlankText(it, path.key("color"), "color") }
-      if (value != null && (column != null || reduce == ReportReduce.COUNT) && ReportValues.parseNumber(value, column?.unit) == null) {
+      if (value != null && ReportFields.configPath(value) != null) {
+        checkConfigNumber(value, path.key("value"), unit)
+      } else if (value != null && checkNumbers && ReportValues.parseNumber(value, unit) == null) {
         error(ReportDefinitionErrorCode.INVALID_NUMBER, path.key("value"), value)
       }
       if (color != null && !ReportValues.isColor(color)) error(ReportDefinitionErrorCode.INVALID_COLOR, path.key("color"), color, ReportValues.COLOR_NAMES.joinToString(", "))

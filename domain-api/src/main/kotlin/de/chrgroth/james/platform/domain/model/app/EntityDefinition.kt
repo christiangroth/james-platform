@@ -33,6 +33,8 @@ data class EntityDefinition(
   val migrationSteps: List<MigrationStep> = emptyList(),
   // Kotlin script transforming existing AppData when an installation upgrades past the Version this script is authored in.
   val migrationScript: String? = null,
+  // Marks the App Version's configuration: a singleton Entity with exactly one object per installation, created from the defaults (ADR 0027).
+  val configuration: Boolean = false,
 )
 
 data class ComputedProperty(

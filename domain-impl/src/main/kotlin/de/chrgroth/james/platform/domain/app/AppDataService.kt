@@ -76,6 +76,10 @@ class AppDataService(
       InstalledAppId(installedAppId),
       EntityDefinitionId(entityTypeId),
     )
+    if (entityDef.configuration && existingValues.isNotEmpty()) {
+      logger.warn { "Create app data failed: configuration object of installed app $installedAppId already exists (entity $entityTypeId)" }
+      return AppDataError.CONFIGURATION_ALREADY_EXISTS.left()
+    }
 
     val lookups = resolveReferenceLookups(installedApp, appVersion, entityDef, data)
     val validated = validateFormData(entityDef, lookups.data, existingValues, installedApp.id, lookups.pendingIds)
@@ -190,6 +194,10 @@ class AppDataService(
     if (appVersion == null) {
       logger.warn { "Delete app data failed: app version not found for installed app: $installedAppId" }
       return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    if (appVersion.entityDefinitions.any { it.id == appDataItem.entityType && it.configuration }) {
+      logger.warn { "Delete app data failed: $dataId is the configuration object of installed app $installedAppId" }
+      return AppDataError.CONFIGURATION_NOT_DELETABLE.left()
     }
 
     // Collect all (referencingData, property) pairs where a REF property value equals dataId

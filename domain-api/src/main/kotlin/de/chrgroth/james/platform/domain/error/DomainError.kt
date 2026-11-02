@@ -128,6 +128,13 @@ enum class AppVersionError(override val code: String) : DomainError {
   INVALID_REFERENCE_LOOKUP("APPVER-070"),
   INVALID_REPORT_DEFINITION("APPVER-071"),
   INVALID_REPORTS("APPVER-072"),
+
+  /** Another Entity of the version already is the configuration (ADR 0027). */
+  CONFIGURATION_ALREADY_DEFINED("APPVER-073"),
+
+  /** The configuration Entity cannot be the target of a REF property (ADR 0027). */
+  CONFIGURATION_REFERENCED("APPVER-074"),
+  INVALID_CONFIGURATION("APPVER-075"),
   ;
 }
 
@@ -174,6 +181,15 @@ enum class AppDataError(override val code: String) : DomainError {
   APP_DATA_NOT_FOUND("APPDATA-004"),
   REFERENCED_BY_NON_NULLABLE_PROPERTY("APPDATA-005"),
   PROPERTY_NOT_FOUND("APPDATA-006"),
+
+  /** The installed version defines no configuration Entity (ADR 0027). */
+  CONFIGURATION_NOT_DEFINED("APPDATA-007"),
+
+  /** The configuration object exists exactly once per installation; a second one cannot be created (ADR 0027). */
+  CONFIGURATION_ALREADY_EXISTS("APPDATA-008"),
+
+  /** The configuration object can be edited but not deleted (ADR 0027). */
+  CONFIGURATION_NOT_DELETABLE("APPDATA-009"),
   ;
 }
 
@@ -330,6 +346,13 @@ data class InvalidReportDefinitionError(
 }
 
 /** Publishing failed because the definitions of these reports are invalid, e.g. an entity or property they use was deleted or renamed. */
+/** Publish found configuration Entities (ADR 0027) that are invalid: several of them, referenced by a REF, or a required property without default. */
+data class InvalidConfigurationError(
+  val entityNames: List<String>,
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_CONFIGURATION.code
+}
+
 data class InvalidReportsError(
   val reportNames: List<String>,
 ) : DomainError {

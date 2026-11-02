@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
@@ -41,6 +42,7 @@ class UserAppStoreService(
   private val userRepository: UserRepositoryPort,
   private val appVersionMigration: AppVersionMigrationPort,
   private val outbox: OutboxPort,
+  private val appConfiguration: AppConfigurationPort,
 ) : UserAppStorePort {
 
   private fun latestPublishedVersion(appId: AppId) =
@@ -149,6 +151,7 @@ class UserAppStoreService(
       installedAt = Instant.now(),
     )
     installedAppRepository.save(installedApp)
+    appConfiguration.ensureConfiguration(installedApp.id)
     logger.info { "App installed: appId=$appId for user=$userId (version ${latestVersion.versionNumber!!.value})" }
     return installedApp.right()
   }
@@ -176,6 +179,7 @@ class UserAppStoreService(
     )
     val upgraded = existing.copy(installedVersionNumber = latestVersion.versionNumber!!)
     installedAppRepository.save(upgraded)
+    appConfiguration.ensureConfiguration(upgraded.id)
     enqueueAggregationRecompute(upgraded.id, latestVersion.entityDefinitions.flatMap { it.aggregations }.map { it.id }.distinct())
     logger.info { "App upgraded: installedAppId=$installedAppId to version ${latestVersion.versionNumber!!.value}" }
     return upgraded.right()

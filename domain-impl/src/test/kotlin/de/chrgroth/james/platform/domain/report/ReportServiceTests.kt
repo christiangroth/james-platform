@@ -34,9 +34,9 @@ class ReportServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val computedProperty: ComputedPropertyPort = mockk {
-    every { computeValues(any(), any(), any()) } answers { mapOf("c-jahr" to secondArg<Map<String, String?>>()["p-datum"]?.take(4)) }
+    every { computeValues(any(), any(), any(), any()) } answers { mapOf("c-jahr" to secondArg<Map<String, String?>>()["p-datum"]?.take(4)) }
   }
-  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty).apply {
+  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, mockk(relaxed = true)).apply {
     clock = Clock.fixed(Instant.parse("2026-06-15T10:00:00Z"), ZoneOffset.UTC)
   }
 
@@ -244,7 +244,7 @@ class ReportServiceTests {
       """,
     )
 
-    verify(exactly = 0) { computedProperty.computeValues(any(), any(), any()) }
+    verify(exactly = 0) { computedProperty.computeValues(any(), any(), any(), any()) }
   }
 
   @Test

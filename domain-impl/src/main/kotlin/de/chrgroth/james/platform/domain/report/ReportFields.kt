@@ -42,6 +42,18 @@ internal object ReportFields {
 
   private const val SEPARATOR = '.'
 
+  /** Prefix of a reference to the App configuration (ADR 0027) in a value position, e.g. `config.zielKm`. */
+  const val CONFIG_PREFIX = "config."
+
+  /** The configuration field path of a `config.<field>` value, null for any other value. */
+  fun configPath(raw: String?): String? = raw?.trim()?.takeIf { it.startsWith(CONFIG_PREFIX) }?.removePrefix(CONFIG_PREFIX)?.takeIf { it.isNotBlank() }
+
+  /** Converts a raw number stored in [from]'s storage granularity into [to]'s; unchanged unless both are units of the same family. */
+  fun convertUnit(value: Double, from: PropertyUnit?, to: PropertyUnit?): Double {
+    if (from == null || to == null || from.family != to.family) return value
+    return value * from.storageGranularity.factorToSmallestUnit / to.storageGranularity.factorToSmallestUnit
+  }
+
   /**
    * Resolves [path] on [entity]: `name`, `ref.name` (one `ref` hop at most), `object.nested[.deeper]` or `ref.object.nested`. A property whose
    * own name contains the separator wins over a hop.

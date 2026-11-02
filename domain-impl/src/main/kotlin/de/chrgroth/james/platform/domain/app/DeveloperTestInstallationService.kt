@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -28,6 +29,7 @@ class DeveloperTestInstallationService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val outbox: OutboxPort,
+  private val appConfiguration: AppConfigurationPort,
 ) : DeveloperTestInstallationPort {
 
   override fun listTestInstallations(appId: String, developerId: String): Either<DomainError, List<InstalledApp>> {
@@ -67,6 +69,7 @@ class DeveloperTestInstallationService(
       installedVersionId = version.id,
     )
     installedAppRepository.save(installedApp)
+    appConfiguration.ensureConfiguration(installedApp.id)
     logger.info { "Test installation created: appId=$appId, versionId=$versionId for developer=$developerId" }
     return installedApp.right()
   }

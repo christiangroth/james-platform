@@ -215,6 +215,7 @@ class AppVersionRepositoryAdapter(
     aggregations = aggregations.mapNotNull { it.toDomain() },
     migrationSteps = migrationSteps.mapNotNull { it.toDomain() },
     migrationScript = migrationScript,
+    configuration = configuration,
   )
 
   private fun SortCriteriaDocument.toDomain(): SortCriteria? {
@@ -339,6 +340,7 @@ class AppVersionRepositoryAdapter(
     doc.aggregations = aggregations.map { it.toDocument() }
     doc.migrationSteps = migrationSteps.map { it.toDocument() }
     doc.migrationScript = migrationScript
+    doc.configuration = configuration
   }
 
   private fun MigrationStep.toDocument() = MigrationStepDocument().also { doc ->

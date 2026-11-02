@@ -91,7 +91,7 @@ class ImportService(
       logger.warn { "Trigger import failed: installed app not found: $installedAppId for user: $userId" }
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
-    val entityDefinition = entityDefinitionsOf(installedApp).find { it.id.value == targetEntityDefinitionId } ?: run {
+    val entityDefinition = entityDefinitionsOf(installedApp).find { it.id.value == targetEntityDefinitionId && !it.configuration } ?: run {
       logger.warn { "Trigger import failed: entity definition not found: $targetEntityDefinitionId for installedAppId: $installedAppId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
@@ -325,7 +325,7 @@ class ImportService(
       return ImportError.INSTALLED_APP_NOT_FOUND.left()
     }
     val entityDefinitions = entityDefinitionsOf(installedApp)
-    val entityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId } ?: run {
+    val entityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId && !it.configuration } ?: run {
       logger.warn { "Scheduled import failed: target entity definition not found: ${definition.targetEntityDefinitionId.value} for definitionId: ${definition.id.value}" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
@@ -666,7 +666,7 @@ class ImportService(
     }
 
     val entityDefinitions = entityDefinitionsOf(installedApp)
-    val targetEntityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId } ?: run {
+    val targetEntityDefinition = entityDefinitions.find { it.id == definition.targetEntityDefinitionId && !it.configuration } ?: run {
       logger.warn { "Update mapping failed: target entity definition not found for importJobId: $importJobId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }

@@ -89,7 +89,7 @@ class TestDataGeneratorService(
       return TestDataGeneratorError.INSTALLATION_NOT_FOUND.left()
     }
 
-    val entityDef = appVersion.entityDefinitions.find { it.id.value == entityId }
+    val entityDef = appVersion.dataEntities.find { it.id.value == entityId }
     if (entityDef == null) {
       logger.warn { "Generate test data failed: entity not found: $entityId in version ${appVersion.id.value}" }
       return TestDataGeneratorError.ENTITY_NOT_FOUND.left()
@@ -149,7 +149,7 @@ class TestDataGeneratorService(
       clearGenerating(installedApp)
       return TestDataGeneratorError.INSTALLATION_NOT_FOUND.left()
     }
-    val entityDef = appVersion.entityDefinitions.find { it.id.value == event.entityId }
+    val entityDef = appVersion.dataEntities.find { it.id.value == event.entityId }
     if (entityDef == null) {
       logger.warn { "Generate test data handler failed: entity not found: ${event.entityId} in version ${appVersion.id.value}" }
       clearGenerating(installedApp)

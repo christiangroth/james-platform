@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
@@ -58,6 +59,7 @@ import de.chrgroth.james.platform.domain.model.app.SectionDiff
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
@@ -82,6 +84,7 @@ class AppVersionManagementService(
   private val installedAppRepository: InstalledAppRepositoryPort,
   private val appVersionMigration: AppVersionMigrationPort,
   private val outbox: OutboxPort,
+  private val appConfiguration: AppConfigurationPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -242,6 +245,11 @@ class AppVersionManagementService(
       logger.warn { "Publish version failed: invalid reference lookups in entities: $invalidReferenceLookupEntityNames" }
       return InvalidReferenceLookupError(invalidReferenceLookupEntityNames).left()
     }
+    val invalidConfigurationEntityNames = invalidConfigurationEntities(version).map { it.name }
+    if (invalidConfigurationEntityNames.isNotEmpty()) {
+      logger.warn { "Publish version failed: invalid configuration entities: $invalidConfigurationEntityNames" }
+      return InvalidConfigurationError(invalidConfigurationEntityNames).left()
+    }
     val invalidReportNames = version.reports.filter { ReportDefinitionParser.parse(it.definition, version.entityDefinitions).errors.isNotEmpty() }.map { it.name }
     if (invalidReportNames.isNotEmpty()) {
       logger.warn { "Publish version failed: invalid report definitions: $invalidReportNames" }
@@ -306,6 +314,7 @@ class AppVersionManagementService(
       },
       ifRight = {
         installedAppRepository.save(installedApp.copy(installedVersionNumber = toVersionNumber))
+        appConfiguration.ensureConfiguration(installedAppId)
         enqueueAggregationRecompute(installedAppId, AppId(event.appId), toVersionNumber)
         logger.info { "Auto-upgraded installedAppId=${event.installedAppId} from ${event.fromVersionNumber} to ${event.toVersionNumber}" }
         Unit.right()
@@ -485,6 +494,50 @@ class AppVersionManagementService(
     appVersionRepository.save(updated)
     logger.info { "Entity display text updated: $entityId in version $versionId" }
     return updated.right()
+  }
+
+  override fun setEntityConfiguration(appId: String, versionId: String, entityId: String, configuration: Boolean): Either<DomainError, AppVersion> {
+    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
+    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
+      logger.warn { "Set entity configuration failed: entity not found: $entityId in version $versionId" }
+      return AppVersionError.ENTITY_NOT_FOUND.left()
+    }
+    if (configuration && version.entityDefinitions.any { it.configuration && it.id != entity.id }) {
+      logger.warn { "Set entity configuration failed: version $versionId already has a configuration entity" }
+      return AppVersionError.CONFIGURATION_ALREADY_DEFINED.left()
+    }
+    if (configuration && isReferenced(version, entity.id)) {
+      logger.warn { "Set entity configuration failed: entity $entityId is the target of a REF property in version $versionId" }
+      return AppVersionError.CONFIGURATION_REFERENCED.left()
+    }
+    val updated = version.withEntity(entity.copy(configuration = configuration))
+    appVersionRepository.save(updated)
+    logger.info { "Entity configuration flag set: $entityId in version $versionId (configuration=$configuration)" }
+    return updated.right()
+  }
+
+  /** Whether any (nested or LIST item) REF property of [version] targets [entityId]. */
+  private fun isReferenced(version: AppVersion, entityId: EntityDefinitionId): Boolean {
+    fun targets(properties: List<Property>): Boolean = properties.any { it.targetEntityId == entityId || targets(it.nestedProperties) }
+    return version.entityDefinitions.any { targets(it.properties) }
+  }
+
+  /**
+   * Configuration Entities (ADR 0027) that cannot be published: all of them if there are several, those targeted by a REF property, and
+   * those with a required property the object could not be created with on install (no default/smart default, or a required OBJECT whose
+   * required nested properties lack a default; REF and LIST properties have no default and must be nullable).
+   */
+  private fun invalidConfigurationEntities(version: AppVersion): List<EntityDefinition> {
+    val configurations = version.entityDefinitions.filter { it.configuration }
+    if (configurations.size > 1) return configurations
+    return configurations.filter { entity -> isReferenced(version, entity.id) || entity.properties.any { !creatableFromDefaults(it, topLevel = true) } }
+  }
+
+  private fun creatableFromDefaults(property: Property, topLevel: Boolean): Boolean = when {
+    property.nullable || property.type == PropertyType.BOOLEAN -> true
+    property.type == PropertyType.OBJECT -> property.nestedProperties.all { creatableFromDefaults(it, topLevel = false) }
+    property.default != null -> true
+    else -> topLevel && property.smartDefault != null
   }
 
   override fun addMigrationStep(appId: String, versionId: String, entityId: String, input: MigrationStepInput): Either<DomainError, AppVersion> {
@@ -1223,6 +1276,10 @@ class AppVersionManagementService(
       logger.warn { "Resolve target entity failed: target entity not found: $trimmedTargetEntityId in version ${version.id.value}" }
       return AppVersionError.TARGET_ENTITY_NOT_FOUND.left()
     }
+    if (targetEntity.configuration) {
+      logger.warn { "Resolve target entity failed: target entity $trimmedTargetEntityId is the configuration entity of version ${version.id.value}" }
+      return AppVersionError.CONFIGURATION_REFERENCED.left()
+    }
     return targetEntity.id.right()
   }
 
@@ -1928,6 +1985,9 @@ class AppVersionManagementService(
   private fun entityToDslLines(entity: EntityDefinition, allEntities: List<EntityDefinition>): List<String> {
     val lines = mutableListOf<String>()
     lines.add("entity ${entity.name} {")
+    if (entity.configuration) {
+      lines.add("  configuration: true")
+    }
     if (entity.displayText != null) {
       lines.add("  display-text: ${entity.displayText}")
     }

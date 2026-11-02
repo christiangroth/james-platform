@@ -46,7 +46,7 @@ class UserAppStoreServiceTests {
   private val userRepository: UserRepositoryPort = mockk()
   private val appVersionMigration: AppVersionMigrationPort = mockk()
   private val outboxPort: OutboxPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, aggregationRepository, userRepository, appVersionMigration, outboxPort)
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, aggregationRepository, userRepository, appVersionMigration, outboxPort, mockk(relaxed = true))
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
