@@ -28,7 +28,9 @@ enum class TimeBucket { TAG, WOCHE, MONAT, JAHR, QUARTAL }
 
 /**
  * Declares a precomputed rollup over instances of the [EntityDefinition] this is part of (analogous to
- * [ComputedProperty]). [sourceProperty] and [groupBy], if set, must be top-level properties of that same Entity.
+ * [ComputedProperty]). [sourceProperty] may be a top-level property of that same Entity or a property nested in OBJECT properties, whose
+ * enclosing OBJECT properties are then listed in [sourcePath] (outermost first, empty for a top-level property). [groupBy], if set, must be
+ * a top-level property of that same Entity.
  *
  * [refPath], if set, must be a top-level property of that same Entity of type [PropertyType.REF] (Ref-depth 1, see
  * docs/adr/0020-aggregation-definitions.md) — it groups the aggregation's values per instance of the referenced
@@ -57,4 +59,6 @@ data class AggregationDefinition(
   val timeProperty: PropertyId? = null,
   val groupBy: PropertyId? = null,
   val periodStart: MonthDay? = null,
+  /** The OBJECT properties enclosing [sourceProperty], outermost first; empty when [sourceProperty] is a top-level property. */
+  val sourcePath: List<PropertyId> = emptyList(),
 )

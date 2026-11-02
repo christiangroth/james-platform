@@ -2214,7 +2214,7 @@ class AppVersionManagementServiceTests {
     )
     assertThat(fieldsOf(ComputedProperty::class.java)).containsExactlyInAnyOrder("id", "name", "type", "script")
     assertThat(fieldsOf(AggregationDefinition::class.java)).containsExactlyInAnyOrder(
-      "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy", "periodStart",
+      "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy", "periodStart", "sourcePath",
     )
     assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "html", "script")
     assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity")
@@ -3930,6 +3930,35 @@ class AppVersionManagementServiceTests {
     assertThat(aggregation.timeProperty).isEqualTo(dateProp.id)
     assertThat(aggregation.groupBy).isNull()
     verify { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `addAggregation accepts a numeric source property nested in an OBJECT property and stores its path`() {
+    val mood = Property(id = PropertyId("p-mood"), name = "zufriedenheit", type = PropertyType.LONG)
+    val note = Property(id = PropertyId("p-mood-note"), name = "notiz", type = PropertyType.STRING)
+    val rating = Property(id = PropertyId("p-rating"), name = "bewertung", type = PropertyType.OBJECT, nestedProperties = listOf(mood, note))
+    givenDraftWith(runEntity.copy(properties = runEntity.properties + rating))
+
+    val result = service.addAggregation(
+      "app-1", "ver-1", "e-run",
+      input(name = "Zufriedenheit je Monat", function = "AVG", sourceProperty = mood.id.value, timeBucket = "MONAT", timeProperty = dateProp.id.value),
+    )
+
+    assertThat(result.isRight()).isTrue()
+    val aggregation = result.getOrNull()!!.entityDefinitions.single().aggregations.single()
+    assertThat(aggregation.sourceProperty).isEqualTo(mood.id)
+    assertThat(aggregation.sourcePath).containsExactly(rating.id)
+  }
+
+  @Test
+  fun `addAggregation rejects SUM on a non-numeric nested property`() {
+    val note = Property(id = PropertyId("p-mood-note"), name = "notiz", type = PropertyType.STRING)
+    val rating = Property(id = PropertyId("p-rating"), name = "bewertung", type = PropertyType.OBJECT, nestedProperties = listOf(note))
+    givenDraftWith(runEntity.copy(properties = runEntity.properties + rating))
+
+    val result = service.addAggregation("app-1", "ver-1", "e-run", input(sourceProperty = note.id.value))
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID)
   }
 
   @Test

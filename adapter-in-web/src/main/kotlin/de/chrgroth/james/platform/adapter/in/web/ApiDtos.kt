@@ -137,6 +137,8 @@ data class ApiAggregationDto(
   val timeProperty: String?,
   val groupBy: String?,
   val periodStart: String?,
+  /** The OBJECT properties enclosing [sourceProperty], outermost first; empty for a top-level source property. */
+  val sourcePath: List<String> = emptyList(),
 )
 
 data class ApiMigrationStepDto(
@@ -320,6 +322,7 @@ object ApiDtoMapper {
     timeProperty = aggregation.timeProperty?.value,
     groupBy = aggregation.groupBy?.value,
     periodStart = aggregation.periodStart?.toString(),
+    sourcePath = aggregation.sourcePath.map { it.value },
   )
 
   private fun migrationStep(step: MigrationStep): ApiMigrationStepDto = when (step) {

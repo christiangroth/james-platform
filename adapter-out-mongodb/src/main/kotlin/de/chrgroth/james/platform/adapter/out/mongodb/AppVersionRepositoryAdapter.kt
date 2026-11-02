@@ -275,6 +275,7 @@ class AppVersionRepositoryAdapter(
       timeProperty = timeProperty?.let { PropertyId(it) },
       groupBy = groupBy?.let { PropertyId(it) },
       periodStart = periodStartDay?.let { day -> periodStartMonth?.let { month -> runCatching { MonthDay.of(month, day) }.getOrNull() } },
+      sourcePath = sourcePath.orEmpty().map { PropertyId(it) },
     )
   }
 
@@ -425,6 +426,7 @@ class AppVersionRepositoryAdapter(
     doc.groupBy = groupBy?.value
     doc.periodStartDay = periodStart?.dayOfMonth
     doc.periodStartMonth = periodStart?.monthValue
+    doc.sourcePath = sourcePath.map { it.value }.takeIf { it.isNotEmpty() }
   }
 
   private fun PropertyConstraint.toDocument() = ConstraintDocument().also { doc ->

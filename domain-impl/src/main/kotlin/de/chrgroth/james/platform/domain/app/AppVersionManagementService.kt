@@ -39,6 +39,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.coveredPropertyId
 import de.chrgroth.james.platform.domain.model.app.propertyChangeReasons
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.findPropertyPath
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.Report
@@ -1540,6 +1541,7 @@ class AppVersionManagementService(
       name = input.name.trim(),
       function = function,
       sourceProperty = PropertyId(input.sourceProperty),
+      sourcePath = entity.findPropertyPath(PropertyId(input.sourceProperty))?.parentIds.orEmpty(),
       refPath = input.refPath.blankToNull()?.let { PropertyId(it) },
       timeBucket = timeBucket,
       timeProperty = input.timeProperty.blankToNull()?.let { PropertyId(it) },
@@ -1672,7 +1674,10 @@ class AppVersionManagementService(
   /** The first rule [aggregation] violates, or null if valid - shared by the Version publish and the aggregation editor's form feedback. */
   private fun aggregationDefinitionError(entity: EntityDefinition, aggregation: AggregationDefinition): AppVersionError? {
     if (aggregation.name.isBlank()) return AppVersionError.BLANK_INPUT
-    val sourceProperty = entity.properties.find { it.id == aggregation.sourceProperty } ?: return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    // the source may be nested in OBJECT properties; its stored sourcePath must still match where the property lives in this entity
+    val sourcePropertyPath = entity.findPropertyPath(aggregation.sourceProperty) ?: return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    if (sourcePropertyPath.parentIds != aggregation.sourcePath) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    val sourceProperty = sourcePropertyPath.property
     if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
     // No combined grouping: groupKeyOf uses a single group key, so refPath and groupBy are mutually exclusive.
     if (aggregation.refPath != null && aggregation.groupBy != null) return AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE
@@ -1927,7 +1932,8 @@ class AppVersionManagementService(
     entity.properties.find { it.id.value == propertyId }?.name ?: propertyId
 
   private fun aggregationToDslLines(aggregation: AggregationDefinition, entity: EntityDefinition): List<String> {
-    val lines = mutableListOf("  aggregation ${aggregation.name}: ${aggregation.function}(${propertyNameOf(entity, aggregation.sourceProperty.value)})")
+    val sourceName = entity.findPropertyPath(aggregation.sourceProperty)?.displayName ?: aggregation.sourceProperty.value
+    val lines = mutableListOf("  aggregation ${aggregation.name}: ${aggregation.function}($sourceName)")
     aggregation.refPath?.let { lines.add("    ref-path: ${propertyNameOf(entity, it.value)}") }
     aggregation.groupBy?.let { lines.add("    group-by: ${propertyNameOf(entity, it.value)}") }
     aggregation.timeBucket?.let { lines.add("    time-bucket: $it") }

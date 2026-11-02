@@ -955,7 +955,7 @@
                             <label for="aggregationSourceProperty" class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerAggregation:developerAggregationSourcePropertyLabel()} <span style="color:var(--color-required);">*</span></label>
                             <select class="form-select app-form-control" id="aggregationSourceProperty" name="sourceProperty" required data-testid="aggregation-source-property-select">
                                 <option value="">{msg:commonSelectPlaceholder()}</option>
-                                {#for opt in aggregationPropertyOptions}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/for}
+                                {#for opt in aggregationSourceOptions}<option value="{opt.id}" data-numeric="{opt.numeric}">{opt.name}</option>{/for}
                             </select>
                             <p class="app-section-label mb-0 mt-1" style="font-size:0.75rem;">{developerAggregation:developerAggregationSourcePropertyHelp()}</p>
                         </div>

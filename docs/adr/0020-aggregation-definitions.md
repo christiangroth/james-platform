@@ -191,3 +191,14 @@ Rules:
 An irregular period (e.g. a season start that itself changes year to year) and Computed Properties as an
 aggregation source remain out of scope — see "Abgrenzung" in
 [#711](https://github.com/christiangroth/james-platform/issues/711).
+
+## Addendum: source properties nested in object properties
+
+An aggregation's `sourceProperty` may also be a property nested in one or more `object` properties (e.g. the rating
+`bewertung > zufriedenheit` of a journal day, or `steuern > lohnsteuer` of a pay slip), since grouping fields into
+`object` properties otherwise made them unusable for aggregations. The definition additionally stores `sourcePath`, the
+ids of the enclosing `object` properties (outermost first, empty for a top-level source); the computation reads the
+value from the stored `object` JSON along that path. Storing the path instead of resolving it from the Entity keeps
+the shared computation (`AggregationComputation`) free of any Entity lookup, and validation (editor and publish)
+rejects a definition whose `sourcePath` no longer matches where the property lives. `refPath`, `timeProperty` and
+`groupBy` remain top-level only.

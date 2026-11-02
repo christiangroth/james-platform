@@ -132,6 +132,8 @@ object DeveloperTemplates {
     removedProperties: List<Property>,
     aggregations: List<AggregationEditorRow>,
     aggregationPropertyOptions: List<AggregationPropertyOptionRow>,
+    /** Source property options incl. properties nested in OBJECT properties, labeled with their path. */
+    aggregationSourceOptions: List<AggregationPropertyOptionRow>,
     migrationSteps: List<MigrationStepEditorRow>,
     migrationSuggestions: List<MigrationStepEditorRow>,
     convertTypePropertyOptions: List<MigrationStepPropertyOptionRow>,

@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.model.readmodel
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import java.time.Instant
@@ -25,12 +26,26 @@ import java.time.temporal.WeekFields
  * occurrence contributes exactly `1.0`, matching [AggregationFunction.requiresNumericSourceProperty].
  */
 fun AggregationDefinition.contributionOf(item: AppData): Double? {
-  val raw = item.data[sourceProperty.value]
+  val raw = sourceValueOf(item)
   return if (function == AggregationFunction.COUNT) {
     if (raw.isNullOrBlank()) null else 1.0
   } else {
     raw?.toDoubleOrNull()
   }
+}
+
+/**
+ * The raw value of [AggregationDefinition.sourceProperty] in [item]: read directly for a top-level property, else from the JSON value of the
+ * enclosing OBJECT properties along [AggregationDefinition.sourcePath] (nested objects are stored as maps keyed by property id, nested
+ * scalar values as strings). Null if any level is missing or not an object.
+ */
+fun AggregationDefinition.sourceValueOf(item: AppData): String? {
+  if (sourcePath.isEmpty()) return item.data[sourceProperty.value]
+  var current: Map<*, *> = runCatching { decodeObjectValue(item.data[sourcePath.first().value]) }.getOrNull() ?: return null
+  for (parent in sourcePath.drop(1)) {
+    current = current[parent.value] as? Map<*, *> ?: return null
+  }
+  return current[sourceProperty.value]?.toString()
 }
 
 /**
