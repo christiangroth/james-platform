@@ -46,7 +46,12 @@
                         </div>
                         {/if}
                         <div class="mt-auto d-flex align-items-center gap-2">
-                            {#if info.installedVersion.versionNumber != info.latestVersion.versionNumber}
+                            {#if info.autoUpdatePending}
+                            <span class="app-section-label" style="font-size:0.75rem;" data-testid="update-pending-hint">
+                                <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {userAppUpdate:userAppUpdatePendingHint(info.latestVersion.versionNumber)}
+                            </span>
+                            {/if}
+                            {#if info.manualUpdateRequired}
                             <button type="button"
                                     class="btn btn-app-primary btn-sm"
                                     data-testid="upgrade-button"

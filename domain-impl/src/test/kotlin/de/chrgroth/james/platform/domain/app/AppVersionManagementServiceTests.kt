@@ -185,6 +185,22 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `createVersion does not carry over migration steps and scripts of the latest published version`() {
+    val step = MigrationStep.FillEmptyValue(MigrationStepId("m-1"), PropertyId("p-1"), "0")
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationSteps = listOf(step), migrationScript = "it")
+    every { appRepository.findById(AppId("app-1")) } returns existingApp
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion.copy(entityDefinitions = listOf(entityDef)))
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.createVersion("app-1")
+
+    val draftEntity = result.getOrNull()!!.entityDefinitions.single()
+    assertThat(draftEntity.migrationSteps).isEmpty()
+    assertThat(draftEntity.migrationScript).isNull()
+    assertThat(draftEntity.copy(migrationSteps = listOf(step), migrationScript = "it")).isEqualTo(entityDef)
+  }
+
+  @Test
   fun `createVersion fails when app not found`() {
     every { appRepository.findById(AppId("unknown")) } returns null
 
@@ -401,12 +417,28 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion does not enqueue auto-upgrade for installations that are not on the previous version`() {
+  fun `publishVersion also auto-upgrades installations of the same major that fell behind, from their own version`() {
     val instOnOldVersion = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     val instOnCurrentVersion = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(instOnOldVersion, instOnCurrentVersion)
+
+    val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 2) { outbox.enqueue(any()) }
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.0.0", "1.2.0")) }
+    verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-2", "app-1", "1.1.0", "1.2.0")) }
+  }
+
+  @Test
+  fun `publishVersion does not auto-upgrade installations of an older major`() {
+    val instOnOldMajor = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "0.9.0")
+    val instOnCurrentVersion = installedApp(id = "inst-2", userId = "user-2", appId = "app-1", versionNumber = "1.1.0")
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
+    justRun { appVersionRepository.save(any()) }
+    every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(instOnOldMajor, instOnCurrentVersion)
 
     val result = service.publishVersion("app-1", "FEATURE", releaseNotes)
 
