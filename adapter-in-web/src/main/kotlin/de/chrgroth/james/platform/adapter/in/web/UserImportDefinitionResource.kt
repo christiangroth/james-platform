@@ -137,6 +137,19 @@ class UserImportDefinitionResource {
   }
 
   @POST
+  @Path("/{definitionId}/name")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun rename(@PathParam("definitionId") definitionId: String, @FormParam("name") name: String?): Response =
+    httpResponseMetrics.timed("rest.user-import-definition.rename") {
+      val userId = securityIdentity.principal.name
+      importPort.renameImportDefinition(userId, definitionId, name.orEmpty()).fold(
+        ifLeft = { error -> Response.ok(DeveloperApiResult(false, definitionErrorMessage(error.code))).build() },
+        ifRight = { Response.ok(DeveloperApiResult(true, userImportDefinitionMsg.userImportDefinitionRenamedMessage())).build() },
+      )
+    }
+
+  @POST
   @Path("/{definitionId}/delete")
   @Produces(MediaType.APPLICATION_JSON)
   fun delete(@PathParam("definitionId") definitionId: String): Response = httpResponseMetrics.timed("rest.user-import-definition.delete") {
@@ -155,6 +168,7 @@ class UserImportDefinitionResource {
     ImportError.INVALID_CRON_SCHEDULE.code -> userImportDefinitionMsg.userImportInvalidCronScheduleError()
     ImportError.DEFINITION_NOT_CONFIGURED.code -> userImportDefinitionMsg.userImportDefinitionNotConfiguredError()
     ImportError.SCHEMA_DRIFT_DETECTED.code -> userImportDefinitionMsg.userImportSchemaDriftDetectedError()
+    ImportError.BLANK_DEFINITION_NAME.code -> userImportDefinitionMsg.userImportDefinitionBlankNameError()
     ImportError.INSTALLED_APP_NOT_FOUND.code -> userMsg.userInstalledAppNotFoundError()
     ImportError.ENTITY_DEFINITION_NOT_FOUND.code -> userMsg.userImportEntityDefinitionNotFoundError()
     ImportError.CONNECTION_NOT_FOUND.code -> userMsg.userImportConnectionNotFoundError()

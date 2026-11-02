@@ -38,6 +38,7 @@
             <div class="card app-card mb-3 p-3"
                  data-testid="definition-block"
                  data-definition-id="{definition.id}"
+                 data-definition-name="{definition.name}"
                  data-definition-schedule-mode="{definition.scheduleMode}"
                  data-definition-schedule-time="{definition.scheduleTime}"
                  data-definition-schedule-interval="{definition.scheduleIntervalMinutes}"
@@ -51,6 +52,7 @@
                             – <span data-testid="definition-app">{definition.installedAppName}</span> / <span data-testid="definition-entity">{definition.targetEntityName}</span>
                         </h2>
                         <div class="text-muted small">
+                            <div data-testid="definition-name">{userImportDefinition:userImportDefinitionNameLabel()}: <span data-testid="definition-name-value">{definition.name}</span></div>
                             <div data-testid="definition-schedule">
                                 {userImportDefinition:userImportDefinitionColSchedule()}:
                                 <span data-testid="definition-schedule-label">{definition.scheduleLabel}</span>
@@ -73,6 +75,9 @@
                         {/if}
                         <button type="button" class="btn btn-app-secondary btn-sm schedule-definition-button" data-bs-toggle="modal" data-bs-target="#scheduleModal" data-definition-id="{definition.id}" {#if !definition.configured}disabled{/if} title="{#if definition.configured}{userImportDefinition:userImportDefinitionScheduleButton()}{#else}{userImportDefinition:userImportDefinitionNotConfiguredHint()}{/if}" aria-label="{userImportDefinition:userImportDefinitionScheduleButton()}" data-testid="schedule-definition-button">
                             <i class="bi bi-clock-history" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="btn btn-app-secondary btn-sm rename-definition-button" data-bs-toggle="modal" data-bs-target="#renameDefinitionModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionRenameButton()}" aria-label="{userImportDefinition:userImportDefinitionRenameButton()}" data-testid="rename-definition-button">
+                            <i class="bi bi-pencil" aria-hidden="true"></i>
                         </button>
                         <button type="button" class="btn btn-app-secondary btn-sm history-definition-button" data-bs-toggle="modal" data-bs-target="#historyModal" data-definition-id="{definition.id}" title="{userImportDefinition:userImportDefinitionHistoryButton()}" aria-label="{userImportDefinition:userImportDefinitionHistoryButton()}" data-testid="history-definition-button">
                             <i class="bi bi-journal-text" aria-hidden="true"></i>
@@ -271,6 +276,30 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
                         <button type="submit" class="btn btn-app-primary" data-testid="schedule-submit-button">{msg:commonSave()}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Definition Modal -->
+    <div class="modal fade" id="renameDefinitionModal" tabindex="-1" aria-labelledby="renameDefinitionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="renameDefinitionModalLabel">{userImportDefinition:userImportDefinitionRenameModalTitle()}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
+                </div>
+                <form id="renameDefinitionForm">
+                    <div class="modal-body">
+                        <div id="rename-modal-message" class="d-none mb-3" role="alert"></div>
+                        <label for="renameDefinitionName" class="form-label">{userImportDefinition:userImportDefinitionNameLabel()}</label>
+                        <input type="text" class="form-control app-form-control" id="renameDefinitionName" name="name" required autocomplete="off" data-testid="rename-definition-name-input">
+                        <div class="form-text">{userImportDefinition:userImportDefinitionNameHint()}</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
+                        <button type="submit" class="btn btn-app-primary" data-testid="rename-definition-submit-button">{msg:commonSave()}</button>
                     </div>
                 </form>
             </div>
@@ -601,6 +630,35 @@
                     showMessage(true, result.message);
                 } else {
                     showScheduleModalMessage(result.message);
+                }
+            });
+
+            var renameModal = document.getElementById('renameDefinitionModal');
+            var renameForm = document.getElementById('renameDefinitionForm');
+            var renameMessage = document.getElementById('rename-modal-message');
+            renameModal.addEventListener('show.bs.modal', function (event) {
+                var trigger = event.relatedTarget;
+                var row = trigger ? trigger.closest('[data-testid="definition-block"]') : null;
+                renameModal.setAttribute('data-definition-id', trigger ? trigger.getAttribute('data-definition-id') : '');
+                renameForm.querySelector('#renameDefinitionName').value = row ? (row.getAttribute('data-definition-name') || '') : '';
+                renameMessage.className = 'd-none mb-3';
+                renameMessage.textContent = '';
+            });
+            renameModal.addEventListener('shown.bs.modal', function () {
+                renameForm.querySelector('#renameDefinitionName').focus();
+            });
+            renameForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var definitionId = renameModal.getAttribute('data-definition-id') || '';
+                var result = await fetchForm('POST', definitionsBasePath + '/' + encodeURIComponent(definitionId) + '/name', new FormData(this));
+                if (result.ok) {
+                    bootstrap.Modal.getInstance(renameModal).hide();
+                    await refreshTable();
+                    showMessage(true, result.message);
+                } else {
+                    renameMessage.className = 'alert alert-danger mb-3';
+                    renameMessage.setAttribute('data-testid', 'rename-modal-error');
+                    renameMessage.textContent = result.message;
                 }
             });
 

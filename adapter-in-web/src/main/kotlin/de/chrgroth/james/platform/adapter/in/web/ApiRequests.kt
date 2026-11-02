@@ -148,6 +148,11 @@ data class ApiImportScheduleRequest @JsonCreator constructor(
   @param:JsonProperty("replaceExistingOnRun") val replaceExistingOnRun: Boolean?,
 )
 
+/** Body of `PUT /api/v1/user/imports/definitions/{definitionId}/name`. */
+data class ApiImportDefinitionNameRequest @JsonCreator constructor(
+  @param:JsonProperty("name") val name: String?,
+)
+
 data class ApiDataPathRequest @JsonCreator constructor(
   @param:JsonProperty("dataPath") val dataPath: String?,
 )

@@ -238,6 +238,23 @@ class ApiTokenImportAndInstallTests {
   }
 
   @Test
+  fun `renaming an import definition requires the write scope and rejects a blank name`() {
+    val user = createUser(UserRole.USER, UserRole.DATA_IMPORT)
+    val importOnly = createToken(user, ApiTokenScope.USER_IMPORT)
+    val token = createToken(user, ApiTokenScope.USER_IMPORT, ApiTokenScope.USER_WRITE)
+    prepareMappedJob(user, token)
+    val definitionId: String = bearer(token).`when`().get("/api/v1/user/imports/definitions").then().statusCode(200).extract().path("[0].id")
+    val namePath = "/api/v1/user/imports/definitions/$definitionId/name"
+
+    bearer(importOnly).contentType("application/json").body(mapOf("name" to "Kontakte (CRM)")).`when`().put(namePath).then().statusCode(403)
+    bearer(token).contentType("application/json").body(mapOf("name" to "  ")).`when`().put(namePath).then().statusCode(400)
+      .body("code", equalTo("IMPORT-024"))
+    bearer(token).contentType("application/json").body(mapOf("name" to " Kontakte (CRM) ")).`when`().put(namePath).then().statusCode(200)
+      .body("name", equalTo("Kontakte (CRM)"))
+    bearer(token).`when`().get("/api/v1/user/imports/definitions").then().statusCode(200).body("name", hasItem("Kontakte (CRM)"))
+  }
+
+  @Test
   fun `accepting an import requires the write scope as well and saves the valid objects`() {
     val user = createUser(UserRole.USER, UserRole.DATA_IMPORT)
     val token = createToken(user, ApiTokenScope.USER_IMPORT, ApiTokenScope.USER_WRITE)

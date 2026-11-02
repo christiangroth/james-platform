@@ -70,6 +70,13 @@ interface ImportPort {
   ): Either<DomainError, ImportDefinition>
 
   /**
+   * Renames [definitionId] to the trimmed [name], e.g. to tell apart several definitions that got the same generated
+   * "Connection: Entity" name; the name shows up in the definition list, the API and the Slack run summaries. A blank
+   * name is rejected with [de.chrgroth.james.platform.domain.error.ImportError.BLANK_DEFINITION_NAME]; ownership-checked like [updateSchedule].
+   */
+  fun renameImportDefinition(userId: String, definitionId: String, name: String): Either<DomainError, ImportDefinition>
+
+  /**
    * Runs the same unattended fetch-to-accept pipeline as [triggerScheduledImport], but for a user-initiated
    * one-off re-run of an already-configured [definitionId] - ownership-checked, and recorded with
    * [de.chrgroth.james.platform.domain.model.imports.ImportTrigger.USER] instead of `SYSTEM`. Shares the same
