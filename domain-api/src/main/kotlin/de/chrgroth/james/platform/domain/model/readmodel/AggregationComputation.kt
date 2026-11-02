@@ -6,11 +6,14 @@ import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.MonthDay
+import java.time.YearMonth
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.time.temporal.WeekFields
 
@@ -73,7 +76,11 @@ private fun AggregationDefinition.bucketDateOf(item: AppData): LocalDate? {
 /** Calendar default period start: a "year"/"quarter" begins 01.01, exactly the pre-existing JAHR behavior. */
 private val CALENDAR_PERIOD_START: MonthDay = MonthDay.of(1, 1)
 
-private fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate, periodStart: MonthDay?): String {
+/**
+ * The key of the [bucket] [date] falls into: `2026-09-25` (TAG), `2026-W39` (ISO week), `2026-09` (MONAT), `2026-Q1` (QUARTAL) or `2026` (JAHR);
+ * JAHR and QUARTAL count from [periodStart] (calendar default 01.01.). Keys of one bucket sort chronologically as text.
+ */
+fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate, periodStart: MonthDay?): String {
   return when (bucket) {
     TimeBucket.TAG -> date.toString()
     TimeBucket.WOCHE -> {
@@ -98,6 +105,39 @@ private fun encodeTimeBucket(bucket: TimeBucket, date: LocalDate, periodStart: M
  * period year 2025, while 10.04.2026 already belongs to 2026.
  */
 private fun periodYearOf(date: LocalDate, periodStart: MonthDay): Int = if (MonthDay.from(date) >= periodStart) date.year else date.year - 1
+
+private val WEEK_BUCKET_REGEX = Regex("""(\d{4})-W(\d{2})""")
+private val MONTH_BUCKET_REGEX = Regex("""(\d{4})-(\d{2})""")
+private val QUARTER_BUCKET_REGEX = Regex("""(\d{4})-Q(\d)""")
+private val BUCKET_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+private const val QUARTERS_PER_YEAR = 4
+
+/** The key of the bucket following [key] (see [encodeTimeBucket]), e.g. `2026-12` -> `2027-01`; null if [key] is no valid key of [bucket]. */
+fun nextTimeBucket(bucket: TimeBucket, key: String): String? = when (bucket) {
+  TimeBucket.TAG -> runCatching { LocalDate.parse(key).plusDays(1).toString() }.getOrNull()
+  TimeBucket.WOCHE -> WEEK_BUCKET_REGEX.matchEntire(key)?.let { match ->
+    val monday = LocalDate.of(match.groupValues[1].toInt(), 1, 4)
+      .with(WeekFields.ISO.weekOfWeekBasedYear(), match.groupValues[2].toLong())
+      .with(DayOfWeek.MONDAY)
+    encodeTimeBucket(TimeBucket.WOCHE, monday.plusWeeks(1), null)
+  }
+  TimeBucket.MONAT -> runCatching { YearMonth.parse(key).plusMonths(1).toString() }.getOrNull()
+  TimeBucket.QUARTAL -> QUARTER_BUCKET_REGEX.matchEntire(key)?.let { match ->
+    val year = match.groupValues[1].toInt()
+    val quarter = match.groupValues[2].toInt()
+    if (quarter < QUARTERS_PER_YEAR) "%04d-Q%d".format(year, quarter + 1) else "%04d-Q1".format(year + 1)
+  }
+  TimeBucket.JAHR -> key.toIntOrNull()?.let { (it + 1).toString() }
+}
+
+/** Formats a bucket key (see [encodeTimeBucket]) for display, e.g. "25.09.2026", "KW 39/2026", "09/2026", "Q1/2026", "2026". */
+fun formatTimeBucketLabel(bucket: TimeBucket, key: String): String = when (bucket) {
+  TimeBucket.TAG -> runCatching { LocalDate.parse(key) }.getOrNull()?.let { BUCKET_DATE_FORMATTER.format(it) } ?: key
+  TimeBucket.WOCHE -> WEEK_BUCKET_REGEX.matchEntire(key)?.let { "KW ${it.groupValues[2].toInt()}/${it.groupValues[1]}" } ?: key
+  TimeBucket.MONAT -> MONTH_BUCKET_REGEX.matchEntire(key)?.let { "${it.groupValues[2]}/${it.groupValues[1]}" } ?: key
+  TimeBucket.QUARTAL -> QUARTER_BUCKET_REGEX.matchEntire(key)?.let { "Q${it.groupValues[2]}/${it.groupValues[1]}" } ?: key
+  TimeBucket.JAHR -> key
+}
 
 /** Builds the [AggregationValueId] this aggregation's value for [item] is stored under, for installation [installedAppId]. */
 fun AggregationDefinition.valueIdFor(installedAppId: InstalledAppId, item: AppData): AggregationValueId =

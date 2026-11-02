@@ -2,6 +2,8 @@ package de.chrgroth.james.platform.domain.model.app
 
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import java.time.LocalDate
+import java.time.MonthDay
+import java.time.temporal.ChronoUnit
 
 /**
  * The typed form of a [Report.definition] (YAML), see docs/plans/reports.md and arc42 "Reports". Layout is report -> [tabs] -> rows -> panels;
@@ -32,7 +34,46 @@ data class ReportQuery(
   val fields: List<String> = emptyList(),
   val sort: List<ReportSort> = emptyList(),
   val limit: Int? = null,
+  val aggregate: ReportAggregate? = null,
 )
+
+/**
+ * Aggregates a query's (filtered, ranged) rows on the fly: one result row per time [bucket] of the query's `timeField` and/or per value of
+ * [groupBy] (a property, a `ref` - labelled by the referenced display text - or a field reached through it). Unlike an
+ * [AggregationDefinition], bucket and group may be combined. The result rows carry the fields [BUCKET_FIELD] (if bucketed), the [groupBy] path
+ * (if grouped) and one field per [values] entry.
+ */
+data class ReportAggregate(
+  val values: List<ReportAggregateValue>,
+  val bucket: TimeBucket? = null,
+  val periodStart: MonthDay? = null,
+  val groupBy: String? = null,
+) {
+  /** Names of the result fields in their natural order: bucket, group, values. */
+  val resultFields: List<String> get() = listOfNotNull(BUCKET_FIELD.takeIf { bucket != null }, groupBy) + values.map { it.name }
+
+  companion object {
+    const val BUCKET_FIELD = "bucket"
+  }
+}
+
+/** One aggregated value named [name]: [function] over [field] (a numeric field, any field for COUNT; null for COUNT counts rows). */
+data class ReportAggregateValue(val name: String, val function: ReportAggregateFunction, val field: String?)
+
+/** LAST is the value of the latest row by the query's time field (by creation time without one). */
+enum class ReportAggregateFunction(val key: String) {
+  SUM("sum"),
+  AVG("avg"),
+  COUNT("count"),
+  MIN("min"),
+  MAX("max"),
+  LAST("last"),
+  ;
+
+  companion object {
+    fun byKey(key: String): ReportAggregateFunction? = entries.find { it.key.equals(key, ignoreCase = true) }
+  }
+}
 
 data class ReportSort(val field: String, val direction: SortDirection = SortDirection.ASC)
 
@@ -52,6 +93,21 @@ sealed interface ReportTimeRange {
 /** A resolved date range, bounds inclusive, a null bound meaning open. */
 data class ReportDateRange(val from: LocalDate?, val to: LocalDate?) {
   operator fun contains(date: LocalDate): Boolean = (from == null || !date.isBefore(from)) && (to == null || !date.isAfter(to))
+
+  /**
+   * The period of the same length right before this one, null for an open range. Whole calendar months (e.g. `this_month`, `this_year`) shift
+   * by their number of months, so October precedes November rather than "the 30 days before"; any other range shifts by its number of days.
+   */
+  fun previous(): ReportDateRange? {
+    val start = from ?: return null
+    val end = to ?: return null
+    if (start.dayOfMonth == 1 && end.dayOfMonth == end.lengthOfMonth()) {
+      val months = ChronoUnit.MONTHS.between(start, end.plusDays(1))
+      return ReportDateRange(start.minusMonths(months), start.minusDays(1))
+    }
+    val days = ChronoUnit.DAYS.between(start, end) + 1
+    return ReportDateRange(start.minusDays(days), start.minusDays(1))
+  }
 }
 
 /** Relative time ranges, resolved against "today" in the application time zone. `last_*` ranges end today. */
@@ -94,9 +150,9 @@ data class ReportRow(val panels: List<ReportPanel> = emptyList())
 enum class ReportPanelType(val key: String, val supported: Boolean) {
   TABLE("table", true),
   TEXT("text", true),
-  STAT("stat", false),
-  TIMESERIES("timeseries", false),
-  BAR("bar", false),
+  STAT("stat", true),
+  TIMESERIES("timeseries", true),
+  BAR("bar", true),
   PIE("pie", false),
   HEATMAP("heatmap", false),
   WARNINGS("warnings", false),
@@ -130,6 +186,67 @@ data class ReportTextPanel(
 ) : ReportPanel {
   override val type: ReportPanelType get() = ReportPanelType.TEXT
 }
+
+/**
+ * A chart of one or more [series], [type] being [ReportPanelType.TIMESERIES] (x = the time bucket of an aggregate query, or the time field of a
+ * plain query) or [ReportPanelType.BAR] (x = the group of an aggregate query, or its bucket without a group). A grouped timeseries query (or a
+ * bucketed and grouped bar query) splits each series into one per group (per bucket). [horizontal] only applies to bars.
+ */
+data class ReportChartPanel(
+  override val type: ReportPanelType,
+  override val title: String,
+  val series: List<ReportSeries>,
+  val stack: Boolean = false,
+  val zoom: Boolean = type == ReportPanelType.TIMESERIES,
+  val horizontal: Boolean = false,
+) : ReportPanel
+
+data class ReportSeries(
+  val query: String,
+  val field: String,
+  val name: String? = null,
+  val style: ReportSeriesStyle = ReportSeriesStyle.LINE,
+  val axis: ReportAxis = ReportAxis.LEFT,
+)
+
+enum class ReportSeriesStyle(val key: String) {
+  LINE("line"),
+  COLUMN("column"),
+  AREA("area"),
+}
+
+enum class ReportAxis(val key: String) {
+  LEFT("left"),
+  RIGHT("right"),
+}
+
+/**
+ * A single value: [field] of [query] reduced over all its rows ([field] null with [ReportReduce.COUNT] counts rows). [compare] adds the value of
+ * the previous period of the same length (the query needs a closed range). [thresholds] color the value: the last threshold (in ascending
+ * order) whose value is at most the reduced value wins.
+ */
+data class ReportStatPanel(
+  override val title: String,
+  val query: String,
+  val field: String?,
+  val reduce: ReportReduce = ReportReduce.LAST,
+  val compare: Boolean = false,
+  val thresholds: List<ReportThreshold> = emptyList(),
+) : ReportPanel {
+  override val type: ReportPanelType get() = ReportPanelType.STAT
+}
+
+enum class ReportReduce(val key: String) {
+  SUM("sum"),
+  AVG("avg"),
+  MIN("min"),
+  MAX("max"),
+  LAST("last"),
+  COUNT("count"),
+}
+
+/** [value] as written, a plain number in the field's storage unit or a unit text (`1000km`); [color] a color name or `#rrggbb`. */
+data class ReportThreshold(val value: String, val color: String)
 
 // region validation errors
 
@@ -168,7 +285,7 @@ enum class ReportDefinitionErrorCode {
   /** args: field. The time field is no DATE/DATETIME property. */
   TIME_FIELD_INVALID,
 
-  /** args: none. A range needs a time field. */
+  /** args: the key needing it (range, bucket). */
   TIME_FIELD_MISSING,
 
   /** args: query. */
@@ -197,6 +314,39 @@ enum class ReportDefinitionErrorCode {
 
   /** args: value, minimum, maximum. */
   NUMBER_OUT_OF_RANGE,
+
+  /** args: key, conflicting key. Two keys that cannot be combined. */
+  KEY_CONFLICT,
+
+  /** args: value. Expected `MM-DD` or `DD.MM.`, not 29.02. */
+  PERIOD_START_INVALID,
+
+  /** args: none. A period start only applies to the buckets JAHR and QUARTAL. */
+  PERIOD_START_NOT_APPLICABLE,
+
+  /** args: field. The field is no LONG/DOUBLE (computed) property. */
+  FIELD_NOT_NUMERIC,
+
+  /** args: name. A result field name used twice (aggregate value vs. bucket/group). */
+  DUPLICATE_RESULT_FIELD,
+
+  /** args: query. The query offers no x axis for the chart (timeseries: bucket or time field; bar: group or bucket). */
+  CHART_X_MISSING,
+
+  /** args: query. The series' queries use different x axes (e.g. different buckets). */
+  SERIES_X_MISMATCH,
+
+  /** args: field. A series' unit does not fit the unit of the other series on its axis. */
+  AXIS_UNIT_MISMATCH,
+
+  /** args: query. Comparing to the previous period needs a closed time range on the query. */
+  COMPARE_NEEDS_RANGE,
+
+  /** args: value. */
+  INVALID_NUMBER,
+
+  /** args: value, allowed color names (comma separated). */
+  INVALID_COLOR,
 }
 
 /** One validation error, located by [path] (e.g. `queries.laeufe.filter[0].op`) and, where known, the 1-based [line] in the YAML source. */
@@ -255,6 +405,59 @@ data class ReportUnitSpec(val family: String, val granularity: String, val symbo
 
 /** [value] is the raw (storage form) value, e.g. for sorting or charts; [text] the formatted value to display. */
 data class TableCellSpec(val value: String?, val text: String)
+
+/**
+ * A chart ([type] TIMESERIES or BAR). With a [ChartXAxisType.CATEGORY] x axis every series has one point per category (in order, `y` null for a
+ * gap); with a [ChartXAxisType.TIME] x axis points carry an ISO date/date-time `x`. Values are plotted in the display unit of their axis.
+ */
+data class ChartPanelSpec(
+  override val type: ReportPanelType,
+  override val title: String,
+  val xAxis: ChartXAxisSpec,
+  val yAxes: List<ChartYAxisSpec>,
+  val series: List<ChartSeriesSpec>,
+  val stack: Boolean,
+  val zoom: Boolean,
+  val horizontal: Boolean,
+) : PanelSpec
+
+enum class ChartXAxisType { CATEGORY, TIME }
+
+/** [categories] are the labels of a CATEGORY axis (e.g. `09/2026`, a band name). */
+data class ChartXAxisSpec(val type: ChartXAxisType, val categories: List<String> = emptyList())
+
+/** [position] `left`/`right`; [unit] the symbol values on this axis are expressed in (e.g. `km`), null without unit. */
+data class ChartYAxisSpec(val position: String, val unit: String?)
+
+/** [style] `line`/`column`/`area`; [yAxis] index into [ChartPanelSpec.yAxes]. */
+data class ChartSeriesSpec(val name: String, val style: String, val yAxis: Int, val points: List<ChartPointSpec>)
+
+/** [x] the category key or ISO date; [y] the value in the axis' display unit (null: gap); [text] the formatted value for tooltips. */
+data class ChartPointSpec(val x: String, val y: Double?, val text: String)
+
+/** A single value; [value] raw (storage form), [text] formatted; [color] of the matching threshold (name or `#rrggbb`). */
+data class StatPanelSpec(
+  override val title: String,
+  val value: Double?,
+  val text: String,
+  val color: String? = null,
+  val comparison: StatComparisonSpec? = null,
+) : PanelSpec {
+  override val type: ReportPanelType get() = ReportPanelType.STAT
+}
+
+/**
+ * The previous period's value and the change towards it: [deltaText] signed and formatted (`+12km 500m`), [percentText] signed (`+5,3 %`, null
+ * when the previous value is 0 or missing), [trend] `up`/`down`/`flat`, [periodText] the previous period (`01.10.2026 – 31.10.2026`).
+ */
+data class StatComparisonSpec(
+  val previousValue: Double?,
+  val previousText: String,
+  val deltaText: String,
+  val percentText: String?,
+  val trend: String,
+  val periodText: String,
+)
 
 data class TextPanelSpec(
   override val title: String,

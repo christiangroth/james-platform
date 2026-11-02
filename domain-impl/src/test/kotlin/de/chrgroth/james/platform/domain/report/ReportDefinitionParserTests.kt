@@ -218,7 +218,7 @@ class ReportDefinitionParserTests {
           rows:
             - - { query: q }
               - { table: A, text: B, markdown: x, query: q }
-              - { stat: Kilometer }
+              - { pie: Kilometer }
               - { table: C, query: missing }
               - { table: D, query: q, columns: [datum, preis] }
               - { text: E }
@@ -228,7 +228,7 @@ class ReportDefinitionParserTests {
     assertThat(errors.map { it.code to it.path }).containsExactly(
       ReportDefinitionErrorCode.PANEL_TYPE_MISSING to "tabs[0].rows[0][0]",
       ReportDefinitionErrorCode.PANEL_TYPE_AMBIGUOUS to "tabs[0].rows[0][1]",
-      ReportDefinitionErrorCode.NOT_SUPPORTED_YET to "tabs[0].rows[0][2].stat",
+      ReportDefinitionErrorCode.NOT_SUPPORTED_YET to "tabs[0].rows[0][2].pie",
       ReportDefinitionErrorCode.QUERY_NOT_FOUND to "tabs[0].rows[0][3].query",
       ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY to "tabs[0].rows[0][4].columns[1]",
       ReportDefinitionErrorCode.REQUIRED_KEY_MISSING to "tabs[0].rows[0][5]",

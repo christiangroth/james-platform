@@ -8,6 +8,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
+import de.chrgroth.james.platform.domain.model.app.ReportAggregate
+import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
+import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
+import de.chrgroth.james.platform.domain.model.app.ReportAxis
+import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
 import de.chrgroth.james.platform.domain.model.app.ReportColumn
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
@@ -15,24 +20,33 @@ import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
 import de.chrgroth.james.platform.domain.model.app.ReportQuery
+import de.chrgroth.james.platform.domain.model.app.ReportReduce
 import de.chrgroth.james.platform.domain.model.app.ReportRow
+import de.chrgroth.james.platform.domain.model.app.ReportSeries
+import de.chrgroth.james.platform.domain.model.app.ReportSeriesStyle
 import de.chrgroth.james.platform.domain.model.app.ReportSort
+import de.chrgroth.james.platform.domain.model.app.ReportStatPanel
 import de.chrgroth.james.platform.domain.model.app.ReportTab
 import de.chrgroth.james.platform.domain.model.app.ReportTablePanel
 import de.chrgroth.james.platform.domain.model.app.ReportTextPanel
+import de.chrgroth.james.platform.domain.model.app.ReportThreshold
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRange
 import de.chrgroth.james.platform.domain.model.app.SortDirection
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
 import java.time.LocalDate
+import java.time.MonthDay
 
 /**
  * Parses a report definition (YAML) into a [ReportDefinition] and validates it in the same pass: YAML syntax, the schema (unknown keys are
  * errors, never silently ignored; keys reserved for later steps answer "not supported yet"), and - when [parse] gets the version's entities -
- * the references: entities and fields exist, a time field is a DATE/DATETIME property, panels only use declared queries and their fields.
- * Every error carries its path and, where the YAML source locates it, its line.
+ * the references: entities and fields exist, a time field is a DATE/DATETIME property, aggregated fields are numeric, panels only use declared
+ * queries and their fields, chart series share their x axis and fit their y axis' unit. Every error carries its path and, where the YAML
+ * source locates it, its line.
  */
+@Suppress("LargeClass")
 internal object ReportDefinitionParser {
 
   private val mapper: YAMLMapper = YAMLMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build()
@@ -41,8 +55,9 @@ internal object ReportDefinitionParser {
 
   private val ROOT_KEYS = setOf("queries", "tabs")
   private val ROOT_RESERVED = setOf("variables", "transforms", "checks")
-  private val QUERY_KEYS = setOf("entity", "timeField", "range", "filter", "fields", "sort", "limit")
-  private val QUERY_RESERVED = setOf("aggregate")
+  private val QUERY_KEYS = setOf("entity", "timeField", "range", "filter", "fields", "sort", "limit", "aggregate")
+  private val FUNCTION_KEYS = ReportAggregateFunction.entries.map { it.key }.toSet()
+  private val AGGREGATE_KEYS = setOf("values", "bucket", "periodStart", "groupBy") + FUNCTION_KEYS
   private val RANGE_KEYS = setOf("from", "to")
   private val FILTER_KEYS = setOf("field", "op", "value", "mode", "includeAbsent")
   private val SORT_KEYS = setOf("field", "direction")
@@ -51,6 +66,15 @@ internal object ReportDefinitionParser {
   private val TABLE_KEYS = setOf("query", "columns", "limit")
   private val TEXT_KEYS = setOf("markdown")
   private val COLUMN_KEYS = setOf("field", "label")
+  private val CHART_KEYS = setOf("query", "field", "name", "style", "axis", "series", "stack", "zoom")
+  private val SERIES_KEYS = setOf("query", "field", "name", "style", "axis")
+  private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds")
+  private val THRESHOLD_KEYS = setOf("value", "color")
+  private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
+  private const val COUNT_ROWS = "*"
+  private val PERIOD_START_BUCKETS = setOf(TimeBucket.JAHR, TimeBucket.QUARTAL)
+  private val ISO_MONTH_DAY = Regex("""^(\d{2})-(\d{2})$""")
+  private val GERMAN_MONTH_DAY = Regex("""^(\d{1,2})\.(\d{1,2})\.?$""")
   private val VALUELESS_OPERATORS = setOf(FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL)
   private val REGEX_OPERATORS = setOf(FilterOperator.MATCHES, FilterOperator.NOT_MATCHES)
   private const val DUPLICATE_FIELD_PREFIX = "Duplicate field '"
@@ -69,6 +93,16 @@ internal object ReportDefinitionParser {
     val reader = Reader(lineIndex(text), entities)
     val definition = reader.definition(root)
     return if (reader.errors.isEmpty()) Result(definition, emptyList()) else Result(null, reader.errors.toList())
+  }
+
+  /** Parses a period start as `MM-DD` or `DD.MM.`; 29.02. is rejected (it does not exist most years). */
+  fun parsePeriodStart(raw: String): MonthDay? {
+    val trimmed = raw.trim()
+    val (month, day) = ISO_MONTH_DAY.matchEntire(trimmed)?.let { it.groupValues[1].toInt() to it.groupValues[2].toInt() }
+      ?: GERMAN_MONTH_DAY.matchEntire(trimmed)?.let { it.groupValues[2].toInt() to it.groupValues[1].toInt() }
+      ?: return null
+    val monthDay = runCatching { MonthDay.of(month, day) }.getOrNull() ?: return null
+    return monthDay.takeUnless { it == MonthDay.of(2, 29) }
   }
 
   private fun syntaxError(e: JsonProcessingException): ReportDefinitionError {
@@ -117,12 +151,23 @@ internal object ReportDefinitionParser {
     }
   }
 
-  @Suppress("TooManyFunctions")
+  /** A declared query as panels see it: [columns] null when its fields are unknown (unresolved entity), so panels skip follow-up errors. */
+  private class QueryInfo(val query: ReportQuery, val columns: Map<String, ResultColumn>?)
+
+  private class ParsedAggregate(val aggregate: ReportAggregate, val valuePaths: List<Path>)
+
+  /** "No field" (COUNT counts rows) as a successful parse, told apart from a failed one (null). */
+  private class OptionalField(val field: String?)
+
+  /** A chart series with the paths its errors are reported at. */
+  private class SeriesAt(val series: ReportSeries, val path: Path, val queryPath: Path)
+
+  @Suppress("TooManyFunctions", "LargeClass")
   private class Reader(private val lines: Map<String, Int>, private val entities: List<EntityDefinition>?) {
     val errors = mutableListOf<ReportDefinitionError>()
 
-    /** Fields each query offers to panels (null for a query whose entity could not be resolved, so panels do not report follow-up errors). */
-    private val queryFields = mutableMapOf<String, Set<String>?>()
+    /** Declared queries; the value is null for a query that could not be read at all. */
+    private val queryInfos = mutableMapOf<String, QueryInfo?>()
 
     fun error(code: ReportDefinitionErrorCode, path: Path, vararg args: String) {
       val line = path.pointers().firstNotNullOfOrNull { lines[it] }
@@ -153,6 +198,9 @@ internal object ReportDefinitionParser {
       return value.toInt()
     }
 
+    fun bool(node: JsonNode, path: Path): Boolean? =
+      if (node.isBoolean) node.asBoolean() else null.also { error(ReportDefinitionErrorCode.WRONG_TYPE, path, "true/false") }
+
     fun required(node: ObjectNode, key: String, path: Path): JsonNode? =
       node.get(key) ?: null.also { error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, key) }
 
@@ -170,6 +218,13 @@ internal object ReportDefinitionParser {
       val raw = text(node, path) ?: return null
       return enumValues<T>().find { it.name.equals(raw.trim(), ignoreCase = true) }
         ?: null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, enumValues<T>().joinToString(", ") { it.name }) }
+    }
+
+    /** An enum value by its lower-case YAML key (e.g. `column`), [keyOf] giving each entry's key. */
+    fun <T> keyed(node: JsonNode, path: Path, entries: List<T>, keyOf: (T) -> String): T? {
+      val raw = text(node, path)?.trim() ?: return null
+      return entries.find { keyOf(it).equals(raw, ignoreCase = true) }
+        ?: null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, entries.joinToString(", ") { keyOf(it) }) }
     }
 
     // endregion
@@ -190,31 +245,131 @@ internal object ReportDefinitionParser {
       return map.properties().mapNotNull { (name, queryNode) -> query(name, queryNode, path.key(name)) }
     }
 
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     private fun query(name: String, node: JsonNode, path: Path): ReportQuery? {
-      queryFields[name] = null
+      queryInfos[name] = null
       val map = obj(node, path) ?: return null
-      checkKeys(map, path, QUERY_KEYS, QUERY_RESERVED)
+      checkKeys(map, path, QUERY_KEYS)
       val entityName = required(map, "entity", path)?.let { nonBlankText(it, path.key("entity"), "entity") }
       val entity = entityName?.let { resolveEntity(it, path.key("entity")) }
       val timeField = map.get("timeField")?.let { nonBlankText(it, path.key("timeField"), "timeField") }
       val range = map.get("range")?.let { range(it, path.key("range")) }
-      if (range != null && map.get("timeField") == null) error(ReportDefinitionErrorCode.TIME_FIELD_MISSING, path.key("range"))
+      if (range != null && map.get("timeField") == null) error(ReportDefinitionErrorCode.TIME_FIELD_MISSING, path.key("range"), "range")
       val filter = map.get("filter")?.let { node -> list(node, path.key("filter"))?.mapIndexedNotNull { i, rule -> filterRule(rule, path.key("filter").index(i)) } }.orEmpty()
       val fields = map.get("fields")?.let { node -> list(node, path.key("fields"))?.mapIndexedNotNull { i, f -> nonBlankText(f, path.key("fields").index(i), "field") } }.orEmpty()
       val sort = map.get("sort")?.let { node -> list(node, path.key("sort"))?.mapIndexedNotNull { i, s -> sort(s, path.key("sort").index(i)) } }.orEmpty()
       val limit = map.get("limit")?.let { int(it, path.key("limit"), 1, MAX_LIMIT) }
+      val aggregatePath = path.key("aggregate")
+      val parsedAggregate = map.get("aggregate")?.let { aggregate(it, aggregatePath) }
+      val aggregate = parsedAggregate?.aggregate
+      if (map.get("aggregate") != null && map.get("fields") != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("fields"), "fields", "aggregate")
+      if (aggregate?.bucket != null && map.get("timeField") == null) error(ReportDefinitionErrorCode.TIME_FIELD_MISSING, aggregatePath.key("bucket"), "bucket")
 
+      var columns: Map<String, ResultColumn>? = null
       if (entity != null) {
         timeField?.let { checkTimeField(entity, it, path.key("timeField")) }
         fields.forEachIndexed { i, field -> checkField(entity, field, path.key("fields").index(i)) }
         filter.forEachIndexed { i, rule -> checkField(entity, rule.sourcePath, path.key("filter").index(i).key("field")) }
-        sort.forEachIndexed { i, s -> checkField(entity, s.field, path.key("sort").index(i).key("field")) }
-        queryFields[name] = fields.ifEmpty { ReportFields.defaultFields(entity) }.toSet()
+        columns = if (parsedAggregate != null) {
+          aggregateColumns(entity, parsedAggregate, aggregatePath)
+        } else {
+          sort.forEachIndexed { i, s -> checkField(entity, s.field, path.key("sort").index(i).key("field")) }
+          fields.ifEmpty { ReportFields.defaultFields(entity) }
+            .mapNotNull { field -> (ReportFields.resolve(entity, field, entities.orEmpty()) as? FieldResolution.Resolved)?.field }
+            .associate { it.path to ResultColumn.of(it) }
+        }
       } else if (entities == null) {
-        // Schema-only check: panels can still be checked against the declared field list.
-        queryFields[name] = fields.toSet().takeIf { it.isNotEmpty() }
+        // Schema-only check: panels can still be checked against the declared field list or the aggregate's result fields.
+        columns = aggregate?.resultFields?.associateWith { ResultColumn(it, ColumnRole.VALUE, null) }
+          ?: fields.takeIf { it.isNotEmpty() }?.associateWith { ResultColumn(it, ColumnRole.FIELD, null) }
       }
-      return ReportQuery(name, entityName.orEmpty(), timeField, range, filter, fields, sort, limit)
+      if (aggregate != null && columns != null) {
+        sort.forEachIndexed { i, s -> if (s.field !in columns) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path.key("sort").index(i).key("field"), s.field, name) }
+      }
+      val query = ReportQuery(name, entityName.orEmpty(), timeField, range, filter, fields, sort, limit, aggregate)
+      queryInfos[name] = QueryInfo(query, columns)
+      return query
+    }
+
+    private fun aggregate(node: JsonNode, path: Path): ParsedAggregate? {
+      val map = obj(node, path) ?: return null
+      checkKeys(map, path, AGGREGATE_KEYS)
+      val bucket = map.get("bucket")?.let { enumValue<TimeBucket>(it, path.key("bucket")) }
+      val periodStart = map.get("periodStart")?.let { node ->
+        val raw = text(node, path.key("periodStart"))?.trim() ?: return@let null
+        parsePeriodStart(raw) ?: null.also { error(ReportDefinitionErrorCode.PERIOD_START_INVALID, path.key("periodStart"), raw) }
+      }
+      if (map.get("periodStart") != null && (bucket == null || bucket !in PERIOD_START_BUCKETS)) {
+        error(ReportDefinitionErrorCode.PERIOD_START_NOT_APPLICABLE, path.key("periodStart"))
+      }
+      val groupBy = map.get("groupBy")?.let { nonBlankText(it, path.key("groupBy"), "groupBy") }
+
+      val values = mutableListOf<Pair<ReportAggregateValue, Path>>()
+      val shorthand = FUNCTION_KEYS.filter { map.has(it) }
+      shorthand.forEach { key ->
+        val function = ReportAggregateFunction.byKey(key)!!
+        aggregateField(function, map.get(key), path.key(key))?.let { values += ReportAggregateValue(key, function, it.field) to path.key(key) }
+      }
+      map.get("values")?.let { valuesNode ->
+        if (shorthand.isNotEmpty()) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("values"), "values", shorthand.first())
+        val valuesMap = obj(valuesNode, path.key("values")) ?: return@let
+        valuesMap.properties().forEach { (name, valueNode) ->
+          aggregateValue(name, valueNode, path.key("values").key(name))?.let { values += it to path.key("values").key(name) }
+        }
+      }
+      if (map.get("values") == null && shorthand.isEmpty()) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "values")
+
+      val taken = listOfNotNull(ReportAggregate.BUCKET_FIELD.takeIf { bucket != null }, groupBy).toMutableSet()
+      values.forEach { (value, valuePath) -> if (!taken.add(value.name)) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, valuePath, value.name) }
+      return ParsedAggregate(ReportAggregate(values.map { it.first }, bucket, periodStart, groupBy), values.map { it.second })
+    }
+
+    /** `name: count` (count rows) or `name: { <function>: <field> }`. */
+    private fun aggregateValue(name: String, node: JsonNode, path: Path): ReportAggregateValue? {
+      if (node.isValueNode) {
+        val raw = text(node, path)?.trim() ?: return null
+        if (raw.equals(ReportAggregateFunction.COUNT.key, ignoreCase = true)) return ReportAggregateValue(name, ReportAggregateFunction.COUNT, null)
+        return null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, ReportAggregateFunction.COUNT.key) }
+      }
+      val map = obj(node, path) ?: return null
+      checkKeys(map, path, FUNCTION_KEYS)
+      val keys = FUNCTION_KEYS.filter { map.has(it) }
+      when {
+        keys.isEmpty() -> return null.also { error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, FUNCTION_KEYS.joinToString("/")) }
+        keys.size > 1 -> return null.also { error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key(keys[1]), keys[1], keys[0]) }
+      }
+      val key = keys.single()
+      val function = ReportAggregateFunction.byKey(key)!!
+      return aggregateField(function, map.get(key), path.key(key))?.let { ReportAggregateValue(name, function, it.field) }
+    }
+
+    private fun aggregateField(function: ReportAggregateFunction, node: JsonNode, path: Path): OptionalField? {
+      if (function == ReportAggregateFunction.COUNT && (node.isNull || (node.isValueNode && node.asText().trim() == COUNT_ROWS))) return OptionalField(null)
+      val field = nonBlankText(node, path, function.key) ?: return null
+      if (field == COUNT_ROWS) return null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, field, ReportAggregateFunction.COUNT.key) }
+      return OptionalField(field)
+    }
+
+    private fun aggregateColumns(entity: EntityDefinition, parsed: ParsedAggregate, path: Path): Map<String, ResultColumn> {
+      val aggregate = parsed.aggregate
+      val columns = LinkedHashMap<String, ResultColumn>()
+      aggregate.bucket?.let { columns[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, null, bucket = it) }
+      aggregate.groupBy?.let { groupBy ->
+        checkField(entity, groupBy, path.key("groupBy"))?.let { columns[groupBy] = ResultColumn.of(it, ColumnRole.GROUP) }
+      }
+      aggregate.values.forEachIndexed { i, value ->
+        val valuePath = parsed.valuePaths[i]
+        val source = value.field?.let { field ->
+          val resolved = checkField(entity, field, valuePath) ?: return@forEachIndexed
+          if (value.function != ReportAggregateFunction.COUNT && !ReportFields.isNumericType(resolved.type)) {
+            error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, valuePath, field)
+            return@forEachIndexed
+          }
+          ResultColumn.of(resolved)
+        }
+        columns.putIfAbsent(value.name, ResultColumn.value(value.name, value.function, source))
+      }
+      return columns
     }
 
     private fun resolveEntity(name: String, path: Path): EntityDefinition? {
@@ -260,9 +415,7 @@ internal object ReportDefinitionParser {
       val field = required(map, "field", path)?.let { nonBlankText(it, path.key("field"), "field") }
       val operator = required(map, "op", path)?.let { enumValue<FilterOperator>(it, path.key("op")) }
       val mode = map.get("mode")?.let { enumValue<FilterMode>(it, path.key("mode")) } ?: FilterMode.INCLUDE
-      val includeAbsent = map.get("includeAbsent")?.let { node ->
-        if (node.isBoolean) node.asBoolean() else null.also { error(ReportDefinitionErrorCode.WRONG_TYPE, path.key("includeAbsent"), "true/false") }
-      } ?: false
+      val includeAbsent = map.get("includeAbsent")?.let { bool(it, path.key("includeAbsent")) } ?: false
       val value = map.get("value")?.takeIf { !it.isNull }?.let { text(it, path.key("value")) }
       if (operator != null && operator !in VALUELESS_OPERATORS && value == null) error(ReportDefinitionErrorCode.FILTER_VALUE_MISSING, path, operator.name)
       if (operator in REGEX_OPERATORS && value != null && runCatching { Regex(value) }.isFailure) error(ReportDefinitionErrorCode.INVALID_REGEX, path.key("value"), value)
@@ -321,8 +474,16 @@ internal object ReportDefinitionParser {
       return when (type) {
         ReportPanelType.TABLE -> tablePanel(map, path, title)
         ReportPanelType.TEXT -> textPanel(map, path, title)
+        ReportPanelType.TIMESERIES, ReportPanelType.BAR -> chartPanel(type, map, path, title)
+        ReportPanelType.STAT -> statPanel(map, path, title)
         else -> null
       }
+    }
+
+    /** The declared query [name] (reporting QUERY_NOT_FOUND otherwise); null also for a declared but unreadable query. */
+    private fun declaredQuery(name: String, path: Path): QueryInfo? {
+      if (!queryInfos.containsKey(name)) return null.also { error(ReportDefinitionErrorCode.QUERY_NOT_FOUND, path, name) }
+      return queryInfos[name]
     }
 
     private fun tablePanel(map: ObjectNode, path: Path, title: String): ReportPanel? {
@@ -331,13 +492,9 @@ internal object ReportDefinitionParser {
       val columns = map.get("columns")?.let { node -> list(node, path.key("columns"))?.mapIndexedNotNull { i, c -> column(c, path.key("columns").index(i)) } }.orEmpty()
       val limit = map.get("limit")?.let { int(it, path.key("limit"), 1, MAX_LIMIT) }
       if (query != null) {
-        if (!queryFields.containsKey(query)) {
-          error(ReportDefinitionErrorCode.QUERY_NOT_FOUND, path.key("query"), query)
-        } else {
-          queryFields[query]?.let { available ->
-            columns.forEachIndexed { i, column ->
-              if (column.field !in available) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path.key("columns").index(i), column.field, query)
-            }
+        declaredQuery(query, path.key("query"))?.columns?.let { available ->
+          columns.forEachIndexed { i, column ->
+            if (column.field !in available) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path.key("columns").index(i), column.field, query)
           }
         }
       }
@@ -357,6 +514,157 @@ internal object ReportDefinitionParser {
       checkKeys(map, path, TEXT_KEYS + ReportPanelType.TEXT.key)
       val markdown = required(map, "markdown", path)?.let { text(it, path.key("markdown")) } ?: return null
       return ReportTextPanel(title, markdown)
+    }
+
+    // endregion
+
+    // region charts
+
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    private fun chartPanel(type: ReportPanelType, map: ObjectNode, path: Path, title: String): ReportPanel? {
+      checkKeys(map, path, CHART_KEYS + type.key + (if (type == ReportPanelType.BAR) setOf("horizontal") else emptySet()))
+      val panelQuery = map.get("query")?.let { nonBlankText(it, path.key("query"), "query") }
+      val defaultStyle = map.get("style")?.let { style(it, path.key("style")) }
+        ?: if (type == ReportPanelType.BAR) ReportSeriesStyle.COLUMN else ReportSeriesStyle.LINE
+      val stack = map.get("stack")?.let { bool(it, path.key("stack")) } ?: false
+      val zoom = map.get("zoom")?.let { bool(it, path.key("zoom")) } ?: (type == ReportPanelType.TIMESERIES)
+      val horizontal = map.get("horizontal")?.let { bool(it, path.key("horizontal")) } ?: false
+
+      val series = mutableListOf<SeriesAt>()
+      val seriesNode = map.get("series")
+      if (seriesNode != null) {
+        listOf("field", "name", "axis").filter { map.has(it) }.forEach { error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key(it), it, "series") }
+        list(seriesNode, path.key("series"))?.forEachIndexed { i, node ->
+          val itemPath = path.key("series").index(i)
+          seriesItem(node, itemPath, panelQuery, defaultStyle)?.let { item ->
+            series += SeriesAt(item, itemPath, if ((node as? ObjectNode)?.has("query") == true) itemPath.key("query") else path.key("query"))
+          }
+        }
+      } else if (panelQuery == null) {
+        error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "query")
+      } else {
+        val name = map.get("name")?.let { text(it, path.key("name")) }?.trim()?.takeIf { it.isNotEmpty() }
+        val axis = map.get("axis")?.let { axis(it, path.key("axis")) } ?: ReportAxis.LEFT
+        val field = map.get("field")?.let { nonBlankText(it, path.key("field"), "field") }
+        if (field != null) {
+          series += SeriesAt(ReportSeries(panelQuery, field, name, defaultStyle, axis), path.key("field"), path.key("query"))
+        } else if (!map.has("field")) {
+          // Without a field, an aggregate query contributes one series per aggregated value.
+          val info = declaredQuery(panelQuery, path.key("query"))
+          val aggregate = info?.query?.aggregate
+          if (aggregate != null) {
+            aggregate.values.forEach { series += SeriesAt(ReportSeries(panelQuery, it.name, null, defaultStyle, axis), path.key("query"), path.key("query")) }
+          } else if (info != null) {
+            error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field")
+          }
+        }
+      }
+      validateSeries(type, series)
+      return ReportChartPanel(type, title, series.map { it.series }, stack, zoom, horizontal)
+    }
+
+    private fun seriesItem(node: JsonNode, path: Path, panelQuery: String?, defaultStyle: ReportSeriesStyle): ReportSeries? {
+      val map = obj(node, path) ?: return null
+      checkKeys(map, path, SERIES_KEYS)
+      val ownQuery = map.get("query")?.let { nonBlankText(it, path.key("query"), "query") }
+      if (!map.has("query") && panelQuery == null) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "query")
+      val query = if (map.has("query")) ownQuery else panelQuery
+      val field = required(map, "field", path)?.let { nonBlankText(it, path.key("field"), "field") }
+      val name = map.get("name")?.let { text(it, path.key("name")) }?.trim()?.takeIf { it.isNotEmpty() }
+      val style = map.get("style")?.let { style(it, path.key("style")) } ?: defaultStyle
+      val axis = map.get("axis")?.let { axis(it, path.key("axis")) } ?: ReportAxis.LEFT
+      if (query == null || field == null) return null
+      return ReportSeries(query, field, name, style, axis)
+    }
+
+    private fun style(node: JsonNode, path: Path): ReportSeriesStyle? = keyed(node, path, ReportSeriesStyle.entries) { it.key }
+
+    private fun axis(node: JsonNode, path: Path): ReportAxis? = keyed(node, path, ReportAxis.entries) { it.key }
+
+    /** The x axis a query offers [type], null if none: timeseries - its bucket or (plain query) its time field; bar - its group, else its bucket. */
+    private fun xAxisOf(type: ReportPanelType, query: ReportQuery): String? {
+      val aggregate = query.aggregate
+      val bucket = aggregate?.bucket?.let { "bucket:$it:${aggregate.periodStart}" }
+      return when (type) {
+        ReportPanelType.TIMESERIES -> if (aggregate == null) "time".takeIf { query.timeField != null } else bucket
+        else -> if (aggregate?.groupBy != null) "group" else bucket
+      }
+    }
+
+    private fun validateSeries(type: ReportPanelType, series: List<SeriesAt>) {
+      var xAxis: String? = null
+      val axisUnits = mutableMapOf<ReportAxis, String>()
+      val reportedQueries = mutableSetOf<String>()
+      series.forEach { at ->
+        val item = at.series
+        if (!queryInfos.containsKey(item.query)) {
+          if (reportedQueries.add(item.query)) error(ReportDefinitionErrorCode.QUERY_NOT_FOUND, at.queryPath, item.query)
+          return@forEach
+        }
+        val info = queryInfos[item.query] ?: return@forEach
+        val x = xAxisOf(type, info.query)
+        when {
+          x == null -> if (reportedQueries.add(item.query)) error(ReportDefinitionErrorCode.CHART_X_MISSING, at.queryPath, item.query)
+          xAxis == null -> xAxis = x
+          x != xAxis -> error(ReportDefinitionErrorCode.SERIES_X_MISMATCH, at.queryPath, item.query)
+        }
+        val columns = info.columns ?: return@forEach
+        val column = columns[item.field] ?: return@forEach error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, at.path, item.field, item.query)
+        if (column.type == null) return@forEach
+        if (!column.numeric) return@forEach error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, at.path, item.field)
+        val family = column.unit?.family?.name ?: "-"
+        if (axisUnits.getOrPut(item.axis) { family } != family) error(ReportDefinitionErrorCode.AXIS_UNIT_MISMATCH, at.path, item.field)
+      }
+    }
+
+    // endregion
+
+    // region stat
+
+    @Suppress("CyclomaticComplexMethod")
+    private fun statPanel(map: ObjectNode, path: Path, title: String): ReportPanel? {
+      checkKeys(map, path, STAT_KEYS + ReportPanelType.STAT.key)
+      val query = required(map, "query", path)?.let { nonBlankText(it, path.key("query"), "query") }
+      val explicitField = map.get("field")?.let { nonBlankText(it, path.key("field"), "field") }
+      val reduce = map.get("reduce")?.let { keyed(it, path.key("reduce"), ReportReduce.entries) { r -> r.key } } ?: ReportReduce.LAST
+      val compare = map.get("compare")?.let { node ->
+        val raw = text(node, path.key("compare"))?.trim() ?: return@let false
+        (raw == COMPARE_PREVIOUS_PERIOD).also { if (!it) error(ReportDefinitionErrorCode.INVALID_VALUE, path.key("compare"), raw, COMPARE_PREVIOUS_PERIOD) }
+      } ?: false
+      val info = query?.let { declaredQuery(it, path.key("query")) }
+      val field = explicitField ?: info?.query?.aggregate?.values?.singleOrNull()?.name
+      if (field == null && !map.has("field") && reduce != ReportReduce.COUNT && info != null) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field")
+      val column = if (field != null && query != null) {
+        info?.columns?.let { columns -> columns[field] ?: null.also { error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path.key("field"), field, query) } }
+      } else {
+        null
+      }
+      if (column?.type != null && reduce != ReportReduce.COUNT && !column.numeric) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path.key("field"), field!!)
+      if (compare && info != null && !closedRange(info.query)) error(ReportDefinitionErrorCode.COMPARE_NEEDS_RANGE, path.key("compare"), info.query.name)
+      val thresholdColumn = column?.takeIf { it.type != null && reduce != ReportReduce.COUNT }
+      val thresholds = map.get("thresholds")?.let { node ->
+        list(node, path.key("thresholds"))?.mapIndexedNotNull { i, item -> threshold(item, path.key("thresholds").index(i), thresholdColumn, reduce) }
+      }.orEmpty()
+      return query?.let { ReportStatPanel(title, it, field, reduce, compare, thresholds) }
+    }
+
+    private fun closedRange(query: ReportQuery): Boolean = when (val range = query.range) {
+      is ReportTimeRange.Relative -> true
+      is ReportTimeRange.Fixed -> range.from != null && range.to != null
+      null -> false
+    }
+
+    private fun threshold(node: JsonNode, path: Path, column: ResultColumn?, reduce: ReportReduce): ReportThreshold? {
+      val map = obj(node, path) ?: return null
+      checkKeys(map, path, THRESHOLD_KEYS)
+      val value = required(map, "value", path)?.let { nonBlankText(it, path.key("value"), "value") }
+      val color = required(map, "color", path)?.let { nonBlankText(it, path.key("color"), "color") }
+      if (value != null && (column != null || reduce == ReportReduce.COUNT) && ReportValues.parseNumber(value, column?.unit) == null) {
+        error(ReportDefinitionErrorCode.INVALID_NUMBER, path.key("value"), value)
+      }
+      if (color != null && !ReportValues.isColor(color)) error(ReportDefinitionErrorCode.INVALID_COLOR, path.key("color"), color, ReportValues.COLOR_NAMES.joinToString(", "))
+      if (value == null || color == null) return null
+      return ReportThreshold(value, color)
     }
 
     // endregion

@@ -8,8 +8,10 @@ import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 
 /**
- * A query field resolved against the version's entities: either a (computed) property of the queried entity, or - via one `ref` hop
- * ([refProperty], e.g. `schuhe.name`) - a (computed) property of the referenced entity ([owner]). Exactly one of [property]/[computed] is set.
+ * A query field resolved against the version's entities: a (computed) property of the queried entity or - via one `ref` hop ([refProperty],
+ * e.g. `schuhe.name`) - of the referenced entity ([owner]); a property nested in OBJECT properties is reached through them ([objectPath],
+ * outermost first, e.g. `bewertung.zufriedenheit`, also behind a `ref` hop), mirroring `AggregationDefinition.sourcePath`. Exactly one of
+ * [property]/[computed] is set; nested fields are always plain properties.
  */
 internal data class ResolvedField(
   val path: String,
@@ -17,6 +19,7 @@ internal data class ResolvedField(
   val refProperty: Property?,
   val property: Property?,
   val computed: ComputedProperty?,
+  val objectPath: List<Property> = emptyList(),
 ) {
   val type: PropertyType get() = property?.type ?: computed!!.type
   val unit: PropertyUnit? get() = property?.unit
@@ -25,6 +28,9 @@ internal data class ResolvedField(
 
   /** Key of the value in AppData.data (property id) or in the computed values (computed property id). */
   val valueKey: String get() = property?.id?.value ?: computed!!.id.value
+
+  /** Path segments for the nested JSON view filter rules are evaluated on; a property whose own name contains a dot stays one segment. */
+  val segments: List<String> get() = if (refProperty == null && objectPath.isEmpty()) listOf(path) else path.split('.')
 }
 
 internal sealed interface FieldResolution {
@@ -36,22 +42,44 @@ internal object ReportFields {
 
   private const val SEPARATOR = '.'
 
-  /** Resolves [path] (`name` or `ref.name`, one hop at most) on [entity]. */
+  /**
+   * Resolves [path] on [entity]: `name`, `ref.name` (one `ref` hop at most), `object.nested[.deeper]` or `ref.object.nested`. A property whose
+   * own name contains the separator wins over a hop.
+   */
   fun resolve(entity: EntityDefinition, path: String, entities: List<EntityDefinition>): FieldResolution {
     val segments = path.split(SEPARATOR)
-    // A property name containing the separator itself wins over a ref hop.
     if (segments.size > 1) (resolveOn(entity, path, path, null) as? FieldResolution.Resolved)?.let { return it }
-    return when (segments.size) {
-      1 -> resolveOn(entity, path, path, null)
-      2 -> {
-        val refProperty = entity.properties.find { it.name == segments[0] }
-          ?: return FieldResolution.Failed(ReportDefinitionErrorCode.FIELD_NOT_FOUND, listOf(segments[0], entity.name))
-        val target = refProperty.targetEntityId?.takeIf { refProperty.type == PropertyType.REF }?.let { id -> entities.find { it.id == id } }
+    if (segments.size == 1) return resolveOn(entity, path, path, null)
+    val first = entity.properties.find { it.name == segments[0] }
+      ?: return FieldResolution.Failed(ReportDefinitionErrorCode.FIELD_NOT_FOUND, listOf(segments[0], entity.name))
+    return when (first.type) {
+      PropertyType.OBJECT -> resolveNested(entity, path, null, first, segments.drop(1))
+      PropertyType.REF -> {
+        val target = first.targetEntityId?.let { id -> entities.find { it.id == id } }
           ?: return FieldResolution.Failed(ReportDefinitionErrorCode.REF_HOP_INVALID, listOf(path))
-        resolveOn(target, segments[1], path, refProperty)
+        val rest = segments.drop(1)
+        if (rest.size == 1) return resolveOn(target, rest[0], path, first)
+        val objectProperty = target.properties.find { it.name == rest[0] }
+          ?: return FieldResolution.Failed(ReportDefinitionErrorCode.FIELD_NOT_FOUND, listOf(rest[0], target.name))
+        if (objectProperty.type != PropertyType.OBJECT) return FieldResolution.Failed(ReportDefinitionErrorCode.REF_HOP_INVALID, listOf(path))
+        resolveNested(target, path, first, objectProperty, rest.drop(1))
       }
       else -> FieldResolution.Failed(ReportDefinitionErrorCode.REF_HOP_INVALID, listOf(path))
     }
+  }
+
+  private fun resolveNested(owner: EntityDefinition, path: String, refProperty: Property?, objectProperty: Property, rest: List<String>): FieldResolution {
+    val enclosing = mutableListOf(objectProperty)
+    var current = objectProperty
+    rest.forEachIndexed { index, name ->
+      val nested = current.nestedProperties.find { it.name == name }
+        ?: return FieldResolution.Failed(ReportDefinitionErrorCode.FIELD_NOT_FOUND, listOf(name, owner.name))
+      if (index == rest.lastIndex) return FieldResolution.Resolved(ResolvedField(path, owner, refProperty, nested, null, enclosing.toList()))
+      if (nested.type != PropertyType.OBJECT) return FieldResolution.Failed(ReportDefinitionErrorCode.REF_HOP_INVALID, listOf(path))
+      enclosing += nested
+      current = nested
+    }
+    return FieldResolution.Failed(ReportDefinitionErrorCode.REF_HOP_INVALID, listOf(path))
   }
 
   private fun resolveOn(entity: EntityDefinition, name: String, path: String, refProperty: Property?): FieldResolution {
@@ -65,4 +93,6 @@ internal object ReportFields {
     entity.properties.filter { it.type != PropertyType.OBJECT }.map { it.name } + entity.computedProperties.map { it.name }
 
   fun isTimeType(type: PropertyType): Boolean = type == PropertyType.DATE || type == PropertyType.DATETIME
+
+  fun isNumericType(type: PropertyType): Boolean = type == PropertyType.LONG || type == PropertyType.DOUBLE
 }
