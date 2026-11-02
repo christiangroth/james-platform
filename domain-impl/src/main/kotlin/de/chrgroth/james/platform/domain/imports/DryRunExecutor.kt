@@ -9,13 +9,16 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.uniqueKeyComparisonValues
 import de.chrgroth.james.platform.domain.model.app.uniqueKeyProperties
 import de.chrgroth.james.platform.domain.model.imports.DryRunIssue
 import de.chrgroth.james.platform.domain.model.imports.DryRunObject
 import de.chrgroth.james.platform.domain.model.imports.FieldMapping
+import de.chrgroth.james.platform.domain.model.imports.ImportTarget
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
+import de.chrgroth.james.platform.domain.model.imports.importTargets
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 
 /**
@@ -32,6 +35,11 @@ import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
  * [referencedAppDataByEntityId] as well, reporting [PropertyConstraintViolation.InvalidReferenceViolation] when it
  * does not point to an existing instance of the referenced entity — a lookup-resolved value is inherently
  * existence-safe and skips this check.
+ *
+ * Properties nested in OBJECT properties are mapped individually (see [ImportTarget]); an OBJECT property's value is
+ * the JSON object assembled from its nested values (as stored by the app data forms), or empty when none of them has
+ * a value. A nested property's issues carry its own id; a mandatory nested property is only required when its
+ * enclosing object has a value or is itself (transitively) mandatory.
  */
 object DryRunExecutor {
 
@@ -60,11 +68,22 @@ object DryRunExecutor {
       keyProperties.associate { it.id to appData.data[it.id.value]?.let { v -> parseScalarValue(it.type, v) } }
     }
 
+    val nestedTargets = entityDefinition.importTargets().filter { it.parents.isNotEmpty() }
+
     return records.mapIndexed { index, record ->
       val targetData = mutableMapOf<PropertyId, String?>()
+      val nestedValues = mutableMapOf<PropertyId, String?>()
       val issues = mutableListOf<DryRunIssue>()
+      for (target in nestedTargets) {
+        nestedValues[target.property.id] =
+          resolveRawValue(record, target.property, fieldMappingsByTarget[target.property.id], entityDefinitionsById, referencedAppDataByEntityId)
+      }
       for (property in entityDefinition.properties) {
-        targetData[property.id] = resolveRawValue(record, property, fieldMappingsByTarget[property.id], entityDefinitionsById, referencedAppDataByEntityId)
+        targetData[property.id] = if (property.type == PropertyType.OBJECT) {
+          objectValue(property, nestedValues)?.let { encodeObjectValue(it) }
+        } else {
+          resolveRawValue(record, property, fieldMappingsByTarget[property.id], entityDefinitionsById, referencedAppDataByEntityId)
+        }
       }
       val keyOfRecord = keyProperties.associate { it.id to parseScalarValue(it.type, targetData[it.id]) }
 
@@ -97,6 +116,11 @@ object DryRunExecutor {
         }
       }
 
+      for (target in nestedTargets) {
+        val objectPresent = targetData[target.topLevelProperty.id] != null
+        issues += nestedValueIssues(target, nestedValues[target.property.id], objectPresent, fieldMappingsByTarget[target.property.id], referencedAppDataByEntityId, propertyConstraint)
+      }
+
       // Only a record that is actually saved on accept may claim its key: an invalid or skipped record is discarded, so
       // letting it reserve the key would wrongly discard a later, valid record carrying the same key.
       if (issues.isEmpty() && keyProperties.isNotEmpty()) {
@@ -124,6 +148,40 @@ object DryRunExecutor {
     propertyConstraint: PropertyConstraintPort,
   ): DryRunObject =
     execute(listOf(record), mapping, entityDefinition, existingAppData, entityDefinitionsById, referencedAppDataByEntityId, propertyConstraint).single()
+
+  /** Assembles an OBJECT property's value from the resolved [nestedValues] (recursing into nested OBJECT properties), or null when no nested value is present. */
+  private fun objectValue(property: Property, nestedValues: Map<PropertyId, String?>): Map<String, Any?>? =
+    property.nestedProperties
+      .associate { nested -> nested.id.value to if (nested.type == PropertyType.OBJECT) objectValue(nested, nestedValues) else nestedValues[nested.id] }
+      .takeIf { values -> values.values.any { it != null } }
+
+  /** Validates one nested property's value like a top-level one, except that uniqueness does not apply and a missing value only counts when the object is present or mandatory. */
+  @Suppress("LongParameterList")
+  private fun nestedValueIssues(
+    target: ImportTarget,
+    rawValue: String?,
+    objectPresent: Boolean,
+    fieldMapping: FieldMapping?,
+    referencedAppDataByEntityId: Map<EntityDefinitionId, List<AppData>>,
+    propertyConstraint: PropertyConstraintPort,
+  ): List<DryRunIssue> {
+    val property = target.property
+    val issues = mutableListOf<DryRunIssue>()
+    if (!property.nullable && rawValue.isNullOrBlank() && (objectPresent || target.effectivelyMandatory)) {
+      issues += DryRunIssue.MissingMandatoryValue(property.id)
+    }
+    if (property.type == PropertyType.REF && fieldMapping?.referenceLookup == null) {
+      referenceExistenceIssue(property, rawValue, referencedAppDataByEntityId)?.let { issues += it }
+    }
+    val parsedValue = parseScalarValue(property.type, rawValue)
+    if (property.type == PropertyType.LONG && property.unit != null && !rawValue.isNullOrBlank() && parsedValue == null) {
+      issues += DryRunIssue.ConstraintViolated(property.id, PropertyConstraintViolation.NonIntegerUnitValueViolation, staticallyChecked = false)
+    }
+    issues += propertyConstraint.checkValue(property, parsedValue, emptyList()).map {
+      DryRunIssue.ConstraintViolated(property.id, it, staticallyChecked = it.javaClass in STATICALLY_CHECKED_VIOLATION_TYPES)
+    }
+    return issues
+  }
 
   /** For a directly mapped REF property (no lookup), reports [PropertyConstraintViolation.InvalidReferenceViolation] if the resolved value does not point to an existing instance of the referenced entity. */
   private fun referenceExistenceIssue(

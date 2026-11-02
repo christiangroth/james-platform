@@ -198,6 +198,64 @@ class DryRunExecutorTests {
   }
 
   @Test
+  fun `nested properties are mapped individually and assembled into the object value`() {
+    val mood = Property(id = PropertyId("mood"), name = "mood", type = PropertyType.LONG, nullable = false)
+    val note = Property(id = PropertyId("note"), name = "note", type = PropertyType.STRING, nullable = true)
+    val rating = Property(id = PropertyId("rating"), name = "rating", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(mood, note))
+    val entity = entityDefinition(Property(id = propertyId, name = "day", type = PropertyType.STRING, nullable = false), rating)
+    val mapping = mapping(
+      FieldMapping(targetPropertyId = propertyId, sourcePath = "day"),
+      FieldMapping(targetPropertyId = mood.id, sourcePath = "mood"),
+      FieldMapping(targetPropertyId = note.id, sourcePath = "note"),
+    )
+
+    val result = execute(records("""[{"day":"a","mood":4}]"""), mapping, entity).single()
+
+    assertThat(result.isValid).isTrue()
+    assertThat(objectMapper.readTree(result.targetData[rating.id])).isEqualTo(objectMapper.readTree("""{"mood":"4","note":null}"""))
+  }
+
+  @Test
+  fun `an object without any nested value stays empty and does not require its mandatory nested properties`() {
+    val mood = Property(id = PropertyId("mood"), name = "mood", type = PropertyType.LONG, nullable = false)
+    val rating = Property(id = PropertyId("rating"), name = "rating", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(mood))
+    val entity = entityDefinition(Property(id = propertyId, name = "day", type = PropertyType.STRING, nullable = false), rating)
+    val mapping = mapping(FieldMapping(targetPropertyId = propertyId, sourcePath = "day"), FieldMapping(targetPropertyId = mood.id, sourcePath = "mood"))
+
+    val result = execute(records("""[{"day":"a"}]"""), mapping, entity).single()
+
+    assertThat(result.isValid).isTrue()
+    assertThat(result.targetData[rating.id]).isNull()
+  }
+
+  @Test
+  fun `a present object reports its missing mandatory nested property and nested constraint violations`() {
+    val mood = Property(id = PropertyId("mood"), name = "mood", type = PropertyType.LONG, nullable = false, constraints = setOf(PropertyConstraint.MinLong(1)))
+    val energy = Property(id = PropertyId("energy"), name = "energy", type = PropertyType.LONG, nullable = false)
+    val rating = Property(id = PropertyId("rating"), name = "rating", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(mood, energy))
+    val entity = entityDefinition(rating)
+    val mapping = mapping(FieldMapping(targetPropertyId = mood.id, sourcePath = "mood"), FieldMapping(targetPropertyId = energy.id, sourcePath = "energy"))
+
+    val result = execute(records("""[{"mood":0}]"""), mapping, entity).single()
+
+    assertThat(result.issues).contains(DryRunIssue.MissingMandatoryValue(energy.id))
+    assertThat(result.issues.map { it.targetPropertyId }).contains(mood.id)
+    assertThat(result.isInvalid).isTrue()
+  }
+
+  @Test
+  fun `zero as empty applies to nested properties`() {
+    val kcal = Property(id = PropertyId("kcal"), name = "kcal", type = PropertyType.LONG, nullable = true)
+    val health = Property(id = PropertyId("health"), name = "health", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(kcal))
+    val entity = entityDefinition(health)
+    val mapping = mapping(FieldMapping(targetPropertyId = kcal.id, sourcePath = "kcal", zeroAsEmpty = true))
+
+    val result = execute(records("""[{"kcal":0}]"""), mapping, entity).single()
+
+    assertThat(result.targetData[health.id]).isNull()
+  }
+
+  @Test
   fun `import granularity matching the storage granularity leaves the raw value unchanged`() {
     val unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS)
     val entity = entityDefinition(Property(id = propertyId, name = "Distance", type = PropertyType.LONG, nullable = false, unit = unit))

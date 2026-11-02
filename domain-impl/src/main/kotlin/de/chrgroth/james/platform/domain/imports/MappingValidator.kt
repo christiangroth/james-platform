@@ -16,6 +16,7 @@ import de.chrgroth.james.platform.domain.model.imports.MappingValidationResult
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.imports.SchemaProperty
 import de.chrgroth.james.platform.domain.model.imports.SchemaPropertyType
+import de.chrgroth.james.platform.domain.model.imports.importTargets
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import java.math.BigDecimal
 import java.math.MathContext
@@ -62,9 +63,10 @@ object MappingValidator {
     val entityDefinitionsById = entityDefinitions.associateBy { it.id }
     val issues = mutableListOf<MappingIssue>()
 
-    for (property in entityDefinition.properties) {
-      val fieldMapping = fieldMappingsByTarget[property.id]
-      issues += validateProperty(property, fieldMapping, schemaByPath, entityDefinitionsById, propertyConstraint)
+    // Properties nested in OBJECT properties are validated like top-level ones; one only counts as mandatory when its enclosing objects are mandatory too.
+    for (target in entityDefinition.importTargets()) {
+      val property = target.property.copy(nullable = !target.effectivelyMandatory)
+      issues += validateProperty(property, fieldMappingsByTarget[property.id], schemaByPath, entityDefinitionsById, propertyConstraint)
     }
 
     return MappingValidationResult(issues)

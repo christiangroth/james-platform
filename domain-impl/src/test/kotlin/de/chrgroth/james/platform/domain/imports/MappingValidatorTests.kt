@@ -105,6 +105,37 @@ class MappingValidatorTests {
   }
 
   @Test
+  fun `a mandatory nested property of a mandatory object must be mapped`() {
+    val mood = Property(id = PropertyId("mood"), name = "mood", type = PropertyType.LONG, nullable = false)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "rating", type = PropertyType.OBJECT, nullable = false, nestedProperties = listOf(mood)))
+
+    val result = validate(mapping(), entityDefinition, emptyList())
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.MissingMandatoryField(mood.id))
+  }
+
+  @Test
+  fun `a mandatory nested property of an optional object need not be mapped`() {
+    val mood = Property(id = PropertyId("mood"), name = "mood", type = PropertyType.LONG, nullable = false)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "rating", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(mood)))
+
+    val result = validate(mapping(), entityDefinition, emptyList())
+
+    assertThat(result.issues).isEmpty()
+  }
+
+  @Test
+  fun `a mapped nested property is type checked`() {
+    val mood = Property(id = PropertyId("mood"), name = "mood", type = PropertyType.LONG, nullable = true)
+    val entityDefinition = entityDefinition(Property(id = propertyId, name = "rating", type = PropertyType.OBJECT, nullable = true, nestedProperties = listOf(mood)))
+    val schema = listOf(SchemaProperty("mood", mapOf(SchemaPropertyType.STRING to 3), mandatory = true))
+
+    val result = validate(mapping(FieldMapping(targetPropertyId = mood.id, sourcePath = "mood")), entityDefinition, schema)
+
+    assertThat(result.blockingIssues).containsExactly(MappingIssue.IncompatibleType(mood.id, SchemaPropertyType.STRING, PropertyType.LONG))
+  }
+
+  @Test
   fun `directly compatible types produce no issues`() {
     val entityDefinition = entityDefinition(stringProperty(nullable = true))
     val schema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 3), mandatory = true))
