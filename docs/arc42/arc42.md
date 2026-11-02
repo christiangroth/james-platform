@@ -153,14 +153,56 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: domain model only (`Report`, `Page` in `domain-api`) — no web adapter, endpoint, or UI exists yet.** A declarative, low-code replacement for the code-based design below is planned in [docs/plans/reports.md](../plans/reports.md). The rest of this subsection describes the earlier intended design, not current behavior:
+**Status: step 1 of 8 implemented** (declarative definition, queries, table and text panels, see [docs/plans/reports.md](../plans/reports.md) for the
+remaining steps: time series/stat panels and aggregations, App configuration, variables and transformations, checks, heatmap/pie and a Kotlin step,
+personal dashboards).
 
-- A Report belongs to one App and has a unique name within that App.
-- A Report contains at least one **Page**; each Page provides HTML markup and JavaScript logic.
-- A Report may declare which entities to load and may define per-Entity filter expressions.
-- A set of built-in helper functions (charts, aggregation, date handling, …) is available to every Report; this code is maintained as part of the platform and is not user-supplied.
-- A Report may only access data from its own App installation (sandbox boundary).
-- The platform must prevent Developers from embedding malicious code in Reports (concept to be finalised — see the sandboxing trade-off already accepted for computed properties in ADR [0008](../adr/0008-computed-property-script-execution.md), which Reports will likely need to revisit given Reports execute in the browser, not backend-side).
+A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
+editor, and executed backend-side; no Developer-authored code runs in the browser.
+
+- **Definition:** `queries` (named) and `tabs` → rows → panels. A query reads one Entity of the installation: optional `timeField` (a DATE/DATETIME
+  property) with a `range` (relative: `last_7_days`, `last_30_days`, `last_90_days`, `last_12_months`, `this_month`, `last_month`, `this_year`,
+  `last_year`; or fixed `{ from, to }`, both inclusive), `filter` rules, `fields` (top-level properties and computed properties, plus one `ref` hop such as
+  `band.name`; default: all non-object fields), `sort` (default: newest first) and `limit`. A row is a list of panels (or `{ panels: [...] }`); a panel
+  is a map with exactly one type key carrying its title: `table` (`query`, optional `columns` as field or `{ field, label }`, `limit`) and `text`
+  (`markdown`).
+
+  ```yaml
+  queries:
+    konzerte:
+      entity: Konzert
+      timeField: datum
+      range: last_12_months
+      filter:
+        - { field: ort, op: EQUALS, value: Hamburg }
+      fields: [datum, band.name, ort, preis]
+      sort: [{ field: datum, direction: DESC }]
+      limit: 50
+  tabs:
+    - name: Übersicht
+      rows:
+        - - { text: Hinweis, markdown: "Alle **Konzerte** der letzten 12 Monate" }
+          - { table: Konzerte, query: konzerte, columns: [datum, { field: band.name, label: Band }, preis] }
+  ```
+
+- **Validation** (`ReportDefinitionParser`, on save, on publish and before execution): YAML syntax (duplicate keys rejected), schema (unknown keys are
+  errors; keys reserved for later steps such as `variables`, `transforms`, `checks`, `aggregate` or the panel types `stat`/`timeseries`/... answer
+  "not supported yet"), entities and fields exist in the version, time fields are DATE/DATETIME, panels only use declared queries and their fields.
+  Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition is
+  rejected; publishing fails if a report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
+- **Execution** (`ReportService` / `ReportExecutor`): only the data of the one installation asked for is loaded (sandbox boundary). Filters reuse the
+  import filter rule model and `FilterEvaluator`, evaluated on a JSON view of each object (numbers as numbers, dates as ISO strings, references as
+  display text, a `ref` hop as nested object). Computed properties are evaluated only when a query uses them. Each query runs once per report.
+- **Panel spec:** the result is a renderer-neutral `ReportView` (tabs → rows → panels; a table panel carries columns with property type and unit and
+  cells with raw and formatted value). Values are formatted like display texts (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared
+  with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`, references via their display text. Tables are capped at 1,000 rows.
+- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text). Markdown is rendered by `marked` with raw
+  HTML disabled and an allow-list sanitizer. Charts go through a small adapter interface (`renderChart(container, spec)`); its only implementation wraps
+  Apache ECharts (vendored webjar, loaded only on report pages), so the chart library stays swappable.
+- **UI and API:** the version editor lists, creates, renames, edits (YAML textarea with validation feedback) and deletes reports of a draft and previews
+  an unsaved definition against a test installation of the draft. Installed Apps list their reports; `/ui/user/apps/{installedAppId}/reports/{reportId}`
+  renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
+  `{ name, definition }`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec).
 
 ### Developer Test Data
 
@@ -172,7 +214,7 @@ sharing, and Report data sources. Within a test installation a Developer can:
   they don't block the request.
 - Hand-craft data via the same generic create/edit UI Users have, reachable from the Developer's App view.
 
-Testing Reports against a test installation is deferred until Report execution/sandboxing is finalized.
+Reports of a draft can be previewed against such a test installation in the version editor (see [Reports](#reports)).
 
 ### Aggregations
 
@@ -288,7 +330,7 @@ graph TD
 | Goal              | Design decision                                                                                                    |
 |-------------------|--------------------------------------------------------------------------------------------------------------------|
 | Correctness       | Constraint validation and cyclic-reference detection in the domain layer; enforced before any persistence write.   |
-| Security          | Role-based access via `QuarkusSecurityIdentity`; `HttpOnly` AES session cookie; computed-property scripts run with a timeout guard only, no deeper sandbox (Report sandboxing still a concept, see [Reports](#reports)). |
+| Security          | Role-based access via `QuarkusSecurityIdentity`; `HttpOnly` AES session cookie; computed-property scripts run with a timeout guard only, no deeper sandbox; Reports are declarative and executed backend-side per installation (see [Reports](#reports)). |
 | Developer UX      | Generic CRUD UI generated from Entity metadata; semver auto-derived; no boilerplate for common patterns.           |
 | Reliability       | External operations (notifications, …) are delivered on a best-effort basis; long-running domain operations (import, deletion, migration) use a persistent outbox for at-least-once execution, see [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |
 | Maintainability   | Hexagonal architecture with strict module-dependency rules; zero infrastructure in `domain-api` / `domain-impl`.   |
@@ -582,7 +624,7 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
     (`POST /jobs/{id}/accept?mode=ADD|REPLACE`, processed in the background).
   - `/api/v1/developer/apps` - own Apps (`GET`), creating an App (`POST`) and changing its name/description (`PUT /{appId}`), one App with its Versions (`GET /{appId}`), Versions incl. drafts (`GET /{appId}/versions[/{versionId}]`),
     version bump preview, draft creation/deletion (`POST /{appId}/versions`, `DELETE /{appId}/versions/{versionId}`), draft editing (entities, properties,
-    constraints, defaults, units, computed properties, aggregations, migration steps, reports below `/{appId}/versions/{versionId}/…`) and release
+    constraints, defaults, units, computed properties, aggregations, migration steps, reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
     (`POST /{appId}/versions/publish`).
 
 ## Error Handling
@@ -713,7 +755,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 - **Computed-property scripts have no real sandbox** — only a timeout guard (see ADR
   [0008](../adr/0008-computed-property-script-execution.md)). A Developer account is trusted;
   if that trust model ever changes (e.g. multi-tenant, non-trusted Developers), this needs
-  revisiting before Reports (which are meant to run Developer-supplied code too) are built.
+  revisiting, also for the planned Kotlin step of Reports (see [docs/plans/reports.md](../plans/reports.md)).
 - **No static analysis tooling.** detekt was removed while fixing an unrelated session-cookie
   bug and never reinstated; regressions in code quality/complexity are currently only caught
   by review, not CI.
@@ -728,9 +770,6 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 - **Stale root-level `docker-stack.yml`** (Postgres-based) is superseded by the actively used
   `deploy/docker-stack.yml` (MongoDB-based) but still sits at the repository root, tracked in
   git — safe to delete.
-- **Reports are domain-model-only** (see [Reports](#reports)) — `Report`/`Page` types exist
-  but there is no adapter, endpoint, or UI; the corresponding sandboxing story is also still
-  unresolved (see Risks above).
 - **`ImportFetchAdapter` lives in the inbound `adapter-in-web` module** even though it performs
   an outbound HTTP call (see [Module Overview](#module-overview)) — there is no dedicated
   outbound HTTP adapter module to host it in instead. Not a correctness issue, but breaks the
@@ -748,8 +787,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Ref               | A property type representing a reference to an object of the same or another Entity in the same App Version.      |
 | Object            | An inline nested structure with its own property list. Analogous to an anonymous Entity without a global ID.      |
 | Constraint        | A validation rule attached to a Property (e.g. `NOT NULL`, `UNIQUE KEY`).                                         |
-| Report            | A named view within an App. Contains one or more Pages; may load filtered entity data.                            |
-| Page              | A single HTML + JavaScript unit within a Report.                                                                  |
+| Report            | A named, declarative (YAML) view within an App Version: queries over its Entities laid out as tabs, rows and panels. |
+| Panel             | One element of a Report row, e.g. a table of a query's result or a Markdown text.                                  |
 | Installation      | A User's personal instance of an App Version, containing that User's data objects.                                |
 | App status        | Lifecycle state of an App: `ACTIVE` (visible in the User app store, installable) or `INACTIVE` (hidden from the store; existing Installations keep working unchanged, and their Users see an informational badge/banner). A Developer can toggle between the two at any time — deactivation blocks nothing. See ADR [0014](../adr/0014-app-lifecycle.md). |
 | Hard delete       | Permanent removal of an App and its Versions. Blocked while any Installation of the App exists, regardless of App status. Not to be confused with the not-yet-implemented Force Delete (see ADR [0014](../adr/0014-app-lifecycle.md)), which would also cascade to active Installations/AppData. |

@@ -1,7 +1,7 @@
 # Reports: declarative, low-code report definitions
 
-**Status: plan, not yet implemented.** Elaborates the Reports epic (#364). The current `Report` model (`html` + `script`) and the
-"Reports" section in [arc42](../arc42/arc42.md#reports) describe an earlier, code-based idea that this plan replaces.
+**Status: step 1 (foundation) implemented, steps 2-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
+"Reports" section of [arc42](../arc42/arc42.md#reports); this plan keeps the remaining steps.
 
 ## Motivation
 
