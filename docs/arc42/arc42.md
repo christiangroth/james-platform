@@ -175,7 +175,9 @@ A Developer can declare an **`AggregationDefinition`** on an `EntityDefinition` 
 Property but declarative rather than scripted (see ADR [0020](../adr/0020-aggregation-definitions.md)). Aggregations are managed per Entity in the version editor
 of a draft; the editor applies the same validation rules as the Version publish and reports violations as form feedback:
 
-- A **function** (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`) applied to a numeric `sourceProperty` (`COUNT` accepts any type).
+- A **function** (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`) applied to a numeric `sourceProperty` (`COUNT` accepts any type). The source may be nested in `object`
+  properties (e.g. `bewertung > zufriedenheit`): the definition then also stores the enclosing `object` properties as `sourcePath` (outermost first), and the value is
+  read from the stored `object` JSON along that path. `refPath`, `timeProperty` and `groupBy` stay top-level.
 - An optional **`refPath`** (a single-hop `ref` property) groups the aggregation's values per instance of the referenced Entity instead of producing one value across all
   instances, e.g. total kilometers per running shoe via a `Lauf.laufschuhId` reference.
 - An optional **`timeBucket`** (`TAG`/`WOCHE`/`MONAT`/`JAHR`/`QUARTAL`) buckets values by day/week/month/year/quarter, derived from an optional `timeProperty` (a

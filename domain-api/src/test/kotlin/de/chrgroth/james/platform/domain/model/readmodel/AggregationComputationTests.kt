@@ -43,6 +43,43 @@ class AggregationComputationTests {
   }
 
   @Test
+  fun `contributionOf reads a source property nested in OBJECT properties via its sourcePath`() {
+    val rating = PropertyId("rating")
+    val day = PropertyId("day")
+    val mood = PropertyId("mood")
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"), name = "Mood", function = AggregationFunction.AVG, sourceProperty = mood, sourcePath = listOf(rating, day),
+    )
+    val flat = AggregationDefinition(id = AggregationDefinitionId("agg-2"), name = "Score", function = AggregationFunction.SUM, sourceProperty = mood, sourcePath = listOf(rating))
+
+    assertThat(aggregation.contributionOf(appData("d1", mapOf(rating.value to """{"day":{"mood":"4"}}""")))).isEqualTo(4.0)
+    assertThat(flat.contributionOf(appData("d2", mapOf(rating.value to """{"mood":"3","other":"1"}""")))).isEqualTo(3.0)
+    assertThat(flat.contributionOf(appData("d3", mapOf(rating.value to """{"other":"1"}""")))).isNull()
+    assertThat(flat.contributionOf(appData("d4", mapOf(rating.value to null)))).isNull()
+    assertThat(flat.contributionOf(appData("d5", mapOf(rating.value to "not json")))).isNull()
+    assertThat(aggregation.contributionOf(appData("d6", mapOf(rating.value to """{"day":"4"}""")))).isNull()
+  }
+
+  @Test
+  fun `computeAggregationValues aggregates a nested source property`() {
+    val rating = PropertyId("rating")
+    val mood = PropertyId("mood")
+    val aggregation = AggregationDefinition(
+      id = AggregationDefinitionId("agg-1"), name = "Mood", function = AggregationFunction.AVG, sourceProperty = mood, sourcePath = listOf(rating),
+    )
+    val items = listOf(
+      appData("d1", mapOf(rating.value to """{"mood":"4"}""")),
+      appData("d2", mapOf(rating.value to """{"mood":"2"}""")),
+      appData("d3", mapOf(rating.value to null)),
+    )
+
+    val values = aggregation.computeAggregationValues(installedAppId, items, Instant.parse("2026-11-02T10:00:00Z"))
+
+    assertThat(values.single().value).isEqualTo(3.0)
+    assertThat(values.single().sampleCount).isEqualTo(2L)
+  }
+
+  @Test
   fun `contributionOf is null for a missing or non-numeric source value`() {
     val aggregation = AggregationDefinition(id = AggregationDefinitionId("agg-1"), name = "Total", function = AggregationFunction.SUM, sourceProperty = amountPropId)
 

@@ -6,6 +6,7 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.AppDataError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
+import de.chrgroth.james.platform.domain.model.app.findPropertyPath
 import de.chrgroth.james.platform.domain.model.app.referenceLookupTarget
 import de.chrgroth.james.platform.domain.model.app.REFERENCE_NEW_FORM_PREFIX
 import de.chrgroth.james.platform.domain.model.app.REFERENCE_LOOKUP_FORM_PREFIX
@@ -657,7 +658,7 @@ class UserAppStoreResource {
       return formatBucketLabel(aggregation.timeBucket!!, key)
     }
 
-    val sourceProperty = entityDef.properties.find { it.id == aggregation.sourceProperty }
+    val sourceProperty = entityDef.findPropertyPath(aggregation.sourceProperty)?.property
     val rowsWithSortKeys = values.map { value ->
       Triple(value, groupLabelOf(value), periodLabelOf(value))
     }

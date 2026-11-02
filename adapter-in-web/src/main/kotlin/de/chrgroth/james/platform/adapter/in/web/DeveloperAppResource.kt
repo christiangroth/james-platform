@@ -31,6 +31,8 @@ import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.propertyPaths
+import de.chrgroth.james.platform.domain.model.app.findPropertyPath
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
@@ -455,6 +457,7 @@ class DeveloperAppResource {
             removedProperties = emptyList<Property>(),
             aggregations = emptyList<AggregationEditorRow>(),
             aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
+            aggregationSourceOptions = emptyList<AggregationPropertyOptionRow>(),
             migrationSteps = emptyList<MigrationStepEditorRow>(),
             migrationSuggestions = emptyList<MigrationStepEditorRow>(),
             convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
@@ -519,6 +522,7 @@ class DeveloperAppResource {
             removedProperties = if (breadcrumb.isEmpty()) removedProperties(publishedVersion, selectedEntity) else emptyList(),
             aggregations = selectedEntity?.let { aggregationRows(it) }.orEmpty(),
             aggregationPropertyOptions = selectedEntity?.let { aggregationPropertyOptions(it) }.orEmpty(),
+            aggregationSourceOptions = selectedEntity?.let { aggregationSourceOptions(it) }.orEmpty(),
             migrationSteps = selectedEntity?.let { migrationStepRows(it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }.orEmpty(),
             migrationSuggestions = selectedEntity
               ?.let { migrationSuggestionRows(appId, versionId, it, publishedVersion?.entityDefinitions?.find { e -> e.id == it.id }) }
@@ -674,6 +678,7 @@ class DeveloperAppResource {
             removedProperties = emptyList<Property>(),
             aggregations = emptyList<AggregationEditorRow>(),
             aggregationPropertyOptions = emptyList<AggregationPropertyOptionRow>(),
+            aggregationSourceOptions = emptyList<AggregationPropertyOptionRow>(),
             migrationSteps = emptyList<MigrationStepEditorRow>(),
             migrationSuggestions = emptyList<MigrationStepEditorRow>(),
             convertTypePropertyOptions = emptyList<MigrationStepPropertyOptionRow>(),
@@ -1525,7 +1530,7 @@ class DeveloperAppResource {
         function = aggregation.function.name,
         functionLabel = aggregationFunctionLabel(aggregation.function),
         sourceProperty = aggregation.sourceProperty.value,
-        sourcePropertyName = nameOf(aggregation.sourceProperty.value),
+        sourcePropertyName = entity.findPropertyPath(aggregation.sourceProperty)?.displayName ?: aggregation.sourceProperty.value,
         refPath = aggregation.refPath?.value.orEmpty(),
         timeBucket = aggregation.timeBucket?.name.orEmpty(),
         timeProperty = aggregation.timeProperty?.value.orEmpty(),
@@ -1547,7 +1552,14 @@ class DeveloperAppResource {
     aggregation.groupBy?.let { aggregationMsg.developerAggregationDetailGroupBy(nameOf(it.value)) },
   ).joinToString(" · ")
 
-  private fun aggregationPropertyOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.properties.map {
+  /** Source property options: top-level properties plus properties nested in OBJECT properties, labeled with their path (`bewertung > zufriedenheit`). */
+  private fun aggregationSourceOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.propertyPaths().map { path ->
+    aggregationPropertyOption(path.property).copy(name = path.displayName)
+  }
+
+  private fun aggregationPropertyOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.properties.map { aggregationPropertyOption(it) }
+
+  private fun aggregationPropertyOption(property: Property): AggregationPropertyOptionRow = property.let {
     AggregationPropertyOptionRow(
       id = it.id.value,
       name = it.name,

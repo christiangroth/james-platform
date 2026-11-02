@@ -106,4 +106,5 @@ class AggregationDefinitionDocument {
   var groupBy: String? = null
   var periodStartDay: Int? = null
   var periodStartMonth: Int? = null
+  var sourcePath: List<String>? = null
 }
