@@ -1,6 +1,6 @@
 # Reports: declarative, low-code report definitions
 
-**Status: step 1 (foundation) implemented, steps 2-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
+**Status: steps 1 (foundation) and 2 (time series and stat panels) implemented, steps 3-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
 "Reports" section of [arc42](../arc42/arc42.md#reports); this plan keeps the remaining steps.
 
 ## Motivation
@@ -46,7 +46,7 @@ queries:
   laeufe:   { entity: Lauf, timeField: datum, range: $zeitraum,
               filter: [ { field: distanz, op: GREATER_THAN, value: 0 } ],
               fields: [datum, distanz, dauer, schuhe.name] }
-  km_monat: { entity: Lauf, aggregate: { sum: distanz, bucket: MONAT, timeField: datum } }
+  km_monat: { entity: Lauf, timeField: datum, aggregate: { sum: distanz, bucket: MONAT } }
 transforms:
   laeufe: [ { calc: pace, expr: "dauer / (distanz / 1000)", unit: SECONDS } ]
 checks:

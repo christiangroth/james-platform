@@ -2,8 +2,9 @@
  * Renders the renderer-neutral panel spec of a declarative report (see docs/plans/reports.md): tabs -> rows -> panels. The server has
  * already executed all queries and formatted every value; this module only lays the panels out and draws them.
  *
- * - Panel renderers are registered per panel type (JamesReports.registerRenderer(type, fn)); a panel type without a renderer shows a
- *   placeholder instead of breaking the report, so later steps only add renderers.
+ * - Panel renderers are registered per panel type (JamesReports.registerRenderer(type, fn(container, panel, texts, context))); a panel type
+ *   without a renderer shows a placeholder instead of breaking the report, so later steps only add renderers. Renderers creating charts hand
+ *   their handle to context.track(handle), so a re-render disposes them.
  * - Charts go through a small adapter interface ({ renderChart(container, spec) }). The only adapter, for Apache ECharts, is the single
  *   place knowing the chart library, so it stays swappable (JamesReports.setChartAdapter(adapter)).
  * - Text panels render Markdown via marked with raw HTML disabled, then pass the result through an allow-list sanitizer: no report can
@@ -30,9 +31,19 @@ var JamesReports = (function (global) {
 
     var instanceCounter = 0;
 
+    /** Disposes the charts of a previous render into [container] (e.g. the editor preview re-rendering). */
+    function disposeCharts(container) {
+        (container.__jamesReportCharts || []).forEach(function (handle) {
+            try { handle.dispose(); } catch (e) { /* already gone */ }
+        });
+        container.__jamesReportCharts = [];
+    }
+
     function render(container, view, texts) {
         texts = texts || {};
         instanceCounter += 1;
+        disposeCharts(container);
+        var context = { track: function (handle) { container.__jamesReportCharts.push(handle); } };
         container.textContent = '';
         var tabs = (view && view.tabs) || [];
         if (tabs.length === 0) {
@@ -40,7 +51,7 @@ var JamesReports = (function (global) {
             return;
         }
         if (tabs.length === 1) {
-            container.appendChild(renderTab(tabs[0], texts));
+            container.appendChild(renderTab(tabs[0], texts, context));
             return;
         }
         var idBase = 'report-' + instanceCounter + '-tab-';
@@ -66,14 +77,14 @@ var JamesReports = (function (global) {
             pane.id = idBase + index;
             pane.setAttribute('role', 'tabpanel');
             pane.setAttribute('aria-labelledby', button.id);
-            pane.appendChild(renderTab(tab, texts));
+            pane.appendChild(renderTab(tab, texts, context));
             content.appendChild(pane);
         });
         container.appendChild(nav);
         container.appendChild(content);
     }
 
-    function renderTab(tab, texts) {
+    function renderTab(tab, texts, context) {
         var wrapper = el('div', 'report-tab');
         (tab.rows || []).forEach(function (row) {
             var rowNode = el('div', 'row g-3 mb-3');
@@ -87,7 +98,7 @@ var JamesReports = (function (global) {
                 var body = el('div', 'report-panel-body');
                 var renderer = renderers[panel.type];
                 if (renderer) {
-                    renderer(body, panel, texts);
+                    renderer(body, panel, texts, context);
                 } else {
                     body.appendChild(el('p', 'app-section-label mb-0', panel.type));
                 }
@@ -209,9 +220,16 @@ var JamesReports = (function (global) {
 
     // region charts
 
+    /** Named threshold colors of stat panels (see ReportValues.COLOR_NAMES); any other value is a validated #rgb/#rrggbb color. */
+    var COLORS = {
+        green: '#2f9e5b', red: '#d64545', orange: '#e8892c', yellow: '#d4ac0d', blue: '#3a7bd5', purple: '#8a5cd6', gray: '#8a8f98'
+    };
+    var numberFormat = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
+
     /**
-     * Apache ECharts adapter (loaded only on report pages, vendored as webjar). The chart spec is renderer-neutral and defined together
-     * with the first chart panel types (Reports 2/8): { series: [{ name, style, points: [[x, y], ...] }], xAxis: { type }, yAxis: { unit } }.
+     * Apache ECharts adapter (loaded only on report pages, vendored as webjar). It maps the renderer-neutral chart spec built by the server
+     * (ChartPanelSpec: xAxis { type: category|time, categories }, yAxes [{ position, unit }], series [{ name, style, yAxis, points: [{ x, y,
+     * text }] }], stack, zoom, horizontal) to an ECharts option; no other code knows the chart library.
      */
     var echartsAdapter = {
         name: 'echarts',
@@ -223,28 +241,82 @@ var JamesReports = (function (global) {
             var dark = document.documentElement.getAttribute('data-theme') !== 'light';
             var chart = global.echarts.init(container, dark ? 'dark' : null, { renderer: 'canvas' });
             chart.setOption(toEchartsOption(spec || {}));
+            // Also covers charts in hidden tabs: they get their size once the tab is shown.
+            var observer = typeof global.ResizeObserver !== 'undefined' ? new global.ResizeObserver(function () { chart.resize(); }) : null;
             var onResize = function () { chart.resize(); };
-            global.addEventListener('resize', onResize);
+            if (observer) observer.observe(container); else global.addEventListener('resize', onResize);
             return {
                 dispose: function () {
-                    global.removeEventListener('resize', onResize);
+                    if (observer) observer.disconnect(); else global.removeEventListener('resize', onResize);
                     chart.dispose();
                 }
             };
         }
     };
 
+    function unitLabel(unit) {
+        return function (value) {
+            return numberFormat.format(value) + (unit ? ' ' + unit : '');
+        };
+    }
+
+    function tooltip(params) {
+        var list = Array.isArray(params) ? params : [params];
+        if (list.length === 0) return '';
+        var lines = list.filter(function (p) { return p.data && p.data.text; }).map(function (p) {
+            return p.marker + escapeHtml(p.seriesName) + ': <b>' + escapeHtml(p.data.text) + '</b>';
+        });
+        return escapeHtml(list[0].axisValueLabel || list[0].name || '') + '<br>' + lines.join('<br>');
+    }
+
     function toEchartsOption(spec) {
+        var horizontal = !!spec.horizontal;
+        var category = !spec.xAxis || spec.xAxis.type !== 'time';
+        var seriesSpecs = spec.series || [];
+        var axisSpecs = spec.yAxes && spec.yAxes.length ? spec.yAxes : [{ position: 'left', unit: null }];
+        var xAxis = category
+            ? { type: 'category', data: (spec.xAxis && spec.xAxis.categories) || [], inverse: horizontal, axisLabel: { hideOverlap: true } }
+            : { type: 'time' };
+        var valueAxes = axisSpecs.map(function (axis, index) {
+            return {
+                type: 'value',
+                position: horizontal ? (axis.position === 'right' ? 'top' : 'bottom') : axis.position,
+                name: axis.unit || '',
+                alignTicks: index > 0,
+                splitLine: { show: index === 0 },
+                axisLabel: { formatter: unitLabel(axis.unit) }
+            };
+        });
+        var series = seriesSpecs.map(function (item) {
+            var data = (item.points || []).map(function (point) {
+                return category ? { value: point.y, text: point.text } : { value: [point.x, point.y], text: point.text };
+            });
+            var out = {
+                name: item.name,
+                type: item.style === 'column' ? 'bar' : 'line',
+                data: data,
+                connectNulls: false,
+                showSymbol: data.length <= 60
+            };
+            if (horizontal) out.xAxisIndex = item.yAxis || 0; else out.yAxisIndex = item.yAxis || 0;
+            if (item.style === 'area') out.areaStyle = { opacity: 0.25 };
+            if (spec.stack && item.style !== 'line') out.stack = 'total';
+            return out;
+        });
+        var zoomAxis = horizontal ? { yAxisIndex: 0 } : { xAxisIndex: 0 };
+        var dataZoom = spec.zoom
+            ? [Object.assign({ type: 'inside' }, zoomAxis), Object.assign({ type: 'slider', height: 18, bottom: 6 }, zoomAxis)]
+            : [];
+        var legend = series.length > 1;
         return {
             backgroundColor: 'transparent',
-            tooltip: { trigger: 'axis' },
-            legend: { show: (spec.series || []).length > 1 },
-            xAxis: { type: (spec.xAxis && spec.xAxis.type) || 'category' },
-            yAxis: { type: 'value', name: (spec.yAxis && spec.yAxis.unit) || '' },
-            dataZoom: [{ type: 'inside' }],
-            series: (spec.series || []).map(function (series) {
-                return { name: series.name, type: series.style === 'column' ? 'bar' : 'line', areaStyle: series.style === 'area' ? {} : undefined, data: series.points || [] };
-            })
+            grid: { left: 8, right: 8, top: legend ? 40 : 24, bottom: spec.zoom && !horizontal ? 40 : 8, containLabel: true },
+            tooltip: { trigger: 'axis', axisPointer: { type: category ? 'shadow' : 'line' }, formatter: tooltip },
+            legend: { show: legend, type: 'scroll', top: 0 },
+            xAxis: horizontal ? valueAxes : xAxis,
+            yAxis: horizontal ? xAxis : valueAxes,
+            dataZoom: dataZoom,
+            series: series
         };
     }
 
@@ -257,6 +329,56 @@ var JamesReports = (function (global) {
     function chart() {
         return chartAdapter;
     }
+
+    function renderChartPanel(container, panel, texts, context) {
+        var hasPoints = (panel.series || []).some(function (series) {
+            return (series.points || []).some(function (point) { return point.y !== null && point.y !== undefined; });
+        });
+        if (!hasPoints) {
+            container.appendChild(el('p', 'app-section-label mb-0', texts.empty));
+            return;
+        }
+        var categories = (panel.xAxis && panel.xAxis.categories) || [];
+        var height = panel.horizontal ? Math.max(240, categories.length * 26 + 70) : 300;
+        var node = el('div', 'report-chart');
+        node.style.width = '100%';
+        node.style.height = height + 'px';
+        node.setAttribute('data-testid', 'report-chart');
+        container.appendChild(node);
+        try {
+            var handle = chartAdapter.renderChart(node, panel);
+            if (context && handle) context.track(handle);
+        } catch (e) {
+            container.removeChild(node);
+            container.appendChild(el('p', 'app-section-label mb-0', texts.chartUnavailable || ''));
+        }
+    }
+
+    registerRenderer('timeseries', renderChartPanel);
+    registerRenderer('bar', renderChartPanel);
+
+    // endregion
+
+    // region stat
+
+    var TREND_ARROWS = { up: '▲', down: '▼', flat: '▶' };
+
+    registerRenderer('stat', function (container, panel, texts) {
+        var value = el('div', 'fs-2 fw-semibold lh-sm text-nowrap', panel.text);
+        value.setAttribute('data-testid', 'report-stat-value');
+        if (panel.color) value.style.color = COLORS[panel.color] || panel.color;
+        container.appendChild(value);
+        var comparison = panel.comparison;
+        if (comparison) {
+            var line = el('div', 'app-section-label small mt-1');
+            line.setAttribute('data-testid', 'report-stat-comparison');
+            line.title = comparison.periodText;
+            var delta = (TREND_ARROWS[comparison.trend] || '') + ' ' + comparison.deltaText + (comparison.percentText ? ' (' + comparison.percentText + ')' : '');
+            line.appendChild(el('span', 'fw-semibold', delta));
+            line.appendChild(document.createTextNode(' ' + (texts.statPrevious || '') + ': ' + comparison.previousText));
+            container.appendChild(line);
+        }
+    });
 
     // endregion
 

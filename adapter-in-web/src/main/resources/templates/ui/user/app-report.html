@@ -30,7 +30,9 @@
         <div id="report-view" data-testid="report-view"
              data-text-empty="{report:reportTableEmpty()}"
              data-text-truncated="{report:reportTableTruncated()}"
-             data-text-no-content="{report:reportNoContent()}"></div>
+             data-text-no-content="{report:reportNoContent()}"
+             data-text-stat-previous="{report:reportStatPreviousPeriod()}"
+             data-text-chart-unavailable="{report:reportChartUnavailable()}"></div>
         <script type="application/json" id="report-view-data">{viewJson}</script>
         {/if}
     </div>
@@ -46,7 +48,9 @@
             JamesReports.render(container, view, {
                 empty: container.getAttribute('data-text-empty'),
                 truncated: container.getAttribute('data-text-truncated'),
-                noContent: container.getAttribute('data-text-no-content')
+                noContent: container.getAttribute('data-text-no-content'),
+                statPrevious: container.getAttribute('data-text-stat-previous'),
+                chartUnavailable: container.getAttribute('data-text-chart-unavailable')
             });
         })();
     </script>

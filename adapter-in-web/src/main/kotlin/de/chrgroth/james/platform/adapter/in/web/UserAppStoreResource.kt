@@ -27,6 +27,7 @@ import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
+import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
@@ -52,8 +53,6 @@ import jakarta.ws.rs.core.Response
 import java.math.BigDecimal
 import java.net.URI
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 data class AppDataRow(
   val id: String,
@@ -722,14 +721,7 @@ class UserAppStoreResource {
   /** Formats a `groupBy` group key (the raw property value of [property]) for display, respecting date/time formatting and the property's unit if any. */
   private fun formatGroupValue(property: Property, raw: String): String = PropertyValueFormat.format(property, raw)
 
-  /** Formats a time bucket key (see `AggregationComputation.encodeTimeBucket`) as a human-readable label, e.g. "25.09.2026", "KW 39/2026", "09/2026", "Q1/2026", "2026". */
-  private fun formatBucketLabel(bucket: TimeBucket, bucketKey: String): String = when (bucket) {
-    TimeBucket.TAG -> runCatching { LocalDate.parse(bucketKey) }.getOrNull()?.let { BUCKET_DATE_FORMATTER.format(it) } ?: bucketKey
-    TimeBucket.WOCHE -> WEEK_BUCKET_REGEX.matchEntire(bucketKey)?.let { "KW ${it.groupValues[2].toInt()}/${it.groupValues[1]}" } ?: bucketKey
-    TimeBucket.MONAT -> MONTH_BUCKET_REGEX.matchEntire(bucketKey)?.let { "${it.groupValues[2]}/${it.groupValues[1]}" } ?: bucketKey
-    TimeBucket.QUARTAL -> QUARTER_BUCKET_REGEX.matchEntire(bucketKey)?.let { "Q${it.groupValues[2]}/${it.groupValues[1]}" } ?: bucketKey
-    TimeBucket.JAHR -> bucketKey
-  }
+  private fun formatBucketLabel(bucket: TimeBucket, bucketKey: String): String = formatTimeBucketLabel(bucket, bucketKey)
 
   private fun appStoreErrorMessage(code: String): String = when (code) {
     UserAppStoreError.APP_NOT_FOUND.code -> userMsg.userAppNotFoundError()
@@ -966,12 +958,5 @@ class UserAppStoreResource {
 
     /** Row cap for one aggregation's table in the aggregation panel, so a long-running installation's page doesn't explode (issue #713). */
     private const val MAX_AGGREGATION_TABLE_ROWS = 30
-
-    private val BUCKET_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-
-    // Matches AggregationComputation.encodeTimeBucket's "%04d-W%02d" / "%04d-%02d" / "%04d-Q%d" bucket key formats.
-    private val WEEK_BUCKET_REGEX = Regex("""(\d{4})-W(\d{2})""")
-    private val MONTH_BUCKET_REGEX = Regex("""(\d{4})-(\d{2})""")
-    private val QUARTER_BUCKET_REGEX = Regex("""(\d{4})-Q(\d)""")
   }
 }

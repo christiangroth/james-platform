@@ -153,9 +153,9 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: step 1 of 8 implemented** (declarative definition, queries, table and text panels, see [docs/plans/reports.md](../plans/reports.md) for the
-remaining steps: time series/stat panels and aggregations, App configuration, variables and transformations, checks, heatmap/pie and a Kotlin step,
-personal dashboards).
+**Status: steps 1-2 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
+see [docs/plans/reports.md](../plans/reports.md) for the remaining steps: App configuration, variables and transformations, checks, heatmap/pie and a
+Kotlin step, personal dashboards).
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
 editor, and executed backend-side; no Developer-authored code runs in the browser.
@@ -163,9 +163,27 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
 - **Definition:** `queries` (named) and `tabs` → rows → panels. A query reads one Entity of the installation: optional `timeField` (a DATE/DATETIME
   property) with a `range` (relative: `last_7_days`, `last_30_days`, `last_90_days`, `last_12_months`, `this_month`, `last_month`, `this_year`,
   `last_year`; or fixed `{ from, to }`, both inclusive), `filter` rules, `fields` (top-level properties and computed properties, plus one `ref` hop such as
-  `band.name`; default: all non-object fields), `sort` (default: newest first) and `limit`. A row is a list of panels (or `{ panels: [...] }`); a panel
-  is a map with exactly one type key carrying its title: `table` (`query`, optional `columns` as field or `{ field, label }`, `limit`) and `text`
-  (`markdown`).
+  `band.name`, and fields nested in OBJECT properties such as `bewertung.zufriedenheit`, also behind the `ref` hop; default: all non-object fields),
+  `sort` (default: newest first) and `limit`. A row is a list of panels (or `{ panels: [...] }`); a panel is a map with exactly one type key carrying
+  its title: `table` (`query`, optional `columns` as field or `{ field, label }`, `limit`), `text` (`markdown`), `timeseries`, `bar` and `stat` (below).
+- **Aggregation** (`aggregate` on a query, computed on the fly over the filtered and ranged rows): values `SUM`/`AVG`/`COUNT`/`MIN`/`MAX`/`LAST` over a
+  numeric field (COUNT: any field, or rows with `count` / `"*"`), as shorthand (`sum: distanz`, result field `sum`) or named
+  (`values: { km: { sum: distanz }, fahrten: count }`); grouped by a time `bucket` of the query's `timeField` (`TAG`, `WOCHE`, `MONAT`, `QUARTAL`,
+  `JAHR`; `periodStart` as `MM-DD` or `DD.MM.` for `JAHR`/`QUARTAL`, bucket keys and labels shared with `AggregationDefinition` via
+  `AggregationComputation`) and/or by a field (`groupBy`: a property, a `ref` labelled by the referenced display text, or a field behind it) - unlike an
+  `AggregationDefinition`, bucket and group may be combined. Result fields are `bucket`, the `groupBy` path and the value names; `sort`/`limit` apply to
+  the aggregated rows (default order: bucket, then group label). `LAST` takes the value of the latest row by time field (creation time without one).
+  Results keep the source unit (`AVG` becomes DOUBLE, `COUNT` a unitless LONG).
+- **Charts:** `timeseries` plots over the bucket of an aggregate query (consecutive buckets, gaps stay empty) or the time field of a plain query (time
+  axis); `bar` plots over the group of an aggregate query (or its bucket). Series come from `field` (one series), `series: [{ query, field, name, style,
+  axis }]` (several, also from several queries sharing the same x axis) or, for an aggregate query, one per value. A grouped timeseries (bucketed bar)
+  splits each series per group (bucket). Options: `style` `line`/`column`/`area`, `axis` `left`/`right` (series on one axis must share their unit
+  family), `stack`, `zoom` (default on for timeseries), `horizontal` (bar). Values are plotted in the display unit of their axis (the property's default
+  granularity, euros for money, e.g. km for meters) and shown formatted in tooltips.
+- **Stat:** one value of a query field reduced by `reduce` (`sum`, `avg`, `min`, `max`, `last` (default), `count`; without `field` the single aggregate
+  value), optional `compare: previous_period` (needs a closed range; the previous period of the same length - whole calendar months shift by months -
+  with absolute and relative change) and `thresholds: [{ value, color }]` (value as number or unit text such as `20km`, color `green`/`red`/`orange`/
+  `yellow`/`blue`/`purple`/`gray` or `#rrggbb`; the highest threshold not above the value wins).
 
   ```yaml
   queries:
@@ -185,24 +203,49 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
           - { table: Konzerte, query: konzerte, columns: [datum, { field: band.name, label: Band }, preis] }
   ```
 
+  ```yaml
+  queries:
+    km_monat:
+      entity: Fahrt
+      timeField: datum
+      range: last_12_months
+      aggregate: { bucket: MONAT, values: { km: { sum: distanz }, fahrten: count } }
+    pro_ort: { entity: Konzert, aggregate: { groupBy: ort, values: { konzerte: count } }, sort: [{ field: konzerte, direction: DESC }], limit: 10 }
+    monat: { entity: Fahrt, timeField: datum, range: this_month, fields: [datum, distanz] }
+  tabs:
+    - name: Fahrrad
+      rows:
+        - - { stat: Kilometer, query: monat, field: distanz, reduce: sum, compare: previous_period, thresholds: [{ value: 0, color: red }, { value: 200km, color: green }] }
+          - timeseries: km pro Monat
+            query: km_monat
+            series: [{ field: km, style: column }, { field: fahrten, style: line, axis: right }]
+        - - { bar: Konzerte pro Ort, query: pro_ort, horizontal: true }
+  ```
+
 - **Validation** (`ReportDefinitionParser`, on save, on publish and before execution): YAML syntax (duplicate keys rejected), schema (unknown keys are
-  errors; keys reserved for later steps such as `variables`, `transforms`, `checks`, `aggregate` or the panel types `stat`/`timeseries`/... answer
-  "not supported yet"), entities and fields exist in the version, time fields are DATE/DATETIME, panels only use declared queries and their fields.
+  errors; keys reserved for later steps such as `variables`, `transforms`, `checks` or the panel types `pie`/`heatmap`/`warnings` answer "not supported
+  yet"), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
+  declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range.
   Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition is
   rejected; publishing fails if a report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
 - **Execution** (`ReportService` / `ReportExecutor`): only the data of the one installation asked for is loaded (sandbox boundary). Filters reuse the
   import filter rule model and `FilterEvaluator`, evaluated on a JSON view of each object (numbers as numbers, dates as ISO strings, references as
   display text, a `ref` hop as nested object). Computed properties are evaluated only when a query uses them. Each query runs once per report.
 - **Panel spec:** the result is a renderer-neutral `ReportView` (tabs → rows → panels; a table panel carries columns with property type and unit and
-  cells with raw and formatted value). Values are formatted like display texts (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared
-  with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`, references via their display text. Tables are capped at 1,000 rows.
-- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text). Markdown is rendered by `marked` with raw
-  HTML disabled and an allow-list sanitizer. Charts go through a small adapter interface (`renderChart(container, spec)`); its only implementation wraps
-  Apache ECharts (vendored webjar, loaded only on report pages), so the chart library stays swappable.
+  cells with raw and formatted value; a chart panel an x axis (`category` with labels, or `time`), y axes with unit symbol and series of points with
+  plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison). Values are formatted like display texts
+  (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`,
+  references via their display text, booleans as `ja`/`nein`, bucket keys as `09/2026`, `KW 39/2026`, `Q1/2026`. Tables are capped at 1,000 rows,
+  time-axis series at 5,000 points.
+- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text, timeseries, bar, stat). Markdown is
+  rendered by `marked` with raw HTML disabled and an allow-list sanitizer. Charts go through a small adapter interface (`renderChart(container, spec)`);
+  its only implementation maps the chart spec to Apache ECharts options (vendored webjar, loaded only on report pages; resized via `ResizeObserver`, so
+  charts in hidden tabs render once shown), so the chart library stays swappable.
 - **UI and API:** the version editor lists, creates, renames, edits (YAML textarea with validation feedback) and deletes reports of a draft and previews
   an unsaved definition against a test installation of the draft. Installed Apps list their reports; `/ui/user/apps/{installedAppId}/reports/{reportId}`
   renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
-  `{ name, definition }`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec).
+  `{ name, definition }`; like every draft edit they answer with the full draft, `POST` additionally names the new report's id in the `X-Report-Id`
+  header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec).
 
 ### Developer Test Data
 

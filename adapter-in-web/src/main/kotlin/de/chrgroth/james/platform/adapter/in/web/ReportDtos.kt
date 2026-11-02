@@ -1,12 +1,15 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
+import de.chrgroth.james.platform.domain.model.app.ChartPanelSpec
 import de.chrgroth.james.platform.domain.model.app.PanelSpec
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 import de.chrgroth.james.platform.domain.model.app.ReportView
+import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
 import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.TextPanelSpec
 import io.quarkus.qute.RawString
@@ -35,6 +38,38 @@ data class ApiReportPanelDto(
   val totalRows: Int? = null,
   val truncated: Boolean? = null,
   val markdown: String? = null,
+  // Explicit names: Jackson would derive "xaxis"/"yaxes" from the getters getXAxis()/getYAxes().
+  @get:JsonProperty("xAxis") val xAxis: ApiChartXAxisDto? = null,
+  @get:JsonProperty("yAxes") val yAxes: List<ApiChartYAxisDto>? = null,
+  val series: List<ApiChartSeriesDto>? = null,
+  val stack: Boolean? = null,
+  val zoom: Boolean? = null,
+  val horizontal: Boolean? = null,
+  val value: Double? = null,
+  val text: String? = null,
+  val color: String? = null,
+  val comparison: ApiStatComparisonDto? = null,
+)
+
+/** [type] `category` (with [categories] as labels) or `time` (points carry ISO dates). */
+data class ApiChartXAxisDto(val type: String, val categories: List<String>)
+
+@JsonInclude(JsonInclude.Include.ALWAYS)
+data class ApiChartYAxisDto(val position: String, val unit: String?)
+
+data class ApiChartSeriesDto(val name: String, val style: String, @get:JsonProperty("yAxis") val yAxis: Int, val points: List<ApiChartPointDto>)
+
+@JsonInclude(JsonInclude.Include.ALWAYS)
+data class ApiChartPointDto(val x: String, val y: Double?, val text: String)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ApiStatComparisonDto(
+  val previousValue: Double?,
+  val previousText: String,
+  val deltaText: String,
+  val percentText: String?,
+  val trend: String,
+  val periodText: String,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -77,6 +112,24 @@ object ApiReportDtoMapper {
       truncated = panel.truncated,
     )
     is TextPanelSpec -> ApiReportPanelDto(type = panel.type.key, title = panel.title, markdown = panel.markdown)
+    is ChartPanelSpec -> ApiReportPanelDto(
+      type = panel.type.key,
+      title = panel.title,
+      xAxis = ApiChartXAxisDto(panel.xAxis.type.name.lowercase(), panel.xAxis.categories),
+      yAxes = panel.yAxes.map { ApiChartYAxisDto(it.position, it.unit) },
+      series = panel.series.map { series -> ApiChartSeriesDto(series.name, series.style, series.yAxis, series.points.map { ApiChartPointDto(it.x, it.y, it.text) }) },
+      stack = panel.stack,
+      zoom = panel.zoom,
+      horizontal = panel.horizontal,
+    )
+    is StatPanelSpec -> ApiReportPanelDto(
+      type = panel.type.key,
+      title = panel.title,
+      value = panel.value,
+      text = panel.text,
+      color = panel.color,
+      comparison = panel.comparison?.let { ApiStatComparisonDto(it.previousValue, it.previousText, it.deltaText, it.percentText, it.trend, it.periodText) },
+    )
   }
 
   /** English, machine-oriented detail line for the token API, e.g. `line 3, queries.q.entity: ENTITY_NOT_FOUND [Lauf]`. */
@@ -118,7 +171,7 @@ class ReportTexts(private val reportMsg: ReportMessages) {
       ReportDefinitionErrorCode.FIELD_NOT_FOUND -> reportMsg.reportErrorFieldNotFound(a(0), a(1))
       ReportDefinitionErrorCode.REF_HOP_INVALID -> reportMsg.reportErrorRefHopInvalid(a(0))
       ReportDefinitionErrorCode.TIME_FIELD_INVALID -> reportMsg.reportErrorTimeFieldInvalid(a(0))
-      ReportDefinitionErrorCode.TIME_FIELD_MISSING -> reportMsg.reportErrorTimeFieldMissing()
+      ReportDefinitionErrorCode.TIME_FIELD_MISSING -> reportMsg.reportErrorTimeFieldMissing(a(0))
       ReportDefinitionErrorCode.QUERY_NOT_FOUND -> reportMsg.reportErrorQueryNotFound(a(0))
       ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY -> reportMsg.reportErrorColumnNotInQuery(a(0), a(1))
       ReportDefinitionErrorCode.PANEL_TYPE_MISSING -> reportMsg.reportErrorPanelTypeMissing(a(0))
@@ -128,6 +181,17 @@ class ReportTexts(private val reportMsg: ReportMessages) {
       ReportDefinitionErrorCode.INVALID_DATE -> reportMsg.reportErrorInvalidDate(a(0))
       ReportDefinitionErrorCode.INVALID_RANGE -> reportMsg.reportErrorInvalidRange()
       ReportDefinitionErrorCode.NUMBER_OUT_OF_RANGE -> reportMsg.reportErrorNumberOutOfRange(a(0), a(1), a(2))
+      ReportDefinitionErrorCode.KEY_CONFLICT -> reportMsg.reportErrorKeyConflict(a(0), a(1))
+      ReportDefinitionErrorCode.PERIOD_START_INVALID -> reportMsg.reportErrorPeriodStartInvalid(a(0))
+      ReportDefinitionErrorCode.PERIOD_START_NOT_APPLICABLE -> reportMsg.reportErrorPeriodStartNotApplicable()
+      ReportDefinitionErrorCode.FIELD_NOT_NUMERIC -> reportMsg.reportErrorFieldNotNumeric(a(0))
+      ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD -> reportMsg.reportErrorDuplicateResultField(a(0))
+      ReportDefinitionErrorCode.CHART_X_MISSING -> reportMsg.reportErrorChartXMissing(a(0))
+      ReportDefinitionErrorCode.SERIES_X_MISMATCH -> reportMsg.reportErrorSeriesXMismatch(a(0))
+      ReportDefinitionErrorCode.AXIS_UNIT_MISMATCH -> reportMsg.reportErrorAxisUnitMismatch(a(0))
+      ReportDefinitionErrorCode.COMPARE_NEEDS_RANGE -> reportMsg.reportErrorCompareNeedsRange(a(0))
+      ReportDefinitionErrorCode.INVALID_NUMBER -> reportMsg.reportErrorInvalidNumber(a(0))
+      ReportDefinitionErrorCode.INVALID_COLOR -> reportMsg.reportErrorInvalidColor(a(0), a(1))
     }
   }
 

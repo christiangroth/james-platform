@@ -19,6 +19,7 @@ import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.not
 import org.hamcrest.CoreMatchers.notNullValue
+import org.hamcrest.Matchers.contains
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -191,6 +192,47 @@ class ReportPageTests {
   }
 
   @Test
+  fun `report page embeds stat, timeseries and bar panels of aggregate queries`() {
+    val draft = createDraft()
+    val reportId = appVersionManagement.addReport(draft.appId, draft.versionId, "Statistik", CHART_DEFINITION).getOrNull()!!
+      .reports.first { it.name == "Statistik" }.id.value
+    appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
+    val installedAppId = userAppStore.installApp(USERNAME, draft.appId).getOrNull()!!.id.value
+    addKonzert(draft, installedAppId, "Die Ärzte", "2026-04-10")
+    addKonzert(draft, installedAppId, "Muse", "2026-05-01")
+    addKonzert(draft, installedAppId, "Muse", "2026-05-20")
+
+    given().`when`().get("/ui/user/apps/$installedAppId/reports/$reportId")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("data-testid=\"report-errors\"")))
+      .body(containsString("\"type\":\"stat\""))
+      .body(containsString("\"text\":\"3\""))
+      .body(containsString("\"type\":\"timeseries\""))
+      .body(containsString("\"categories\":[\"04/2026\",\"05/2026\"]"))
+      .body(containsString("\"type\":\"bar\""))
+      .body(containsString("\"categories\":[\"Die Ärzte\",\"Muse\"]"))
+      .body(containsString("data-text-stat-previous=\"ggü. Vorperiode\""))
+      .body(containsString("data-text-chart-unavailable"))
+  }
+
+  @Test
+  fun `saving an invalid aggregate definition reports line and German message`() {
+    val draft = createDraft()
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Konzerte")
+      .formParam("definition", "queries:\n  q:\n    entity: Konzert\n    aggregate: { bucket: MONAT, sum: name }\ntabs: []\n")
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+      .body("errors.code", contains("TIME_FIELD_MISSING", "FIELD_NOT_NUMERIC"))
+      .body("errors[1].line", equalTo(4))
+      .body("errors[1].message", containsString("ist keine Zahl"))
+  }
+
+  @Test
   fun `report page of an unknown report redirects to the installed app`() {
     val draft = createDraft()
     appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
@@ -219,6 +261,19 @@ class ReportPageTests {
           rows:
             - - { text: Hinweis, markdown: "Alle **Konzerte**" }
               - { table: Konzerte, query: konzerte }
+    """.trimIndent()
+
+    val CHART_DEFINITION = """
+      queries:
+        alle: { entity: Konzert }
+        monate: { entity: Konzert, timeField: datum, aggregate: { bucket: MONAT, values: { konzerte: count } } }
+        proBand: { entity: Konzert, aggregate: { groupBy: name, values: { konzerte: count } } }
+      tabs:
+        - name: Statistik
+          rows:
+            - - { stat: Konzerte, query: alle, reduce: count }
+              - { timeseries: Pro Monat, query: monate, style: column }
+              - { bar: Pro Band, query: proBand, horizontal: true }
     """.trimIndent()
   }
 }

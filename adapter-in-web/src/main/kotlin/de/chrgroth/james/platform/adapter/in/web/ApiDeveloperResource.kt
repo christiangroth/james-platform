@@ -24,6 +24,7 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import java.net.URI
 
 /**
  * The token owner's Apps as Developer:
@@ -33,7 +34,8 @@ import jakarta.ws.rs.core.Response
  * - `DEVELOPER_RELEASE`: release (publish) the draft.
  *
  * Every endpoint first checks that the App belongs to the token owner; foreign Apps are reported as not found. Edits are only accepted on drafts,
- * enforced by the domain (`VERSION_NOT_IN_DRAFT`). All edit endpoints answer with the full, updated draft.
+ * enforced by the domain (`VERSION_NOT_IN_DRAFT`). All edit endpoints answer with the full, updated draft; adding a report additionally names the
+ * new report's id in the `X-Report-Id` header.
  */
 @Path("/api/v1/developer/apps")
 @ApplicationScoped
@@ -659,14 +661,35 @@ class ApiDeveloperResource(
       }
     }
 
-  /** Adds a report to the draft; a given YAML `definition` is validated (errors list path and line in `details`). */
+  /**
+   * Adds a report to the draft; a given YAML `definition` is validated (errors list path and line in `details`). Like every draft edit it answers
+   * with the full updated draft; the new report's id is additionally sent in the `X-Report-Id` header and as `Location` of the report.
+   */
   @POST
   @Path("/{appId}/versions/{versionId}/reports")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
   fun addReport(@PathParam("appId") appId: String, @PathParam("versionId") versionId: String, request: ApiReportRequest?): Response =
-    edit("report-add", appId) { appVersionManagement.addReport(appId, versionId, request?.name.orEmpty(), request?.definition.orEmpty()) }
+    httpResponseMetrics.timed("api.developer.report-add") {
+      owned(appId) {
+        val name = request?.name.orEmpty().trim()
+        appVersionManagement.addReport(appId, versionId, name, request?.definition.orEmpty()).fold(
+          ifLeft = { ApiResponses.domainError(it) },
+          ifRight = { version ->
+            val reportId = version.reports.find { it.name.equals(name, ignoreCase = true) }?.id?.value
+            Response.fromResponse(ApiResponses.ok(ApiDtoMapper.version(version)))
+              .apply {
+                if (reportId != null) {
+                  header(REPORT_ID_HEADER, reportId)
+                  location(URI.create("/api/v1/developer/apps/$appId/versions/$versionId/reports/$reportId"))
+                }
+              }
+              .build()
+          },
+        )
+      }
+    }
 
   /** Renames the report (if `name` is given) and replaces its YAML `definition`; an invalid definition is rejected and nothing is saved. */
   @PUT
@@ -738,4 +761,9 @@ class ApiDeveloperResource(
     periodStartDay = request?.periodStartDay,
     periodStartMonth = request?.periodStartMonth,
   )
+
+  companion object {
+    /** Response header naming the id of a report created via `POST .../reports`. */
+    const val REPORT_ID_HEADER = "X-Report-Id"
+  }
 }
