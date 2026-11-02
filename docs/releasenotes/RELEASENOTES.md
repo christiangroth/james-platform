@@ -1,3 +1,12 @@
+# 0.129.1 (2026.11.02)
+
+## Bugfixes / Chore
+* Konzept für deklarative Low-Code-Reports dokumentiert.
+
+
+
+---
+
 # 0.129.0 (2026.11.02)
 
 ## New Features
