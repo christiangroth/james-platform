@@ -111,6 +111,10 @@ class AppConfigPageTests {
       .then()
       .statusCode(200)
       .body(containsString("data-testid=\"entity-configuration-switch\""))
+
+    given().`when`().get("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}")
+      .then()
+      .statusCode(200)
       .body(containsString("data-testid=\"entity-configuration-badge\""))
   }
 
@@ -180,6 +184,7 @@ class AppConfigPageTests {
   @Test
   fun `reports read the configuration as config fields`() {
     val draft = createDraft()
+    appVersionManagement.setEntityConfiguration(draft.appId, draft.versionId, draft.configId, true).getOrNull()!!
     val reportId = appVersionManagement.addReport(draft.appId, draft.versionId, "Ziele", REPORT).getOrNull()!!.reports.single().id.value
     val installedAppId = publishAndInstall(draft)
     appData.createAppData(USERNAME, installedAppId, draft.laufId, mapOf("prop_${draft.distanzId}" to listOf("150"))).getOrNull()!!
