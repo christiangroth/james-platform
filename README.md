@@ -7,7 +7,8 @@ single-developer tool on a personal VPS and provides a web UI for managing users
 
 - **Low-Code App Builder** – Developers define **Apps** as a series of semantically versioned **Entities**, each with typed, constrained **Properties** (`long`, `Double`,
   `boolean`, `String`, `date`, `time`, `datetime`, `ref`, `List`, `object`) — no infrastructure or CRUD boilerplate to write. Several unique-key properties
-  of an Entity form one composite key (e.g. time stamp + meter).
+  of an Entity form one composite key (e.g. time stamp + meter). Numeric properties can carry a unit (time, distance, currency, mass, energy, volume) and accept
+  unit-suffixed input such as `15km 400m` or `75,3kg`.
 - **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
   forward) and Snapshot mode (reusable form templates). References can be entered as text with proposals, creating unknown targets on save.
 - **Computed Properties & Smart Defaults** – Derived values and form defaults backed by Developer-authored Kotlin scripts, executed backend-side with a timeout guard.

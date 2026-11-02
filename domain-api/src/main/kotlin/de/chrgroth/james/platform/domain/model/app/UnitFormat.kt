@@ -9,6 +9,9 @@ fun unitFormatHint(family: UnitFamily): String = when (family) {
   UnitFamily.TIME -> "1d 2h 30min 15s"
   UnitFamily.DISTANCE -> "15km 400m"
   UnitFamily.CURRENCY -> "12,50€"
+  UnitFamily.MASS -> "75,3kg"
+  UnitFamily.ENERGY -> "2300kcal"
+  UnitFamily.VOLUME -> "2,5l"
 }
 
 private const val NUMBER_PATTERN = """-?\d+(?:[.,]\d+)?"""
@@ -53,6 +56,9 @@ private fun granularitiesOf(family: UnitFamily): List<Granularity> = when (famil
   UnitFamily.TIME -> TimeGranularity.entries
   UnitFamily.DISTANCE -> DistanceGranularity.entries
   UnitFamily.CURRENCY -> CurrencyGranularity.entries
+  UnitFamily.MASS -> MassGranularity.entries
+  UnitFamily.ENERGY -> EnergyGranularity.entries
+  UnitFamily.VOLUME -> VolumeGranularity.entries
 }
 
 /** Resolves [name] (case-insensitive, e.g. `"kilometers"`) to a [Granularity] of [family], or null if it does not name one of its entries. */
@@ -62,15 +68,20 @@ fun granularityByName(family: UnitFamily, name: String?): Granularity? {
     UnitFamily.TIME -> runCatching { TimeGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
     UnitFamily.DISTANCE -> runCatching { DistanceGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
     UnitFamily.CURRENCY -> runCatching { CurrencyGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+    UnitFamily.MASS -> runCatching { MassGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+    UnitFamily.ENERGY -> runCatching { EnergyGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
+    UnitFamily.VOLUME -> runCatching { VolumeGranularity.valueOf(trimmed.uppercase()) }.getOrNull()
   }
 }
 
 /**
  * Formats [value] (expressed in [storageGranularity]) as a unit-suffixed composite string, e.g. "15km 400m", accepted back by [parseUnitValue].
  * [UnitFamily.CURRENCY] is the exception: it is shown as a single euro amount with two decimals, e.g. "12,50€", instead of "12€ 50ct".
+ * Any other family without [UnitFamily.compositeFormat] is shown as a single amount in [storageGranularity], e.g. "75,3kg" or "2300kcal".
  */
 fun formatUnitValue(value: BigDecimal, storageGranularity: Granularity): String {
   if (storageGranularity.family == UnitFamily.CURRENCY) return formatCurrencyValue(value, storageGranularity)
+  if (!storageGranularity.family.compositeFormat) return "${value.stripTrailingZeros().toPlainString().replace('.', ',')}${storageGranularity.symbol}"
 
   val granularities = granularitiesOf(storageGranularity.family).sortedByDescending { it.factorToSmallestUnit }
   var remaining = value.multiply(BigDecimal(storageGranularity.factorToSmallestUnit))

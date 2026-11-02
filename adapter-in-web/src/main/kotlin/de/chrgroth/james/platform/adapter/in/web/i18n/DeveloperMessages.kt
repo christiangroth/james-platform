@@ -483,6 +483,15 @@ interface DeveloperMessages {
   fun developerUnitFamilyCurrencyLabel(): String
 
   @Message
+  fun developerUnitFamilyMassLabel(): String
+
+  @Message
+  fun developerUnitFamilyEnergyLabel(): String
+
+  @Message
+  fun developerUnitFamilyVolumeLabel(): String
+
+  @Message
   fun developerUnitStorageGranularityLabel(): String
 
   @Message

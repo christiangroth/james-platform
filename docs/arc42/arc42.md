@@ -99,10 +99,14 @@ Cyclic reference graphs via `ref` are detected and rejected at schema-definition
 A `long`/`Double` property may carry a **`PropertyUnit`**, letting a Developer attach a unit family to a
 numeric field and a User enter values as unit-suffixed text (e.g. `15km 400m`) instead of a bare number.
 
-- A `PropertyUnit` has a **`family`** (`TIME`, `DISTANCE` or `CURRENCY`), a **`storageGranularity`**, and a
+- A `PropertyUnit` has a **`family`** (`TIME`, `DISTANCE`, `CURRENCY`, `MASS`, `ENERGY` or `VOLUME`), a **`storageGranularity`**, and a
   **`defaultGranularity`** — both granularities are one of `TimeGranularity` (`MILLISECONDS`, `SECONDS`,
   `MINUTES`, `HOURS`, `DAYS`), `DistanceGranularity` (`MILLIMETERS`, `CENTIMETERS`, `METERS`,
-  `KILOMETERS`) or `CurrencyGranularity` (`CENTS`, `EUROS`), matching the unit's `family`.
+  `KILOMETERS`), `CurrencyGranularity` (`CENTS`, `EUROS`), `MassGranularity` (`MILLIGRAMS`, `GRAMS`, `KILOGRAMS`),
+  `EnergyGranularity` (`KILOJOULES`, `KILOCALORIES`, `WATT_HOURS`, `KILOWATT_HOURS`, exact via millijoules) or
+  `VolumeGranularity` (`MILLILITERS`, `LITERS`, `CUBIC_METERS`), matching the unit's `family`.
+- `TIME` and `DISTANCE` values are displayed as a composite over all granularities (`15km 400m`); `MASS`, `ENERGY` and `VOLUME`
+  values as a single amount in the storage granularity (`75,3kg`, `2300kcal`), since mixed granularities (`2kWh 300kcal`) do not read well.
 - `CURRENCY` always means euros: there is no currency code and no exchange-rate conversion. Unlike the other
   families, a currency value is displayed as a single euro amount with two decimals (`12,50€`) rather than
   as a composite (`12€ 50ct`).
@@ -761,6 +765,6 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Reference lookup   | A `find`-only rule, configured per REF Property in a Mapping, that resolves a source value to an existing object of the referenced Entity. Never creates a referenced object as a side effect. |
 | Dry run           | A non-persisting preview of an import's Accept step, surfacing per-object validation issues before any data is written. |
 | Property Unit     | An optional unit (`family`, `storageGranularity`, `defaultGranularity`) attached to a `long`/`Double` Property; values are always stored numerically in `storageGranularity`. See ADR [0016](../adr/0016-property-units-storage-granularity.md). |
-| Unit family       | The kind of unit a Property Unit belongs to: `TIME`, `DISTANCE` or `CURRENCY` (euros only). Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`/`CurrencyGranularity`) applies. |
+| Unit family       | The kind of unit a Property Unit belongs to: `TIME`, `DISTANCE`, `CURRENCY` (euros only), `MASS`, `ENERGY` or `VOLUME`. Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`/`CurrencyGranularity`/`MassGranularity`/`EnergyGranularity`/`VolumeGranularity`) applies. |
 | Storage granularity | A Property Unit's fixed smallest representable unit, chosen at field creation and immutable afterward. |
 | Outbox            | A persistent queue for at-least-once execution of long-running domain operations (import, deletion, migration). Scoped to a single "domain" partition, no rate limiting. See ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |

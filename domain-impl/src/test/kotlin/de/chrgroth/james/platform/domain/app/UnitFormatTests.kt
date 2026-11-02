@@ -2,8 +2,13 @@ package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
 import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
+import de.chrgroth.james.platform.domain.model.app.EnergyGranularity
+import de.chrgroth.james.platform.domain.model.app.MassGranularity
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
+import de.chrgroth.james.platform.domain.model.app.VolumeGranularity
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.app.parseUnitValue
@@ -127,6 +132,50 @@ class UnitFormatTests {
   fun `resolves currency granularities by name`() {
     assertThat(granularityByName(UnitFamily.CURRENCY, "euros")).isEqualTo(CurrencyGranularity.EUROS)
     assertThat(granularityByName(UnitFamily.CURRENCY, "KILOMETERS")).isNull()
+  }
+
+  // endregion
+
+  // region MASS / ENERGY / VOLUME
+
+  @Test
+  fun `parses mass, energy and volume values into their storage granularity`() {
+    assertThat(parseUnitValue("75kg 300g", MassGranularity.GRAMS)).isEqualByComparingTo(BigDecimal("75300"))
+    assertThat(parseUnitValue("75,3kg", MassGranularity.KILOGRAMS)).isEqualByComparingTo(BigDecimal("75.3"))
+    assertThat(parseUnitValue("1kWh", EnergyGranularity.WATT_HOURS)).isEqualByComparingTo(BigDecimal("1000"))
+    assertThat(parseUnitValue("2,5l", VolumeGranularity.MILLILITERS)).isEqualByComparingTo(BigDecimal("2500"))
+    assertThat(parseUnitValue("1m³", VolumeGranularity.LITERS)).isEqualByComparingTo(BigDecimal("1000"))
+  }
+
+  @Test
+  fun `converts energy exactly between kilocalories, kilojoules and watt hours`() {
+    assertThat(parseUnitValue("1kcal", EnergyGranularity.KILOJOULES)).isEqualByComparingTo(BigDecimal("4.184"))
+    assertThat(parseUnitValue("1Wh", EnergyGranularity.KILOJOULES)).isEqualByComparingTo(BigDecimal("3.6"))
+    val unit = PropertyUnit(UnitFamily.ENERGY, EnergyGranularity.KILOJOULES, EnergyGranularity.KILOCALORIES)
+    assertThat(ValueConversion.convertGranularity(unit, EnergyGranularity.KILOCALORIES, "2000")).isEqualTo("8368")
+  }
+
+  @Test
+  fun `rejects symbols of another family`() {
+    assertThat(parseUnitValue("5km", MassGranularity.GRAMS)).isNull()
+    assertThat(parseUnitValue("5kg", VolumeGranularity.LITERS)).isNull()
+  }
+
+  @Test
+  fun `formats mass, energy and volume as a single amount in the storage granularity, accepted back by parseUnitValue`() {
+    assertThat(formatUnitValue(BigDecimal("75.3"), MassGranularity.KILOGRAMS)).isEqualTo("75,3kg")
+    assertThat(formatUnitValue(BigDecimal("2300"), EnergyGranularity.KILOCALORIES)).isEqualTo("2300kcal")
+    assertThat(formatUnitValue(BigDecimal("12345.60"), EnergyGranularity.KILOWATT_HOURS)).isEqualTo("12345,6kWh")
+    assertThat(formatUnitValue(BigDecimal("2500"), VolumeGranularity.MILLILITERS)).isEqualTo("2500ml")
+    assertThat(parseUnitValue(formatUnitValue(BigDecimal("75.3"), MassGranularity.KILOGRAMS), MassGranularity.KILOGRAMS)).isEqualByComparingTo(BigDecimal("75.3"))
+  }
+
+  @Test
+  fun `resolves mass, energy and volume granularities by name`() {
+    assertThat(granularityByName(UnitFamily.MASS, "kilograms")).isEqualTo(MassGranularity.KILOGRAMS)
+    assertThat(granularityByName(UnitFamily.ENERGY, "KILOWATT_HOURS")).isEqualTo(EnergyGranularity.KILOWATT_HOURS)
+    assertThat(granularityByName(UnitFamily.VOLUME, "CUBIC_METERS")).isEqualTo(VolumeGranularity.CUBIC_METERS)
+    assertThat(granularityByName(UnitFamily.MASS, "LITERS")).isNull()
   }
 
   // endregion
