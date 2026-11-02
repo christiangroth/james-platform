@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.domain.model.app.ChartPanelSpec
@@ -37,8 +38,9 @@ data class ApiReportPanelDto(
   val totalRows: Int? = null,
   val truncated: Boolean? = null,
   val markdown: String? = null,
-  val xAxis: ApiChartXAxisDto? = null,
-  val yAxes: List<ApiChartYAxisDto>? = null,
+  // Explicit names: Jackson would derive "xaxis"/"yaxes" from the getters getXAxis()/getYAxes().
+  @get:JsonProperty("xAxis") val xAxis: ApiChartXAxisDto? = null,
+  @get:JsonProperty("yAxes") val yAxes: List<ApiChartYAxisDto>? = null,
   val series: List<ApiChartSeriesDto>? = null,
   val stack: Boolean? = null,
   val zoom: Boolean? = null,
@@ -55,7 +57,7 @@ data class ApiChartXAxisDto(val type: String, val categories: List<String>)
 @JsonInclude(JsonInclude.Include.ALWAYS)
 data class ApiChartYAxisDto(val position: String, val unit: String?)
 
-data class ApiChartSeriesDto(val name: String, val style: String, val yAxis: Int, val points: List<ApiChartPointDto>)
+data class ApiChartSeriesDto(val name: String, val style: String, @get:JsonProperty("yAxis") val yAxis: Int, val points: List<ApiChartPointDto>)
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 data class ApiChartPointDto(val x: String, val y: Double?, val text: String)

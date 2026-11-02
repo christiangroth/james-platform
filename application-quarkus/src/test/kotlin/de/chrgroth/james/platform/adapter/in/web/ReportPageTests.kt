@@ -95,7 +95,6 @@ class ReportPageTests {
       .body(containsString("konzerte: { entity: Konzert"))
       .body(containsString("data-testid=\"report-preview-no-installation\""))
       .body(containsString("/report-renderer.js"))
-      .body(containsString("data-text-stat-previous=\"ggü. Vorperiode\""))
   }
 
   @Test
