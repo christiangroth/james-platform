@@ -116,6 +116,9 @@ class AppVersionManagementService(
         id = AppVersionId(UUID.randomUUID().toString()),
         versionNumber = null,
         releaseNotes = null,
+        // migration steps and scripts describe the transition into the version they were authored on (ADR 0023) - carrying them over
+        // would re-run them on every later upgrade (re-migrating all data, and re-applying non-idempotent steps such as a unit conversion)
+        entityDefinitions = latestPublished.entityDefinitions.map { it.copy(migrationSteps = emptyList(), migrationScript = null) },
         status = AppVersionStatus.DRAFT,
         createdAt = Instant.now(),
       )
@@ -246,7 +249,10 @@ class AppVersionManagementService(
   }
 
   /**
-   * Enqueues one [DomainOutboxEvent.AutoUpgradeInstallation] per installation still on [previousVersionNumber], each migrated and
+   * Enqueues one [DomainOutboxEvent.AutoUpgradeInstallation] per installation of the same major as [newVersionNumber] that is not on it
+   * yet - not only those on [previousVersionNumber], so an installation left behind (e.g. by two quick publishes, or a failed upgrade)
+   * catches up, migrating across every skipped version. Installations of an older major stay put: crossing a breaking version needs the
+   * user's confirmation. Each installation is migrated and
    * upgraded independently in the background by [handle] — see docs/adr/0019-persistent-outbox-for-long-running-domain-operations.md
    * ("Relationship to ADR 0018"). A failed migration only affects its own installation's outbox task, isolating failures the same
    * way the previous inline `forEach` did.
@@ -255,13 +261,15 @@ class AppVersionManagementService(
     if (previousVersionNumber == null) return
     val installations = installedAppRepository.findAllByAppId(appId)
     // Test installations stay pinned to the version the Developer explicitly chose for them.
-    val toUpgrade = installations.filter { it.installedVersionNumber == previousVersionNumber && !it.isTest }
+    val toUpgrade = installations.filter {
+      !it.isTest && it.installedVersionNumber != newVersionNumber && it.installedVersionNumber.major != null && it.installedVersionNumber.major == newVersionNumber.major
+    }
     toUpgrade.forEach { installedApp ->
       outbox.enqueue(
         DomainOutboxEvent.AutoUpgradeInstallation(
           installedAppId = installedApp.id.value,
           appId = appId.value,
-          fromVersionNumber = previousVersionNumber.value,
+          fromVersionNumber = installedApp.installedVersionNumber.value,
           toVersionNumber = newVersionNumber.value,
         ),
       )

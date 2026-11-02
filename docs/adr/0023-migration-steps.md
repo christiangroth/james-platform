@@ -175,3 +175,11 @@ Chosen option: **"A sealed `MigrationStep` list on `EntityDefinition`, executed 
 * Reuses the immutable storage granularity concept from [ADR 0016](0016-property-units-storage-granularity.md)
 * Follows the publish-time invalidation pattern from [ADR 0020](0020-aggregation-definitions.md)
   (`InvalidAggregationDefinitionError`)
+
+## Addendum: steps and script are not carried into the next draft
+
+A new draft used to be a full copy of the latest published Version, including every Entity's `migrationSteps` and
+`migrationScript`. Since both describe the transition *into* the Version they were authored on, carrying them over made
+`migrateInstallation` re-run them on every later upgrade: all data of the Entity was re-migrated on each publish (slow
+upgrades), and a non-idempotent step such as a `ConvertUnit` would have converted already converted values again.
+`createVersion` therefore starts a draft with empty `migrationSteps` and no `migrationScript`.

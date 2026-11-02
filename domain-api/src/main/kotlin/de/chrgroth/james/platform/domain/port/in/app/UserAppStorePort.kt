@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.port.`in`.app
 import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.InstallationUpdateState
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 
@@ -29,7 +30,16 @@ data class InstalledAppInfo(
   val appActive: Boolean,
   val installedVersion: AppVersion,
   val latestVersion: AppVersion,
-)
+) {
+  /** Whether this installation is up to date, being auto-upgraded, or needs a confirmed (breaking) upgrade. */
+  val updateState: InstallationUpdateState get() = InstallationUpdateState.of(installedVersion.versionNumber, latestVersion.versionNumber)
+
+  /** A non-breaking update to [latestVersion] is being applied automatically in the background. */
+  val autoUpdatePending: Boolean get() = updateState == InstallationUpdateState.AUTO_UPDATE_PENDING
+
+  /** [latestVersion] is a breaking (new major) version, which is never applied automatically. */
+  val manualUpdateRequired: Boolean get() = updateState == InstallationUpdateState.MANUAL_UPDATE_REQUIRED
+}
 
 interface UserAppStorePort {
   fun listAllPublishedApps(): List<PublishedAppInfo>

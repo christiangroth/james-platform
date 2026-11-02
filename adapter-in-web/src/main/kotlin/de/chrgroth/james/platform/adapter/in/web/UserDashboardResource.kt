@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.InstallationUpdateState
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
@@ -26,7 +27,15 @@ data class DashboardInstalledApp(
   val installedVersion: AppVersion,
   val latestVersion: AppVersion,
   val entityCounts: List<EntityDataCount>,
-)
+) {
+  private val updateState: InstallationUpdateState get() = InstallationUpdateState.of(installedVersion.versionNumber, latestVersion.versionNumber)
+
+  /** See [de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo.autoUpdatePending]. */
+  val autoUpdatePending: Boolean get() = updateState == InstallationUpdateState.AUTO_UPDATE_PENDING
+
+  /** See [de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo.manualUpdateRequired]. */
+  val manualUpdateRequired: Boolean get() = updateState == InstallationUpdateState.MANUAL_UPDATE_REQUIRED
+}
 
 @Path("/ui")
 @ApplicationScoped

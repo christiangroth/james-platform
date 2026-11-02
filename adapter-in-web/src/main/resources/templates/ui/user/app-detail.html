@@ -21,6 +21,11 @@
             {#if info.installedApp.test}
             <span class="badge app-badge-muted" data-testid="test-installation-badge">{user:userTestInstallationBadge()}</span>
             {/if}
+            {#if info.autoUpdatePending}
+            <span class="badge app-badge-muted" data-testid="update-pending-hint">
+                <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {userAppUpdate:userAppUpdatePendingHint(info.latestVersion.versionNumber)}
+            </span>
+            {/if}
             {#if isDataImport}
             <a href="/ui/user/imports" class="btn btn-app-secondary btn-sm ms-auto" data-testid="import-button" title="{user:userImportButtonLabel()}" aria-label="{user:userImportButtonLabel()}">
                 <i class="bi bi-cloud-upload" aria-hidden="true"></i>
