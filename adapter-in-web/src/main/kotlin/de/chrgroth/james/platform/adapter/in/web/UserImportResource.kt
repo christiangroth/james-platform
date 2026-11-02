@@ -31,6 +31,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingIssue
+import de.chrgroth.james.platform.domain.model.imports.importTargets
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
 import de.chrgroth.james.platform.domain.model.imports.MappingView
 import de.chrgroth.james.platform.domain.model.imports.ReferenceLookup
@@ -935,7 +936,9 @@ class UserImportResource {
   private fun normalizeDataPathInput(raw: String): String = raw.trim().removePrefix("/").replace("/", ".")
 
   private fun DryRunObject.toRow(entityDefinition: EntityDefinition): DryRunObjectRow {
-    val issuesByProperty = issues.groupBy { it.targetPropertyId }
+    // issues of properties nested in an OBJECT property are shown on that OBJECT property's row
+    val topLevelIdByTargetId = entityDefinition.importTargets().associate { it.property.id to it.topLevelProperty.id }
+    val issuesByProperty = issues.groupBy { topLevelIdByTargetId[it.targetPropertyId] ?: it.targetPropertyId }
     val properties = entityDefinition.properties.map { property ->
       val propertyIssues = issuesByProperty[property.id].orEmpty()
       DryRunPropertyRow(
@@ -951,7 +954,7 @@ class UserImportResource {
 
   /** Groups a fan-in mapping's skipped objects by (property, reason) instead of listing every individual object, which would otherwise flood the report with noise. */
   private fun buildSkippedReasonRows(skippedObjects: List<DryRunObject>, entityDefinition: EntityDefinition): List<DryRunSkippedReasonRow> {
-    val propertyNamesById = entityDefinition.properties.associate { it.id to it.name }
+    val propertyNamesById = entityDefinition.properties.associate { it.id to it.name } + entityDefinition.importTargets().associate { it.property.id to it.displayName }
     return skippedObjects
       .flatMap { it.issues }
       .groupBy { it.targetPropertyId to dryRunIssueMessage(it) }
@@ -970,15 +973,16 @@ class UserImportResource {
     val fieldMappingsByProperty = mapping?.fieldMappings?.associateBy { it.targetPropertyId }.orEmpty()
     val issuesByProperty = view.validation?.issues?.groupBy { it.targetPropertyId }.orEmpty()
     val entityDefinitionsById = view.entityDefinitions.associateBy { it.id }
-    return entityDefinition.properties.map { property ->
+    return entityDefinition.importTargets().map { target ->
+      val property = target.property
       val fieldMapping = fieldMappingsByProperty[property.id]
       val issues = issuesByProperty[property.id].orEmpty()
       val referencedEntity = property.targetEntityId?.let { entityDefinitionsById[it] }
       MappingPropertyRow(
         id = property.id.value,
-        name = property.name,
+        name = target.displayName,
         typeLabel = PropertyLabelTemplateExtensions.propertyTypeLabel(property.type),
-        mandatory = !property.nullable,
+        mandatory = target.effectivelyMandatory,
         constraintHint = PropertyLabelTemplateExtensions.constraintHint(property),
         hasPattern = property.constraints.any { it is PropertyConstraint.Pattern },
         isReference = property.type == PropertyType.REF,

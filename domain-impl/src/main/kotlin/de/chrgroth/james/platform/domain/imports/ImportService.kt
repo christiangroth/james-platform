@@ -30,6 +30,7 @@ import de.chrgroth.james.platform.domain.model.imports.ImportDefinitionId
 import de.chrgroth.james.platform.domain.model.imports.ImportJob
 import de.chrgroth.james.platform.domain.model.imports.ImportJobId
 import de.chrgroth.james.platform.domain.model.imports.ImportStatus
+import de.chrgroth.james.platform.domain.model.imports.importTargets
 import de.chrgroth.james.platform.domain.model.imports.ImportTrigger
 import de.chrgroth.james.platform.domain.model.imports.Mapping
 import de.chrgroth.james.platform.domain.model.imports.MappingSample
@@ -653,7 +654,7 @@ class ImportService(
       logger.warn { "Update mapping failed: target entity definition not found for importJobId: $importJobId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
-    val propertyIds = targetEntityDefinition.properties.map { it.id }.toSet()
+    val propertyIds = targetEntityDefinition.importTargets().map { it.property.id }.toSet()
     if (fieldMappings.any { it.targetPropertyId !in propertyIds }) {
       logger.warn { "Update mapping failed: unknown target property for importJobId: $importJobId" }
       return ImportError.MAPPING_PROPERTY_NOT_FOUND.left()
@@ -715,7 +716,7 @@ class ImportService(
       logger.warn { "Resolve mapping sample failed: target entity definition not found for importJobId: $importJobId" }
       return ImportError.ENTITY_DEFINITION_NOT_FOUND.left()
     }
-    val propertyIds = targetEntityDefinition.properties.map { it.id }.toSet()
+    val propertyIds = targetEntityDefinition.importTargets().map { it.property.id }.toSet()
     if (fieldMappings.any { it.targetPropertyId !in propertyIds }) {
       logger.warn { "Resolve mapping sample failed: unknown target property for importJobId: $importJobId" }
       return ImportError.MAPPING_PROPERTY_NOT_FOUND.left()
@@ -879,7 +880,8 @@ class ImportService(
 
   /** Loaded for every REF property (not just lookup-configured ones) so [DryRunExecutor] can also verify existence of directly mapped or fallback values. */
   private fun referencedAppData(entityDefinition: EntityDefinition, installedApp: InstalledApp): Map<EntityDefinitionId, List<AppData>> {
-    val referencedEntityIds = entityDefinition.properties
+    val referencedEntityIds = entityDefinition.importTargets()
+      .map { it.property }
       .filter { it.type == PropertyType.REF }
       .mapNotNull { it.targetEntityId }
       .toSet()
