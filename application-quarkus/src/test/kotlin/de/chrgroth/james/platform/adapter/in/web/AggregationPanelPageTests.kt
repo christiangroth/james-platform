@@ -561,14 +561,22 @@ class AggregationPanelPageTests {
   fun `entity list shows a REF placeholder of the display text as the referenced object's display text instead of its id`() {
     val appName = "Display Text Ref App ${System.nanoTime()}"
     val setup = createRunShoeApp(appName)
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("displayText", "{ShoeRef} {Distance}")
-      .`when`()
-      .post("/ui/developer/apps/${setup.appId}/versions/${setup.versionId}/entities/${setup.runEntityId}/display-text")
-      .then()
-      .statusCode(200)
-      .body(containsString("\"ok\":true"))
+    // a display text may only reference non-nullable properties, so make ShoeRef and Distance mandatory first
+    val version = appVersionRepository.findById(AppVersionId(setup.versionId))!!
+    appVersionRepository.save(
+      version.copy(
+        entityDefinitions = version.entityDefinitions.map { entity ->
+          if (entity.id.value != setup.runEntityId) {
+            entity
+          } else {
+            entity.copy(
+              displayText = "{ShoeRef} {Distance}",
+              properties = entity.properties.map { if (it.id.value == setup.shoeRefPropertyId || it.id.value == setup.distancePropertyId) it.copy(nullable = false) else it },
+            )
+          }
+        },
+      ),
+    )
     val installedAppId = publishAndInstall(setup, appName, emptyList())
 
     given()
