@@ -217,4 +217,69 @@ class ImportConnectionServiceTests {
 
     assertThat(result).isEqualTo(ImportConnectionError.CONNECTION_NOT_FOUND.left())
   }
+
+  @Test
+  fun `test connection fetches the test url instead of the base url when set`() {
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection.copy(testUrl = "https://example.com/health")
+    every { tokenEncryption.decrypt("encrypted-token") } returns "secret-token".right()
+    every { importFetch.fetch("https://example.com/health", "secret-token") } returns """{"ok":true}""".right()
+
+    val result = service.testConnection("user-1", "conn-1")
+
+    assertThat(result.isRight()).isTrue()
+    verify(exactly = 0) { importFetch.fetch("https://example.com/data", any()) }
+  }
+
+  @Test
+  fun `create connection stores a trimmed same origin test url`() {
+    val saved = slot<ImportConnection>()
+    justRun { importConnectionRepository.save(capture(saved)) }
+
+    val result = service.createConnection("user-1", "My API", "https://example.com/data/type", null, "  https://EXAMPLE.com:443/data  ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.testUrl).isEqualTo("https://EXAMPLE.com:443/data")
+  }
+
+  @Test
+  fun `create connection treats a blank test url as none`() {
+    val saved = slot<ImportConnection>()
+    justRun { importConnectionRepository.save(capture(saved)) }
+
+    service.createConnection("user-1", "My API", "https://example.com/data", null, "  ")
+
+    assertThat(saved.captured.testUrl).isNull()
+  }
+
+  @Test
+  fun `create connection rejects a test url on another host`() {
+    val result = service.createConnection("user-1", "My API", "https://example.com/data", null, "https://evil.example.org/collect")
+
+    assertThat(result).isEqualTo(ImportConnectionError.TEST_URL_FOREIGN_ORIGIN.left())
+    verify(exactly = 0) { importConnectionRepository.save(any()) }
+  }
+
+  @Test
+  fun `update connection rejects a test url with another scheme or port`() {
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection
+
+    val otherScheme = service.updateConnection("user-1", "conn-1", "My API", "https://example.com/data", null, testUrl = "http://example.com/health")
+    val otherPort = service.updateConnection("user-1", "conn-1", "My API", "https://example.com/data", null, testUrl = "https://example.com:8443/health")
+
+    assertThat(otherScheme).isEqualTo(ImportConnectionError.TEST_URL_FOREIGN_ORIGIN.left())
+    assertThat(otherPort).isEqualTo(ImportConnectionError.TEST_URL_FOREIGN_ORIGIN.left())
+  }
+
+  @Test
+  fun `update connection replaces and removes the test url`() {
+    every { importConnectionRepository.findById(ImportConnectionId("conn-1")) } returns connection.copy(testUrl = "https://example.com/old")
+    val saved = slot<ImportConnection>()
+    justRun { importConnectionRepository.save(capture(saved)) }
+
+    service.updateConnection("user-1", "conn-1", "My API", "https://example.com/data", null, testUrl = "https://example.com/new")
+    assertThat(saved.captured.testUrl).isEqualTo("https://example.com/new")
+
+    service.updateConnection("user-1", "conn-1", "My API", "https://example.com/data", null)
+    assertThat(saved.captured.testUrl).isNull()
+  }
 }

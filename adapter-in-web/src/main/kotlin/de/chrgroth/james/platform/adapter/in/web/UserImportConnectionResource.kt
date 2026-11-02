@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportConnectionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportConnectionError
@@ -28,6 +29,7 @@ data class ImportConnectionRow(
   val id: String,
   val name: String,
   val baseUrl: String,
+  val testUrl: String,
   val hasBearerToken: Boolean,
   val createdAt: Instant,
   val lastChangedAt: Instant,
@@ -51,6 +53,9 @@ class UserImportConnectionResource {
 
   @Inject
   private lateinit var userMsg: UserMessages
+
+  @Inject
+  private lateinit var connectionMsg: UserImportConnectionMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -79,6 +84,7 @@ class UserImportConnectionResource {
     @FormParam("name") name: String?,
     @FormParam("baseUrl") baseUrl: String?,
     @FormParam("bearerToken") bearerToken: String?,
+    @FormParam("testUrl") testUrl: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import-connection.create") {
     val userId = securityIdentity.principal.name
     if (name.isNullOrBlank()) {
@@ -87,7 +93,7 @@ class UserImportConnectionResource {
     if (baseUrl.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
-    importConnectionPort.createConnection(userId, name, baseUrl, bearerToken).fold(
+    importConnectionPort.createConnection(userId, name, baseUrl, bearerToken, testUrl).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionCreatedMessage())).build() },
     )
@@ -103,6 +109,7 @@ class UserImportConnectionResource {
     @FormParam("baseUrl") baseUrl: String?,
     @FormParam("bearerToken") bearerToken: String?,
     @FormParam("clearBearerToken") clearBearerToken: String?,
+    @FormParam("testUrl") testUrl: String?,
   ): Response = httpResponseMetrics.timed("rest.user-import-connection.update") {
     val userId = securityIdentity.principal.name
     if (name.isNullOrBlank()) {
@@ -111,7 +118,7 @@ class UserImportConnectionResource {
     if (baseUrl.isNullOrBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, userMsg.userImportUrlRequiredError())).build()
     }
-    importConnectionPort.updateConnection(userId, connectionId, name, baseUrl, bearerToken, clearBearerToken = !clearBearerToken.isNullOrBlank()).fold(
+    importConnectionPort.updateConnection(userId, connectionId, name, baseUrl, bearerToken, clearBearerToken = !clearBearerToken.isNullOrBlank(), testUrl = testUrl).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, connectionErrorMessage(error.code), errorDetails = connectionErrorDetails(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, userMsg.userImportConnectionUpdatedMessage())).build() },
     )
@@ -146,6 +153,7 @@ class UserImportConnectionResource {
     id = id.value,
     name = name,
     baseUrl = baseUrl,
+    testUrl = testUrl.orEmpty(),
     hasBearerToken = encryptedBearerToken != null,
     createdAt = createdAt,
     lastChangedAt = lastChangedAt,
@@ -155,6 +163,7 @@ class UserImportConnectionResource {
     ImportConnectionError.CONNECTION_NOT_FOUND.code -> userMsg.userImportConnectionNotFoundError()
     ImportConnectionError.BLANK_NAME.code -> userMsg.userImportConnectionNameRequiredError()
     ImportConnectionError.BLANK_BASE_URL.code -> userMsg.userImportUrlRequiredError()
+    ImportConnectionError.TEST_URL_FOREIGN_ORIGIN.code -> connectionMsg.userImportConnectionTestUrlForeignOriginError()
     ImportError.INVALID_URL.code -> userMsg.userImportInvalidUrlError()
     ImportError.FETCH_FAILED.code -> userMsg.userImportFetchFailedError()
     ImportError.RESPONSE_TOO_LARGE.code -> userMsg.userImportResponseTooLargeError()

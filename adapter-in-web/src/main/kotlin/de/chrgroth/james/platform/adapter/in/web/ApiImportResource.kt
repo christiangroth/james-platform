@@ -59,13 +59,14 @@ class ApiImportConnectionResource(
       request?.name?.trim().orEmpty(),
       request?.baseUrl?.trim().orEmpty(),
       request?.bearerToken?.takeIf { it.isNotBlank() },
+      request?.testUrl,
     ).fold(
       ifLeft = { ApiResponses.domainError(it) },
       ifRight = { ApiResponses.created(mapper.connection(it)) },
     )
   }
 
-  /** Replaces name and base URL; the bearer token is only replaced when given, or removed with `clearBearerToken`. */
+  /** Replaces name, base URL and test URL (omitted = none); the bearer token is only replaced when given, or removed with `clearBearerToken`. */
   @PUT
   @Path("/{connectionId}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -80,6 +81,7 @@ class ApiImportConnectionResource(
         request?.baseUrl?.trim().orEmpty(),
         request?.bearerToken?.takeIf { it.isNotBlank() },
         clearBearerToken = request?.clearBearerToken ?: false,
+        testUrl = request?.testUrl,
       ).fold(
         ifLeft = { ApiResponses.domainError(it) },
         ifRight = { ApiResponses.ok(mapper.connection(it)) },

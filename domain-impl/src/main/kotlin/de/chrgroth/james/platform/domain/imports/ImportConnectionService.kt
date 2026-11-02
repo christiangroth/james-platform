@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.ImportConnectionError
 import de.chrgroth.james.platform.domain.model.imports.ImportConnection
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
+import de.chrgroth.james.platform.domain.model.imports.isSameOrigin
 import de.chrgroth.james.platform.domain.port.`in`.imports.ImportConnectionPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportConnectionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.imports.ImportFetchPort
@@ -27,7 +28,7 @@ class ImportConnectionService(
   override fun listConnections(userId: String): Either<DomainError, List<ImportConnection>> =
     importConnectionRepository.findAllByUserId(userId).sortedBy { it.name.lowercase() }.right()
 
-  override fun createConnection(userId: String, name: String, baseUrl: String, bearerToken: String?): Either<DomainError, ImportConnection> {
+  override fun createConnection(userId: String, name: String, baseUrl: String, bearerToken: String?, testUrl: String?): Either<DomainError, ImportConnection> {
     if (name.isBlank()) {
       logger.warn { "Create connection failed: blank name for user: $userId" }
       return ImportConnectionError.BLANK_NAME.left()
@@ -35,6 +36,10 @@ class ImportConnectionService(
     if (baseUrl.isBlank()) {
       logger.warn { "Create connection failed: blank base url for user: $userId" }
       return ImportConnectionError.BLANK_BASE_URL.left()
+    }
+    val trimmedTestUrl = validTestUrl(baseUrl, testUrl) ?: run {
+      logger.warn { "Create connection failed: test url with foreign origin for user: $userId" }
+      return ImportConnectionError.TEST_URL_FOREIGN_ORIGIN.left()
     }
 
     val encryptedBearerToken = bearerToken?.trim()?.takeIf { it.isNotBlank() }
@@ -49,6 +54,7 @@ class ImportConnectionService(
       encryptedBearerToken = encryptedBearerToken,
       createdAt = now,
       lastChangedAt = now,
+      testUrl = trimmedTestUrl.ifEmpty { null },
     )
     importConnectionRepository.save(connection)
     logger.info { "Import connection created: ${connection.id.value} for user: $userId" }
@@ -62,6 +68,7 @@ class ImportConnectionService(
     baseUrl: String,
     bearerToken: String?,
     clearBearerToken: Boolean,
+    testUrl: String?,
   ): Either<DomainError, ImportConnection> {
     val existing = requireOwnedConnection(userId, connectionId) ?: run {
       logger.warn { "Update connection failed: connection not found: $connectionId for user: $userId" }
@@ -74,6 +81,10 @@ class ImportConnectionService(
     if (baseUrl.isBlank()) {
       logger.warn { "Update connection failed: blank base url for connectionId: $connectionId" }
       return ImportConnectionError.BLANK_BASE_URL.left()
+    }
+    val trimmedTestUrl = validTestUrl(baseUrl, testUrl) ?: run {
+      logger.warn { "Update connection failed: test url with foreign origin for connectionId: $connectionId" }
+      return ImportConnectionError.TEST_URL_FOREIGN_ORIGIN.left()
     }
 
     val trimmedToken = bearerToken?.trim()?.takeIf { it.isNotBlank() }
@@ -88,6 +99,7 @@ class ImportConnectionService(
       baseUrl = baseUrl.trim(),
       encryptedBearerToken = encryptedBearerToken,
       lastChangedAt = Instant.now(),
+      testUrl = trimmedTestUrl.ifEmpty { null },
     )
     importConnectionRepository.save(updated)
     logger.info { "Import connection updated: $connectionId" }
@@ -110,13 +122,19 @@ class ImportConnectionService(
       return ImportConnectionError.CONNECTION_NOT_FOUND.left()
     }
     val bearerToken = existing.encryptedBearerToken?.let { tokenEncryption.decrypt(it).fold({ return it.left() }, { it }) }.orEmpty()
-    return importFetch.fetch(existing.baseUrl, bearerToken).fold(
+    return importFetch.fetch(existing.testUrl ?: existing.baseUrl, bearerToken).fold(
       ifLeft = {
         logger.warn { "Test connection failed: fetch failed for connectionId: $connectionId" }
         it.left()
       },
       ifRight = { Unit.right() },
     )
+  }
+
+  /** Returns the trimmed test URL ("" when none is given), or null when it does not share the base URL's origin. */
+  private fun validTestUrl(baseUrl: String, testUrl: String?): String? {
+    val trimmed = testUrl?.trim().orEmpty()
+    return if (trimmed.isEmpty() || isSameOrigin(baseUrl, trimmed)) trimmed else null
   }
 
   private fun requireOwnedConnection(userId: String, connectionId: String): ImportConnection? {

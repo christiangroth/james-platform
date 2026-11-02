@@ -212,6 +212,7 @@ enum class ImportConnectionError(override val code: String) : DomainError {
   CONNECTION_NOT_FOUND("IMPORTCONN-001"),
   BLANK_NAME("IMPORTCONN-002"),
   BLANK_BASE_URL("IMPORTCONN-003"),
+  TEST_URL_FOREIGN_ORIGIN("IMPORTCONN-004"),
   ;
 }
 

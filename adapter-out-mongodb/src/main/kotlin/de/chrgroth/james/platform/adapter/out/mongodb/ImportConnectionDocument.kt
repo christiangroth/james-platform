@@ -12,6 +12,7 @@ class ImportConnectionDocument {
   lateinit var userId: String
   lateinit var name: String
   lateinit var baseUrl: String
+  var testUrl: String? = null
   var encryptedBearerToken: String? = null
   lateinit var createdAt: Instant
   lateinit var lastChangedAt: Instant
