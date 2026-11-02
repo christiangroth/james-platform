@@ -106,6 +106,8 @@ data class ImportJobRow(
  */
 data class ImportDefinitionGroupRow(
   val id: String,
+  /** The definition's own (renamable) name, also used in Slack run summaries. */
+  val name: String,
   val connectionName: String,
   val urlPostfix: String,
   val installedAppName: String,
@@ -798,6 +800,7 @@ class UserImportResource {
         .map { it.toRow(definitionsById, entityNamesById, appNamesById, connectionNamesById) }
       ImportDefinitionGroupRow(
         id = definition.id.value,
+        name = definition.name,
         connectionName = connectionNamesById[definition.connectionId.value].orEmpty(),
         urlPostfix = definition.urlPostfix.orEmpty(),
         installedAppName = entityToAppId[definition.targetEntityDefinitionId.value]?.let { appNamesById[it] }.orEmpty(),

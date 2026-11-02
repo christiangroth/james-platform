@@ -428,6 +428,22 @@ class ImportService(
     return updated.right()
   }
 
+  override fun renameImportDefinition(userId: String, definitionId: String, name: String): Either<DomainError, ImportDefinition> {
+    val definition = importDefinitionRepository.findById(ImportDefinitionId(definitionId))?.takeIf { it.userId == userId } ?: run {
+      logger.warn { "Rename failed: import definition not found: $definitionId for user: $userId" }
+      return ImportError.DEFINITION_NOT_FOUND.left()
+    }
+    val trimmedName = name.trim()
+    if (trimmedName.isEmpty()) {
+      logger.warn { "Rename failed: blank name for import definition: $definitionId" }
+      return ImportError.BLANK_DEFINITION_NAME.left()
+    }
+    val updated = definition.copy(name = trimmedName, lastChangedAt = Instant.now())
+    importDefinitionRepository.save(updated)
+    logger.info { "Import definition renamed: definitionId=$definitionId" }
+    return updated.right()
+  }
+
   /**
    * Whether an accepted run changed the target entity's data, i.e. is worth a Slack summary: an appending run that saved
    * anything, or a replacing run whose saved count differs from the replaced one. A nightly replace of unchanged source data

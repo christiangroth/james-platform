@@ -430,6 +430,45 @@ class UserImportDefinitionResourceTests {
   }
 
   @Test
+  fun `rename endpoint changes the definition name shown on its card and rejects a blank name`() {
+    val (definitionId, connectionName, _) = createConfiguredDefinition()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "   ")
+      .`when`()
+      .post("/ui/user/imports/definitions/$definitionId/name")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", " Kontakte (CRM) ")
+      .`when`()
+      .post("/ui/user/imports/definitions/$definitionId/name")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+
+    val row = definitionRow(connectionName)
+    assertTrue(row.contains("data-definition-name=\"Kontakte (CRM)\""), "Expected the new name on the card for the rename modal prefill")
+    assertTrue(row.contains("rename-definition-button"), "Expected a rename action on the card")
+  }
+
+  @Test
+  fun `rename endpoint reports an error for an unknown definition id`() {
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Neu")
+      .`when`()
+      .post("/ui/user/imports/definitions/unknown-definition/name")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+  }
+
+  @Test
   fun `schedule endpoint clears the schedule when given mode NONE`() {
     val (definitionId, connectionName, _) = createConfiguredDefinition()
     given()

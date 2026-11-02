@@ -1500,6 +1500,39 @@ class ImportServiceTests {
   }
 
   @Test
+  fun `rename definition stores the trimmed name`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+    val saved = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(saved)) }
+
+    val result = service.renameImportDefinition("user-1", definition.id.value, "  James: Arbeitgeber (Urlaub) ")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(saved.captured.name).isEqualTo("James: Arbeitgeber (Urlaub)")
+    assertThat(saved.captured.schedule).isEqualTo(definition.schedule)
+  }
+
+  @Test
+  fun `rename definition rejects a blank name`() {
+    val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.renameImportDefinition("user-1", definition.id.value, "   ")
+
+    assertThat(result).isEqualTo(ImportError.BLANK_DEFINITION_NAME.left())
+    verify(exactly = 0) { importDefinitionRepository.save(any()) }
+  }
+
+  @Test
+  fun `rename definition fails when the definition belongs to another user`() {
+    val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
+
+    val result = service.renameImportDefinition("user-1", definition.id.value, "Neu")
+
+    assertThat(result).isEqualTo(ImportError.DEFINITION_NOT_FOUND.left())
+    verify(exactly = 0) { importDefinitionRepository.save(any()) }
+  }
+
+  @Test
   fun `update schedule fails when the definition belongs to another user`() {
     val definition = importDefinition(userId = "someone-else", selectedDataPath = "items", mapping = readyMapping)
 

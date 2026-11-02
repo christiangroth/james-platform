@@ -158,4 +158,22 @@ interface UserImportDefinitionMessages {
 
   @Message
   fun userImportDefinitionJobStartedMessage(): String
+
+  @Message
+  fun userImportDefinitionRenameButton(): String
+
+  @Message
+  fun userImportDefinitionRenameModalTitle(): String
+
+  @Message
+  fun userImportDefinitionNameLabel(): String
+
+  @Message
+  fun userImportDefinitionNameHint(): String
+
+  @Message
+  fun userImportDefinitionRenamedMessage(): String
+
+  @Message
+  fun userImportDefinitionBlankNameError(): String
 }

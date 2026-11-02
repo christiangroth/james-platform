@@ -187,6 +187,24 @@ class ApiImportResource(
     }
   }
 
+  /** Renames a definition, e.g. to tell apart definitions that got the same generated name; requires `USER_IMPORT` and `USER_WRITE`. */
+  @PUT
+  @Path("/definitions/{definitionId}/name")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.USER_IMPORT)
+  fun renameDefinition(@PathParam("definitionId") definitionId: String, request: ApiImportDefinitionNameRequest?): Response =
+    httpResponseMetrics.timed("api.user.import-definition-rename") {
+      requireWrite()?.let { return@timed it }
+      val name = request?.name ?: return@timed ApiResponses.badRequest("name is required")
+      withDefinition(definitionId) {
+        imports.renameImportDefinition(apiRequest.username(), definitionId, name).fold(
+          ifLeft = { ApiResponses.domainError(it) },
+          ifRight = { Response.ok(mapper.definition(it)).type(MediaType.APPLICATION_JSON).build() },
+        )
+      }
+    }
+
   /**
    * Sets or clears the schedule of a fully configured definition (UI presets only, see [ApiImportScheduleRequest]) together with its Slack and replace
    * flags. A schedule makes the definition accept data unattended, so like [runDefinition] this requires `USER_IMPORT` and `USER_WRITE`.

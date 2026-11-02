@@ -205,6 +205,9 @@ enum class ImportError(override val code: String) : DomainError {
 
   /** A scheduled run's freshly detected schema deviates from the definition's stored baseline; the run aborts without accepting (see `ImportService.triggerScheduledImport`). */
   SCHEMA_DRIFT_DETECTED("IMPORT-023"),
+
+  /** A definition cannot be renamed to a blank name (see `ImportPort.renameImportDefinition`). */
+  BLANK_DEFINITION_NAME("IMPORT-024"),
   ;
 }
 
