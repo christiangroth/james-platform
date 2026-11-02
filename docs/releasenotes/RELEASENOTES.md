@@ -1,3 +1,12 @@
+# 0.125.1 (2026.11.02)
+
+## Bugfixes / Chore
+* Import: Die Prüfung der Feldzuordnung blockiert nicht mehr, wenn ein Wertebereich nur wegen eines als leer übernommenen Quellwerts 0 verletzt scheint.
+
+
+
+---
+
 # 0.125.0 (2026.11.02)
 
 ## New Features
