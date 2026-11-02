@@ -19,6 +19,7 @@ class ValueConversionTests {
     "STRING, DATE",
     "STRING, DATETIME",
     "DATETIME, DATE",
+    "DATETIME, TIME",
   )
   fun `isConvertible is true for every supported type pair`(from: PropertyType, to: PropertyType) {
     assertThat(ValueConversion.isConvertible(from, to)).isTrue()
@@ -102,6 +103,24 @@ class ValueConversionTests {
     assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2025-08-28T22:00:00.000Z").getOrNull()).isEqualTo("2025-08-29")
     assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2024-01-14T23:00:00.000Z").getOrNull()).isEqualTo("2024-01-15")
     assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.DATE, "2024-01-15T00:30:00+01:00").getOrNull()).isEqualTo("2024-01-15")
+  }
+
+  @Test
+  fun `datetime with offset to time uses the time of day in the app time zone`() {
+    // summer (CEST, +2) and winter (CET, +1)
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.TIME, "2024-09-02T05:00:00.000Z").getOrNull()).isEqualTo("07:00")
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.TIME, "2026-01-09T06:00:00.000Z").getOrNull()).isEqualTo("07:00")
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.TIME, "2026-01-09T15:45:30.000Z").getOrNull()).isEqualTo("16:45:30")
+  }
+
+  @Test
+  fun `datetime without offset to time keeps its local time`() {
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.TIME, "2024-01-15T08:15").getOrNull()).isEqualTo("08:15")
+  }
+
+  @Test
+  fun `datetime to time fails for an unparseable value`() {
+    assertThat(ValueConversion.convert(PropertyType.DATETIME, PropertyType.TIME, "07:00").leftOrNull()).isEqualTo(ValueConversionError.INVALID_VALUE)
   }
 
   @Test

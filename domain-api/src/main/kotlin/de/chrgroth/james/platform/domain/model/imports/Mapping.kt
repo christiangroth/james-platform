@@ -20,6 +20,7 @@ enum class FieldMappingConversion(val sourceType: PropertyType?, val targetType:
   STRING_TO_DATE(PropertyType.STRING, PropertyType.DATE),
   STRING_TO_DATETIME(PropertyType.STRING, PropertyType.DATETIME),
   DATETIME_TO_DATE(PropertyType.DATETIME, PropertyType.DATE),
+  DATETIME_TO_TIME(PropertyType.DATETIME, PropertyType.TIME),
 }
 
 /**

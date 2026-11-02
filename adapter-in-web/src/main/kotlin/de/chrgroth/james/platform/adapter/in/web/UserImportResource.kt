@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportDefinitionMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportMappingMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserImportFilterMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.UserMessages
 import de.chrgroth.james.platform.domain.error.DomainError
@@ -323,6 +324,9 @@ class UserImportResource {
 
   @Inject
   private lateinit var userImportDefinitionMsg: UserImportDefinitionMessages
+
+  @Inject
+  private lateinit var importMappingMsg: UserImportMappingMessages
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -1064,6 +1068,7 @@ class UserImportResource {
     FieldMappingConversion.STRING_TO_DATE -> userMsg.userImportMappingConversionStringToDate()
     FieldMappingConversion.STRING_TO_DATETIME -> userMsg.userImportMappingConversionStringToDatetime()
     FieldMappingConversion.DATETIME_TO_DATE -> userMsg.userImportMappingConversionDatetimeToDate()
+    FieldMappingConversion.DATETIME_TO_TIME -> importMappingMsg.userImportMappingConversionDatetimeToTime()
   }
 
   private fun statusLabel(status: ImportStatus): String = when (status) {
