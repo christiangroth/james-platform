@@ -12,6 +12,8 @@ import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.VolumeGranularity
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * A query field resolved against the version's entities: a (computed) property of the queried entity or - via one `ref` hop ([refProperty],
@@ -119,6 +121,12 @@ internal object ReportFields {
   /** The fields of a query without an explicit field list: all top-level properties (except OBJECT) and computed properties. */
   fun defaultFields(entity: EntityDefinition): List<String> =
     entity.properties.filter { it.type != PropertyType.OBJECT }.map { it.name } + entity.computedProperties.map { it.name }
+
+  /** A raw DATE (`2026-09-25`) or DATETIME value as date; null for anything else. */
+  fun parseDate(raw: String?): LocalDate? {
+    if (raw.isNullOrBlank()) return null
+    return runCatching { LocalDate.parse(raw) }.getOrNull() ?: runCatching { LocalDateTime.parse(raw).toLocalDate() }.getOrNull()
+  }
 
   fun isTimeType(type: PropertyType): Boolean = type == PropertyType.DATE || type == PropertyType.DATETIME
 

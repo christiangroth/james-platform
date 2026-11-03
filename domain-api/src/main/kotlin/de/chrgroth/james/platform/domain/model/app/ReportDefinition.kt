@@ -8,16 +8,19 @@ import java.time.temporal.ChronoUnit
 /**
  * The typed form of a [Report.definition] (YAML), see docs/plans/reports.md and arc42 "Reports". Layout is report -> [tabs] -> rows -> panels;
  * panels display the result of named [queries], each optionally post-processed by its pipeline of [transforms] (keyed by query name).
- * [variables] are shown as controls on top of the report and referenced as `$name` in query ranges and filter values. Later steps add checks
- * and further panel types next to the existing keys, so this model only ever grows.
+ * [variables] are shown as controls on top of the report and referenced as `$name` in query ranges and filter values; [checks] produce the
+ * findings of `warnings` panels. Later steps add further panel types next to the existing keys, so this model only ever grows.
  */
 data class ReportDefinition(
   val queries: List<ReportQuery> = emptyList(),
   val tabs: List<ReportTab> = emptyList(),
   val variables: List<ReportVariable> = emptyList(),
   val transforms: Map<String, List<ReportTransform>> = emptyMap(),
+  val checks: List<ReportCheck> = emptyList(),
 ) {
   fun query(name: String): ReportQuery? = queries.find { it.name == name }
+
+  fun check(name: String): ReportCheck? = checks.find { it.name == name }
 
   fun variable(name: String): ReportVariable? = variables.find { it.name == name }
 
@@ -168,7 +171,7 @@ enum class ReportPanelType(val key: String, val supported: Boolean) {
   BAR("bar", true),
   PIE("pie", false),
   HEATMAP("heatmap", false),
-  WARNINGS("warnings", false),
+  WARNINGS("warnings", true),
   ;
 
   companion object {
@@ -406,6 +409,21 @@ enum class ReportDefinitionErrorCode {
 
   /** args: query. Resampling needs the query's time field or a time bucket. */
   RESAMPLE_NEEDS_TIME,
+
+  /** args: allowed check types (comma separated). */
+  CHECK_TYPE_MISSING,
+
+  /** args: the check types found (comma separated). */
+  CHECK_TYPE_AMBIGUOUS,
+
+  /** args: check. A warnings panel lists a check that is not declared. */
+  CHECK_NOT_FOUND,
+
+  /** args: the calendar value. A `config.<field>` calendar is no DATE/DATETIME field or LIST of dates. */
+  CALENDAR_INVALID,
+
+  /** args: placeholder, allowed placeholders (comma separated). */
+  MESSAGE_PLACEHOLDER_UNKNOWN,
 }
 
 /** One validation error, located by [path] (e.g. `queries.laeufe.filter[0].op`) and, where known, the 1-based [line] in the YAML source. */
@@ -439,7 +457,8 @@ data class ReportVariableSpec(val name: String, val label: String, val type: Str
 
 data class ReportVariableOptionSpec(val value: String, val label: String)
 
-data class ReportViewTab(val name: String, val rows: List<ReportViewRow>)
+/** [warnings] is the number of findings shown in the tab's warnings panels (each check counted once), shown as counter on the tab. */
+data class ReportViewTab(val name: String, val rows: List<ReportViewRow>, val warnings: Int = 0)
 
 data class ReportViewRow(val panels: List<PanelSpec>)
 

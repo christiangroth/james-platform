@@ -26,6 +26,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
+import de.chrgroth.james.platform.domain.model.app.ReportCheck
 import de.chrgroth.james.platform.domain.model.app.ReportColumn
 import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDateRange
@@ -53,6 +54,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportVariableSpec
 import de.chrgroth.james.platform.domain.model.app.ReportView
 import de.chrgroth.james.platform.domain.model.app.ReportViewRow
 import de.chrgroth.james.platform.domain.model.app.ReportViewTab
+import de.chrgroth.james.platform.domain.model.app.ReportWarningsPanel
 import de.chrgroth.james.platform.domain.model.app.ReportYoyTransform
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.StatComparisonSpec
@@ -63,6 +65,8 @@ import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.TextPanelSpec
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.WarningsPanelSpec
+import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
@@ -89,6 +93,8 @@ import kotlin.math.abs
  *
  * `config.<field>` values (filter values, stat thresholds, constant stat panels) read the App configuration object [configuration] (ADR 0027),
  * converted into the unit of the value they are compared with.
+ *
+ * Checks run through [ReportChecker] - only those a warnings panel shows; a tab counts the findings of its warnings panels.
  */
 @Suppress("TooManyFunctions", "LargeClass")
 internal class ReportExecutor(
@@ -126,20 +132,45 @@ internal class ReportExecutor(
   private var definition: ReportDefinition = ReportDefinition.EMPTY
   private val variableStates = HashMap<String, VariableState>()
   private val transformed = HashMap<String, QueryResult>()
+  private var checker: ReportChecker? = null
 
   /** Executes [definition]; [selections] holds the selected value per variable name (invalid or missing ones fall back to the default). */
   fun execute(reportId: String, name: String, definition: ReportDefinition, selections: Map<String, String> = emptyMap()): ReportView {
     this.definition = definition
+    this.checker = ReportChecker(this, definition, today)
     val variables = definition.variables.map { variableSpec(it, selections[it.name]) }
     return ReportView(
       reportId = reportId,
       name = name,
       tabs = definition.tabs.map { tab ->
-        ReportViewTab(tab.name, tab.rows.map { row -> ReportViewRow(row.panels.mapNotNull { panel(it, definition) }) })
+        val rows = tab.rows.map { row -> ReportViewRow(row.panels.mapNotNull { panel(it, definition) }) }
+        val checks = tab.rows.flatMap { it.panels }.filterIsInstance<ReportWarningsPanel>().flatMap { panelChecks(it) }.distinctBy { it.name }
+        ReportViewTab(tab.name, rows, checks.sumOf { warningsOf(it).size })
       },
       variables = variables,
     )
   }
+
+  // region checks
+
+  private fun panelChecks(panel: ReportWarningsPanel) = if (panel.checks.isEmpty()) definition.checks else panel.checks.mapNotNull { definition.check(it) }
+
+  private fun warningsOf(check: ReportCheck) = checker?.warnings(check).orEmpty()
+
+  private fun warningsPanel(panel: ReportWarningsPanel): PanelSpec {
+    val warnings = panelChecks(panel).flatMap { warningsOf(it) }
+    return WarningsPanelSpec(panel.title, warnings.take(MAX_WARNINGS), warnings.size, warnings.size > MAX_WARNINGS)
+  }
+
+  /** The dates of a configuration field (a DATE/DATETIME field or a LIST of dates), for gap check calendars. */
+  internal fun configDates(path: String): List<LocalDate> {
+    val field = configField(path) ?: return emptyList()
+    val raw = configRaw(field) ?: return emptyList()
+    val values = if (field.type == PropertyType.LIST) decodeListValue(raw) else listOf(raw)
+    return values.mapNotNull { ReportFields.parseDate(it) }
+  }
+
+  // endregion
 
   // region variables
 
@@ -177,7 +208,7 @@ internal class ReportExecutor(
   }
 
   /** The range a query runs with: a variable's selection, or its own (relative ranges resolved against today). */
-  private fun rangeOf(query: ReportQuery): ReportDateRange? = when (val range = query.range) {
+  internal fun rangeOf(query: ReportQuery): ReportDateRange? = when (val range = query.range) {
     is ReportTimeRange.Variable -> variableStates[range.name]?.range
     else -> range?.resolve(today)
   }
@@ -222,6 +253,7 @@ internal class ReportExecutor(
 
   private fun panel(panel: ReportPanel, definition: ReportDefinition): PanelSpec? = when (panel) {
     is ReportTextPanel -> TextPanelSpec(panel.title, panel.markdown)
+    is ReportWarningsPanel -> warningsPanel(panel)
     is ReportTablePanel -> definition.query(panel.query)?.let { tablePanel(panel, it) }
     is ReportChartPanel -> chartPanel(panel, definition)
     is ReportStatPanel -> when (val config = panel.config) {
@@ -257,7 +289,7 @@ internal class ReportExecutor(
   private fun cell(column: ResultColumn, raw: String?): TableCellSpec = TableCellSpec(raw, text(column, raw))
 
   /** The display text of a raw result value: bucket label, reference display text, ja/nein, or formatted like display texts. */
-  private fun text(column: ResultColumn, raw: String?): String {
+  internal fun text(column: ResultColumn, raw: String?): String {
     if (raw.isNullOrEmpty()) return ""
     column.bucket?.let { return formatTimeBucketLabel(it, raw) }
     return when (column.type) {
@@ -278,7 +310,7 @@ internal class ReportExecutor(
    * A computed number formatted with its unit; composite units (time, distance) are rounded to their storage granularity, others to two
    * decimals, so averages do not show long fractions.
    */
-  private fun formatNumber(value: Double, unit: PropertyUnit?): String {
+  internal fun formatNumber(value: Double, unit: PropertyUnit?): String {
     if (unit == null) return PropertyValueFormat.formatNumber(value)
     val scale = if (unit.family.compositeFormat) 0 else 2
     return formatUnitValue(BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP), unit.storageGranularity)
@@ -359,7 +391,7 @@ internal class ReportExecutor(
   private fun configRaw(field: ResolvedField): String? = configuration?.let { rawValue(it, field) }?.takeIf { it.isNotEmpty() }
 
   /** A configuration number converted into [unit] (the unit of the value it is compared with; raw storage value without one). */
-  private fun configNumber(raw: String, unit: PropertyUnit?): Double? {
+  internal fun configNumber(raw: String, unit: PropertyUnit?): Double? {
     val field = configField(ReportFields.configPath(raw) ?: return null) ?: return null
     val value = configRaw(field)?.toDoubleOrNull() ?: return null
     return ReportFields.convertUnit(value, field.unit, unit)
@@ -766,6 +798,9 @@ internal class ReportExecutor(
 
     /** Above this many buckets gaps are not filled any more. */
     const val MAX_CATEGORIES = 2_000
+
+    /** Platform cap for the findings one warnings panel ships to the browser. */
+    const val MAX_WARNINGS = 500
 
     private const val YES = "ja"
     private const val NO = "nein"

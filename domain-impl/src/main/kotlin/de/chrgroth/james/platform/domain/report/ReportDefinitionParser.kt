@@ -14,14 +14,19 @@ import de.chrgroth.james.platform.domain.model.app.ReportAggregate
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
+import de.chrgroth.james.platform.domain.model.app.ReportCalendar
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
+import de.chrgroth.james.platform.domain.model.app.ReportCheck
+import de.chrgroth.james.platform.domain.model.app.ReportCheckPeriod
+import de.chrgroth.james.platform.domain.model.app.ReportCheckSeverity
 import de.chrgroth.james.platform.domain.model.app.ReportColumn
 import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
+import de.chrgroth.james.platform.domain.model.app.ReportGapCheck
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
@@ -29,6 +34,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportQuery
 import de.chrgroth.james.platform.domain.model.app.ReportReduce
 import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
 import de.chrgroth.james.platform.domain.model.app.ReportRow
+import de.chrgroth.james.platform.domain.model.app.ReportRuleCheck
 import de.chrgroth.james.platform.domain.model.app.ReportSelectVariable
 import de.chrgroth.james.platform.domain.model.app.ReportSeries
 import de.chrgroth.james.platform.domain.model.app.ReportSeriesStyle
@@ -42,6 +48,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportTimeRange
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRangeVariable
 import de.chrgroth.james.platform.domain.model.app.ReportTransform
 import de.chrgroth.james.platform.domain.model.app.ReportVariable
+import de.chrgroth.james.platform.domain.model.app.ReportWarningsPanel
 import de.chrgroth.james.platform.domain.model.app.ReportYoyTransform
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
@@ -67,8 +74,8 @@ internal object ReportDefinitionParser {
 
   const val MAX_LIMIT = 10_000
 
-  private val ROOT_KEYS = setOf("variables", "queries", "transforms", "tabs")
-  private val ROOT_RESERVED = setOf("checks")
+  private val ROOT_KEYS = setOf("variables", "queries", "transforms", "checks", "tabs")
+  private val ROOT_RESERVED = emptySet<String>()
   private const val VARIABLE_TIME_RANGE = "timeRange"
   private const val VARIABLE_SELECT = "select"
   private val VARIABLE_TYPES = listOf(VARIABLE_TIME_RANGE, VARIABLE_SELECT)
@@ -107,6 +114,13 @@ internal object ReportDefinitionParser {
   private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds", "config")
   private val STAT_QUERY_KEYS = listOf("query", "field", "reduce", "compare")
   private val THRESHOLD_KEYS = setOf("value", "color")
+  private val CHECK_COMMON_KEYS = setOf("message", "severity")
+  private val GAP_KEYS = setOf(ReportGapCheck.KEY, "every", "exclude", "current") + CHECK_COMMON_KEYS
+  private val RULE_KEYS = setOf(ReportRuleCheck.KEY, "field", "expr", "min", "max", "required", "when") + CHECK_COMMON_KEYS
+  private val CHECK_TYPES = listOf(ReportGapCheck.KEY, ReportRuleCheck.KEY)
+  private val CALENDAR_KEYS = setOf("query", "field", "to")
+  private const val CALENDAR_FORMS = "config.<field>, { query, field, to }"
+  private val WARNINGS_KEYS = setOf("checks")
   private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
   private const val COUNT_ROWS = "*"
   private val PERIOD_START_BUCKETS = setOf(TimeBucket.JAHR, TimeBucket.QUARTAL)
@@ -216,6 +230,17 @@ internal object ReportDefinitionParser {
   /** A chart series with the paths its errors are reported at. */
   private class SeriesAt(val series: ReportSeries, val path: Path, val queryPath: Path)
 
+  /** A check being read: its common keys and where it is declared. */
+  private class CheckAt(
+    val name: String,
+    val query: String?,
+    val info: QueryInfo?,
+    val map: ObjectNode,
+    val path: Path,
+    val message: String?,
+    val severity: ReportCheckSeverity,
+  )
+
   @Suppress("TooManyFunctions", "LargeClass")
   private class Reader(private val lines: Map<String, Int>, private val entities: List<EntityDefinition>?) {
     val errors = mutableListOf<ReportDefinitionError>()
@@ -225,6 +250,9 @@ internal object ReportDefinitionParser {
 
     /** References to variables (`$name`), checked after all queries are read. */
     private val variableUses = mutableListOf<VariableUse>()
+
+    /** Names of the declared checks (also unreadable ones), for warnings panels. */
+    private val declaredChecks = mutableSetOf<String>()
 
     /** Declared variables (null: unreadable) with the path they are declared at. */
     private val declaredVariables = LinkedHashMap<String, Pair<ReportVariable?, Path>>()
@@ -299,8 +327,9 @@ internal object ReportDefinitionParser {
       val queries = node.get("queries")?.let { queries(it, Path.ROOT.key("queries")) } ?: emptyList()
       val transforms = node.get("transforms")?.let { transforms(it, Path.ROOT.key("transforms")) } ?: emptyMap()
       checkVariables()
+      val checks = node.get("checks")?.let { checks(it, Path.ROOT.key("checks")) } ?: emptyList()
       val tabs = required(node, "tabs", Path.ROOT)?.let { tabs(it, Path.ROOT.key("tabs")) } ?: emptyList()
-      return ReportDefinition(queries, tabs, variables, transforms)
+      return ReportDefinition(queries, tabs, variables, transforms, checks)
     }
 
     // region variables
@@ -527,6 +556,164 @@ internal object ReportDefinitionParser {
     }
 
     // endregion
+
+    // region checks
+
+    private fun checks(node: JsonNode, path: Path): List<ReportCheck> {
+      if (node.isNull) return emptyList()
+      val map = obj(node, path) ?: return emptyList()
+      return map.properties().mapNotNull { (name, checkNode) ->
+        declaredChecks += name
+        check(name, checkNode, path.key(name))
+      }
+    }
+
+    private fun check(name: String, node: JsonNode, path: Path): ReportCheck? {
+      val map = obj(node, path) ?: return null
+      val types = map.fieldNames().asSequence().filter { it in CHECK_TYPES }.toList()
+      when {
+        types.isEmpty() -> return null.also { error(ReportDefinitionErrorCode.CHECK_TYPE_MISSING, path, CHECK_TYPES.joinToString(", ")) }
+        types.size > 1 -> return null.also { error(ReportDefinitionErrorCode.CHECK_TYPE_AMBIGUOUS, path, types.joinToString(", ")) }
+      }
+      val type = types.single()
+      checkKeys(map, path, if (type == ReportGapCheck.KEY) GAP_KEYS else RULE_KEYS)
+      val query = nonBlankText(map.get(type), path.key(type), type)
+      val info = query?.let { declaredQuery(it, path.key(type)) }
+      val message = map.get("message")?.let { text(it, path.key("message")) }?.trim()?.takeIf { it.isNotEmpty() }
+      val severity = map.get("severity")?.let { keyed(it, path.key("severity"), ReportCheckSeverity.entries) { s -> s.key } } ?: ReportCheckSeverity.WARNING
+      val at = CheckAt(name, query, info, map, path, message, severity)
+      return if (type == ReportGapCheck.KEY) gapCheck(at) else ruleCheck(at)
+    }
+
+    private fun gapCheck(at: CheckAt): ReportCheck? {
+      val (map, path) = at.map to at.path
+      val every = required(map, "every", path)?.let { enumValue<ReportCheckPeriod>(it, path.key("every")) }
+      val current = map.get("current")?.let { bool(it, path.key("current")) } ?: false
+      at.info?.query?.let { q ->
+        if (q.timeField == null) error(ReportDefinitionErrorCode.TIME_FIELD_MISSING, path.key(ReportGapCheck.KEY), ReportGapCheck.KEY)
+        if (q.aggregate != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key(ReportGapCheck.KEY), ReportGapCheck.KEY, "aggregate")
+      }
+      val exclude = map.get("exclude")?.let { node ->
+        val excludePath = path.key("exclude")
+        if (node is ArrayNode) node.mapIndexedNotNull { i, item -> calendar(item, excludePath.index(i)) } else listOfNotNull(calendar(node, excludePath))
+      }.orEmpty()
+      at.message?.let { checkPlaceholders(it, path.key("message"), setOf(ReportCheck.PERIOD_PLACEHOLDER)) }
+      if (at.query == null || every == null) return null
+      return ReportGapCheck(at.name, at.query, every, exclude, current, at.message, at.severity)
+    }
+
+    /** `config.<field>` (a DATE field or LIST of dates of the configuration) or `{ query, field, to }` (time fields of a plain query). */
+    private fun calendar(node: JsonNode, path: Path): ReportCalendar? {
+      if (node.isValueNode) {
+        val raw = nonBlankText(node, path, "exclude") ?: return null
+        val configPath = ReportFields.configPath(raw)
+          ?: return null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, CALENDAR_FORMS) }
+        configField(raw, path)?.let { field ->
+          val dates = ReportFields.isTimeType(field.type) || (field.type == PropertyType.LIST && field.listItemType?.let { ReportFields.isTimeType(it) } == true)
+          if (!dates) error(ReportDefinitionErrorCode.CALENDAR_INVALID, path, raw.trim())
+        }
+        return ReportCalendar.Config(configPath)
+      }
+      val map = obj(node, path) ?: return null
+      checkKeys(map, path, CALENDAR_KEYS)
+      val query = required(map, "query", path)?.let { nonBlankText(it, path.key("query"), "query") }
+      val field = map.get("field")?.let { nonBlankText(it, path.key("field"), "field") }
+      val to = map.get("to")?.let { nonBlankText(it, path.key("to"), "to") }
+      val info = query?.let { declaredQuery(it, path.key("query")) }
+      info?.query?.let { q ->
+        if (q.aggregate != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("query"), "exclude", "aggregate")
+        if (field == null && q.timeField == null) error(ReportDefinitionErrorCode.TIME_FIELD_MISSING, path, "exclude")
+        val columns = info.columns ?: return@let
+        listOfNotNull(field?.let { it to path.key("field") }, to?.let { it to path.key("to") }).forEach { (name, fieldPath) ->
+          val column = columns[name] ?: return@forEach error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, fieldPath, name, q.name)
+          if (column.type != null && !ReportFields.isTimeType(column.type)) error(ReportDefinitionErrorCode.TIME_FIELD_INVALID, fieldPath, name)
+        }
+      }
+      return query?.let { ReportCalendar.Query(it, field, to) }
+    }
+
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    private fun ruleCheck(at: CheckAt): ReportCheck? {
+      val (map, path) = at.map to at.path
+      val columns = at.info?.columns
+      val field = map.get("field")?.let { nonBlankText(it, path.key("field"), "field") }
+      if (map.has("field") && map.has("expr")) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("expr"), "expr", "field")
+      val exprPath = path.key("expr")
+      val source = map.get("expr")?.let { nonBlankText(it, exprPath, "expr") }
+      val expression = source?.let { expression(it, exprPath) }
+      expression?.identifiers?.forEach { identifier ->
+        if (ReportFields.configPath(identifier) != null) {
+          val configField = configField(identifier, exprPath)
+          if (configField != null && !ReportFields.isNumericType(configField.type)) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, exprPath, identifier)
+        } else {
+          numericColumn(identifier, exprPath, columns, at.query)
+        }
+      }
+      val unit = field?.let { numericColumn(it, path.key("field"), columns, at.query) }?.unit
+      val hasValue = map.has("field") || map.has("expr")
+      val min = map.get("min")?.let { bound(it, path.key("min"), "min", unit, hasValue) }
+      val max = map.get("max")?.let { bound(it, path.key("max"), "max", unit, hasValue) }
+      if (hasValue && !map.has("min") && !map.has("max")) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "min/max")
+      if (!hasValue && (map.has("min") || map.has("max"))) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field/expr")
+      val minNumber = min?.takeIf { hasValue && ReportFields.configPath(it) == null }?.let { ReportValues.parseNumber(it, unit) }
+      val maxNumber = max?.takeIf { hasValue && ReportFields.configPath(it) == null }?.let { ReportValues.parseNumber(it, unit) }
+      if (minNumber != null && maxNumber != null && minNumber > maxNumber) error(ReportDefinitionErrorCode.INVALID_RANGE, path.key("min"))
+      val required = fieldList(map, "required", path, columns, at.query)
+      val whenPresent = fieldList(map, "when", path, columns, at.query)
+      if (map.has("when") && !map.has("required")) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "required")
+      if (!hasValue && !map.has("required") && !map.has("min") && !map.has("max")) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field/expr/required")
+      if (at.message != null && columns != null) {
+        val placeholders = listOf(ReportCheck.VALUE_PLACEHOLDER, ReportCheck.MIN_PLACEHOLDER, ReportCheck.MAX_PLACEHOLDER, ReportCheck.MISSING_PLACEHOLDER)
+        checkPlaceholders(at.message, path.key("message"), columns.keys + placeholders)
+      }
+      if (at.query == null || (map.has("field") && field == null) || (map.has("expr") && expression == null)) return null
+      return ReportRuleCheck(at.name, at.query, field, source, min, max, required, whenPresent, at.message, at.severity)
+    }
+
+    /** A numeric field of a query's result (unknown columns: not checked); null (with an error) if missing or not numeric. */
+    private fun numericColumn(field: String, path: Path, columns: Map<String, ResultColumn>?, query: String?): ResultColumn? {
+      columns ?: return null
+      val column = columns[field] ?: return null.also { error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path, field, query.orEmpty()) }
+      if (column.type != null && !column.numeric) return null.also { error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, field) }
+      return column
+    }
+
+    /** A rule's `min`/`max`: a number, a unit text in [unit] or a numeric `config.<field>`; only checked when the rule has a value ([check]). */
+    private fun bound(node: JsonNode, path: Path, key: String, unit: PropertyUnit?, check: Boolean): String? {
+      val raw = nonBlankText(node, path, key) ?: return null
+      if (!check) return raw
+      if (ReportFields.configPath(raw) != null) {
+        checkConfigNumber(raw, path, unit)
+      } else if (ReportValues.parseNumber(raw, unit) == null) {
+        error(ReportDefinitionErrorCode.INVALID_NUMBER, path, raw)
+      }
+      return raw
+    }
+
+    /** `required`/`when`: a field or a list of fields of the query's result. */
+    private fun fieldList(map: ObjectNode, key: String, path: Path, columns: Map<String, ResultColumn>?, query: String?): List<String> {
+      val node = map.get(key) ?: return emptyList()
+      val listPath = path.key(key)
+      val fields = if (node is ArrayNode) {
+        if (node.isEmpty) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, listPath, key)
+        node.mapIndexedNotNull { i, item -> nonBlankText(item, listPath.index(i), key)?.let { it to listPath.index(i) } }
+      } else {
+        listOfNotNull(nonBlankText(node, listPath, key)?.let { it to listPath })
+      }
+      if (columns != null) {
+        fields.forEach { (field, fieldPath) -> if (field !in columns) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, fieldPath, field, query.orEmpty()) }
+      }
+      return fields.map { it.first }
+    }
+
+    private fun checkPlaceholders(message: String, path: Path, allowed: Set<String>) {
+      ReportCheck.PLACEHOLDER.findAll(message).map { it.groupValues[1] }.distinct().forEach { placeholder ->
+        if (placeholder !in allowed) error(ReportDefinitionErrorCode.MESSAGE_PLACEHOLDER_UNKNOWN, path, placeholder, allowed.joinToString(", ") { "{$it}" })
+      }
+    }
+
+    // endregion
+
 
     // region queries
 
@@ -792,6 +979,7 @@ internal object ReportDefinitionParser {
         ReportPanelType.TEXT -> textPanel(map, path, title)
         ReportPanelType.TIMESERIES, ReportPanelType.BAR -> chartPanel(type, map, path, title)
         ReportPanelType.STAT -> statPanel(map, path, title)
+        ReportPanelType.WARNINGS -> warningsPanel(map, path, title)
         else -> null
       }
     }
@@ -830,6 +1018,19 @@ internal object ReportDefinitionParser {
       checkKeys(map, path, TEXT_KEYS + ReportPanelType.TEXT.key)
       val markdown = required(map, "markdown", path)?.let { text(it, path.key("markdown")) } ?: return null
       return ReportTextPanel(title, markdown)
+    }
+
+    // endregion
+
+    private fun warningsPanel(map: ObjectNode, path: Path, title: String): ReportPanel {
+      checkKeys(map, path, WARNINGS_KEYS + ReportPanelType.WARNINGS.key)
+      val checks = map.get("checks")?.let { node ->
+        list(node, path.key("checks"))?.mapIndexedNotNull { i, item ->
+          val itemPath = path.key("checks").index(i)
+          nonBlankText(item, itemPath, "checks")?.also { if (it !in declaredChecks) error(ReportDefinitionErrorCode.CHECK_NOT_FOUND, itemPath, it) }
+        }
+      }.orEmpty()
+      return ReportWarningsPanel(title, checks.distinct())
     }
 
     // endregion

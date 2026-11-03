@@ -160,9 +160,9 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: steps 1-4 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
-App configuration via `config.*`, variables and basic transformations, see [docs/plans/reports.md](../plans/reports.md) for the remaining steps: checks,
-advanced transformations, heatmap/pie and a Kotlin step, personal dashboards).
+**Status: steps 1-5 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
+App configuration via `config.*`, variables and basic transformations, checks and warnings panel, see [docs/plans/reports.md](../plans/reports.md) for the
+remaining steps: advanced transformations, heatmap/pie and a Kotlin step, personal dashboards).
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
 editor, and executed backend-side; no Developer-authored code runs in the browser.
@@ -301,11 +301,54 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
         - - { timeseries: Lebensversicherung, query: versicherung, series: [{ field: rueckkaufswert }, { field: beitraege }] }
   ```
 
+- **Checks** (`checks: { <name>: ... }`, `ReportChecker`): declarative warning rules over the report's queries (with the current variable selections),
+  each with exactly one type, an optional `message` (German default text otherwise) and `severity` `warning` (default) or `error`. Only checks shown by a
+  `{ warnings: <title>, checks: [names] }` panel run (without `checks`: all of them, in declaration order); each tab counts the findings of its
+  warnings panels (every check once) and shows the number on its label. Checks only read the own installation - cross-app checks belong to personal
+  dashboards (step 8).
+  - **Gap detection** `{ gap: <query>, every: WERKTAG|TAG|WOCHE|MONAT|QUARTAL|JAHR, exclude, current }`: at least one row of the query (a plain query
+    with `timeField`; its filter and range apply) per period, from the start of the query's range (without one: its first entry) to its end, at most
+    today; the still running period only with `current: true`. `WERKTAG` expects Mondays to Fridays. `exclude` is a calendar or a list of them:
+    `config.<field>` (a DATE field or a LIST of dates of the App configuration, e.g. holidays) or `{ query, field, to }` (the dates of `field` - default
+    the query's time field - of all its rows, with `to` every day up to that field, e.g. vacation). A period is skipped when all of its days (weekdays
+    for `WERKTAG`) within the checked range are excluded. Findings are labelled with the period (`09/2026`, `KW 39/2026`, `25.09.2026`), newest first;
+    placeholder `{period}`.
+  - **Rules** `{ rule: <query>, ... }` per row of the query's transformed result (also aggregated rows): a value rule reads `field` (numeric) or computes
+    `expr` (the `calc` expression language, raw storage values) and reports values below `min` or above `max` (a number, a unit text such as `25km`
+    for a field with unit, or `config.<field>` converted into the field's unit); rows without value pass. A required rule `required: [fields]` reports
+    rows lacking any of them, restricted to rows having values for all `when: [fields]`. Findings are labelled with the row's bucket, time value and
+    group; placeholders are all result fields (formatted like table cells), `{value}`, `{min}`, `{max}` and `{missing}`.
+
+  ```yaml
+  queries:
+    abrechnungen: { entity: Gehaltsabrechnung, timeField: monat }
+    arbeitstage: { entity: Arbeitstag, timeField: datum, range: this_year, fields: [datum, beginn, ende, stunden] }
+    urlaub: { entity: Urlaub, fields: [von, bis] }
+    ablesungen: { entity: Zaehlerstand, timeField: datum, fields: [datum, stand], sort: [datum] }
+  checks:
+    lohnzettel: { gap: abrechnungen, every: MONAT, message: "Keine Gehaltsabrechnung für {period}" }
+    werktage:
+      gap: arbeitstage
+      every: WERKTAG
+      exclude: [config.feiertage, { query: urlaub, field: von, to: bis }]
+    ablesung: { gap: ablesungen, every: MONAT, severity: error }
+    stunden: { rule: arbeitstage, field: stunden, max: config.maxStunden, message: "{datum}: {value} Stunden" }
+    ende: { rule: arbeitstage, required: [ende], when: [beginn] }
+  tabs:
+    - name: Prüfungen
+      rows:
+        - - { warnings: Fehlende Einträge, checks: [lohnzettel, werktage, ablesung] }
+          - { warnings: Auffällige Werte, checks: [stunden, ende] }
+  ```
+
 - **Validation** (`ReportDefinitionParser`, on save, on publish and before execution): YAML syntax (duplicate keys rejected), schema (unknown keys are
-  errors; keys reserved for later steps such as `checks` or the panel types `pie`/`heatmap`/`warnings` answer "not supported yet"), variables (names,
+  errors; keys reserved for later steps such as the panel types `pie`/`heatmap` answer "not supported yet"), variables (names,
   types, defaults and options; `$name` references exist and fit their use; select queries without variables), transformation steps (exactly one step
   per entry, expressions parse and only read numeric fields of the result so far or numeric configuration fields, output names do not clash, `yoy`
-  needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
+  needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group), checks (exactly one type each, gap queries plain
+  with a time field, calendars are date fields of a plain query or date (list) configuration fields, rule fields/expressions numeric, bounds numbers, unit
+  texts or numeric configuration fields with `min` not above `max`, `required`/`when` fields in the result, known message placeholders, warnings panels
+  only list declared checks), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
   declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range.
   Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition is
   rejected; publishing fails if a report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
@@ -314,11 +357,13 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   display text, a `ref` hop as nested object). Computed properties are evaluated only when a query uses them. Each query runs once per report.
 - **Panel spec:** the result is a renderer-neutral `ReportView` (tabs → rows → panels; a table panel carries columns with property type and unit and
   cells with raw and formatted value; a chart panel an x axis (`category` with labels, or `time`), y axes with unit symbol and series of points with
-  plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison). Values are formatted like display texts
+  plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison; a warnings panel its findings (check,
+  severity, label, message; capped at 500) and each tab the number of findings of its warnings panels). Values are formatted like display texts
   (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`,
   references via their display text, booleans as `ja`/`nein`, bucket keys as `09/2026`, `KW 39/2026`, `Q1/2026`. Tables are capped at 1,000 rows,
   time-axis series at 5,000 points.
-- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text, timeseries, bar, stat). Markdown is
+- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text, timeseries, bar, stat, warnings; a tab with
+  findings shows their number as badge on its label). Markdown is
   rendered by `marked` with raw HTML disabled and an allow-list sanitizer. Charts go through a small adapter interface (`renderChart(container, spec)`);
   its only implementation maps the chart spec to Apache ECharts options (vendored webjar, loaded only on report pages; resized via `ResizeObserver`, so
   charts in hidden tabs render once shown), so the chart library stays swappable.

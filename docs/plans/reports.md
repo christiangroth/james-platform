@@ -1,7 +1,7 @@
 # Reports: declarative, low-code report definitions
 
-**Status: steps 1 (foundation), 2 (time series and stat panels), 3 (App configuration, ADR 0027) and 4 (variables and basic transformations)
-implemented, steps 5-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
+**Status: steps 1 (foundation), 2 (time series and stat panels), 3 (App configuration, ADR 0027), 4 (variables and basic transformations) and
+5 (checks and warnings panel) implemented, steps 6-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
 "Reports" section of [arc42](../arc42/arc42.md#reports); this plan keeps the remaining steps.
 
 ## Motivation
@@ -107,8 +107,8 @@ migration steps.
 Rule of thumb: settings without a time dimension (annual goal, holidays as a list of dates, thresholds) belong in the
 configuration; values that change over time and are "valid from" (target hours, vacation entitlement) belong in a data Entity.
 
-Implemented in step 3, see ADR [0027](../adr/0027-app-configuration.md) and arc42 "Entities and Properties" / "Reports". Checks (step 5) will read
-`config.*` the same way.
+Implemented in step 3, see ADR [0027](../adr/0027-app-configuration.md) and arc42 "Entities and Properties" / "Reports". Checks (step 5) read
+`config.*` the same way (calendars, rule bounds).
 
 ## Porting notes
 
