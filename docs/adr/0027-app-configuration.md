@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 Legacy james reports hard-code constants: annual goals, holidays, thresholds, target hours. Ported to declarative reports (see
-[docs/plans/reports.md](../plans/reports.md)) they need a place per installation where the User maintains such values, and reports, checks and computed
+[arc42 "Reports"](../arc42/arc42.md#reports)) they need a place per installation where the User maintains such values, and reports, checks and computed
 properties need to read them. The values have the same needs as any App data: typed properties with units, constraints, defaults and nested objects,
 versioning, and migration when the App evolves.
 

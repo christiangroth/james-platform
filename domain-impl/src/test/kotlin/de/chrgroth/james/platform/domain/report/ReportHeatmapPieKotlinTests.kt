@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.report
 import de.chrgroth.james.platform.domain.app.ScriptMetrics
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
+import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.ErrorPanelSpec
@@ -30,6 +31,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 
@@ -355,6 +357,64 @@ class ReportHeatmapPieKotlinTests {
 
     assertThat(errors.map { Triple(it.code, it.path, it.line) }).containsExactly(Triple(ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID, "transforms.staende[1].kotlin", 6))
     assertThat(errors.single().args).containsExactly("Unresolved reference 'unbekannt'.", "1")
+  }
+
+  // endregion
+
+  // region arc42 example
+
+  @Test
+  fun `the arc42 example of heatmap, pie and kotlin step is valid, compiles and renders without errors`() {
+    val arc42 = File("../docs/arc42/arc42.md").readLines()
+    val start = arc42.indexOfFirst { it.startsWith("  Heatmap, pie and the Kotlin step, as used by the ports") }
+    val from = arc42.withIndex().first { (i, line) -> i > start && line == "  ```yaml" }.index + 1
+    val to = arc42.withIndex().first { (i, line) -> i > from && line == "  ```" }.index
+    val yaml = arc42.subList(from, to).joinToString("\n") { it.removePrefix("  ") }
+
+    val hours = PropertyUnit(UnitFamily.TIME, TimeGranularity.SECONDS, TimeGranularity.HOURS)
+    val cents = PropertyUnit(UnitFamily.CURRENCY, CurrencyGranularity.CENTS, CurrencyGranularity.EUROS)
+    val zaehlerstand = entity(
+      "Zaehlerstand",
+      Property(PropertyId("x-datum"), "datum", PropertyType.DATE),
+      Property(PropertyId("x-zaehler"), "zaehler", PropertyType.STRING),
+      Property(PropertyId("x-stand"), "stand", PropertyType.LONG),
+    )
+    val tag = entity(
+      "Arbeitstag",
+      Property(PropertyId("t-datum"), "datum", PropertyType.DATE),
+      Property(PropertyId("t-dauer"), "dauer", PropertyType.LONG, unit = hours),
+      Property(PropertyId("t-weg"), "verkehrsmittel", PropertyType.STRING),
+    )
+    val modell = entity(
+      "Arbeitszeitmodell",
+      Property(PropertyId("m-ab"), "gueltigAb", PropertyType.DATE),
+      Property(PropertyId("m-soll"), "sollProTag", PropertyType.LONG, unit = hours),
+    )
+    val config = entity(
+      "Einstellungen",
+      Property(PropertyId("c-anschaffung"), "anschaffung", PropertyType.LONG, unit = cents),
+      Property(PropertyId("c-preis"), "preisProKwh", PropertyType.LONG, unit = cents),
+    ).copy(configuration = true)
+    val all = listOf(zaehlerstand, tag, modell, eintrag, config)
+    val rows = listOf(
+      data("p1", zaehlerstand, "x-datum" to "2026-01-01", "x-zaehler" to "PV", "x-stand" to "0"),
+      data("p2", zaehlerstand, "x-datum" to "2026-03-01", "x-zaehler" to "PV", "x-stand" to "600"),
+      data("p3", zaehlerstand, "x-datum" to "2026-06-01", "x-zaehler" to "PV", "x-stand" to "1500"),
+      data("t1", tag, "t-datum" to "2026-06-01", "t-dauer" to "28800", "t-weg" to "Rad"),
+      data("m1", modell, "m-ab" to "2025-01-01", "m-soll" to "28800"),
+      data("j1", eintrag, "j-datum" to "2026-06-01", "j-bewertung" to "4"),
+    )
+    val configuration = data("c1", config, "c-anschaffung" to "1000000", "c-preis" to "30")
+
+    val result = ReportDefinitionParser.parse(yaml, all)
+    assertThat(result.errors).isEmpty()
+    assertThat(ReportDefinitionParser.scriptErrors(yaml, result.definition!!, scripts::compileProblem)).isEmpty()
+
+    val panels = ReportExecutor(all, rows + configuration, today, configuration, realScripts()) { _, _ -> emptyMap() }
+      .execute("r", "Beispiel", result.definition).tabs.single().rows.flatMap { it.panels }
+    assertThat(panels).noneMatch { it is ErrorPanelSpec }
+    val breakEven = panels.filterIsInstance<TablePanelSpec>().first { it.title == "Break-even" }
+    assertThat(breakEven.rows.last().last().text).isNotEmpty()
   }
 
   // endregion

@@ -95,4 +95,5 @@ the Developer role is trusted, matching the existing invite-only access model (s
 * [`ComputedPropertyService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/ComputedPropertyService.kt)
 * [`SmartDefaultService.kt`](../../domain-impl/src/main/kotlin/de/chrgroth/james/platform/domain/app/SmartDefaultService.kt)
 * [arc42: Entities and Properties — Computed properties](../arc42/arc42.md#entities-and-properties)
-* [arc42: Reports (status: domain model only)](../arc42/arc42.md#reports)
+* [arc42: Reports](../arc42/arc42.md#reports)
+* Update: Reports run backend-side after all; their Kotlin step reuses this model, see ADR [0028](0028-report-kotlin-step.md).

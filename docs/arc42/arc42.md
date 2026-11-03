@@ -160,19 +160,32 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: steps 1-6 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
-App configuration via `config.*`, variables, basic and advanced transformations, checks and warnings panel, see [docs/plans/reports.md](../plans/reports.md)
-for the remaining steps: heatmap/pie and a Kotlin step, personal dashboards).
+**Status: steps 1-7 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar, stat, pie and
+heatmap panels, App configuration via `config.*`, variables, basic and advanced transformations, a Kotlin escape-hatch step, checks and warnings panel).
+Step 8, personal dashboards, is outlined under "Roadmap" at the end of this section.
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
 editor, and executed backend-side; no Developer-authored code runs in the browser.
+
+- **Why declarative:** the legacy james reports were fully custom code (each loading *all* items of a type, filtering by hand and rendering
+  Highcharts/HTML itself; Running had ~73k characters of JavaScript, Zählerstände ~59k), yet they repeated the same building blocks: time series with
+  zoom, (overview) tables with ratio coloring, tabs/selectors (year, employer), error lists (gap detection, cross checks), filtering, constants in code
+  (goals, holidays, target hours) and derived data (cumulative, year over year, forecast, records, meter deltas, "value valid at date"). Reports
+  therefore declare queries, transformations, checks and panels Grafana-like; code is the exception (the `kotlin` step), not the rule.
+- **Design decisions:** the definition is YAML, edited in the version editor with validation and a preview against a test installation (a visual
+  builder is out of scope for now). Queries, transformations and checks run backend-side and the browser only receives the panel data it renders,
+  which also settles sandboxing for the browser. Panels produce a renderer-neutral *panel spec*; one client-side adapter maps it to the chart library
+  (Apache ECharts), so the library stays swappable. The escape hatch is a Kotlin step with the timeout model of computed properties (ADR
+  [0028](../adr/0028-report-kotlin-step.md)). **Scope boundary:** an App report only reads data of its own installation plus its configuration;
+  cross-app evaluations belong to personal dashboards (step 8), not to App reports.
 
 - **Definition:** `queries` (named) and `tabs` → rows → panels. A query reads one Entity of the installation: optional `timeField` (a DATE/DATETIME
   property) with a `range` (relative: `last_7_days`, `last_30_days`, `last_90_days`, `last_12_months`, `this_month`, `last_month`, `this_year`,
   `last_year`; or fixed `{ from, to }`, both inclusive), `filter` rules, `fields` (top-level properties and computed properties, plus one `ref` hop such as
   `band.name`, and fields nested in OBJECT properties such as `bewertung.zufriedenheit`, also behind the `ref` hop; default: all non-object fields),
   `sort` (default: newest first) and `limit`. A row is a list of panels (or `{ panels: [...] }`); a panel is a map with exactly one type key carrying
-  its title: `table` (`query`, optional `columns` as field or `{ field, label }`, `limit`), `text` (`markdown`), `timeseries`, `bar` and `stat` (below).
+  its title: `table` (`query`, optional `columns` as field or `{ field, label }`, `limit`), `text` (`markdown`), `timeseries`, `bar`, `stat`, `pie`,
+  `heatmap` and `warnings` (below).
 - **Aggregation** (`aggregate` on a query, computed on the fly over the filtered and ranged rows): values `SUM`/`AVG`/`COUNT`/`MIN`/`MAX`/`LAST` over a
   numeric field (COUNT: any field, or rows with `count` / `"*"`), as shorthand (`sum: distanz`, result field `sum`) or named
   (`values: { km: { sum: distanz }, fahrten: count }`); grouped by a time `bucket` of the query's `timeField` (`TAG`, `WOCHE`, `MONAT`, `QUARTAL`,
@@ -187,6 +200,17 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   splits each series per group (bucket). Options: `style` `line`/`column`/`area`, `axis` `left`/`right` (series on one axis must share their unit
   family), `stack`, `zoom` (default on for timeseries), `horizontal` (bar). Values are plotted in the display unit of their axis (the property's default
   granularity, euros for money, e.g. km for meters) and shown formatted in tooltips.
+- **Pie** `{ pie: <title>, query, field, category, donut }`: the shares of a numeric `field` (default: the single value of an aggregate query) per
+  category - `category` (any result field), else the group of a grouped aggregate, else its time bucket. Rows of the same category are summed,
+  categories without a positive sum are left out, slices are ordered largest first with their value (display unit) and percentage; `donut: true`
+  draws a ring.
+- **Heatmap** `{ heatmap: <title>, query, field, reduce, x, y, thresholds }`: without `x`/`y` a **calendar heatmap** - one cell per day (the time
+  field of a plain query, or a `TAG` bucket), over the query's range (open bounds: the days with data; at most the latest 5 years, one calendar per
+  year), e.g. journal ratings or work hours per day; with `x` and `y` (two result fields, e.g. `bucket` and the group) a **matrix heatmap** with one
+  cell per pair (time buckets in order, other values in order of appearance). The rows of a cell are reduced by `reduce` (`sum` (default), `avg`,
+  `min`, `max`, `last`, `count` - which needs no `field`). `thresholds` work like stat thresholds (numbers, unit texts or `config.<field>`; the highest
+  threshold not above a value colors the cell, values below the first are gray); without them a continuous scale spans the smallest to the largest
+  value. Values are shown in the field's display unit.
 - **Stat:** one value of a query field reduced by `reduce` (`sum`, `avg`, `min`, `max`, `last` (default), `count`; without `field` the single aggregate
   value), optional `compare: previous_period` (needs a closed range; the previous period of the same length - whole calendar months shift by months -
   with absolute and relative change) and `thresholds: [{ value, color }]` (value as number or unit text such as `20km`, color `green`/`red`/`orange`/
@@ -288,7 +312,19 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   - `{ goal: <field>, target, period, periodStart, as, progress }` - goals vs. actuals: `as` (default `<field>_ziel`) is the target - a number, a unit
     text (`1000km`), `config.<field>` or a numeric field of the row (e.g. attached by `asOf`) - and `progress` (default `<field>_fortschritt`) the
     value in percent of it; with `period` the target applies per such period and each row gets the share elapsed up to its date (its bucket's end),
-    e.g. the pro-rata line of a yearly goal against the cumulative distance per month.
+    e.g. the pro-rata line of a yearly goal against the cumulative distance per month;
+  - `{ kotlin: <script>, fields: { <name>: <type or unit> } }` - the escape hatch for the few calculations the declarative steps cannot express
+    (ADR [0028](../adr/0028-report-kotlin-step.md)), run by `ReportScriptService` like computed property scripts: JSR-223 Kotlin engine, own virtual
+    thread, `app.script.timeout-ms`, script metrics type `REPORT`, no sandbox beyond the timeout. The script is the body of a function with the
+    bindings `rows` (`List<Map<String, String?>>`, the result rows so far as raw storage values by field: numbers in the storage granularity, dates
+    ISO, references as object ids, bucket keys), `config` (`Map<String, String?>`, the configuration's top-level values by field name) and `today`
+    (`java.time.LocalDate`); its last expression (or a `return`) is the new list of rows - an iterable of maps from field name to value (numbers are
+    stored plain, dates/date-times ISO, booleans as `true`/`false`, anything else via `toString()`; at most 100,000 rows). `fields` declares the fields
+    the script adds or retypes - `LONG`, `DOUBLE`, `STRING`, `DATE`, `DATETIME`, `BOOLEAN` or a granularity such as `CENTS` (a DOUBLE in that unit) -
+    so panels and later steps validate against them; the other result fields, the bucket and the group stay as they are. A failure (exception,
+    wrong result type, timeout) empties the query's result with a German message; every panel reading the query (also through `asOf`/`join`) then
+    shows that message instead of its data, the rest of the report renders normally. The script compiles on save (only the wrapping function is
+    defined, nothing runs); compiler errors are validation errors with the line within the script.
 
   ```yaml
   variables:
@@ -365,6 +401,58 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
           - { timeseries: Schritte, query: pad, series: [{ field: schritte, style: column }, { field: schritte_ziel }] }
   ```
 
+  Heatmap, pie and the Kotlin step, as used by the ports of Zählerstände (PV break-even), Arbeitszeiten (target time from the "valid from" Entity of
+  *Arbeit*, vehicles pie) and Journal (without the cross-app checks, see "Roadmap"):
+
+  ```yaml
+  queries:
+    # Zählerstände: PV yield per month and the break-even of the investment (configuration: anschaffung in cents, preisProKwh in cents)
+    pv: { entity: Zaehlerstand, timeField: datum, filter: [{ field: zaehler, op: EQUALS, value: PV }], fields: [datum, stand], sort: [datum] }
+    # Arbeitszeiten: worked vs. target time per day, vehicles used
+    tage: { entity: Arbeitstag, timeField: datum, range: $jahr, aggregate: { bucket: TAG, values: { dauer: { sum: dauer } } } }
+    modell: { entity: Arbeitszeitmodell, timeField: gueltigAb, fields: [gueltigAb, sollProTag] }
+    wege: { entity: Arbeitstag, timeField: datum, range: $jahr, aggregate: { groupBy: verkehrsmittel, values: { tage: count } } }
+    wege_monat: { entity: Arbeitstag, timeField: datum, range: $jahr, aggregate: { bucket: MONAT, groupBy: verkehrsmittel, values: { tage: count } } }
+    # Journal: rating per day
+    journal: { entity: Eintrag, timeField: datum, range: this_year, fields: [datum, bewertung] }
+  variables:
+    jahr: { type: timeRange, default: this_year, options: [this_year, last_year] }
+  transforms:
+    pv:
+      - { delta: stand, as: ertrag, bucket: MONAT }
+      - kotlin: |
+          // cumulative savings per month and the month they exceed the investment, extrapolated from the average so far
+          val investment = config["anschaffung"]?.toDouble() ?: return rows
+          val price = config["preisProKwh"]?.toDouble() ?: return rows
+          var saved = 0.0
+          val withSavings = rows.map { row ->
+            saved += (row["ertrag"]?.toDouble() ?: 0.0) * price
+            row + mapOf("ersparnis" to saved, "breakEven" to null)
+          }
+          val perMonth = if (rows.isEmpty()) 0.0 else saved / rows.size
+          val monthsLeft = if (perMonth > 0) kotlin.math.ceil((investment - saved) / perMonth).toLong() else null
+          val breakEven = monthsLeft?.let { today.withDayOfMonth(1).plusMonths(maxOf(it, 0)) }
+          withSavings.mapIndexed { i, row -> if (i == withSavings.lastIndex) row + ("breakEven" to breakEven) else row }
+        fields: { ersparnis: CENTS, breakEven: DATE }
+    tage:
+      - { asOf: modell, fields: [sollProTag] }
+      - { calc: saldo, expr: "dauer - sollProTag", unit: SECONDS }
+  tabs:
+    - name: Übersicht
+      rows:
+        - - { timeseries: PV-Ersparnis, query: pv, series: [{ field: ersparnis, style: area }] }
+          - { table: Break-even, query: pv, columns: [bucket, ersparnis, breakEven], limit: 12 }
+        - - { heatmap: Arbeitszeit pro Tag, query: tage, field: dauer, thresholds: [{ value: 1h, color: orange }, { value: 8h, color: green }] }
+          - { table: Saldo, query: tage, columns: [bucket, dauer, sollProTag, saldo] }
+          - { pie: Verkehrsmittel, query: wege, donut: true }
+          - { heatmap: Verkehrsmittel pro Monat, query: wege_monat, x: bucket, y: verkehrsmittel }
+        - - heatmap: Stimmung
+            query: journal
+            field: bewertung
+            reduce: avg
+            thresholds: [{ value: 1, color: red }, { value: 3, color: yellow }, { value: 4, color: green }]
+  ```
+
 
 - **Checks** (`checks: { <name>: ... }`, `ReportChecker`): declarative warning rules over the report's queries (with the current variable selections),
   each with exactly one type, an optional `message` (German default text otherwise) and `severity` `warning` (default) or `error`. Only checks shown by a
@@ -407,38 +495,63 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   ```
 
 - **Validation** (`ReportDefinitionParser`, on save, on publish and before execution): YAML syntax (duplicate keys rejected), schema (unknown keys are
-  errors; keys reserved for later steps such as the panel types `pie`/`heatmap` answer "not supported yet"), variables (names,
+  errors; keys reserved for a later step answer "not supported yet" - none at the moment), variables (names,
   types, defaults and options; `$name` references exist and fit their use; select queries without variables), transformation steps (exactly one step
   per entry, expressions parse and only read numeric fields of the result so far or numeric configuration fields, output names do not clash, `yoy`
   needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group; `delta`, `asOf`, a bucketed `top` and a goal
   `period` need a date per row, `asOf` also on the other query; `asOf`/`join` fields and keys exist in the other query, queries do not read each other
-  in a cycle; goal targets are numbers, unit texts, numeric configuration fields or numeric fields of a fitting unit), checks (exactly one type each, gap queries plain
+  in a cycle; goal targets are numbers, unit texts, numeric configuration fields or numeric fields of a fitting unit; a `kotlin` step has a script
+  and declares its fields with a known type or granularity, not as `bucket` or the group field), checks (exactly one type each, gap queries plain
   with a time field, calendars are date fields of a plain query or date (list) configuration fields, rule fields/expressions numeric, bounds numbers, unit
   texts or numeric configuration fields with `min` not above `max`, `required`/`when` fields in the result, known message placeholders, warnings panels
   only list declared checks), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
-  declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range.
-  Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition is
-  rejected; publishing fails if a report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
+  declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range, a pie has a category
+  (`category`, a group or a bucket), a calendar heatmap a day per row (time field of a plain query or a `TAG` bucket) and a matrix heatmap both `x` and
+  `y`. Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition
+  is rejected - on save the scripts of `kotlin` steps are also compiled (not on publish or execution, compiling is expensive); publishing fails if a
+  report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
 - **Execution** (`ReportService` / `ReportExecutor`): only the data of the one installation asked for is loaded (sandbox boundary). Filters reuse the
   import filter rule model and `FilterEvaluator`, evaluated on a JSON view of each object (numbers as numbers, dates as ISO strings, references as
   display text, a `ref` hop as nested object). Computed properties are evaluated only when a query uses them. Each query runs once per report.
 - **Panel spec:** the result is a renderer-neutral `ReportView` (tabs → rows → panels; a table panel carries columns with property type and unit and
   cells with raw and formatted value; a chart panel an x axis (`category` with labels, or `time`), y axes with unit symbol and series of points with
-  plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison; a warnings panel its findings (check,
-  severity, label, message; capped at 500) and each tab the number of findings of its warnings panels). Values are formatted like display texts
+  plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison; a pie panel its slices (label, value,
+  text, percentage), display unit and donut flag; a heatmap panel its mode (`calendar` with `from`/`to`, or `matrix` with x/y categories), cells
+  (x, y, value, text), min/max and thresholds in the display unit; a warnings panel its findings (check, severity, label, message; capped at 500); a
+  panel whose query failed at runtime (a `kotlin` step) only its type, title and `error` message - and each tab the number of findings of its warnings
+  panels). Values are formatted like display texts
   (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`,
   references via their display text, booleans as `ja`/`nein`, bucket keys as `09/2026`, `KW 39/2026`, `Q1/2026`. Tables are capped at 1,000 rows,
   time-axis series at 5,000 points.
-- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text, timeseries, bar, stat, warnings; a tab with
-  findings shows their number as badge on its label). Markdown is
+- **Rendering:** `report-renderer.js` renders the spec with a renderer registry per panel type (table, text, timeseries, bar, stat, pie, heatmap,
+  warnings; a tab with findings shows their number as badge on its label; a panel with `error` shows the message instead). Markdown is
   rendered by `marked` with raw HTML disabled and an allow-list sanitizer. Charts go through a small adapter interface (`renderChart(container, spec)`);
-  its only implementation maps the chart spec to Apache ECharts options (vendored webjar, loaded only on report pages; resized via `ResizeObserver`, so
-  charts in hidden tabs render once shown), so the chart library stays swappable.
+  its only implementation maps the chart spec to Apache ECharts options by panel type - line/bar charts, pie (ring with `donut`), calendar heatmap (one
+  ECharts calendar per year) and matrix heatmap, thresholds as piecewise and otherwise a continuous visual map (vendored webjar, loaded only on report
+  pages; resized via `ResizeObserver`, so charts in hidden tabs render once shown), so the chart library stays swappable.
 - **UI and API:** the version editor lists, creates, renames, edits (YAML textarea with validation feedback) and deletes reports of a draft and previews
   an unsaved definition against a test installation of the draft. Installed Apps list their reports; `/ui/user/apps/{installedAppId}/reports/{reportId}`
   renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
   `{ name, definition }`; like every draft edit they answer with the full draft, `POST` additionally names the new report's id in the `X-Report-Id`
   header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec incl. variables; selections as `var.<name>` query parameters).
+- **Roadmap and porting of the legacy james reports** (epic #364): the toolkit was built in eight individually releasable steps, each followed by
+  porting the legacy reports that became fully expressible - 1 foundation (YAML, editor with preview, queries, table/text, panel spec + ECharts
+  adapter), 2 time series and stat (Body Metrics, Fahrrad Kilometer, Rente, Blutwerte, Arbeitsverträge, Konzerte), 3 App configuration, 4 variables and
+  basic transformations (Lebensversicherung), 5 checks and warnings panel, 6 advanced transformations (Verdienst, Urlaubsplaner, Running, Walking
+  Pad), 7 heatmap, pie and Kotlin step (Zählerstände with the PV break-even, Arbeitszeiten, Journal). The legacy "Lohnsteuerbescheinigung (FAKE als
+  Datenquelle)" report only fed Verdienst with data and is not ported. Porting decisions: target hours and vacation entitlement are values "valid
+  from" a date; they are also stored at the employment contract in the *Finanzen* App, but *Arbeit* gets its own "valid from" Entity (weekly hours /
+  daily target time, vacation days per year, read via `asOf`) instead of reading across Apps - the small duplication is accepted (the Apps may be
+  merged once the parallel operation with legacy james ends). The Journal report's two cross checks against runs and bike rides are not part of the
+  App report; they move to a personal dashboard.
+- **Step 8, personal dashboards (planned, #755):** reports owned by the *User* instead of an App, built with the same toolkit (queries,
+  transformations incl. `kotlin`, checks, panels), but able to read the User's installed Apps directly. App Developers therefore never need to know
+  the internals of other Apps; combining Apps is the User's job, like combining data sources in Grafana - deliberately **without** published App
+  interfaces/exports, which would add too much complexity for the benefit. This lifts the App report's scope boundary (own installation plus
+  configuration) for User-owned definitions only. First use: the Journal cross checks (journal entries vs. runs and bike rides). Open questions to
+  settle right before implementing: how a dashboard addresses an installation and its Entities (installation + Entity name in a query), where it is
+  edited and validated (no App Version draft or test installation exists for it), and what happens when an App changes its structure (a dashboard
+  reading a removed property becomes invalid on the next validation, like a report on publish, and should say so instead of failing silently).
 
 ### Developer Test Data
 
@@ -985,6 +1098,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0025](../adr/0025-composite-unique-keys.md)                   | Composite Unique Keys                               |
 | [0026](../adr/0026-reference-lookup.md)                        | Reference Lookup: Entering References by Text       |
 | [0027](../adr/0027-app-configuration.md)                       | App Configuration as a Singleton Entity             |
+| [0028](../adr/0028-report-kotlin-step.md)                      | Reports: Kotlin Script Step as Backend Escape Hatch |
 
 # Risks and Technical Debts
 
@@ -993,7 +1107,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 - **Computed-property scripts have no real sandbox** — only a timeout guard (see ADR
   [0008](../adr/0008-computed-property-script-execution.md)). A Developer account is trusted;
   if that trust model ever changes (e.g. multi-tenant, non-trusted Developers), this needs
-  revisiting, also for the planned Kotlin step of Reports (see [docs/plans/reports.md](../plans/reports.md)).
+  revisiting, also for the Kotlin step of Reports (ADR [0028](../adr/0028-report-kotlin-step.md)), which shares that model.
 - **No static analysis tooling.** detekt was removed while fixing an unrelated session-cookie
   bug and never reinstated; regressions in code quality/complexity are currently only caught
   by review, not CI.
