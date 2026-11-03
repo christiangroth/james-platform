@@ -54,6 +54,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection
     ApiChartSeriesDto::class,
     ApiChartPointDto::class,
     ApiStatComparisonDto::class,
+    ApiStatGoalDto::class,
     ApiReportColumnDto::class,
     ApiReportUnitDto::class,
     ApiReportCellDto::class,

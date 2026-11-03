@@ -32,6 +32,7 @@
              data-text-truncated="{report:reportTableTruncated()}"
              data-text-no-content="{report:reportNoContent()}"
              data-text-stat-previous="{report:reportStatPreviousPeriod()}"
+             data-text-stat-goal="{reportAdvanced:reportStatGoal()}"
              data-text-chart-unavailable="{report:reportChartUnavailable()}"
              data-text-variables="{reportTransform:reportVariablesAriaLabel()}"
              data-text-warnings-empty="{reportCheck:reportWarningsEmpty()}"
@@ -54,6 +55,7 @@
                 truncated: container.getAttribute('data-text-truncated'),
                 noContent: container.getAttribute('data-text-no-content'),
                 statPrevious: container.getAttribute('data-text-stat-previous'),
+                statGoal: container.getAttribute('data-text-stat-goal'),
                 chartUnavailable: container.getAttribute('data-text-chart-unavailable'),
                 variablesLabel: container.getAttribute('data-text-variables'),
                 warningsEmpty: container.getAttribute('data-text-warnings-empty'),
