@@ -18,7 +18,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
- * Executes the [ReportCheck]s of a report (see docs/plans/reports.md "Checks") through [executor], which runs their queries with the current
+ * Executes the [ReportCheck]s of a report (see arc42 "Reports", checks) through [executor], which runs their queries with the current
  * variable selections, and turns their findings into [WarningSpec]s (each check at most once per report execution).
  */
 internal class ReportChecker(private val executor: ReportExecutor, private val definition: ReportDefinition, private val today: LocalDate) {

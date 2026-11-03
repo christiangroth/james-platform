@@ -193,7 +193,7 @@ enum class AppDataError(override val code: String) : DomainError {
   ;
 }
 
-/** Executing a report for an installation, see docs/plans/reports.md. */
+/** Executing a report for an installation, see arc42 "Reports". */
 enum class ReportError(override val code: String) : DomainError {
   INSTALLED_APP_NOT_FOUND("REPORT-001"),
   REPORT_NOT_FOUND("REPORT-002"),

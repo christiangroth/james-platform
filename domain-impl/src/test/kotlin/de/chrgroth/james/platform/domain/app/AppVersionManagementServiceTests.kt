@@ -57,6 +57,8 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptProblem
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -91,8 +93,13 @@ class AppVersionManagementServiceTests {
   private val outbox: OutboxPort = mockk {
     justRun { enqueue(any()) }
   }
+  private val reportScript: ReportScriptPort = mockk {
+    every { compileProblem(any()) } returns null
+  }
   private val service: AppVersionManagementService =
-    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox, mockk(relaxed = true))
+    AppVersionManagementService(
+      appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox, mockk(relaxed = true), reportScript,
+    )
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -2180,6 +2187,20 @@ class AppVersionManagementServiceTests {
     val error = result.leftOrNull() as InvalidReportDefinitionError
     assertThat(error.errors.map { it.code }).containsExactly(ReportDefinitionErrorCode.ENTITY_NOT_FOUND)
     assertThat(error.errors.single().line).isEqualTo(3)
+    verify(exactly = 0) { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `updateReport rejects a kotlin step whose script does not compile`() {
+    val report = Report(id = ReportId("r-1"), name = "Sales Report")
+    val version = draftVersionWithNewEntity.copy(reports = listOf(report))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    every { reportScript.compileProblem("kaputt(") } returns ReportScriptProblem("Expecting ')'", 1)
+
+    val result = service.updateReport("app-1", "ver-1", "r-1", null, "queries:\n  q: { entity: NewEntity }\ntransforms:\n  q: [{ kotlin: \"kaputt(\" }]\ntabs: []\n")
+
+    val error = result.leftOrNull() as InvalidReportDefinitionError
+    assertThat(error.errors.map { it.code to it.path }).containsExactly(ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID to "transforms.q[0].kotlin")
     verify(exactly = 0) { appVersionRepository.save(any()) }
   }
 

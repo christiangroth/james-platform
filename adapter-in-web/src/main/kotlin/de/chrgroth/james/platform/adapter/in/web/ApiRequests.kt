@@ -110,7 +110,7 @@ data class ApiMigrationStepRequest @JsonCreator constructor(
   @param:JsonProperty("value") val value: String?,
 )
 
-/** A report's name and YAML definition (see docs/plans/reports.md); on update a missing name keeps the current one. */
+/** A report's name and YAML definition (see arc42 "Reports"); on update a missing name keeps the current one. */
 data class ApiReportRequest @JsonCreator constructor(
   @param:JsonProperty("name") val name: String?,
   @param:JsonProperty("definition") val definition: String?,

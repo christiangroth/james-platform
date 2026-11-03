@@ -1,5 +1,5 @@
 /**
- * Renders the renderer-neutral panel spec of a declarative report (see docs/plans/reports.md): tabs -> rows -> panels. The server has
+ * Renders the renderer-neutral panel spec of a declarative report (see arc42 "Reports"): tabs -> rows -> panels. The server has
  * already executed all queries and formatted every value; this module only lays the panels out and draws them.
  *
  * - Panel renderers are registered per panel type (JamesReports.registerRenderer(type, fn(container, panel, texts, context))); a panel type
@@ -12,6 +12,8 @@
  * - Report variables (view.variables) render as select controls above the tabs; a change hands all selections to texts.onVariablesChange,
  *   and the page re-requests the report from the server with them.
  * - Warnings panels list the findings of the report's checks; a tab with findings shows their number (tab.warnings) as badge on its label.
+ * - Pie and heatmap panels (calendar or matrix) are charts as well: the adapter maps them by spec type.
+ * - A panel whose query failed at runtime (a `kotlin` transformation step) carries panel.error instead of its data and shows that message.
  */
 var JamesReports = (function (global) {
     'use strict';
@@ -146,7 +148,12 @@ var JamesReports = (function (global) {
                 if (panel.title) card.appendChild(el('h3', 'fs-6 fw-semibold mb-2', panel.title));
                 var body = el('div', 'report-panel-body');
                 var renderer = renderers[panel.type];
-                if (renderer) {
+                if (panel.error) {
+                    var failure = el('div', 'alert alert-warning small mb-0', panel.error);
+                    failure.setAttribute('role', 'alert');
+                    failure.setAttribute('data-testid', 'report-panel-error');
+                    body.appendChild(failure);
+                } else if (renderer) {
                     renderer(body, panel, texts, context);
                 } else {
                     body.appendChild(el('p', 'app-section-label mb-0', panel.type));
@@ -289,7 +296,7 @@ var JamesReports = (function (global) {
             if (!this.available()) throw new Error('ECharts is not loaded');
             var dark = document.documentElement.getAttribute('data-theme') !== 'light';
             var chart = global.echarts.init(container, dark ? 'dark' : null, { renderer: 'canvas' });
-            chart.setOption(toEchartsOption(spec || {}));
+            chart.setOption(optionFor(spec || {}));
             // Also covers charts in hidden tabs: they get their size once the tab is shown.
             var observer = typeof global.ResizeObserver !== 'undefined' ? new global.ResizeObserver(function () { chart.resize(); }) : null;
             var onResize = function () { chart.resize(); };
@@ -369,6 +376,127 @@ var JamesReports = (function (global) {
         };
     }
 
+    /** Maps a spec by its panel type: pie, heatmap, else a timeseries/bar chart. */
+    function optionFor(spec) {
+        if (spec.type === 'pie') return toPieOption(spec);
+        if (spec.type === 'heatmap') return toHeatmapOption(spec);
+        return toEchartsOption(spec);
+    }
+
+    /** PiePanelSpec: slices [{ label, value, text, percentText }] (largest first), donut. */
+    function toPieOption(spec) {
+        var slices = spec.slices || [];
+        return {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                formatter: function (p) {
+                    return p.marker + escapeHtml(p.name) + ': <b>' + escapeHtml(p.data.text) + '</b> (' + escapeHtml(p.data.percentText) + ')';
+                }
+            },
+            legend: { type: 'scroll', bottom: 0 },
+            series: [{
+                type: 'pie',
+                radius: spec.donut ? ['42%', '68%'] : '68%',
+                center: ['50%', '45%'],
+                avoidLabelOverlap: true,
+                label: { formatter: function (p) { return p.name + '\n' + p.data.percentText; } },
+                data: slices.map(function (slice) {
+                    return { name: slice.label, value: slice.value, text: slice.text, percentText: slice.percentText };
+                })
+            }]
+        };
+    }
+
+    var MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+    var WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    var CALENDAR_HEIGHT = 150;
+
+    /** The years a calendar heatmap spans (one calendar each). */
+    function heatmapYears(heatmap) {
+        if (!heatmap.from || !heatmap.to) return [];
+        var years = [];
+        for (var year = Number(heatmap.from.substring(0, 4)); year <= Number(heatmap.to.substring(0, 4)); year++) years.push(year);
+        return years;
+    }
+
+    /** Thresholds color the cells in steps (values below the first are gray), else a continuous scale spans min..max. */
+    function heatmapVisualMap(spec) {
+        var heatmap = spec.heatmap || {};
+        var thresholds = heatmap.thresholds || [];
+        var suffix = spec.unit ? ' ' + spec.unit : '';
+        var common = { orient: 'horizontal', left: 'center', bottom: 0 };
+        if (thresholds.length > 0) {
+            var pieces = thresholds.map(function (threshold, index) {
+                var piece = { gte: threshold.value, color: COLORS[threshold.color] || threshold.color, label: '≥ ' + numberFormat.format(threshold.value) + suffix };
+                if (index + 1 < thresholds.length) piece.lt = thresholds[index + 1].value;
+                return piece;
+            });
+            return Object.assign({ type: 'piecewise', pieces: pieces, outOfRange: { color: COLORS.gray } }, common);
+        }
+        var min = typeof heatmap.min === 'number' ? heatmap.min : 0;
+        var max = typeof heatmap.max === 'number' && heatmap.max > min ? heatmap.max : min + 1;
+        return Object.assign({
+            type: 'continuous', min: min, max: max, calculable: true, inRange: { color: ['#dbe7f8', COLORS.blue] },
+            formatter: function (value) { return numberFormat.format(value) + suffix; }
+        }, common);
+    }
+
+    function heatmapTooltip(p) {
+        var label = Array.isArray(p.data.label) ? p.data.label.join(' / ') : p.data.label;
+        return escapeHtml(label) + ': <b>' + escapeHtml(p.data.text) + '</b>';
+    }
+
+    /**
+     * HeatmapPanelSpec: heatmap { mode: calendar (cells { x: ISO day } between from and to, one calendar per year) | matrix (cells { x, y } over
+     * xCategories/yCategories), cells { value, text }, min, max, thresholds }.
+     */
+    function toHeatmapOption(spec) {
+        var heatmap = spec.heatmap || {};
+        var cells = heatmap.cells || [];
+        var option = { backgroundColor: 'transparent', tooltip: { trigger: 'item', formatter: heatmapTooltip }, visualMap: heatmapVisualMap(spec) };
+        if (heatmap.mode === 'calendar') {
+            var years = heatmapYears(heatmap);
+            option.calendar = years.map(function (year, index) {
+                var start = String(year) + '-01-01';
+                var end = String(year) + '-12-31';
+                return {
+                    top: 24 + index * CALENDAR_HEIGHT, left: 36, right: 12, cellSize: ['auto', 14],
+                    range: [heatmap.from > start ? heatmap.from : start, heatmap.to < end ? heatmap.to : end],
+                    yearLabel: { show: years.length > 1, position: 'left' },
+                    dayLabel: { firstDay: 1, nameMap: WEEKDAYS },
+                    monthLabel: { nameMap: MONTHS },
+                    splitLine: { show: false },
+                    itemStyle: { borderWidth: 2, borderColor: 'transparent' }
+                };
+            });
+            option.series = years.map(function (year, index) {
+                var prefix = String(year);
+                return {
+                    type: 'heatmap', coordinateSystem: 'calendar', calendarIndex: index,
+                    data: cells.filter(function (cell) { return cell.x.substring(0, 4) === prefix; }).map(function (cell) {
+                        var day = cell.x.split('-');
+                        return { value: [cell.x, cell.value], text: cell.text, label: day[2] + '.' + day[1] + '.' + day[0] };
+                    })
+                };
+            });
+            return option;
+        }
+        var xCategories = heatmap.xCategories || [];
+        var yCategories = heatmap.yCategories || [];
+        option.grid = { left: 8, right: 8, top: 8, bottom: 56, containLabel: true };
+        option.xAxis = { type: 'category', data: xCategories, splitArea: { show: true }, axisLabel: { hideOverlap: true } };
+        option.yAxis = { type: 'category', data: yCategories, splitArea: { show: true } };
+        option.series = [{
+            type: 'heatmap',
+            label: { show: cells.length <= 120, formatter: function (p) { return p.data.text; } },
+            data: cells.map(function (cell) {
+                return { value: [xCategories.indexOf(cell.x), yCategories.indexOf(cell.y), cell.value], text: cell.text, label: [cell.x, cell.y] };
+            })
+        }];
+        return option;
+    }
+
     chartAdapter = echartsAdapter;
 
     function setChartAdapter(adapter) {
@@ -405,6 +533,42 @@ var JamesReports = (function (global) {
 
     registerRenderer('timeseries', renderChartPanel);
     registerRenderer('bar', renderChartPanel);
+
+    /** Draws [panel] through the chart adapter into a box of [height] px; texts.chartUnavailable if the adapter fails. */
+    function renderAdapterPanel(container, panel, texts, context, height) {
+        var node = el('div', 'report-chart');
+        node.style.width = '100%';
+        node.style.height = height + 'px';
+        node.setAttribute('data-testid', 'report-chart');
+        container.appendChild(node);
+        try {
+            var handle = chartAdapter.renderChart(node, panel);
+            if (context && handle) context.track(handle);
+        } catch (e) {
+            container.removeChild(node);
+            container.appendChild(el('p', 'app-section-label mb-0', texts.chartUnavailable || ''));
+        }
+    }
+
+    registerRenderer('pie', function (container, panel, texts, context) {
+        if (!(panel.slices || []).length) {
+            container.appendChild(el('p', 'app-section-label mb-0', texts.empty));
+            return;
+        }
+        renderAdapterPanel(container, panel, texts, context, 320);
+    });
+
+    registerRenderer('heatmap', function (container, panel, texts, context) {
+        var heatmap = panel.heatmap || {};
+        if (!(heatmap.cells || []).length) {
+            container.appendChild(el('p', 'app-section-label mb-0', texts.empty));
+            return;
+        }
+        var height = heatmap.mode === 'calendar'
+            ? heatmapYears(heatmap).length * CALENDAR_HEIGHT + 70
+            : Math.max(240, (heatmap.yCategories || []).length * 30 + 110);
+        renderAdapterPanel(container, panel, texts, context, height);
+    });
 
     // endregion
 

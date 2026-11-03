@@ -18,7 +18,7 @@ import jakarta.ws.rs.core.UriInfo
 import java.net.URI
 
 /**
- * The report page of an installed App (see docs/plans/reports.md): the report is executed server-side for this installation only and its
+ * The report page of an installed App (see arc42 "Reports"): the report is executed server-side for this installation only and its
  * renderer-neutral panel spec is embedded into the page, where report-renderer.js renders tabs, rows and panels. Variable selections travel as
  * query parameters `var.<name>`; the renderer reloads the page with the new selection when a variable control changes.
  */

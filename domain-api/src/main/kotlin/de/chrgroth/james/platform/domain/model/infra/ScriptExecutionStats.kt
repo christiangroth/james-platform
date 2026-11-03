@@ -7,6 +7,7 @@ enum class ScriptType {
   SMART_DEFAULT,
   COMPUTED_PROPERTY,
   MIGRATION,
+  REPORT,
 }
 
 /**

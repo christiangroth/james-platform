@@ -14,8 +14,14 @@ import de.chrgroth.james.platform.domain.model.app.ChartYAxisSpec
 import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
 import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.ErrorPanelSpec
 import de.chrgroth.james.platform.domain.model.app.Granularity
+import de.chrgroth.james.platform.domain.model.app.HeatmapCellSpec
+import de.chrgroth.james.platform.domain.model.app.HeatmapPanelSpec
+import de.chrgroth.james.platform.domain.model.app.HeatmapThresholdSpec
 import de.chrgroth.james.platform.domain.model.app.PanelSpec
+import de.chrgroth.james.platform.domain.model.app.PiePanelSpec
+import de.chrgroth.james.platform.domain.model.app.PieSliceSpec
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
@@ -35,10 +41,13 @@ import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDeltaTransform
 import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
 import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
+import de.chrgroth.james.platform.domain.model.app.ReportHeatmapPanel
 import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
+import de.chrgroth.james.platform.domain.model.app.ReportKotlinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
+import de.chrgroth.james.platform.domain.model.app.ReportPiePanel
 import de.chrgroth.james.platform.domain.model.app.ReportQuery
 import de.chrgroth.james.platform.domain.model.app.ReportReduce
 import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
@@ -79,6 +88,7 @@ import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.readmodel.encodeTimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptResult
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -102,6 +112,8 @@ import kotlin.math.round
  * converted into the unit of the value they are compared with.
  *
  * Checks run through [ReportChecker] - only those a warnings panel shows; a tab counts the findings of its warnings panels.
+ *
+ * `kotlin` transformation steps run through [scripts] (ADR 0028); a failing script turns the panels reading its query into [ErrorPanelSpec]s.
  */
 @Suppress("TooManyFunctions", "LargeClass")
 internal class ReportExecutor(
@@ -109,6 +121,7 @@ internal class ReportExecutor(
   private val allAppData: List<AppData>,
   private val today: LocalDate,
   private val configuration: AppData? = null,
+  private val scripts: ReportScriptRunner? = null,
   private val computeValues: (EntityDefinition, Map<String, String?>) -> Map<String, String?>,
 ) {
   private val configEntity = entities.find { it.configuration }
@@ -126,7 +139,8 @@ internal class ReportExecutor(
 
   /**
    * One query's result rows plus the result fields they carry; [bucket] (with [periodStart]) the time bucket the rows are keyed by (aggregate or
-   * resampled), [groupBy] the group field of a grouped aggregate.
+   * resampled), [groupBy] the group field of a grouped aggregate. [error] says why a transformation step failed at runtime (a `kotlin` step); the
+   * rows are empty then.
    */
   data class QueryResult(
     val columns: Map<String, ResultColumn>,
@@ -134,6 +148,7 @@ internal class ReportExecutor(
     val bucket: TimeBucket? = null,
     val periodStart: MonthDay? = null,
     val groupBy: String? = null,
+    val error: String? = null,
   )
 
   /** A variable's resolved selection: [value] as selected, [range] for `range: $name`, [filterValue] for filter values (null: drop the rule). */
@@ -256,8 +271,17 @@ internal class ReportExecutor(
         run(query, previousRange)?.let { transform(query, previousRange, steps.take(index), it) }
       },
       otherQuery = ::otherResult,
+      script = { step, index, rows ->
+        scripts?.run(step.script, rows, configValues, "${query.name}[$index]") ?: ReportScriptResult.Failure(SCRIPTS_UNAVAILABLE)
+      },
     )
     return transformer.apply(query, range, steps, base)
+  }
+
+  /** The configuration's values by field name (top-level fields, raw storage values) for `kotlin` steps; empty without configuration. */
+  private val configValues: Map<String, String?> by lazy {
+    val entity = configEntity ?: return@lazy emptyMap()
+    ReportFields.defaultFields(entity).associateWith { name -> configField(name)?.let { configRaw(it) } }
   }
 
   /** Queries whose result is being computed right now: guards `asOf`/`join` against cycles (rejected by validation anyway). */
@@ -283,20 +307,39 @@ internal class ReportExecutor(
       is ReportJoinTransform -> step.fields.map { step.prefix + it }
       is ReportTopTransform -> listOfNotNull(ReportAggregate.BUCKET_FIELD.takeIf { step.bucket != null }, step.output)
       is ReportGoalTransform -> listOf(step.output, step.progress)
+      is ReportKotlinTransform -> step.fields.map { it.name }
     }
   }
 
   // endregion
 
-  private fun panel(panel: ReportPanel, definition: ReportDefinition): PanelSpec? = when (panel) {
-    is ReportTextPanel -> TextPanelSpec(panel.title, panel.markdown)
-    is ReportWarningsPanel -> warningsPanel(panel)
-    is ReportTablePanel -> definition.query(panel.query)?.let { tablePanel(panel, it) }
-    is ReportChartPanel -> chartPanel(panel, definition)
-    is ReportStatPanel -> when (val config = panel.config) {
-      null -> panel.query?.let { definition.query(it) }?.let { statPanel(panel, it) }
-      else -> configStatPanel(panel, config)
+  private fun panel(panel: ReportPanel, definition: ReportDefinition): PanelSpec? {
+    panelError(panel, definition)?.let { return ErrorPanelSpec(panel.type, panel.title, it) }
+    return when (panel) {
+      is ReportTextPanel -> TextPanelSpec(panel.title, panel.markdown)
+      is ReportWarningsPanel -> warningsPanel(panel)
+      is ReportTablePanel -> definition.query(panel.query)?.let { tablePanel(panel, it) }
+      is ReportChartPanel -> chartPanel(panel, definition)
+      is ReportStatPanel -> when (val config = panel.config) {
+        null -> panel.query?.let { definition.query(it) }?.let { statPanel(panel, it) }
+        else -> configStatPanel(panel, config)
+      }
+      is ReportPiePanel -> definition.query(panel.query)?.let { piePanel(panel, it) }
+      is ReportHeatmapPanel -> definition.query(panel.query)?.let { heatmapPanel(panel, it) }
     }
+  }
+
+  /** Why a query the panel reads failed at runtime (a `kotlin` step), null if none did. */
+  private fun panelError(panel: ReportPanel, definition: ReportDefinition): String? {
+    val queries = when (panel) {
+      is ReportTablePanel -> listOf(panel.query)
+      is ReportChartPanel -> panel.series.map { it.query }.distinct()
+      is ReportStatPanel -> listOfNotNull(panel.query)
+      is ReportPiePanel -> listOf(panel.query)
+      is ReportHeatmapPanel -> listOf(panel.query)
+      is ReportTextPanel, is ReportWarningsPanel -> emptyList()
+    }
+    return queries.firstNotNullOfOrNull { name -> definition.query(name)?.let { result(it) }?.error?.let { "Abfrage „$name“: $it" } }
   }
 
   // region table
@@ -757,6 +800,104 @@ internal class ReportExecutor(
 
   // endregion
 
+  // region pie and heatmap
+
+  /** Shares per category: the rows' values summed per category, positive sums only, largest first; values in the field's display unit. */
+  private fun piePanel(panel: ReportPiePanel, query: ReportQuery): PanelSpec? {
+    val result = result(query) ?: return null
+    val column = result.columns[panel.field] ?: return null
+    val categoryField = panel.category ?: result.groupBy ?: ReportAggregate.BUCKET_FIELD.takeIf { result.bucket != null } ?: return null
+    val categoryColumn = result.columns[categoryField] ?: return null
+    val sums = LinkedHashMap<String, Double>()
+    result.rows.forEach { row ->
+      val value = row.values[panel.field]?.toDoubleOrNull() ?: return@forEach
+      sums.merge(row.values[categoryField].orEmpty(), value, Double::plus)
+    }
+    val positive = sums.filterValues { it > 0 }
+    val total = positive.values.sum()
+    val unit = column.unit
+    val granularity = unit?.let { displayGranularity(it) }
+    val slices = positive.entries.sortedByDescending { it.value }.map { (key, sum) ->
+      PieSliceSpec(text(categoryColumn, key).ifEmpty { EMPTY_GROUP }, toDisplay(sum, unit, granularity), formatNumber(sum, unit), percentText(sum / total * PERCENT))
+    }
+    return PiePanelSpec(panel.title, slices, granularity?.symbol, panel.donut)
+  }
+
+  private fun percentText(percent: Double): String = PropertyValueFormat.formatNumber(round(percent * PERCENT_DIGITS) / PERCENT_DIGITS) + " %"
+
+  /** A calendar (cells per day) or matrix (cells per x/y pair) heatmap; each cell reduces its rows, cells without value are left out. */
+  private fun heatmapPanel(panel: ReportHeatmapPanel, query: ReportQuery): PanelSpec? {
+    val result = result(query) ?: return null
+    val column = panel.field?.let { result.columns[it] ?: return null }
+    val unit = column?.unit?.takeIf { panel.reduce != ReportReduce.COUNT }
+    val granularity = unit?.let { displayGranularity(it) }
+
+    fun cell(x: String, y: String?, rows: List<ResultRow>): HeatmapCellSpec? {
+      val value = reduce(panel.reduce, result.copy(rows = rows), column) ?: return null
+      return HeatmapCellSpec(x, y, toDisplay(value, unit, granularity), formatNumber(value, unit))
+    }
+
+    val thresholds = panel.thresholds.mapNotNull { threshold ->
+      val number = if (ReportFields.configPath(threshold.value) != null) configNumber(threshold.value, unit) else ReportValues.parseNumber(threshold.value, unit)
+      number?.let { HeatmapThresholdSpec(toDisplay(it, unit, granularity), threshold.color) }
+    }.sortedBy { it.value }
+
+    val spec = if (panel.calendar) calendarHeatmap(panel, query, result, ::cell) else matrixHeatmap(panel, result, ::cell) ?: return null
+    val values = spec.cells.map { it.value }
+    return spec.copy(unit = granularity?.symbol, min = values.minOrNull(), max = values.maxOrNull(), thresholds = thresholds)
+  }
+
+  /** One cell per day with rows, within the query's range (open bounds: the days with data), at most the latest [MAX_HEATMAP_YEARS] years. */
+  private fun calendarHeatmap(
+    panel: ReportHeatmapPanel,
+    query: ReportQuery,
+    result: QueryResult,
+    cell: (String, String?, List<ResultRow>) -> HeatmapCellSpec?,
+  ): HeatmapPanelSpec {
+    val byDay = result.rows.mapNotNull { row -> dayOf(query, result, row)?.let { it to row } }.groupBy({ it.first }, { it.second })
+    val range = rangeOf(query)
+    val to = range?.to ?: byDay.keys.maxOrNull()
+    val earliest = to?.minusYears(MAX_HEATMAP_YEARS)?.plusDays(1)
+    val from = (range?.from ?: byDay.keys.minOrNull())?.let { start -> earliest?.let { maxOf(start, it) } ?: start }
+    val cells = byDay.entries.filter { (day, _) -> from != null && to != null && !day.isBefore(from) && !day.isAfter(to) }
+      .sortedBy { it.key }
+      .mapNotNull { (day, rows) -> cell(day.toString(), null, rows) }
+    return HeatmapPanelSpec(panel.title, true, cells, null, null, null, from = from?.toString(), to = to?.toString())
+  }
+
+  /** The day a row stands for: its bucket's start (a `TAG` bucket), else its time field's value. */
+  private fun dayOf(query: ReportQuery, result: QueryResult, row: ResultRow): LocalDate? {
+    result.bucket?.let { bucket -> return row.values[ReportAggregate.BUCKET_FIELD]?.let { ReportBuckets.period(bucket, it, result.periodStart)?.from } }
+    return ReportFields.parseDate(query.timeField?.let { row.values[it] })
+  }
+
+  /** One cell per pair of x and y values; categories in bucket order (time buckets) or order of appearance, labelled like table cells. */
+  private fun matrixHeatmap(panel: ReportHeatmapPanel, result: QueryResult, cell: (String, String?, List<ResultRow>) -> HeatmapCellSpec?): HeatmapPanelSpec? {
+    val xColumn = result.columns[panel.x ?: return null] ?: return null
+    val yColumn = result.columns[panel.y ?: return null] ?: return null
+    fun keys(column: ResultColumn): List<String> {
+      val keys = result.rows.map { it.values[column.path].orEmpty() }.distinct()
+      return if (column.bucket != null) keys.sorted() else keys
+    }
+    fun label(column: ResultColumn, key: String) = text(column, key).ifEmpty { EMPTY_GROUP }
+    val xKeys = keys(xColumn)
+    val yKeys = keys(yColumn)
+    val byPair = result.rows.groupBy { it.values[xColumn.path].orEmpty() to it.values[yColumn.path].orEmpty() }
+    val cells = xKeys.flatMap { x -> yKeys.mapNotNull { y -> byPair[x to y]?.let { rows -> cell(label(xColumn, x), label(yColumn, y), rows) } } }
+    return HeatmapPanelSpec(
+      panel.title,
+      false,
+      cells,
+      null,
+      null,
+      null,
+      xCategories = xKeys.map { label(xColumn, it) }.distinct(),
+      yCategories = yKeys.map { label(yColumn, it) }.distinct(),
+    )
+  }
+
+  // endregion
+
   // region stat
 
   private fun statPanel(panel: ReportStatPanel, query: ReportQuery): PanelSpec? {
@@ -858,6 +999,11 @@ internal class ReportExecutor(
     private const val NO_VALUE = "–"
     private const val EMPTY_GROUP = "–"
     private const val PERCENT = 100.0
+    private const val PERCENT_DIGITS = 10.0
+    private const val SCRIPTS_UNAVAILABLE = "Kotlin-Skripte sind hier nicht verfügbar."
+
+    /** A calendar heatmap shows at most this many years (the latest). */
+    const val MAX_HEATMAP_YEARS = 5L
     private const val TIME_RANGE_TYPE = "timeRange"
     private const val SELECT_TYPE = "select"
     private const val ALL_LABEL = "Alle"
@@ -875,4 +1021,9 @@ internal class ReportExecutor(
       ReportTimeRangeVariable.ALL to "Gesamter Zeitraum",
     )
   }
+}
+
+/** Runs the script of a `kotlin` step (see [de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort]); [label] names the step. */
+internal fun interface ReportScriptRunner {
+  fun run(script: String, rows: List<Map<String, String?>>, config: Map<String, String?>, label: String): ReportScriptResult
 }

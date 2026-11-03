@@ -30,16 +30,20 @@ import de.chrgroth.james.platform.domain.model.app.ReportDeltaTransform
 import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
 import de.chrgroth.james.platform.domain.model.app.ReportGapCheck
 import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
+import de.chrgroth.james.platform.domain.model.app.ReportHeatmapPanel
 import de.chrgroth.james.platform.domain.model.app.ReportJoinKey
 import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
+import de.chrgroth.james.platform.domain.model.app.ReportKotlinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
+import de.chrgroth.james.platform.domain.model.app.ReportPiePanel
 import de.chrgroth.james.platform.domain.model.app.ReportQuery
 import de.chrgroth.james.platform.domain.model.app.ReportReduce
 import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
 import de.chrgroth.james.platform.domain.model.app.ReportRow
 import de.chrgroth.james.platform.domain.model.app.ReportRuleCheck
+import de.chrgroth.james.platform.domain.model.app.ReportScriptField
 import de.chrgroth.james.platform.domain.model.app.ReportSelectVariable
 import de.chrgroth.james.platform.domain.model.app.ReportSeries
 import de.chrgroth.james.platform.domain.model.app.ReportSeriesStyle
@@ -63,6 +67,7 @@ import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptProblem
 import java.time.LocalDate
 import java.time.MonthDay
 
@@ -103,6 +108,7 @@ internal object ReportDefinitionParser {
     ReportJoinTransform.KEY to setOf("fields", "on", "prefix"),
     ReportTopTransform.KEY to setOf("n", "order", "by", "bucket", "periodStart", "as"),
     ReportGoalTransform.KEY to setOf("target", "period", "periodStart", "as", "progress"),
+    ReportKotlinTransform.KEY to setOf("fields"),
   )
   private val JOIN_KEY_KEYS = setOf("field", "other")
   private const val AT_START = "start"
@@ -139,6 +145,9 @@ internal object ReportDefinitionParser {
   private val CALENDAR_KEYS = setOf("query", "field", "to")
   private const val CALENDAR_FORMS = "config.<field>, { query, field, to }"
   private val WARNINGS_KEYS = setOf("checks")
+  private val PIE_KEYS = setOf("query", "field", "category", "donut")
+  private val HEATMAP_KEYS = setOf("query", "field", "reduce", "x", "y", "thresholds")
+  private val SCRIPT_FIELD_TYPES = listOf(PropertyType.LONG, PropertyType.DOUBLE, PropertyType.STRING, PropertyType.DATE, PropertyType.DATETIME, PropertyType.BOOLEAN)
   private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
   private const val COUNT_ROWS = "*"
   private val PERIOD_START_BUCKETS = setOf(TimeBucket.JAHR, TimeBucket.QUARTAL)
@@ -165,6 +174,23 @@ internal object ReportDefinitionParser {
     val reader = Reader(lineIndex(text), entities)
     val definition = reader.definition(root)
     return if (reader.errors.isEmpty()) Result(definition, emptyList()) else Result(null, reader.errors.toList())
+  }
+
+  /**
+   * Compiles the scripts of the `kotlin` steps of the valid [definition] parsed from [text] with [compile] and reports each problem as
+   * [ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID] at the step's `kotlin` key. Expensive, so only run on save - not on every execution.
+   */
+  fun scriptErrors(text: String, definition: ReportDefinition, compile: (String) -> ReportScriptProblem?): List<ReportDefinitionError> {
+    val scripts = definition.transforms.flatMap { (query, steps) ->
+      steps.mapIndexedNotNull { i, step -> (step as? ReportKotlinTransform)?.let { Path.ROOT.key("transforms").key(query).index(i).key(ReportKotlinTransform.KEY) to it } }
+    }
+    if (scripts.isEmpty()) return emptyList()
+    val lines = lineIndex(text)
+    return scripts.mapNotNull { (path, step) ->
+      val problem = compile(step.script) ?: return@mapNotNull null
+      val line = path.pointers().firstNotNullOfOrNull { lines[it] }
+      ReportDefinitionError(ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID, path.display(), line, listOf(problem.message, problem.line?.toString().orEmpty()))
+    }
   }
 
   /** Parses a period start as `MM-DD` or `DD.MM.`; 29.02. is rejected (it does not exist most years). */
@@ -488,6 +514,7 @@ internal object ReportDefinitionParser {
         ReportAsOfTransform.KEY, ReportJoinTransform.KEY -> attachStep(step, map, value, path, pipeline)
         ReportTopTransform.KEY -> topStep(map, value, path, pipeline)
         ReportGoalTransform.KEY -> goalStep(map, value, path, pipeline)
+        ReportKotlinTransform.KEY -> kotlinStep(map, value, path, pipeline)
         else -> fieldStep(step, map, value, path, pipeline)
       }
     }
@@ -763,6 +790,42 @@ internal object ReportDefinitionParser {
         column.type != null && !column.numeric -> error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, raw)
         unit != null && column.unit != null && unit.family != column.unit.family -> error(ReportDefinitionErrorCode.GOAL_TARGET_INVALID, path, raw)
       }
+    }
+
+    // endregion
+
+    // region kotlin step
+
+    /**
+     * `{ kotlin: <script>, fields: { name: <type or unit> } }`: the script itself is only checked for being non-blank here (compiling it is
+     * expensive and happens on save, see [de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort.compileProblem]); the declared fields
+     * join the result's columns so panels can be validated against them.
+     */
+    private fun kotlinStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val script = nonBlankText(value, path.key(ReportKotlinTransform.KEY), ReportKotlinTransform.KEY)
+      val fieldsPath = path.key("fields")
+      val fields = map.get("fields")?.takeIf { !it.isNull }?.let { node ->
+        obj(node, fieldsPath)?.properties()?.mapNotNull { (name, typeNode) -> scriptField(name, typeNode, fieldsPath.key(name), pipeline) }
+      }.orEmpty()
+      return script?.let { ReportKotlinTransform(it, fields) }
+    }
+
+    /** A declared field of a `kotlin` step: a type name (LONG, DOUBLE, STRING, DATE, DATETIME, BOOLEAN) or a granularity (a DOUBLE in that unit). */
+    private fun scriptField(name: String, node: JsonNode, path: Path, pipeline: Pipeline): ReportScriptField? {
+      val raw = nonBlankText(node, path, name) ?: return null
+      val type = SCRIPT_FIELD_TYPES.find { it.name.equals(raw, ignoreCase = true) }
+      val field = if (type != null) {
+        ReportScriptField(name, type)
+      } else {
+        val granularity = UnitFamily.entries.firstNotNullOfOrNull { granularityByName(it, raw) } ?: return null.also {
+          error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, (SCRIPT_FIELD_TYPES.map { it.name } + ReportFields.GRANULARITY_NAMES).joinToString(", "))
+        }
+        ReportScriptField(name, PropertyType.DOUBLE, PropertyUnit(granularity.family, granularity, granularity))
+      }
+      if (name == ReportAggregate.BUCKET_FIELD || name == pipeline.groupBy) return null.also { error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path, name) }
+      val role = if (ReportFields.isNumericType(field.type)) ColumnRole.VALUE else ColumnRole.FIELD
+      pipeline.columns?.put(name, ResultColumn(name, role, field.type, field.unit))
+      return field
     }
 
     // endregion
@@ -1207,7 +1270,8 @@ internal object ReportDefinitionParser {
         ReportPanelType.TIMESERIES, ReportPanelType.BAR -> chartPanel(type, map, path, title)
         ReportPanelType.STAT -> statPanel(map, path, title)
         ReportPanelType.WARNINGS -> warningsPanel(map, path, title)
-        else -> null
+        ReportPanelType.PIE -> piePanel(map, path, title)
+        ReportPanelType.HEATMAP -> heatmapPanel(map, path, title)
       }
     }
 
@@ -1364,6 +1428,75 @@ internal object ReportDefinitionParser {
         val family = column.unit?.family?.name ?: "-"
         if (axisUnits.getOrPut(item.axis) { family } != family) error(ReportDefinitionErrorCode.AXIS_UNIT_MISMATCH, at.path, item.field)
       }
+    }
+
+    // endregion
+
+    // region pie and heatmap
+
+    /** The value field of a pie or heatmap: `field`, else the single value of an aggregate query; null if neither. */
+    private fun valueField(map: ObjectNode, path: Path, info: QueryInfo?): String? =
+      map.get("field")?.let { nonBlankText(it, path.key("field"), "field") } ?: info?.query?.aggregate?.values?.singleOrNull()?.name
+
+    /** Checks that [field] is a column of the query (when known) and - unless [anyType] - numeric; answers the column. */
+    private fun panelColumn(field: String, path: Path, info: QueryInfo?, anyType: Boolean = false): ResultColumn? {
+      val columns = info?.columns ?: return null
+      val column = columns[field] ?: return null.also { error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path, field, info.query.name) }
+      if (!anyType && column.type != null && !column.numeric) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, field)
+      return column
+    }
+
+    private fun piePanel(map: ObjectNode, path: Path, title: String): ReportPanel? {
+      checkKeys(map, path, PIE_KEYS + ReportPanelType.PIE.key)
+      val query = required(map, "query", path)?.let { nonBlankText(it, path.key("query"), "query") }
+      val info = query?.let { declaredQuery(it, path.key("query")) }
+      val field = valueField(map, path, info)
+      if (field == null && !map.has("field") && info != null) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field")
+      field?.let { panelColumn(it, if (map.has("field")) path.key("field") else path.key("query"), info) }
+      val category = map.get("category")?.let { nonBlankText(it, path.key("category"), "category") }
+      category?.let { panelColumn(it, path.key("category"), info, anyType = true) }
+      val aggregate = info?.query?.aggregate
+      if (category == null && info != null && info.rebucket == null && aggregate?.groupBy == null && aggregate?.bucket == null) {
+        error(ReportDefinitionErrorCode.PIE_CATEGORY_MISSING, path.key("query"), info.query.name)
+      }
+      val donut = map.get("donut")?.let { bool(it, path.key("donut")) } ?: false
+      if (query == null || field == null) return null
+      return ReportPiePanel(title, query, field, category, donut)
+    }
+
+    @Suppress("CyclomaticComplexMethod")
+    private fun heatmapPanel(map: ObjectNode, path: Path, title: String): ReportPanel? {
+      checkKeys(map, path, HEATMAP_KEYS + ReportPanelType.HEATMAP.key)
+      val query = required(map, "query", path)?.let { nonBlankText(it, path.key("query"), "query") }
+      val info = query?.let { declaredQuery(it, path.key("query")) }
+      val reduce = map.get("reduce")?.let { keyed(it, path.key("reduce"), ReportReduce.entries) { r -> r.key } ?: return null } ?: ReportReduce.SUM
+      val field = valueField(map, path, info)
+      if (field == null && !map.has("field") && reduce != ReportReduce.COUNT && info != null) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field")
+      val column = field?.let { panelColumn(it, if (map.has("field")) path.key("field") else path.key("query"), info, anyType = reduce == ReportReduce.COUNT) }
+      val x = map.get("x")?.let { nonBlankText(it, path.key("x"), "x") }
+      val y = map.get("y")?.let { nonBlankText(it, path.key("y"), "y") }
+      when {
+        map.has("x") && !map.has("y") -> error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "y")
+        map.has("y") && !map.has("x") -> error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "x")
+      }
+      x?.let { panelColumn(it, path.key("x"), info, anyType = true) }
+      y?.let { panelColumn(it, path.key("y"), info, anyType = true) }
+      if (!map.has("x") && !map.has("y") && info != null && !hasDay(info)) error(ReportDefinitionErrorCode.HEATMAP_NEEDS_DAY, path.key("query"), info.query.name)
+      val thresholdColumn = column?.takeIf { it.type != null && reduce != ReportReduce.COUNT }
+      val thresholds = map.get("thresholds")?.let { node ->
+        list(node, path.key("thresholds"))?.mapIndexedNotNull { i, item ->
+          threshold(item, path.key("thresholds").index(i), thresholdColumn != null || reduce == ReportReduce.COUNT, thresholdColumn?.unit)
+        }
+      }.orEmpty()
+      if (query == null || (field == null && reduce != ReportReduce.COUNT)) return null
+      if (map.has("x") != map.has("y") || (map.has("x") && (x == null || y == null))) return null
+      return ReportHeatmapPanel(title, query, field, reduce, x, y, thresholds)
+    }
+
+    /** Whether the query's rows stand for days: a `TAG` bucket, or plain rows with a time field. */
+    private fun hasDay(info: QueryInfo): Boolean {
+      val bucket = info.rebucket?.first ?: info.query.aggregate?.bucket
+      return if (bucket != null) bucket == TimeBucket.TAG else info.query.aggregate == null && info.query.timeField != null
     }
 
     // endregion

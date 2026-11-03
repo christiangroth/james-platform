@@ -1,5 +1,6 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
+import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
 import de.chrgroth.james.platform.domain.model.user.ApiTokenScope
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
@@ -183,6 +184,48 @@ class ApiTokenReportTests {
       .body("tabs[0].rows[0].panels[1].series[0].points[1].text", equalTo("13.345"))
   }
 
+  @Test
+  fun `user read scope executes pie and heatmap panels and a kotlin step`() {
+    val user = createUser()
+    val (appId, versionId, entityId, distanzId) = createDraft(user)
+    appVersionManagement.addProperty(appId, versionId, entityId, "datum", "DATE", nullable = true).getOrNull()!!
+    val properties = appVersionManagement.addProperty(appId, versionId, entityId, "strecke", "STRING", nullable = true).getOrNull()!!
+      .entityDefinitions.single().properties
+    val datumId = properties.first { it.name == "datum" }.id.value
+    val streckeId = properties.first { it.name == "strecke" }.id.value
+    val reportId = appVersionManagement.addReport(appId, versionId, "Verteilung", VISUAL_DEFINITION).getOrNull()!!.reports.single().id.value
+    appVersionManagement.publishVersion(appId, "BUGFIX", "Initial release").getOrNull()!!
+    val installedAppId = userAppStore.installApp(user.username.value, appId).getOrNull()!!.id.value
+    listOf(Triple("2026-04-10", "5000", "A"), Triple("2026-05-01", "12345", "B"), Triple("2026-05-20", "1000", "A")).forEach { (datum, distanz, strecke) ->
+      val values = mapOf("prop_$distanzId" to listOf(distanz), "prop_$datumId" to listOf(datum), "prop_$streckeId" to listOf(strecke))
+      appData.createAppData(user.username.value, installedAppId, entityId, values).getOrNull()!!
+    }
+
+    bearer(token(user, ApiTokenScope.USER_READ)).`when`().get("/api/v1/user/apps/$installedAppId/reports/$reportId")
+      .then().statusCode(200)
+      .body("tabs[0].rows[0].panels[0].type", equalTo("pie"))
+      .body("tabs[0].rows[0].panels[0].donut", equalTo(true))
+      .body("tabs[0].rows[0].panels[0].slices.label", contains("B", "A"))
+      .body("tabs[0].rows[0].panels[0].slices[0].percentText", equalTo("67,3 %"))
+      .body("tabs[0].rows[0].panels[1].type", equalTo("heatmap"))
+      .body("tabs[0].rows[0].panels[1].heatmap.mode", equalTo("calendar"))
+      .body("tabs[0].rows[0].panels[1].heatmap.from", equalTo("2026-04-10"))
+      .body("tabs[0].rows[0].panels[1].heatmap.to", equalTo("2026-05-20"))
+      .body("tabs[0].rows[0].panels[1].heatmap.cells.x", contains("2026-04-10", "2026-05-01", "2026-05-20"))
+      .body("tabs[0].rows[0].panels[1].heatmap.cells[1].text", equalTo("24.690"))
+  }
+
+  @Test
+  fun `saving a report whose kotlin step does not compile is rejected`() {
+    val user = createUser()
+    val (appId, versionId) = createDraft(user)
+    val definition = "queries:\n  laeufe: { entity: Lauf }\ntransforms:\n  laeufe: [{ kotlin: \"unbekannt(rows)\" }]\ntabs: []\n"
+
+    val result = appVersionManagement.addReport(appId, versionId, "Kaputt", definition)
+
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidReportDefinitionError::class.java)
+  }
+
   companion object {
     val CHART_DEFINITION = """
       queries:
@@ -193,6 +236,22 @@ class ApiTokenReportTests {
           rows:
             - - { stat: Mai, query: mai, field: distanz, reduce: sum, compare: previous_period, thresholds: [{ value: 0, color: red }, { value: 10000, color: green }] }
               - { timeseries: Monate, query: monate, series: [{ field: km, style: column }, { field: laeufe, axis: right }] }
+    """.trimIndent()
+
+    val VISUAL_DEFINITION = """
+      queries:
+        strecken: { entity: Lauf, aggregate: { groupBy: strecke, values: { km: { sum: distanz } } } }
+        tage: { entity: Lauf, timeField: datum, fields: [datum, distanz] }
+      transforms:
+        tage:
+          - kotlin: |
+              rows.map { it + ("doppelt" to it["distanz"]!!.toLong() * 2) }
+            fields: { doppelt: LONG }
+      tabs:
+        - name: Übersicht
+          rows:
+            - - { pie: Strecken, query: strecken, donut: true }
+              - { heatmap: Tage, query: tage, field: doppelt }
     """.trimIndent()
 
     val DEFINITION = """
