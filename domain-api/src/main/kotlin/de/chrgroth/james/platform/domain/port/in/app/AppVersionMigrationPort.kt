@@ -8,23 +8,14 @@ import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.MigrationPreviewSample
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 
-/** Result of running a single Entity's [EntityDefinition.migrationScript]. */
-sealed interface MigrationScriptResult {
-  data class Success(val data: Map<String, String?>) : MigrationScriptResult
-  data class Failure(val reason: String) : MigrationScriptResult
-}
-
 /**
- * Executes Developer-authored Entity migration scripts (distinct from the platform-internal, one-time [AppDataMigrationPort]) as part of the
+ * Executes Developer-authored Entity migration steps (distinct from the platform-internal, one-time [AppDataMigrationPort]) as part of the
  * installation upgrade flow.
  */
 interface AppVersionMigrationPort {
 
-  /** Runs [newEntity]'s migration script (if any) against [data], given [previousEntity] as the entity definition it is migrating from. */
-  fun runScript(previousEntity: EntityDefinition, newEntity: EntityDefinition, data: Map<String, String?>): MigrationScriptResult
-
   /**
-   * Applies every pending Entity migration script across all published Versions strictly between [fromVersion] (exclusive) and [toVersion]
+   * Applies the pending Entity migration steps of all published Versions strictly between [fromVersion] (exclusive) and [toVersion]
    * (inclusive), in publish order, to the AppData of [installedAppId]. Only objects whose `lastValidatedWithVersion` is older than a given
    * migration's Version are migrated. On success (including when there was nothing to migrate) returns [Unit]; nothing is persisted for this
    * installation unless every pending migration succeeds and re-validates. On failure, returns the [DomainError] describing the first
@@ -43,12 +34,12 @@ interface AppVersionMigrationPort {
   fun dryRunMigration(appId: AppId, entityMigrations: List<Pair<EntityDefinition, EntityDefinition>>): Either<DomainError, Unit>
 
   /**
-   * Builds a [MigrationPreviewSample] of [newEntity]'s migration steps and script, applied to one of the existing
+   * Builds a [MigrationPreviewSample] of [newEntity]'s migration steps, applied to one of the existing
    * AppData objects of [newEntity] across every installation of [appId] - the Version editor's interactive preview
    * (see docs/adr/0023-migration-steps.md), a lighter-weight sibling of [dryRunMigration]: it never persists, never
    * aborts on the first failing object (every finding for the object at [index] is collected instead), and is capped
    * to a bounded sample rather than reading every object, so it stays responsive while the Developer is still
-   * editing steps/script. [index] out of range yields a sample with a null `previewObject`, not a [DomainError].
+   * editing steps. [index] out of range yields a sample with a null `previewObject`, not a [DomainError].
    */
   fun resolveMigrationPreviewSample(appId: AppId, previousEntity: EntityDefinition, newEntity: EntityDefinition, index: Int): MigrationPreviewSample
 }

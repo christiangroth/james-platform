@@ -280,27 +280,3 @@ data class ReportAggregateTransform(val aggregate: ReportAggregate) : ReportTran
 }
 
 // endregion
-
-// region kotlin step
-
-/**
- * `{ kotlin: "<script>", fields: { ersparnis: CENTS, breakEven: DATE } }`: the escape hatch for calculations the declarative steps cannot
- * express (e.g. a PV break-even). The [script] runs backend-side via the JSR-223 Kotlin engine with the same timeout as computed properties (ADR
- * 0008, ADR 0028) and sees the bindings `rows` (the result rows so far, `List<Map<String, String?>>` of raw storage values by field), `config`
- * (the App configuration's values by field name) and `today` (`java.time.LocalDate`). Its last expression is the new list of rows (an iterable of
- * maps from field name to value; numbers, dates, booleans and texts are stored as raw values). [fields] declares the fields the script adds or
- * retypes, so panels can be validated against them; the other result fields stay as they are. A failing or timed-out script turns the panels
- * reading the query into an error message instead of failing the report.
- */
-data class ReportKotlinTransform(val script: String, val fields: List<ReportScriptField> = emptyList()) : ReportTransform {
-  override val key: String get() = KEY
-
-  companion object {
-    const val KEY = "kotlin"
-  }
-}
-
-/** A field a `kotlin` step adds: [type] LONG, DOUBLE, STRING, DATE, DATETIME or BOOLEAN; [unit] (numeric only) the granularity values are in. */
-data class ReportScriptField(val name: String, val type: PropertyType, val unit: PropertyUnit? = null)
-
-// endregion

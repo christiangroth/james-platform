@@ -29,20 +29,30 @@ data class EntityDefinition(
   val sortBy: List<SortCriteria> = emptyList(),
   val computedProperties: List<ComputedProperty> = emptyList(),
   val aggregations: List<AggregationDefinition> = emptyList(),
-  // Declarative migration building blocks, executed in order before migrationScript on upgrade — see MigrationStep.
+  // Declarative migration building blocks, executed in order on upgrade — see MigrationStep.
   val migrationSteps: List<MigrationStep> = emptyList(),
-  // Kotlin script transforming existing AppData when an installation upgrades past the Version this script is authored in.
-  val migrationScript: String? = null,
   // Marks the App Version's configuration: a singleton Entity with exactly one object per installation, created from the defaults (ADR 0027).
   val configuration: Boolean = false,
 )
 
+/**
+ * A value derived from the object's other values by an [expression] of the platform's expression language (ADR 0029), evaluated whenever the
+ * object is shown or read by a report, never stored. [unit] (LONG/DOUBLE only) is the unit the result is in, in its storage granularity like a
+ * property's value. [legacyScript] is a Kotlin script stored before ADR 0029: it is no longer evaluated, only kept so the editor can show it as to
+ * be replaced.
+ */
 data class ComputedProperty(
   val id: ComputedPropertyId,
   val name: String,
   val type: PropertyType,
-  val script: String? = null,
-)
+  val expression: String? = null,
+  val unit: PropertyUnit? = null,
+  val legacyScript: String? = null,
+) {
+  init {
+    require(unit == null || type.supportsUnit()) { "unit is not supported for computed property type $type" }
+  }
+}
 
 data class Property(
   val id: PropertyId,
@@ -51,7 +61,10 @@ data class Property(
   val nullable: Boolean = true,
   val constraints: Set<PropertyConstraint> = emptySet(),
   val default: String? = null,
+  // Expression (ADR 0029) evaluated when the create form opens, as a starting value the User may overwrite.
   val smartDefault: String? = null,
+  // Kotlin smart default script stored before ADR 0029: no longer evaluated, only kept so the editor can show it as to be replaced.
+  val legacySmartDefaultScript: String? = null,
   val valueProposals: List<String> = emptyList(),
   val targetEntityId: EntityDefinitionId? = null,
   // Type of the items contained in a LIST property, e.g. LIST<STRING>. Unused for non-LIST properties.
@@ -177,6 +190,9 @@ enum class PropertyType {
     )
 
     override fun supportsDefault(): Boolean = false
+
+    // e.g. `last(schuhe)`: the reference used most recently (ADR 0029)
+    override fun supportsSmartDefault(): Boolean = true
   },
   LIST {
     override fun availableConstraints() = listOf(

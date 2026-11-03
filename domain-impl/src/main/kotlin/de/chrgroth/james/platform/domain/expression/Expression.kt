@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.expression.ExpressionValue.Companion.to
 import de.chrgroth.james.platform.domain.expression.ExpressionValue.Companion.truthy
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
@@ -18,8 +19,8 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
- * The small, safe expression language shared by the platform's declarative calculations (report `calc` steps and value rules; meant to replace
- * Kotlin scripts in computed properties and smart defaults as well). Pure Kotlin - no scripting engine, no reflection, no platform access: an
+ * The small, safe expression language shared by the platform's declarative calculations: report `calc` steps and value rules, computed properties
+ * and smart defaults (ADR 0029, it replaced Kotlin scripting there). Pure Kotlin - no scripting engine, no reflection, no platform access: an
  * expression can only read the values its [ExpressionContext] hands out and compute a value from them, so it is safe and fast (also in a native
  * image).
  *
@@ -28,7 +29,8 @@ import kotlin.math.sqrt
  * - field names (letters incl. umlauts, digits, `_` and `.`, e.g. `gewicht`, `rad.name`, `garantiert.ablauf`) and `config.<field>`;
  * - operators by precedence (lowest first): `or`/`||`, `and`/`&&`, `not`/`!`, comparisons `== != < <= > >=` (not chained), `+ -`, `* / %`,
  *   unary `-`, `^` (power, right-associative, binding tighter than a unary minus on its left: `-2^2` = -4), parentheses;
- * - the functions in [FUNCTIONS].
+ * - the functions in [FUNCTIONS]; [ENTRY_FUNCTIONS] (`last(field)`, `next_day(field)`) take a field name and read the entity's latest existing
+ *   object, so only smart defaults offer them.
  *
  * Semantics: arithmetic works on numbers, yes/no values count as 1/0. A missing operand, a division by zero or a non-finite result give no value
  * (null); comparisons with a missing operand give no value too, except `==`/`!=` (no value equals only no value). `and`, `or`, `not` and the
@@ -36,8 +38,17 @@ import kotlin.math.sqrt
  */
 internal class Expression private constructor(val source: String, private val root: Node) {
 
-  /** The names the expression reads: fields and `config.<field>` references. */
-  val identifiers: Set<String> by lazy { buildSet { collect(root, this) } }
+  /** The names the expression reads: fields and `config.<field>` references (also the field names of [ENTRY_FUNCTIONS]). */
+  val identifiers: Set<String> by lazy { buildSet { collect(root, this, entries = true) } }
+
+  /** The names the expression reads from the object itself, i.e. [identifiers] except those only used as field name of an entry function. */
+  val directIdentifiers: Set<String> by lazy { buildSet { collect(root, this, entries = false) } }
+
+  /** All functions the expression calls. */
+  val functions: Set<String> by lazy { buildSet { collectFunctions(root, this) } }
+
+  /** The [ENTRY_FUNCTIONS] the expression calls. */
+  val entryFunctions: Set<String> get() = functions.filterTo(LinkedHashSet()) { it in ENTRY_FUNCTIONS }
 
   /** Evaluates the expression against [context]; null if it has no value. */
   fun evaluate(context: ExpressionContext): ExpressionValue? = Evaluator(context).eval(root)
@@ -57,7 +68,11 @@ internal class Expression private constructor(val source: String, private val ro
 
   class TypeCheck(val type: ExpressionType?, val problems: List<ExpressionProblem>)
 
-  class ParseException(val position: Int, val detail: String, val unknownFunction: String? = null) : RuntimeException(detail)
+  /**
+   * [unknownFunction]: the expression calls a function that does not exist; [fieldArgumentOf]: an [ENTRY_FUNCTIONS] function got something else
+   * than a field name.
+   */
+  class ParseException(val position: Int, val detail: String, val unknownFunction: String? = null, val fieldArgumentOf: String? = null) : RuntimeException(detail)
 
   private sealed interface Node {
     data class Literal(val value: ExpressionValue?) : Node
@@ -96,9 +111,18 @@ internal class Expression private constructor(val source: String, private val ro
       "month" to 1..1,
       "year" to 1..1,
       "today" to 0..0,
+      "now" to 0..0,
       "date" to 1..1,
       "time" to 1..1,
+      "add_days" to 2..2,
+      "end_of_month" to 1..1,
+      "workdays" to 2..3,
+      "last" to 1..1,
+      "next_day" to 1..1,
     )
+
+    /** Functions taking a field name (not a value) and reading the entity's latest existing object - see [ExpressionContext.last]. */
+    val ENTRY_FUNCTIONS: Set<String> = setOf("last", "next_day")
 
     private val KEYWORDS = setOf("and", "or", "not", "true", "false", "null")
     private val ARITHMETIC = setOf("+", "-", "*", "/", "%", "^")
@@ -106,6 +130,7 @@ internal class Expression private constructor(val source: String, private val ro
     private const val MAX_DECIMALS = 10
     private const val MINUTES_PER_DAY = 24 * 60
     private const val SECONDS_PER_MINUTE = 60.0
+    private val HOLIDAY_SEPARATORS = Regex("[\\s,;\u001F]+")
 
     /** Parses [source]; throws [ParseException] with the 1-based position of the problem. */
     fun parse(source: String): Expression {
@@ -119,16 +144,31 @@ internal class Expression private constructor(val source: String, private val ro
     /** The configuration field path of a `config.<field>` identifier, null for a field name. */
     fun configPath(identifier: String): String? = identifier.takeIf { it.startsWith(CONFIG_PREFIX) }?.removePrefix(CONFIG_PREFIX)?.takeIf { it.isNotBlank() }
 
-    private fun collect(node: Node, into: MutableSet<String>) {
+    private fun collect(node: Node, into: MutableSet<String>, entries: Boolean) {
       when (node) {
         is Node.Literal -> Unit
         is Node.Ident -> into += node.name
-        is Node.Unary -> collect(node.operand, into)
+        is Node.Unary -> collect(node.operand, into, entries)
         is Node.Binary -> {
-          collect(node.left, into)
-          collect(node.right, into)
+          collect(node.left, into, entries)
+          collect(node.right, into, entries)
         }
-        is Node.Call -> node.args.forEach { collect(it, into) }
+        is Node.Call -> if (entries || node.function !in ENTRY_FUNCTIONS) node.args.forEach { collect(it, into, entries) }
+      }
+    }
+
+    private fun collectFunctions(node: Node, into: MutableSet<String>) {
+      when (node) {
+        is Node.Literal, is Node.Ident -> Unit
+        is Node.Unary -> collectFunctions(node.operand, into)
+        is Node.Binary -> {
+          collectFunctions(node.left, into)
+          collectFunctions(node.right, into)
+        }
+        is Node.Call -> {
+          into += node.function
+          node.args.forEach { collectFunctions(it, into) }
+        }
       }
     }
   }
@@ -189,6 +229,10 @@ internal class Expression private constructor(val source: String, private val ro
         "present" -> return ExpressionValue.Bool(eval(args[0]).let { it != null && !(it is ExpressionValue.Text && it.value.isBlank()) })
         "concat" -> return ExpressionValue.Text(args.joinToString("") { toText(eval(it)).orEmpty() })
         "today" -> return ExpressionValue.Date(context.today)
+        "now" -> return ExpressionValue.DateTime(context.now.truncatedTo(ChronoUnit.MINUTES))
+        "last" -> return context.last(fieldName(args[0]))
+        "next_day" -> return toDate(context.last(fieldName(args[0])))?.let { ExpressionValue.Date(it.plusDays(1)) }
+        "workdays" -> return workdays(eval(args[0]), eval(args[1]), args.getOrNull(2)?.let { eval(it) })
       }
       val values = args.map { eval(it) ?: return null }
       return when (node.function) {
@@ -200,8 +244,33 @@ internal class Expression private constructor(val source: String, private val ro
         "year" -> toDate(values[0])?.let { number(it.year.toDouble()) }
         "date" -> toDate(values[0])?.let { ExpressionValue.Date(it) }
         "time" -> toTime(values[0])?.let { ExpressionValue.Time(it) }
+        "add_days" -> toDate(values[0])?.let { date -> toNumber(values[1])?.let { ExpressionValue.Date(date.plusDays(it.toLong())) } }
+        "end_of_month" -> toDate(values[0])?.let { ExpressionValue.Date(it.withDayOfMonth(it.lengthOfMonth())) }
         else -> numeric(node.function, values.map { toNumber(it) ?: return null })
       }
+    }
+
+    private fun fieldName(node: Node): String = (node as Node.Ident).name
+
+    /**
+     * Mondays to Fridays from [from] to [to] (both inclusive; 0 if [to] lies before [from]) except the dates in [holidays]: a date, or a text
+     * holding dates separated by commas, semicolons, spaces or the LIST separator (a configuration LIST of dates).
+     */
+    private fun workdays(from: ExpressionValue?, to: ExpressionValue?, holidays: ExpressionValue?): ExpressionValue? {
+      val start = toDate(from) ?: return null
+      val end = toDate(to) ?: return null
+      val excluded = when (holidays) {
+        null -> emptySet()
+        is ExpressionValue.Text -> holidays.value.split(HOLIDAY_SEPARATORS).mapNotNullTo(HashSet()) { toDate(ExpressionValue.Text(it)) }
+        else -> setOfNotNull(toDate(holidays))
+      }
+      var count = 0
+      var day = start
+      while (!day.isAfter(end)) {
+        if (day.dayOfWeek != DayOfWeek.SATURDAY && day.dayOfWeek != DayOfWeek.SUNDAY && day !in excluded) count++
+        day = day.plusDays(1)
+      }
+      return number(count.toDouble())
     }
 
     /** `case(x, k1, v1, k2, v2, ..., default)`: the value after the first key equal to x, else the default (no value without one). */
@@ -309,13 +378,25 @@ internal class Expression private constructor(val source: String, private val ro
         }
         "present" -> ExpressionType.BOOLEAN
         "concat" -> ExpressionType.TEXT
-        "today" -> ExpressionType.DATE
+        "today", "now" -> if (name == "now") ExpressionType.DATETIME else ExpressionType.DATE
+        "add_days" -> {
+          argumentsOf(name, types.take(1), DATES)
+          numberArgument(name, 2, types[1])
+          ExpressionType.DATE
+        }
+        "end_of_month", "next_day" -> argumentsOf(name, types, DATES).let { ExpressionType.DATE }
+        "last" -> types[0]
+        "workdays" -> argumentsOf(name, types, DATES).let { ExpressionType.NUMBER }
         "minutes" -> argumentsOf(name, types, TIMES_OF_DAY).let { ExpressionType.NUMBER }
         "days", "weekday", "day", "month", "year" -> argumentsOf(name, types, DATES).let { ExpressionType.NUMBER }
         "date" -> argumentsOf(name, types, DATES).let { ExpressionType.DATE }
         "time" -> argumentsOf(name, types, TIMES_OF_DAY).let { ExpressionType.TIME }
         else -> argumentsOf(name, types, NUMBERS).let { ExpressionType.NUMBER }
       }
+    }
+
+    private fun numberArgument(function: String, position: Int, type: ExpressionType?) {
+      if (type != null && type !in NUMBERS) problems += ExpressionProblem(ExpressionProblem.Kind.ARGUMENT_TYPE, listOf(function, position.toString(), type.name))
     }
 
     private fun argumentsOf(function: String, types: List<ExpressionType?>, allowed: Set<ExpressionType>) {
@@ -508,6 +589,9 @@ internal class Expression private constructor(val source: String, private val ro
         }
       }
       if (args.size !in arity) failAt(start, "wrong number of arguments for '$name'")
+      if (name in ENTRY_FUNCTIONS && args.any { it !is Node.Ident || configPath(it.name) != null }) {
+        throw ParseException(start + 1, "'$name' needs a field name", fieldArgumentOf = name)
+      }
       return Node.Call(name, args)
     }
 

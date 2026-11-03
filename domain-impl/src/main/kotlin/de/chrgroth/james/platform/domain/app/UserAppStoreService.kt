@@ -213,7 +213,7 @@ class UserAppStoreService(
 
   /**
    * Same as the auto-upgrade path: once an installation has migrated onto a new version, every aggregation declared there is
-   * enqueued for a full outbox recompute, covering both changed AggregationDefinitions and migration scripts invalidating
+   * enqueued for a full outbox recompute, covering both changed AggregationDefinitions and migration steps invalidating
    * previously computed values (see docs/adr/0020-aggregation-definitions.md).
    */
   private fun enqueueAggregationRecompute(installedAppId: InstalledAppId, aggregationDefinitionIds: List<AggregationDefinitionId>) {

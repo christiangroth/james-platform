@@ -6,7 +6,6 @@ data class HealthStats(
   val httpResponseStats: List<HttpResponseStats>,
   val cronjobStats: List<CronjobStats>,
   val configurationStats: ConfigurationStats,
-  val scriptStats: List<ScriptExecutionStats>,
   val importCleanupStats: ImportCleanupStats,
 ) {
   val mongoCollectionDocumentTotal: Long get() = mongoCollectionStats.sumOf { it.documentCount }

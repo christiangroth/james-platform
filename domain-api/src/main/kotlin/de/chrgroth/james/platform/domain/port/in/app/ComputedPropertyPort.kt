@@ -5,9 +5,17 @@ import kotlin.time.Instant
 
 interface ComputedPropertyPort {
   /**
-   * Evaluates the computed property scripts of [entity] for one object. Scripts see the bindings `it` ([data]), `computed` (results of the
-   * computed properties evaluated before), `now` and `config` ([config], the installation's configuration values keyed by property id like
-   * `it`, empty without configuration - see ADR 0027).
+   * Evaluates the computed property expressions of [entity] for one object ([data], raw values by property id) in definition order, so a computed
+   * property can read the ones defined before it (ADR 0029). Expressions read the object's fields by name (nested OBJECT fields as
+   * `object.field`, references as the referenced object's id), `config.<field>` from [config] (the installation's configuration values by
+   * property id, empty without configuration) typed by [configEntity], `today()` and `now()` at [now] in the application's time zone. Results
+   * are raw storage values by computed property id; a computed property without (valid) expression or whose expression has no value is null.
    */
-  fun computeValues(entity: EntityDefinition, data: Map<String, String?>, now: Instant, config: Map<String, String?> = emptyMap()): Map<String, String?>
+  fun computeValues(
+    entity: EntityDefinition,
+    data: Map<String, String?>,
+    now: Instant,
+    config: Map<String, String?> = emptyMap(),
+    configEntity: EntityDefinition? = null,
+  ): Map<String, String?>
 }

@@ -4,8 +4,8 @@ package de.chrgroth.james.platform.domain.model.app
 value class MigrationStepId(val value: String)
 
 /**
- * A declarative migration building block attached to an [EntityDefinition], executed in the defined order — before any
- * [EntityDefinition.migrationScript] — when an installation upgrades past the Version the step is authored in. All variants
+ * A declarative migration building block attached to an [EntityDefinition], executed in the defined order when an installation
+ * upgrades past the Version the step is authored in. All variants
  * operate on a Property that already existed (by the same [PropertyId]) in the last published Version, reusing [ValueConversion]
  * for the actual value transformation where a conversion is involved. Only top-level properties are supported; nested `OBJECT`
  * properties and `List` items are out of scope. See docs/adr/0023-migration-steps.md.

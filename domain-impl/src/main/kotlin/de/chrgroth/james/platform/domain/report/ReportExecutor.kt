@@ -43,7 +43,6 @@ import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
 import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
 import de.chrgroth.james.platform.domain.model.app.ReportHeatmapPanel
 import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
-import de.chrgroth.james.platform.domain.model.app.ReportKotlinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
@@ -87,7 +86,6 @@ import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptResult
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -112,7 +110,7 @@ import kotlin.math.round
  *
  * Checks run through [ReportChecker] - only those a warnings panel shows; a tab counts the findings of its warnings panels.
  *
- * `kotlin` transformation steps run through [scripts] (ADR 0028); a failing script turns the panels reading its query into [ErrorPanelSpec]s.
+ * A query whose transformation failed at runtime turns the panels reading it into [ErrorPanelSpec]s.
  */
 @Suppress("TooManyFunctions", "LargeClass")
 internal class ReportExecutor(
@@ -120,7 +118,6 @@ internal class ReportExecutor(
   private val allAppData: List<AppData>,
   private val today: LocalDate,
   private val configuration: AppData? = null,
-  private val scripts: ReportScriptRunner? = null,
   private val computeValues: (EntityDefinition, Map<String, String?>) -> Map<String, String?>,
 ) {
   private val configEntity = entities.find { it.configuration }
@@ -272,17 +269,8 @@ internal class ReportExecutor(
         run(query, previousRange)?.let { transform(query, previousRange, steps.take(index), it) }
       },
       otherQuery = ::otherResult,
-      script = { step, index, rows ->
-        scripts?.run(step.script, rows, configValues, "${query.name}[$index]") ?: ReportScriptResult.Failure(SCRIPTS_UNAVAILABLE)
-      },
     )
     return transformer.apply(query, range, steps, base)
-  }
-
-  /** The configuration's values by field name (top-level fields, raw storage values) for `kotlin` steps; empty without configuration. */
-  private val configValues: Map<String, String?> by lazy {
-    val entity = configEntity ?: return@lazy emptyMap()
-    ReportFields.defaultFields(entity).associateWith { name -> configField(name)?.let { configRaw(it) } }
   }
 
   /** Queries whose result is being computed right now: guards `asOf`/`join` against cycles (rejected by validation anyway). */
@@ -309,7 +297,6 @@ internal class ReportExecutor(
       is ReportJoinTransform -> step.fields.map { step.prefix + it }
       is ReportTopTransform -> listOfNotNull(ReportAggregate.BUCKET_FIELD.takeIf { step.bucket != null }, step.output)
       is ReportGoalTransform -> listOf(step.output, step.progress)
-      is ReportKotlinTransform -> step.fields.map { it.name }
     }
   }
 
@@ -331,7 +318,7 @@ internal class ReportExecutor(
     }
   }
 
-  /** Why a query the panel reads failed at runtime (a `kotlin` step), null if none did. */
+  /** Why a query the panel reads failed at runtime, null if none did. */
   private fun panelError(panel: ReportPanel, definition: ReportDefinition): String? {
     val queries = when (panel) {
       is ReportTablePanel -> listOf(panel.query)
@@ -972,7 +959,6 @@ internal class ReportExecutor(
     private const val EMPTY_GROUP = "–"
     private const val PERCENT = 100.0
     private const val PERCENT_DIGITS = 10.0
-    private const val SCRIPTS_UNAVAILABLE = "Kotlin-Skripte sind hier nicht verfügbar."
 
     /** A calendar heatmap shows at most this many years (the latest). */
     const val MAX_HEATMAP_YEARS = 5L
@@ -995,7 +981,3 @@ internal class ReportExecutor(
   }
 }
 
-/** Runs the script of a `kotlin` step (see [de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort]); [label] names the step. */
-internal fun interface ReportScriptRunner {
-  fun run(script: String, rows: List<Map<String, String?>>, config: Map<String, String?>, label: String): ReportScriptResult
-}

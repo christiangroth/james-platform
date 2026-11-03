@@ -15,7 +15,6 @@ import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
 import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
 import de.chrgroth.james.platform.domain.model.app.ReportJoinKey
 import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
-import de.chrgroth.james.platform.domain.model.app.ReportKotlinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportQuery
 import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
@@ -25,7 +24,6 @@ import de.chrgroth.james.platform.domain.model.app.ReportYoyTransform
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.encodeTimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptResult
 import de.chrgroth.james.platform.domain.report.ReportExecutor.QueryResult
 import de.chrgroth.james.platform.domain.report.ReportExecutor.ResultRow
 import java.time.LocalDate
@@ -46,7 +44,6 @@ internal class ReportTransformer(
   private val configNumber: (raw: String, unit: PropertyUnit?) -> Double?,
   private val previousYear: (stepIndex: Int) -> QueryResult?,
   private val otherQuery: (name: String) -> Pair<ReportQuery, QueryResult>? = { null },
-  private val script: (step: ReportKotlinTransform, index: Int, rows: List<Map<String, String?>>) -> ReportScriptResult = { _, _, _ -> SCRIPTS_UNAVAILABLE },
   private val configValue: (path: String) -> ExpressionValue? = { null },
   private val label: (column: ResultColumn, raw: String?) -> String = { _, raw -> raw.orEmpty() },
 ) {
@@ -83,35 +80,7 @@ internal class ReportTransformer(
     is ReportTopTransform -> top(query, step, result)
     is ReportGoalTransform -> goal(query, step, result)
     is ReportAggregateTransform -> aggregate(query, step, result)
-    is ReportKotlinTransform -> kotlin(query, step, index, result)
   }
-
-  // region kotlin
-
-  /**
-   * Hands the rows (raw values by field) to the step's script and takes the rows it returns; the declared fields join the result's columns. A
-   * failure empties the result and records the message, so the panels reading the query show it (later steps are skipped).
-   */
-  private fun kotlin(query: ReportQuery, step: ReportKotlinTransform, index: Int, result: QueryResult): QueryResult =
-    when (val outcome = script(step, index, result.rows.map { it.values })) {
-      is ReportScriptResult.Failure -> result.failed(outcome.message)
-      is ReportScriptResult.Success -> {
-        val columns = LinkedHashMap(result.columns)
-        step.fields.forEach { field ->
-          val role = if (ReportFields.isNumericType(field.type)) ColumnRole.VALUE else ColumnRole.FIELD
-          columns[field.name] = ResultColumn(field.name, role, field.type, field.unit)
-        }
-        val rows = outcome.rows.mapIndexed { i, values ->
-          val order = values[ReportAggregate.BUCKET_FIELD]?.takeIf { result.bucket != null && it.isNotEmpty() }
-            ?: query.timeField?.let { values[it] }?.takeIf { it.isNotEmpty() }
-            ?: i.toString().padStart(ROW_INDEX_DIGITS, '0')
-          ResultRow(values, order)
-        }
-        result.copy(columns = columns, rows = rows)
-      }
-    }
-
-  // endregion
 
   // region calc
 
@@ -451,8 +420,6 @@ internal class ReportTransformer(
 
   companion object {
     private const val PERCENT = 100.0
-    private const val ROW_INDEX_DIGITS = 8
-    private val SCRIPTS_UNAVAILABLE = ReportScriptResult.Failure("Kotlin-Skripte sind hier nicht verfügbar.")
 
     fun rawNumber(value: Double, type: PropertyType?): String =
       if (type == PropertyType.LONG && value == Math.rint(value)) value.toLong().toString() else value.toString()
