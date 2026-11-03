@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0029](0029-expression-language-instead-of-kotlin-scripting.md): the `kotlin` step was removed.
 
 ## Context
 

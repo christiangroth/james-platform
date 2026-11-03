@@ -1,6 +1,7 @@
 # App Version Migrations: Synchronous, In-Request Execution on Upgrade
 
-* Status: partially superseded by [ADR 0019](0019-persistent-outbox-for-long-running-domain-operations.md) — see note below
+* Status: partially superseded by [ADR 0019](0019-persistent-outbox-for-long-running-domain-operations.md) — see note below; migration scripts were removed by
+  [ADR 0029](0029-expression-language-instead-of-kotlin-scripting.md), migrations consist of the declarative steps of ADR 0023 since
 * Deciders: Chris
 * Date: 2026-08-17
 

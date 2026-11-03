@@ -30,25 +30,25 @@ James Platform is a personal Low Code system for building and running data-centr
   - *Non-breaking change* → Developer chooses between **Feature** or **Bugfix** release.
   - The version number is never entered manually.
 - A released Version records a release date and release notes.
-- A Developer can attach declarative **migration steps** and/or an optional **migration script** (Kotlin, same JSR-223 sandbox as Computed Properties) to an Entity,
-  transforming existing `AppData` when an installation upgrades past that Version. Migration steps cover the most common changes without writing a script: **Convert
+- A Developer can attach declarative **migration steps** to an Entity, transforming existing `AppData` when an installation upgrades past that Version (Kotlin
+  migration scripts were removed with ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)). Migration steps cover the most common changes: **Convert
   type** (a Property's type changed in place), **Copy value** (a Property was deleted and replaced by a new one, e.g. to change a `long`/`Double` Property's immutable
   storage granularity, see [Property Units](#property-units)), **Convert unit** (a Property gained a unit, or had its storage granularity changed in place — converting
   the existing value from a Developer-declared source granularity), **Fill empty value** (a Property changed from nullable to non-nullable — filling `null`/blank values
   with a fixed value or the Property's own default), and **Adjust to constraints** (a Property gained a more restrictive constraint — clamping out-of-range
   numeric/date/time values, or truncating over-long `String` values). Convert type/value/unit convert the value automatically if the source/target type or unit differ;
-  Fill empty value/Adjust to constraints deliberately never fall back to `null` — a value they cannot fill/adjust fails the migration instead. Steps run first, in the
-  order they are defined, followed by the script if one is set. A migration that provably brings all existing data into a valid state (checked via a dry-run at publish
+  Fill empty value/Adjust to constraints deliberately never fall back to `null` — a value they cannot fill/adjust fails the migration instead. Steps run in the order
+  they are defined. A migration that provably brings all existing data into a valid state (checked via a dry-run at publish
   time) can neutralize what would otherwise be a breaking change, avoiding a mandatory Major bump. The version editor's Migration section proposes a matching migration
   step for every detected breaking Property change not yet covered by one (e.g. a type change, a tightened constraint, or a removed/added Property pair), pre-filled and
   ready to create with one click. The dry-run also accounts for installations whose auto-upgrade fell behind, applying their own pending migrations first rather than
   assuming every installation is already on the latest published Version. Migrations run synchronously as part of the upgrade (auto-upgrade for non-breaking Versions, or
   explicit User-triggered upgrade for breaking ones) — see ADR [0018](../adr/0018-app-version-migration-execution-trigger.md) and ADR
-  [0023](../adr/0023-migration-steps.md). Steps and script belong to the Version they were authored on: a new draft starts without them, so they never re-run on a
+  [0023](../adr/0023-migration-steps.md). Steps belong to the Version they were authored on: a new draft starts without them, so they never re-run on a
   later upgrade. Publishing a non-breaking Version auto-upgrades every non-test installation of the same major that is not on it yet (also ones that fell behind,
   migrating across every skipped Version); dashboard, App page and App store page show such an upgrade as in progress, and offer the upgrade button only for a
   breaking (new major) Version. The Migration section also offers an interactive preview, analogous to the Data Import Mapping step's live preview: it applies
-  the draft's already-saved migration steps and script to one existing `AppData` object at a time (a bounded sample across the App's installations) and shows the
+  the draft's already-saved migration steps to one existing `AppData` object at a time (a bounded sample across the App's installations) and shows the
   before/after value per Property plus any validation issues found while re-validating the result — without running a real dry-run or publish — with Prev/Next
   navigation across the sampled objects. See ADR [0015](../adr/0015-import-object-preview-endpoint.md).
 
@@ -75,15 +75,36 @@ James Platform is a personal Low Code system for building and running data-centr
     asked for inline in the form (see ADR [0026](../adr/0026-reference-lookup.md)).
   - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
   - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
-- **Computed properties** – a Developer may define derived properties by providing a Kotlin script that computes the value based on the entity's other properties. Computed properties may depend on each other; the definition order determines the evaluation sequence. Scripts see the bindings `it` (the object's stored values by property id), `computed` (the computed properties evaluated before, by id), `now` (`kotlin.time.Instant`) and `config` (the installation's App configuration values by property id, empty without configuration). Scripts run backend-side via the JSR-223 Kotlin scripting engine, each on its own virtual thread with a configurable timeout (`app.script.timeout-ms`, default 500ms); a timed-out or failing script yields `null` for that property without failing the surrounding request. There is no deeper sandboxing (no memory/IO isolation) beyond the timeout — see ADR [0008](../adr/0008-computed-property-script-execution.md).
+- **Computed properties** – a Developer may define derived properties by an **expression** of the platform's expression language (see
+  [Reports](#reports), "Expression language"; ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)) with a result type (`long`,
+  `Double`, `String`, `boolean`, `date`, `time`, `datetime`) and, for numbers, an optional unit (a granularity such as `KILOMETERS`; the result is a raw
+  value in that granularity, like a Property's value). Expressions read the object's fields by Property name (Properties nested in `object` Properties
+  as `objekt.feld`, references as the referenced object's id, numbers with a unit as raw storage values), the computed properties defined *before*
+  them (definition order is the evaluation order), `config.<field>`, `today()` and `now()`; e.g. `round(gewicht / (groesse / 100) ^ 2, 1)` or
+  `if(art == 'Urlaub', 0, sollStunden)`. They are parsed and type checked on save (unknown field or function, wrong operand/argument type, result not
+  fitting the type; `last`/`next_day` are not available), with a German error message, and evaluated purely in Kotlin whenever an object is shown or
+  read by a report - an expression without value (missing field, division by zero, a field renamed after saving) yields no value.
+  Computed properties are shown on the object's edit page and are fields of reports.
 - **App configuration** – an Entity may be marked as the Version's **configuration** (`EntityDefinition.configuration`, at most one per Version, no REF
   may target it, every required property needs a default): a singleton with exactly one object per installation, created from the defaults on install,
   test installation and upgrade (also onto the Version introducing it) and migrated like any data. The User edits it under "Einstellungen"
   (`/ui/user/apps/{installedAppId}/settings`, the generic edit form) but cannot delete it or create a second one; it is no data tile/list, not counted on
-  the dashboard and no import or test data target. Reports read it as `config.<field>`, computed property scripts get a `config` binding (property id to
-  stored value, like `it`). Rule of thumb: settings without a time dimension go into the configuration, "valid from" values into a data Entity - see ADR
+  the dashboard and no import or test data target. Reports, computed properties and smart defaults read it as `config.<field>`. Rule of thumb: settings without a time dimension go into the configuration, "valid from" values into a data Entity - see ADR
   [0027](../adr/0027-app-configuration.md).
-- **Smart defaults** – like a static default, but computed by a Kotlin script (same execution model, engine, and timeout as computed properties) when the create form is opened, seeded with any static defaults already set on the entity. Unlike computed properties, a smart default is only a starting value — the User may freely overwrite it before saving, and it is not re-evaluated afterwards.
+- **Smart defaults** – like a static default, but an **expression** (ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md))
+  evaluated when the create form is opened, for top-level Properties (also `ref` Properties, which have no static default). Smart defaults are
+  evaluated in Property order and read the static defaults, the smart defaults before them, `config.<field>`, `today()`, `now()` (current minute) and -
+  only here - the Entity's **latest existing object**: `last(feld)` is the field's value there (e.g. the last used shoes `last(schuhe)`),
+  `next_day(feld)` the day after it (e.g. `coalesce(next_day(datum), today())`). The latest object is the one with the latest time field (the first
+  `date`/`datetime` Property the Entity is sorted by, else its first `date`/`datetime` Property), then the newest created. Further functions for data
+  entry: `add_days(d, n)`, `end_of_month(d)` and `workdays(von, bis[, feiertage])` (Mondays to Fridays, both inclusive, without the given dates, e.g. a
+  configuration `List` of dates: `workdays(start, ende, config.feiertage)`). A smart default that reads other fields of the form is **re-evaluated**
+  when one of them changes (`POST /ui/user/apps/{installedAppId}/data/defaults` with the values entered so far), unless the User changed that field
+  himself - e.g. Urlaub `ende = start`, `tage = workdays(start, ende, config.feiertage)`. Unlike computed properties, a smart default is only a
+  starting value — the User may freely overwrite it, and it is not evaluated again after saving. The developer UI offers predefined smart defaults
+  (today, the day after the last entry, end of month, now, last used value). Smart defaults are validated on save like computed properties.
+- **Kotlin scripts stored before ADR 0029** (computed properties, smart defaults) still load, but are never evaluated: the version editor shows them as
+  "Kotlin (ungültig)" with the script, and they are dropped once an expression is saved (or the value cleared). Stored migration scripts are ignored.
 
 ### Supported Data Types
 
@@ -162,7 +183,8 @@ The shared installation is treated as a separate installation. Supported sharing
 
 **Status: steps 1-7 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar, stat, pie and
 heatmap panels, App configuration via `config.*`, variables, basic and advanced transformations incl. an expression language with conditions, texts and
-dates and an `aggregate` step, a Kotlin escape-hatch step, checks and warnings panel).
+dates and an `aggregate` step, checks and warnings panel; the former Kotlin escape-hatch step was removed with ADR
+[0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)).
 Step 8, personal dashboards, is outlined under "Roadmap" at the end of this section.
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
@@ -172,13 +194,13 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   Highcharts/HTML itself; Running had ~73k characters of JavaScript, Zählerstände ~59k), yet they repeated the same building blocks: time series with
   zoom, (overview) tables with ratio coloring, tabs/selectors (year, employer), error lists (gap detection, cross checks), filtering, constants in code
   (goals, holidays, target hours) and derived data (cumulative, year over year, forecast, records, meter deltas, "value valid at date"). Reports
-  therefore declare queries, transformations, checks and panels Grafana-like; row logic uses the expression language, code is the exception (the
-  `kotlin` step, to be removed once the reports are ported), not the rule.
+  therefore declare queries, transformations, checks and panels Grafana-like; row logic uses the expression language, Developer code has no place
+  (the `kotlin` step of ADR 0028 was removed with ADR 0029).
 - **Design decisions:** the definition is YAML, edited in the version editor with validation and a preview against a test installation (a visual
   builder is out of scope for now). Queries, transformations and checks run backend-side and the browser only receives the panel data it renders,
   which also settles sandboxing for the browser. Panels produce a renderer-neutral *panel spec*; one client-side adapter maps it to the chart library
-  (Apache ECharts), so the library stays swappable. The escape hatch is a Kotlin step with the timeout model of computed properties (ADR
-  [0028](../adr/0028-report-kotlin-step.md)). **Scope boundary:** an App report only reads data of its own installation plus its configuration;
+  (Apache ECharts), so the library stays swappable. There is no scripting escape hatch (ADR
+  [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)). **Scope boundary:** an App report only reads data of its own installation plus its configuration;
   cross-app evaluations belong to personal dashboards (step 8), not to App reports.
 
 - **Definition:** `queries` (named) and `tabs` → rows → panels. A query reads one Entity of the installation: optional `timeField` (a DATE/DATETIME
@@ -321,18 +343,9 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     { <name>: count | { sum|avg|count|min|max|last: <field> } }` or the shorthand `sum: <field>`), the bucket taken from the row's date (time field, or
     bucket start of an already bucketed result), the group from any result field, the values from numeric result fields. The rows become bucket, group
     and values, sorted by bucket and group, like an aggregated query's (`ReportAggregation` is shared by both); later steps and panels see only them;
-  - `{ kotlin: <script>, fields: { <name>: <type or unit> } }` - the escape hatch for the few calculations the declarative steps cannot express
-    (ADR [0028](../adr/0028-report-kotlin-step.md)), run by `ReportScriptService` like computed property scripts: JSR-223 Kotlin engine, own virtual
-    thread, `app.script.timeout-ms`, script metrics type `REPORT`, no sandbox beyond the timeout. The script is the body of a function with the
-    bindings `rows` (`List<Map<String, String?>>`, the result rows so far as raw storage values by field: numbers in the storage granularity, dates
-    ISO, references as object ids, bucket keys), `config` (`Map<String, String?>`, the configuration's top-level values by field name) and `today`
-    (`java.time.LocalDate`); its last expression (or a `return`) is the new list of rows - an iterable of maps from field name to value (numbers are
-    stored plain, dates/date-times ISO, booleans as `true`/`false`, anything else via `toString()`; at most 100,000 rows). `fields` declares the fields
-    the script adds or retypes - `LONG`, `DOUBLE`, `STRING`, `DATE`, `DATETIME`, `BOOLEAN` or a granularity such as `CENTS` (a DOUBLE in that unit) -
-    so panels and later steps validate against them; the other result fields, the bucket and the group stay as they are. A failure (exception,
-    wrong result type, timeout) empties the query's result with a German message; every panel reading the query (also through `asOf`/`join`) then
-    shows that message instead of its data, the rest of the report renders normally. The script compiles on save (only the wrapping function is
-    defined, nothing runs); compiler errors are validation errors with the line within the script.
+  - `kotlin` - removed (ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)): a definition still using the former Kotlin
+    script step fails validation with `KOTLIN_STEP_REMOVED` ("wird nicht mehr unterstützt"); later steps and panels of that query are then not
+    checked against its (unknown) fields.
 
   ```yaml
   variables:
@@ -450,10 +463,11 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   ```
 
 - **Expression language** (`domain.expression`: `Expression`, `ExpressionValue`, `ExpressionContext`): the small, safe language of `calc` steps and
-  value rules, built as a reusable domain building block - it is meant to replace Kotlin scripting altogether: package 2/2 (#766) moves computed
-  properties and smart defaults onto it, so that no JSR-223 engine is needed (production runs as a GraalVM native image, where Kotlin scripting is not
-  available). It is pure Kotlin - a recursive descent parser and a tree evaluator, no scripting engine, no reflection, no platform access: an
-  expression only reads what its `ExpressionContext` hands out (field values, configuration values, today) and computes one value, so it cannot loop,
+  value rules, also used by computed properties and smart defaults (see [Entities and Properties](#entities-and-properties)): it replaced Kotlin
+  scripting altogether (ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)), so that no JSR-223 engine is needed (production
+  runs as a GraalVM native image, where Kotlin scripting is not available). It is pure Kotlin - a recursive descent parser and a tree evaluator, no scripting engine, no reflection, no platform access: an
+  expression only reads what its `ExpressionContext` hands out (field values, configuration values, today and now, for smart defaults the entity's
+  latest object) and computes one value, so it cannot loop,
   assign or call into the platform. At most 500 characters.
   - **Values**: numbers, texts, yes/no, dates, date-times and times of day; "no value" is a value of its own (a missing field, a division by zero, a
     non-finite result). Reports read result fields typed by their column (raw storage values: numbers in the storage granularity, e.g. meters, cents;
@@ -466,7 +480,10 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     `case(x, key1, value1, key2, value2, ..[, default])` (the value after the first key equal to `x`), `present(x)` (has a non-blank value),
     `concat(..)` (texts, no value as empty), `minutes(from, to)` (two times of day - an end before the start lies on the next day - or two date-times),
     `days(from, to)`, `weekday(d)` (1 = Monday .. 7 = Sunday), `day(d)`, `month(d)`, `year(d)`, `today()`, `date(x)`, `time(x)` (texts such as
-    `'2026-01-01'` or `'08:00'` to a date or time).
+    `'2026-01-01'` or `'08:00'` to a date or time), `add_days(d, n)`, `end_of_month(d)`, `workdays(from, to[, holidays])` (Mondays to Fridays, both
+    inclusive, without the holidays: a date or a text/configuration `List` of dates). Not in reports: `now()` (the current date-time to the minute,
+    computed properties and smart defaults) and the smart default functions `last(field)`/`next_day(field)` (they take a field name, not a value);
+    reports answer them with `EXPRESSION_UNKNOWN_FUNCTION`.
   - **Semantics**: yes/no values count as 1/0 in arithmetic (`max(kopfschmerz, migraene)` is "one of both"); texts compare alphabetically and by
     exact equality, dates, date-times and times chronologically (a text on the other side is read as date/time, e.g. `datum >= '2026-01-01'`). A
     missing operand gives no value in arithmetic, functions and ordering comparisons (as before); `==`/`!=` treat no value as a value of its own
@@ -478,7 +495,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     of different types) and `EXPRESSION_RESULT_TYPE` (a result not fitting the `calc` field's `type`/`unit`, or a value rule not computing a number);
     German texts in the `reportExpression` message bundle.
 
-  Rows of Arbeitszeiten and Journal without `kotlin` steps - net time from begin/end, the target time valid at the date (contract via `asOf`, else the
+  Rows of Arbeitszeiten and Journal with `calc` steps - net time from begin/end, the target time valid at the date (contract via `asOf`, else the
   configuration, nothing before the entry date), the type of day by condition, regrouped per year; yes/no symptoms as 1/0 and a mood text as number:
 
   ```yaml
@@ -556,15 +573,15 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   `calc` `type` is known and fits its `unit`, `aggregate` steps group by existing fields and aggregate numeric ones, output names do not clash, `yoy`
   needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group; `delta`, `asOf`, a bucketed `top` and a goal
   `period` need a date per row, `asOf` also on the other query; `asOf`/`join` fields and keys exist in the other query, queries do not read each other
-  in a cycle; goal targets are numbers, unit texts, numeric configuration fields or numeric fields of a fitting unit; a `kotlin` step has a script
-  and declares its fields with a known type or granularity, not as `bucket` or the group field), checks (exactly one type each, gap queries plain
+  in a cycle; goal targets are numbers, unit texts, numeric configuration fields or numeric fields of a fitting unit; the removed `kotlin` step is
+  reported as such), checks (exactly one type each, gap queries plain
   with a time field, calendars are date fields of a plain query or date (list) configuration fields, rule fields numeric and rule expressions
   computing a number, bounds numbers, unit texts or numeric configuration fields with `min` not above `max`, `required`/`when` fields in the result, known message placeholders, warnings panels
   only list declared checks), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
   declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range, a pie has a category
   (`category`, a group or a bucket), a calendar heatmap a day per row (time field of a plain query or a `TAG` bucket) and a matrix heatmap both `x` and
   `y`. Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition
-  is rejected - on save the scripts of `kotlin` steps are also compiled (not on publish or execution, compiling is expensive); publishing fails if a
+  is rejected; publishing fails if a
   report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
 - **Execution** (`ReportService` / `ReportExecutor`): only the data of the one installation asked for is loaded (sandbox boundary). Filters reuse the
   import filter rule model and `FilterEvaluator`, evaluated on a JSON view of each object (numbers as numbers, dates as ISO strings, references as
@@ -574,7 +591,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison; a pie panel its slices (label, value,
   text, percentage), display unit and donut flag; a heatmap panel its mode (`calendar` with `from`/`to`, or `matrix` with x/y categories), cells
   (x, y, value, text), min/max and thresholds in the display unit; a warnings panel its findings (check, severity, label, message; capped at 500); a
-  panel whose query failed at runtime (a `kotlin` step) only its type, title and `error` message - and each tab the number of findings of its warnings
+  panel whose query failed at runtime only its type, title and `error` message - and each tab the number of findings of its warnings
   panels). Values are formatted like display texts
   (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`,
   references via their display text, booleans as `ja`/`nein`, bucket keys as `09/2026`, `KW 39/2026`, `Q1/2026`. Tables are capped at 1,000 rows,
@@ -594,14 +611,15 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   porting the legacy reports that became fully expressible - 1 foundation (YAML, editor with preview, queries, table/text, panel spec + ECharts
   adapter), 2 time series and stat (Body Metrics, Fahrrad Kilometer, Rente, Blutwerte, Arbeitsverträge, Konzerte), 3 App configuration, 4 variables and
   basic transformations (Lebensversicherung), 5 checks and warnings panel, 6 advanced transformations (Verdienst, Urlaubsplaner, Running, Walking
-  Pad), 7 heatmap, pie and Kotlin step (Zählerstände with the PV break-even, Arbeitszeiten, Journal). The legacy "Lohnsteuerbescheinigung (FAKE als
+  Pad), 7 heatmap and pie (Zählerstände, Arbeitszeiten, Journal; the Kotlin step it also brought was removed with ADR 0029, the PV break-even
+  projection is no longer part of the Zählerstände report). The legacy "Lohnsteuerbescheinigung (FAKE als
   Datenquelle)" report only fed Verdienst with data and is not ported. Porting decisions: target hours and vacation entitlement are values "valid
   from" a date; they are also stored at the employment contract in the *Finanzen* App, but *Arbeit* gets its own "valid from" Entity (weekly hours /
   daily target time, vacation days per year, read via `asOf`) instead of reading across Apps - the small duplication is accepted (the Apps may be
   merged once the parallel operation with legacy james ends). The Journal report's two cross checks against runs and bike rides are not part of the
   App report; they move to a personal dashboard.
 - **Step 8, personal dashboards (planned, #755):** reports owned by the *User* instead of an App, built with the same toolkit (queries,
-  transformations incl. `kotlin`, checks, panels), but able to read the User's installed Apps directly. App Developers therefore never need to know
+  transformations, checks, panels), but able to read the User's installed Apps directly. App Developers therefore never need to know
   the internals of other Apps; combining Apps is the User's job, like combining data sources in Grafana - deliberately **without** published App
   interfaces/exports, which would add too much complexity for the benefit. This lifts the App report's scope boundary (own installation plus
   configuration) for User-owned definitions only. First use: the Journal cross checks (journal entries vs. runs and bike rides). Open questions to
@@ -735,7 +753,7 @@ graph TD
 | Goal              | Design decision                                                                                                    |
 |-------------------|--------------------------------------------------------------------------------------------------------------------|
 | Correctness       | Constraint validation and cyclic-reference detection in the domain layer; enforced before any persistence write.   |
-| Security          | Role-based access via `QuarkusSecurityIdentity`; `HttpOnly` AES session cookie; computed-property scripts run with a timeout guard only, no deeper sandbox; Reports are declarative and executed backend-side per installation (see [Reports](#reports)). |
+| Security          | Role-based access via `QuarkusSecurityIdentity`; `HttpOnly` AES session cookie; computed properties and smart defaults are expressions without scripting engine; Reports are declarative and executed backend-side per installation (see [Reports](#reports)). |
 | Developer UX      | Generic CRUD UI generated from Entity metadata; semver auto-derived; no boilerplate for common patterns.           |
 | Reliability       | External operations (notifications, …) are delivered on a best-effort basis; long-running domain operations (import, deletion, migration) use a persistent outbox for at-least-once execution, see [ADR-0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |
 | Maintainability   | Hexagonal architecture with strict module-dependency rules; zero infrastructure in `domain-api` / `domain-impl`.   |
@@ -839,8 +857,8 @@ Three of Chris's own projects, all hosted as GitHub Packages (Maven repositories
 
 # Runtime View
 
-Example: a User saves an object through the generic data-entry form, triggering computed
-properties and a live update to any other connected client of the same installation.
+Example: a User saves an object through the generic data-entry form, triggering validation
+and a live update to any other connected client of the same installation.
 
 ```mermaid
 sequenceDiagram
@@ -852,7 +870,7 @@ sequenceDiagram
 
     B->>W: POST app-data
     W->>D: AppDataService.save()
-    D->>D: ComputedPropertyService.computeValues()
+    D->>D: validate(data)
     D->>M: persist(data)
     M-->>D: ok
     D->>O: CDI event "data changed"
@@ -867,11 +885,14 @@ Other notable flows:
   AES-encrypted session cookie is issued and the user is redirected by role to
   `/ui/{user|developer|admin}/dashboard` (`303`, not `307`, to avoid re-submitting the login
   form on redirect).
-- **Computed property evaluation:** on every data read/write through `AppDataService`,
-  `ComputedPropertyService` evaluates each entity's computed properties in definition order on
-  a virtual thread with a timeout (default 500ms); a timeout or script error yields `null` for
-  that property without failing the request (see [Computed properties](#entities-and-properties)
-  and ADR [0008](../adr/0008-computed-property-script-execution.md)).
+- **Computed property evaluation:** when an object is shown (edit page) or read by a report,
+  `ComputedPropertyService` evaluates the entity's computed property expressions in definition
+  order, in-process and without scripting engine; an invalid expression or one without value
+  yields `null` for that property without failing the request (see [Computed
+  properties](#entities-and-properties) and ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)).
+- **Smart defaults in the create form:** opening the form evaluates the smart defaults
+  (`SmartDefaultService`, loading the Entity's objects only if `last`/`next_day` is used); the
+  form re-evaluates those reading other fields via `POST …/data/defaults` when such a field changes.
 - **Live updates:** browser clients open a per-user SSE connection; domain services fire CDI
   events on state changes, which `DashboardSseAdapter`/`HealthSseAdapter` (in `adapter-in-web`)
   translate into named SSE events pushed to connected clients (see [Server-Sent Events (SSE)
@@ -1029,7 +1050,10 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
     (`POST /jobs/{id}/accept?mode=ADD|REPLACE`, processed in the background).
   - `/api/v1/developer/apps` - own Apps (`GET`), creating an App (`POST`) and changing its name/description (`PUT /{appId}`), one App with its Versions (`GET /{appId}`), Versions incl. drafts (`GET /{appId}/versions[/{versionId}]`),
     version bump preview, draft creation/deletion (`POST /{appId}/versions`, `DELETE /{appId}/versions/{versionId}`), draft editing (entities, properties,
-    constraints, defaults, units, computed properties, aggregations, migration steps, the configuration flag (`PUT …/entities/{entityId}/configuration`
+    constraints, defaults, smart defaults (`PUT …/properties/{propertyId}/smart-default` with `{ "value": "<expression>" }`), units, computed properties
+    (`POST …/entities/{entityId}/computed-properties` and `PUT …/computed-properties/{computedPropertyId}` with
+    `{ "name", "type", "unit", "expression" }`; an invalid expression answers `400` with code `APPVER-076` and the reason in `details`), aggregations,
+    migration steps, the configuration flag (`PUT …/entities/{entityId}/configuration`
     with `{ "value": true }`), reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
     (`POST /{appId}/versions/publish`).
 
@@ -1113,8 +1137,7 @@ config, but redact values for keys listed in `app.health.masked-config-keys` /
 secret-backed config key must be added to this list in the same change that introduces it —
 this has been missed historically.
 
-**Other notable non-secret config:** `app.script.timeout-ms` (computed-property/smart-default
-script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 100ms),
+**Other notable non-secret config:** `app.mongodb.slow-query-threshold-ms` (default 100ms),
 `app.imports.cleanup.retention-days` (import job cleanup cronjob, default 14 days),
 `app.imports.cleanup.cron` (cleanup cronjob schedule, `adapter-in-scheduler` `application.properties`),
 `app.time-zone` system property / `APP_TIME_ZONE` environment variable (the single UI time zone, default `Europe/Berlin`, see `AppTimeZone`),
@@ -1134,7 +1157,7 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0005](../adr/0005-markdown-rendering-library.md)           | Markdown Rendering Library: marked                 |
 | [0006](../adr/0006-error-handling-concept.md)               | Error Handling: Arrow Either&lt;DomainError, T&gt; |
 | [0007](../adr/0007-local-cookie-based-authentication.md)    | Authentication: Local Cookie-Based Sessions         |
-| [0008](../adr/0008-computed-property-script-execution.md)   | Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard |
+| [0008](../adr/0008-computed-property-script-execution.md)   | Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard (superseded by 0029) |
 | [0009](../adr/0009-diagram-rendering-mermaid.md)             | Diagram Rendering: Mermaid                          |
 | [0010](../adr/0010-import-fetch-ssrf-protection.md)          | Data Import Fetch: SSRF Protection                  |
 | [0011](../adr/0011-import-single-mapping-scope.md)           | Data Import Mapping: Single Mapping, Find-Only Reference Lookups |
@@ -1154,16 +1177,16 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | [0025](../adr/0025-composite-unique-keys.md)                   | Composite Unique Keys                               |
 | [0026](../adr/0026-reference-lookup.md)                        | Reference Lookup: Entering References by Text       |
 | [0027](../adr/0027-app-configuration.md)                       | App Configuration as a Singleton Entity             |
-| [0028](../adr/0028-report-kotlin-step.md)                      | Reports: Kotlin Script Step as Backend Escape Hatch |
+| [0028](../adr/0028-report-kotlin-step.md)                      | Reports: Kotlin Script Step as Backend Escape Hatch (superseded by 0029) |
+| [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md) | Expression Language Instead of Kotlin Scripting |
 
 # Risks and Technical Debts
 
 ## Risks
 
-- **Computed-property scripts have no real sandbox** — only a timeout guard (see ADR
-  [0008](../adr/0008-computed-property-script-execution.md)). A Developer account is trusted;
-  if that trust model ever changes (e.g. multi-tenant, non-trusted Developers), this needs
-  revisiting, also for the Kotlin step of Reports (ADR [0028](../adr/0028-report-kotlin-step.md)), which shares that model.
+- **Expressions refer to properties by name** (computed properties, smart defaults, reports): renaming or deleting a property
+  is not checked against them on publish; affected computed properties and smart defaults silently yield no value until the
+  expression is fixed (ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)).
 - **No static analysis tooling.** detekt was removed while fixing an unrelated session-cookie
   bug and never reinstated; regressions in code quality/complexity are currently only caught
   by review, not CI.
@@ -1206,8 +1229,8 @@ script timeout, default 500ms), `app.mongodb.slow-query-threshold-ms` (default 1
 | Starter           | A one-time startup bean that executes exactly once (data migrations, schema fixes).                               |
 | Focus mode        | A create-form mode that carries values from the previously created object forward as defaults for the next one.  |
 | Snapshot          | A reusable create-form template capturing a fixed set of field values, which can be replaced or deleted.          |
-| Computed property | A Property whose value is derived at read/write time by a backend Kotlin script (see ADR 0008), not stored directly by the User. |
-| Smart default     | A Property's default value computed by a Kotlin script when the create form opens; the User may still overwrite it, unlike a computed property. |
+| Computed property | A value derived from an object's other values by an expression (see ADR 0029) whenever the object is shown or read by a report, not stored. |
+| Smart default     | A Property's starting value computed by an expression when the create form opens (and when fields it reads change); the User may still overwrite it, unlike a computed property. |
 | Value proposals   | A Developer-configured list of suggested values offered as autocomplete options for a Property in the create/edit form. |
 | Reference lookup  | Entering a `ref` property as the text of its target Entity's unique `String` property, optionally auto-creating unknown targets on save. |
 | Display text      | A per-Entity template string that interpolates Property values into a human-readable label, shown in list views and `ref` pickers instead of a raw ID. |
