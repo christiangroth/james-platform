@@ -1818,10 +1818,13 @@
                 var reportPreviewButton = document.getElementById('reportPreviewButton');
                 var reportPreview = document.getElementById('reportPreview');
                 if (reportPreviewButton && reportPreview) {
-                    reportPreviewButton.addEventListener('click', async function () {
+                    // Variable selections of the preview's controls, sent along so the preview runs with them (see report-renderer.js).
+                    var reportPreviewVariables = Object.create(null);
+                    var runReportPreview = async function () {
                         reportPreviewButton.disabled = true;
                         var formData = new FormData(updateReportForm);
                         formData.append('installedAppId', document.getElementById('reportPreviewInstallation').value);
+                        formData.append('variables', JSON.stringify(reportPreviewVariables));
                         var result = await postReportForm(reportUrl + '/preview', formData);
                         reportPreviewButton.disabled = false;
                         if (!result) return;
@@ -1832,12 +1835,17 @@
                                 truncated: reportPreview.getAttribute('data-text-truncated'),
                                 noContent: reportPreview.getAttribute('data-text-no-content'),
                                 statPrevious: reportPreview.getAttribute('data-text-stat-previous'),
-                                chartUnavailable: reportPreview.getAttribute('data-text-chart-unavailable')
+                                chartUnavailable: reportPreview.getAttribute('data-text-chart-unavailable'),
+                                onVariablesChange: function (selections) {
+                                    reportPreviewVariables = selections;
+                                    runReportPreview();
+                                }
                             });
                         } else if (!result.errors) {
                             showMessage(false, result.message);
                         }
-                    });
+                    };
+                    reportPreviewButton.addEventListener('click', runReportPreview);
                 }
             }
 

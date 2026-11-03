@@ -18,8 +18,10 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.QueryParam
+import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import jakarta.ws.rs.core.UriInfo
 
 /** Token info: who the token belongs to and which scopes are currently in effect. Reachable with any token scope. */
 @Path("/api/v1/token")
@@ -168,7 +170,8 @@ class ApiUserResource(
 
   /**
    * Executes a report of the installation's version and answers with its renderer-neutral panel spec (tabs, rows, panels with formatted
-   * values), the same data the report page renders. Only this installation's data is read.
+   * values), the same data the report page renders. Only this installation's data is read. Variable selections are passed as query
+   * parameters `var.<name>=<value>`; the response lists the variables with their options and the selected value.
    */
   @GET
   @Path("/{installedAppId}/reports/{reportId}")
@@ -177,9 +180,10 @@ class ApiUserResource(
   fun getReport(
     @PathParam("installedAppId") installedAppId: String,
     @PathParam("reportId") reportId: String,
+    @Context uriInfo: UriInfo,
   ): Response = httpResponseMetrics.timed("api.user.report-get") {
     withInstalledApp(installedAppId) {
-      reports.renderReport(apiRequest.username(), installedAppId, reportId).fold(
+      reports.renderReport(apiRequest.username(), installedAppId, reportId, ApiReportDtoMapper.variableSelections(uriInfo.queryParameters)).fold(
         ifLeft = { ApiResponses.domainError(it) },
         ifRight = { ApiResponses.ok(ApiReportDtoMapper.view(it)) },
       )

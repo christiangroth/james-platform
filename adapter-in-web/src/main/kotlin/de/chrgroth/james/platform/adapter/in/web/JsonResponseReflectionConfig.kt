@@ -44,6 +44,8 @@ import io.quarkus.runtime.annotations.RegisterForReflection
     ApiReportDto::class,
     // declarative reports (ReportDtos.kt): panel spec, editor results
     ApiReportViewDto::class,
+    ApiReportVariableDto::class,
+    ApiReportVariableOptionDto::class,
     ApiReportTabDto::class,
     ApiReportRowDto::class,
     ApiReportPanelDto::class,
