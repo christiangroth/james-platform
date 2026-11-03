@@ -217,6 +217,65 @@ class ReportPageTests {
   }
 
   @Test
+  fun `report page renders variables and executes the report with the selection from the query parameters`() {
+    val draft = createDraft()
+    val reportId = appVersionManagement.addReport(draft.appId, draft.versionId, "Variablen", VARIABLE_DEFINITION).getOrNull()!!
+      .reports.first { it.name == "Variablen" }.id.value
+    appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
+    val installedAppId = userAppStore.installApp(USERNAME, draft.appId).getOrNull()!!.id.value
+    addKonzert(draft, installedAppId, "Die Ärzte", "2025-04-10")
+    addKonzert(draft, installedAppId, "Muse", "2026-05-01")
+    addKonzert(draft, installedAppId, "Muse", "2026-05-20")
+
+    given().`when`().get("/ui/user/apps/$installedAppId/reports/$reportId")
+      .then()
+      .statusCode(200)
+      .body(not(containsString("data-testid=\"report-errors\"")))
+      .body(containsString("\"name\":\"jahr\""))
+      .body(containsString("\"type\":\"select\""))
+      .body(containsString("\"selected\":\"2026\""))
+      .body(containsString("\"text\":\"2\""))
+      .body(containsString("data-text-variables=\"Report-Variablen\""))
+
+    given().queryParam("var.jahr", "2025").`when`().get("/ui/user/apps/$installedAppId/reports/$reportId")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"selected\":\"2025\""))
+      .body(containsString("\"text\":\"1\""))
+  }
+
+  @Test
+  fun `preview runs with the variable selections and invalid transforms are reported in German`() {
+    val draft = createDraft()
+    val installedAppId = testInstallations.createTestInstallation(draft.appId, draft.versionId, developerId(), USERNAME).getOrNull()!!.id.value
+    addKonzert(draft, installedAppId, "Die Ärzte", "2025-04-10")
+    addKonzert(draft, installedAppId, "Muse", "2026-05-01")
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("name", "Variablen")
+      .formParam("definition", VARIABLE_DEFINITION)
+      .formParam("variables", "{\"jahr\":\"2025\"}")
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}/preview")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+      .body("view.variables[0].selected", equalTo("2025"))
+      .body("view.variables[0].options.value", contains("2025", "2026"))
+      .body("view.tabs[0].rows[0].panels[0].text", equalTo("1"))
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Variablen")
+      .formParam("definition", "queries:\n  q: { entity: Konzert, fields: [datum] }\ntransforms:\n  q: [{ calc: x, expr: \"1 +\" }]\ntabs: []\n")
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+      .body("errors.code", contains("EXPRESSION_INVALID"))
+      .body("errors[0].message", containsString("Ungültiger Ausdruck"))
+  }
+
+  @Test
   fun `saving an invalid aggregate definition reports line and German message`() {
     val draft = createDraft()
 
@@ -274,6 +333,20 @@ class ReportPageTests {
             - - { stat: Konzerte, query: alle, reduce: count }
               - { timeseries: Pro Monat, query: monate, style: column }
               - { bar: Pro Band, query: proBand, horizontal: true }
+    """.trimIndent()
+
+    val VARIABLE_DEFINITION = """
+      variables:
+        jahr: { type: select, label: Jahr, query: jahre, field: bucket, default: last }
+      queries:
+        jahre: { entity: Konzert, timeField: datum, aggregate: { bucket: JAHR, values: { konzerte: count } } }
+        konzerte: { entity: Konzert, timeField: datum, range: ${'$'}jahr }
+      transforms:
+        jahre: [{ cumulative: konzerte, as: gesamt }]
+      tabs:
+        - name: Jahr
+          rows:
+            - - { stat: Konzerte, query: konzerte, reduce: count }
     """.trimIndent()
   }
 }

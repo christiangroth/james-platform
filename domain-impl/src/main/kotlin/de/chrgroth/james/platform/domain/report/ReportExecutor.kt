@@ -19,27 +19,41 @@ import de.chrgroth.james.platform.domain.model.app.PanelSpec
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
+import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
+import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
 import de.chrgroth.james.platform.domain.model.app.ReportColumn
+import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDateRange
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
+import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
+import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
 import de.chrgroth.james.platform.domain.model.app.ReportQuery
 import de.chrgroth.james.platform.domain.model.app.ReportReduce
+import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
+import de.chrgroth.james.platform.domain.model.app.ReportSelectVariable
 import de.chrgroth.james.platform.domain.model.app.ReportSeries
 import de.chrgroth.james.platform.domain.model.app.ReportSort
 import de.chrgroth.james.platform.domain.model.app.ReportStatPanel
 import de.chrgroth.james.platform.domain.model.app.ReportTablePanel
 import de.chrgroth.james.platform.domain.model.app.ReportTextPanel
+import de.chrgroth.james.platform.domain.model.app.ReportTimeRange
+import de.chrgroth.james.platform.domain.model.app.ReportTimeRangeVariable
+import de.chrgroth.james.platform.domain.model.app.ReportTransform
 import de.chrgroth.james.platform.domain.model.app.ReportUnitSpec
+import de.chrgroth.james.platform.domain.model.app.ReportVariable
+import de.chrgroth.james.platform.domain.model.app.ReportVariableOptionSpec
+import de.chrgroth.james.platform.domain.model.app.ReportVariableSpec
 import de.chrgroth.james.platform.domain.model.app.ReportView
 import de.chrgroth.james.platform.domain.model.app.ReportViewRow
 import de.chrgroth.james.platform.domain.model.app.ReportViewTab
+import de.chrgroth.james.platform.domain.model.app.ReportYoyTransform
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.StatComparisonSpec
 import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
@@ -59,6 +73,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.MonthDay
 import java.util.IdentityHashMap
 import kotlin.math.abs
 
@@ -93,16 +108,117 @@ internal class ReportExecutor(
   /** One result row: the raw (storage form) value per result field, and its [order] key for LAST (time value, bucket key or creation time). */
   class ResultRow(val values: Map<String, String?>, val order: String)
 
-  /** One query's result rows plus the result fields they carry. */
-  class QueryResult(val columns: Map<String, ResultColumn>, val rows: List<ResultRow>)
-
-  fun execute(reportId: String, name: String, definition: ReportDefinition): ReportView = ReportView(
-    reportId = reportId,
-    name = name,
-    tabs = definition.tabs.map { tab ->
-      ReportViewTab(tab.name, tab.rows.map { row -> ReportViewRow(row.panels.mapNotNull { panel(it, definition) }) })
-    },
+  /**
+   * One query's result rows plus the result fields they carry; [bucket] (with [periodStart]) the time bucket the rows are keyed by (aggregate or
+   * resampled), [groupBy] the group field of a grouped aggregate.
+   */
+  data class QueryResult(
+    val columns: Map<String, ResultColumn>,
+    val rows: List<ResultRow>,
+    val bucket: TimeBucket? = null,
+    val periodStart: MonthDay? = null,
+    val groupBy: String? = null,
   )
+
+  /** A variable's resolved selection: [value] as selected, [range] for `range: $name`, [filterValue] for filter values (null: drop the rule). */
+  private class VariableState(val value: String, val range: ReportDateRange?, val filterValue: String?)
+
+  private var definition: ReportDefinition = ReportDefinition.EMPTY
+  private val variableStates = HashMap<String, VariableState>()
+  private val transformed = HashMap<String, QueryResult>()
+
+  /** Executes [definition]; [selections] holds the selected value per variable name (invalid or missing ones fall back to the default). */
+  fun execute(reportId: String, name: String, definition: ReportDefinition, selections: Map<String, String> = emptyMap()): ReportView {
+    this.definition = definition
+    val variables = definition.variables.map { variableSpec(it, selections[it.name]) }
+    return ReportView(
+      reportId = reportId,
+      name = name,
+      tabs = definition.tabs.map { tab ->
+        ReportViewTab(tab.name, tab.rows.map { row -> ReportViewRow(row.panels.mapNotNull { panel(it, definition) }) })
+      },
+      variables = variables,
+    )
+  }
+
+  // region variables
+
+  private fun variableSpec(variable: ReportVariable, selection: String?): ReportVariableSpec = when (variable) {
+    is ReportTimeRangeVariable -> {
+      val value = selection?.takeIf { it in variable.options } ?: variable.default
+      val range = RelativePeriod.byKey(value)?.resolve(today)
+      variableStates[variable.name] = VariableState(value, range, null)
+      val options = variable.options.map { ReportVariableOptionSpec(it, TIME_RANGE_LABELS[it] ?: it) }
+      ReportVariableSpec(variable.name, variable.label ?: variable.name, TIME_RANGE_TYPE, options, value)
+    }
+    is ReportSelectVariable -> selectVariableSpec(variable, selection)
+  }
+
+  /** The options are the distinct values of the variable's field in its query's result; a bucket selected as range means that bucket's period. */
+  private fun selectVariableSpec(variable: ReportSelectVariable, selection: String?): ReportVariableSpec {
+    val result = definition.query(variable.query)?.let { result(it) }
+    val column = result?.columns?.get(variable.field)
+    val values = result?.rows.orEmpty().mapNotNull { it.values[variable.field]?.takeIf { value -> value.isNotEmpty() } }.distinct()
+    val options = (if (variable.includeAll) listOf(ReportVariableOptionSpec("", ALL_LABEL)) else emptyList()) +
+      values.map { value -> ReportVariableOptionSpec(value, column?.let { text(it, value) } ?: value) }
+    val value = when {
+      selection != null && options.any { it.value == selection } -> selection
+      variable.default == ReportSelectVariable.ALL_VALUE && variable.includeAll -> ""
+      variable.default == ReportSelectVariable.FIRST -> values.firstOrNull().orEmpty()
+      variable.default == ReportSelectVariable.LAST -> values.lastOrNull().orEmpty()
+      variable.default in values -> variable.default
+      else -> values.firstOrNull().orEmpty()
+    }
+    val bucket = column?.bucket
+    val range = if (bucket != null && value.isNotEmpty()) ReportBuckets.period(bucket, value, result.periodStart) else null
+    val filterValue = value.takeIf { it.isNotEmpty() }?.let { if (column?.type == PropertyType.REF) displayTexts.displayTextOf(it) else it }
+    variableStates[variable.name] = VariableState(value, range, filterValue)
+    return ReportVariableSpec(variable.name, variable.label ?: variable.name, SELECT_TYPE, options, value)
+  }
+
+  /** The range a query runs with: a variable's selection, or its own (relative ranges resolved against today). */
+  private fun rangeOf(query: ReportQuery): ReportDateRange? = when (val range = query.range) {
+    is ReportTimeRange.Variable -> variableStates[range.name]?.range
+    else -> range?.resolve(today)
+  }
+
+  // endregion
+
+  // region transforms
+
+  /** The query's result after its transformation steps (cached per name and range); null if its entity no longer resolves. */
+  fun result(query: ReportQuery, range: ReportDateRange? = rangeOf(query)): QueryResult? {
+    val cacheKey = "${query.name}|$range"
+    transformed[cacheKey]?.let { return it }
+    val steps = definition.transforms[query.name].orEmpty()
+    val base = run(query, range) ?: return null
+    return transform(query, range, steps, base).also { transformed[cacheKey] = it }
+  }
+
+  private fun transform(query: ReportQuery, range: ReportDateRange?, steps: List<ReportTransform>, base: QueryResult): QueryResult {
+    if (steps.isEmpty()) return base
+    val transformer = ReportTransformer(today, { configNumber(it, null) }) { index ->
+      // Year over year: the same query over the range one year earlier, with the steps before the yoy step; an open range covers it already.
+      if (range == null || (range.from == null && range.to == null)) return@ReportTransformer null
+      val previousRange = ReportDateRange(range.from?.minusYears(1), range.to?.minusYears(1))
+      run(query, previousRange)?.let { transform(query, previousRange, steps.take(index), it) }
+    }
+    return transformer.apply(query, range, steps, base)
+  }
+
+  /** Names of the fields the query's transforms add, in step order; a resampled query starts with its bucket. */
+  private fun transformFields(query: ReportQuery): List<String> = definition.transforms[query.name].orEmpty().map { step ->
+    when (step) {
+      is ReportCalcTransform -> step.name
+      is ReportCumulativeTransform -> step.output
+      is ReportMovingAverageTransform -> step.output
+      is ReportYoyTransform -> step.output
+      is ReportForecastTransform -> step.output
+      is ReportResampleTransform -> ReportAggregate.BUCKET_FIELD
+    }
+  }
+
+  // endregion
 
   private fun panel(panel: ReportPanel, definition: ReportDefinition): PanelSpec? = when (panel) {
     is ReportTextPanel -> TextPanelSpec(panel.title, panel.markdown)
@@ -117,8 +233,12 @@ internal class ReportExecutor(
   // region table
 
   private fun tablePanel(panel: ReportTablePanel, query: ReportQuery): PanelSpec? {
-    val result = run(query) ?: return null
-    val columns = panel.columns.ifEmpty { resultFieldPaths(query).filter { it in result.columns }.map { ReportColumn(it) } }
+    val result = result(query) ?: return null
+    val defaultFields = transformFields(query).let { added ->
+      val resampled = ReportAggregate.BUCKET_FIELD in added && query.aggregate?.bucket == null
+      (if (resampled) listOf(ReportAggregate.BUCKET_FIELD) else emptyList()) + resultFieldPaths(query) + added
+    }.distinct()
+    val columns = panel.columns.ifEmpty { defaultFields.filter { it in result.columns }.map { ReportColumn(it) } }
       .mapNotNull { column -> result.columns[column.field]?.let { column to it } }
     val limited = panel.limit?.let { result.rows.take(it) } ?: result.rows
     val visible = limited.take(MAX_TABLE_ROWS)
@@ -175,8 +295,11 @@ internal class ReportExecutor(
 
   // region queries
 
-  /** Runs [query] restricted to [range] (default: the query's own range; cached per name and range); null if its entity no longer resolves. */
-  fun run(query: ReportQuery, range: ReportDateRange? = query.range?.resolve(today)): QueryResult? {
+  /**
+   * Runs [query] (without its transforms) restricted to [range] (default: the query's own range or its variable's selection; cached per name
+   * and range); null if its entity no longer resolves.
+   */
+  fun run(query: ReportQuery, range: ReportDateRange? = rangeOf(query)): QueryResult? {
     val cacheKey = "${query.name}|$range"
     results[cacheKey]?.let { return it }
     val entity = entities.find { it.name == query.entity } ?: return null
@@ -195,11 +318,16 @@ internal class ReportExecutor(
       rows = rows.filter { row -> toDate(timeField.type, row.values[timeField.path])?.let { it in range } ?: false }
     }
 
-    if (query.filter.isNotEmpty()) {
+    // A `$name` value takes the variable's selection; a rule whose variable selects nothing ("Alle") is dropped.
+    val activeFilter = query.filter.mapNotNull { rule ->
+      val variable = ReportDefinitionParser.variableName(rule.value) ?: return@mapNotNull rule
+      variableStates[variable]?.filterValue?.let { rule.copy(value = it) }
+    }
+    if (activeFilter.isNotEmpty()) {
       val records = rows.map { row -> filterRecord(row, fields) to row }
       val rowByRecord = IdentityHashMap<JsonNode, Row>().apply { records.forEach { (record, row) -> put(record, row) } }
       // A rule whose `config.<field>` value cannot be resolved never matches: an including rule keeps nothing, an excluding one drops nothing.
-      val rules = query.filter.map { rule -> rule to ReportFields.configPath(rule.value)?.let { configFilterValue(it, fields[rule.sourcePath]) } }
+      val rules = activeFilter.map { rule -> rule to ReportFields.configPath(rule.value)?.let { configFilterValue(it, fields[rule.sourcePath]) } }
       val unresolved = rules.filter { (rule, value) -> ReportFields.configPath(rule.value) != null && value == null }.map { it.first }
       rows = if (unresolved.any { it.mode == FilterMode.INCLUDE }) {
         emptyList()
@@ -230,7 +358,7 @@ internal class ReportExecutor(
   /** The raw (storage form) value of a configuration field, null without configuration object or value. */
   private fun configRaw(field: ResolvedField): String? = configuration?.let { rawValue(it, field) }?.takeIf { it.isNotEmpty() }
 
-  /** A configuration number converted into [unit] (the unit of the value it is compared with). */
+  /** A configuration number converted into [unit] (the unit of the value it is compared with; raw storage value without one). */
   private fun configNumber(raw: String, unit: PropertyUnit?): Double? {
     val field = configField(ReportFields.configPath(raw) ?: return null) ?: return null
     val value = configRaw(field)?.toDoubleOrNull() ?: return null
@@ -353,7 +481,7 @@ internal class ReportExecutor(
       comparator?.let { c -> resultRows.sortedWith { a, b -> c.compare(a.values, b.values) } } ?: resultRows
     }
     query.limit?.let { resultRows = resultRows.take(it) }
-    return QueryResult(columns, resultRows)
+    return QueryResult(columns, resultRows, aggregate.bucket, aggregate.periodStart, aggregate.groupBy)
   }
 
   private fun aggregateValue(
@@ -382,8 +510,7 @@ internal class ReportExecutor(
     return rawNumber(result, column.type)
   }
 
-  private fun rawNumber(value: Double, type: PropertyType?): String =
-    if (type == PropertyType.LONG && value == Math.rint(value)) value.toLong().toString() else value.toString()
+  private fun rawNumber(value: Double, type: PropertyType?): String = ReportTransformer.rawNumber(value, type)
 
   // endregion
 
@@ -436,7 +563,7 @@ internal class ReportExecutor(
   private fun chartPanel(panel: ReportChartPanel, definition: ReportDefinition): PanelSpec {
     val data = panel.series.mapNotNull { series ->
       val query = definition.query(series.query) ?: return@mapNotNull null
-      val result = run(query) ?: return@mapNotNull null
+      val result = result(query) ?: return@mapNotNull null
       result.columns[series.field]?.let { SeriesData(series, query, result, it) }
     }
     val axes = ReportAxis.entries.filter { axis -> panel.series.any { it.axis == axis } }.ifEmpty { listOf(ReportAxis.LEFT) }
@@ -459,10 +586,10 @@ internal class ReportExecutor(
       return ChartSeriesSpec(name, item.series.style.key, axes.indexOf(item.series.axis), points)
     }
 
-    val first = data.firstOrNull()?.query?.aggregate
+    val first = data.firstOrNull()?.result
     val (xAxis, series) = when {
       data.isEmpty() -> ChartXAxisSpec(ChartXAxisType.CATEGORY) to emptyList()
-      panel.type == ReportPanelType.TIMESERIES && first == null -> timeSeries(data, ::point, ::seriesSpec)
+      panel.type == ReportPanelType.TIMESERIES && first?.bucket == null -> timeSeries(data, ::point, ::seriesSpec)
       panel.type == ReportPanelType.BAR && first?.groupBy != null -> groupCategories(data, ::point, ::seriesSpec)
       else -> bucketCategories(data, ::point, ::seriesSpec)
     }
@@ -490,10 +617,10 @@ internal class ReportExecutor(
     point: (SeriesData, String, String?) -> ChartPointSpec,
     seriesSpec: (SeriesData, String?, List<ChartPointSpec>) -> ChartSeriesSpec,
   ): Pair<ChartXAxisSpec, List<ChartSeriesSpec>> {
-    val bucket = data.firstNotNullOfOrNull { it.query.aggregate?.bucket } ?: return ChartXAxisSpec(ChartXAxisType.CATEGORY) to emptyList()
+    val bucket = data.firstNotNullOfOrNull { it.result.bucket } ?: return ChartXAxisSpec(ChartXAxisType.CATEGORY) to emptyList()
     val keys = consecutiveBuckets(bucket, data.flatMap { item -> item.result.rows.mapNotNull { it.values[ReportAggregate.BUCKET_FIELD] } }.toSortedSet())
     val series = data.flatMap { item ->
-      val groupColumn = item.query.aggregate?.groupBy?.let { item.result.columns[it] }
+      val groupColumn = item.result.groupBy?.let { item.result.columns[it] }
       splitBy(item.result.rows, groupColumn).map { (group, rows) ->
         val byBucket = rows.associateBy({ it.values[ReportAggregate.BUCKET_FIELD] }, { it.values[item.column.path] })
         seriesSpec(item, group, keys.map { key -> point(item, key, byBucket[key]) })
@@ -510,7 +637,7 @@ internal class ReportExecutor(
   ): Pair<ChartXAxisSpec, List<ChartSeriesSpec>> {
     val labels = LinkedHashMap<String, String>()
     data.forEach { item ->
-      val groupColumn = item.query.aggregate?.groupBy?.let { item.result.columns[it] } ?: return@forEach
+      val groupColumn = item.result.groupBy?.let { item.result.columns[it] } ?: return@forEach
       item.result.rows.forEach { row ->
         val key = row.values[groupColumn.path].orEmpty()
         labels.putIfAbsent(key, text(groupColumn, key).ifEmpty { EMPTY_GROUP })
@@ -518,7 +645,7 @@ internal class ReportExecutor(
     }
     val keys = labels.keys.toList()
     val series = data.flatMap { item ->
-      val groupPath = item.query.aggregate?.groupBy ?: return@flatMap emptyList()
+      val groupPath = item.result.groupBy ?: return@flatMap emptyList()
       val bucketColumn = item.result.columns[ReportAggregate.BUCKET_FIELD]
       splitBy(item.result.rows, bucketColumn).map { (bucketLabel, rows) ->
         val byGroup = rows.associateBy({ it.values[groupPath].orEmpty() }, { it.values[item.column.path] })
@@ -564,8 +691,8 @@ internal class ReportExecutor(
   // region stat
 
   private fun statPanel(panel: ReportStatPanel, query: ReportQuery): PanelSpec? {
-    val range = query.range?.resolve(today)
-    val result = run(query, range) ?: return null
+    val range = rangeOf(query)
+    val result = result(query, range) ?: return null
     val column = panel.field?.let { result.columns[it] }
     val unit = column?.unit?.takeIf { panel.reduce != ReportReduce.COUNT }
     val value = reduce(panel.reduce, result, column)
@@ -591,7 +718,7 @@ internal class ReportExecutor(
   }
 
   private fun comparison(panel: ReportStatPanel, query: ReportQuery, previousRange: ReportDateRange, value: Double?, unit: PropertyUnit?): StatComparisonSpec? {
-    val previousResult = run(query, previousRange) ?: return null
+    val previousResult = result(query, previousRange) ?: return null
     val previous = reduce(panel.reduce, previousResult, panel.field?.let { previousResult.columns[it] })
     val delta = if (value != null && previous != null) value - previous else null
     val deltaText = delta?.let { (if (it < 0) "−" else "+") + formatNumber(abs(it), unit) } ?: NO_VALUE
@@ -645,5 +772,21 @@ internal class ReportExecutor(
     private const val NO_VALUE = "–"
     private const val EMPTY_GROUP = "–"
     private const val PERCENT = 100.0
+    private const val TIME_RANGE_TYPE = "timeRange"
+    private const val SELECT_TYPE = "select"
+    private const val ALL_LABEL = "Alle"
+
+    /** German labels of the time range variable options. */
+    private val TIME_RANGE_LABELS = mapOf(
+      RelativePeriod.LAST_7_DAYS.key to "Letzte 7 Tage",
+      RelativePeriod.LAST_30_DAYS.key to "Letzte 30 Tage",
+      RelativePeriod.LAST_90_DAYS.key to "Letzte 90 Tage",
+      RelativePeriod.LAST_12_MONTHS.key to "Letzte 12 Monate",
+      RelativePeriod.THIS_MONTH.key to "Dieser Monat",
+      RelativePeriod.LAST_MONTH.key to "Letzter Monat",
+      RelativePeriod.THIS_YEAR.key to "Dieses Jahr",
+      RelativePeriod.LAST_YEAR.key to "Letztes Jahr",
+      ReportTimeRangeVariable.ALL to "Gesamter Zeitraum",
+    )
   }
 }

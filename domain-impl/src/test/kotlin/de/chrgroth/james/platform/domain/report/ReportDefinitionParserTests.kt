@@ -118,7 +118,7 @@ class ReportDefinitionParserTests {
   fun `unknown keys are errors with path and line, reserved keys are not supported yet`() {
     val errors = parse(
       """
-      variables: {}
+      checks: []
       queries:
         q:
           entity: Konzert
@@ -198,7 +198,7 @@ class ReportDefinitionParserTests {
     assertThat(errorCodes("queries:\n  q: { entity: Konzert, timeField: datum, range: { from: 01.01.2024 } }\ntabs: []"))
       .containsExactly(ReportDefinitionErrorCode.INVALID_DATE)
     assertThat(errorCodes("queries:\n  q: { entity: Konzert, timeField: datum, range: \$zeitraum }\ntabs: []"))
-      .containsExactly(ReportDefinitionErrorCode.NOT_SUPPORTED_YET)
+      .containsExactly(ReportDefinitionErrorCode.VARIABLE_NOT_FOUND)
   }
 
   @Test

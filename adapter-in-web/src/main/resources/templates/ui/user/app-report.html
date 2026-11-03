@@ -32,7 +32,8 @@
              data-text-truncated="{report:reportTableTruncated()}"
              data-text-no-content="{report:reportNoContent()}"
              data-text-stat-previous="{report:reportStatPreviousPeriod()}"
-             data-text-chart-unavailable="{report:reportChartUnavailable()}"></div>
+             data-text-chart-unavailable="{report:reportChartUnavailable()}"
+             data-text-variables="{reportTransform:reportVariablesAriaLabel()}"></div>
         <script type="application/json" id="report-view-data">{viewJson}</script>
         {/if}
     </div>
@@ -50,7 +51,14 @@
                 truncated: container.getAttribute('data-text-truncated'),
                 noContent: container.getAttribute('data-text-no-content'),
                 statPrevious: container.getAttribute('data-text-stat-previous'),
-                chartUnavailable: container.getAttribute('data-text-chart-unavailable')
+                chartUnavailable: container.getAttribute('data-text-chart-unavailable'),
+                variablesLabel: container.getAttribute('data-text-variables'),
+                onVariablesChange: function (selections) {
+                    // Variable selections travel as var.<name> query parameters; the server executes the report again.
+                    var params = new URLSearchParams(window.location.search);
+                    Object.keys(selections).forEach(function (name) { params.set('var.' + name, selections[name]); });
+                    window.location.search = params.toString();
+                }
             });
         })();
     </script>

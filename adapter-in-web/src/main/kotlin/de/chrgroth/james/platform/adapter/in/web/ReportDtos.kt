@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportTransformMessages
 import de.chrgroth.james.platform.domain.model.app.ChartPanelSpec
 import de.chrgroth.james.platform.domain.model.app.PanelSpec
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
@@ -23,7 +24,13 @@ data class ApiReportViewDto(
   val reportId: String,
   val name: String,
   val tabs: List<ApiReportTabDto>,
+  val variables: List<ApiReportVariableDto> = emptyList(),
 )
+
+/** A report variable's control: [type] `timeRange`/`select`, its options (an empty value meaning "all") and the [selected] value. */
+data class ApiReportVariableDto(val name: String, val label: String, val type: String, val options: List<ApiReportVariableOptionDto>, val selected: String)
+
+data class ApiReportVariableOptionDto(val value: String, val label: String)
 
 data class ApiReportTabDto(val name: String, val rows: List<ApiReportRowDto>)
 
@@ -98,7 +105,28 @@ object ApiReportDtoMapper {
     reportId = view.reportId,
     name = view.name,
     tabs = view.tabs.map { tab -> ApiReportTabDto(tab.name, tab.rows.map { row -> ApiReportRowDto(row.panels.map { panel(it) }) }) },
+    variables = view.variables.map { variable ->
+      ApiReportVariableDto(variable.name, variable.label, variable.type, variable.options.map { ApiReportVariableOptionDto(it.value, it.label) }, variable.selected)
+    },
   )
+
+  /** Query (or form) parameter prefix carrying a variable selection, e.g. `var.zeitraum=last_month`. */
+  const val VARIABLE_PARAMETER_PREFIX = "var."
+
+  /** The variable selections among request parameters: `var.<name>` -> value (the first value of each). */
+  fun variableSelections(parameters: Map<String, List<String>>): Map<String, String> = parameters
+    .filterKeys { it.startsWith(VARIABLE_PARAMETER_PREFIX) && it.length > VARIABLE_PARAMETER_PREFIX.length }
+    .mapNotNull { (key, values) -> values.firstOrNull()?.let { key.removePrefix(VARIABLE_PARAMETER_PREFIX) to it } }
+    .toMap()
+
+  private val selectionsMapper = ObjectMapper()
+
+  /** Variable selections sent as a JSON object of strings (the editor preview); anything else is ignored. */
+  fun variableSelections(json: String?): Map<String, String> {
+    if (json.isNullOrBlank()) return emptyMap()
+    val node = runCatching { selectionsMapper.readTree(json) }.getOrNull()?.takeIf { it.isObject } ?: return emptyMap()
+    return node.properties().filter { it.value.isTextual }.associate { it.key to it.value.asText() }
+  }
 
   private fun panel(panel: PanelSpec): ApiReportPanelDto = when (panel) {
     is TablePanelSpec -> ApiReportPanelDto(
@@ -142,7 +170,7 @@ object ApiReportDtoMapper {
 
 /** German texts for report definition errors and JSON embedding of report views into pages. */
 @ApplicationScoped
-class ReportTexts(private val reportMsg: ReportMessages) {
+class ReportTexts(private val reportMsg: ReportMessages, private val transformMsg: ReportTransformMessages) {
 
   private val objectMapper = ObjectMapper()
 
@@ -195,6 +223,17 @@ class ReportTexts(private val reportMsg: ReportMessages) {
       ReportDefinitionErrorCode.CONFIG_NOT_DEFINED -> reportMsg.reportErrorConfigNotDefined(a(0))
       ReportDefinitionErrorCode.CONFIG_FIELD_NOT_FOUND -> reportMsg.reportErrorConfigFieldNotFound(a(0), a(1))
       ReportDefinitionErrorCode.CONFIG_UNIT_MISMATCH -> reportMsg.reportErrorConfigUnitMismatch(a(0))
+      ReportDefinitionErrorCode.VARIABLE_NOT_FOUND -> transformMsg.reportErrorVariableNotFound(a(0))
+      ReportDefinitionErrorCode.VARIABLE_TYPE_MISMATCH -> transformMsg.reportErrorVariableTypeMismatch(a(0), a(1))
+      ReportDefinitionErrorCode.VARIABLE_OPTIONS_QUERY_INVALID -> transformMsg.reportErrorVariableOptionsQueryInvalid(a(0), a(1))
+      ReportDefinitionErrorCode.VARIABLE_NAME_INVALID -> transformMsg.reportErrorVariableNameInvalid(a(0))
+      ReportDefinitionErrorCode.TRANSFORM_STEP_MISSING -> transformMsg.reportErrorTransformStepMissing(a(0))
+      ReportDefinitionErrorCode.TRANSFORM_STEP_AMBIGUOUS -> transformMsg.reportErrorTransformStepAmbiguous(a(0))
+      ReportDefinitionErrorCode.EXPRESSION_INVALID -> transformMsg.reportErrorExpressionInvalid(a(0), a(1), a(2))
+      ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION -> transformMsg.reportErrorExpressionUnknownFunction(a(0), a(1))
+      ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET -> transformMsg.reportErrorTransformNeedsBucket(a(0), a(1))
+      ReportDefinitionErrorCode.FORECAST_NEEDS_PERIOD -> transformMsg.reportErrorForecastNeedsPeriod(a(0))
+      ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME -> transformMsg.reportErrorResampleNeedsTime(a(0))
     }
   }
 

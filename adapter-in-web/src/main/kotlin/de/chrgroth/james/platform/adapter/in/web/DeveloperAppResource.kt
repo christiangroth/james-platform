@@ -2024,7 +2024,8 @@ class DeveloperAppResource {
 
   /**
    * Executes an unsaved report definition against one of the Developer's test installations of this version and answers with the panel
-   * spec (or the validation errors), for the editor's preview. Only the chosen test installation's data is read.
+   * spec (or the validation errors), for the editor's preview. Only the chosen test installation's data is read. [variables] carries the
+   * selected variable values as a JSON object (`{"zeitraum":"last_month"}`), set by the preview's variable controls.
    */
   @POST
   @Path("/apps/{appId}/versions/{versionId}/reports/{reportId}/preview")
@@ -2037,13 +2038,15 @@ class DeveloperAppResource {
     @FormParam("installedAppId") installedAppId: String?,
     @FormParam("name") name: String?,
     @FormParam("definition") definition: String?,
+    @FormParam("variables") variables: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.report-preview") {
     val developerId = currentDeveloperUserIdValue()
     val version = developerId?.takeIf { appManagement.getApp(appId, it).isRight() }?.let { appVersionManagement.getVersion(appId, versionId).getOrNull() }
       ?: return@timed Response.ok(ReportEditorResult(false, devMsg.developerReportNotFoundError())).build()
     val testInstallation = testInstallationsForVersion(appId, version, developerId).find { it.installedAppId == installedAppId }
       ?: return@timed Response.ok(ReportEditorResult(false, reportMsg.reportPreviewNoInstallationHint())).build()
-    reportPort.previewReport(securityIdentity.principal.name, testInstallation.installedAppId, name.orEmpty(), definition.orEmpty()).fold(
+    val selections = ApiReportDtoMapper.variableSelections(variables)
+    reportPort.previewReport(securityIdentity.principal.name, testInstallation.installedAppId, name.orEmpty(), definition.orEmpty(), selections).fold(
       ifLeft = { error ->
         val result = if (error is InvalidReportDefinitionError) {
           ReportEditorResult(false, reportMsg.reportValidationErrorsHeading(), errors = reportTexts.errors(error.errors))

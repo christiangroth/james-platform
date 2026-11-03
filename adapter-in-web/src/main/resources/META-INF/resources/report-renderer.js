@@ -9,6 +9,8 @@
  *   place knowing the chart library, so it stays swappable (JamesReports.setChartAdapter(adapter)).
  * - Text panels render Markdown via marked with raw HTML disabled, then pass the result through an allow-list sanitizer: no report can
  *   inject markup, scripts, event handlers or javascript: links.
+ * - Report variables (view.variables) render as select controls above the tabs; a change hands all selections to texts.onVariablesChange,
+ *   and the page re-requests the report from the server with them.
  */
 var JamesReports = (function (global) {
     'use strict';
@@ -45,6 +47,7 @@ var JamesReports = (function (global) {
         disposeCharts(container);
         var context = { track: function (handle) { container.__jamesReportCharts.push(handle); } };
         container.textContent = '';
+        renderVariables(container, (view && view.variables) || [], texts);
         var tabs = (view && view.tabs) || [];
         if (tabs.length === 0) {
             container.appendChild(el('p', 'app-section-label mb-0', texts.noContent));
@@ -82,6 +85,45 @@ var JamesReports = (function (global) {
         });
         container.appendChild(nav);
         container.appendChild(content);
+    }
+
+    /**
+     * Variable controls (time range, select) on top of the report. Changing one calls texts.onVariablesChange(selections) with the selected
+     * value per variable name; the page re-requests the report with them (the server executes it again, nothing is filtered here).
+     */
+    function renderVariables(container, variables, texts) {
+        if (variables.length === 0) return;
+        var bar = el('div', 'row g-2 mb-3 align-items-end');
+        bar.setAttribute('data-testid', 'report-variables');
+        bar.setAttribute('role', 'group');
+        if (texts.variablesLabel) bar.setAttribute('aria-label', texts.variablesLabel);
+        var selections = {};
+        variables.forEach(function (variable) { selections[variable.name] = variable.selected; });
+        variables.forEach(function (variable) {
+            var col = el('div', 'col-12 col-sm-auto');
+            var id = 'report-' + instanceCounter + '-var-' + variable.name;
+            var label = el('label', 'form-label small mb-1', variable.label);
+            label.setAttribute('for', id);
+            var select = el('select', 'form-select form-select-sm');
+            select.id = id;
+            select.setAttribute('data-testid', 'report-variable');
+            select.setAttribute('data-variable', variable.name);
+            (variable.options || []).forEach(function (option) {
+                var node = el('option', null, option.label);
+                node.value = option.value;
+                if (option.value === variable.selected) node.selected = true;
+                select.appendChild(node);
+            });
+            select.disabled = typeof texts.onVariablesChange !== 'function';
+            select.addEventListener('change', function () {
+                selections[variable.name] = select.value;
+                texts.onVariablesChange(Object.assign({}, selections));
+            });
+            col.appendChild(label);
+            col.appendChild(select);
+            bar.appendChild(col);
+        });
+        container.appendChild(bar);
     }
 
     function renderTab(tab, texts, context) {

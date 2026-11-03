@@ -7,22 +7,29 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
+import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
 import de.chrgroth.james.platform.domain.model.app.ReportColumn
+import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
+import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
+import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
 import de.chrgroth.james.platform.domain.model.app.ReportQuery
 import de.chrgroth.james.platform.domain.model.app.ReportReduce
+import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
 import de.chrgroth.james.platform.domain.model.app.ReportRow
+import de.chrgroth.james.platform.domain.model.app.ReportSelectVariable
 import de.chrgroth.james.platform.domain.model.app.ReportSeries
 import de.chrgroth.james.platform.domain.model.app.ReportSeriesStyle
 import de.chrgroth.james.platform.domain.model.app.ReportSort
@@ -32,8 +39,14 @@ import de.chrgroth.james.platform.domain.model.app.ReportTablePanel
 import de.chrgroth.james.platform.domain.model.app.ReportTextPanel
 import de.chrgroth.james.platform.domain.model.app.ReportThreshold
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRange
+import de.chrgroth.james.platform.domain.model.app.ReportTimeRangeVariable
+import de.chrgroth.james.platform.domain.model.app.ReportTransform
+import de.chrgroth.james.platform.domain.model.app.ReportVariable
+import de.chrgroth.james.platform.domain.model.app.ReportYoyTransform
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
@@ -54,8 +67,30 @@ internal object ReportDefinitionParser {
 
   const val MAX_LIMIT = 10_000
 
-  private val ROOT_KEYS = setOf("queries", "tabs")
-  private val ROOT_RESERVED = setOf("variables", "transforms", "checks")
+  private val ROOT_KEYS = setOf("variables", "queries", "transforms", "tabs")
+  private val ROOT_RESERVED = setOf("checks")
+  private const val VARIABLE_TIME_RANGE = "timeRange"
+  private const val VARIABLE_SELECT = "select"
+  private val VARIABLE_TYPES = listOf(VARIABLE_TIME_RANGE, VARIABLE_SELECT)
+  private val TIME_RANGE_VARIABLE_KEYS = setOf("type", "label", "default", "options")
+  private val SELECT_VARIABLE_KEYS = setOf("type", "label", "query", "field", "all", "default")
+  private val VARIABLE_NAME = Regex("""^\p{L}[\p{L}\d_]*$""")
+  private const val VARIABLE_PREFIX = "$"
+  private const val USE_RANGE = "range"
+  private const val USE_FILTER = "filter"
+  private val TRANSFORM_KEYS = mapOf(
+    ReportCalcTransform.KEY to setOf("expr", "unit"),
+    ReportCumulativeTransform.KEY to setOf("as"),
+    ReportMovingAverageTransform.KEY to setOf("window", "as"),
+    ReportYoyTransform.KEY to setOf("as"),
+    ReportForecastTransform.KEY to setOf("as"),
+    ReportResampleTransform.KEY to setOf("periodStart", "fill"),
+  )
+  private val TRANSFORM_STEPS = TRANSFORM_KEYS.keys.toList()
+  private const val FILL_FORWARD = "forward"
+  private const val FILL_NONE = "none"
+  private val FILL_MODES = listOf(FILL_FORWARD, FILL_NONE)
+  const val MAX_WINDOW = 1_000
   private val QUERY_KEYS = setOf("entity", "timeField", "range", "filter", "fields", "sort", "limit", "aggregate")
   private val FUNCTION_KEYS = ReportAggregateFunction.entries.map { it.key }.toSet()
   private val AGGREGATE_KEYS = setOf("values", "bucket", "periodStart", "groupBy") + FUNCTION_KEYS
@@ -82,6 +117,9 @@ internal object ReportDefinitionParser {
   private const val DUPLICATE_FIELD_PREFIX = "Duplicate field '"
 
   data class Result(val definition: ReportDefinition?, val errors: List<ReportDefinitionError>)
+
+  /** The variable name of a `$name` reference, null for any other value. */
+  fun variableName(raw: String?): String? = raw?.trim()?.takeIf { it.startsWith(VARIABLE_PREFIX) }?.removePrefix(VARIABLE_PREFIX)
 
   /** Parses and validates [text]; with [entities] null only syntax and schema are checked. A blank text is the empty report. */
   fun parse(text: String, entities: List<EntityDefinition>?): Result {
@@ -153,8 +191,22 @@ internal object ReportDefinitionParser {
     }
   }
 
-  /** A declared query as panels see it: [columns] null when its fields are unknown (unresolved entity), so panels skip follow-up errors. */
-  private class QueryInfo(val query: ReportQuery, val columns: Map<String, ResultColumn>?)
+  /**
+   * A declared query as panels see it (after its transforms): [columns] null when its fields are unknown (unresolved entity), so panels skip
+   * follow-up errors; [resample] the resampling step turning its x axis into buckets.
+   */
+  private class QueryInfo(val query: ReportQuery, var columns: Map<String, ResultColumn>?, var resample: ReportResampleTransform? = null)
+
+  /** A `$name` reference to a variable, checked once all variables and queries are known. */
+  private class VariableUse(val name: String, val use: String, val path: Path)
+
+  /** The state of a query's result while its transformation steps are read: its columns (null if unknown) and time bucket. */
+  private class Pipeline(val info: QueryInfo?) {
+    var columns: MutableMap<String, ResultColumn>? = info?.columns?.let { LinkedHashMap(it) }
+    var resample: ReportResampleTransform? = null
+    val queryName: String get() = info?.query?.name.orEmpty()
+    val bucket: TimeBucket? get() = resample?.bucket ?: info?.query?.aggregate?.bucket
+  }
 
   private class ParsedAggregate(val aggregate: ReportAggregate, val valuePaths: List<Path>)
 
@@ -170,6 +222,12 @@ internal object ReportDefinitionParser {
 
     /** Declared queries; the value is null for a query that could not be read at all. */
     private val queryInfos = mutableMapOf<String, QueryInfo?>()
+
+    /** References to variables (`$name`), checked after all queries are read. */
+    private val variableUses = mutableListOf<VariableUse>()
+
+    /** Declared variables (null: unreadable) with the path they are declared at. */
+    private val declaredVariables = LinkedHashMap<String, Pair<ReportVariable?, Path>>()
 
     /** The App configuration Entity (ADR 0027) `config.<field>` values refer to. */
     private val configEntity = entities?.find { it.configuration }
@@ -237,10 +295,238 @@ internal object ReportDefinitionParser {
     fun definition(root: JsonNode): ReportDefinition? {
       val node = obj(root, Path.ROOT) ?: return null
       checkKeys(node, Path.ROOT, ROOT_KEYS, ROOT_RESERVED)
+      val variables = node.get("variables")?.let { variables(it, Path.ROOT.key("variables")) } ?: emptyList()
       val queries = node.get("queries")?.let { queries(it, Path.ROOT.key("queries")) } ?: emptyList()
+      val transforms = node.get("transforms")?.let { transforms(it, Path.ROOT.key("transforms")) } ?: emptyMap()
+      checkVariables()
       val tabs = required(node, "tabs", Path.ROOT)?.let { tabs(it, Path.ROOT.key("tabs")) } ?: emptyList()
-      return ReportDefinition(queries, tabs)
+      return ReportDefinition(queries, tabs, variables, transforms)
     }
+
+    // region variables
+
+    private fun variables(node: JsonNode, path: Path): List<ReportVariable> {
+      if (node.isNull) return emptyList()
+      val map = obj(node, path) ?: return emptyList()
+      return map.properties().mapNotNull { (name, variableNode) ->
+        val variablePath = path.key(name)
+        if (!VARIABLE_NAME.matches(name)) error(ReportDefinitionErrorCode.VARIABLE_NAME_INVALID, variablePath, name)
+        val variable = variable(name, variableNode, variablePath)
+        declaredVariables[name] = variable to variablePath
+        variable
+      }
+    }
+
+    private fun variable(name: String, node: JsonNode, path: Path): ReportVariable? {
+      val map = obj(node, path) ?: return null
+      val type = required(map, "type", path)?.let { keyed(it, path.key("type"), VARIABLE_TYPES) { t -> t } } ?: return null
+      val label = map.get("label")?.let { text(it, path.key("label")) }?.trim()?.takeIf { it.isNotEmpty() }
+      return if (type == VARIABLE_TIME_RANGE) timeRangeVariable(name, label, map, path) else selectVariable(name, label, map, path)
+    }
+
+    private fun timeRangeVariable(name: String, label: String?, map: ObjectNode, path: Path): ReportVariable {
+      checkKeys(map, path, TIME_RANGE_VARIABLE_KEYS)
+      val allowed = ReportTimeRangeVariable.DEFAULT_OPTIONS
+      val options = map.get("options")?.let { node ->
+        list(node, path.key("options"))?.mapIndexedNotNull { i, option ->
+          val optionPath = path.key("options").index(i)
+          val raw = nonBlankText(option, optionPath, "options") ?: return@mapIndexedNotNull null
+          raw.takeIf { it in allowed } ?: null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, optionPath, raw, allowed.joinToString(", ")) }
+        }
+      }?.distinct()?.ifEmpty { null } ?: allowed
+      val default = map.get("default")?.let { node ->
+        val raw = nonBlankText(node, path.key("default"), "default") ?: return@let null
+        raw.takeIf { it in options } ?: null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path.key("default"), raw, options.joinToString(", ")) }
+      } ?: options.first()
+      return ReportTimeRangeVariable(name, label, options, default)
+    }
+
+    private fun selectVariable(name: String, label: String?, map: ObjectNode, path: Path): ReportVariable? {
+      checkKeys(map, path, SELECT_VARIABLE_KEYS)
+      val query = required(map, "query", path)?.let { nonBlankText(it, path.key("query"), "query") }
+      val field = required(map, "field", path)?.let { nonBlankText(it, path.key("field"), "field") }
+      val includeAll = map.get("all")?.let { bool(it, path.key("all")) } ?: false
+      val default = map.get("default")?.let { nonBlankText(it, path.key("default"), "default") } ?: ReportSelectVariable.FIRST
+      if (default == ReportSelectVariable.ALL_VALUE && !includeAll) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("default"), "default: all", "all: false")
+      if (query == null || field == null) return null
+      return ReportSelectVariable(name, label, query, field, includeAll, default)
+    }
+
+    /** Records a `$name` range or filter value for [checkVariables]. */
+    private fun variableUse(raw: String, use: String, path: Path) {
+      variableName(raw)?.let { variableUses += VariableUse(it, use, path) }
+    }
+
+    /** Checks variable references and the queries feeding select variables, once all variables, queries and transforms are read. */
+    private fun checkVariables() {
+      declaredVariables.values.forEach { (variable, path) ->
+        val select = variable as? ReportSelectVariable ?: return@forEach
+        val info = declaredQuery(select.query, path.key("query")) ?: return@forEach
+        info.columns?.let { columns -> if (select.field !in columns) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path.key("field"), select.field, select.query) }
+        val usesVariable = info.query.range is ReportTimeRange.Variable || info.query.filter.any { variableName(it.value) != null }
+        if (usesVariable) error(ReportDefinitionErrorCode.VARIABLE_OPTIONS_QUERY_INVALID, path.key("query"), select.name, select.query)
+      }
+      variableUses.forEach { use ->
+        if (!declaredVariables.containsKey(use.name)) return@forEach error(ReportDefinitionErrorCode.VARIABLE_NOT_FOUND, use.path, VARIABLE_PREFIX + use.name)
+        val fits = when (val variable = declaredVariables[use.name]?.first ?: return@forEach) {
+          is ReportTimeRangeVariable -> use.use == USE_RANGE
+          is ReportSelectVariable -> use.use == USE_FILTER || selectsBucket(variable)
+        }
+        if (!fits) error(ReportDefinitionErrorCode.VARIABLE_TYPE_MISMATCH, use.path, VARIABLE_PREFIX + use.name, use.use)
+      }
+    }
+
+    /** Whether the select variable's field is a time bucket (unknown columns: whether it is named `bucket`). */
+    private fun selectsBucket(variable: ReportSelectVariable): Boolean {
+      val info = queryInfos[variable.query] ?: return true
+      val columns = info.columns ?: return variable.field == ReportAggregate.BUCKET_FIELD
+      return columns[variable.field]?.bucket != null
+    }
+
+    // endregion
+
+    // region transforms
+
+    private fun transforms(node: JsonNode, path: Path): Map<String, List<ReportTransform>> {
+      if (node.isNull) return emptyMap()
+      val map = obj(node, path) ?: return emptyMap()
+      val result = LinkedHashMap<String, List<ReportTransform>>()
+      map.properties().forEach { (queryName, stepsNode) ->
+        val stepsPath = path.key(queryName)
+        val info = declaredQuery(queryName, stepsPath)
+        val steps = list(stepsNode, stepsPath) ?: return@forEach
+        val pipeline = Pipeline(info)
+        result[queryName] = steps.mapIndexedNotNull { i, step -> transformStep(step, stepsPath.index(i), pipeline) }
+        info?.columns = pipeline.columns
+        info?.resample = pipeline.resample
+      }
+      return result
+    }
+
+    private fun transformStep(node: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val map = obj(node, path) ?: return null
+      val steps = map.fieldNames().asSequence().filter { it in TRANSFORM_STEPS }.toList()
+      when {
+        steps.isEmpty() -> return null.also { error(ReportDefinitionErrorCode.TRANSFORM_STEP_MISSING, path, TRANSFORM_STEPS.joinToString(", ")) }
+        steps.size > 1 -> return null.also { error(ReportDefinitionErrorCode.TRANSFORM_STEP_AMBIGUOUS, path, steps.joinToString(", ")) }
+      }
+      val step = steps.single()
+      checkKeys(map, path, TRANSFORM_KEYS.getValue(step) + step)
+      val value = map.get(step)
+      return when (step) {
+        ReportCalcTransform.KEY -> calcStep(map, value, path, pipeline)
+        ReportResampleTransform.KEY -> resampleStep(map, value, path, pipeline)
+        else -> fieldStep(step, map, value, path, pipeline)
+      }
+    }
+
+    private fun calcStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val namePath = path.key(ReportCalcTransform.KEY)
+      val name = nonBlankText(value, namePath, ReportCalcTransform.KEY)
+      val exprPath = path.key("expr")
+      val source = required(map, "expr", path)?.let { nonBlankText(it, exprPath, "expr") }
+      val expression = source?.let { expression(it, exprPath) }
+      val unit = map.get("unit")?.let { unit(it, path.key("unit")) }
+      expression?.identifiers?.forEach { identifier ->
+        if (ReportFields.configPath(identifier) != null) {
+          val field = configField(identifier, exprPath)
+          if (field != null && !ReportFields.isNumericType(field.type)) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, exprPath, identifier)
+        } else {
+          sourceColumn(identifier, exprPath, pipeline)
+        }
+      }
+      if (name != null) output(name, null, namePath, pipeline, ResultColumn(name, ColumnRole.VALUE, PropertyType.DOUBLE, unit))
+      if (name == null || source == null || expression == null || (map.has("unit") && unit == null)) return null
+      return ReportCalcTransform(name, source, unit)
+    }
+
+    private fun expression(source: String, path: Path): ReportExpression? = try {
+      ReportExpression.parse(source)
+    } catch (e: ReportExpression.ParseException) {
+      val function = e.unknownFunction
+      if (function != null) {
+        error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION, path, function, ReportExpression.FUNCTIONS.keys.joinToString(", "))
+      } else {
+        error(ReportDefinitionErrorCode.EXPRESSION_INVALID, path, source, e.position.toString(), e.detail)
+      }
+      null
+    }
+
+    /** A granularity name of any unit family, e.g. `SECONDS` or `kilograms`; the value is stored and displayed in that granularity. */
+    private fun unit(node: JsonNode, path: Path): PropertyUnit? {
+      val raw = nonBlankText(node, path, "unit") ?: return null
+      val granularity = UnitFamily.entries.firstNotNullOfOrNull { granularityByName(it, raw) }
+        ?: return null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, ReportFields.GRANULARITY_NAMES.joinToString(", ")) }
+      return PropertyUnit(granularity.family, granularity, granularity)
+    }
+
+    /** cumulative, movingAverage, yoy and forecast: a numeric source field and an output field (`as`). */
+    @Suppress("CyclomaticComplexMethod")
+    private fun fieldStep(step: String, map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val field = nonBlankText(value, path.key(step), step) ?: return null
+      val source = sourceColumn(field, path.key(step), pipeline)
+      val explicitOutput = map.get("as")?.let { nonBlankText(it, path.key("as"), "as") }
+      val window = if (step == ReportMovingAverageTransform.KEY) required(map, "window", path)?.let { int(it, path.key("window"), 1, MAX_WINDOW) } ?: return null else 0
+      val query = pipeline.info?.query
+      if (step == ReportYoyTransform.KEY && query != null && pipeline.bucket == null) {
+        error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET, path.key(step), step, query.name)
+      }
+      if (step == ReportForecastTransform.KEY && query != null && pipeline.bucket == null && !closedRange(query)) {
+        error(ReportDefinitionErrorCode.FORECAST_NEEDS_PERIOD, path.key(step), query.name)
+      }
+      val (transform, output) = when (step) {
+        ReportCumulativeTransform.KEY -> (explicitOutput ?: field).let { ReportCumulativeTransform(field, it) to it }
+        ReportMovingAverageTransform.KEY -> (explicitOutput ?: field).let { ReportMovingAverageTransform(field, window, it) to it }
+        ReportYoyTransform.KEY -> (explicitOutput ?: (field + ReportYoyTransform.SUFFIX)).let { ReportYoyTransform(field, it) to it }
+        else -> (explicitOutput ?: (field + ReportForecastTransform.SUFFIX)).let { ReportForecastTransform(field, it) to it }
+      }
+      // A running total and last year's value keep the source type; averages and forecasts have fractions.
+      val type = if (step == ReportCumulativeTransform.KEY || step == ReportYoyTransform.KEY) source?.type else source?.type?.let { PropertyType.DOUBLE }
+      output(output, field, if (explicitOutput != null) path.key("as") else path.key(step), pipeline, ResultColumn(output, ColumnRole.VALUE, type, source?.unit))
+      return transform
+    }
+
+    private fun resampleStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val stepPath = path.key(ReportResampleTransform.KEY)
+      val bucket = enumValue<TimeBucket>(value, stepPath)
+      val periodStart = map.get("periodStart")?.let { node ->
+        val raw = text(node, path.key("periodStart"))?.trim() ?: return@let null
+        parsePeriodStart(raw) ?: null.also { error(ReportDefinitionErrorCode.PERIOD_START_INVALID, path.key("periodStart"), raw) }
+      }
+      if (map.has("periodStart") && bucket != null && bucket !in PERIOD_START_BUCKETS) error(ReportDefinitionErrorCode.PERIOD_START_NOT_APPLICABLE, path.key("periodStart"))
+      val fill = map.get("fill")?.let { keyed(it, path.key("fill"), FILL_MODES) { mode -> mode } } ?: FILL_FORWARD
+      pipeline.info?.query?.let { query ->
+        if (query.aggregate?.groupBy != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, stepPath, ReportResampleTransform.KEY, "groupBy")
+        if (query.timeField == null && pipeline.bucket == null) error(ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME, stepPath, query.name)
+      }
+      bucket ?: return null
+      val transform = ReportResampleTransform(bucket, periodStart, fill == FILL_FORWARD)
+      pipeline.columns = pipeline.columns?.let { columns ->
+        val resampled = LinkedHashMap<String, ResultColumn>()
+        resampled[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, PropertyType.STRING, bucket = bucket)
+        columns.filterKeys { it != ReportAggregate.BUCKET_FIELD }.forEach { (key, column) -> resampled[key] = column }
+        resampled
+      }
+      pipeline.resample = transform
+      return transform
+    }
+
+    /** A numeric field of the result so far; null (with an error) if missing or not numeric, or if the columns are unknown. */
+    private fun sourceColumn(field: String, path: Path, pipeline: Pipeline): ResultColumn? {
+      val columns = pipeline.columns ?: return null
+      val column = columns[field] ?: return null.also { error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path, field, pipeline.queryName) }
+      if (column.type != null && !column.numeric) return null.also { error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, field) }
+      return column
+    }
+
+    /** Adds the output field [name]: replacing [source] in place is fine, taking another existing field's name is not. */
+    private fun output(name: String, source: String?, path: Path, pipeline: Pipeline, column: ResultColumn) {
+      val columns = pipeline.columns ?: return
+      if (name != source && name in columns) return error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path, name)
+      columns[name] = column
+    }
+
+    // endregion
 
     // region queries
 
@@ -416,7 +702,10 @@ internal object ReportDefinitionParser {
     private fun range(node: JsonNode, path: Path): ReportTimeRange? {
       if (node.isValueNode) {
         val key = text(node, path)?.trim() ?: return null
-        if (key.startsWith("$")) return null.also { error(ReportDefinitionErrorCode.NOT_SUPPORTED_YET, path, "variables") }
+        variableName(key)?.let { name ->
+          variableUse(key, USE_RANGE, path)
+          return ReportTimeRange.Variable(name)
+        }
         return RelativePeriod.byKey(key)?.let { ReportTimeRange.Relative(it) }
           ?: null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, key, RelativePeriod.entries.joinToString(", ") { it.key }) }
       }
@@ -445,6 +734,7 @@ internal object ReportDefinitionParser {
       if (operator != null && operator !in VALUELESS_OPERATORS && value == null) error(ReportDefinitionErrorCode.FILTER_VALUE_MISSING, path, operator.name)
       if (operator in REGEX_OPERATORS && value != null && runCatching { Regex(value) }.isFailure) error(ReportDefinitionErrorCode.INVALID_REGEX, path.key("value"), value)
       configField(value, path.key("value"))
+      value?.let { variableUse(it, USE_FILTER, path.key("value")) }
       if (field == null || operator == null) return null
       return FilterRule(mode, field, operator, value, includeAbsent)
     }
@@ -607,8 +897,13 @@ internal object ReportDefinitionParser {
 
     private fun axis(node: JsonNode, path: Path): ReportAxis? = keyed(node, path, ReportAxis.entries) { it.key }
 
-    /** The x axis a query offers [type], null if none: timeseries - its bucket or (plain query) its time field; bar - its group, else its bucket. */
-    private fun xAxisOf(type: ReportPanelType, query: ReportQuery): String? {
+    /**
+     * The x axis a query offers [type], null if none: timeseries - its bucket or (plain query) its time field; bar - its group, else its bucket.
+     * A resampled query offers the resampling bucket.
+     */
+    private fun xAxisOf(type: ReportPanelType, info: QueryInfo): String? {
+      info.resample?.let { return "bucket:${it.bucket}:${it.periodStart}" }
+      val query = info.query
       val aggregate = query.aggregate
       val bucket = aggregate?.bucket?.let { "bucket:$it:${aggregate.periodStart}" }
       return when (type) {
@@ -628,7 +923,7 @@ internal object ReportDefinitionParser {
           return@forEach
         }
         val info = queryInfos[item.query] ?: return@forEach
-        val x = xAxisOf(type, info.query)
+        val x = xAxisOf(type, info)
         when {
           x == null -> if (reportedQueries.add(item.query)) error(ReportDefinitionErrorCode.CHART_X_MISSING, at.queryPath, item.query)
           xAxis == null -> xAxis = x
@@ -693,6 +988,7 @@ internal object ReportDefinitionParser {
     private fun closedRange(query: ReportQuery): Boolean = when (val range = query.range) {
       is ReportTimeRange.Relative -> true
       is ReportTimeRange.Fixed -> range.from != null && range.to != null
+      is ReportTimeRange.Variable -> true
       null -> false
     }
 

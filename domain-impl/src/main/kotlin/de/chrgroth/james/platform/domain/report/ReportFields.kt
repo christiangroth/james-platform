@@ -1,11 +1,17 @@
 package de.chrgroth.james.platform.domain.report
 
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
+import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
+import de.chrgroth.james.platform.domain.model.app.EnergyGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.MassGranularity
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
+import de.chrgroth.james.platform.domain.model.app.TimeGranularity
+import de.chrgroth.james.platform.domain.model.app.VolumeGranularity
 
 /**
  * A query field resolved against the version's entities: a (computed) property of the queried entity or - via one `ref` hop ([refProperty],
@@ -44,6 +50,16 @@ internal object ReportFields {
 
   /** Prefix of a reference to the App configuration (ADR 0027) in a value position, e.g. `config.zielKm`. */
   const val CONFIG_PREFIX = "config."
+
+  /** Names of all unit granularities (e.g. `KILOMETERS`), as a calculated field's `unit` takes them. */
+  val GRANULARITY_NAMES: List<String> = listOf(
+    TimeGranularity.entries,
+    DistanceGranularity.entries,
+    CurrencyGranularity.entries,
+    MassGranularity.entries,
+    EnergyGranularity.entries,
+    VolumeGranularity.entries,
+  ).flatten().map { it.name }
 
   /** The configuration field path of a `config.<field>` value, null for any other value. */
   fun configPath(raw: String?): String? = raw?.trim()?.takeIf { it.startsWith(CONFIG_PREFIX) }?.removePrefix(CONFIG_PREFIX)?.takeIf { it.isNotBlank() }
