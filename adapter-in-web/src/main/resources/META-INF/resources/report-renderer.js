@@ -9,6 +9,8 @@
  *   place knowing the chart library, so it stays swappable (JamesReports.setChartAdapter(adapter)).
  * - Text panels render Markdown via marked with raw HTML disabled, then pass the result through an allow-list sanitizer: no report can
  *   inject markup, scripts, event handlers or javascript: links.
+ * - Report variables (view.variables) render as select controls above the tabs; a change hands all selections to texts.onVariablesChange,
+ *   and the page re-requests the report from the server with them.
  */
 var JamesReports = (function (global) {
     'use strict';
