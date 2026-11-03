@@ -87,17 +87,17 @@ class AppVersionRepositoryTests {
       "entityDefinitions",
       listOf(
         Document()
-          .append("id", "e-1")
+          .append("_id", "e-1")
           .append("name", "Lauf")
           .append("migrationScript", "it + (\"x\" to \"1\")")
           .append(
             "properties",
             listOf(
-              Document().append("id", "p-datum").append("name", "datum").append("type", "DATE").append("nullable", true)
+              Document().append("_id", "p-datum").append("name", "datum").append("type", "DATE").append("nullable", true)
                 .append("smartDefault", "java.time.LocalDate.now().toString()"),
             ),
           )
-          .append("computedProperties", listOf(Document().append("id", "cp-1").append("name", "pace").append("type", "DOUBLE").append("script", "42.0"))),
+          .append("computedProperties", listOf(Document().append("_id", "cp-1").append("name", "pace").append("type", "DOUBLE").append("script", "42.0"))),
       ),
     )
 

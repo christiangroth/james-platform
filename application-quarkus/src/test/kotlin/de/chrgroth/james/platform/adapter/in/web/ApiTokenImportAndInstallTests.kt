@@ -172,7 +172,7 @@ class ApiTokenImportAndInstallTests {
     appVersionManagement.publishVersion(app.appId, "FEATURE", "Addresses").getOrNull()!!
     bearer(readToken).`when`().post("/api/v1/user/apps/$installedAppId/upgrade").then().statusCode(403)
     val upgraded = bearer(installToken).`when`().post("/api/v1/user/apps/$installedAppId/upgrade")
-      .then().statusCode(200)
+      .then().log().ifValidationFails().statusCode(200)
       .extract().jsonPath()
     assertThat(upgraded.getString("installedVersionNumber")).isEqualTo(upgraded.getString("latestVersionNumber")).isNotEqualTo(initialVersion)
   }

@@ -703,8 +703,8 @@
                         btn.setAttribute('data-testid', 'predefined-smart-default-' + pd.label.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
                         btn.textContent = pd.label;
                         btn.addEventListener('click', function () {
-                            // {field} stands for this property's name, e.g. next_day({field}) -> next_day(datum)
-                            document.getElementById('editPropertySmartDefault').value = pd.expression.split('{field}').join(document.getElementById('editPropertyName').value.trim());
+                            // the field placeholder (built from char codes, braces would be Qute expressions) stands for this property's name
+                            document.getElementById('editPropertySmartDefault').value = pd.expression.split(String.fromCharCode(123) + 'field' + String.fromCharCode(125)).join(document.getElementById('editPropertyName').value.trim());
                         });
                         predefinedContainer.appendChild(btn);
                     });
