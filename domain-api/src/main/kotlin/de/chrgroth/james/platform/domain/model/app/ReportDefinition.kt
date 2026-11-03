@@ -6,7 +6,7 @@ import java.time.MonthDay
 import java.time.temporal.ChronoUnit
 
 /**
- * The typed form of a [Report.definition] (YAML), see docs/plans/reports.md and arc42 "Reports". Layout is report -> [tabs] -> rows -> panels;
+ * The typed form of a [Report.definition] (YAML), see arc42 "Reports". Layout is report -> [tabs] -> rows -> panels;
  * panels display the result of named [queries], each optionally post-processed by its pipeline of [transforms] (keyed by query name).
  * [variables] are shown as controls on top of the report and referenced as `$name` in query ranges and filter values; [checks] produce the
  * findings of `warnings` panels. Later steps add further panel types next to the existing keys, so this model only ever grows.
@@ -169,8 +169,8 @@ enum class ReportPanelType(val key: String, val supported: Boolean) {
   STAT("stat", true),
   TIMESERIES("timeseries", true),
   BAR("bar", true),
-  PIE("pie", false),
-  HEATMAP("heatmap", false),
+  PIE("pie", true),
+  HEATMAP("heatmap", true),
   WARNINGS("warnings", true),
   ;
 
@@ -253,6 +253,41 @@ data class ReportStatPanel(
   val goal: String? = null,
 ) : ReportPanel {
   override val type: ReportPanelType get() = ReportPanelType.STAT
+}
+
+/**
+ * `{ pie: Verkehrsmittel, query: wege, field: anzahl, category: verkehrsmittel, donut: true }`: the shares of [field] per [category] (default:
+ * the group of a grouped aggregate, else its time bucket); rows of the same category are summed, categories without a positive sum are left
+ * out. [field] defaults to the single value of an aggregate query. [donut] draws a ring instead of a full circle.
+ */
+data class ReportPiePanel(
+  override val title: String,
+  val query: String,
+  val field: String,
+  val category: String? = null,
+  val donut: Boolean = false,
+) : ReportPanel {
+  override val type: ReportPanelType get() = ReportPanelType.PIE
+}
+
+/**
+ * A heatmap of [field] of [query]: without [x]/[y] a **calendar** heatmap - one cell per day (the row's time field, or a `TAG` bucket) over the
+ * query's range (else the days with data), the rows of a day reduced by [reduce]; with [x] and [y] a **matrix** heatmap - one cell per pair of
+ * the two fields' values (e.g. bucket vs. category), reduced the same way. [thresholds] (like stat thresholds) color the cells in steps;
+ * without them a continuous color scale from the smallest to the largest value is used. [field] null with [ReportReduce.COUNT] counts rows.
+ */
+data class ReportHeatmapPanel(
+  override val title: String,
+  val query: String,
+  val field: String?,
+  val reduce: ReportReduce = ReportReduce.SUM,
+  val x: String? = null,
+  val y: String? = null,
+  val thresholds: List<ReportThreshold> = emptyList(),
+) : ReportPanel {
+  override val type: ReportPanelType get() = ReportPanelType.HEATMAP
+
+  val calendar: Boolean get() = x == null
 }
 
 enum class ReportReduce(val key: String) {
@@ -435,6 +470,15 @@ enum class ReportDefinitionErrorCode {
 
   /** args: placeholder, allowed placeholders (comma separated). */
   MESSAGE_PLACEHOLDER_UNKNOWN,
+
+  /** args: query. A calendar heatmap needs a day per row: the query's time field or a `TAG` bucket. */
+  HEATMAP_NEEDS_DAY,
+
+  /** args: query. A pie chart needs a category: `category`, or the group or time bucket of an aggregate query. */
+  PIE_CATEGORY_MISSING,
+
+  /** args: compiler message, line within the script (empty if unknown). The script of a `kotlin` step does not compile. */
+  KOTLIN_SCRIPT_INVALID,
 }
 
 /** One validation error, located by [path] (e.g. `queries.laeufe.filter[0].op`) and, where known, the 1-based [line] in the YAML source. */
@@ -567,5 +611,55 @@ data class TextPanelSpec(
 ) : PanelSpec {
   override val type: ReportPanelType get() = ReportPanelType.TEXT
 }
+
+/** A pie chart: [slices] ordered by value (largest first), values in the display unit [unit] (symbol, null without unit); [donut] draws a ring. */
+data class PiePanelSpec(
+  override val title: String,
+  val slices: List<PieSliceSpec>,
+  val unit: String?,
+  val donut: Boolean,
+) : PanelSpec {
+  override val type: ReportPanelType get() = ReportPanelType.PIE
+}
+
+/** One category: [value] in the panel's display unit, [text] formatted, [percentText] its share (`42,5 %`). */
+data class PieSliceSpec(val label: String, val value: Double, val text: String, val percentText: String)
+
+/**
+ * A heatmap. [calendar]: cells are days (`x` an ISO date) between [from] and [to] (ISO dates); matrix: cells are pairs of [xCategories] and
+ * [yCategories] labels. Values are in the display unit [unit]; [min]/[max] span the values (null without any), [thresholds] (ascending, empty
+ * for a continuous scale) color the cells in steps: the highest threshold not above a value wins, values below the first stay uncolored.
+ */
+data class HeatmapPanelSpec(
+  override val title: String,
+  val calendar: Boolean,
+  val cells: List<HeatmapCellSpec>,
+  val unit: String?,
+  val min: Double?,
+  val max: Double?,
+  val thresholds: List<HeatmapThresholdSpec> = emptyList(),
+  val from: String? = null,
+  val to: String? = null,
+  val xCategories: List<String> = emptyList(),
+  val yCategories: List<String> = emptyList(),
+) : PanelSpec {
+  override val type: ReportPanelType get() = ReportPanelType.HEATMAP
+}
+
+/** One cell: [x] the ISO date (calendar) or x category label, [y] the y category label (matrix only), [value] displayed, [text] formatted. */
+data class HeatmapCellSpec(val x: String, val y: String?, val value: Double, val text: String)
+
+/** A heatmap color step: [value] in the panel's display unit, [color] a color name or `#rrggbb`. */
+data class HeatmapThresholdSpec(val value: Double, val color: String)
+
+/**
+ * A panel of [type] that could not be built because its data failed at runtime (e.g. a `kotlin` transformation step failed or timed out):
+ * [message] says why (German); the rest of the report renders normally.
+ */
+data class ErrorPanelSpec(
+  override val type: ReportPanelType,
+  override val title: String,
+  val message: String,
+) : PanelSpec
 
 // endregion

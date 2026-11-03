@@ -115,7 +115,7 @@ class ReportDefinitionParserTests {
   }
 
   @Test
-  fun `unknown keys are errors with path and line, reserved keys are not supported yet`() {
+  fun `unknown keys are errors with path and line`() {
     val errors = parse(
       """
       checks: {}
@@ -127,7 +127,7 @@ class ReportDefinitionParserTests {
       """,
     ).errors
 
-    assertThat(errors.map { it.code }).containsExactly(ReportDefinitionErrorCode.UNKNOWN_KEY, ReportDefinitionErrorCode.NOT_SUPPORTED_YET)
+    assertThat(errors.map { it.code }).containsExactly(ReportDefinitionErrorCode.UNKNOWN_KEY, ReportDefinitionErrorCode.REQUIRED_KEY_MISSING)
     assertThat(errors[0].path).isEqualTo("queries.q.colour")
     assertThat(errors[0].line).isEqualTo(5)
   }
@@ -208,7 +208,7 @@ class ReportDefinitionParserTests {
   }
 
   @Test
-  fun `panels must have exactly one supported type and reference existing queries and query fields`() {
+  fun `panels must have exactly one type and reference existing queries and query fields`() {
     val errors = parse(
       """
       queries:
@@ -228,7 +228,7 @@ class ReportDefinitionParserTests {
     assertThat(errors.map { it.code to it.path }).containsExactly(
       ReportDefinitionErrorCode.PANEL_TYPE_MISSING to "tabs[0].rows[0][0]",
       ReportDefinitionErrorCode.PANEL_TYPE_AMBIGUOUS to "tabs[0].rows[0][1]",
-      ReportDefinitionErrorCode.NOT_SUPPORTED_YET to "tabs[0].rows[0][2].pie",
+      ReportDefinitionErrorCode.REQUIRED_KEY_MISSING to "tabs[0].rows[0][2]",
       ReportDefinitionErrorCode.QUERY_NOT_FOUND to "tabs[0].rows[0][3].query",
       ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY to "tabs[0].rows[0][4].columns[1]",
       ReportDefinitionErrorCode.REQUIRED_KEY_MISSING to "tabs[0].rows[0][5]",

@@ -8,7 +8,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportView
 
 /**
- * Parses, validates and executes declarative reports (see docs/plans/reports.md). Execution only ever reads the data of the one installation
+ * Parses, validates and executes declarative reports (see arc42 "Reports"). Execution only ever reads the data of the one installation
  * it is asked for (sandbox boundary) and answers with a renderer-neutral [ReportView].
  */
 interface ReportPort {

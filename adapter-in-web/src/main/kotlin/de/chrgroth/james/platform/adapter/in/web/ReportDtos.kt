@@ -5,10 +5,14 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportAdvancedMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportCheckMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportExtensionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportTransformMessages
 import de.chrgroth.james.platform.domain.model.app.ChartPanelSpec
+import de.chrgroth.james.platform.domain.model.app.ErrorPanelSpec
+import de.chrgroth.james.platform.domain.model.app.HeatmapPanelSpec
 import de.chrgroth.james.platform.domain.model.app.PanelSpec
+import de.chrgroth.james.platform.domain.model.app.PiePanelSpec
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 import de.chrgroth.james.platform.domain.model.app.ReportView
@@ -19,7 +23,7 @@ import de.chrgroth.james.platform.domain.model.app.WarningsPanelSpec
 import io.quarkus.qute.RawString
 import jakarta.enterprise.context.ApplicationScoped
 
-// Renderer-neutral panel spec of an executed report (see docs/plans/reports.md), as served to the browser renderer (report-renderer.js)
+// Renderer-neutral panel spec of an executed report (see arc42 "Reports"), as served to the browser renderer (report-renderer.js)
 // and by `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}`. One panel DTO for all panel types: fields not used by a type are
 // omitted, so new panel types only add fields.
 
@@ -63,7 +67,38 @@ data class ApiReportPanelDto(
   val goal: ApiStatGoalDto? = null,
   val warnings: List<ApiReportWarningDto>? = null,
   val totalWarnings: Int? = null,
+  val slices: List<ApiPieSliceDto>? = null,
+  val donut: Boolean? = null,
+  val unit: String? = null,
+  val heatmap: ApiHeatmapDto? = null,
+  /** Set instead of the type's data when the panel's query failed at runtime (a `kotlin` step): the German reason. */
+  val error: String? = null,
 )
+
+/** One pie slice: [value] in the panel's display unit, [text] formatted, [percentText] its share. */
+data class ApiPieSliceDto(val label: String, val value: Double, val text: String, val percentText: String)
+
+/**
+ * A heatmap: [mode] `calendar` (cells per ISO day between [from] and [to]) or `matrix` (cells per [xCategories]/[yCategories] pair); [min]/[max]
+ * span the values, [thresholds] (ascending) color them in steps, else a continuous scale is used.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ApiHeatmapDto(
+  val mode: String,
+  val cells: List<ApiHeatmapCellDto>,
+  val min: Double?,
+  val max: Double?,
+  val thresholds: List<ApiHeatmapThresholdDto>,
+  val from: String? = null,
+  val to: String? = null,
+  val xCategories: List<String>? = null,
+  val yCategories: List<String>? = null,
+)
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ApiHeatmapCellDto(val x: String, val y: String?, val value: Double, val text: String)
+
+data class ApiHeatmapThresholdDto(val value: Double, val color: String)
 
 /** One finding of a warnings panel: [severity] `warning`/`error`, [label] the period or row it is about. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -181,6 +216,30 @@ object ApiReportDtoMapper {
       totalWarnings = panel.total,
       truncated = panel.truncated,
     )
+    is PiePanelSpec -> ApiReportPanelDto(
+      type = panel.type.key,
+      title = panel.title,
+      slices = panel.slices.map { ApiPieSliceDto(it.label, it.value, it.text, it.percentText) },
+      donut = panel.donut,
+      unit = panel.unit,
+    )
+    is HeatmapPanelSpec -> ApiReportPanelDto(
+      type = panel.type.key,
+      title = panel.title,
+      unit = panel.unit,
+      heatmap = ApiHeatmapDto(
+        mode = if (panel.calendar) "calendar" else "matrix",
+        cells = panel.cells.map { ApiHeatmapCellDto(it.x, it.y, it.value, it.text) },
+        min = panel.min,
+        max = panel.max,
+        thresholds = panel.thresholds.map { ApiHeatmapThresholdDto(it.value, it.color) },
+        from = panel.from,
+        to = panel.to,
+        xCategories = panel.xCategories.takeUnless { panel.calendar },
+        yCategories = panel.yCategories.takeUnless { panel.calendar },
+      ),
+    )
+    is ErrorPanelSpec -> ApiReportPanelDto(type = panel.type.key, title = panel.title, error = panel.message)
   }
 
   /** English, machine-oriented detail line for the token API, e.g. `line 3, queries.q.entity: ENTITY_NOT_FOUND [Lauf]`. */
@@ -198,6 +257,7 @@ class ReportTexts(
   private val transformMsg: ReportTransformMessages,
   private val checkMsg: ReportCheckMessages,
   private val advancedMsg: ReportAdvancedMessages,
+  private val extensionMsg: ReportExtensionMessages,
 ) {
 
   private val objectMapper = ObjectMapper()
@@ -270,6 +330,10 @@ class ReportTexts(
       ReportDefinitionErrorCode.CHECK_NOT_FOUND -> checkMsg.reportErrorCheckNotFound(a(0))
       ReportDefinitionErrorCode.CALENDAR_INVALID -> checkMsg.reportErrorCalendarInvalid(a(0))
       ReportDefinitionErrorCode.MESSAGE_PLACEHOLDER_UNKNOWN -> checkMsg.reportErrorMessagePlaceholderUnknown("{" + a(0) + "}", a(1))
+      ReportDefinitionErrorCode.HEATMAP_NEEDS_DAY -> extensionMsg.reportErrorHeatmapNeedsDay(a(0))
+      ReportDefinitionErrorCode.PIE_CATEGORY_MISSING -> extensionMsg.reportErrorPieCategoryMissing(a(0))
+      ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID ->
+        if (a(1).isEmpty()) extensionMsg.reportErrorKotlinScriptInvalid(a(0)) else extensionMsg.reportErrorKotlinScriptInvalidAtLine(a(1), a(0))
     }
   }
 

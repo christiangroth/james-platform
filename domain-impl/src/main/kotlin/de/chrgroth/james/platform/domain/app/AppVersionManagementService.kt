@@ -64,6 +64,7 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -85,6 +86,7 @@ class AppVersionManagementService(
   private val appVersionMigration: AppVersionMigrationPort,
   private val outbox: OutboxPort,
   private val appConfiguration: AppConfigurationPort,
+  private val reportScript: ReportScriptPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -1704,9 +1706,15 @@ class AppVersionManagementService(
     return updated.right()
   }
 
-  /** Parses and validates a report definition against [version]'s entities; null when valid. See docs/plans/reports.md. */
+  /**
+   * Parses and validates a report definition against [version]'s entities and, once valid, compiles the scripts of its `kotlin` steps (ADR 0028);
+   * null when valid. See arc42 "Reports".
+   */
   private fun validateReportDefinition(version: AppVersion, definition: String): InvalidReportDefinitionError? {
-    val errors = ReportDefinitionParser.parse(definition, version.entityDefinitions).errors
+    val parsed = ReportDefinitionParser.parse(definition, version.entityDefinitions)
+    val errors = parsed.errors.ifEmpty {
+      parsed.definition?.let { ReportDefinitionParser.scriptErrors(definition, it, reportScript::compileProblem) }.orEmpty()
+    }
     if (errors.isEmpty()) return null
     logger.warn { "Report definition invalid in version ${version.id.value}: ${errors.size} error(s)" }
     return InvalidReportDefinitionError(errors)

@@ -19,6 +19,7 @@ import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ReportPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -36,6 +37,7 @@ class ReportService(
   private val appDataRepository: AppDataRepositoryPort,
   private val computedProperty: ComputedPropertyPort,
   private val appConfiguration: AppConfigurationPort,
+  private val reportScript: ReportScriptPort,
 ) : ReportPort {
 
   /** Source of "today" for relative time ranges; replaceable in tests. */
@@ -100,7 +102,9 @@ class ReportService(
     val now = KotlinClock.System.now()
     val configuration = configurationObject(installedApp, version, appData)
     val configValues = configuration?.data.orEmpty()
-    val executor = ReportExecutor(version.entityDefinitions, appData, LocalDate.now(clock), configuration) { entity, data ->
+    val today = LocalDate.now(clock)
+    val scripts = ReportScriptRunner { script, rows, config, label -> reportScript.execute(script, rows, config, today, name, label) }
+    val executor = ReportExecutor(version.entityDefinitions, appData, today, configuration, scripts) { entity, data ->
       computedProperty.computeValues(entity, data, now, configValues)
     }
     return executor.execute(reportId, name, parsed, variables).right()

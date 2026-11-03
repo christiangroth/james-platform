@@ -92,6 +92,9 @@ interface MonitoringMessages {
   fun monitoringScriptTypeComputedPropertyBadge(): String
 
   @Message
+  fun monitoringScriptTypeReportBadge(): String
+
+  @Message
   fun monitoringImportCleanupHeading(): String
 
   @Message

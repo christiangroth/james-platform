@@ -16,6 +16,7 @@ import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.TextPanelSpec
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -44,7 +45,8 @@ class ReportServiceTests {
     every { computeValues(any(), any(), any(), any()) } answers { mapOf("c-jahr" to secondArg<Map<String, String?>>()["p-datum"]?.take(4)) }
   }
   private val appConfiguration: AppConfigurationPort = mockk()
-  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, appConfiguration).apply {
+  private val reportScript: ReportScriptPort = mockk()
+  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, appConfiguration, reportScript).apply {
     clock = Clock.fixed(Instant.parse("2026-06-15T10:00:00Z"), ZoneOffset.UTC)
   }
 
