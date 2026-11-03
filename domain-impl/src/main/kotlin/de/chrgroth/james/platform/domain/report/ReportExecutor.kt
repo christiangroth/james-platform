@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.domain.report
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import de.chrgroth.james.platform.domain.expression.ExpressionValue
 import de.chrgroth.james.platform.domain.imports.FilterEvaluator
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.ChartPanelSpec
@@ -27,8 +28,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
-import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
-import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
+import de.chrgroth.james.platform.domain.model.app.ReportAggregateTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAsOfTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
@@ -85,7 +85,6 @@ import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
-import de.chrgroth.james.platform.domain.model.readmodel.encodeTimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
 import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptResult
@@ -264,6 +263,8 @@ internal class ReportExecutor(
     val transformer = ReportTransformer(
       today = today,
       configNumber = ::configNumber,
+      configValue = ::configValue,
+      label = ::text,
       previousYear = { index ->
         // Year over year: the same query over the range one year earlier, with the steps before the yoy step; an open range covers it already.
         if (range == null || (range.from == null && range.to == null)) return@ReportTransformer null
@@ -293,10 +294,11 @@ internal class ReportExecutor(
     return result(other)?.let { other to it }
   }
 
-  /** Names of the fields the query's transforms add, in step order; a resampled query starts with its bucket. */
-  private fun transformFields(query: ReportQuery): List<String> = definition.transforms[query.name].orEmpty().flatMap { step ->
+  /** Names of the fields [steps] add, in step order; a resampled query starts with its bucket. */
+  private fun transformFields(steps: List<ReportTransform>): List<String> = steps.flatMap { step ->
     when (step) {
       is ReportCalcTransform -> listOf(step.name)
+      is ReportAggregateTransform -> step.aggregate.resultFields
       is ReportCumulativeTransform -> listOf(step.output)
       is ReportMovingAverageTransform -> listOf(step.output)
       is ReportYoyTransform -> listOf(step.output)
@@ -346,10 +348,17 @@ internal class ReportExecutor(
 
   private fun tablePanel(panel: ReportTablePanel, query: ReportQuery): PanelSpec? {
     val result = result(query) ?: return null
-    val defaultFields = transformFields(query).let { added ->
-      val resampled = ReportAggregate.BUCKET_FIELD in added && query.aggregate?.bucket == null
-      (if (resampled) listOf(ReportAggregate.BUCKET_FIELD) else emptyList()) + resultFieldPaths(query) + added
-    }.distinct()
+    val steps = definition.transforms[query.name].orEmpty()
+    // After an `aggregate` step only its fields and those of the later steps are left.
+    val regrouped = steps.indexOfLast { it is ReportAggregateTransform }
+    val defaultFields = if (regrouped >= 0) {
+      transformFields(steps.drop(regrouped)).distinct()
+    } else {
+      transformFields(steps).let { added ->
+        val resampled = ReportAggregate.BUCKET_FIELD in added && query.aggregate?.bucket == null
+        (if (resampled) listOf(ReportAggregate.BUCKET_FIELD) else emptyList()) + resultFieldPaths(query) + added
+      }.distinct()
+    }
     val columns = panel.columns.ifEmpty { defaultFields.filter { it in result.columns }.map { ReportColumn(it) } }
       .mapNotNull { column -> result.columns[column.field]?.let { column to it } }
     val limited = panel.limit?.let { result.rows.take(it) } ?: result.rows
@@ -477,6 +486,14 @@ internal class ReportExecutor(
     return ReportFields.convertUnit(value, field.unit, unit)
   }
 
+  /** A configuration value ([path] being the field) as expressions read it: typed by the field, raw storage form, references as display text. */
+  internal fun configValue(path: String): ExpressionValue? {
+    val field = configField(path) ?: return null
+    val raw = configRaw(field) ?: return null
+    if (field.type == PropertyType.REF) return ExpressionValue.Text(displayTexts.displayTextOf(raw))
+    return ExpressionValue.of(raw, ReportExpressions.typeOf(field.type))
+  }
+
   /**
    * The value of a `config.<field>` filter value ([path] being the field) as the filtered [target] field compares it: a reference by its display
    * text, a number converted into the target's unit; null if the field or its value is missing.
@@ -566,28 +583,11 @@ internal class ReportExecutor(
     groupField?.let { columns[it.path] = ResultColumn.of(it, ColumnRole.GROUP) }
     aggregate.values.forEach { value -> columns[value.name] = ResultColumn.value(value.name, value.function, value.field?.let { fields[it] }?.let { ResultColumn.of(it) }) }
 
-    val grouped = rows.mapNotNull { row ->
-      val bucketKey = aggregate.bucket?.let { bucket ->
-        val date = timeField?.let { toDate(it.type, row.values[it.path]) } ?: return@mapNotNull null
-        encodeTimeBucket(bucket, date, aggregate.periodStart)
-      }
-      val groupKey = groupField?.let { row.values[it.path]?.takeIf { value -> value.isNotEmpty() } }
-      Triple(bucketKey, groupKey, row)
-    }.groupBy({ it.first to it.second }, { it.third })
-
-    var resultRows = grouped.map { (key, groupRows) ->
-      val values = LinkedHashMap<String, String?>()
-      if (aggregate.bucket != null) values[ReportAggregate.BUCKET_FIELD] = key.first
-      groupField?.let { values[it.path] = key.second }
-      aggregate.values.forEach { value -> values[value.name] = aggregateValue(value, groupRows, fields, columns.getValue(value.name), orderOf) }
-      ResultRow(values, key.first ?: groupRows.maxOf(orderOf))
-    }
+    val inputs = rows.map { row -> ReportAggregation.Input(row.values, timeField?.let { toDate(it.type, row.values[it.path]) }, orderOf(row)) }
+    var resultRows = ReportAggregation.rows(aggregate, columns, inputs)
     val groupColumn = groupField?.let { columns[it.path] }
     resultRows = if (query.sort.isEmpty()) {
-      resultRows.sortedWith(
-        compareBy<ResultRow> { it.values[ReportAggregate.BUCKET_FIELD] ?: "" }
-          .thenBy(String.CASE_INSENSITIVE_ORDER) { row -> groupColumn?.let { text(it, row.values[it.path]) } ?: "" },
-      )
+      ReportAggregation.sorted(resultRows, groupColumn, ::text)
     } else {
       val comparator = query.sort.mapNotNull { sort -> columns[sort.field]?.let { valueComparator(it, sort.direction) } }.reduceOrNull { acc, next -> acc.then(next) }
       comparator?.let { c -> resultRows.sortedWith { a, b -> c.compare(a.values, b.values) } } ?: resultRows
@@ -595,34 +595,6 @@ internal class ReportExecutor(
     query.limit?.let { resultRows = resultRows.take(it) }
     return QueryResult(columns, resultRows, aggregate.bucket, aggregate.periodStart, aggregate.groupBy)
   }
-
-  private fun aggregateValue(
-    value: ReportAggregateValue,
-    rows: List<Row>,
-    fields: Map<String, ResolvedField>,
-    column: ResultColumn,
-    orderOf: (Row) -> String,
-  ): String? {
-    val field = value.field?.let { fields[it] }
-    if (value.function == ReportAggregateFunction.COUNT) {
-      return (if (field == null) rows.size else rows.count { !it.values[field.path].isNullOrEmpty() }).toString()
-    }
-    field ?: return null
-    val contributions = rows.mapNotNull { row -> row.values[field.path]?.toDoubleOrNull()?.let { row to it } }
-    if (contributions.isEmpty()) return null
-    val numbers = contributions.map { it.second }
-    val result = when (value.function) {
-      ReportAggregateFunction.SUM -> numbers.sum()
-      ReportAggregateFunction.AVG -> numbers.average()
-      ReportAggregateFunction.MIN -> numbers.min()
-      ReportAggregateFunction.MAX -> numbers.max()
-      ReportAggregateFunction.LAST -> contributions.maxBy { orderOf(it.first) }.second
-      ReportAggregateFunction.COUNT -> numbers.size.toDouble()
-    }
-    return rawNumber(result, column.type)
-  }
-
-  private fun rawNumber(value: Double, type: PropertyType?): String = ReportTransformer.rawNumber(value, type)
 
   // endregion
 

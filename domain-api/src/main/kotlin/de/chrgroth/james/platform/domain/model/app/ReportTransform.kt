@@ -69,12 +69,19 @@ sealed interface ReportTransform {
 }
 
 /**
- * `{ calc: bmi, expr: "gewicht / (groesse / 100) ^ 2", unit: KILOGRAMS }`: a new DOUBLE field [name] computed per row by a small, safe
- * arithmetic [expression] over the row's numeric fields (raw storage values, e.g. meters, cents) and `config.<field>` values (raw, see ADR
- * 0027): numbers, `+ - * / % ^`, parentheses and the functions abs, sqrt, round, floor, ceil, min, max, coalesce. A missing operand or a
- * division by zero yields no value. [unit] (a granularity name such as `SECONDS`) makes the result a unit value in that granularity.
+ * `{ calc: bmi, expr: "gewicht / (groesse / 100) ^ 2", unit: KILOGRAMS }`: a new field [name] computed per row by the platform's small, safe
+ * expression language (`Expression`) over the row's fields (raw storage values, e.g. meters, cents; references as display text) and
+ * `config.<field>` values (raw, see ADR 0027): numbers, texts, yes/no values, dates and times, arithmetic, comparisons, `and`/`or`/`not` and
+ * functions such as `if`, `case`, `coalesce`, `round`, `minutes`, `days`, `weekday`, `today`. A missing operand or a division by zero yields no
+ * value. [type] is the field's type (LONG, DOUBLE, STRING, BOOLEAN, DATE, DATETIME or TIME; inferred from the expression without an explicit
+ * `type`, DOUBLE if unknown); [unit] (a granularity name such as `SECONDS`) makes a numeric result a unit value in that granularity.
  */
-data class ReportCalcTransform(val name: String, val expression: String, val unit: PropertyUnit? = null) : ReportTransform {
+data class ReportCalcTransform(
+  val name: String,
+  val expression: String,
+  val unit: PropertyUnit? = null,
+  val type: PropertyType = PropertyType.DOUBLE,
+) : ReportTransform {
   override val key: String get() = KEY
 
   companion object {
@@ -255,6 +262,20 @@ data class ReportGoalTransform(
     const val KEY = "goal"
     const val SUFFIX = "_ziel"
     const val PROGRESS_SUFFIX = "_fortschritt"
+  }
+}
+
+/**
+ * `{ aggregate: { bucket: JAHR, periodStart, groupBy: typ, values: { tage: count, netto: { sum: netto } } } }`: aggregates the rows again after the
+ * steps before it (the query's own aggregation runs before all steps), with the options of a query's `aggregate`: per time bucket of the row's
+ * date (time field, or bucket start of an already bucketed result) and/or per value of a result field, summing, averaging, counting, ... values.
+ * The rows become bucket, group and values like an aggregated query's.
+ */
+data class ReportAggregateTransform(val aggregate: ReportAggregate) : ReportTransform {
+  override val key: String get() = KEY
+
+  companion object {
+    const val KEY = "aggregate"
   }
 }
 

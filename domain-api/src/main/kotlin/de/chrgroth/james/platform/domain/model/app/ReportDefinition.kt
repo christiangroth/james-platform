@@ -438,6 +438,27 @@ enum class ReportDefinitionErrorCode {
   /** args: function, allowed functions (comma separated). */
   EXPRESSION_UNKNOWN_FUNCTION,
 
+  /**
+   * args: operator, type (an expression type: NUMBER, TEXT, BOOLEAN, DATE, DATETIME, TIME). Arithmetic (`+ - * / % ^`, unary `-`) needs numbers or
+   * yes/no values.
+   */
+  EXPRESSION_OPERAND_TYPE,
+
+  /** args: function, 1-based argument, type (an expression type). The function cannot take a value of that type there, e.g. `minutes` a number. */
+  EXPRESSION_ARGUMENT_TYPE,
+
+  /** args: operator (or `case`), left type, right type (expression types). The values cannot be compared, e.g. a text with a number. */
+  EXPRESSION_INCOMPARABLE,
+
+  /** args: function (`if`, `case`, `coalesce`), types (comma separated expression types). The alternative results have different types. */
+  EXPRESSION_MIXED_TYPES,
+
+  /**
+   * args: expected type, actual type (field or expression types). The expression's result does not fit where it is used: a `calc` field's `type`
+   * or `unit`, or a value rule needing a number.
+   */
+  EXPRESSION_RESULT_TYPE,
+
   /** args: step, query. The step needs a time bucket (an aggregate with `bucket` or a preceding `resample`). */
   TRANSFORM_NEEDS_BUCKET,
 

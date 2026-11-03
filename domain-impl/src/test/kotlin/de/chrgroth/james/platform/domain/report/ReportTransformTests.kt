@@ -243,7 +243,7 @@ class ReportTransformTests {
             - { cumulative: distanz, yoy: distanz }
             - { calc: x, expr: "distanz +" }
             - { calc: y, expr: "exec(distanz)" }
-            - { calc: z, expr: "unbekannt * elektrisch" }
+            - { calc: z, expr: "unbekannt * datum" }
             - { calc: datum, expr: "1" }
             - { calc: w, expr: "1", unit: PARSEC }
             - { yoy: distanz }
@@ -261,7 +261,7 @@ class ReportTransformTests {
       ReportDefinitionErrorCode.EXPRESSION_INVALID to "transforms.fahrten[2].expr",
       ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION to "transforms.fahrten[3].expr",
       ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY to "transforms.fahrten[4].expr",
-      ReportDefinitionErrorCode.FIELD_NOT_NUMERIC to "transforms.fahrten[4].expr",
+      ReportDefinitionErrorCode.EXPRESSION_OPERAND_TYPE to "transforms.fahrten[4].expr",
       ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD to "transforms.fahrten[5].calc",
       ReportDefinitionErrorCode.INVALID_VALUE to "transforms.fahrten[6].unit",
       ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET to "transforms.fahrten[7].yoy",

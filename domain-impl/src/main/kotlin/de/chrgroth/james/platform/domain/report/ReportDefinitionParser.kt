@@ -6,11 +6,15 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import de.chrgroth.james.platform.domain.expression.Expression
+import de.chrgroth.james.platform.domain.expression.ExpressionProblem
+import de.chrgroth.james.platform.domain.expression.ExpressionType
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
+import de.chrgroth.james.platform.domain.model.app.ReportAggregateTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
 import de.chrgroth.james.platform.domain.model.app.ReportAsOfTransform
@@ -97,7 +101,7 @@ internal object ReportDefinitionParser {
   private const val USE_RANGE = "range"
   private const val USE_FILTER = "filter"
   private val TRANSFORM_KEYS = mapOf(
-    ReportCalcTransform.KEY to setOf("expr", "unit"),
+    ReportCalcTransform.KEY to setOf("expr", "unit", "type"),
     ReportCumulativeTransform.KEY to setOf("as"),
     ReportMovingAverageTransform.KEY to setOf("window", "as"),
     ReportYoyTransform.KEY to setOf("as"),
@@ -108,6 +112,7 @@ internal object ReportDefinitionParser {
     ReportJoinTransform.KEY to setOf("fields", "on", "prefix"),
     ReportTopTransform.KEY to setOf("n", "order", "by", "bucket", "periodStart", "as"),
     ReportGoalTransform.KEY to setOf("target", "period", "periodStart", "as", "progress"),
+    ReportAggregateTransform.KEY to emptySet(),
     ReportKotlinTransform.KEY to setOf("fields"),
   )
   private val JOIN_KEY_KEYS = setOf("field", "other")
@@ -251,9 +256,18 @@ internal object ReportDefinitionParser {
 
   /**
    * A declared query as panels see it (after its transforms): [columns] null when its fields are unknown (unresolved entity), so panels skip
-   * follow-up errors; [rebucket] the bucket (and period start) a step (`resample`, `delta` with `bucket`) turned its rows into.
+   * follow-up errors; [rebucket] the bucket (and period start) a step (`resample`, `delta` with `bucket`, `aggregate`) turned its rows into,
+   * [regrouped] the aggregation of an `aggregate` step, replacing the query's own (the rows have no time field values any more then).
    */
-  private class QueryInfo(val query: ReportQuery, var columns: Map<String, ResultColumn>?, var rebucket: Pair<TimeBucket, MonthDay?>? = null)
+  private class QueryInfo(
+    val query: ReportQuery,
+    var columns: Map<String, ResultColumn>?,
+    var rebucket: Pair<TimeBucket, MonthDay?>? = null,
+    var regrouped: ReportAggregate? = null,
+  ) {
+    val aggregate: ReportAggregate? get() = regrouped ?: query.aggregate
+    val timeField: String? get() = if (regrouped != null) null else query.timeField
+  }
 
   /** A `$name` reference to a variable, checked once all variables and queries are known. */
   private class VariableUse(val name: String, val use: String, val path: Path)
@@ -262,9 +276,11 @@ internal object ReportDefinitionParser {
   private class Pipeline(val info: QueryInfo?) {
     var columns: MutableMap<String, ResultColumn>? = info?.columns?.let { LinkedHashMap(it) }
     var rebucket: Pair<TimeBucket, MonthDay?>? = null
+    var regrouped: ReportAggregate? = null
     var groupBy: String? = info?.query?.aggregate?.groupBy
     val queryName: String get() = info?.query?.name.orEmpty()
-    val bucket: TimeBucket? get() = rebucket?.first ?: info?.query?.aggregate?.bucket
+    val bucket: TimeBucket? get() = rebucket?.first ?: if (regrouped != null) null else info?.query?.aggregate?.bucket
+    val timeField: String? get() = if (regrouped != null) null else info?.query?.timeField
   }
 
   private class ParsedAggregate(val aggregate: ReportAggregate, val valuePaths: List<Path>)
@@ -492,6 +508,7 @@ internal object ReportDefinitionParser {
       if (steps != null) {
         info?.columns = pipeline.columns
         info?.rebucket = pipeline.rebucket
+        info?.regrouped = pipeline.regrouped
       }
       pipelinesInProgress -= queryName
       return true
@@ -514,6 +531,7 @@ internal object ReportDefinitionParser {
         ReportAsOfTransform.KEY, ReportJoinTransform.KEY -> attachStep(step, map, value, path, pipeline)
         ReportTopTransform.KEY -> topStep(map, value, path, pipeline)
         ReportGoalTransform.KEY -> goalStep(map, value, path, pipeline)
+        ReportAggregateTransform.KEY -> aggregateStep(value, path, pipeline)
         ReportKotlinTransform.KEY -> kotlinStep(map, value, path, pipeline)
         else -> fieldStep(step, map, value, path, pipeline)
       }
@@ -526,29 +544,88 @@ internal object ReportDefinitionParser {
       val source = required(map, "expr", path)?.let { nonBlankText(it, exprPath, "expr") }
       val expression = source?.let { expression(it, exprPath) }
       val unit = map.get("unit")?.let { unit(it, path.key("unit")) }
-      expression?.identifiers?.forEach { identifier ->
-        if (ReportFields.configPath(identifier) != null) {
-          val field = configField(identifier, exprPath)
-          if (field != null && !ReportFields.isNumericType(field.type)) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, exprPath, identifier)
-        } else {
-          sourceColumn(identifier, exprPath, pipeline)
-        }
+      val declared = map.get("type")?.let { node -> keyed(node, path.key("type"), ReportExpressions.RESULT_TYPES) { it.name } }
+      val inferred = expression?.let { expressionType(it, exprPath, pipeline.columns, pipeline.queryName) }
+      if (declared != null && unit != null && !ReportFields.isNumericType(declared)) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("unit"), "unit", "type")
+      val expected = declared ?: unit?.let { PropertyType.DOUBLE }
+      if (inferred != null && expected != null && !ReportExpressions.converts(inferred, expected)) {
+        error(ReportDefinitionErrorCode.EXPRESSION_RESULT_TYPE, exprPath, expected.name, inferred.name)
       }
-      if (name != null) output(name, null, namePath, pipeline, ResultColumn(name, ColumnRole.VALUE, PropertyType.DOUBLE, unit))
-      if (name == null || source == null || expression == null || (map.has("unit") && unit == null)) return null
-      return ReportCalcTransform(name, source, unit)
+      val type = expected ?: ReportExpressions.propertyTypeOf(inferred)
+      val role = if (ReportFields.isNumericType(type)) ColumnRole.VALUE else ColumnRole.FIELD
+      if (name != null) output(name, null, namePath, pipeline, ResultColumn(name, role, type, unit?.takeIf { ReportFields.isNumericType(type) }))
+      if (name == null || source == null || expression == null || (map.has("unit") && unit == null) || (map.has("type") && declared == null)) return null
+      return ReportCalcTransform(name, source, unit, type)
     }
 
-    private fun expression(source: String, path: Path): ReportExpression? = try {
-      ReportExpression.parse(source)
-    } catch (e: ReportExpression.ParseException) {
+    private fun expression(source: String, path: Path): Expression? = try {
+      Expression.parse(source)
+    } catch (e: Expression.ParseException) {
       val function = e.unknownFunction
       if (function != null) {
-        error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION, path, function, ReportExpression.FUNCTIONS.keys.joinToString(", "))
+        error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION, path, function, Expression.FUNCTIONS.keys.joinToString(", "))
       } else {
         error(ReportDefinitionErrorCode.EXPRESSION_INVALID, path, source, e.position.toString(), e.detail)
       }
       null
+    }
+
+    /**
+     * Checks what [expression] reads - fields of the result so far ([columns], unknown: not checked) and `config.<field>` values - and its types;
+     * answers the result type (null if unknown).
+     */
+    private fun expressionType(expression: Expression, path: Path, columns: Map<String, ResultColumn>?, query: String): ExpressionType? {
+      val types = HashMap<String, ExpressionType?>()
+      expression.identifiers.forEach { identifier ->
+        types[identifier] = if (Expression.configPath(identifier) != null) {
+          configField(identifier, path)?.let { ReportExpressions.typeOf(it.type) }
+        } else {
+          val column = columns?.get(identifier)
+          if (columns != null && column == null) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path, identifier, query)
+          ReportExpressions.typeOf(column?.type)
+        }
+      }
+      val check = expression.check { types[it] }
+      check.problems.forEach { problem ->
+        val code = when (problem.kind) {
+          ExpressionProblem.Kind.OPERAND_TYPE -> ReportDefinitionErrorCode.EXPRESSION_OPERAND_TYPE
+          ExpressionProblem.Kind.ARGUMENT_TYPE -> ReportDefinitionErrorCode.EXPRESSION_ARGUMENT_TYPE
+          ExpressionProblem.Kind.INCOMPARABLE -> ReportDefinitionErrorCode.EXPRESSION_INCOMPARABLE
+          ExpressionProblem.Kind.MIXED_TYPES -> ReportDefinitionErrorCode.EXPRESSION_MIXED_TYPES
+        }
+        error(code, path, *problem.args.toTypedArray())
+      }
+      return check.type
+    }
+
+    /**
+     * `{ aggregate: { bucket, periodStart, groupBy, values } }`: the options of a query's `aggregate`, applied to the result so far (bucket by the
+     * row's date, group and value fields of the result); the rows become bucket, group and values.
+     */
+    private fun aggregateStep(value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val stepPath = path.key(ReportAggregateTransform.KEY)
+      val parsed = aggregate(value, stepPath) ?: return null
+      val aggregate = parsed.aggregate
+      if (aggregate.bucket != null) {
+        requireTime(ReportAggregateTransform.KEY, stepPath.key("bucket"), pipeline)
+        if (aggregate.groupBy == ReportAggregate.BUCKET_FIELD) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, stepPath.key("groupBy"), ReportAggregate.BUCKET_FIELD)
+      }
+      pipeline.columns = pipeline.columns?.let { columns ->
+        val regrouped = LinkedHashMap<String, ResultColumn>()
+        aggregate.bucket?.let { regrouped[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, PropertyType.STRING, bucket = it) }
+        aggregate.groupBy?.let { group -> anyColumn(group, stepPath.key("groupBy"), pipeline)?.let { regrouped[group] = it.copy(role = ColumnRole.GROUP) } }
+        aggregate.values.forEachIndexed { i, aggregated ->
+          val source = aggregated.field?.let { field ->
+            if (aggregated.function == ReportAggregateFunction.COUNT) anyColumn(field, parsed.valuePaths[i], pipeline) else sourceColumn(field, parsed.valuePaths[i], pipeline)
+          }
+          regrouped.putIfAbsent(aggregated.name, ResultColumn.value(aggregated.name, aggregated.function, source))
+        }
+        regrouped
+      }
+      pipeline.rebucket = aggregate.bucket?.let { it to aggregate.periodStart }
+      pipeline.regrouped = aggregate
+      pipeline.groupBy = aggregate.groupBy
+      return ReportAggregateTransform(aggregate)
     }
 
     /** A granularity name of any unit family, e.g. `SECONDS` or `kilograms`; the value is stored and displayed in that granularity. */
@@ -592,7 +669,7 @@ internal object ReportDefinitionParser {
       val fill = map.get("fill")?.let { keyed(it, path.key("fill"), FILL_MODES) { mode -> mode } } ?: FILL_FORWARD
       pipeline.info?.query?.let { query ->
         if (pipeline.groupBy != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, stepPath, ReportResampleTransform.KEY, "groupBy")
-        if (query.timeField == null && pipeline.bucket == null) error(ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME, stepPath, query.name)
+        if (pipeline.timeField == null && pipeline.bucket == null) error(ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME, stepPath, query.name)
       }
       bucket ?: return null
       val transform = ReportResampleTransform(bucket, periodStart, fill == FILL_FORWARD)
@@ -628,7 +705,7 @@ internal object ReportDefinitionParser {
     /** The step needs a date per row: the query's time field or a time bucket. */
     private fun requireTime(step: String, path: Path, pipeline: Pipeline) {
       val query = pipeline.info?.query ?: return
-      if (pipeline.bucket == null && query.timeField == null) error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME, path, step, query.name)
+      if (pipeline.bucket == null && pipeline.timeField == null) error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME, path, step, query.name)
     }
 
     private fun optionalName(map: ObjectNode, key: String, path: Path): String? = map.get(key)?.let { nonBlankText(it, path.key(key), key) }
@@ -687,7 +764,7 @@ internal object ReportDefinitionParser {
 
     /** Whether a key field is known: a result field, or `id` (the object id) of a query with plain rows. */
     private fun keyKnown(field: String, columns: Map<String, ResultColumn>, info: QueryInfo?): Boolean =
-      field in columns || (field == ReportJoinKey.OBJECT_ID && info?.query?.aggregate == null && info?.rebucket == null)
+      field in columns || (field == ReportJoinKey.OBJECT_ID && info?.aggregate == null && info?.rebucket == null)
 
     /** `asOf` and `join`: the other query, its fields to attach (with `prefix`) and the key (`on`). */
     @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -714,8 +791,8 @@ internal object ReportDefinitionParser {
       }
       if (step == ReportAsOfTransform.KEY) {
         requireTime(step, stepPath, pipeline)
-        val otherBucket = other?.rebucket?.first ?: other?.query?.aggregate?.bucket
-        if (other != null && otherBucket == null && other.query.timeField == null) error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME, stepPath, step, otherName)
+        val otherBucket = other?.rebucket?.first ?: other?.aggregate?.bucket
+        if (other != null && otherBucket == null && other.timeField == null) error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME, stepPath, step, otherName)
       }
       fields?.forEachIndexed { i, f ->
         val name = prefix + f
@@ -931,13 +1008,8 @@ internal object ReportDefinitionParser {
       val exprPath = path.key("expr")
       val source = map.get("expr")?.let { nonBlankText(it, exprPath, "expr") }
       val expression = source?.let { expression(it, exprPath) }
-      expression?.identifiers?.forEach { identifier ->
-        if (ReportFields.configPath(identifier) != null) {
-          val configField = configField(identifier, exprPath)
-          if (configField != null && !ReportFields.isNumericType(configField.type)) error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, exprPath, identifier)
-        } else {
-          numericColumn(identifier, exprPath, columns, at.query)
-        }
+      expression?.let { expressionType(it, exprPath, columns, at.query.orEmpty()) }?.let { type ->
+        if (!type.numeric) error(ReportDefinitionErrorCode.EXPRESSION_RESULT_TYPE, exprPath, ExpressionType.NUMBER.name, type.name)
       }
       val unit = field?.let { numericColumn(it, path.key("field"), columns, at.query) }?.unit
       val hasValue = map.has("field") || map.has("expr")
@@ -1359,7 +1431,7 @@ internal object ReportDefinitionParser {
         } else if (!map.has("field")) {
           // Without a field, an aggregate query contributes one series per aggregated value.
           val info = declaredQuery(panelQuery, path.key("query"))
-          val aggregate = info?.query?.aggregate
+          val aggregate = info?.aggregate
           if (aggregate != null) {
             aggregate.values.forEach { series += SeriesAt(ReportSeries(panelQuery, it.name, null, defaultStyle, axis), path.key("query"), path.key("query")) }
           } else if (info != null) {
@@ -1391,15 +1463,14 @@ internal object ReportDefinitionParser {
 
     /**
      * The x axis a query offers [type], null if none: timeseries - its bucket or (plain query) its time field; bar - its group, else its bucket.
-     * A rebucketed query (`resample`, `delta` with `bucket`) offers that bucket.
+     * A rebucketed query (`resample`, `delta` with `bucket`) offers that bucket, a regrouped one (`aggregate` step) its new bucket and group.
      */
     private fun xAxisOf(type: ReportPanelType, info: QueryInfo): String? {
-      info.rebucket?.let { (bucket, periodStart) -> return "bucket:$bucket:$periodStart" }
-      val query = info.query
-      val aggregate = query.aggregate
+      val aggregate = info.aggregate
+      if (info.regrouped == null || aggregate?.groupBy == null) info.rebucket?.let { (bucket, periodStart) -> return "bucket:$bucket:$periodStart" }
       val bucket = aggregate?.bucket?.let { "bucket:$it:${aggregate.periodStart}" }
       return when (type) {
-        ReportPanelType.TIMESERIES -> if (aggregate == null) "time".takeIf { query.timeField != null } else bucket
+        ReportPanelType.TIMESERIES -> if (aggregate == null) "time".takeIf { info.timeField != null } else bucket
         else -> if (aggregate?.groupBy != null) "group" else bucket
       }
     }
@@ -1436,7 +1507,7 @@ internal object ReportDefinitionParser {
 
     /** The value field of a pie or heatmap: `field`, else the single value of an aggregate query; null if neither. */
     private fun valueField(map: ObjectNode, path: Path, info: QueryInfo?): String? =
-      map.get("field")?.let { nonBlankText(it, path.key("field"), "field") } ?: info?.query?.aggregate?.values?.singleOrNull()?.name
+      map.get("field")?.let { nonBlankText(it, path.key("field"), "field") } ?: info?.aggregate?.values?.singleOrNull()?.name
 
     /** Checks that [field] is a column of the query (when known) and - unless [anyType] - numeric; answers the column. */
     private fun panelColumn(field: String, path: Path, info: QueryInfo?, anyType: Boolean = false): ResultColumn? {
@@ -1455,7 +1526,7 @@ internal object ReportDefinitionParser {
       field?.let { panelColumn(it, if (map.has("field")) path.key("field") else path.key("query"), info) }
       val category = map.get("category")?.let { nonBlankText(it, path.key("category"), "category") }
       category?.let { panelColumn(it, path.key("category"), info, anyType = true) }
-      val aggregate = info?.query?.aggregate
+      val aggregate = info?.aggregate
       if (category == null && info != null && info.rebucket == null && aggregate?.groupBy == null && aggregate?.bucket == null) {
         error(ReportDefinitionErrorCode.PIE_CATEGORY_MISSING, path.key("query"), info.query.name)
       }
@@ -1495,8 +1566,8 @@ internal object ReportDefinitionParser {
 
     /** Whether the query's rows stand for days: a `TAG` bucket, or plain rows with a time field. */
     private fun hasDay(info: QueryInfo): Boolean {
-      val bucket = info.rebucket?.first ?: info.query.aggregate?.bucket
-      return if (bucket != null) bucket == TimeBucket.TAG else info.query.aggregate == null && info.query.timeField != null
+      val bucket = info.rebucket?.first ?: info.aggregate?.bucket
+      return if (bucket != null) bucket == TimeBucket.TAG else info.aggregate == null && info.timeField != null
     }
 
     // endregion
@@ -1515,7 +1586,7 @@ internal object ReportDefinitionParser {
         (raw == COMPARE_PREVIOUS_PERIOD).also { if (!it) error(ReportDefinitionErrorCode.INVALID_VALUE, path.key("compare"), raw, COMPARE_PREVIOUS_PERIOD) }
       } ?: false
       val info = query?.let { declaredQuery(it, path.key("query")) }
-      val field = explicitField ?: info?.query?.aggregate?.values?.singleOrNull()?.name
+      val field = explicitField ?: info?.aggregate?.values?.singleOrNull()?.name
       if (field == null && !map.has("field") && reduce != ReportReduce.COUNT && info != null) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "field")
       val column = if (field != null && query != null) {
         info?.columns?.let { columns -> columns[field] ?: null.also { error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path.key("field"), field, query) } }

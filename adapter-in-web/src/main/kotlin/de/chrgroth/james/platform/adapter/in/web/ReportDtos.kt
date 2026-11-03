@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportAdvancedMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportCheckMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportExpressionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportExtensionMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportTransformMessages
@@ -258,6 +259,7 @@ class ReportTexts(
   private val checkMsg: ReportCheckMessages,
   private val advancedMsg: ReportAdvancedMessages,
   private val extensionMsg: ReportExtensionMessages,
+  private val expressionMsg: ReportExpressionMessages,
 ) {
 
   private val objectMapper = ObjectMapper()
@@ -319,6 +321,12 @@ class ReportTexts(
       ReportDefinitionErrorCode.TRANSFORM_STEP_AMBIGUOUS -> transformMsg.reportErrorTransformStepAmbiguous(a(0))
       ReportDefinitionErrorCode.EXPRESSION_INVALID -> transformMsg.reportErrorExpressionInvalid(a(0), a(1), a(2))
       ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION -> transformMsg.reportErrorExpressionUnknownFunction(a(0), a(1))
+      ReportDefinitionErrorCode.EXPRESSION_OPERAND_TYPE -> expressionMsg.reportErrorExpressionOperandType(a(0), typeName(a(1)))
+      ReportDefinitionErrorCode.EXPRESSION_ARGUMENT_TYPE -> expressionMsg.reportErrorExpressionArgumentType(a(0), a(1), typeName(a(2)))
+      ReportDefinitionErrorCode.EXPRESSION_INCOMPARABLE -> expressionMsg.reportErrorExpressionIncomparable(a(0), typeName(a(1)), typeName(a(2)))
+      ReportDefinitionErrorCode.EXPRESSION_MIXED_TYPES ->
+        expressionMsg.reportErrorExpressionMixedTypes(a(0), a(1).split(",").joinToString(", ") { typeName(it.trim()) })
+      ReportDefinitionErrorCode.EXPRESSION_RESULT_TYPE -> expressionMsg.reportErrorExpressionResultType(typeName(a(0)), typeName(a(1)))
       ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET -> transformMsg.reportErrorTransformNeedsBucket(a(0), a(1))
       ReportDefinitionErrorCode.FORECAST_NEEDS_PERIOD -> transformMsg.reportErrorForecastNeedsPeriod(a(0))
       ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME -> transformMsg.reportErrorResampleNeedsTime(a(0))
@@ -335,6 +343,18 @@ class ReportTexts(
       ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID ->
         if (a(1).isEmpty()) extensionMsg.reportErrorKotlinScriptInvalid(a(0)) else extensionMsg.reportErrorKotlinScriptInvalidAtLine(a(1), a(0))
     }
+  }
+
+  /** The German name of an expression type (NUMBER, TEXT, ...) or field type (LONG, STRING, ...) as validation errors mention it. */
+  private fun typeName(type: String): String = when (type) {
+    "NUMBER", "DOUBLE" -> expressionMsg.expressionTypeNumber()
+    "LONG" -> expressionMsg.expressionTypeInteger()
+    "TEXT", "STRING" -> expressionMsg.expressionTypeText()
+    "BOOLEAN" -> expressionMsg.expressionTypeBoolean()
+    "DATE" -> expressionMsg.expressionTypeDate()
+    "DATETIME" -> expressionMsg.expressionTypeDateTime()
+    "TIME" -> expressionMsg.expressionTypeTime()
+    else -> type
   }
 
   /** JSON for a `<script type="application/json">` block; `<` is escaped so data can never close the script element. */
