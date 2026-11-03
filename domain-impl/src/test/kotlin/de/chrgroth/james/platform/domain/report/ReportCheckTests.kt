@@ -285,7 +285,7 @@ class ReportCheckTests {
   }
 
   @Test
-  fun `rule expressions only read numeric result fields and configuration values`() {
+  fun `rule expressions read result fields and configuration values and must compute a number`() {
     assertThat(
       errors(
         """
@@ -295,13 +295,16 @@ class ReportCheckTests {
           a: { rule: fahrten, expr: "distanz + config.name", max: 1 }
           b: { rule: fahrten, expr: "foo(distanz)", max: 1 }
           c: { rule: fahrten, expr: "unbekannt * 2", max: 1 }
+          d: { rule: fahrten, expr: "concat(datum, config.name)", max: 1 }
+          e: { rule: fahrten, expr: "elektrisch + 1", max: 1 }
         tabs: []
         """,
       ),
     ).containsExactly(
-      ReportDefinitionErrorCode.FIELD_NOT_NUMERIC to "checks.a.expr",
+      ReportDefinitionErrorCode.EXPRESSION_OPERAND_TYPE to "checks.a.expr",
       ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION to "checks.b.expr",
       ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY to "checks.c.expr",
+      ReportDefinitionErrorCode.EXPRESSION_RESULT_TYPE to "checks.d.expr",
     )
   }
 }

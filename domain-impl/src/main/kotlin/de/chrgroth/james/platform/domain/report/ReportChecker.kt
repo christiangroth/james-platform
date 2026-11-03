@@ -97,7 +97,7 @@ internal class ReportChecker(private val executor: ReportExecutor, private val d
     val query = definition.query(check.query) ?: return emptyList()
     val result = executor.result(query) ?: return emptyList()
     val unit = check.field?.let { result.columns[it] }?.unit
-    val expression = check.expression?.let { runCatching { ReportExpression.parse(it) }.getOrNull() }
+    val expression = check.expression?.let { ReportExpressions.parseOrNull(it) }
     val min = check.min?.let { bound(it, unit) }
     val max = check.max?.let { bound(it, unit) }
     val valueRule = check.field != null || expression != null
@@ -111,7 +111,7 @@ internal class ReportChecker(private val executor: ReportExecutor, private val d
         }
       }
       if (valueRule) {
-        val value = if (check.field != null) row.values[check.field]?.toDoubleOrNull() else expression?.evaluate { valueOf(it, row) }
+        val value = if (check.field != null) row.values[check.field]?.toDoubleOrNull() else expression?.evaluateNumber(context(result, row))
         if (value != null && ((min != null && value < min) || (max != null && value > max))) {
           val values = placeholders(result, row) + mapOf(
             ReportCheck.VALUE_PLACEHOLDER to executor.formatNumber(value, unit),
@@ -125,8 +125,7 @@ internal class ReportChecker(private val executor: ReportExecutor, private val d
     }
   }
 
-  private fun valueOf(name: String, row: ResultRow): Double? =
-    if (ReportFields.configPath(name) != null) executor.configNumber(name, null) else row.values[name]?.toDoubleOrNull()
+  private fun context(result: QueryResult, row: ResultRow) = ReportRowContext(row.values, result.columns, executor::configValue, today, executor::text)
 
   private fun bound(raw: String, unit: PropertyUnit?): Double? =
     if (ReportFields.configPath(raw) != null) executor.configNumber(raw, unit) else ReportValues.parseNumber(raw, unit)

@@ -161,7 +161,8 @@ The shared installation is treated as a separate installation. Supported sharing
 ### Reports
 
 **Status: steps 1-7 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar, stat, pie and
-heatmap panels, App configuration via `config.*`, variables, basic and advanced transformations, a Kotlin escape-hatch step, checks and warnings panel).
+heatmap panels, App configuration via `config.*`, variables, basic and advanced transformations incl. an expression language with conditions, texts and
+dates and an `aggregate` step, a Kotlin escape-hatch step, checks and warnings panel).
 Step 8, personal dashboards, is outlined under "Roadmap" at the end of this section.
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
@@ -171,7 +172,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   Highcharts/HTML itself; Running had ~73k characters of JavaScript, Zählerstände ~59k), yet they repeated the same building blocks: time series with
   zoom, (overview) tables with ratio coloring, tabs/selectors (year, employer), error lists (gap detection, cross checks), filtering, constants in code
   (goals, holidays, target hours) and derived data (cumulative, year over year, forecast, records, meter deltas, "value valid at date"). Reports
-  therefore declare queries, transformations, checks and panels Grafana-like; code is the exception (the `kotlin` step), not the rule.
+  therefore declare queries, transformations, checks and panels Grafana-like; row logic uses the expression language, code is the exception (the
+  `kotlin` step, to be removed once the reports are ported), not the rule.
 - **Design decisions:** the definition is YAML, edited in the version editor with validation and a preview against a test installation (a visual
   builder is out of scope for now). Queries, transformations and checks run backend-side and the browser only receives the panel data it renders,
   which also settles sandboxing for the browser. Panels produce a renderer-neutral *panel spec*; one client-side adapter maps it to the chart library
@@ -283,10 +285,11 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   aggregation, sort and limit; panels, select variables and stat comparisons see the transformed result. Running steps process the rows chronologically
   (bucket, time field, else creation time) and per group of a grouped aggregate, whatever order they are shown in. Steps add a field (`as`) or replace
   their source field in place:
-  - `{ calc: <name>, expr: "<expression>", unit: <granularity> }` - a DOUBLE field from a small, safe expression language (`ReportExpression`, no
-    platform access): numbers, result fields and `config.<field>` values (raw storage values, e.g. meters, cents), `+ - * / %`, `^`, parentheses and
-    `abs`, `sqrt`, `round(x[, digits])`, `floor`, `ceil`, `min`, `max`, `coalesce`; missing operands and divisions by zero give no value; `unit` (e.g.
-    `SECONDS`, `KILOGRAMS`) makes the result a unit value;
+  - `{ calc: <name>, expr: "<expression>", type: <type>, unit: <granularity> }` - a field computed per row by the platform's **expression language**
+    (see below) over the row's result fields and `config.<field>` values; `type` is `LONG` (rounded), `DOUBLE`, `STRING`, `BOOLEAN`, `DATE`,
+    `DATETIME` or `TIME` - without it the type follows from the expression (a comparison gives `BOOLEAN`, a `case` of texts `STRING`, unknown: `DOUBLE`
+    as before typed results existed); `unit` (e.g. `SECONDS`, `MINUTES`, `KILOGRAMS`) makes a numeric result a unit value (shorthand for a `DOUBLE` in
+    that unit);
   - `{ cumulative: <field>, as }` running total (in place by default), `{ movingAverage: <field>, window: <n>, as }` average over the last n values;
   - `{ yoy: <field>, as }` the value of the same bucket one year earlier, read from the query over its range shifted back a year (needs a time bucket;
     default field `<field>_vorjahr`);
@@ -313,6 +316,11 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     text (`1000km`), `config.<field>` or a numeric field of the row (e.g. attached by `asOf`) - and `progress` (default `<field>_fortschritt`) the
     value in percent of it; with `period` the target applies per such period and each row gets the share elapsed up to its date (its bucket's end),
     e.g. the pro-rata line of a yearly goal against the cumulative distance per month;
+  - `{ aggregate: { bucket, periodStart, groupBy, values } }` - aggregates the rows again after the steps before it (a query's own `aggregate` runs
+    before all steps, so fields computed by `calc` or attached by `asOf` can only be grouped this way): the options of a query's `aggregate` (`values:
+    { <name>: count | { sum|avg|count|min|max|last: <field> } }` or the shorthand `sum: <field>`), the bucket taken from the row's date (time field, or
+    bucket start of an already bucketed result), the group from any result field, the values from numeric result fields. The rows become bucket, group
+    and values, sorted by bucket and group, like an aggregated query's (`ReportAggregation` is shared by both); later steps and panels see only them;
   - `{ kotlin: <script>, fields: { <name>: <type or unit> } }` - the escape hatch for the few calculations the declarative steps cannot express
     (ADR [0028](../adr/0028-report-kotlin-step.md)), run by `ReportScriptService` like computed property scripts: JSR-223 Kotlin engine, own virtual
     thread, `app.script.timeout-ms`, script metrics type `REPORT`, no sandbox beyond the timeout. The script is the body of a function with the
@@ -453,6 +461,65 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
             thresholds: [{ value: 1, color: red }, { value: 3, color: yellow }, { value: 4, color: green }]
   ```
 
+- **Expression language** (`domain.expression`: `Expression`, `ExpressionValue`, `ExpressionContext`): the small, safe language of `calc` steps and
+  value rules, built as a reusable domain building block - it is meant to replace Kotlin scripting altogether: package 2/2 (#766) moves computed
+  properties and smart defaults onto it, so that no JSR-223 engine is needed (production runs as a GraalVM native image, where Kotlin scripting is not
+  available). It is pure Kotlin - a recursive descent parser and a tree evaluator, no scripting engine, no reflection, no platform access: an
+  expression only reads what its `ExpressionContext` hands out (field values, configuration values, today) and computes one value, so it cannot loop,
+  assign or call into the platform. At most 500 characters.
+  - **Values**: numbers, texts, yes/no, dates, date-times and times of day; "no value" is a value of its own (a missing field, a division by zero, a
+    non-finite result). Reports read result fields typed by their column (raw storage values: numbers in the storage granularity, e.g. meters, cents;
+    references as display text; lists and objects as text; untyped fields guessed) and `config.<field>` typed by the configuration field.
+  - **Syntax**: number literals (`1.5`), texts (`"krank"` or `'krank'`, `\` escapes the quote), `true`, `false`, `null`; field names of letters (incl.
+    umlauts), digits, `_` and `.` (`gewicht`, `rad.name`, `garantiert.ablauf`) and `config.<field>`. Operators by precedence, lowest first: `or`/`||`,
+    `and`/`&&`, `not`/`!`, comparisons `== != < <= > >=` (not chained), `+ -`, `* / %`, unary `-`, `^` (power, right-associative, `-2^2` = -4),
+    parentheses. Keywords are whole words (`order` is a field).
+  - **Functions**: `abs`, `sqrt`, `round(x[, digits])`, `floor`, `ceil`, `min(..)`, `max(..)`, `coalesce(..)` (first value), `if(cond, then, else)`,
+    `case(x, key1, value1, key2, value2, ..[, default])` (the value after the first key equal to `x`), `present(x)` (has a non-blank value),
+    `concat(..)` (texts, no value as empty), `minutes(from, to)` (two times of day - an end before the start lies on the next day - or two date-times),
+    `days(from, to)`, `weekday(d)` (1 = Monday .. 7 = Sunday), `day(d)`, `month(d)`, `year(d)`, `today()`, `date(x)`, `time(x)` (texts such as
+    `'2026-01-01'` or `'08:00'` to a date or time).
+  - **Semantics**: yes/no values count as 1/0 in arithmetic (`max(kopfschmerz, migraene)` is "one of both"); texts compare alphabetically and by
+    exact equality, dates, date-times and times chronologically (a text on the other side is read as date/time, e.g. `datum >= '2026-01-01'`). A
+    missing operand gives no value in arithmetic, functions and ordering comparisons (as before); `==`/`!=` treat no value as a value of its own
+    (`x == null`); `and`, `or`, `not` and the condition of `if` read no value as "no"; `coalesce`, `if` and `case` provide defaults. Only the chosen
+    branch of `if`/`case` is evaluated.
+  - **Validation**: besides syntax errors (`EXPRESSION_INVALID` with position, `EXPRESSION_UNKNOWN_FUNCTION`) the parser infers types from the
+    result columns and configuration fields and reports `EXPRESSION_OPERAND_TYPE` (e.g. a text in arithmetic), `EXPRESSION_ARGUMENT_TYPE` (e.g.
+    `minutes` of a date), `EXPRESSION_INCOMPARABLE` (e.g. a text compared with a number), `EXPRESSION_MIXED_TYPES` (`if`/`case`/`coalesce` alternatives
+    of different types) and `EXPRESSION_RESULT_TYPE` (a result not fitting the `calc` field's `type`/`unit`, or a value rule not computing a number);
+    German texts in the `reportExpression` message bundle.
+
+  Rows of Arbeitszeiten and Journal without `kotlin` steps - net time from begin/end, the target time valid at the date (contract via `asOf`, else the
+  configuration, nothing before the entry date), the type of day by condition, regrouped per year; yes/no symptoms as 1/0 and a mood text as number:
+
+  ```yaml
+  queries:
+    tage: { entity: Arbeitstag, timeField: datum, fields: [datum, beginn, ende, pause, art], sort: [datum] }   # beginn/ende TIME, pause minutes
+    vertraege: { entity: Vertrag, timeField: gueltigAb, fields: [gueltigAb, wochenstunden] }
+    journal: { entity: Journal, timeField: datum, fields: [datum, kopfschmerz, migraene, befinden] }        # kopfschmerz/migraene BOOLEAN
+  transforms:
+    tage:
+      - { asOf: vertraege, fields: [wochenstunden], prefix: vertrag_ }
+      - { calc: typ, expr: "if(weekday(datum) >= 6, 'Wochenende', case(art, 'U', 'Urlaub', 'K', 'Krank', 'Arbeit'))" }
+      - { calc: netto, expr: "if(typ == 'Arbeit', minutes(beginn, ende) - coalesce(pause, 0), 0)", unit: MINUTES }
+      - calc: soll                                   # configuration: eintritt (DATE), wochenstunden (fallback without contract)
+        expr: "if(typ == 'Wochenende' or datum < config.eintritt, 0, coalesce(vertrag_wochenstunden, config.wochenstunden) * 60 / 5)"
+        unit: MINUTES
+      - { calc: saldo, expr: "if(typ == 'Arbeit', netto - soll, 0)", unit: MINUTES }
+      - { aggregate: { bucket: JAHR, groupBy: typ, values: { tage: count, netto: { sum: netto }, saldo: { sum: saldo } } } }
+    journal:
+      - { calc: beschwerden, expr: "kopfschmerz or migraene", type: LONG }      # yes/no -> 1/0
+      - { calc: kopfweh, expr: "max(kopfschmerz, migraene)" }                     # the same via max
+      - { calc: befindenWert, expr: "case(befinden, 'krank', 0, 'angeschlagen', 1, 'gut', 2, 'super', 3)", type: LONG }
+      - { aggregate: { bucket: MONAT, values: { beschwerdeTage: { sum: beschwerden }, befinden: { avg: befindenWert } } } }
+  tabs:
+    - name: Übersicht
+      rows:
+        - - { table: Arbeitszeit pro Jahr, query: tage }
+          - { bar: Saldo nach Art, query: tage, field: saldo }
+          - { timeseries: Befinden, query: journal, series: [{ field: befinden }, { field: beschwerdeTage, style: column, axis: right }] }
+  ```
 
 - **Checks** (`checks: { <name>: ... }`, `ReportChecker`): declarative warning rules over the report's queries (with the current variable selections),
   each with exactly one type, an optional `message` (German default text otherwise) and `severity` `warning` (default) or `error`. Only checks shown by a
@@ -467,8 +534,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     for `WERKTAG`) within the checked range are excluded. Findings are labelled with the period (`09/2026`, `KW 39/2026`, `25.09.2026`), newest first;
     placeholder `{period}`.
   - **Rules** `{ rule: <query>, ... }` per row of the query's transformed result (also aggregated rows): a value rule reads `field` (numeric) or computes
-    `expr` (the `calc` expression language, raw storage values) and reports values below `min` or above `max` (a number, a unit text such as `25km`
-    for a field with unit, or `config.<field>` converted into the field's unit); rows without value pass. A required rule `required: [fields]` reports
+    `expr` (the expression language, see above; its result read as number, yes/no as 1/0) and reports values below `min` or above `max` (a number,
+    a unit text such as `25km` for a field with unit, or `config.<field>` converted into the field's unit); rows without value pass. A required rule `required: [fields]` reports
     rows lacking any of them, restricted to rows having values for all `when: [fields]`. Findings are labelled with the row's bucket, time value and
     group; placeholders are all result fields (formatted like table cells), `{value}`, `{min}`, `{max}` and `{missing}`.
 
@@ -497,13 +564,14 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
 - **Validation** (`ReportDefinitionParser`, on save, on publish and before execution): YAML syntax (duplicate keys rejected), schema (unknown keys are
   errors; keys reserved for a later step answer "not supported yet" - none at the moment), variables (names,
   types, defaults and options; `$name` references exist and fit their use; select queries without variables), transformation steps (exactly one step
-  per entry, expressions parse and only read numeric fields of the result so far or numeric configuration fields, output names do not clash, `yoy`
+  per entry, expressions parse, only read fields of the result so far or configuration fields and fit their types (see "Expression language"), a
+  `calc` `type` is known and fits its `unit`, `aggregate` steps group by existing fields and aggregate numeric ones, output names do not clash, `yoy`
   needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group; `delta`, `asOf`, a bucketed `top` and a goal
   `period` need a date per row, `asOf` also on the other query; `asOf`/`join` fields and keys exist in the other query, queries do not read each other
   in a cycle; goal targets are numbers, unit texts, numeric configuration fields or numeric fields of a fitting unit; a `kotlin` step has a script
   and declares its fields with a known type or granularity, not as `bucket` or the group field), checks (exactly one type each, gap queries plain
-  with a time field, calendars are date fields of a plain query or date (list) configuration fields, rule fields/expressions numeric, bounds numbers, unit
-  texts or numeric configuration fields with `min` not above `max`, `required`/`when` fields in the result, known message placeholders, warnings panels
+  with a time field, calendars are date fields of a plain query or date (list) configuration fields, rule fields numeric and rule expressions
+  computing a number, bounds numbers, unit texts or numeric configuration fields with `min` not above `max`, `required`/`when` fields in the result, known message placeholders, warnings panels
   only list declared checks), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
   declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range, a pie has a category
   (`category`, a group or a bucket), a calendar heatmap a day per row (time field of a plain query or a `TAG` bucket) and a matrix heatmap both `x` and

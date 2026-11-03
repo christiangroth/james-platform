@@ -1,8 +1,11 @@
 package de.chrgroth.james.platform.domain.report
 
+import de.chrgroth.james.platform.domain.expression.Expression
+import de.chrgroth.james.platform.domain.expression.ExpressionValue
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
+import de.chrgroth.james.platform.domain.model.app.ReportAggregateTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAsOfTransform
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
@@ -33,7 +36,8 @@ import java.time.temporal.ChronoUnit
 /**
  * Applies a query's transformation steps (see [ReportTransform]) to its result. Running steps process the rows chronologically (by their
  * order key: bucket, time value or creation time) and per group of a grouped aggregate; the rows keep the order the query sorted them in.
- * [configNumber] answers the value of a `config.<field>` (raw, or converted into the given unit) for calculated fields and goals; [previousYear]
+ * [configNumber] answers the value of a `config.<field>` (raw, or converted into the given unit) for goals, [configValue] the typed value of a
+ * configuration field for calculated fields; [label] gives a raw value's display text (references in expressions, sorting groups); [previousYear]
  * runs the query (with the steps before the given index) over its range shifted back one year, for year-over-year values; [otherQuery] answers
  * another query's transformed result for `asOf` and `join`.
  */
@@ -43,8 +47,10 @@ internal class ReportTransformer(
   private val previousYear: (stepIndex: Int) -> QueryResult?,
   private val otherQuery: (name: String) -> Pair<ReportQuery, QueryResult>? = { null },
   private val script: (step: ReportKotlinTransform, index: Int, rows: List<Map<String, String?>>) -> ReportScriptResult = { _, _, _ -> SCRIPTS_UNAVAILABLE },
+  private val configValue: (path: String) -> ExpressionValue? = { null },
+  private val label: (column: ResultColumn, raw: String?) -> String = { _, raw -> raw.orEmpty() },
 ) {
-  private val expressions = HashMap<String, ReportExpression?>()
+  private val expressions = HashMap<String, Expression?>()
 
   fun apply(query: ReportQuery, range: ReportDateRange?, steps: List<ReportTransform>, base: QueryResult): QueryResult =
     steps.foldIndexed(base) { index, result, step -> if (result.error != null) result else applyStep(query, range, index, step, result) }
@@ -76,6 +82,7 @@ internal class ReportTransformer(
     is ReportJoinTransform -> join(step, result)
     is ReportTopTransform -> top(query, step, result)
     is ReportGoalTransform -> goal(query, step, result)
+    is ReportAggregateTransform -> aggregate(query, step, result)
     is ReportKotlinTransform -> kotlin(query, step, index, result)
   }
 
@@ -109,13 +116,30 @@ internal class ReportTransformer(
   // region calc
 
   private fun calc(step: ReportCalcTransform, result: QueryResult): QueryResult {
-    val expression = expressions.getOrPut(step.expression) { runCatching { ReportExpression.parse(step.expression) }.getOrNull() }
-    val column = ResultColumn(step.name, ColumnRole.VALUE, PropertyType.DOUBLE, step.unit)
+    val expression = expressions.getOrPut(step.expression) { ReportExpressions.parseOrNull(step.expression) }
+    val numeric = ReportFields.isNumericType(step.type)
+    val column = ResultColumn(step.name, if (numeric) ColumnRole.VALUE else ColumnRole.FIELD, step.type, step.unit?.takeIf { numeric })
     val rows = result.rows.map { row ->
-      val value = expression?.evaluate { name -> if (ReportFields.configPath(name) != null) configNumber(name, null) else row.values[name]?.toDoubleOrNull() }
-      row.with(step.name, value?.toString())
+      val value = expression?.evaluate(ReportRowContext(row.values, result.columns, configValue, today, label))
+      row.with(step.name, ReportExpressions.raw(value, step.type))
     }
     return result.copy(columns = result.columns + (step.name to column), rows = rows)
+  }
+
+  // endregion
+
+  // region aggregate
+
+  /** Aggregates the rows again (see [ReportAggregation]): by bucket of the row's date and/or group, sorted by bucket and group. */
+  private fun aggregate(query: ReportQuery, step: ReportAggregateTransform, result: QueryResult): QueryResult {
+    val aggregate = step.aggregate
+    val columns = LinkedHashMap<String, ResultColumn>()
+    aggregate.bucket?.let { columns[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, PropertyType.STRING, bucket = it) }
+    aggregate.groupBy?.let { group -> columns[group] = result.columns[group]?.copy(role = ColumnRole.GROUP) ?: ResultColumn(group, ColumnRole.GROUP, null) }
+    aggregate.values.forEach { value -> columns[value.name] = ResultColumn.value(value.name, value.function, value.field?.let { result.columns[it] }) }
+    val inputs = result.rows.map { row -> ReportAggregation.Input(row.values, if (aggregate.bucket == null) null else dateOf(query, result, row), row.order) }
+    val rows = ReportAggregation.sorted(ReportAggregation.rows(aggregate, columns, inputs), aggregate.groupBy?.let { columns[it] }, label)
+    return QueryResult(columns, rows, aggregate.bucket, aggregate.periodStart, aggregate.groupBy)
   }
 
   // endregion
