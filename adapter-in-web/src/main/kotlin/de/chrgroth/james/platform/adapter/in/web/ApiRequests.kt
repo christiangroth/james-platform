@@ -84,9 +84,12 @@ data class ApiUnitRequest @JsonCreator constructor(
   @param:JsonProperty("path") val path: List<String>?,
 )
 
+/** [unit]: granularity name of a numeric result (e.g. `KILOMETERS`); [expression]: the expression (ADR 0029), blank or missing clears it. */
 data class ApiComputedPropertyRequest @JsonCreator constructor(
   @param:JsonProperty("name") val name: String?,
   @param:JsonProperty("type") val type: String?,
+  @param:JsonProperty("unit") val unit: String?,
+  @param:JsonProperty("expression") val expression: String?,
 )
 
 data class ApiAggregationRequest @JsonCreator constructor(

@@ -123,7 +123,7 @@
                             data-testid="property-input-{prop.id}">
                         <option value="">{msg:commonSelectPlaceholder()}</option>
                         {#for opt in referenceOptions.referenceOptionsFor(prop.id)}
-                        <option value="{opt.id}">{opt.displayText}</option>
+                        <option value="{opt.id}"{#if smartDefaults.get(prop.id) == opt.id} selected{/if}>{opt.displayText}</option>
                         {/for}
                     </select>
                     {#else}
@@ -169,6 +169,7 @@
     <script type="application/json" id="object-fields-data">{objectFieldsJson}</script>
     <script type="application/json" id="reference-options-data">{referenceOptionsJson}</script>
     <script type="application/json" id="reference-lookups-data">{referenceLookupsJson}</script>
+    <script type="application/json" id="smart-default-dependencies-data">{smartDefaultDependenciesJson}</script>
     <script src="/object-property-fields.js?v={assetVersion}"></script>
     <script src="/reference-lookup-fields.js?v={assetVersion}"></script>
     <script src="/unit-value-fields.js?v={assetVersion}"></script>
@@ -425,6 +426,7 @@
             // Clears the form back to its initial render (freshly re-rendering OBJECT property fields too) and,
             // in Snapshot Mode, replays the captured snapshot - so the next entry starts from the same values.
             function resetFormForNextEntry() {
+                userEditedFields = {};
                 createForm.reset();
                 createForm.querySelectorAll('.list-property-rows[data-property-id]').forEach(function (container) {
                     container.querySelectorAll('.list-property-row').forEach(function (row) { row.remove(); });
@@ -591,6 +593,66 @@
                     showMessage(false, networkErrorMessage);
                     submitBtn.disabled = false;
                 }
+            });
+
+            // Smart defaults reading other fields of the form (ADR 0029, e.g. ende = start, tage = workdays(start, ende)) are re-evaluated on the
+            // server whenever one of those fields changes; a field the user edited himself keeps his value.
+            var smartDefaultDependencies = JSON.parse(document.getElementById('smart-default-dependencies-data').textContent);
+            var userEditedFields = {};
+
+            function propertyIdOf(el) {
+                if (!el || !el.name) return null;
+                if (el.name.indexOf('reflookup_') === 0) return el.name.substring('reflookup_'.length);
+                var unitField = el.closest('.unit-value-field');
+                if (unitField) {
+                    var hidden = unitField.querySelector('.unit-hidden-value');
+                    return hidden ? hidden.name.substring('prop_'.length) : null;
+                }
+                if (el.name.indexOf('prop_') === 0 && !el.closest('.object-property-fields')) return el.name.substring('prop_'.length);
+                return null;
+            }
+
+            function reevaluateSmartDefaults(changedId) {
+                var targets = Object.keys(smartDefaultDependencies).filter(function (target) {
+                    return target !== changedId && !userEditedFields[target] && smartDefaultDependencies[target].indexOf(changedId) >= 0;
+                });
+                if (targets.length === 0) return;
+                var body = new URLSearchParams();
+                body.append('entityId', '{entity.id}');
+                new FormData(createForm).forEach(function (value, key) {
+                    if (key.indexOf('prop_') === 0) body.append(key, value);
+                });
+                fetch('/ui/user/apps/{info.installedAppId}/data/defaults', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+                    body: body.toString(),
+                }).then(function (r) { return r.ok ? r.json() : {}; }).then(function (defaults) {
+                    targets.forEach(function (target) {
+                        var el = document.getElementById('prop_' + target);
+                        var value = (defaults || {})[target];
+                        if (!el || value == null || userEditedFields[target]) return;
+                        if (el.type === 'checkbox') {
+                            el.checked = value === 'true';
+                        } else {
+                            el.value = value;
+                        }
+                        // chained dependencies (tage depends on ende, ende on start)
+                        reevaluateSmartDefaults(target);
+                    });
+                    resyncUnitFields(createForm);
+                }).catch(function () {});
+            }
+
+            createForm.addEventListener('input', function (e) {
+                var id = propertyIdOf(e.target);
+                if (id && e.isTrusted) userEditedFields[id] = true;
+            });
+            createForm.addEventListener('change', function (e) {
+                var id = propertyIdOf(e.target);
+                if (!id) return;
+                if (e.isTrusted) userEditedFields[id] = true;
+                // let unit fields sync their hidden value first
+                setTimeout(function () { reevaluateSmartDefaults(id); }, 0);
             });
 
             // Value proposals autocomplete

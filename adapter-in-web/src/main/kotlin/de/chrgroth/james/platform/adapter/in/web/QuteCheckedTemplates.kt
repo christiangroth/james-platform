@@ -61,9 +61,6 @@ object Templates {
   external fun `health$snippet_http_responses`(stats: HealthStats): TemplateInstance
 
   @JvmStatic
-  external fun `health$snippet_scripting`(stats: HealthStats): TemplateInstance
-
-  @JvmStatic
   external fun `health$snippet_import_cleanup`(stats: HealthStats): TemplateInstance
 
   @JvmStatic
@@ -216,6 +213,8 @@ object UserTemplates {
     objectFieldsJson: RawString,
     referenceOptionsJson: RawString,
     referenceLookupsJson: RawString,
+    /** Per property id the ids of the form fields its smart default reads, to re-evaluate it when they change (ADR 0029). */
+    smartDefaultDependenciesJson: RawString,
   ): TemplateInstance
 
   @JvmStatic

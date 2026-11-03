@@ -19,7 +19,6 @@ import de.chrgroth.james.platform.domain.model.infra.HttpResponseStats
 import de.chrgroth.james.platform.domain.model.infra.ImportCleanupStats
 import de.chrgroth.james.platform.domain.model.infra.MongoCollectionStats
 import de.chrgroth.james.platform.domain.model.infra.MongoQueryStats
-import de.chrgroth.james.platform.domain.model.infra.ScriptExecutionStats
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.viewer.MongoViewerField
 import de.chrgroth.james.platform.domain.model.viewer.MongoViewerResult
@@ -50,7 +49,6 @@ import io.quarkus.qute.TemplateData
 @TemplateData(target = CronjobStats::class)
 @TemplateData(target = ConfigurationStats::class)
 @TemplateData(target = ConfigEntry::class)
-@TemplateData(target = ScriptExecutionStats::class)
 @TemplateData(target = ImportCleanupStats::class)
 @TemplateData(target = MongoViewerResult::class)
 @TemplateData(target = MongoViewerField::class)

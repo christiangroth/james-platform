@@ -164,55 +164,6 @@
                 </div>
             </div>
 
-            <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringScriptingHeading()}</h2>
-            <div class="row g-3 mb-4">
-                <div class="col-12">
-                    <div id="snippet-scripting" class="card h-100 app-card">
-                        {#fragment id="snippet_scripting"}
-                        <div class="card-body">
-                            <p class="card-subtitle mb-3 app-section-label">{monitoring:monitoringScriptExecutionsSectionLabel()}</p>
-                            {#if stats.scriptStats.isEmpty}
-                            <p class="app-section-label" data-testid="no-script-stats">{monitoring:monitoringNoScriptStatsMessage()}</p>
-                            {#else}
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0 app-table" data-testid="scripting-table">
-                                    <thead>
-                                        <tr>
-                                            <th>{msg:commonType()}</th>
-                                            <th>{monitoring:monitoringColEntity()}</th>
-                                            <th>{monitoring:monitoringColProperty()}</th>
-                                            <th class="text-end">{monitoring:monitoringColExecutions()}</th>
-                                            <th class="text-end">{monitoring:monitoringColErrors()}</th>
-                                            <th class="text-end">{monitoring:monitoringColTotalMs()}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {#for s in stats.scriptStats}
-                                        <tr>
-                                            <td><span class="app-badge-muted badge">{#if s.type.name == "SMART_DEFAULT"}{monitoring:monitoringScriptTypeSmartDefaultBadge()}{#else if s.type.name == "REPORT"}{monitoring:monitoringScriptTypeReportBadge()}{#else}{monitoring:monitoringScriptTypeComputedPropertyBadge()}{/if}</span></td>
-                                            <td>{s.entityName}</td>
-                                            <td>{s.propertyName}</td>
-                                            <td class="text-end">{s.executionCount.formatted}</td>
-                                            <td class="text-end">
-                                                {#if s.errorCount > 0}
-                                                <span style="color:var(--color-warning-text);">{s.errorCount.formatted}</span>
-                                                {#else}
-                                                <span style="color:var(--color-text-primary);">{s.errorCount.formatted}</span>
-                                                {/if}
-                                            </td>
-                                            <td class="text-end">{s.totalDurationMs.formatted}</td>
-                                        </tr>
-                                        {/for}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {/if}
-                        </div>
-                        {/fragment}
-                    </div>
-                </div>
-            </div>
-
             <h2 class="mb-3 fs-6 fw-semibold text-uppercase" style="color:var(--color-text-muted);letter-spacing:.05em;">{monitoring:monitoringImportCleanupHeading()}</h2>
             <div class="row g-3 mb-4">
                 <div class="col-12">
