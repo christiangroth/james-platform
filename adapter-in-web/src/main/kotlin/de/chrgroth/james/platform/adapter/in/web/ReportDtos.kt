@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportAdvancedMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportCheckMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportTransformMessages
@@ -59,6 +60,7 @@ data class ApiReportPanelDto(
   val text: String? = null,
   val color: String? = null,
   val comparison: ApiStatComparisonDto? = null,
+  val goal: ApiStatGoalDto? = null,
   val warnings: List<ApiReportWarningDto>? = null,
   val totalWarnings: Int? = null,
 )
@@ -87,6 +89,10 @@ data class ApiStatComparisonDto(
   val trend: String,
   val periodText: String,
 )
+
+/** A stat's target: [value] raw, [text] formatted, [percent] the stat value in percent of it (absent without value or for a target of 0). */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ApiStatGoalDto(val value: Double?, val text: String, val percent: Double?, val percentText: String?)
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ApiReportColumnDto(val key: String, val label: String, val type: String, val unit: ApiReportUnitDto? = null)
@@ -166,6 +172,7 @@ object ApiReportDtoMapper {
       text = panel.text,
       color = panel.color,
       comparison = panel.comparison?.let { ApiStatComparisonDto(it.previousValue, it.previousText, it.deltaText, it.percentText, it.trend, it.periodText) },
+      goal = panel.goal?.let { ApiStatGoalDto(it.value, it.text, it.percent, it.percentText) },
     )
     is WarningsPanelSpec -> ApiReportPanelDto(
       type = panel.type.key,
@@ -190,6 +197,7 @@ class ReportTexts(
   private val reportMsg: ReportMessages,
   private val transformMsg: ReportTransformMessages,
   private val checkMsg: ReportCheckMessages,
+  private val advancedMsg: ReportAdvancedMessages,
 ) {
 
   private val objectMapper = ObjectMapper()
@@ -254,6 +262,9 @@ class ReportTexts(
       ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET -> transformMsg.reportErrorTransformNeedsBucket(a(0), a(1))
       ReportDefinitionErrorCode.FORECAST_NEEDS_PERIOD -> transformMsg.reportErrorForecastNeedsPeriod(a(0))
       ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME -> transformMsg.reportErrorResampleNeedsTime(a(0))
+      ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME -> advancedMsg.reportErrorTransformNeedsTime(a(0), a(1))
+      ReportDefinitionErrorCode.TRANSFORM_QUERY_CYCLE -> advancedMsg.reportErrorTransformQueryCycle(a(0))
+      ReportDefinitionErrorCode.GOAL_TARGET_INVALID -> advancedMsg.reportErrorGoalTargetInvalid(a(0))
       ReportDefinitionErrorCode.CHECK_TYPE_MISSING -> checkMsg.reportErrorCheckTypeMissing(a(0))
       ReportDefinitionErrorCode.CHECK_TYPE_AMBIGUOUS -> checkMsg.reportErrorCheckTypeAmbiguous(a(0))
       ReportDefinitionErrorCode.CHECK_NOT_FOUND -> checkMsg.reportErrorCheckNotFound(a(0))

@@ -160,9 +160,9 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: steps 1-5 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
-App configuration via `config.*`, variables and basic transformations, checks and warnings panel, see [docs/plans/reports.md](../plans/reports.md) for the
-remaining steps: advanced transformations, heatmap/pie and a Kotlin step, personal dashboards).
+**Status: steps 1-6 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
+App configuration via `config.*`, variables, basic and advanced transformations, checks and warnings panel, see [docs/plans/reports.md](../plans/reports.md)
+for the remaining steps: heatmap/pie and a Kotlin step, personal dashboards).
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
 editor, and executed backend-side; no Developer-authored code runs in the browser.
@@ -190,7 +190,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
 - **Stat:** one value of a query field reduced by `reduce` (`sum`, `avg`, `min`, `max`, `last` (default), `count`; without `field` the single aggregate
   value), optional `compare: previous_period` (needs a closed range; the previous period of the same length - whole calendar months shift by months -
   with absolute and relative change) and `thresholds: [{ value, color }]` (value as number or unit text such as `20km`, color `green`/`red`/`orange`/
-  `yellow`/`blue`/`purple`/`gray` or `#rrggbb`; the highest threshold not above the value wins).
+  `yellow`/`blue`/`purple`/`gray` or `#rrggbb`; the highest threshold not above the value wins) and `goal` (a number, unit text, `config.<field>` or a
+  numeric field of the query - its latest value): the target, shown with the value's progress in percent and a progress bar.
 - **App configuration** (ADR [0027](../adr/0027-app-configuration.md)): `config.<field>` reads a field of the installation's configuration object (the
   defaults while it does not exist yet) - as a filter `value` (numbers converted into the filtered field's unit, references by display text; a missing
   value never matches), as a threshold `value` (converted into the stat's unit) and as a constant stat panel `{ stat: Jahresziel, config: zielKm }`
@@ -269,7 +270,25 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     keep their value, future ones are empty) or over the query's closed range without bucket (default field `<field>_prognose`);
   - `{ resample: <bucket>, periodStart, fill: forward|none }` one row per bucket from the first to the last with data, carrying the latest row's values
     ("value valid at"); gaps repeat the previous bucket with `fill: forward` (default). The result is keyed by `bucket` and charted over buckets
-    (not with a grouped aggregate).
+    (not with a grouped aggregate);
+  - `{ delta: <field>, as, perDay, by, bucket, periodStart }` - consumption from meter readings: the difference to the previous row with a value
+    (chronologically, per group of a grouped aggregate or per value of `by`, e.g. the meter), the first row stays empty (default field
+    `<field>_delta`); `perDay: true` divides by the days between both readings; `bucket` instead spreads each difference evenly over the days from one
+    reading up to the next and sums it per bucket (and `by` value) - the rows become `bucket`, the `by` field and the output, charted over buckets;
+  - `{ asOf: <query>, fields: [..], on, at: start|end, prefix }` - "value valid at date": attaches `fields` of the latest row of another query of the
+    report whose date (time field or bucket start) is at most the row's date (time field, or its bucket's start - its end with `at: end`); `on`
+    restricts the candidates to rows with the same key (see `join`), `prefix` renames the attached fields;
+  - `{ join: <query>, on, fields: [..], prefix }` - attaches `fields` of the first row of another query with the same key (left join); `on: <field>`
+    compares the same field in both queries (e.g. `bucket` of two yearly aggregates), `on: { field, other }` two different ones, `other: id` the other
+    row's object id (a `ref` field against the referenced objects). The other query runs with its own range and transforms (read first, whatever the
+    declaration order; queries reading each other are rejected);
+  - `{ top: <field>, n, order: asc|desc, by, bucket, periodStart, as }` - records / top-N: keeps the `n` (default 1) rows with the highest (`asc`: lowest)
+    value per `by` value and/or per time `bucket` of the row's date (adding the field `bucket`), numbered in `as` (default `rang`), ordered by bucket,
+    group and rank;
+  - `{ goal: <field>, target, period, periodStart, as, progress }` - goals vs. actuals: `as` (default `<field>_ziel`) is the target - a number, a unit
+    text (`1000km`), `config.<field>` or a numeric field of the row (e.g. attached by `asOf`) - and `progress` (default `<field>_fortschritt`) the
+    value in percent of it; with `period` the target applies per such period and each row gets the share elapsed up to its date (its bucket's end),
+    e.g. the pro-rata line of a yearly goal against the cumulative distance per month.
 
   ```yaml
   variables:
@@ -300,6 +319,52 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
           - { timeseries: km pro Monat, query: km_monat, series: [{ field: km, style: column }, { field: km_vorjahr }, { field: km_prognose }] }
         - - { timeseries: Lebensversicherung, query: versicherung, series: [{ field: rueckkaufswert }, { field: beitraege }] }
   ```
+
+  Advanced steps, as used by the ports of Zählerstände, Verdienst, Urlaubsplaner (with a "valid from" Entity in *Arbeit*), Running and Walking Pad:
+
+  ```yaml
+  queries:
+    # Zählerstände: consumption per month and meter
+    staende: { entity: Zaehlerstand, timeField: datum, fields: [datum, zaehler, stand] }
+    # Verdienst: pay slips with their contract (ref), net and gross per year
+    abrechnungen: { entity: Gehaltsabrechnung, timeField: monat, fields: [monat, netto, brutto, vertrag], sort: [monat] }
+    vertraege: { entity: Arbeitsvertrag, fields: [arbeitgeber, wochenstunden] }
+    verdienst_jahr: { entity: Gehaltsabrechnung, timeField: monat, aggregate: { bucket: JAHR, values: { netto: { sum: netto }, brutto: { sum: brutto } } } }
+    # Urlaubsplaner: days taken per year against the entitlement of the "valid from" Entity of Arbeit
+    urlaub_jahr: { entity: Urlaub, timeField: von, aggregate: { bucket: JAHR, values: { genommen: { sum: tage } } } }
+    anspruch: { entity: Arbeitszeitmodell, timeField: gueltigAb, fields: [gueltigAb, urlaubstage, wochenstunden] }
+    # Running: records, pace and the yearly goal
+    laeufe: { entity: Lauf, timeField: datum, fields: [datum, strecke, distanz, dauer] }
+    km_monat: { entity: Lauf, timeField: datum, range: this_year, aggregate: { bucket: MONAT, values: { km: { sum: distanz } } } }
+    km_jahr: { entity: Lauf, timeField: datum, range: this_year, aggregate: { sum: distanz } }
+    # Walking Pad: steps per day against a daily goal from the configuration
+    pad: { entity: WalkingPadSession, timeField: datum, range: last_30_days, aggregate: { bucket: TAG, values: { schritte: { sum: schritte } } } }
+  transforms:
+    staende: [{ delta: stand, as: verbrauch, by: zaehler, bucket: MONAT }]
+    abrechnungen: [{ join: vertraege, on: { field: vertrag, other: id }, fields: [arbeitgeber, wochenstunden] }]
+    urlaub_jahr:
+      - { asOf: anspruch, fields: [urlaubstage], at: end }
+      - { calc: rest, expr: "urlaubstage - genommen" }
+      - { goal: genommen, target: urlaubstage, progress: quote }
+    laeufe:
+      - { calc: pace, expr: "dauer / (distanz / 1000)", unit: SECONDS }   # seconds per km
+      - { top: dauer, order: asc, by: strecke }                            # best time per route
+    km_monat:
+      - { cumulative: km, as: gesamt }
+      - { goal: gesamt, target: config.jahresziel, period: JAHR, as: soll }
+    pad: [{ goal: schritte, target: config.schritteProTag }]
+  tabs:
+    - name: Übersicht
+      rows:
+        - - { stat: Jahresziel, query: km_jahr, goal: config.jahresziel }
+          - { timeseries: Jahresziel, query: km_monat, series: [{ field: gesamt, style: area }, { field: soll }] }
+        - - { table: Bestzeiten, query: laeufe, columns: [strecke, datum, dauer, pace] }
+          - { table: Urlaub, query: urlaub_jahr, columns: [bucket, urlaubstage, genommen, rest, quote] }
+        - - { timeseries: Verbrauch pro Monat, query: staende, field: verbrauch, style: column }
+          - { table: Abrechnungen, query: abrechnungen }
+          - { timeseries: Schritte, query: pad, series: [{ field: schritte, style: column }, { field: schritte_ziel }] }
+  ```
+
 
 - **Checks** (`checks: { <name>: ... }`, `ReportChecker`): declarative warning rules over the report's queries (with the current variable selections),
   each with exactly one type, an optional `message` (German default text otherwise) and `severity` `warning` (default) or `error`. Only checks shown by a
@@ -345,7 +410,9 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   errors; keys reserved for later steps such as the panel types `pie`/`heatmap` answer "not supported yet"), variables (names,
   types, defaults and options; `$name` references exist and fit their use; select queries without variables), transformation steps (exactly one step
   per entry, expressions parse and only read numeric fields of the result so far or numeric configuration fields, output names do not clash, `yoy`
-  needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group), checks (exactly one type each, gap queries plain
+  needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group; `delta`, `asOf`, a bucketed `top` and a goal
+  `period` need a date per row, `asOf` also on the other query; `asOf`/`join` fields and keys exist in the other query, queries do not read each other
+  in a cycle; goal targets are numbers, unit texts, numeric configuration fields or numeric fields of a fitting unit), checks (exactly one type each, gap queries plain
   with a time field, calendars are date fields of a plain query or date (list) configuration fields, rule fields/expressions numeric, bounds numbers, unit
   texts or numeric configuration fields with `min` not above `max`, `required`/`when` fields in the result, known message placeholders, warnings panels
   only list declared checks), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use

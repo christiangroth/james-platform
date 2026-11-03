@@ -22,7 +22,9 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   time series (line/column/area, several series, second axis, zoom), bar charts and single values with comparison to the previous period and
   threshold colors. Variables (time range, selection from a query such as year or employer) appear as controls on top of the report and feed query
   ranges and filters; per-query transformations add calculated fields (small safe expression language incl. configuration values), running totals,
-  moving averages, year-over-year values, forecasts to the period end and resampling with fill-forward. Checks find gaps (e.g. a missing monthly
+  moving averages, year-over-year values, forecasts to the period end, resampling with fill-forward, consumption from meter readings (per day or
+  spread over buckets), "value valid at date" lookups (e.g. weekly hours or vacation entitlement valid from a date), joins of two queries by key or
+  reference, records / top-N per group or year and goals vs. actuals (also as stat with progress bar). Checks find gaps (e.g. a missing monthly
   payslip or meter reading, one entry per workday/week/month, skipping holidays and vacation from a configuration list or an Entity) and rule violations
   (values out of range, missing required values) and list them in a warnings panel with a counter on the tab. The version editor validates definitions with line
   numbers and previews them against a test installation; Users open the reports of their installed Apps. Queries run backend-side on the installation's

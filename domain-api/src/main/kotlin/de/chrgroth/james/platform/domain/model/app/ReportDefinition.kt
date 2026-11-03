@@ -240,6 +240,7 @@ enum class ReportAxis(val key: String) {
  * A single value: [field] of [query] reduced over all its rows ([field] null with [ReportReduce.COUNT] counts rows), or - instead of a query -
  * the [config] field of the App configuration (ADR 0027) as a constant. [compare] adds the value of the previous period of the same length (the
  * query needs a closed range). [thresholds] color the value: the last threshold (in ascending order) whose value is at most the value wins.
+ * [goal] (a number, unit text, `config.<field>` or a numeric field of the query, its latest value) shows the progress towards a target.
  */
 data class ReportStatPanel(
   override val title: String,
@@ -249,6 +250,7 @@ data class ReportStatPanel(
   val compare: Boolean = false,
   val thresholds: List<ReportThreshold> = emptyList(),
   val config: String? = null,
+  val goal: String? = null,
 ) : ReportPanel {
   override val type: ReportPanelType get() = ReportPanelType.STAT
 }
@@ -410,6 +412,15 @@ enum class ReportDefinitionErrorCode {
   /** args: query. Resampling needs the query's time field or a time bucket. */
   RESAMPLE_NEEDS_TIME,
 
+  /** args: step, query. The step needs a date per row: the query's time field or a time bucket. */
+  TRANSFORM_NEEDS_TIME,
+
+  /** args: query. The queries read by `asOf`/`join` steps refer to each other (or a query to itself). */
+  TRANSFORM_QUERY_CYCLE,
+
+  /** args: value. A goal target is no number, unit text, `config.<field>` or numeric result field. */
+  GOAL_TARGET_INVALID,
+
   /** args: allowed check types (comma separated). */
   CHECK_TYPE_MISSING,
 
@@ -529,6 +540,7 @@ data class StatPanelSpec(
   val text: String,
   val color: String? = null,
   val comparison: StatComparisonSpec? = null,
+  val goal: StatGoalSpec? = null,
 ) : PanelSpec {
   override val type: ReportPanelType get() = ReportPanelType.STAT
 }
@@ -545,6 +557,9 @@ data class StatComparisonSpec(
   val trend: String,
   val periodText: String,
 )
+
+/** A stat's target: [value] raw, [text] formatted, [percent] the stat value in percent of it (null without value or for a target of 0). */
+data class StatGoalSpec(val value: Double?, val text: String, val percent: Double?, val percentText: String?)
 
 data class TextPanelSpec(
   override val title: String,

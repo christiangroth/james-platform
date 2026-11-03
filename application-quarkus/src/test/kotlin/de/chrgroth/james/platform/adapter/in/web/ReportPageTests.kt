@@ -337,6 +337,51 @@ class ReportPageTests {
   }
 
   @Test
+  fun `preview shows a stat goal with progress and a top-N table`() {
+    val draft = createDraft()
+    val installedAppId = testInstallations.createTestInstallation(draft.appId, draft.versionId, developerId(), USERNAME).getOrNull()!!.id.value
+    addKonzert(draft, installedAppId, "Muse", "2026-01-10")
+    addKonzert(draft, installedAppId, "Muse", "2026-03-10")
+    addKonzert(draft, installedAppId, "Blur", "2026-03-12")
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("name", "Ziele")
+      .formParam("definition", GOAL_DEFINITION)
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}/preview")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+      .body("view.tabs[0].rows[0].panels[0].goal.text", equalTo("4"))
+      .body("view.tabs[0].rows[0].panels[0].goal.percentText", equalTo("50 %"))
+      .body("view.tabs[0].rows[0].panels[1].rows[0][0].text", equalTo("03/2026"))
+      .body("view.tabs[0].rows[0].panels[1].rows[0][1].value", equalTo("2"))
+  }
+
+  @Test
+  fun `invalid advanced transformations are reported in German and the report page carries the goal text`() {
+    val draft = createDraft()
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Konzerte")
+      .formParam("definition", "queries:\n  q: { entity: Konzert, fields: [name] }\ntransforms:\n  q: [{ top: name }, { asOf: q, fields: [name], prefix: x_ }]\ntabs: []\n")
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+      .body("errors.code", contains("FIELD_NOT_NUMERIC", "TRANSFORM_QUERY_CYCLE", "TRANSFORM_NEEDS_TIME"))
+      .body("errors[1].message", containsString("dürfen sich nicht gegenseitig"))
+      .body("errors[2].message", containsString("braucht ein Datum pro Zeile"))
+
+    appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
+    val installedAppId = userAppStore.installApp(USERNAME, draft.appId).getOrNull()!!.id.value
+    given().`when`().get("/ui/user/apps/$installedAppId/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body(containsString("data-text-stat-goal=\"Ziel\""))
+  }
+
+  @Test
   fun `report page of an unknown report redirects to the installed app`() {
     val draft = createDraft()
     appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
@@ -378,6 +423,18 @@ class ReportPageTests {
             - - { stat: Konzerte, query: alle, reduce: count }
               - { timeseries: Pro Monat, query: monate, style: column }
               - { bar: Pro Band, query: proBand, horizontal: true }
+    """.trimIndent()
+
+    val GOAL_DEFINITION = """
+      queries:
+        monate: { entity: Konzert, timeField: datum, aggregate: { bucket: MONAT, values: { konzerte: count } } }
+      transforms:
+        monate: [{ top: konzerte }]
+      tabs:
+        - name: Ziele
+          rows:
+            - - { stat: Konzerte, query: monate, field: konzerte, reduce: sum, goal: 4 }
+              - { table: Bester Monat, query: monate }
     """.trimIndent()
 
     val CHECK_DEFINITION = """

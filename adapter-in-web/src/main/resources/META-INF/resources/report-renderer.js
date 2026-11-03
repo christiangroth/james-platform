@@ -427,6 +427,25 @@ var JamesReports = (function (global) {
             line.appendChild(document.createTextNode(' ' + (texts.statPrevious || '') + ': ' + comparison.previousText));
             container.appendChild(line);
         }
+        var goal = panel.goal;
+        if (goal) {
+            // Progress towards the target: a bar capped at 100 % plus the target and the percentage as text.
+            var percent = typeof goal.percent === 'number' ? Math.max(0, Math.min(100, goal.percent)) : 0;
+            var bar = el('div', 'progress mt-2');
+            bar.style.height = '0.5rem';
+            bar.setAttribute('role', 'progressbar');
+            bar.setAttribute('aria-valuemin', '0');
+            bar.setAttribute('aria-valuemax', '100');
+            bar.setAttribute('aria-valuenow', String(Math.round(percent)));
+            bar.setAttribute('data-testid', 'report-stat-goal');
+            var fill = el('div', 'progress-bar');
+            fill.style.width = percent + '%';
+            if (panel.color) fill.style.backgroundColor = COLORS[panel.color] || panel.color;
+            bar.appendChild(fill);
+            container.appendChild(bar);
+            var goalLine = el('div', 'app-section-label small mt-1', (texts.statGoal || '') + ': ' + goal.text + (goal.percentText ? ' (' + goal.percentText + ')' : ''));
+            container.appendChild(goalLine);
+        }
     });
 
     // endregion
