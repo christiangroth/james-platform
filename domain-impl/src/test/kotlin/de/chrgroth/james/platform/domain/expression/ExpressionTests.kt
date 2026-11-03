@@ -290,4 +290,83 @@ class ExpressionTests {
   }
 
   // endregion
+
+  // region data entry functions (ADR 0029)
+
+  private class EntryContext(private val fields: Map<String, ExpressionValue?>, private val latest: Map<String, ExpressionValue?>, override val today: LocalDate) :
+    ExpressionContext {
+    override val now: LocalDateTime = today.atTime(14, 37, 12)
+
+    override fun field(name: String): ExpressionValue? = fields[name]
+
+    override fun config(path: String): ExpressionValue? = null
+
+    override fun last(name: String): ExpressionValue? = latest[name]
+  }
+
+  private fun entry(source: String, fields: Map<String, ExpressionValue?> = emptyMap(), latest: Map<String, ExpressionValue?> = emptyMap()): ExpressionValue? =
+    Expression.parse(source).evaluate(EntryContext(fields, latest, today))
+
+  @Test
+  fun `workdays counts Mondays to Fridays between two dates, both inclusive, without holidays`() {
+    val start = Date(LocalDate.of(2026, 12, 21))
+    val end = Date(LocalDate.of(2027, 1, 3))
+
+    assertThat(value("workdays(start, ende)", mapOf("start" to start, "ende" to end))).isEqualTo(Num(10.0))
+    assertThat(value("workdays(start, ende, \"2026-12-24, 2026-12-25;2026-12-31\")", mapOf("start" to start, "ende" to end))).isEqualTo(Num(7.0))
+    assertThat(value("workdays(start, ende, feiertage)", mapOf("start" to start, "ende" to end, "feiertage" to Text("2026-12-242026-12-25")))).isEqualTo(Num(8.0))
+    assertThat(value("workdays(start, ende, tag)", mapOf("start" to start, "ende" to end, "tag" to Date(LocalDate.of(2026, 12, 24))))).isEqualTo(Num(9.0))
+    assertThat(value("workdays(start, ende, keine)", mapOf("start" to start, "ende" to end))).isEqualTo(Num(10.0))
+    assertThat(value("workdays(ende, start)", mapOf("start" to start, "ende" to end))).isEqualTo(Num(0.0))
+    assertThat(value("workdays(start, ende)", mapOf("start" to start))).isNull()
+  }
+
+  @Test
+  fun `end_of_month, add_days and now compute dates for data entry`() {
+    assertThat(value("end_of_month(d)", mapOf("d" to Date(LocalDate.of(2028, 2, 10))))).isEqualTo(Date(LocalDate.of(2028, 2, 29)))
+    assertThat(value("end_of_month(today())")).isEqualTo(Date(LocalDate.of(2026, 11, 30)))
+    assertThat(value("add_days(today(), 30)")).isEqualTo(Date(LocalDate.of(2026, 12, 3)))
+    assertThat(value("add_days(today(), -3)")).isEqualTo(Date(LocalDate.of(2026, 10, 31)))
+    assertThat(entry("now()")).isEqualTo(DateTime(LocalDateTime.of(2026, 11, 3, 14, 37)))
+    assertThat(entry("time(now())")).isEqualTo(Time(LocalTime.of(14, 37)))
+    assertThat(value("now()")).isEqualTo(DateTime(LocalDateTime.of(2026, 11, 3, 0, 0)))
+  }
+
+  @Test
+  fun `last and next_day read the latest existing object, not the form`() {
+    val latest = mapOf("datum" to Date(LocalDate.of(2026, 10, 31)), "schuhe" to Text("schuh-2"))
+
+    assertThat(entry("last(schuhe)", fields = mapOf("schuhe" to Text("form")), latest = latest)).isEqualTo(Text("schuh-2"))
+    assertThat(entry("next_day(datum)", latest = latest)).isEqualTo(Date(LocalDate.of(2026, 11, 1)))
+    assertThat(entry("coalesce(next_day(datum), today())")).isEqualTo(Date(today))
+    assertThat(entry("last(schuhe)")).isNull()
+  }
+
+  @Test
+  fun `entry functions take a field name and are told apart from the fields read directly`() {
+    val expression = Expression.parse("if(present(ende), workdays(start, ende), last(tage))")
+
+    assertThat(expression.identifiers).containsExactlyInAnyOrder("ende", "start", "tage")
+    assertThat(expression.directIdentifiers).containsExactlyInAnyOrder("ende", "start")
+    assertThat(expression.entryFunctions).containsExactly("last")
+    assertThat(parseError("last(1)").fieldArgumentOf).isEqualTo("last")
+    assertThat(parseError("next_day(config.start)").fieldArgumentOf).isEqualTo("next_day")
+    assertThat(parseError("next_day(a + 1)").fieldArgumentOf).isEqualTo("next_day")
+  }
+
+  @Test
+  fun `the data entry functions are type checked`() {
+    val types = mapOf("start" to ExpressionType.DATE, "ende" to ExpressionType.DATE, "name" to ExpressionType.TEXT, "n" to ExpressionType.NUMBER)
+
+    assertThat(type("workdays(start, ende)", types).type).isEqualTo(ExpressionType.NUMBER)
+    assertThat(type("end_of_month(start)", types).type).isEqualTo(ExpressionType.DATE)
+    assertThat(type("next_day(start)", types).type).isEqualTo(ExpressionType.DATE)
+    assertThat(type("last(name)", types).type).isEqualTo(ExpressionType.TEXT)
+    assertThat(type("now()", types).type).isEqualTo(ExpressionType.DATETIME)
+    assertThat(type("add_days(start, n)", types).type).isEqualTo(ExpressionType.DATE)
+    assertThat(type("add_days(start, ende)", types).problems.map { it.kind }).containsExactly(ExpressionProblem.Kind.ARGUMENT_TYPE)
+    assertThat(type("workdays(n, ende)", types).problems.map { it.kind }).containsExactly(ExpressionProblem.Kind.ARGUMENT_TYPE)
+  }
+
+  // endregion
 }

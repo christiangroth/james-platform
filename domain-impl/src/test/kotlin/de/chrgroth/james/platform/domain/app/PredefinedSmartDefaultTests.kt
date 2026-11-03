@@ -1,6 +1,11 @@
 package de.chrgroth.james.platform.domain.app
 
+import de.chrgroth.james.platform.domain.expression.EntityExpressions
+import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
+import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -8,71 +13,26 @@ import org.junit.jupiter.api.Test
 class PredefinedSmartDefaultTests {
 
   @Test
-  fun `forType returns empty list for types without predefined defaults`() {
-    TYPES_WITHOUT_PREDEFINED_DEFAULTS.forEach { type ->
-      assertThat(PredefinedSmartDefault.forType(type))
-        .describedAs("$type should have no predefined smart defaults")
-        .isEmpty()
+  fun `every predefined smart default is a valid expression for each type it is offered for`() {
+    PredefinedSmartDefault.entries.forEach { predefined ->
+      predefined.types.forEach { type ->
+        val property = Property(id = PropertyId("p-1"), name = "feld", type = type, targetEntityId = EntityDefinitionId("e-2").takeIf { type == PropertyType.REF })
+        val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "E", properties = listOf(property))
+
+        assertThat(EntityExpressions.validateSmartDefault(entity, property, predefined.expressionFor(property.name), null))
+          .describedAs("${predefined.name} for $type")
+          .isNull()
+      }
     }
   }
 
-  private companion object {
-    val TYPES_WITHOUT_PREDEFINED_DEFAULTS = listOf(
-      PropertyType.STRING,
-      PropertyType.LONG,
-      PropertyType.DOUBLE,
-      PropertyType.BOOLEAN,
-      PropertyType.LIST,
-      PropertyType.OBJECT,
-      PropertyType.REF,
-    )
-  }
-
   @Test
-  fun `forType returns DATE_TODAY for DATE type`() {
+  fun `predefined smart defaults are offered per type`() {
     assertThat(PredefinedSmartDefault.forType(PropertyType.DATE))
-      .containsExactly(PredefinedSmartDefault.DATE_TODAY)
-  }
-
-  @Test
-  fun `forType returns all TIME predefined defaults in order`() {
-    assertThat(PredefinedSmartDefault.forType(PropertyType.TIME))
-      .containsExactly(
-        PredefinedSmartDefault.TIME_NOW,
-        PredefinedSmartDefault.TIME_NOW_CURRENT_SECOND,
-        PredefinedSmartDefault.TIME_NOW_CURRENT_MINUTE,
-        PredefinedSmartDefault.TIME_NOW_CURRENT_HOUR,
-      )
-  }
-
-  @Test
-  fun `forType returns all DATETIME predefined defaults in order`() {
-    assertThat(PredefinedSmartDefault.forType(PropertyType.DATETIME))
-      .containsExactly(
-        PredefinedSmartDefault.DATETIME_NOW,
-        PredefinedSmartDefault.DATETIME_NOW_CURRENT_SECOND,
-        PredefinedSmartDefault.DATETIME_NOW_CURRENT_MINUTE,
-        PredefinedSmartDefault.DATETIME_NOW_CURRENT_HOUR,
-      )
-  }
-
-  @Test
-  fun `byTypeName groups all predefined defaults by type name`() {
-    val byType = PredefinedSmartDefault.byTypeName
-
-    assertThat(byType.keys).containsExactlyInAnyOrder("DATE", "TIME", "DATETIME")
-    assertThat(byType["DATE"]).containsExactly(PredefinedSmartDefault.DATE_TODAY)
-    assertThat(byType["TIME"]).containsExactly(
-      PredefinedSmartDefault.TIME_NOW,
-      PredefinedSmartDefault.TIME_NOW_CURRENT_SECOND,
-      PredefinedSmartDefault.TIME_NOW_CURRENT_MINUTE,
-      PredefinedSmartDefault.TIME_NOW_CURRENT_HOUR,
-    )
-    assertThat(byType["DATETIME"]).containsExactly(
-      PredefinedSmartDefault.DATETIME_NOW,
-      PredefinedSmartDefault.DATETIME_NOW_CURRENT_SECOND,
-      PredefinedSmartDefault.DATETIME_NOW_CURRENT_MINUTE,
-      PredefinedSmartDefault.DATETIME_NOW_CURRENT_HOUR,
-    )
+      .containsExactly(PredefinedSmartDefault.DATE_TODAY, PredefinedSmartDefault.DATE_NEXT_DAY, PredefinedSmartDefault.DATE_END_OF_MONTH)
+    assertThat(PredefinedSmartDefault.forType(PropertyType.REF)).containsExactly(PredefinedSmartDefault.LAST_VALUE)
+    assertThat(PredefinedSmartDefault.forType(PropertyType.LIST)).isEmpty()
+    assertThat(PredefinedSmartDefault.byTypeName["TIME"]).containsExactly(PredefinedSmartDefault.TIME_NOW)
+    assertThat(PredefinedSmartDefault.DATE_NEXT_DAY.expressionFor("datum")).isEqualTo("coalesce(next_day(datum), today())")
   }
 }

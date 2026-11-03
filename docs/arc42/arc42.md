@@ -409,12 +409,12 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
           - { timeseries: Schritte, query: pad, series: [{ field: schritte, style: column }, { field: schritte_ziel }] }
   ```
 
-  Heatmap, pie and the Kotlin step, as used by the ports of Zählerstände (PV break-even), Arbeitszeiten (target time from the "valid from" Entity of
-  *Arbeit*, vehicles pie) and Journal (without the cross-app checks, see "Roadmap"):
+  Heatmap and pie, as used by the ports of Zählerstände (PV savings), Arbeitszeiten (target time from the "valid from" Entity of *Arbeit*,
+  vehicles pie) and Journal (without the cross-app checks, see "Roadmap"):
 
   ```yaml
   queries:
-    # Zählerstände: PV yield per month and the break-even of the investment (configuration: anschaffung in cents, preisProKwh in cents)
+    # Zählerstände: PV yield per month and the accumulated savings (configuration: preisProKwh in cents)
     pv: { entity: Zaehlerstand, timeField: datum, filter: [{ field: zaehler, op: EQUALS, value: PV }], fields: [datum, stand], sort: [datum] }
     # Arbeitszeiten: worked vs. target time per day, vehicles used
     tage: { entity: Arbeitstag, timeField: datum, range: $jahr, aggregate: { bucket: TAG, values: { dauer: { sum: dauer } } } }
@@ -428,20 +428,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   transforms:
     pv:
       - { delta: stand, as: ertrag, bucket: MONAT }
-      - kotlin: |
-          // cumulative savings per month and the month they exceed the investment, extrapolated from the average so far
-          val investment = config["anschaffung"]?.toDouble() ?: return rows
-          val price = config["preisProKwh"]?.toDouble() ?: return rows
-          var saved = 0.0
-          val withSavings = rows.map { row ->
-            saved += (row["ertrag"]?.toDouble() ?: 0.0) * price
-            row + mapOf("ersparnis" to saved, "breakEven" to null)
-          }
-          val perMonth = if (rows.isEmpty()) 0.0 else saved / rows.size
-          val monthsLeft = if (perMonth > 0) kotlin.math.ceil((investment - saved) / perMonth).toLong() else null
-          val breakEven = monthsLeft?.let { today.withDayOfMonth(1).plusMonths(maxOf(it, 0)) }
-          withSavings.mapIndexed { i, row -> if (i == withSavings.lastIndex) row + ("breakEven" to breakEven) else row }
-        fields: { ersparnis: CENTS, breakEven: DATE }
+      - { cumulative: ertrag, as: ertragGesamt }
+      - { calc: ersparnis, expr: "ertragGesamt * config.preisProKwh", unit: CENTS }
     tage:
       - { asOf: modell, fields: [sollProTag] }
       - { calc: saldo, expr: "dauer - sollProTag", unit: SECONDS }
@@ -449,7 +437,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     - name: Übersicht
       rows:
         - - { timeseries: PV-Ersparnis, query: pv, series: [{ field: ersparnis, style: area }] }
-          - { table: Break-even, query: pv, columns: [bucket, ersparnis, breakEven], limit: 12 }
+          - { table: Ersparnis, query: pv, columns: [bucket, ertrag, ersparnis], limit: 12 }
         - - { heatmap: Arbeitszeit pro Tag, query: tage, field: dauer, thresholds: [{ value: 1h, color: orange }, { value: 8h, color: green }] }
           - { table: Saldo, query: tage, columns: [bucket, dauer, sollProTag, saldo] }
           - { pie: Verkehrsmittel, query: wege, donut: true }

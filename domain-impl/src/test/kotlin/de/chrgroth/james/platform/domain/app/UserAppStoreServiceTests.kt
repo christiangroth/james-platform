@@ -4,7 +4,7 @@ import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
 import arrow.core.left
 import arrow.core.right
-import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
+import de.chrgroth.james.platform.domain.error.AppVersionMigrationStepFailedError
 import de.chrgroth.james.platform.domain.error.UserAppStoreError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -395,7 +395,7 @@ class UserAppStoreServiceTests {
     val existing = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.0.0")
     every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns existing
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(v1, v2)
-    val migrationError = AppVersionMigrationScriptFailedError("Order", "data-1", "2.0.0", "boom")
+    val migrationError = AppVersionMigrationStepFailedError("Order", "data-1", "2.0.0", "boom")
     every {
       appVersionMigration.migrateInstallation(InstalledAppId("inst-1"), AppId("app-1"), VersionNumber("1.0.0"), VersionNumber("2.0.0"))
     } returns migrationError.left()

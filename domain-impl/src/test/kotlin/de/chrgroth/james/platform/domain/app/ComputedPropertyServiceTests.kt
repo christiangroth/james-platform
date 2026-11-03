@@ -2,189 +2,133 @@ package de.chrgroth.james.platform.domain.app
 
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
+import de.chrgroth.james.platform.domain.model.app.DistanceGranularity
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
+import de.chrgroth.james.platform.domain.model.app.Property
+import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
-import kotlin.time.Instant
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.entry
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import kotlin.time.Instant
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ComputedPropertyServiceTests {
 
-  private val service = ComputedPropertyService(ScriptMetrics(SimpleMeterRegistry()), 30_000L)
+  private val service = ComputedPropertyService()
 
-  private val fixedNow = Instant.parse("2024-06-15T10:30:00Z")
-  private val entityId = EntityDefinitionId("e-1")
+  // 23:30 UTC is already the next day in the application time zone (Europe/Berlin)
+  private val now = Instant.parse("2026-06-14T23:30:00Z")
+
+  private val gewicht = Property(id = PropertyId("p-gewicht"), name = "gewicht", type = PropertyType.DOUBLE)
+  private val groesse = Property(id = PropertyId("p-groesse"), name = "groesse", type = PropertyType.DOUBLE)
+  private val geburt = Property(id = PropertyId("p-geburt"), name = "geburt", type = PropertyType.DATE)
+  private val aktiv = Property(id = PropertyId("p-aktiv"), name = "aktiv", type = PropertyType.BOOLEAN)
+  private val schuhe = Property(id = PropertyId("p-schuhe"), name = "schuhe", type = PropertyType.REF, targetEntityId = EntityDefinitionId("e-schuh"))
+  private val plz = Property(id = PropertyId("p-plz"), name = "plz", type = PropertyType.LONG)
+  private val adresse = Property(id = PropertyId("p-adresse"), name = "adresse", type = PropertyType.OBJECT, nestedProperties = listOf(plz))
+
+  private val config = EntityDefinition(
+    id = EntityDefinitionId("e-config"),
+    name = "Einstellungen",
+    configuration = true,
+    properties = listOf(Property(id = PropertyId("c-ziel"), name = "zielGewicht", type = PropertyType.DOUBLE)),
+  )
+
+  private fun entity(vararg computed: ComputedProperty) = EntityDefinition(
+    id = EntityDefinitionId("e-1"),
+    name = "Koerper",
+    properties = listOf(gewicht, groesse, geburt, aktiv, schuhe, adresse),
+    computedProperties = computed.toList(),
+  )
+
+  private fun computed(id: String, type: PropertyType, expression: String?, unit: PropertyUnit? = null) =
+    ComputedProperty(id = ComputedPropertyId(id), name = id, type = type, expression = expression, unit = unit)
+
+  private val data = mapOf(
+    "p-gewicht" to "81",
+    "p-groesse" to "1.8",
+    "p-geburt" to "1990-06-16",
+    "p-aktiv" to "true",
+    "p-schuhe" to "schuh-1",
+    "p-adresse" to encodeObjectValue(mapOf("p-plz" to "10115")),
+  )
 
   @Test
-  fun `computeValues returns empty map when no computed properties have scripts`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG),
-      ),
-    )
-
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result).isEmpty()
+  fun `no expressions, no values`() {
+    assertThat(service.computeValues(entity(), data, now)).isEmpty()
+    assertThat(service.computeValues(entity(computed("x", PropertyType.LONG, null)), data, now)).isEmpty()
   }
 
   @Test
-  fun `computeValues returns empty map when no computed properties are defined`() {
-    val entity = EntityDefinition(id = entityId, name = "Order")
+  fun `computed properties are evaluated in definition order and may read the ones before them`() {
+    val result = service.computeValues(
+      entity(
+        computed("bmi", PropertyType.DOUBLE, "round(gewicht / groesse ^ 2, 1)"),
+        computed("kategorie", PropertyType.STRING, "if(bmi >= 25, 'Übergewicht', 'Normal')"),
+        computed("alter", PropertyType.LONG, "floor(days(geburt, today()) / 365.25)"),
+      ),
+      data,
+      now,
+    )
 
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result).isEmpty()
+    assertThat(result).containsExactly(entry("bmi", "25.0"), entry("kategorie", "Übergewicht"), entry("alter", "35"))
   }
 
   @Test
-  fun `computeValues evaluates simple string literal`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Label", type = PropertyType.STRING, script = "\"computed\""),
+  fun `results are stored in the computed property's type, numbers with a unit as raw values`() {
+    val kilometers = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.KILOMETERS, DistanceGranularity.KILOMETERS)
+    val result = service.computeValues(
+      entity(
+        computed("ja", PropertyType.LONG, "aktiv"),
+        computed("strecke", PropertyType.DOUBLE, "gewicht / 2", kilometers),
+        computed("datum", PropertyType.DATE, "today()"),
+        computed("zeit", PropertyType.DATETIME, "now()"),
+        computed("plz", PropertyType.STRING, "adresse.plz"),
+        computed("schuh", PropertyType.STRING, "schuhe"),
       ),
+      data,
+      now,
     )
 
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result["cp-1"]).isEqualTo("computed")
+    assertThat(result["ja"]).isEqualTo("1")
+    assertThat(result["strecke"]).isEqualTo("40.5")
+    assertThat(result["datum"]).isEqualTo("2026-06-15")
+    assertThat(result["zeit"]).isEqualTo("2026-06-15T01:30")
+    assertThat(result["plz"]).isEqualTo("10115")
+    assertThat(result["schuh"]).isEqualTo("schuh-1")
   }
 
   @Test
-  fun `computeValues provides it binding with entity data`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "PriceLabel", type = PropertyType.STRING, script = "\"Price: \" + (it[\"price\"] ?: \"n/a\")"),
-      ),
-    )
+  fun `config fields are read by name through the configuration entity`() {
+    val abstand = entity(computed("abstand", PropertyType.DOUBLE, "gewicht - config.zielGewicht"))
 
-    val result = service.computeValues(entity, mapOf("price" to "42"), fixedNow)
-
-    assertThat(result["cp-1"]).isEqualTo("Price: 42")
+    assertThat(service.computeValues(abstand, data, now, mapOf("c-ziel" to "75"), config)["abstand"]).isEqualTo("6.0")
+    assertThat(service.computeValues(abstand, data, now)["abstand"]).isNull()
   }
 
   @Test
-  fun `computeValues provides config binding with the configuration values`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Run",
-      computedProperties = listOf(
-        ComputedProperty(
-          id = ComputedPropertyId("cp-1"),
-          name = "Rest",
-          type = PropertyType.LONG,
-          script = "(config[\"p-ziel\"]?.toLong() ?: 0L) - (it[\"km\"]?.toLong() ?: 0L)",
-        ),
-        ComputedProperty(id = ComputedPropertyId("cp-2"), name = "Leer", type = PropertyType.LONG, script = "config.size.toLong()"),
+  fun `invalid expressions, missing values and Kotlin scripts stored before yield no value`() {
+    val legacy = ComputedProperty(id = ComputedPropertyId("legacy"), name = "legacy", type = PropertyType.LONG, legacyScript = "42L")
+    val result = service.computeValues(
+      entity(
+        computed("kaputt", PropertyType.DOUBLE, "gewicht +"),
+        computed("leer", PropertyType.DOUBLE, "unbekannt * 2"),
+        computed("division", PropertyType.DOUBLE, "gewicht / 0"),
+        computed("ok", PropertyType.DOUBLE, "gewicht"),
+        legacy,
       ),
+      data,
+      now,
     )
 
-    assertThat(service.computeValues(entity, mapOf("km" to "30"), fixedNow, mapOf("p-ziel" to "100"))["cp-1"]).isEqualTo("70")
-    assertThat(service.computeValues(entity, mapOf("km" to "30"), fixedNow)["cp-2"]).isEqualTo("0")
-  }
-
-  @Test
-  fun `computeValues provides now as Instant binding`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Timestamp", type = PropertyType.DATETIME, script = "now.toString()"),
-      ),
-    )
-
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result["cp-1"]).isEqualTo(fixedNow.toString())
-  }
-
-  @Test
-  fun `computeValues processes computed properties in order and accumulated results available via computed binding`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Base", type = PropertyType.STRING, script = "\"hello\""),
-        ComputedProperty(id = ComputedPropertyId("cp-2"), name = "Extended", type = PropertyType.STRING, script = "computed[\"cp-1\"] + \" world\""),
-      ),
-    )
-
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result["cp-1"]).isEqualTo("hello")
-    assertThat(result["cp-2"]).isEqualTo("hello world")
-  }
-
-  @Test
-  fun `computeValues skips null result gracefully`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "NullProp", type = PropertyType.STRING, script = "null"),
-      ),
-    )
-
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result["cp-1"]).isNull()
-  }
-
-  @Test
-  fun `computeValues skips computed property with failing script and continues with rest`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Bad", type = PropertyType.STRING, script = "this is not valid kotlin!!!"),
-        ComputedProperty(id = ComputedPropertyId("cp-2"), name = "Good", type = PropertyType.STRING, script = "\"ok\""),
-      ),
-    )
-
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result["cp-2"]).isEqualTo("ok")
-  }
-
-  @Test
-  fun `computeValues only includes computed properties with scripts in result`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "NoScript", type = PropertyType.STRING),
-        ComputedProperty(id = ComputedPropertyId("cp-2"), name = "WithScript", type = PropertyType.STRING, script = "\"filled\""),
-      ),
-    )
-
-    val result = service.computeValues(entity, emptyMap(), fixedNow)
-
-    assertThat(result).doesNotContainKey("cp-1")
-    assertThat(result["cp-2"]).isEqualTo("filled")
-  }
-
-  @Test
-  fun `computeValues can perform numeric calculation from entity data`() {
-    val entity = EntityDefinition(
-      id = entityId,
-      name = "Order",
-      computedProperties = listOf(
-        ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "(it[\"qty\"]?.toLongOrNull() ?: 0L) * (it[\"price\"]?.toLongOrNull() ?: 0L)"),
-      ),
-    )
-
-    val result = service.computeValues(entity, mapOf("qty" to "3", "price" to "10"), fixedNow)
-
-    assertThat(result["cp-1"]).isEqualTo("30")
+    assertThat(result["kaputt"]).isNull()
+    assertThat(result["leer"]).isNull()
+    assertThat(result["division"]).isNull()
+    assertThat(result["legacy"]).isNull()
+    assertThat(result["ok"]).isEqualTo("81.0")
   }
 }

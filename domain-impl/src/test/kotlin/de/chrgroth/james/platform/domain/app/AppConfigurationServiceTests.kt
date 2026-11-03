@@ -45,7 +45,7 @@ class AppConfigurationServiceTests {
     configuration = true,
     properties = listOf(
       Property(PropertyId("p-ziel"), "ziel", PropertyType.LONG, nullable = false, default = "1000"),
-      Property(PropertyId("p-start"), "start", PropertyType.DATE, nullable = false, smartDefault = "today"),
+      Property(PropertyId("p-start"), "start", PropertyType.DATE, nullable = false, smartDefault = "today()"),
       Property(PropertyId("p-notiz"), "notiz", PropertyType.STRING),
       Property(
         PropertyId("p-schwellen"),
