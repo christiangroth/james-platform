@@ -322,4 +322,40 @@ class ReportExpressionLanguageTests {
       ReportDefinitionErrorCode.CHART_X_MISSING to "tabs[0].rows[0][1].query",
     )
   }
+
+  @Test
+  fun `the arc42 example of Arbeitszeiten and Journal is valid and renders`() {
+    val panels = panels(
+      """
+      queries:
+        tage: { entity: Arbeitstag, timeField: datum, fields: [datum, beginn, ende, pause, art], sort: [datum] }   # beginn/ende TIME, pause minutes
+        vertraege: { entity: Vertrag, timeField: gueltigAb, fields: [gueltigAb, wochenstunden] }
+        journal: { entity: Journal, timeField: datum, fields: [datum, kopfschmerz, migraene, befinden] }        # kopfschmerz/migraene BOOLEAN
+      transforms:
+        tage:
+          - { asOf: vertraege, fields: [wochenstunden], prefix: vertrag_ }
+          - { calc: typ, expr: "if(weekday(datum) >= 6, 'Wochenende', case(art, 'U', 'Urlaub', 'K', 'Krank', 'Arbeit'))" }
+          - { calc: netto, expr: "if(typ == 'Arbeit', minutes(beginn, ende) - coalesce(pause, 0), 0)", unit: MINUTES }
+          - calc: soll                                   # configuration: eintritt (DATE), wochenstunden (fallback without contract)
+            expr: "if(typ == 'Wochenende' or datum < config.eintritt, 0, coalesce(vertrag_wochenstunden, config.wochenstunden) * 60 / 5)"
+            unit: MINUTES
+          - { calc: saldo, expr: "if(typ == 'Arbeit', netto - soll, 0)", unit: MINUTES }
+          - { aggregate: { bucket: JAHR, groupBy: typ, values: { tage: count, netto: { sum: netto }, saldo: { sum: saldo } } } }
+        journal:
+          - { calc: beschwerden, expr: "kopfschmerz or migraene", type: LONG }      # yes/no -> 1/0
+          - { calc: kopfweh, expr: "max(kopfschmerz, migraene)" }                     # the same via max
+          - { calc: befindenWert, expr: "case(befinden, 'krank', 0, 'angeschlagen', 1, 'gut', 2, 'super', 3)", type: LONG }
+          - { aggregate: { bucket: MONAT, values: { beschwerdeTage: { sum: beschwerden }, befinden: { avg: befindenWert } } } }
+      tabs:
+        - name: Übersicht
+          rows:
+            - - { table: Arbeitszeit pro Jahr, query: tage }
+              - { bar: Saldo nach Art, query: tage, field: saldo }
+              - { timeseries: Befinden, query: journal, series: [{ field: befinden }, { field: beschwerdeTage, style: column, axis: right }] }
+      """,
+    )
+
+    assertThat((panels[0] as TablePanelSpec).column("saldo")).containsExactly("240.0", "30.0", "0.0", "0.0")
+    assertThat((panels[2] as ChartPanelSpec).series.map { series -> series.points.map { it.y } }).containsExactly(listOf(5.0 / 3, null), listOf(2.0, 0.0))
+  }
 }

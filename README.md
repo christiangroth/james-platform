@@ -22,7 +22,10 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   time series (line/column/area, several series, second axis, zoom), bar charts, pie/donut charts of shares per category, calendar heatmaps (one cell
   per day, e.g. journal ratings or work hours) and matrix heatmaps (e.g. month × category), and single values with comparison to the previous period and
   threshold colors. Variables (time range, selection from a query such as year or employer) appear as controls on top of the report and feed query
-  ranges and filters; per-query transformations add calculated fields (small safe expression language incl. configuration values), running totals,
+  ranges and filters; per-query transformations add calculated fields (a small safe expression language without scripting engine: arithmetic,
+  conditions with `if`/`case`, comparisons, and/or/not, texts, yes/no values as 1/0, dates and times such as minutes between two times, days,
+  weekday or today, configuration values; typed results as number with unit, text, yes/no or date), regroup rows after calculations (e.g. net
+  working time per year and type of day), running totals,
   moving averages, year-over-year values, forecasts to the period end, resampling with fill-forward, consumption from meter readings (per day or
   spread over buckets), "value valid at date" lookups (e.g. weekly hours or vacation entitlement valid from a date), joins of two queries by key or
   reference, records / top-N per group or year and goals vs. actuals (also as stat with progress bar); a Kotlin script step (timeout-guarded like computed

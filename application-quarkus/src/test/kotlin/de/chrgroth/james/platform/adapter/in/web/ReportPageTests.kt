@@ -273,6 +273,16 @@ class ReportPageTests {
       .body("ok", equalTo(false))
       .body("errors.code", contains("EXPRESSION_INVALID"))
       .body("errors[0].message", containsString("Ungültiger Ausdruck"))
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Variablen")
+      .formParam("definition", "queries:\n  q: { entity: Konzert, fields: [datum] }\ntransforms:\n  q: [{ calc: x, expr: \"datum * 2\" }]\ntabs: []\n")
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+      .body("errors.code", contains("EXPRESSION_OPERAND_TYPE"))
+      .body("errors[0].message", containsString("nicht mit einem Wert vom Typ Datum"))
   }
 
   @Test
