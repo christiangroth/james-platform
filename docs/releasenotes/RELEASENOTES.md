@@ -1,3 +1,12 @@
+# 0.138.1 (2026.11.03)
+
+## Bugfixes / Chore
+* Berechnete Eigenschaften behalten in Reports ihre Einheit (z. B. Pace als Zeit, Beträge in Euro).
+
+
+
+---
+
 # 0.138.0 (2026.11.03)
 
 ## New Features
