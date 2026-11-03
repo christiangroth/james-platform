@@ -681,7 +681,10 @@ internal object ReportDefinitionParser {
         fields?.forEachIndexed { i, f -> if (f !in otherColumns) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, fieldsPath.index(i), f, otherName) }
         on?.let { if (!keyKnown(it.other, otherColumns, other)) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, onPath, it.other, otherName) }
       }
-      pipeline.columns?.let { columns -> on?.let { if (!keyKnown(it.field, columns, pipeline.info)) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, onPath, it.field, pipeline.queryName) } }
+      val columns = pipeline.columns
+      if (columns != null && on != null && !keyKnown(on.field, columns, pipeline.info)) {
+        error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, onPath, on.field, pipeline.queryName)
+      }
       if (step == ReportAsOfTransform.KEY) {
         requireTime(step, stepPath, pipeline)
         val otherBucket = other?.rebucket?.first ?: other?.query?.aggregate?.bucket
@@ -713,7 +716,9 @@ internal object ReportDefinitionParser {
       val output = explicitOutput ?: ReportTopTransform.RANK
       if (bucket != null) {
         requireTime(ReportTopTransform.KEY, path.key("bucket"), pipeline)
-        if (pipeline.columns?.containsKey(ReportAggregate.BUCKET_FIELD) == true) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path.key("bucket"), ReportAggregate.BUCKET_FIELD)
+        if (pipeline.columns?.containsKey(ReportAggregate.BUCKET_FIELD) == true) {
+          error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path.key("bucket"), ReportAggregate.BUCKET_FIELD)
+        }
         pipeline.columns = pipeline.columns?.let { columns ->
           val withBucket = LinkedHashMap<String, ResultColumn>()
           withBucket[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, PropertyType.STRING, bucket = bucket)
@@ -739,8 +744,9 @@ internal object ReportDefinitionParser {
       val output = explicitOutput ?: (field + ReportGoalTransform.SUFFIX)
       val progress = explicitProgress ?: (field + ReportGoalTransform.PROGRESS_SUFFIX)
       if (output == progress) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path.key("progress"), progress)
-      output(output, null, if (explicitOutput != null) path.key("as") else stepPath, pipeline, ResultColumn(output, ColumnRole.VALUE, source?.type?.let { PropertyType.DOUBLE }, source?.unit))
-      output(progress, null, if (explicitProgress != null) path.key("progress") else stepPath, pipeline, ResultColumn(progress, ColumnRole.VALUE, source?.type?.let { PropertyType.DOUBLE }))
+      val type = source?.type?.let { PropertyType.DOUBLE }
+      output(output, null, if (explicitOutput != null) path.key("as") else stepPath, pipeline, ResultColumn(output, ColumnRole.VALUE, type, source?.unit))
+      output(progress, null, if (explicitProgress != null) path.key("progress") else stepPath, pipeline, ResultColumn(progress, ColumnRole.VALUE, type))
       return target?.let { ReportGoalTransform(field, it, period, periodStart, output, progress) }
     }
 

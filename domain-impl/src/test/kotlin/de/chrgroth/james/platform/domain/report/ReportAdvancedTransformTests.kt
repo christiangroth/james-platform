@@ -128,7 +128,11 @@ class ReportAdvancedTransformTests {
 
   private fun errors(yaml: String) = ReportDefinitionParser.parse(yaml.trimIndent(), entities).errors.map { it.code to it.path }
 
-  private fun TablePanelSpec.column(key: String): List<String?> = columns.indexOfFirst { it.key == key }.also { assertThat(it).isNotNegative() }.let { index -> rows.map { it[index].value } }
+  private fun TablePanelSpec.column(key: String): List<String?> {
+    val index = columns.indexOfFirst { it.key == key }
+    assertThat(index).isNotNegative()
+    return rows.map { it[index].value }
+  }
 
   // region delta
 
