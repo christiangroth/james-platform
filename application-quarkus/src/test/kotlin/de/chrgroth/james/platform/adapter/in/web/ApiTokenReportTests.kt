@@ -185,7 +185,7 @@ class ApiTokenReportTests {
   }
 
   @Test
-  fun `user read scope executes pie and heatmap panels and a kotlin step`() {
+  fun `user read scope executes pie and heatmap panels and a calc step`() {
     val user = createUser()
     val (appId, versionId, entityId, distanzId) = createDraft(user)
     appVersionManagement.addProperty(appId, versionId, entityId, "datum", "DATE", nullable = true).getOrNull()!!
@@ -216,10 +216,10 @@ class ApiTokenReportTests {
   }
 
   @Test
-  fun `saving a report whose kotlin step does not compile is rejected`() {
+  fun `saving a report with the removed kotlin step is rejected`() {
     val user = createUser()
     val (appId, versionId) = createDraft(user)
-    val definition = "queries:\n  laeufe: { entity: Lauf }\ntransforms:\n  laeufe: [{ kotlin: \"unbekannt(rows)\" }]\ntabs: []\n"
+    val definition = "queries:\n  laeufe: { entity: Lauf }\ntransforms:\n  laeufe: [{ kotlin: \"rows\" }]\ntabs: []\n"
 
     val result = appVersionManagement.addReport(appId, versionId, "Kaputt", definition)
 
@@ -244,9 +244,7 @@ class ApiTokenReportTests {
         tage: { entity: Lauf, timeField: datum, fields: [datum, distanz] }
       transforms:
         tage:
-          - kotlin: |
-              rows.map { it + ("doppelt" to it["distanz"]!!.toLong() * 2) }
-            fields: { doppelt: LONG }
+          - { calc: doppelt, expr: "distanz * 2", type: LONG }
       tabs:
         - name: Übersicht
           rows:

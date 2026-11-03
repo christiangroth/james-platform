@@ -71,6 +71,7 @@ class ComputedPropertyPanelTests {
       .contentType("application/x-www-form-urlencoded")
       .formParam("name", "DoublePrice")
       .formParam("type", "LONG")
+      .formParam("expression", "42")
       .`when`()
       .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/computed-properties")
       .then()
@@ -85,15 +86,6 @@ class ComputedPropertyPanelTests {
       .extract().body().asString()
 
     val computedPropertyId = Regex("""data-computed-property-id="([^"]+)"""").find(entityHtml)?.groupValues?.get(1) ?: ""
-
-    given()
-      .contentType("application/x-www-form-urlencoded")
-      .formParam("script", "42")
-      .`when`()
-      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/computed-properties/$computedPropertyId/script")
-      .then()
-      .statusCode(200)
-      .body(containsString("\"ok\":true"))
 
     given()
       .contentType("application/x-www-form-urlencoded")

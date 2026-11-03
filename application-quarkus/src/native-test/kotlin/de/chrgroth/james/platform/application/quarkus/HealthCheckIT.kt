@@ -6,7 +6,7 @@ import org.hamcrest.CoreMatchers.containsString
 import org.junit.jupiter.api.Test
 
 // Renders the real /health page against the packaged native executable. HealthStats is the largest untyped
-// Template.data() object graph in the app (MongoCollectionStats/MongoQueryStats/CronjobStats/ScriptExecutionStats/
+// Template.data() object graph in the app (MongoCollectionStats/MongoQueryStats/CronjobStats/
 // ImportCleanupStats/ConfigurationStats), and every list on it is naturally non-empty as soon as the app has booted
 // (real Mongo collections, real registered cronjobs, real config) - no test data seeding needed. Also exercises the
 // job.nextExecution.toEpochMilliseconds() (kotlin.time.Instant) template call fixed in TemplateFormattingExtensions.
@@ -34,7 +34,6 @@ class HealthCheckIT {
       "/health/snippets/mongodb-collections",
       "/health/snippets/mongodb-queries",
       "/health/snippets/http-responses",
-      "/health/snippets/scripting",
       "/health/snippets/import-cleanup",
     ).forEach { path ->
       given()
