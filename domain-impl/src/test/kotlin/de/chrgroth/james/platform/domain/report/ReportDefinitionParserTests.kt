@@ -118,18 +118,18 @@ class ReportDefinitionParserTests {
   fun `unknown keys are errors with path and line, reserved keys are not supported yet`() {
     val errors = parse(
       """
-      checks: []
+      checks: {}
       queries:
         q:
           entity: Konzert
           colour: red
-      tabs: []
+      tabs: [{ name: T, rows: [[ { pie: P } ]] }]
       """,
     ).errors
 
-    assertThat(errors.map { it.code }).containsExactly(ReportDefinitionErrorCode.NOT_SUPPORTED_YET, ReportDefinitionErrorCode.UNKNOWN_KEY)
-    assertThat(errors[1].path).isEqualTo("queries.q.colour")
-    assertThat(errors[1].line).isEqualTo(5)
+    assertThat(errors.map { it.code }).containsExactly(ReportDefinitionErrorCode.UNKNOWN_KEY, ReportDefinitionErrorCode.NOT_SUPPORTED_YET)
+    assertThat(errors[0].path).isEqualTo("queries.q.colour")
+    assertThat(errors[0].line).isEqualTo(5)
   }
 
   @Test
