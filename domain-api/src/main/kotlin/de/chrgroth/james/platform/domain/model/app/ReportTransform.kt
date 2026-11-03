@@ -141,3 +141,121 @@ data class ReportResampleTransform(val bucket: TimeBucket, val periodStart: Mont
 }
 
 // endregion
+
+// region advanced transforms
+
+/**
+ * `{ delta: stand, as: verbrauch, perDay: true, by: zaehler }`: the difference of [field] to the previous row with a value (chronologically, per
+ * group of a grouped aggregate or per value of [by]), e.g. the consumption between two meter readings; the first row has none. With [perDay] the
+ * difference is divided by the days between both rows. With [bucket] the rows are replaced by one row per bucket (and [by] value): each difference
+ * is spread evenly over the days between both readings and summed per bucket (field `bucket`, the [by] field and [output]). [output] defaults to
+ * `<field>_delta`.
+ */
+data class ReportDeltaTransform(
+  val field: String,
+  val output: String = field + SUFFIX,
+  val perDay: Boolean = false,
+  val by: String? = null,
+  val bucket: TimeBucket? = null,
+  val periodStart: MonthDay? = null,
+) : ReportTransform {
+  override val key: String get() = KEY
+
+  companion object {
+    const val KEY = "delta"
+    const val SUFFIX = "_delta"
+  }
+}
+
+/**
+ * How two queries' rows are matched: [field] of this query against [other] of the other query; [other] [OBJECT_ID] matches the other row's
+ * object id, e.g. a reference field against the referenced objects.
+ */
+data class ReportJoinKey(val field: String, val other: String = field) {
+  companion object {
+    const val OBJECT_ID = "id"
+  }
+}
+
+/**
+ * `{ asOf: vertraege, fields: [wochenstunden, urlaubstage], on: arbeitgeber, at: start, prefix: vertrag_ }`: "value valid at date" - attaches
+ * [fields] of the latest row of the other [query] whose date (time field, or bucket start) is at most this row's date (time field, or the
+ * bucket's start - its end with [atEnd]). [on] restricts the candidates to rows with the same key. Field names get [prefix].
+ */
+data class ReportAsOfTransform(
+  val query: String,
+  val fields: List<String>,
+  val on: ReportJoinKey? = null,
+  val atEnd: Boolean = false,
+  val prefix: String = "",
+) : ReportTransform {
+  override val key: String get() = KEY
+
+  companion object {
+    const val KEY = "asOf"
+  }
+}
+
+/**
+ * `{ join: vertraege, on: { field: vertrag, other: id }, fields: [arbeitgeber, jahresbrutto], prefix: vertrag_ }`: attaches [fields] of the first
+ * row of the other [query] whose key matches (left join: rows without match keep empty values). Field names get [prefix].
+ */
+data class ReportJoinTransform(
+  val query: String,
+  val on: ReportJoinKey,
+  val fields: List<String>,
+  val prefix: String = "",
+) : ReportTransform {
+  override val key: String get() = KEY
+
+  companion object {
+    const val KEY = "join"
+  }
+}
+
+/**
+ * `{ top: dauer, n: 3, order: asc, by: strecke, bucket: JAHR, as: rang }`: records / top-N - keeps the [n] rows with the highest (lowest with
+ * [ascending]) value of [field], per value of [by] and/or per time [bucket] (of the row's date; adds the field `bucket`), and numbers them in
+ * [output] (default `rang`). The rows are ordered by bucket, [by] value and rank; rows without value are dropped.
+ */
+data class ReportTopTransform(
+  val field: String,
+  val n: Int = 1,
+  val ascending: Boolean = false,
+  val by: String? = null,
+  val bucket: TimeBucket? = null,
+  val periodStart: MonthDay? = null,
+  val output: String = RANK,
+) : ReportTransform {
+  override val key: String get() = KEY
+
+  companion object {
+    const val KEY = "top"
+    const val RANK = "rang"
+  }
+}
+
+/**
+ * `{ goal: km, target: config.zielKm, period: JAHR, as: km_ziel, progress: km_fortschritt }`: target vs. actual - [output] (default
+ * `<field>_ziel`) is the [target] (a number, a unit text such as `1000km`, `config.<field>` or a numeric field of the row, e.g. attached by
+ * `asOf`), [progress] (default `<field>_fortschritt`) the value of [field] in percent of it. With [period] the target applies per such period and
+ * each row gets its pro-rata share up to the row's date (end of its bucket), e.g. the cumulative yearly goal per month.
+ */
+data class ReportGoalTransform(
+  val field: String,
+  val target: String,
+  val period: TimeBucket? = null,
+  val periodStart: MonthDay? = null,
+  val output: String = field + SUFFIX,
+  val progress: String = field + PROGRESS_SUFFIX,
+) : ReportTransform {
+  override val key: String get() = KEY
+
+  companion object {
+    const val KEY = "goal"
+    const val SUFFIX = "_ziel"
+    const val PROGRESS_SUFFIX = "_fortschritt"
+  }
+}
+
+// endregion

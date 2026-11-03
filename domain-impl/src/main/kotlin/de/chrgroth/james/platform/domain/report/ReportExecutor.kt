@@ -23,6 +23,7 @@ import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
+import de.chrgroth.james.platform.domain.model.app.ReportAsOfTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
@@ -31,7 +32,10 @@ import de.chrgroth.james.platform.domain.model.app.ReportColumn
 import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDateRange
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
+import de.chrgroth.james.platform.domain.model.app.ReportDeltaTransform
 import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
+import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
+import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
@@ -46,6 +50,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportTablePanel
 import de.chrgroth.james.platform.domain.model.app.ReportTextPanel
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRange
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRangeVariable
+import de.chrgroth.james.platform.domain.model.app.ReportTopTransform
 import de.chrgroth.james.platform.domain.model.app.ReportTransform
 import de.chrgroth.james.platform.domain.model.app.ReportUnitSpec
 import de.chrgroth.james.platform.domain.model.app.ReportVariable
@@ -58,6 +63,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportWarningsPanel
 import de.chrgroth.james.platform.domain.model.app.ReportYoyTransform
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.StatComparisonSpec
+import de.chrgroth.james.platform.domain.model.app.StatGoalSpec
 import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
 import de.chrgroth.james.platform.domain.model.app.TableCellSpec
 import de.chrgroth.james.platform.domain.model.app.TableColumnSpec
@@ -80,6 +86,7 @@ import java.time.LocalDateTime
 import java.time.MonthDay
 import java.util.IdentityHashMap
 import kotlin.math.abs
+import kotlin.math.round
 
 /**
  * Executes a validated [ReportDefinition] against the data of exactly one installation ([allAppData] must only contain that installation's
@@ -111,8 +118,11 @@ internal class ReportExecutor(
   private val computedCache = HashMap<String, Map<String, String?>>()
   private val results = HashMap<String, QueryResult>()
 
-  /** One result row: the raw (storage form) value per result field, and its [order] key for LAST (time value, bucket key or creation time). */
-  class ResultRow(val values: Map<String, String?>, val order: String)
+  /**
+   * One result row: the raw (storage form) value per result field, its [order] key for LAST (time value, bucket key or creation time) and, for a
+   * row of a plain query, the [id] of its object (joins match references against it).
+   */
+  class ResultRow(val values: Map<String, String?>, val order: String, val id: String? = null)
 
   /**
    * One query's result rows plus the result fields they carry; [bucket] (with [periodStart]) the time bucket the rows are keyed by (aggregate or
@@ -217,35 +227,62 @@ internal class ReportExecutor(
 
   // region transforms
 
-  /** The query's result after its transformation steps (cached per name and range); null if its entity no longer resolves. */
+  /**
+   * The query's result after its transformation steps (cached per name and range); null if its entity no longer resolves or if it is requested
+   * again while being computed (an `asOf`/`join` cycle, rejected by validation anyway).
+   */
   fun result(query: ReportQuery, range: ReportDateRange? = rangeOf(query)): QueryResult? {
     val cacheKey = "${query.name}|$range"
     transformed[cacheKey]?.let { return it }
     val steps = definition.transforms[query.name].orEmpty()
     val base = run(query, range) ?: return null
-    return transform(query, range, steps, base).also { transformed[cacheKey] = it }
+    if (!computing.add(query.name)) return null
+    return try {
+      transform(query, range, steps, base).also { transformed[cacheKey] = it }
+    } finally {
+      computing.remove(query.name)
+    }
   }
 
   private fun transform(query: ReportQuery, range: ReportDateRange?, steps: List<ReportTransform>, base: QueryResult): QueryResult {
     if (steps.isEmpty()) return base
-    val transformer = ReportTransformer(today, { configNumber(it, null) }) { index ->
-      // Year over year: the same query over the range one year earlier, with the steps before the yoy step; an open range covers it already.
-      if (range == null || (range.from == null && range.to == null)) return@ReportTransformer null
-      val previousRange = ReportDateRange(range.from?.minusYears(1), range.to?.minusYears(1))
-      run(query, previousRange)?.let { transform(query, previousRange, steps.take(index), it) }
-    }
+    val transformer = ReportTransformer(
+      today = today,
+      configNumber = ::configNumber,
+      previousYear = { index ->
+        // Year over year: the same query over the range one year earlier, with the steps before the yoy step; an open range covers it already.
+        if (range == null || (range.from == null && range.to == null)) return@ReportTransformer null
+        val previousRange = ReportDateRange(range.from?.minusYears(1), range.to?.minusYears(1))
+        run(query, previousRange)?.let { transform(query, previousRange, steps.take(index), it) }
+      },
+      otherQuery = ::otherResult,
+    )
     return transformer.apply(query, range, steps, base)
   }
 
+  /** Queries whose result is being computed right now: guards `asOf`/`join` against cycles (rejected by validation anyway). */
+  private val computing = mutableSetOf<String>()
+
+  /** The transformed result of the query [name] read by an `asOf`/`join` step, with its own range; null if unknown or part of a cycle. */
+  private fun otherResult(name: String): Pair<ReportQuery, QueryResult>? {
+    val other = definition.query(name) ?: return null
+    return result(other)?.let { other to it }
+  }
+
   /** Names of the fields the query's transforms add, in step order; a resampled query starts with its bucket. */
-  private fun transformFields(query: ReportQuery): List<String> = definition.transforms[query.name].orEmpty().map { step ->
+  private fun transformFields(query: ReportQuery): List<String> = definition.transforms[query.name].orEmpty().flatMap { step ->
     when (step) {
-      is ReportCalcTransform -> step.name
-      is ReportCumulativeTransform -> step.output
-      is ReportMovingAverageTransform -> step.output
-      is ReportYoyTransform -> step.output
-      is ReportForecastTransform -> step.output
-      is ReportResampleTransform -> ReportAggregate.BUCKET_FIELD
+      is ReportCalcTransform -> listOf(step.name)
+      is ReportCumulativeTransform -> listOf(step.output)
+      is ReportMovingAverageTransform -> listOf(step.output)
+      is ReportYoyTransform -> listOf(step.output)
+      is ReportForecastTransform -> listOf(step.output)
+      is ReportResampleTransform -> listOf(ReportAggregate.BUCKET_FIELD)
+      is ReportDeltaTransform -> if (step.bucket != null) listOfNotNull(ReportAggregate.BUCKET_FIELD, step.by, step.output) else listOf(step.output)
+      is ReportAsOfTransform -> step.fields.map { step.prefix + it }
+      is ReportJoinTransform -> step.fields.map { step.prefix + it }
+      is ReportTopTransform -> listOfNotNull(ReportAggregate.BUCKET_FIELD.takeIf { step.bucket != null }, step.output)
+      is ReportGoalTransform -> listOf(step.output, step.progress)
     }
   }
 
@@ -373,7 +410,7 @@ internal class ReportExecutor(
     val result = if (aggregate == null) {
       rows = rows.sortedWith(comparator(query.sort, fields.mapValues { ResultColumn.of(it.value) }))
       query.limit?.let { rows = rows.take(it) }
-      QueryResult(fields.mapValues { ResultColumn.of(it.value) }, rows.map { ResultRow(it.values, orderOf(it)) })
+      QueryResult(fields.mapValues { ResultColumn.of(it.value) }, rows.map { ResultRow(it.values, orderOf(it), it.item.id.value) })
     } else {
       aggregated(query, aggregate, fields, rows, orderOf)
     }
@@ -730,8 +767,22 @@ internal class ReportExecutor(
     val value = reduce(panel.reduce, result, column)
     val color = thresholdColor(panel, value, unit)
     val comparison = if (panel.compare) range?.previous()?.let { previousRange -> comparison(panel, query, previousRange, value, unit) } else null
-    return StatPanelSpec(panel.title, value, value?.let { formatNumber(it, unit) } ?: NO_VALUE, color, comparison)
+    val goal = panel.goal?.let { goal(it, value, result, unit) }
+    return StatPanelSpec(panel.title, value, value?.let { formatNumber(it, unit) } ?: NO_VALUE, color, comparison, goal)
   }
+
+  /** A stat's target (a number, unit text, `config.<field>` or the latest value of a result field) and the value's progress towards it. */
+  private fun goal(raw: String, value: Double?, result: QueryResult, unit: PropertyUnit?): StatGoalSpec {
+    val target = goalTarget(raw, unit) ?: result.columns[raw.trim()]?.let { column ->
+      reduce(ReportReduce.LAST, result, column)?.let { ReportFields.convertUnit(it, column.unit, unit) }
+    }
+    val percent = if (target != null && value != null && target != 0.0) value / target * PERCENT else null
+    return StatGoalSpec(target, target?.let { formatNumber(it, unit) } ?: NO_VALUE, percent, percent?.let { PropertyValueFormat.formatNumber(round(it)) + " %" })
+  }
+
+  /** A constant goal target in [unit]: a `config.<field>` value or a number / unit text; null for anything else (a field name). */
+  internal fun goalTarget(raw: String, unit: PropertyUnit?): Double? =
+    if (ReportFields.configPath(raw) != null) configNumber(raw, unit) else ReportValues.parseNumber(raw, unit)
 
   /** A configuration field shown as a constant (`{ stat: Jahresziel, config: zielKm }`). */
   private fun configStatPanel(panel: ReportStatPanel, path: String): PanelSpec? {

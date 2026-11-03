@@ -13,9 +13,10 @@ import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
+import de.chrgroth.james.platform.domain.model.app.ReportAsOfTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
-import de.chrgroth.james.platform.domain.model.app.ReportCalendar
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
+import de.chrgroth.james.platform.domain.model.app.ReportCalendar
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
 import de.chrgroth.james.platform.domain.model.app.ReportCheck
 import de.chrgroth.james.platform.domain.model.app.ReportCheckPeriod
@@ -25,8 +26,12 @@ import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
+import de.chrgroth.james.platform.domain.model.app.ReportDeltaTransform
 import de.chrgroth.james.platform.domain.model.app.ReportForecastTransform
 import de.chrgroth.james.platform.domain.model.app.ReportGapCheck
+import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
+import de.chrgroth.james.platform.domain.model.app.ReportJoinKey
+import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
@@ -46,6 +51,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportTextPanel
 import de.chrgroth.james.platform.domain.model.app.ReportThreshold
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRange
 import de.chrgroth.james.platform.domain.model.app.ReportTimeRangeVariable
+import de.chrgroth.james.platform.domain.model.app.ReportTopTransform
 import de.chrgroth.james.platform.domain.model.app.ReportTransform
 import de.chrgroth.james.platform.domain.model.app.ReportVariable
 import de.chrgroth.james.platform.domain.model.app.ReportWarningsPanel
@@ -92,7 +98,19 @@ internal object ReportDefinitionParser {
     ReportYoyTransform.KEY to setOf("as"),
     ReportForecastTransform.KEY to setOf("as"),
     ReportResampleTransform.KEY to setOf("periodStart", "fill"),
+    ReportDeltaTransform.KEY to setOf("as", "perDay", "by", "bucket", "periodStart"),
+    ReportAsOfTransform.KEY to setOf("fields", "on", "at", "prefix"),
+    ReportJoinTransform.KEY to setOf("fields", "on", "prefix"),
+    ReportTopTransform.KEY to setOf("n", "order", "by", "bucket", "periodStart", "as"),
+    ReportGoalTransform.KEY to setOf("target", "period", "periodStart", "as", "progress"),
   )
+  private val JOIN_KEY_KEYS = setOf("field", "other")
+  private const val AT_START = "start"
+  private const val AT_END = "end"
+  private val AT_VALUES = listOf(AT_START, AT_END)
+  private const val ORDER_ASC = "asc"
+  private const val ORDER_DESC = "desc"
+  private val ORDER_VALUES = listOf(ORDER_ASC, ORDER_DESC)
   private val TRANSFORM_STEPS = TRANSFORM_KEYS.keys.toList()
   private const val FILL_FORWARD = "forward"
   private const val FILL_NONE = "none"
@@ -111,8 +129,8 @@ internal object ReportDefinitionParser {
   private val COLUMN_KEYS = setOf("field", "label")
   private val CHART_KEYS = setOf("query", "field", "name", "style", "axis", "series", "stack", "zoom")
   private val SERIES_KEYS = setOf("query", "field", "name", "style", "axis")
-  private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds", "config")
-  private val STAT_QUERY_KEYS = listOf("query", "field", "reduce", "compare")
+  private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds", "config", "goal")
+  private val STAT_QUERY_KEYS = listOf("query", "field", "reduce", "compare", "goal")
   private val THRESHOLD_KEYS = setOf("value", "color")
   private val CHECK_COMMON_KEYS = setOf("message", "severity")
   private val GAP_KEYS = setOf(ReportGapCheck.KEY, "every", "exclude", "current") + CHECK_COMMON_KEYS
@@ -207,19 +225,20 @@ internal object ReportDefinitionParser {
 
   /**
    * A declared query as panels see it (after its transforms): [columns] null when its fields are unknown (unresolved entity), so panels skip
-   * follow-up errors; [resample] the resampling step turning its x axis into buckets.
+   * follow-up errors; [rebucket] the bucket (and period start) a step (`resample`, `delta` with `bucket`) turned its rows into.
    */
-  private class QueryInfo(val query: ReportQuery, var columns: Map<String, ResultColumn>?, var resample: ReportResampleTransform? = null)
+  private class QueryInfo(val query: ReportQuery, var columns: Map<String, ResultColumn>?, var rebucket: Pair<TimeBucket, MonthDay?>? = null)
 
   /** A `$name` reference to a variable, checked once all variables and queries are known. */
   private class VariableUse(val name: String, val use: String, val path: Path)
 
-  /** The state of a query's result while its transformation steps are read: its columns (null if unknown) and time bucket. */
+  /** The state of a query's result while its transformation steps are read: its columns (null if unknown), time bucket and group field. */
   private class Pipeline(val info: QueryInfo?) {
     var columns: MutableMap<String, ResultColumn>? = info?.columns?.let { LinkedHashMap(it) }
-    var resample: ReportResampleTransform? = null
+    var rebucket: Pair<TimeBucket, MonthDay?>? = null
+    var groupBy: String? = info?.query?.aggregate?.groupBy
     val queryName: String get() = info?.query?.name.orEmpty()
-    val bucket: TimeBucket? get() = resample?.bucket ?: info?.query?.aggregate?.bucket
+    val bucket: TimeBucket? get() = rebucket?.first ?: info?.query?.aggregate?.bucket
   }
 
   private class ParsedAggregate(val aggregate: ReportAggregate, val valuePaths: List<Path>)
@@ -256,6 +275,11 @@ internal object ReportDefinitionParser {
 
     /** Declared variables (null: unreadable) with the path they are declared at. */
     private val declaredVariables = LinkedHashMap<String, Pair<ReportVariable?, Path>>()
+
+    /** Transformation pipelines by query name as declared, read on demand (a query read by `asOf`/`join` first) - see [ensurePipeline]. */
+    private val pipelineNodes = LinkedHashMap<String, Pair<JsonNode, Path>>()
+    private val pipelines = HashMap<String, List<ReportTransform>>()
+    private val pipelinesInProgress = mutableSetOf<String>()
 
     /** The App configuration Entity (ADR 0027) `config.<field>` values refer to. */
     private val configEntity = entities?.find { it.configuration }
@@ -419,17 +443,32 @@ internal object ReportDefinitionParser {
     private fun transforms(node: JsonNode, path: Path): Map<String, List<ReportTransform>> {
       if (node.isNull) return emptyMap()
       val map = obj(node, path) ?: return emptyMap()
+      map.properties().forEach { (queryName, stepsNode) -> pipelineNodes[queryName] = stepsNode to path.key(queryName) }
+      pipelineNodes.keys.forEach { ensurePipeline(it) }
       val result = LinkedHashMap<String, List<ReportTransform>>()
-      map.properties().forEach { (queryName, stepsNode) ->
-        val stepsPath = path.key(queryName)
-        val info = declaredQuery(queryName, stepsPath)
-        val steps = list(stepsNode, stepsPath) ?: return@forEach
-        val pipeline = Pipeline(info)
-        result[queryName] = steps.mapIndexedNotNull { i, step -> transformStep(step, stepsPath.index(i), pipeline) }
-        info?.columns = pipeline.columns
-        info?.resample = pipeline.resample
-      }
+      pipelineNodes.keys.forEach { name -> pipelines[name]?.let { result[name] = it } }
       return result
+    }
+
+    /**
+     * Reads the pipeline of [queryName] unless done already, so a query read by `asOf`/`join` is known with its own transforms first; false if
+     * it is being read right now (a cycle).
+     */
+    private fun ensurePipeline(queryName: String): Boolean {
+      if (queryName in pipelines) return true
+      if (queryName in pipelinesInProgress) return false
+      val (stepsNode, stepsPath) = pipelineNodes[queryName] ?: return true
+      pipelinesInProgress += queryName
+      val info = declaredQuery(queryName, stepsPath)
+      val steps = list(stepsNode, stepsPath)
+      val pipeline = Pipeline(info)
+      pipelines[queryName] = steps?.mapIndexedNotNull { i, step -> transformStep(step, stepsPath.index(i), pipeline) }.orEmpty()
+      if (steps != null) {
+        info?.columns = pipeline.columns
+        info?.rebucket = pipeline.rebucket
+      }
+      pipelinesInProgress -= queryName
+      return true
     }
 
     private fun transformStep(node: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
@@ -445,6 +484,10 @@ internal object ReportDefinitionParser {
       return when (step) {
         ReportCalcTransform.KEY -> calcStep(map, value, path, pipeline)
         ReportResampleTransform.KEY -> resampleStep(map, value, path, pipeline)
+        ReportDeltaTransform.KEY -> deltaStep(map, value, path, pipeline)
+        ReportAsOfTransform.KEY, ReportJoinTransform.KEY -> attachStep(step, map, value, path, pipeline)
+        ReportTopTransform.KEY -> topStep(map, value, path, pipeline)
+        ReportGoalTransform.KEY -> goalStep(map, value, path, pipeline)
         else -> fieldStep(step, map, value, path, pipeline)
       }
     }
@@ -518,14 +561,10 @@ internal object ReportDefinitionParser {
     private fun resampleStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
       val stepPath = path.key(ReportResampleTransform.KEY)
       val bucket = enumValue<TimeBucket>(value, stepPath)
-      val periodStart = map.get("periodStart")?.let { node ->
-        val raw = text(node, path.key("periodStart"))?.trim() ?: return@let null
-        parsePeriodStart(raw) ?: null.also { error(ReportDefinitionErrorCode.PERIOD_START_INVALID, path.key("periodStart"), raw) }
-      }
-      if (map.has("periodStart") && bucket != null && bucket !in PERIOD_START_BUCKETS) error(ReportDefinitionErrorCode.PERIOD_START_NOT_APPLICABLE, path.key("periodStart"))
+      val periodStart = if (bucket != null) periodStart(map, path, bucket) else null
       val fill = map.get("fill")?.let { keyed(it, path.key("fill"), FILL_MODES) { mode -> mode } } ?: FILL_FORWARD
       pipeline.info?.query?.let { query ->
-        if (query.aggregate?.groupBy != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, stepPath, ReportResampleTransform.KEY, "groupBy")
+        if (pipeline.groupBy != null) error(ReportDefinitionErrorCode.KEY_CONFLICT, stepPath, ReportResampleTransform.KEY, "groupBy")
         if (query.timeField == null && pipeline.bucket == null) error(ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME, stepPath, query.name)
       }
       bucket ?: return null
@@ -536,9 +575,191 @@ internal object ReportDefinitionParser {
         columns.filterKeys { it != ReportAggregate.BUCKET_FIELD }.forEach { (key, column) -> resampled[key] = column }
         resampled
       }
-      pipeline.resample = transform
+      pipeline.rebucket = bucket to periodStart
+      pipeline.groupBy = null
       return transform
     }
+
+    // region advanced steps
+
+    /** A period start for [bucket] (`periodStart` next to it), only for JAHR and QUARTAL. */
+    private fun periodStart(map: ObjectNode, path: Path, bucket: TimeBucket?): MonthDay? {
+      val periodStart = map.get("periodStart")?.let { node ->
+        val raw = text(node, path.key("periodStart"))?.trim() ?: return@let null
+        parsePeriodStart(raw) ?: null.also { error(ReportDefinitionErrorCode.PERIOD_START_INVALID, path.key("periodStart"), raw) }
+      }
+      if (map.has("periodStart") && (bucket == null || bucket !in PERIOD_START_BUCKETS)) error(ReportDefinitionErrorCode.PERIOD_START_NOT_APPLICABLE, path.key("periodStart"))
+      return periodStart
+    }
+
+    /** Any field of the result so far (null with an error if missing, or if the columns are unknown). */
+    private fun anyColumn(field: String, path: Path, pipeline: Pipeline): ResultColumn? {
+      val columns = pipeline.columns ?: return null
+      return columns[field] ?: null.also { error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path, field, pipeline.queryName) }
+    }
+
+    /** The step needs a date per row: the query's time field or a time bucket. */
+    private fun requireTime(step: String, path: Path, pipeline: Pipeline) {
+      val query = pipeline.info?.query ?: return
+      if (pipeline.bucket == null && query.timeField == null) error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME, path, step, query.name)
+    }
+
+    private fun optionalName(map: ObjectNode, key: String, path: Path): String? = map.get(key)?.let { nonBlankText(it, path.key(key), key) }
+
+    @Suppress("CyclomaticComplexMethod")
+    private fun deltaStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val stepPath = path.key(ReportDeltaTransform.KEY)
+      val field = nonBlankText(value, stepPath, ReportDeltaTransform.KEY) ?: return null
+      val source = sourceColumn(field, stepPath, pipeline)
+      val explicitOutput = optionalName(map, "as", path)
+      val perDay = map.get("perDay")?.let { bool(it, path.key("perDay")) } ?: false
+      val by = optionalName(map, "by", path)
+      by?.let { anyColumn(it, path.key("by"), pipeline) }
+      val bucket = map.get("bucket")?.let { enumValue<TimeBucket>(it, path.key("bucket")) }
+      val periodStart = periodStart(map, path, bucket)
+      if (perDay && map.has("bucket")) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("perDay"), "perDay", "bucket")
+      requireTime(ReportDeltaTransform.KEY, stepPath, pipeline)
+      val output = explicitOutput ?: (field + ReportDeltaTransform.SUFFIX)
+      val outputPath = if (explicitOutput != null) path.key("as") else stepPath
+      if (bucket == null) {
+        output(output, field, outputPath, pipeline, ResultColumn(output, ColumnRole.VALUE, if (perDay) source?.type?.let { PropertyType.DOUBLE } else source?.type, source?.unit))
+      } else {
+        // The readings become one row per bucket (and group): bucket, group and the distributed difference.
+        val group = by ?: pipeline.groupBy
+        if (output == ReportAggregate.BUCKET_FIELD || output == group) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, outputPath, output)
+        pipeline.columns = pipeline.columns?.let { columns ->
+          val bucketed = LinkedHashMap<String, ResultColumn>()
+          bucketed[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, PropertyType.STRING, bucket = bucket)
+          group?.let { g -> columns[g]?.let { bucketed[g] = it.copy(role = ColumnRole.GROUP) } }
+          bucketed[output] = ResultColumn(output, ColumnRole.VALUE, source?.type?.let { PropertyType.DOUBLE }, source?.unit)
+          bucketed
+        }
+        pipeline.rebucket = bucket to periodStart
+        pipeline.groupBy = group
+      }
+      if (bucket == null && map.has("bucket")) return null
+      return ReportDeltaTransform(field, output, perDay, by, bucket, periodStart)
+    }
+
+    /** `on: <field>` (same field in both queries) or `on: { field, other }` (`other: id` meaning the other row's object id). */
+    private fun joinKey(node: JsonNode, path: Path): ReportJoinKey? {
+      if (node.isValueNode) return nonBlankText(node, path, "on")?.let { ReportJoinKey(it) }
+      val map = obj(node, path) ?: return null
+      checkKeys(map, path, JOIN_KEY_KEYS)
+      val field = required(map, "field", path)?.let { nonBlankText(it, path.key("field"), "field") } ?: return null
+      val other = map.get("other")?.let { nonBlankText(it, path.key("other"), "other") } ?: field
+      return ReportJoinKey(field, other)
+    }
+
+    /** The other query of an `asOf`/`join` step with its transforms read first; null (with an error) if undeclared or part of a cycle. */
+    private fun otherQueryInfo(name: String, path: Path): QueryInfo? {
+      if (!queryInfos.containsKey(name)) return null.also { error(ReportDefinitionErrorCode.QUERY_NOT_FOUND, path, name) }
+      if (!ensurePipeline(name)) return null.also { error(ReportDefinitionErrorCode.TRANSFORM_QUERY_CYCLE, path, name) }
+      return queryInfos[name]
+    }
+
+    /** Whether a key field is known: a result field, or `id` (the object id) of a query with plain rows. */
+    private fun keyKnown(field: String, columns: Map<String, ResultColumn>, info: QueryInfo?): Boolean =
+      field in columns || (field == ReportJoinKey.OBJECT_ID && info?.query?.aggregate == null && info?.rebucket == null)
+
+    /** `asOf` and `join`: the other query, its fields to attach (with `prefix`) and the key (`on`). */
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    private fun attachStep(step: String, map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val stepPath = path.key(step)
+      val otherName = nonBlankText(value, stepPath, step) ?: return null
+      val other = otherQueryInfo(otherName, stepPath)
+      val fieldsPath = path.key("fields")
+      val fields = required(map, "fields", path)?.let { node -> list(node, fieldsPath)?.mapIndexedNotNull { i, f -> nonBlankText(f, fieldsPath.index(i), "field") } }
+      if (fields != null && fields.isEmpty()) error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, fieldsPath, "fields")
+      val prefix = map.get("prefix")?.let { text(it, path.key("prefix"))?.trim() }.orEmpty()
+      val onPath = path.key("on")
+      val on = if (step == ReportJoinTransform.KEY) required(map, "on", path)?.let { joinKey(it, onPath) } else map.get("on")?.let { joinKey(it, onPath) }
+      val atEnd = map.get("at")?.let { keyed(it, path.key("at"), AT_VALUES) { at -> at } } == AT_END
+
+      val otherColumns = other?.columns
+      if (other != null && otherColumns != null) {
+        fields?.forEachIndexed { i, f -> if (f !in otherColumns) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, fieldsPath.index(i), f, otherName) }
+        on?.let { if (!keyKnown(it.other, otherColumns, other)) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, onPath, it.other, otherName) }
+      }
+      pipeline.columns?.let { columns -> on?.let { if (!keyKnown(it.field, columns, pipeline.info)) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, onPath, it.field, pipeline.queryName) } }
+      if (step == ReportAsOfTransform.KEY) {
+        requireTime(step, stepPath, pipeline)
+        val otherBucket = other?.rebucket?.first ?: other?.query?.aggregate?.bucket
+        if (other != null && otherBucket == null && other.query.timeField == null) error(ReportDefinitionErrorCode.TRANSFORM_NEEDS_TIME, stepPath, step, otherName)
+      }
+      fields?.forEachIndexed { i, f ->
+        val name = prefix + f
+        val column = otherColumns?.get(f)?.copy(path = name, role = ColumnRole.FIELD, bucket = null) ?: ResultColumn(name, ColumnRole.FIELD, null)
+        output(name, null, fieldsPath.index(i), pipeline, column)
+      }
+      if (fields.isNullOrEmpty()) return null
+      return when (step) {
+        ReportJoinTransform.KEY -> on?.let { ReportJoinTransform(otherName, it, fields, prefix) }
+        else -> if (map.has("on") && on == null) null else ReportAsOfTransform(otherName, fields, on, atEnd, prefix)
+      }
+    }
+
+    private fun topStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val stepPath = path.key(ReportTopTransform.KEY)
+      val field = nonBlankText(value, stepPath, ReportTopTransform.KEY) ?: return null
+      sourceColumn(field, stepPath, pipeline)
+      val n = map.get("n")?.let { int(it, path.key("n"), 1, MAX_LIMIT) ?: return null } ?: 1
+      val order = map.get("order")?.let { keyed(it, path.key("order"), ORDER_VALUES) { o -> o } ?: return null } ?: ORDER_DESC
+      val by = optionalName(map, "by", path)
+      by?.let { anyColumn(it, path.key("by"), pipeline) }
+      val bucket = map.get("bucket")?.let { enumValue<TimeBucket>(it, path.key("bucket")) ?: return null }
+      val periodStart = periodStart(map, path, bucket)
+      val explicitOutput = optionalName(map, "as", path)
+      val output = explicitOutput ?: ReportTopTransform.RANK
+      if (bucket != null) {
+        requireTime(ReportTopTransform.KEY, path.key("bucket"), pipeline)
+        if (pipeline.columns?.containsKey(ReportAggregate.BUCKET_FIELD) == true) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path.key("bucket"), ReportAggregate.BUCKET_FIELD)
+        pipeline.columns = pipeline.columns?.let { columns ->
+          val withBucket = LinkedHashMap<String, ResultColumn>()
+          withBucket[ReportAggregate.BUCKET_FIELD] = ResultColumn(ReportAggregate.BUCKET_FIELD, ColumnRole.BUCKET, PropertyType.STRING, bucket = bucket)
+          withBucket.putAll(columns)
+          withBucket
+        }
+      }
+      output(output, null, if (explicitOutput != null) path.key("as") else stepPath, pipeline, ResultColumn(output, ColumnRole.VALUE, PropertyType.LONG))
+      return ReportTopTransform(field, n, order == ORDER_ASC, by, bucket, periodStart, output)
+    }
+
+    private fun goalStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
+      val stepPath = path.key(ReportGoalTransform.KEY)
+      val field = nonBlankText(value, stepPath, ReportGoalTransform.KEY) ?: return null
+      val source = sourceColumn(field, stepPath, pipeline)
+      val target = required(map, "target", path)?.let { nonBlankText(it, path.key("target"), "target") }
+      target?.let { checkTarget(it, path.key("target"), source?.unit, pipeline.columns, source?.type != null) }
+      val period = map.get("period")?.let { enumValue<TimeBucket>(it, path.key("period")) ?: return null }
+      val periodStart = periodStart(map, path, period)
+      if (period != null) requireTime(ReportGoalTransform.KEY, path.key("period"), pipeline)
+      val explicitOutput = optionalName(map, "as", path)
+      val explicitProgress = optionalName(map, "progress", path)
+      val output = explicitOutput ?: (field + ReportGoalTransform.SUFFIX)
+      val progress = explicitProgress ?: (field + ReportGoalTransform.PROGRESS_SUFFIX)
+      if (output == progress) error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path.key("progress"), progress)
+      output(output, null, if (explicitOutput != null) path.key("as") else stepPath, pipeline, ResultColumn(output, ColumnRole.VALUE, source?.type?.let { PropertyType.DOUBLE }, source?.unit))
+      output(progress, null, if (explicitProgress != null) path.key("progress") else stepPath, pipeline, ResultColumn(progress, ColumnRole.VALUE, source?.type?.let { PropertyType.DOUBLE }))
+      return target?.let { ReportGoalTransform(field, it, period, periodStart, output, progress) }
+    }
+
+    /**
+     * A goal target compared with values in [unit]: `config.<field>` (numeric, fitting unit), a number or unit text (when [checkNumbers]) or a
+     * numeric field of [columns] with a fitting unit.
+     */
+    private fun checkTarget(raw: String, path: Path, unit: PropertyUnit?, columns: Map<String, ResultColumn>?, checkNumbers: Boolean) {
+      if (ReportFields.configPath(raw) != null) return checkConfigNumber(raw, path, unit)
+      if (ReportValues.parseNumber(raw, unit) != null || columns == null) return
+      val column = columns[raw.trim()]
+      when {
+        column == null -> if (checkNumbers) error(ReportDefinitionErrorCode.GOAL_TARGET_INVALID, path, raw)
+        column.type != null && !column.numeric -> error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, raw)
+        unit != null && column.unit != null && unit.family != column.unit.family -> error(ReportDefinitionErrorCode.GOAL_TARGET_INVALID, path, raw)
+      }
+    }
+
+    // endregion
 
     /** A numeric field of the result so far; null (with an error) if missing or not numeric, or if the columns are unknown. */
     private fun sourceColumn(field: String, path: Path, pipeline: Pipeline): ResultColumn? {
@@ -1100,10 +1321,10 @@ internal object ReportDefinitionParser {
 
     /**
      * The x axis a query offers [type], null if none: timeseries - its bucket or (plain query) its time field; bar - its group, else its bucket.
-     * A resampled query offers the resampling bucket.
+     * A rebucketed query (`resample`, `delta` with `bucket`) offers that bucket.
      */
     private fun xAxisOf(type: ReportPanelType, info: QueryInfo): String? {
-      info.resample?.let { return "bucket:${it.bucket}:${it.periodStart}" }
+      info.rebucket?.let { (bucket, periodStart) -> return "bucket:$bucket:$periodStart" }
       val query = info.query
       val aggregate = query.aggregate
       val bucket = aggregate?.bucket?.let { "bucket:$it:${aggregate.periodStart}" }
@@ -1170,7 +1391,9 @@ internal object ReportDefinitionParser {
           threshold(item, path.key("thresholds").index(i), thresholdColumn != null || reduce == ReportReduce.COUNT, thresholdColumn?.unit)
         }
       }.orEmpty()
-      return query?.let { ReportStatPanel(title, it, field, reduce, compare, thresholds) }
+      val goal = map.get("goal")?.let { node -> nonBlankText(node, path.key("goal"), "goal") }
+      goal?.let { checkTarget(it, path.key("goal"), thresholdColumn?.unit, info?.columns, thresholdColumn != null || reduce == ReportReduce.COUNT) }
+      return query?.let { ReportStatPanel(title, it, field, reduce, compare, thresholds, goal = goal) }
     }
 
     /** `{ stat: Jahresziel, config: zielKm }`: a numeric configuration field shown as a constant, without query. */
