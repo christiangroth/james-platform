@@ -68,7 +68,7 @@ class UserDashboardResource {
     val dashboardApps = installedApps.map { info ->
       val allAppData = appData.listAppData(userId, info.installedAppId).getOrNull() ?: emptyList()
       val countsByEntity = allAppData.groupingBy { it.entityType.value }.eachCount()
-      val entityCounts = info.installedVersion.entityDefinitions.map { entity ->
+      val entityCounts = info.installedVersion.dataEntities.map { entity ->
         EntityDataCount(
           entityName = entity.name,
           count = countsByEntity.getOrDefault(entity.id.value, 0),

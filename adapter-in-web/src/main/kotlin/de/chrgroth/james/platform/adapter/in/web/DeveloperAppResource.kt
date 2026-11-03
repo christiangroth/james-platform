@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppConfigMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
@@ -11,6 +12,7 @@ import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
+import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
@@ -234,6 +236,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var reportMsg: ReportMessages
+
+  @Inject
+  private lateinit var appConfigMsg: AppConfigMessages
 
   @Inject
   private lateinit var reportPort: ReportPort
@@ -788,6 +793,7 @@ class DeveloperAppResource {
             Response.ok(DeveloperApiResult(false, devMsg.developerInvalidReferenceLookupError(names))).build()
           }
           is InvalidReportsError -> Response.ok(DeveloperApiResult(false, reportMsg.reportInvalidReportsError(error.reportNames.joinToString(", ")))).build()
+          is InvalidConfigurationError -> Response.ok(DeveloperApiResult(false, appConfigMsg.appConfigInvalidError(error.entityNames.joinToString(", ")))).build()
           else -> Response.ok(DeveloperApiResult(false, versionErrorMessage(error.code))).build()
         }
       },
@@ -932,6 +938,23 @@ class DeveloperAppResource {
     appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
+    )
+  }
+
+  /** Marks the entity as the version's configuration (or unmarks it), see ADR 0027. */
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/configuration")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun updateEntityConfiguration(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @PathParam("entityId") entityId: String,
+    @FormParam("configuration") configuration: String?,
+  ): Response = httpResponseMetrics.timed("rest.developer.entity-configuration-update") {
+    appVersionManagement.setEntityConfiguration(appId, versionId, entityId, configuration.toBoolean()).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifRight = { Response.ok(DeveloperApiResult(true, appConfigMsg.appConfigEntitySavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -2151,6 +2174,8 @@ class DeveloperAppResource {
     AppVersionError.UNIT_FAMILY_INVALID.code -> devMsg.developerUnitFamilyInvalidError()
     AppVersionError.UNIT_GRANULARITY_INVALID.code -> devMsg.developerUnitGranularityInvalidError()
     AppVersionError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
+    AppVersionError.CONFIGURATION_ALREADY_DEFINED.code -> appConfigMsg.appConfigAlreadyDefinedError()
+    AppVersionError.CONFIGURATION_REFERENCED.code -> appConfigMsg.appConfigReferencedError()
     else -> msg.commonUnexpectedError()
   }
 

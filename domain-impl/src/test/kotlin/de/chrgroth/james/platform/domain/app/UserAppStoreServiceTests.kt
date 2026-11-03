@@ -19,6 +19,7 @@ import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
@@ -46,7 +47,8 @@ class UserAppStoreServiceTests {
   private val userRepository: UserRepositoryPort = mockk()
   private val appVersionMigration: AppVersionMigrationPort = mockk()
   private val outboxPort: OutboxPort = mockk()
-  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, aggregationRepository, userRepository, appVersionMigration, outboxPort)
+  private val appConfiguration: AppConfigurationPort = mockk(relaxed = true)
+  private val service = UserAppStoreService(appRepository, appVersionRepository, installedAppRepository, appDataRepository, aggregationRepository, userRepository, appVersionMigration, outboxPort, appConfiguration)
 
   private val app1 = app(id = "app-1", name = "Alpha App", developerId = "dev-1")
   private val app2 = app(id = "app-2", name = "Beta App", developerId = "dev-2")
@@ -314,6 +316,7 @@ class UserAppStoreServiceTests {
     assertThat(result.getOrNull()?.appId).isEqualTo(AppId("app-1"))
     assertThat(result.getOrNull()?.installedVersionNumber).isEqualTo(VersionNumber("2.0.0"))
     verify { installedAppRepository.save(any()) }
+    verify { appConfiguration.ensureConfiguration(result.getOrNull()!!.id) }
   }
 
   @Test

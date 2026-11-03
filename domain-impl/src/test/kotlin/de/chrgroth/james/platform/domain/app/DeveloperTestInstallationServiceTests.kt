@@ -27,7 +27,7 @@ class DeveloperTestInstallationServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val installedAppRepository: InstalledAppRepositoryPort = mockk()
   private val outbox: OutboxPort = mockk()
-  private val service = DeveloperTestInstallationService(appRepository, appVersionRepository, installedAppRepository, outbox)
+  private val service = DeveloperTestInstallationService(appRepository, appVersionRepository, installedAppRepository, outbox, mockk(relaxed = true))
 
   private val existingApp = app(id = "app-1", name = "My App", developerId = "dev-1")
 

@@ -51,6 +51,7 @@ import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
+import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.readmodel.encodeTimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
@@ -70,14 +71,19 @@ import kotlin.math.abs
  * ISO strings, references as display text, a `ref` hop or an OBJECT property as nested object), then either sorts (without `sort`: newest
  * first) and limits, or aggregates (see [ReportAggregate]; sorted by bucket and group label unless sorted explicitly) and limits the aggregated
  * rows. Each query runs at most once per report and time range, however many panels use it.
+ *
+ * `config.<field>` values (filter values, stat thresholds, constant stat panels) read the App configuration object [configuration] (ADR 0027),
+ * converted into the unit of the value they are compared with.
  */
 @Suppress("TooManyFunctions", "LargeClass")
 internal class ReportExecutor(
   private val entities: List<EntityDefinition>,
   private val allAppData: List<AppData>,
   private val today: LocalDate,
+  private val configuration: AppData? = null,
   private val computeValues: (EntityDefinition, Map<String, String?>) -> Map<String, String?>,
 ) {
+  private val configEntity = entities.find { it.configuration }
   private val entityById = entities.associateBy { it.id.value }
   private val appDataById by lazy { allAppData.associateBy { it.id.value } }
   private val displayTexts = DisplayTextResolver(entityById, allAppData)
@@ -102,7 +108,10 @@ internal class ReportExecutor(
     is ReportTextPanel -> TextPanelSpec(panel.title, panel.markdown)
     is ReportTablePanel -> definition.query(panel.query)?.let { tablePanel(panel, it) }
     is ReportChartPanel -> chartPanel(panel, definition)
-    is ReportStatPanel -> definition.query(panel.query)?.let { statPanel(panel, it) }
+    is ReportStatPanel -> when (val config = panel.config) {
+      null -> panel.query?.let { definition.query(it) }?.let { statPanel(panel, it) }
+      else -> configStatPanel(panel, config)
+    }
   }
 
   // region table
@@ -189,7 +198,15 @@ internal class ReportExecutor(
     if (query.filter.isNotEmpty()) {
       val records = rows.map { row -> filterRecord(row, fields) to row }
       val rowByRecord = IdentityHashMap<JsonNode, Row>().apply { records.forEach { (record, row) -> put(record, row) } }
-      rows = FilterEvaluator.apply(records.map { it.first }, query.filter).map { rowByRecord.getValue(it) }
+      // A rule whose `config.<field>` value cannot be resolved never matches: an including rule keeps nothing, an excluding one drops nothing.
+      val rules = query.filter.map { rule -> rule to ReportFields.configPath(rule.value)?.let { configFilterValue(it, fields[rule.sourcePath]) } }
+      val unresolved = rules.filter { (rule, value) -> ReportFields.configPath(rule.value) != null && value == null }.map { it.first }
+      rows = if (unresolved.any { it.mode == FilterMode.INCLUDE }) {
+        emptyList()
+      } else {
+        val effective = rules.filter { it.first !in unresolved }.map { (rule, value) -> if (value == null) rule else rule.copy(value = value) }
+        FilterEvaluator.apply(records.map { it.first }, effective).map { rowByRecord.getValue(it) }
+      }
     }
 
     val orderOf = { row: Row -> timeField?.let { row.values[it.path] }?.takeIf { it.isNotEmpty() } ?: row.item.createdAt.toString() }
@@ -204,6 +221,40 @@ internal class ReportExecutor(
   }
 
   private class Row(val item: AppData, val values: Map<String, String?>)
+
+  // region configuration
+
+  private fun configField(path: String): ResolvedField? =
+    configEntity?.let { entity -> (ReportFields.resolve(entity, path, entities) as? FieldResolution.Resolved)?.field }
+
+  /** The raw (storage form) value of a configuration field, null without configuration object or value. */
+  private fun configRaw(field: ResolvedField): String? = configuration?.let { rawValue(it, field) }?.takeIf { it.isNotEmpty() }
+
+  /** A configuration number converted into [unit] (the unit of the value it is compared with). */
+  private fun configNumber(raw: String, unit: PropertyUnit?): Double? {
+    val field = configField(ReportFields.configPath(raw) ?: return null) ?: return null
+    val value = configRaw(field)?.toDoubleOrNull() ?: return null
+    return ReportFields.convertUnit(value, field.unit, unit)
+  }
+
+  /**
+   * The value of a `config.<field>` filter value ([path] being the field) as the filtered [target] field compares it: a reference by its display
+   * text, a number converted into the target's unit; null if the field or its value is missing.
+   */
+  private fun configFilterValue(path: String, target: ResolvedField?): String? {
+    val field = configField(path) ?: return null
+    val value = configRaw(field) ?: return null
+    return when {
+      field.type == PropertyType.REF -> displayTexts.displayTextOf(value)
+      ReportFields.isNumericType(field.type) && target != null && ReportFields.isNumericType(target.type) -> {
+        val number = value.toDoubleOrNull() ?: return value
+        BigDecimal.valueOf(ReportFields.convertUnit(number, field.unit, target.unit)).stripTrailingZeros().toPlainString()
+      }
+      else -> value
+    }
+  }
+
+  // endregion
 
   private fun rawValue(item: AppData, field: ResolvedField): String? {
     val source = if (field.refProperty == null) {
@@ -518,10 +569,25 @@ internal class ReportExecutor(
     val column = panel.field?.let { result.columns[it] }
     val unit = column?.unit?.takeIf { panel.reduce != ReportReduce.COUNT }
     val value = reduce(panel.reduce, result, column)
-    val thresholds = panel.thresholds.mapNotNull { threshold -> ReportValues.parseNumber(threshold.value, unit)?.let { it to threshold.color } }.sortedBy { it.first }
-    val color = value?.let { v -> thresholds.lastOrNull { it.first <= v }?.second }
+    val color = thresholdColor(panel, value, unit)
     val comparison = if (panel.compare) range?.previous()?.let { previousRange -> comparison(panel, query, previousRange, value, unit) } else null
     return StatPanelSpec(panel.title, value, value?.let { formatNumber(it, unit) } ?: NO_VALUE, color, comparison)
+  }
+
+  /** A configuration field shown as a constant (`{ stat: Jahresziel, config: zielKm }`). */
+  private fun configStatPanel(panel: ReportStatPanel, path: String): PanelSpec? {
+    val field = configField(path) ?: return null
+    val value = configRaw(field)?.toDoubleOrNull()
+    return StatPanelSpec(panel.title, value, value?.let { formatNumber(it, field.unit) } ?: NO_VALUE, thresholdColor(panel, value, field.unit))
+  }
+
+  /** The color of the last threshold (ascending) at most [value]; threshold values may be numbers, unit texts or `config.<field>` values. */
+  private fun thresholdColor(panel: ReportStatPanel, value: Double?, unit: PropertyUnit?): String? {
+    val thresholds = panel.thresholds.mapNotNull { threshold ->
+      val number = if (ReportFields.configPath(threshold.value) != null) configNumber(threshold.value, unit) else ReportValues.parseNumber(threshold.value, unit)
+      number?.let { it to threshold.color }
+    }.sortedBy { it.first }
+    return value?.let { v -> thresholds.lastOrNull { it.first <= v }?.second }
   }
 
   private fun comparison(panel: ReportStatPanel, query: ReportQuery, previousRange: ReportDateRange, value: Double?, unit: PropertyUnit?): StatComparisonSpec? {

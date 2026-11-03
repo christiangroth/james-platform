@@ -221,17 +221,18 @@ enum class ReportAxis(val key: String) {
 }
 
 /**
- * A single value: [field] of [query] reduced over all its rows ([field] null with [ReportReduce.COUNT] counts rows). [compare] adds the value of
- * the previous period of the same length (the query needs a closed range). [thresholds] color the value: the last threshold (in ascending
- * order) whose value is at most the reduced value wins.
+ * A single value: [field] of [query] reduced over all its rows ([field] null with [ReportReduce.COUNT] counts rows), or - instead of a query -
+ * the [config] field of the App configuration (ADR 0027) as a constant. [compare] adds the value of the previous period of the same length (the
+ * query needs a closed range). [thresholds] color the value: the last threshold (in ascending order) whose value is at most the value wins.
  */
 data class ReportStatPanel(
   override val title: String,
-  val query: String,
+  val query: String?,
   val field: String?,
   val reduce: ReportReduce = ReportReduce.LAST,
   val compare: Boolean = false,
   val thresholds: List<ReportThreshold> = emptyList(),
+  val config: String? = null,
 ) : ReportPanel {
   override val type: ReportPanelType get() = ReportPanelType.STAT
 }
@@ -245,7 +246,10 @@ enum class ReportReduce(val key: String) {
   COUNT("count"),
 }
 
-/** [value] as written, a plain number in the field's storage unit or a unit text (`1000km`); [color] a color name or `#rrggbb`. */
+/**
+ * [value] as written, a plain number in the field's storage unit, a unit text (`1000km`) or a configuration field (`config.zielKm`, ADR 0027);
+ * [color] a color name or `#rrggbb`.
+ */
 data class ReportThreshold(val value: String, val color: String)
 
 // region validation errors
@@ -347,6 +351,15 @@ enum class ReportDefinitionErrorCode {
 
   /** args: value, allowed color names (comma separated). */
   INVALID_COLOR,
+
+  /** args: the `config.<field>` reference. The App Version defines no configuration Entity (ADR 0027). */
+  CONFIG_NOT_DEFINED,
+
+  /** args: field, configuration entity. The configuration Entity has no such (computed) property. */
+  CONFIG_FIELD_NOT_FOUND,
+
+  /** args: field. The configuration field's unit does not fit the unit of the value it is compared with. */
+  CONFIG_UNIT_MISMATCH,
 }
 
 /** One validation error, located by [path] (e.g. `queries.laeufe.filter[0].op`) and, where known, the 1-based [line] in the YAML source. */

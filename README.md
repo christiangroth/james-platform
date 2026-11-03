@@ -23,6 +23,9 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   threshold colors. The version editor validates definitions with line
   numbers and previews them against a test installation; Users open the reports of their installed Apps. Queries run backend-side on the installation's
   data only.
+- **App Configuration** – An App Version may mark one Entity as its configuration: a singleton with exactly one object per installation, created from
+  the defaults on install and upgrade and maintained by the User under "Einstellungen". Reports read it as `config.<field>` (filter values, thresholds,
+  constant single values), computed property scripts via a `config` binding - goals and thresholds become data instead of code.
 - **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by declarative migration
   steps (convert a property's type or unit, carry a value over to its replacement, fill empty values, or adjust values to tightened constraints) and/or a
   Developer-authored migration script that transform existing data on upgrade. The version editor suggests a matching migration step for every breaking change not

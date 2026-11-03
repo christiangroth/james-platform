@@ -40,7 +40,13 @@ data class AppVersion(
   val reports: List<Report>,
   val status: AppVersionStatus,
   val createdAt: Instant,
-)
+) {
+  /** The configuration Entity (singleton, ADR 0027), if this version defines one. */
+  val configurationEntity: EntityDefinition? get() = entityDefinitions.find { it.configuration }
+
+  /** The Entities holding regular data, i.e. all but the [configurationEntity]. */
+  val dataEntities: List<EntityDefinition> get() = entityDefinitions.filter { !it.configuration }
+}
 
 enum class AppVersionStatus {
   DRAFT,

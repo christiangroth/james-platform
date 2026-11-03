@@ -21,6 +21,9 @@ interface AppVersionManagementPort {
   fun deleteEntity(appId: String, versionId: String, entityId: String): Either<DomainError, AppVersion>
   fun reorderEntities(appId: String, versionId: String, entityIds: List<String>): Either<DomainError, AppVersion>
   fun updateEntityDisplayText(appId: String, versionId: String, entityId: String, displayText: String?): Either<DomainError, AppVersion>
+
+  /** Marks [entityId] as the version's configuration Entity (or unmarks it), see ADR 0027. At most one Entity per version, never a REF target. */
+  fun setEntityConfiguration(appId: String, versionId: String, entityId: String, configuration: Boolean): Either<DomainError, AppVersion>
   fun addMigrationStep(appId: String, versionId: String, entityId: String, input: MigrationStepInput): Either<DomainError, AppVersion>
   fun updateMigrationStep(appId: String, versionId: String, entityId: String, stepId: String, input: MigrationStepInput): Either<DomainError, AppVersion>
   fun deleteMigrationStep(appId: String, versionId: String, entityId: String, stepId: String): Either<DomainError, AppVersion>

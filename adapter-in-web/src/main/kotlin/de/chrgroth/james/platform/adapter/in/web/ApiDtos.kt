@@ -78,6 +78,7 @@ data class ApiEntityDto(
   val aggregations: List<ApiAggregationDto>,
   val migrationSteps: List<ApiMigrationStepDto>,
   val migrationScript: String?,
+  val configuration: Boolean,
 )
 
 data class ApiPropertyDto(
@@ -290,6 +291,7 @@ object ApiDtoMapper {
     aggregations = entity.aggregations.map { aggregation(it) },
     migrationSteps = entity.migrationSteps.map { migrationStep(it) },
     migrationScript = entity.migrationScript,
+    configuration = entity.configuration,
   )
 
   private fun property(property: Property): ApiPropertyDto = ApiPropertyDto(

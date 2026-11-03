@@ -7,6 +7,8 @@ import de.chrgroth.james.platform.domain.app.resolveInstalledAppVersion
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
 import de.chrgroth.james.platform.domain.error.ReportError
+import de.chrgroth.james.platform.domain.model.app.AppData
+import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
@@ -14,6 +16,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportView
 import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ReportPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -22,6 +25,7 @@ import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import kotlin.time.Clock as KotlinClock
 
@@ -31,6 +35,7 @@ class ReportService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val computedProperty: ComputedPropertyPort,
+  private val appConfiguration: AppConfigurationPort,
 ) : ReportPort {
 
   /** Source of "today" for relative time ranges; replaceable in tests. */
@@ -79,11 +84,34 @@ class ReportService(
     // Sandbox boundary: only this installation's objects are ever loaded.
     val appData = appDataRepository.findAllByInstalledAppId(installedApp.id)
     val now = KotlinClock.System.now()
-    val executor = ReportExecutor(version.entityDefinitions, appData, LocalDate.now(clock)) { entity, data ->
-      computedProperty.computeValues(entity, data, now)
+    val configuration = configurationObject(installedApp, version, appData)
+    val configValues = configuration?.data.orEmpty()
+    val executor = ReportExecutor(version.entityDefinitions, appData, LocalDate.now(clock), configuration) { entity, data ->
+      computedProperty.computeValues(entity, data, now, configValues)
     }
     return executor.execute(reportId, name, parsed).right()
   }
 
-  companion object : KLogging()
+  /** The installation's configuration object (ADR 0027); not created yet, a transient one carrying the defaults. */
+  private fun configurationObject(installedApp: InstalledApp, version: AppVersion, appData: List<AppData>): AppData? {
+    val entity = version.configurationEntity ?: return null
+    appData.filter { it.entityType == entity.id }.minByOrNull { it.createdAt }?.let { return it }
+    val now = Instant.now()
+    return AppData(
+      id = AppDataId(TRANSIENT_CONFIGURATION_ID),
+      userId = installedApp.userId,
+      installedAppId = installedApp.id,
+      appVersion = installedApp.installedVersionNumber,
+      lastValidatedWithVersion = installedApp.installedVersionNumber,
+      entityType = entity.id,
+      objectVersion = 0,
+      createdAt = now,
+      lastChangedAt = now,
+      data = appConfiguration.configurationValues(installedApp, version),
+    )
+  }
+
+  companion object : KLogging() {
+    private const val TRANSIENT_CONFIGURATION_ID = "configuration-defaults"
+  }
 }

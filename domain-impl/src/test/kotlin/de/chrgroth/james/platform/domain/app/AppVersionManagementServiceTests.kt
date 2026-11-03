@@ -14,6 +14,7 @@ import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
+import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
@@ -91,7 +92,7 @@ class AppVersionManagementServiceTests {
     justRun { enqueue(any()) }
   }
   private val service: AppVersionManagementService =
-    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox)
+    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox, mockk(relaxed = true))
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -2311,6 +2312,7 @@ class AppVersionManagementServiceTests {
     // ids identify a section/line (renames show up as changed names); everything else must be rendered
     assertThat(fieldsOf(EntityDefinition::class.java)).containsExactlyInAnyOrder(
       "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationSteps", "migrationScript",
+      "configuration",
     )
     assertThat(fieldsOf(Property::class.java)).containsExactlyInAnyOrder(
       "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "valueProposals", "targetEntityId", "listItemType", "itemConstraints",
@@ -2394,6 +2396,87 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.APP_INACTIVE)
+  }
+
+  // endregion
+
+  // region configuration entity (ADR 0027)
+
+  private val configRequired = Property(id = PropertyId("p-c-1"), name = "Ziel", type = PropertyType.LONG, nullable = false, default = "10")
+  private val configEntity = EntityDefinition(id = EntityDefinitionId("e-config"), name = "Settings", properties = listOf(configRequired))
+  private val dataEntity = EntityDefinition(id = EntityDefinitionId("e-data"), name = "Run")
+
+  @Test
+  fun `setEntityConfiguration marks and unmarks an entity as configuration`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(dataEntity, configEntity))
+    justRun { appVersionRepository.save(any()) }
+
+    val marked = service.setEntityConfiguration("app-1", "ver-1", "e-config", true)
+    assertThat(marked.getOrNull()?.configurationEntity?.id).isEqualTo(configEntity.id)
+    assertThat(marked.getOrNull()?.dataEntities).containsExactly(dataEntity)
+
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns marked.getOrNull()!!
+    assertThat(service.setEntityConfiguration("app-1", "ver-1", "e-config", false).getOrNull()?.configurationEntity).isNull()
+  }
+
+  @Test
+  fun `setEntityConfiguration rejects a second configuration entity`() {
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(
+      entityDefinitions = listOf(dataEntity, configEntity, EntityDefinition(EntityDefinitionId("e-other"), "Other", configuration = true)),
+    )
+
+    assertThat(service.setEntityConfiguration("app-1", "ver-1", "e-config", true).leftOrNull()).isEqualTo(AppVersionError.CONFIGURATION_ALREADY_DEFINED)
+  }
+
+  @Test
+  fun `setEntityConfiguration rejects an entity targeted by a REF property`() {
+    val ref = Property(id = PropertyId("p-ref"), name = "Settings", type = PropertyType.REF, targetEntityId = configEntity.id)
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(dataEntity.copy(properties = listOf(ref)), configEntity))
+
+    assertThat(service.setEntityConfiguration("app-1", "ver-1", "e-config", true).leftOrNull()).isEqualTo(AppVersionError.CONFIGURATION_REFERENCED)
+  }
+
+  @Test
+  fun `setPropertyTargetEntity rejects the configuration entity as target`() {
+    val ref = Property(id = PropertyId("p-ref"), name = "Settings", type = PropertyType.REF)
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(
+      entityDefinitions = listOf(dataEntity.copy(properties = listOf(ref)), configEntity.copy(configuration = true)),
+    )
+
+    val result = service.setPropertyTargetEntity("app-1", "ver-1", "e-data", "p-ref", "e-config", emptyList())
+
+    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.CONFIGURATION_REFERENCED)
+  }
+
+  @Test
+  fun `publishVersion accepts a configuration entity whose required properties have defaults`() {
+    val nested = Property(id = PropertyId("p-n"), name = "Gelb", type = PropertyType.DOUBLE, nullable = false, default = "0.5")
+    val obj = Property(id = PropertyId("p-o"), name = "Schwellen", type = PropertyType.OBJECT, nullable = false, nestedProperties = listOf(nested))
+    val smart = Property(id = PropertyId("p-s"), name = "Start", type = PropertyType.DATE, nullable = false, smartDefault = "today")
+    val flag = Property(id = PropertyId("p-b"), name = "Aktiv", type = PropertyType.BOOLEAN, nullable = false)
+    val config = configEntity.copy(configuration = true, properties = listOf(configRequired, obj, smart, flag))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(dataEntity, config)))
+    justRun { appVersionRepository.save(any()) }
+
+    assertThat(service.publishVersion("app-1", "BUGFIX", releaseNotes).isRight()).isTrue()
+  }
+
+  @Test
+  fun `publishVersion rejects invalid configuration entities`() {
+    val missingDefault = configEntity.copy(configuration = true, properties = listOf(configRequired.copy(default = null)))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(dataEntity, missingDefault)))
+    assertThat(service.publishVersion("app-1", "BUGFIX", releaseNotes).leftOrNull()).isEqualTo(InvalidConfigurationError(listOf("Settings")))
+
+    val nestedMissing = Property(id = PropertyId("p-o"), name = "Schwellen", type = PropertyType.OBJECT, nullable = false,
+      nestedProperties = listOf(Property(id = PropertyId("p-n"), name = "Gelb", type = PropertyType.DOUBLE, nullable = false)))
+    val nestedConfig = configEntity.copy(configuration = true, properties = listOf(nestedMissing))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(nestedConfig)))
+    assertThat(service.publishVersion("app-1", "BUGFIX", releaseNotes).leftOrNull()).isEqualTo(InvalidConfigurationError(listOf("Settings")))
+
+    val two = listOf(configEntity.copy(configuration = true), dataEntity.copy(configuration = true))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = two))
+    assertThat(service.publishVersion("app-1", "BUGFIX", releaseNotes).leftOrNull()).isEqualTo(InvalidConfigurationError(listOf("Settings", "Run")))
+    verify(exactly = 0) { appVersionRepository.save(any()) }
   }
 
   // endregion
@@ -4489,6 +4572,10 @@ class AppVersionManagementServiceTests {
 
       return Stream.of(
         Arguments.of("entity display text", listOf(displayTextEntity), listOf(displayTextUpdatedEntity), listOf(listOf("display-text: Order A"), listOf("display-text: Order B"))),
+        Arguments.of(
+          "entity configuration", listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Settings")),
+          listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Settings", configuration = true)), listOf(listOf("configuration: true")),
+        ),
         Arguments.of("entity sort-by", listOf(sortByEntity), listOf(sortByUpdatedEntity), listOf(listOf("sort-by: Category DESC"))),
         Arguments.of(
           "entity aggregation", listOf(aggregationEntity), listOf(aggregationUpdatedEntity),

@@ -39,7 +39,7 @@ class ComputedPropertyService(
     }
   }
 
-  override fun computeValues(entity: EntityDefinition, data: Map<String, String?>, now: Instant): Map<String, String?> {
+  override fun computeValues(entity: EntityDefinition, data: Map<String, String?>, now: Instant, config: Map<String, String?>): Map<String, String?> {
     val propertiesWithScript = entity.computedProperties.filter { it.script != null }
     if (propertiesWithScript.isEmpty()) return emptyMap()
 
@@ -58,6 +58,7 @@ class ComputedPropertyService(
         bindings[BINDING_DATA] = data
         bindings[BINDING_COMPUTED] = result.toMap()
         bindings[BINDING_NOW] = now
+        bindings[BINDING_CONFIG] = config
         val future = scriptExecutor.submit(Callable { engine.eval(buildWrappedScript(script), bindings) })
         val value = future.get(scriptTimeoutMs, TimeUnit.MILLISECONDS)
         result[computedProperty.id.value] = value?.toString()
@@ -87,6 +88,7 @@ class ComputedPropertyService(
     appendLine("val it: Map<String, String?> = ($BINDING_DATA ?: emptyMap<String, String?>()) as Map<String, String?>")
     appendLine("val computed: Map<String, String?> = ($BINDING_COMPUTED ?: emptyMap<String, String?>()) as Map<String, String?>")
     appendLine("val now: kotlin.time.Instant = $BINDING_NOW as kotlin.time.Instant")
+    appendLine("val config: Map<String, String?> = ($BINDING_CONFIG ?: emptyMap<String, String?>()) as Map<String, String?>")
     appendLine()
     append(script)
   }
@@ -95,5 +97,6 @@ class ComputedPropertyService(
     private const val BINDING_DATA = "_computedData"
     private const val BINDING_COMPUTED = "_computedResults"
     private const val BINDING_NOW = "_computedNow"
+    private const val BINDING_CONFIG = "_computedConfig"
   }
 }

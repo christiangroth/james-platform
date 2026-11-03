@@ -28,6 +28,7 @@ class EntityDefinitionDocument {
   var aggregations: List<AggregationDefinitionDocument> = emptyList()
   var migrationSteps: List<MigrationStepDocument> = emptyList()
   var migrationScript: String? = null
+  var configuration: Boolean = false
 }
 
 class MigrationStepDocument {

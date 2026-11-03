@@ -65,7 +65,7 @@
                 <div class="d-flex align-items-center mb-3 gap-2">
                     <h2 class="fs-5 fw-semibold mb-0">{developer:developerEntityHeading(selectedEntity.name)}</h2>
                     <span class="badge app-badge-failed d-none ms-1 breaking-change-badge" data-breaking-entity-id="{selectedEntity.id}" data-testid="entity-heading-breaking-change-badge" style="font-size:0.7rem;">{developer:developerBreakingChangeBadge()}</span>
-                    {#if !isNestedLevel}
+                    {#if !isNestedLevel && !selectedEntity.configuration}
                     <button type="button" class="btn btn-app-secondary btn-sm"
                             data-bs-toggle="modal" data-bs-target="#generateTestDataModal"
                             title="{developer:developerGenerateTestDataAriaLabel()}" aria-label="{developer:developerGenerateTestDataAriaLabel()}"
@@ -91,6 +91,17 @@
                             <i class="bi bi-pencil" aria-hidden="true"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- App configuration (ADR 0027) -->
+                <div class="mb-4">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" role="switch" id="entityConfigurationSwitch"
+                               data-entity-id="{selectedEntity.id}" data-testid="entity-configuration-switch"
+                               {#if selectedEntity.configuration}checked{/if}>
+                        <label class="form-check-label fw-semibold" for="entityConfigurationSwitch">{appConfig:appConfigEntityToggleLabel()}</label>
+                    </div>
+                    <p class="app-section-label mb-0" style="font-size:0.85rem;">{appConfig:appConfigEntityToggleHelp()}</p>
                 </div>
 
                 <!-- Migration -->
@@ -499,7 +510,7 @@
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="entity-drag-handle">
                                 <i class="bi bi-grip-vertical" aria-hidden="true"></i>
                             </td>
-                            <td><span data-testid="entity-name-link">{entity.name}</span><span class="badge app-badge-failed d-none ms-1 breaking-change-badge" data-breaking-entity-id="{entity.id}" data-testid="entity-breaking-change-badge-{entity.id}" style="font-size:0.7rem;">{developer:developerBreakingChangeBadge()}</span></td>
+                            <td><span data-testid="entity-name-link">{entity.name}</span>{#if entity.configuration}<span class="badge app-badge-muted ms-1" data-testid="entity-configuration-badge" style="font-size:0.7rem;">{appConfig:appConfigEntityBadge()}</span>{/if}<span class="badge app-badge-failed d-none ms-1 breaking-change-badge" data-breaking-entity-id="{entity.id}" data-testid="entity-breaking-change-badge-{entity.id}" style="font-size:0.7rem;">{developer:developerBreakingChangeBadge()}</span></td>
                             <td>
                                 {#if entity.properties.isEmpty}
                                 <span class="app-section-label" style="font-size:0.75rem;">{msg:commonNotAvailable()}</span>
@@ -1519,6 +1530,25 @@
                         addEntityForm.querySelector('[type="submit"]').disabled = false;
                     });
                 }
+            }
+
+            // App configuration toggle (ADR 0027)
+            var entityConfigurationSwitch = document.getElementById('entityConfigurationSwitch');
+            if (entityConfigurationSwitch) {
+                entityConfigurationSwitch.addEventListener('change', async function () {
+                    var entityId = entityConfigurationSwitch.getAttribute('data-entity-id');
+                    var formData = new FormData();
+                    formData.append('configuration', entityConfigurationSwitch.checked ? 'true' : 'false');
+                    entityConfigurationSwitch.disabled = true;
+                    var result = await apiPost(
+                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/configuration',
+                        formData, true
+                    );
+                    entityConfigurationSwitch.disabled = false;
+                    if (!result || !result.ok) {
+                        entityConfigurationSwitch.checked = !entityConfigurationSwitch.checked;
+                    }
+                });
             }
 
             // Display Text form and token badges
