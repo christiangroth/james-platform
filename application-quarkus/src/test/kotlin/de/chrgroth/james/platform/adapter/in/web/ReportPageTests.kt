@@ -292,6 +292,51 @@ class ReportPageTests {
   }
 
   @Test
+  fun `preview lists the findings of checks in a warnings panel and counts them on the tab`() {
+    val draft = createDraft()
+    val installedAppId = testInstallations.createTestInstallation(draft.appId, draft.versionId, developerId(), USERNAME).getOrNull()!!.id.value
+    addKonzert(draft, installedAppId, "Muse", "2026-01-10")
+    addKonzert(draft, installedAppId, "Muse", "2026-03-10")
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("installedAppId", installedAppId)
+      .formParam("name", "Prüfungen")
+      .formParam("definition", CHECK_DEFINITION)
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}/preview")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(true))
+      .body("view.tabs[0].warnings", equalTo(2))
+      .body("view.tabs[0].rows[0].panels[0].type", equalTo("warnings"))
+      .body("view.tabs[0].rows[0].panels[0].totalWarnings", equalTo(2))
+      .body("view.tabs[0].rows[0].panels[0].warnings.label", contains("04/2026", "02/2026"))
+      .body("view.tabs[0].rows[0].panels[0].warnings[0].message", equalTo("Kein Konzert im 04/2026"))
+      .body("view.tabs[0].rows[0].panels[0].warnings[0].severity", equalTo("error"))
+  }
+
+  @Test
+  fun `invalid checks are reported in German and the report page carries the warnings texts`() {
+    val draft = createDraft()
+
+    given().contentType("application/x-www-form-urlencoded")
+      .formParam("name", "Konzerte")
+      .formParam("definition", "queries:\n  q: { entity: Konzert, timeField: datum }\nchecks:\n  g: { gap: q, every: MONAT, message: \"{woche}\" }\ntabs: []\n")
+      .`when`().post("/ui/developer/apps/${draft.appId}/versions/${draft.versionId}/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body("ok", equalTo(false))
+      .body("errors.code", contains("MESSAGE_PLACEHOLDER_UNKNOWN"))
+      .body("errors[0].message", containsString("Unbekannter Platzhalter „{woche}“"))
+
+    appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
+    val installedAppId = userAppStore.installApp(USERNAME, draft.appId).getOrNull()!!.id.value
+    given().`when`().get("/ui/user/apps/$installedAppId/reports/${draft.reportId}")
+      .then()
+      .statusCode(200)
+      .body(containsString("data-text-warnings-empty=\"Keine Warnungen.\""))
+  }
+
+  @Test
   fun `report page of an unknown report redirects to the installed app`() {
     val draft = createDraft()
     appVersionManagement.publishVersion(draft.appId, "BUGFIX", "Initial release").getOrNull()!!
@@ -333,6 +378,17 @@ class ReportPageTests {
             - - { stat: Konzerte, query: alle, reduce: count }
               - { timeseries: Pro Monat, query: monate, style: column }
               - { bar: Pro Band, query: proBand, horizontal: true }
+    """.trimIndent()
+
+    val CHECK_DEFINITION = """
+      queries:
+        konzerte: { entity: Konzert, timeField: datum, range: { from: 2026-01-01, to: 2026-04-30 } }
+      checks:
+        monatlich: { gap: konzerte, every: MONAT, message: "Kein Konzert im {period}", severity: error }
+      tabs:
+        - name: Prüfungen
+          rows:
+            - - { warnings: Hinweise, checks: [monatlich] }
     """.trimIndent()
 
     val VARIABLE_DEFINITION = """

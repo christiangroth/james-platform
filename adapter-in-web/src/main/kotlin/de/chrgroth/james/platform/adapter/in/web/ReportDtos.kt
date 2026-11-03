@@ -3,6 +3,7 @@ package de.chrgroth.james.platform.adapter.`in`.web
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportCheckMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportTransformMessages
 import de.chrgroth.james.platform.domain.model.app.ChartPanelSpec
@@ -13,6 +14,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportView
 import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
 import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.TextPanelSpec
+import de.chrgroth.james.platform.domain.model.app.WarningsPanelSpec
 import io.quarkus.qute.RawString
 import jakarta.enterprise.context.ApplicationScoped
 
@@ -32,7 +34,8 @@ data class ApiReportVariableDto(val name: String, val label: String, val type: S
 
 data class ApiReportVariableOptionDto(val value: String, val label: String)
 
-data class ApiReportTabDto(val name: String, val rows: List<ApiReportRowDto>)
+/** [warnings] counts the findings of the tab's warnings panels, shown on the tab. */
+data class ApiReportTabDto(val name: String, val rows: List<ApiReportRowDto>, val warnings: Int = 0)
 
 data class ApiReportRowDto(val panels: List<ApiReportPanelDto>)
 
@@ -56,7 +59,13 @@ data class ApiReportPanelDto(
   val text: String? = null,
   val color: String? = null,
   val comparison: ApiStatComparisonDto? = null,
+  val warnings: List<ApiReportWarningDto>? = null,
+  val totalWarnings: Int? = null,
 )
+
+/** One finding of a warnings panel: [severity] `warning`/`error`, [label] the period or row it is about. */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ApiReportWarningDto(val check: String, val severity: String, val label: String?, val message: String)
 
 /** [type] `category` (with [categories] as labels) or `time` (points carry ISO dates). */
 data class ApiChartXAxisDto(val type: String, val categories: List<String>)
@@ -104,7 +113,7 @@ object ApiReportDtoMapper {
   fun view(view: ReportView) = ApiReportViewDto(
     reportId = view.reportId,
     name = view.name,
-    tabs = view.tabs.map { tab -> ApiReportTabDto(tab.name, tab.rows.map { row -> ApiReportRowDto(row.panels.map { panel(it) }) }) },
+    tabs = view.tabs.map { tab -> ApiReportTabDto(tab.name, tab.rows.map { row -> ApiReportRowDto(row.panels.map { panel(it) }) }, tab.warnings) },
     variables = view.variables.map { variable ->
       ApiReportVariableDto(variable.name, variable.label, variable.type, variable.options.map { ApiReportVariableOptionDto(it.value, it.label) }, variable.selected)
     },
@@ -158,6 +167,13 @@ object ApiReportDtoMapper {
       color = panel.color,
       comparison = panel.comparison?.let { ApiStatComparisonDto(it.previousValue, it.previousText, it.deltaText, it.percentText, it.trend, it.periodText) },
     )
+    is WarningsPanelSpec -> ApiReportPanelDto(
+      type = panel.type.key,
+      title = panel.title,
+      warnings = panel.warnings.map { ApiReportWarningDto(it.check, it.severity, it.label, it.message) },
+      totalWarnings = panel.total,
+      truncated = panel.truncated,
+    )
   }
 
   /** English, machine-oriented detail line for the token API, e.g. `line 3, queries.q.entity: ENTITY_NOT_FOUND [Lauf]`. */
@@ -170,7 +186,11 @@ object ApiReportDtoMapper {
 
 /** German texts for report definition errors and JSON embedding of report views into pages. */
 @ApplicationScoped
-class ReportTexts(private val reportMsg: ReportMessages, private val transformMsg: ReportTransformMessages) {
+class ReportTexts(
+  private val reportMsg: ReportMessages,
+  private val transformMsg: ReportTransformMessages,
+  private val checkMsg: ReportCheckMessages,
+) {
 
   private val objectMapper = ObjectMapper()
 
@@ -234,6 +254,11 @@ class ReportTexts(private val reportMsg: ReportMessages, private val transformMs
       ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET -> transformMsg.reportErrorTransformNeedsBucket(a(0), a(1))
       ReportDefinitionErrorCode.FORECAST_NEEDS_PERIOD -> transformMsg.reportErrorForecastNeedsPeriod(a(0))
       ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME -> transformMsg.reportErrorResampleNeedsTime(a(0))
+      ReportDefinitionErrorCode.CHECK_TYPE_MISSING -> checkMsg.reportErrorCheckTypeMissing(a(0))
+      ReportDefinitionErrorCode.CHECK_TYPE_AMBIGUOUS -> checkMsg.reportErrorCheckTypeAmbiguous(a(0))
+      ReportDefinitionErrorCode.CHECK_NOT_FOUND -> checkMsg.reportErrorCheckNotFound(a(0))
+      ReportDefinitionErrorCode.CALENDAR_INVALID -> checkMsg.reportErrorCalendarInvalid(a(0))
+      ReportDefinitionErrorCode.MESSAGE_PLACEHOLDER_UNKNOWN -> checkMsg.reportErrorMessagePlaceholderUnknown("{" + a(0) + "}", a(1))
     }
   }
 

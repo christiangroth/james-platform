@@ -11,6 +11,7 @@
  *   inject markup, scripts, event handlers or javascript: links.
  * - Report variables (view.variables) render as select controls above the tabs; a change hands all selections to texts.onVariablesChange,
  *   and the page re-requests the report from the server with them.
+ * - Warnings panels list the findings of the report's checks; a tab with findings shows their number (tab.warnings) as badge on its label.
  */
 var JamesReports = (function (global) {
     'use strict';
@@ -65,6 +66,12 @@ var JamesReports = (function (global) {
             var item = el('li', 'nav-item');
             item.setAttribute('role', 'presentation');
             var button = el('button', 'nav-link' + (index === 0 ? ' active' : ''), tab.name);
+            if (tab.warnings > 0) {
+                var badge = el('span', 'badge rounded-pill text-bg-warning ms-2', String(tab.warnings));
+                badge.setAttribute('data-testid', 'report-tab-warnings');
+                if (texts.warningsCount) badge.title = tab.warnings + ' ' + texts.warningsCount;
+                button.appendChild(badge);
+            }
             button.type = 'button';
             button.id = idBase + index + '-button';
             button.setAttribute('data-bs-toggle', 'tab');
@@ -419,6 +426,38 @@ var JamesReports = (function (global) {
             line.appendChild(el('span', 'fw-semibold', delta));
             line.appendChild(document.createTextNode(' ' + (texts.statPrevious || '') + ': ' + comparison.previousText));
             container.appendChild(line);
+        }
+    });
+
+    // endregion
+
+    // region warnings
+
+    registerRenderer('warnings', function (container, panel, texts) {
+        var warnings = panel.warnings || [];
+        if (warnings.length === 0) {
+            container.appendChild(el('p', 'app-section-label mb-0', texts.warningsEmpty || texts.empty));
+            return;
+        }
+        var list = el('ul', 'list-unstyled mb-0 report-warnings');
+        list.setAttribute('data-testid', 'report-warnings');
+        warnings.forEach(function (warning) {
+            var error = warning.severity === 'error';
+            var item = el('li', 'd-flex gap-2 align-items-baseline py-1');
+            item.setAttribute('data-testid', 'report-warning');
+            item.setAttribute('data-severity', warning.severity);
+            var marker = el('span', error ? 'text-danger' : 'text-warning', error ? '●' : '▲');
+            marker.setAttribute('aria-hidden', 'true');
+            item.appendChild(marker);
+            var body = el('span');
+            if (warning.label) body.appendChild(el('span', 'fw-semibold me-2 text-nowrap', warning.label));
+            body.appendChild(document.createTextNode(warning.message));
+            item.appendChild(body);
+            list.appendChild(item);
+        });
+        container.appendChild(list);
+        if (panel.truncated) {
+            container.appendChild(el('p', 'app-section-label small mt-2 mb-0', texts.warningsTruncated || texts.truncated));
         }
     });
 
