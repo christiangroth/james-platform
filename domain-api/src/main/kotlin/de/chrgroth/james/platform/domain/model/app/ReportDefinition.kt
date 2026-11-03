@@ -7,14 +7,19 @@ import java.time.temporal.ChronoUnit
 
 /**
  * The typed form of a [Report.definition] (YAML), see docs/plans/reports.md and arc42 "Reports". Layout is report -> [tabs] -> rows -> panels;
- * panels display the result of named [queries]. Later steps add variables, transforms, checks, aggregations and further panel types next to
- * the existing keys, so this model only ever grows.
+ * panels display the result of named [queries], each optionally post-processed by its pipeline of [transforms] (keyed by query name).
+ * [variables] are shown as controls on top of the report and referenced as `$name` in query ranges and filter values. Later steps add checks
+ * and further panel types next to the existing keys, so this model only ever grows.
  */
 data class ReportDefinition(
   val queries: List<ReportQuery> = emptyList(),
   val tabs: List<ReportTab> = emptyList(),
+  val variables: List<ReportVariable> = emptyList(),
+  val transforms: Map<String, List<ReportTransform>> = emptyMap(),
 ) {
   fun query(name: String): ReportQuery? = queries.find { it.name == name }
+
+  fun variable(name: String): ReportVariable? = variables.find { it.name == name }
 
   companion object {
     val EMPTY = ReportDefinition()
@@ -87,6 +92,14 @@ sealed interface ReportTimeRange {
 
   data class Fixed(val from: LocalDate?, val to: LocalDate?) : ReportTimeRange {
     override fun resolve(today: LocalDate): ReportDateRange = ReportDateRange(from, to)
+  }
+
+  /**
+   * `range: $name`: the range selected in the [ReportVariable] [name] (a time range variable, or a select variable over a time bucket meaning
+   * that bucket's period). Only the executor knows the selection; resolved on its own it is the open range.
+   */
+  data class Variable(val name: String) : ReportTimeRange {
+    override fun resolve(today: LocalDate): ReportDateRange = ReportDateRange(null, null)
   }
 }
 
@@ -360,6 +373,39 @@ enum class ReportDefinitionErrorCode {
 
   /** args: field. The configuration field's unit does not fit the unit of the value it is compared with. */
   CONFIG_UNIT_MISMATCH,
+
+  /** args: the `$name` reference. No variable of that name is declared. */
+  VARIABLE_NOT_FOUND,
+
+  /** args: variable, the expected use (`range`, `filter`). The variable cannot be used here (e.g. a select over no time bucket as range). */
+  VARIABLE_TYPE_MISMATCH,
+
+  /** args: variable, query. The query feeding a select variable's options must not use variables itself. */
+  VARIABLE_OPTIONS_QUERY_INVALID,
+
+  /** args: name. A variable name must start with a letter and consist of letters, digits and `_`. */
+  VARIABLE_NAME_INVALID,
+
+  /** args: allowed transformation steps (comma separated). */
+  TRANSFORM_STEP_MISSING,
+
+  /** args: the steps found (comma separated). */
+  TRANSFORM_STEP_AMBIGUOUS,
+
+  /** args: expression, 1-based position, detail (machine-oriented, e.g. `unexpected ')'`). */
+  EXPRESSION_INVALID,
+
+  /** args: function, allowed functions (comma separated). */
+  EXPRESSION_UNKNOWN_FUNCTION,
+
+  /** args: step, query. The step needs a time bucket (an aggregate with `bucket` or a preceding `resample`). */
+  TRANSFORM_NEEDS_BUCKET,
+
+  /** args: query. A forecast needs a time bucket or a closed time range on the query. */
+  FORECAST_NEEDS_PERIOD,
+
+  /** args: query. Resampling needs the query's time field or a time bucket. */
+  RESAMPLE_NEEDS_TIME,
 }
 
 /** One validation error, located by [path] (e.g. `queries.laeufe.filter[0].op`) and, where known, the 1-based [line] in the YAML source. */
@@ -382,7 +428,16 @@ data class ReportView(
   val reportId: String,
   val name: String,
   val tabs: List<ReportViewTab>,
+  val variables: List<ReportVariableSpec> = emptyList(),
 )
+
+/**
+ * A variable's control: [type] `timeRange` or `select`, its [options] (value and display label, an empty value meaning "all") and the
+ * [selected] value the report was executed with. The renderer re-requests the report with `var.<name>=<value>` when the selection changes.
+ */
+data class ReportVariableSpec(val name: String, val label: String, val type: String, val options: List<ReportVariableOptionSpec>, val selected: String)
+
+data class ReportVariableOptionSpec(val value: String, val label: String)
 
 data class ReportViewTab(val name: String, val rows: List<ReportViewRow>)
 

@@ -23,11 +23,11 @@ import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
-import mu.KLogging
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import kotlin.time.Clock as KotlinClock
+import mu.KLogging
 
 @ApplicationScoped
 class ReportService(
@@ -46,18 +46,24 @@ class ReportService(
     return result.definition?.right() ?: result.errors.left()
   }
 
-  override fun renderReport(userId: String, installedAppId: String, reportId: String): Either<DomainError, ReportView> {
+  override fun renderReport(userId: String, installedAppId: String, reportId: String, variables: Map<String, String>): Either<DomainError, ReportView> {
     val (installedApp, version) = ownedInstallation(userId, installedAppId).fold({ return it.left() }, { it })
     val report = version.reports.find { it.id.value == reportId } ?: run {
       logger.warn { "Render report failed: report $reportId not found in version ${version.id.value}" }
       return ReportError.REPORT_NOT_FOUND.left()
     }
-    return execute(installedApp, version, report.id.value, report.name, report.definition)
+    return execute(installedApp, version, report.id.value, report.name, report.definition, variables)
   }
 
-  override fun previewReport(userId: String, installedAppId: String, name: String, definition: String): Either<DomainError, ReportView> {
+  override fun previewReport(
+    userId: String,
+    installedAppId: String,
+    name: String,
+    definition: String,
+    variables: Map<String, String>,
+  ): Either<DomainError, ReportView> {
     val (installedApp, version) = ownedInstallation(userId, installedAppId).fold({ return it.left() }, { it })
-    return execute(installedApp, version, "preview", name, definition)
+    return execute(installedApp, version, "preview", name, definition, variables)
   }
 
   private fun ownedInstallation(userId: String, installedAppId: String): Either<DomainError, Pair<InstalledApp, AppVersion>> {
@@ -73,7 +79,15 @@ class ReportService(
     return (installedApp to version).right()
   }
 
-  private fun execute(installedApp: InstalledApp, version: AppVersion, reportId: String, name: String, definition: String): Either<DomainError, ReportView> {
+  @Suppress("LongParameterList")
+  private fun execute(
+    installedApp: InstalledApp,
+    version: AppVersion,
+    reportId: String,
+    name: String,
+    definition: String,
+    variables: Map<String, String>,
+  ): Either<DomainError, ReportView> {
     val parsed = parseAndValidate(version, definition).fold(
       { errors ->
         logger.warn { "Report $reportId of installation ${installedApp.id.value} is invalid: ${errors.size} error(s)" }
@@ -89,7 +103,7 @@ class ReportService(
     val executor = ReportExecutor(version.entityDefinitions, appData, LocalDate.now(clock), configuration) { entity, data ->
       computedProperty.computeValues(entity, data, now, configValues)
     }
-    return executor.execute(reportId, name, parsed).right()
+    return executor.execute(reportId, name, parsed, variables).right()
   }
 
   /** The installation's configuration object (ADR 0027); not created yet, a transient one carrying the defaults. */
