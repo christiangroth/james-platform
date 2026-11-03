@@ -17,6 +17,7 @@ import io.restassured.RestAssured.given
 import io.restassured.specification.RequestSpecification
 import jakarta.inject.Inject
 import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.hasItem
 import org.hamcrest.CoreMatchers.not
@@ -320,6 +321,39 @@ class ApiTokenAccessTests {
       .then().statusCode(200).body("entities.name", not(hasItem("Note")))
     bearer(token).`when`().delete("$base/$draftId").then().statusCode(204)
     bearer(token).`when`().get("$base/$draftId").then().statusCode(404)
+  }
+
+  @Test
+  fun `developer write scope sets computed property and smart default expressions and gets invalid ones explained`() {
+    val developer = createUser(UserRole.USER, UserRole.DEVELOPER)
+    val app = createPublishedApp(developer)
+    val (_, token) = createToken(developer, ApiTokenScope.DEVELOPER_WRITE)
+    val base = "/api/v1/developer/apps/${app.appId}/versions"
+    val draftId = bearer(token).`when`().post(base).then().statusCode(201).extract().path<String>("id")
+    val entityId = bearer(token).contentType("application/json").body(mapOf("name" to "Lauf"))
+      .`when`().post("$base/$draftId/entities").then().statusCode(200)
+      .extract().path<String>("entities.find { it.name == 'Lauf' }.id")
+    bearer(token).contentType("application/json").body(mapOf("name" to "distanz", "type" to "DOUBLE", "nullable" to true))
+      .`when`().post("$base/$draftId/entities/$entityId/properties").then().statusCode(200)
+    val datumId = bearer(token).contentType("application/json").body(mapOf("name" to "datum", "type" to "DATE", "nullable" to true))
+      .`when`().post("$base/$draftId/entities/$entityId/properties").then().statusCode(200)
+      .extract().path<String>("entities.find { it.name == 'Lauf' }.properties.find { it.name == 'datum' }.id")
+
+    bearer(token).contentType("application/json").body(mapOf("name" to "km", "type" to "DOUBLE", "unit" to "KILOMETERS", "expression" to "distanz / 1000"))
+      .`when`().post("$base/$draftId/entities/$entityId/computed-properties")
+      .then().statusCode(200)
+      .body("entities.find { it.name == 'Lauf' }.computedProperties[0].expression", equalTo("distanz / 1000"))
+      .body("entities.find { it.name == 'Lauf' }.computedProperties[0].unit", equalTo("KILOMETERS"))
+    bearer(token).contentType("application/json").body(mapOf("name" to "x", "type" to "DOUBLE", "expression" to "last(distanz)"))
+      .`when`().post("$base/$draftId/entities/$entityId/computed-properties")
+      .then().statusCode(400).body("code", equalTo("APPVER-076")).body("details[0]", containsString("FUNCTION_NOT_AVAILABLE"))
+    bearer(token).contentType("application/json").body(mapOf("value" to "coalesce(next_day(datum), today())"))
+      .`when`().put("$base/$draftId/entities/$entityId/properties/$datumId/smart-default")
+      .then().statusCode(200)
+      .body("entities.find { it.name == 'Lauf' }.properties.find { it.name == 'datum' }.smartDefault", equalTo("coalesce(next_day(datum), today())"))
+    bearer(token).contentType("application/json").body(mapOf("value" to "distanz"))
+      .`when`().put("$base/$draftId/entities/$entityId/properties/$datumId/smart-default")
+      .then().statusCode(400).body("code", equalTo("APPVER-076")).body("details[0]", containsString("RESULT_TYPE"))
   }
 
   @Test

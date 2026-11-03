@@ -31,7 +31,8 @@ defaults, nested objects, migration steps and migration script - with exactly **
   "Einstellungen" button (`/ui/user/apps/{installedAppId}/settings`) opening the generic edit form of the object.
 * **Access:** reports reference configuration fields as `config.<field>` (in query filter values, in stat thresholds and as constant stat panel
   `{ stat: Jahresziel, config: zielKm }`); numbers are converted into the unit of the value they are compared with. While the object does not exist
-  yet, reports read the defaults. Computed property scripts get a `config` binding (property id to stored value, like `it`).
+  yet, reports read the defaults. Computed property scripts get a `config` binding (property id to stored value, like `it`) - since ADR
+  [0029](0029-expression-language-instead-of-kotlin-scripting.md) computed properties and smart defaults are expressions reading `config.<field>`.
 
 Rule of thumb: settings without a time dimension (annual goal, holidays, thresholds) belong in the configuration; values that are "valid from" a date
 (target hours, vacation entitlement) belong in a data Entity.

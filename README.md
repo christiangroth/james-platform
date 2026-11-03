@@ -11,7 +11,10 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   unit-suffixed input such as `15km 400m` or `75,3kg`.
 - **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
   forward) and Snapshot mode (reusable form templates). References can be entered as text with proposals, creating unknown targets on save.
-- **Computed Properties & Smart Defaults** – Derived values and form defaults backed by Developer-authored Kotlin scripts, executed backend-side with a timeout guard.
+- **Computed Properties & Smart Defaults** – Derived values (e.g. BMI, pace, sums, yes/no as number) and form defaults written in the platform's small expression
+  language, checked on save (no scripting engine, works in the native image). Smart defaults make data entry quick: today, the day after the last entry
+  (`next_day(datum)`), the last used value or reference (`last(schuhe)`), end of month, workdays between two dates without configured holidays
+  (`workdays(start, ende, config.feiertage)`) - and they follow other fields of the form while it is filled in (e.g. vacation end = start).
 - **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, also over fields nested in object properties,
   optional day/week/month/quarter/year bucketing with a configurable period start,
   optional grouping via a `ref` or another property) over an Entity's data in the version editor. Ungrouped values are shown directly on the app installation;
@@ -22,24 +25,23 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   time series (line/column/area, several series, second axis, zoom), bar charts, pie/donut charts of shares per category, calendar heatmaps (one cell
   per day, e.g. journal ratings or work hours) and matrix heatmaps (e.g. month × category), and single values with comparison to the previous period and
   threshold colors. Variables (time range, selection from a query such as year or employer) appear as controls on top of the report and feed query
-  ranges and filters; per-query transformations add calculated fields (a small safe expression language without scripting engine: arithmetic,
+  ranges and filters; per-query transformations add calculated fields (the small safe expression language without scripting engine: arithmetic,
   conditions with `if`/`case`, comparisons, and/or/not, texts, yes/no values as 1/0, dates and times such as minutes between two times, days,
   weekday or today, configuration values; typed results as number with unit, text, yes/no or date), regroup rows after calculations (e.g. net
   working time per year and type of day), running totals,
   moving averages, year-over-year values, forecasts to the period end, resampling with fill-forward, consumption from meter readings (per day or
   spread over buckets), "value valid at date" lookups (e.g. weekly hours or vacation entitlement valid from a date), joins of two queries by key or
-  reference, records / top-N per group or year and goals vs. actuals (also as stat with progress bar); a Kotlin script step (timeout-guarded like computed
-  properties) covers the rare calculations the declarative steps cannot express, such as a PV break-even. Checks find gaps (e.g. a missing monthly
+  reference, records / top-N per group or year and goals vs. actuals (also as stat with progress bar). Checks find gaps (e.g. a missing monthly
   payslip or meter reading, one entry per workday/week/month, skipping holidays and vacation from a configuration list or an Entity) and rule violations
   (values out of range, missing required values) and list them in a warnings panel with a counter on the tab. The version editor validates definitions with line
   numbers and previews them against a test installation; Users open the reports of their installed Apps. Queries run backend-side on the installation's
   data only.
 - **App Configuration** – An App Version may mark one Entity as its configuration: a singleton with exactly one object per installation, created from
   the defaults on install and upgrade and maintained by the User under "Einstellungen". Reports read it as `config.<field>` (filter values, thresholds,
-  constant single values), computed property scripts via a `config` binding - goals and thresholds become data instead of code.
+  constant single values), computed properties and smart defaults as well - goals and thresholds become data instead of code.
 - **App Versioning & Migrations** – Semver version numbers are derived automatically from schema changes; breaking changes can be neutralized by declarative migration
-  steps (convert a property's type or unit, carry a value over to its replacement, fill empty values, or adjust values to tightened constraints) and/or a
-  Developer-authored migration script that transform existing data on upgrade. The version editor suggests a matching migration step for every breaking change not
+  steps (convert a property's type or unit, carry a value over to its replacement, fill empty values, or adjust values to tightened constraints) that
+  transform existing data on upgrade. The version editor suggests a matching migration step for every breaking change not
   yet covered by one, ready to create with a single click, and offers an interactive preview showing before/after values and validation issues for one existing
   object at a time, without requiring a real dry-run or publish.
 - **Data Import (ETL)** – Users import external JSON data into an installed App through a guided fetch → detect → map → dry-run → accept flow, including SSRF-hardened

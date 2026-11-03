@@ -169,20 +169,6 @@
                     </div>
                     {/if}
                     <div class="mt-3">
-                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developerMigrationStep:developerMigrationScriptSubheading()}</div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="app-section-label" style="font-size:0.85rem;" data-testid="migration-script-value" data-script-label="{developer:developerScriptLabel()}">
-                                {#if selectedEntity.migrationScript}{developer:developerScriptLabel()}{#else}—{/if}
-                            </span>
-                            <button type="button" class="btn btn-app-secondary btn-sm"
-                                    data-bs-toggle="modal" data-bs-target="#editMigrationScriptModal"
-                                    title="{developer:developerEditMigrationScriptAriaLabel()}" aria-label="{developer:developerEditMigrationScriptAriaLabel()}"
-                                    data-testid="open-migration-script-modal-button">
-                                <i class="bi bi-pencil" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mt-3">
                         <button type="button" class="btn btn-app-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#migrationPreviewPanel" aria-expanded="false" aria-controls="migrationPreviewPanel" data-testid="migration-preview-trigger">
                             <i class="bi bi-eye me-1" aria-hidden="true"></i>{developerMigrationStep:developerMigrationPreviewTriggerLabel()}
                         </button>
@@ -288,9 +274,12 @@
                                 <span class="app-section-label" style="font-size:0.85rem;" data-testid="property-default-{prop.id}">{prop.defaultValue}</span>
                                 {/if}
                                 {#if prop.smartDefault}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="property-smart-default-{prop.id}" title="{developer:developerColSmartDefault()}: {prop.smartDefault}">{developer:developerScriptBadge()}</span>
+                                <code class="small" data-testid="property-smart-default-{prop.id}" title="{developer:developerColSmartDefault()}">{prop.smartDefault}</code>
                                 {/if}
-                                {#if !prop.defaultValue && !prop.smartDefault}
+                                {#if prop.legacySmartDefaultScript}
+                                <span class="badge app-badge-warn" style="font-size:0.7rem;" data-testid="property-legacy-smart-default-{prop.id}" title="{developerExpression:developerLegacyScriptHint()} {prop.legacySmartDefaultScript}">{developerExpression:developerLegacyScriptBadge()}</span>
+                                {/if}
+                                {#if !prop.defaultValue && !prop.smartDefault && !prop.legacySmartDefaultScript}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
                             </td>
@@ -330,7 +319,7 @@
                             <th style="width:1.5rem;"></th>
                             <th>{developer:developerColName()}</th>
                             <th>{developer:developerColType()}</th>
-                            <th>{developer:developerColScript()}</th>
+                            <th>{developer:developerColExpression()}</th>
                         </tr>
                     </thead>
                     <tbody id="computedPropertiesTbody" data-entity-id="{selectedEntity.id}">
@@ -342,15 +331,19 @@
                             data-computed-property-id="{cp.id}"
                             data-computed-property-name="{cp.name}"
                             data-computed-property-type="{cp.type}"
-                            data-computed-property-script="{cp.script}">
+                            data-computed-property-unit="{cp.unitName}"
+                            data-computed-property-expression="{cp.expression}"
+                            data-computed-property-legacy-script="{cp.legacyScript}">
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="computed-property-drag-handle">
                                 <i class="bi bi-grip-vertical" aria-hidden="true"></i>
                             </td>
                             <td data-testid="computed-property-name">{cp.name}</td>
-                            <td>{cp.type.propertyTypeLabel}</td>
+                            <td>{cp.type.propertyTypeLabel}{#if cp.unitName} <span class="app-section-label" style="font-size:0.75rem;">({cp.unitName})</span>{/if}</td>
                             <td>
-                                {#if cp.script}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" data-testid="computed-property-script-{cp.id}" title="{cp.script}">{developer:developerScriptBadge()}</span>
+                                {#if cp.expression}
+                                <code class="small" data-testid="computed-property-expression-{cp.id}">{cp.expression}</code>
+                                {#else if cp.legacyScript}
+                                <span class="badge app-badge-warn" style="font-size:0.7rem;" data-testid="computed-property-legacy-script-{cp.id}" title="{developerExpression:developerLegacyScriptHint()} {cp.legacyScript}">{developerExpression:developerLegacyScriptBadge()}</span>
                                 {#else}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
                                 {/if}
@@ -878,6 +871,17 @@
                                 <option value="DATETIME">{msg:propertyTypeDatetime()}</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerExpression:developerComputedPropertyUnitLabel()}</label>
+                            <select class="form-select app-form-control computed-property-unit-select" id="addComputedPropertyUnit" name="unit" data-testid="computed-property-unit-select">
+                                <option value="">{developerExpression:developerComputedPropertyUnitNone()}</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerExpressionLabel()}</label>
+                            <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerComputedPropertyExpressionHelp()}</p>
+                            <textarea class="form-control app-form-control form-control-sm" id="addComputedPropertyExpression" name="expression" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerComputedPropertyExpressionPlaceholder()}" data-testid="computed-property-expression-add-input"></textarea>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -921,10 +925,20 @@
                                 <option value="DATETIME">{msg:propertyTypeDatetime()}</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developerExpression:developerComputedPropertyUnitLabel()}</label>
+                            <select class="form-select app-form-control form-select-sm computed-property-unit-select" id="editComputedPropertyUnit" name="unit" data-testid="edit-computed-property-unit-select">
+                                <option value="">{developerExpression:developerComputedPropertyUnitNone()}</option>
+                            </select>
+                        </div>
                         <hr style="border-color:var(--color-border);">
-                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerScriptKotlinLabel()}</div>
-                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerComputedPropertyScriptHelp()}</p>
-                        <textarea class="form-control app-form-control form-control-sm" id="editComputedPropertyScript" rows="5" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerComputedPropertyScriptPlaceholder()}" data-testid="computed-property-script-input"></textarea>
+                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerExpressionLabel()}</div>
+                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerComputedPropertyExpressionHelp()}</p>
+                        <div id="editComputedPropertyLegacyScript" class="alert alert-warning d-none mb-2 small" data-testid="computed-property-legacy-script-hint">
+                            {developerExpression:developerLegacyScriptHint()}
+                            <pre class="mb-0 mt-1" style="white-space:pre-wrap;font-size:0.75rem;"></pre>
+                        </div>
+                        <textarea class="form-control app-form-control form-control-sm" id="editComputedPropertyExpression" rows="4" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerComputedPropertyExpressionPlaceholder()}" data-testid="computed-property-expression-input"></textarea>
                     </div>
                     <div class="modal-footer justify-content-between">
                         <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
@@ -1252,35 +1266,6 @@
     {/if}
     {/if}
 
-    <!-- Edit Migration Script Modal -->
-    {#if isDraft}
-    {#if selectedEntity != null}
-    <div class="modal fade" id="editMigrationScriptModal" tabindex="-1" aria-labelledby="editMigrationScriptModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content app-modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editMigrationScriptModalLabel">{developer:developerEditMigrationScriptModalTitle()}</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{msg:commonClose()}"></button>
-                </div>
-                <form id="migrationScriptForm" data-entity-id="{selectedEntity.id}">
-                    <div class="modal-body">
-                        <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerScriptKotlinLabel()}</div>
-                        <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerMigrationScriptHelp()}</p>
-                        <textarea class="form-control app-form-control form-control-sm" id="migrationScriptInput" name="migrationScript" rows="8"
-                                  style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerMigrationScriptPlaceholder()}"
-                                  data-testid="migration-script-input">{selectedEntity.migrationScript}</textarea>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-app-secondary" data-bs-dismiss="modal">{msg:commonCancel()}</button>
-                        <button type="submit" class="btn btn-app-primary" data-testid="save-migration-script-button">{msg:commonSave()}</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    {/if}
-    {/if}
-
     {#if isDraft}
     {#if selectedEntity != null}
     {#if !isNestedLevel}
@@ -1374,7 +1359,7 @@
                 var migrationPreviewEmptyMessage = '{developerMigrationStep:developerMigrationPreviewEmptyMessage()}';
 
                 // Lazily loads one AppData object's migration preview at a time from /migration-preview/sample (see
-                // DeveloperAppResource#migrationPreviewSample) - migration steps/script are already persisted, so unlike the
+                // DeveloperAppResource#migrationPreviewSample) - migration steps are already persisted, so unlike the
                 // import Mapping preview there is no unsaved form state to send along.
                 var migrationPreviewState = { index: 0, loaded: false };
 
@@ -1581,33 +1566,6 @@
                         }
                     }
                 });
-
-                var migrationScriptForm = document.getElementById('migrationScriptForm');
-                if (migrationScriptForm) {
-                    migrationScriptForm.addEventListener('submit', async function (e) {
-                        e.preventDefault();
-                        var btn = migrationScriptForm.querySelector('[type="submit"]');
-                        btn.disabled = true;
-                        var entityId = migrationScriptForm.getAttribute('data-entity-id');
-                        var result = await apiPost(
-                            '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/migration-script',
-                            new FormData(migrationScriptForm), false
-                        );
-                        btn.disabled = false;
-                        if (result && result.ok) {
-                            var editMigrationScriptModalEl = document.getElementById('editMigrationScriptModal');
-                            if (editMigrationScriptModalEl) {
-                                var migrationModal = bootstrap.Modal.getInstance(editMigrationScriptModalEl);
-                                if (migrationModal) { migrationModal.hide(); }
-                            }
-                            var migrationScriptValue = document.querySelector('[data-testid="migration-script-value"]');
-                            if (migrationScriptValue) {
-                                var scriptVal = document.getElementById('migrationScriptInput').value;
-                                migrationScriptValue.textContent = scriptVal.trim() ? migrationScriptValue.getAttribute('data-script-label') : '—';
-                            }
-                        }
-                    });
-                }
 
                 function updateDisplayTextBadgeVisibility() {
                     var input = document.getElementById('displayTextInput');
@@ -2085,6 +2043,18 @@
                 });
             }
 
+            // Unit selects of the computed property modals: granularity names (a numeric result is stored in that granularity)
+            var COMPUTED_PROPERTY_UNITS = ['MILLISECONDS', 'SECONDS', 'MINUTES', 'HOURS', 'DAYS', 'MILLIMETERS', 'CENTIMETERS', 'METERS', 'KILOMETERS',
+                'CENTS', 'EUROS', 'MILLIGRAMS', 'GRAMS', 'KILOGRAMS', 'KILOJOULES', 'KILOCALORIES', 'WATT_HOURS', 'KILOWATT_HOURS', 'MILLILITERS', 'LITERS', 'CUBIC_METERS'];
+            document.querySelectorAll('.computed-property-unit-select').forEach(function (select) {
+                COMPUTED_PROPERTY_UNITS.forEach(function (unit) {
+                    var option = document.createElement('option');
+                    option.value = unit;
+                    option.textContent = unit;
+                    select.appendChild(option);
+                });
+            });
+
             // Add Computed Property modal form
             var addComputedPropertyForm = document.getElementById('addComputedPropertyForm');
             if (addComputedPropertyForm) {
@@ -2126,7 +2096,12 @@
                         document.getElementById('editComputedPropertyModalLabel').textContent = editComputedPropertyModalTitlePrefix + ' \u2013 ' + row.getAttribute('data-computed-property-name');
                         document.getElementById('editComputedPropertyName').value = row.getAttribute('data-computed-property-name');
                         document.getElementById('editComputedPropertyType').value = row.getAttribute('data-computed-property-type');
-                        document.getElementById('editComputedPropertyScript').value = row.getAttribute('data-computed-property-script') || '';
+                        document.getElementById('editComputedPropertyUnit').value = row.getAttribute('data-computed-property-unit') || '';
+                        document.getElementById('editComputedPropertyExpression').value = row.getAttribute('data-computed-property-expression') || '';
+                        var legacyScript = row.getAttribute('data-computed-property-legacy-script') || '';
+                        var legacyHint = document.getElementById('editComputedPropertyLegacyScript');
+                        legacyHint.classList.toggle('d-none', legacyScript === '');
+                        legacyHint.querySelector('pre').textContent = legacyScript;
                         var modal = bootstrap.Modal.getOrCreateInstance(editComputedPropertyModal);
                         modal.show();
                     });
@@ -2154,29 +2129,17 @@
                     btn.disabled = true;
                     var entityId = document.getElementById('editComputedPropertyEntityId').value;
                     var computedPropertyId = document.getElementById('editComputedPropertyId').value;
-                    var metaFormData = new FormData();
-                    metaFormData.set('name', document.getElementById('editComputedPropertyName').value);
-                    metaFormData.set('type', document.getElementById('editComputedPropertyType').value);
-                    var metaResult = await apiPost(
+                    var formData = new FormData();
+                    formData.set('name', document.getElementById('editComputedPropertyName').value);
+                    formData.set('type', document.getElementById('editComputedPropertyType').value);
+                    formData.set('unit', document.getElementById('editComputedPropertyUnit').value);
+                    formData.set('expression', document.getElementById('editComputedPropertyExpression').value);
+                    var result = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties/' + computedPropertyId,
-                        metaFormData, false
+                        formData, true
                     );
-                    if (!metaResult || !metaResult.ok) {
-                        showEditComputedPropertyError(metaResult ? metaResult.message : networkErrorMessage);
-                        btn.disabled = false;
-                        return;
-                    }
-                    var scriptFormData = new FormData();
-                    var scriptVal = document.getElementById('editComputedPropertyScript').value;
-                    if (scriptVal !== '') {
-                        scriptFormData.set('script', scriptVal);
-                    }
-                    var scriptResult = await apiPost(
-                        '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties/' + computedPropertyId + '/script',
-                        scriptFormData, true
-                    );
-                    if (!scriptResult || !scriptResult.ok) {
-                        showEditComputedPropertyError(scriptResult ? scriptResult.message : networkErrorMessage);
+                    if (!result || !result.ok) {
+                        showEditComputedPropertyError(result ? result.message : networkErrorMessage);
                         btn.disabled = false;
                     }
                 });

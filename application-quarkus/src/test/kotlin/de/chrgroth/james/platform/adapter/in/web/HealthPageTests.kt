@@ -73,29 +73,6 @@ class HealthPageTests {
   }
 
   @Test
-  fun `health page displays scripting sub-heading and snippet`() {
-    given()
-      .`when`()
-      .get("/health")
-      .then()
-      .statusCode(200)
-      .body(containsString("Skripting"))
-      .body(containsString("Skriptausführungen"))
-      .body(containsString("""id="snippet-scripting""""))
-  }
-
-  @Test
-  fun `health snippet endpoint for scripting is available`() {
-    given()
-      .`when`()
-      .get("/health/snippets/scripting")
-      .then()
-      .statusCode(200)
-      .contentType(containsString("text/html"))
-      .body(containsString("Skriptausführungen"))
-  }
-
-  @Test
   fun `health page displays import cleanup sub-heading and snippet`() {
     given()
       .`when`()

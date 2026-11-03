@@ -248,20 +248,6 @@ class ApiDeveloperResource(
     return edit("entity-sort-criteria", appId) { appVersionManagement.updateEntitySortCriteria(appId, versionId, entityId, sortBy) }
   }
 
-  @PUT
-  @Path("/{appId}/versions/{versionId}/entities/{entityId}/migration-script")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
-  fun setEntityMigrationScript(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("entityId") entityId: String,
-    request: ApiTextRequest?,
-  ): Response = edit("entity-migration-script", appId) {
-    appVersionManagement.updateEntityMigrationScript(appId, versionId, entityId, request?.value?.takeIf { it.isNotBlank() })
-  }
-
   // endregion
 
   // region draft: migration steps
@@ -559,7 +545,7 @@ class ApiDeveloperResource(
     @PathParam("entityId") entityId: String,
     request: ApiComputedPropertyRequest?,
   ): Response = edit("computed-property-add", appId) {
-    appVersionManagement.addComputedProperty(appId, versionId, entityId, request?.name.orEmpty(), request?.type.orEmpty())
+    appVersionManagement.addComputedProperty(appId, versionId, entityId, request?.name.orEmpty(), request?.type.orEmpty(), request?.unit, request?.expression)
   }
 
   @PUT
@@ -574,22 +560,7 @@ class ApiDeveloperResource(
     @PathParam("computedPropertyId") computedPropertyId: String,
     request: ApiComputedPropertyRequest?,
   ): Response = edit("computed-property-update", appId) {
-    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, request?.name.orEmpty(), request?.type.orEmpty())
-  }
-
-  @PUT
-  @Path("/{appId}/versions/{versionId}/entities/{entityId}/computed-properties/{computedPropertyId}/script")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  @RolesAllowed(ApiTokenRoles.DEVELOPER_WRITE)
-  fun setComputedPropertyScript(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("entityId") entityId: String,
-    @PathParam("computedPropertyId") computedPropertyId: String,
-    request: ApiTextRequest?,
-  ): Response = edit("computed-property-script", appId) {
-    appVersionManagement.setComputedPropertyScript(appId, versionId, entityId, computedPropertyId, request?.value?.takeIf { it.isNotBlank() })
+    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, request?.name.orEmpty(), request?.type.orEmpty(), request?.unit, request?.expression)
   }
 
   @DELETE

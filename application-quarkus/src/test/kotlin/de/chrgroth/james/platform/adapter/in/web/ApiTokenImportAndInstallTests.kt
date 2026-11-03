@@ -168,11 +168,12 @@ class ApiTokenImportAndInstallTests {
 
     bearer(installToken).`when`().post("/api/v1/user/apps/$installedAppId/upgrade").then().statusCode(400).body("code", equalTo("STORE-006"))
     val draftId = appVersionManagement.createVersion(app.appId).getOrNull()!!.id.value
-    appVersionManagement.addEntity(app.appId, draftId, "Address").getOrNull()!!
-    appVersionManagement.publishVersion(app.appId, "FEATURE", "Addresses").getOrNull()!!
+    // a breaking change (removed property): a new major is not auto-upgraded, the User upgrades explicitly
+    appVersionManagement.deleteProperty(app.appId, draftId, app.entityId, app.namePropertyId).getOrNull()!!
+    appVersionManagement.publishVersion(app.appId, "BREAKING", "Name removed").getOrNull()!!
     bearer(readToken).`when`().post("/api/v1/user/apps/$installedAppId/upgrade").then().statusCode(403)
     val upgraded = bearer(installToken).`when`().post("/api/v1/user/apps/$installedAppId/upgrade")
-      .then().statusCode(200)
+      .then().log().ifValidationFails().statusCode(200)
       .extract().jsonPath()
     assertThat(upgraded.getString("installedVersionNumber")).isEqualTo(upgraded.getString("latestVersionNumber")).isNotEqualTo(initialVersion)
   }

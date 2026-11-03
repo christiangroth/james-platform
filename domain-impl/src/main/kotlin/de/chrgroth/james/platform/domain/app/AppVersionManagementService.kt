@@ -9,10 +9,11 @@ import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
+import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidReportsError
-import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
+import de.chrgroth.james.platform.domain.expression.EntityExpressions
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
@@ -23,6 +24,9 @@ import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
 import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
+import de.chrgroth.james.platform.domain.model.app.DiffLine
+import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
+import de.chrgroth.james.platform.domain.model.app.DiffStatus
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.Granularity
@@ -35,28 +39,25 @@ import de.chrgroth.james.platform.domain.model.app.PropertyChangeReason
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
-import de.chrgroth.james.platform.domain.model.app.referenceLookupTarget
-import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
-import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
-import de.chrgroth.james.platform.domain.model.app.coveredPropertyId
-import de.chrgroth.james.platform.domain.model.app.propertyChangeReasons
-import de.chrgroth.james.platform.domain.model.app.UnitFamily
-import de.chrgroth.james.platform.domain.model.app.findPropertyPath
-import de.chrgroth.james.platform.domain.model.app.ValueConversion
-import de.chrgroth.james.platform.domain.model.app.granularityByName
+import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
+import de.chrgroth.james.platform.domain.model.app.SectionDiff
+import de.chrgroth.james.platform.domain.model.app.SortCriteria
+import de.chrgroth.james.platform.domain.model.app.TimeBucket
+import de.chrgroth.james.platform.domain.model.app.UnitFamily
+import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.VersionBumpType
 import de.chrgroth.james.platform.domain.model.app.VersionDiff
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
-import de.chrgroth.james.platform.domain.model.app.DiffLine
-import de.chrgroth.james.platform.domain.model.app.DiffLineStatus
-import de.chrgroth.james.platform.domain.model.app.DiffStatus
-import de.chrgroth.james.platform.domain.model.app.SortCriteria
-import de.chrgroth.james.platform.domain.model.app.SectionDiff
-import de.chrgroth.james.platform.domain.model.app.TimeBucket
+import de.chrgroth.james.platform.domain.model.app.coveredPropertyId
+import de.chrgroth.james.platform.domain.model.app.findPropertyPath
+import de.chrgroth.james.platform.domain.model.app.granularityByName
+import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
+import de.chrgroth.james.platform.domain.model.app.propertyChangeReasons
+import de.chrgroth.james.platform.domain.model.app.referenceLookupTarget
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
@@ -64,7 +65,6 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -86,7 +86,6 @@ class AppVersionManagementService(
   private val appVersionMigration: AppVersionMigrationPort,
   private val outbox: OutboxPort,
   private val appConfiguration: AppConfigurationPort,
-  private val reportScript: ReportScriptPort,
 ) : AppVersionManagementPort {
 
   override fun listVersions(appId: String): Either<DomainError, List<AppVersion>> {
@@ -124,9 +123,9 @@ class AppVersionManagementService(
         id = AppVersionId(UUID.randomUUID().toString()),
         versionNumber = null,
         releaseNotes = null,
-        // migration steps and scripts describe the transition into the version they were authored on (ADR 0023) - carrying them over
-        // would re-run them on every later upgrade (re-migrating all data, and re-applying non-idempotent steps such as a unit conversion)
-        entityDefinitions = latestPublished.entityDefinitions.map { it.copy(migrationSteps = emptyList(), migrationScript = null) },
+        // migration steps describe the transition into the version they were authored on (ADR 0023) - carrying them over would re-run
+        // them on every later upgrade (re-migrating all data, and re-applying non-idempotent steps such as a unit conversion)
+        entityDefinitions = latestPublished.entityDefinitions.map { it.copy(migrationSteps = emptyList()) },
         status = AppVersionStatus.DRAFT,
         createdAt = Instant.now(),
       )
@@ -774,20 +773,6 @@ class AppVersionManagementService(
   private fun hasInvalidMigrationSteps(previousEntity: EntityDefinition?, entity: EntityDefinition): Boolean =
     entity.migrationSteps.any { validateMigrationStep(previousEntity, entity, it, ignoringStepId = it.id) != null }
 
-  override fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
-    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
-      logger.warn { "Update entity migration script failed: entity not found: $entityId in version $versionId" }
-      return AppVersionError.ENTITY_NOT_FOUND.left()
-    }
-    val trimmedScript = migrationScript?.takeIf { it.isNotBlank() }
-    val updatedEntity = entity.copy(migrationScript = trimmedScript)
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Entity migration script updated: $entityId in version $versionId (script=${trimmedScript?.let { "set" } ?: "cleared"})" }
-    return updated.right()
-  }
-
   override fun addProperty(
     appId: String,
     versionId: String,
@@ -1002,10 +987,21 @@ class AppVersionManagementService(
       logger.warn { "Set property smart default failed: entity not found: $entityId in version $versionId" }
       return AppVersionError.ENTITY_NOT_FOUND.left()
     }
-    val trimmedSmartDefault = smartDefault?.takeIf { it.isNotBlank() }
+    val trimmedSmartDefault = smartDefault?.trim()?.takeIf { it.isNotBlank() }
+    if (trimmedSmartDefault != null && path.isNotEmpty()) {
+      logger.warn { "Set property smart default failed: smart defaults are only evaluated for top-level properties: $propertyId" }
+      return AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.left()
+    }
     val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
       withPropertySmartDefault(property, propertyId, trimmedSmartDefault)
     }.fold({ return it.left() }, { it })
+    if (trimmedSmartDefault != null) {
+      val property = updatedEntity.properties.first { it.id.value == propertyId }
+      EntityExpressions.validateSmartDefault(updatedEntity, property, trimmedSmartDefault, version.configurationEntity)?.let { error ->
+        logger.warn { "Set property smart default failed: invalid expression for $propertyId: ${error.reason} ${error.args}" }
+        return error.left()
+      }
+    }
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
     logger.info { "Property smart default set: $propertyId in entity $entityId in version $versionId (smartDefault=${trimmedSmartDefault?.let { "set" } ?: "cleared"})" }
@@ -1021,7 +1017,8 @@ class AppVersionManagementService(
       logger.warn { "Set property smart default failed: type ${property.type} does not support smart defaults: $propertyId" }
       return AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.left()
     }
-    return property.copy(smartDefault = trimmedSmartDefault).right()
+    // a stored Kotlin script (before ADR 0029) is replaced by the expression, or dropped when the smart default is cleared
+    return property.copy(smartDefault = trimmedSmartDefault, legacySmartDefaultScript = null).right()
   }
 
   override fun setPropertyValueProposals(
@@ -1405,6 +1402,8 @@ class AppVersionManagementService(
     entityId: String,
     name: String,
     type: String,
+    unit: String?,
+    expression: String?,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add computed property failed: blank name" }
@@ -1427,9 +1426,11 @@ class AppVersionManagementService(
       logger.warn { "Add computed property failed: name already exists: $name in entity $entityId" }
       return AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val newComputedProperty = ComputedProperty(id = ComputedPropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType)
+    val computedUnit = computedPropertyUnit(propertyType, unit).fold({ return it.left() }, { it })
+    val newComputedProperty = ComputedProperty(id = ComputedPropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, unit = computedUnit)
     val updatedEntity = entity.copy(computedProperties = entity.computedProperties + newComputedProperty)
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    val withExpression = withComputedExpression(updatedEntity, newComputedProperty, expression, version).fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) withExpression else it })
     appVersionRepository.save(updated)
     logger.info { "Computed property added: ${name.trim()} to entity $entityId in version $versionId" }
     return updated.right()
@@ -1442,6 +1443,8 @@ class AppVersionManagementService(
     computedPropertyId: String,
     name: String,
     type: String,
+    unit: String?,
+    expression: String?,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Update computed property failed: blank name" }
@@ -1468,37 +1471,44 @@ class AppVersionManagementService(
       logger.warn { "Update computed property failed: name already exists: $name in entity $entityId" }
       return AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val updatedComputedProperty = computedProperty.copy(name = name.trim(), type = propertyType)
+    val computedUnit = computedPropertyUnit(propertyType, unit).fold({ return it.left() }, { it })
+    val updatedComputedProperty = computedProperty.copy(name = name.trim(), type = propertyType, unit = computedUnit)
     val updatedEntity = entity.copy(computedProperties = entity.computedProperties.map { if (it.id.value == computedPropertyId) updatedComputedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
+    val withExpression = withComputedExpression(updatedEntity, updatedComputedProperty, expression, version).fold({ return it.left() }, { it })
+    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) withExpression else it })
     appVersionRepository.save(updated)
     logger.info { "Computed property updated: $computedPropertyId in entity $entityId in version $versionId" }
     return updated.right()
   }
 
-  override fun setComputedPropertyScript(
-    appId: String,
-    versionId: String,
-    entityId: String,
-    computedPropertyId: String,
-    script: String?,
-  ): Either<DomainError, AppVersion> {
-    val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
-    val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
-      logger.warn { "Set computed property script failed: entity not found: $entityId in version $versionId" }
-      return AppVersionError.ENTITY_NOT_FOUND.left()
+  /** The unit of a computed property from a granularity name (e.g. `KILOMETERS`, stored and shown in that granularity); numeric types only. */
+  private fun computedPropertyUnit(type: PropertyType, unit: String?): Either<DomainError, PropertyUnit?> {
+    val name = unit?.trim()?.takeIf { it.isNotEmpty() } ?: return null.right()
+    if (!type.supportsUnit()) {
+      logger.warn { "Computed property unit rejected: type $type does not support units" }
+      return AppVersionError.UNIT_NOT_SUPPORTED.left()
     }
-    val computedProperty = entity.computedProperties.find { it.id.value == computedPropertyId } ?: run {
-      logger.warn { "Set computed property script failed: computed property not found: $computedPropertyId in entity $entityId" }
-      return AppVersionError.COMPUTED_PROPERTY_NOT_FOUND.left()
+    val granularity = UnitFamily.entries.firstNotNullOfOrNull { granularityByName(it, name) } ?: run {
+      logger.warn { "Computed property unit rejected: unknown granularity $name" }
+      return AppVersionError.UNIT_GRANULARITY_INVALID.left()
     }
-    val trimmedScript = script?.takeIf { it.isNotBlank() }
-    val updatedComputedProperty = computedProperty.copy(script = trimmedScript)
-    val updatedEntity = entity.copy(computedProperties = entity.computedProperties.map { if (it.id.value == computedPropertyId) updatedComputedProperty else it })
-    val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
-    appVersionRepository.save(updated)
-    logger.info { "Computed property script set: $computedPropertyId in entity $entityId in version $versionId (script=${trimmedScript?.let { "set" } ?: "cleared"})" }
-    return updated.right()
+    return PropertyUnit(granularity.family, granularity, granularity).right()
+  }
+
+  /**
+   * [entity] with [computed]'s expression set to [expression] (validated against the entity's properties, the computed properties before it and
+   * the configuration, ADR 0029); a stored Kotlin script (before ADR 0029) is replaced or, without expression, dropped.
+   */
+  private fun withComputedExpression(entity: EntityDefinition, computed: ComputedProperty, expression: String?, version: AppVersion): Either<DomainError, EntityDefinition> {
+    val trimmed = expression?.trim()?.takeIf { it.isNotEmpty() }
+    if (trimmed != null) {
+      EntityExpressions.validateComputed(entity, computed, trimmed, version.configurationEntity)?.let { error ->
+        logger.warn { "Computed property expression rejected for ${computed.id.value} in entity ${entity.id.value}: ${error.reason} ${error.args}" }
+        return error.left()
+      }
+    }
+    val updated = computed.copy(expression = trimmed, legacyScript = null)
+    return entity.copy(computedProperties = entity.computedProperties.map { if (it.id == computed.id) updated else it }).right()
   }
 
   override fun reorderComputedProperties(
@@ -1706,15 +1716,9 @@ class AppVersionManagementService(
     return updated.right()
   }
 
-  /**
-   * Parses and validates a report definition against [version]'s entities and, once valid, compiles the scripts of its `kotlin` steps (ADR 0028);
-   * null when valid. See arc42 "Reports".
-   */
+  /** Parses and validates a report definition against [version]'s entities; null when valid. See arc42 "Reports". */
   private fun validateReportDefinition(version: AppVersion, definition: String): InvalidReportDefinitionError? {
-    val parsed = ReportDefinitionParser.parse(definition, version.entityDefinitions)
-    val errors = parsed.errors.ifEmpty {
-      parsed.definition?.let { ReportDefinitionParser.scriptErrors(definition, it, reportScript::compileProblem) }.orEmpty()
-    }
+    val errors = ReportDefinitionParser.parse(definition, version.entityDefinitions).errors
     if (errors.isEmpty()) return null
     logger.warn { "Report definition invalid in version ${version.id.value}: ${errors.size} error(s)" }
     return InvalidReportDefinitionError(errors)
@@ -1823,8 +1827,8 @@ class AppVersionManagementService(
     draft.entityDefinitions != published.entityDefinitions || draft.reports != published.reports
 
   /**
-   * Determines whether [draft] has breaking changes relative to [published]: if the change is breaking and [draft] declares a migration
-   * script for every Entity whose change made it breaking, dry-runs those migrations
+   * Determines whether [draft] has breaking changes relative to [published]: if the change is breaking and [draft] declares migration
+   * steps for every Entity whose change made it breaking, dry-runs those migrations
    * (via [appVersionMigration]) against all existing AppData of [appId] across every installation. A fully successful dry-run reclassifies
    * the change as non-breaking, allowing publish as Feature/Bugfix instead of a forced Major bump; a failed or incomplete dry-run leaves the
    * change breaking, exactly as before this reclassification existed.
@@ -1833,7 +1837,7 @@ class AppVersionManagementService(
     val breakingEntityIds = breakingChangeEntityIds(published, draft)
     if (breakingEntityIds.isEmpty()) return false
     val entityMigrations = breakingEntityIds.map { entityId ->
-      val draftEntity = draft.entityDefinitions.find { it.id == entityId && (it.migrationScript != null || it.migrationSteps.isNotEmpty()) } ?: return true
+      val draftEntity = draft.entityDefinitions.find { it.id == entityId && it.migrationSteps.isNotEmpty() } ?: return true
       val previousEntity = published.entityDefinitions.find { it.id == entityId } ?: draftEntity
       previousEntity to draftEntity
     }
@@ -2004,9 +2008,9 @@ class AppVersionManagementService(
     }
     for (cp in entity.computedProperties) {
       lines.add("  computed ${cp.name}: ${cp.type}")
-      if (cp.script != null) {
-        lines.add("    script: ${cp.script}")
-      }
+      cp.unit?.let { lines.add("    unit: ${it.storageGranularity}") }
+      cp.expression?.let { lines.add("    expression: $it") }
+      cp.legacyScript?.let { lines.add("    kotlin-script (no longer supported): $it") }
     }
     if (entity.sortBy.isNotEmpty()) {
       lines.add("  sort-by: ${entity.sortBy.joinToString(", ") { "${propertyNameOf(entity, it.propertyId)} ${it.direction}" }}")
@@ -2027,11 +2031,6 @@ class AppVersionManagementService(
           },
         )
       }
-    }
-    val migrationScript = entity.migrationScript
-    if (migrationScript != null) {
-      lines.add("  migration-script:")
-      lines.addAll(migrationScript.lines().map { "    $it" })
     }
     lines.add("}")
     return lines
@@ -2065,6 +2064,9 @@ class AppVersionManagementService(
     }
     if (prop.smartDefault != null) {
       lines.add("$indent  smart-default: ${prop.smartDefault}")
+    }
+    if (prop.legacySmartDefaultScript != null) {
+      lines.add("$indent  smart-default kotlin-script (no longer supported): ${prop.legacySmartDefaultScript}")
     }
     if (prop.valueProposals.isNotEmpty()) {
       lines.add("$indent  value-proposals: ${prop.valueProposals.joinToString(", ")}")

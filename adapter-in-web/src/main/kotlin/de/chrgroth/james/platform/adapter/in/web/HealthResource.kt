@@ -61,14 +61,6 @@ class HealthResource {
   }
 
   @GET
-  @Path("/snippets/scripting")
-  @Authenticated
-  @Produces(MediaType.TEXT_HTML)
-  fun snippetScripting(): TemplateInstance = httpResponseMetrics.timed("fragment.health.scripting") {
-    Templates.`health$snippet_scripting`(health.getStats())
-  }
-
-  @GET
   @Path("/snippets/import-cleanup")
   @Authenticated
   @Produces(MediaType.TEXT_HTML)

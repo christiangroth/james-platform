@@ -9,7 +9,9 @@ import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion
 import de.chrgroth.james.platform.domain.app.AppManagementServiceTests.Companion.version
 import de.chrgroth.james.platform.domain.app.UserAppStoreServiceTests.Companion.installedApp
 import de.chrgroth.james.platform.domain.error.AppVersionError
-import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
+import de.chrgroth.james.platform.domain.error.AppVersionMigrationStepFailedError
+import de.chrgroth.james.platform.domain.error.ExpressionErrorCode
+import de.chrgroth.james.platform.domain.error.InvalidExpressionError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
@@ -57,8 +59,6 @@ import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptProblem
 import de.chrgroth.james.platform.domain.port.out.app.AppRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -93,13 +93,11 @@ class AppVersionManagementServiceTests {
   private val outbox: OutboxPort = mockk {
     justRun { enqueue(any()) }
   }
-  private val reportScript: ReportScriptPort = mockk {
-    every { compileProblem(any()) } returns null
-  }
   private val service: AppVersionManagementService =
-    AppVersionManagementService(
-      appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox, mockk(relaxed = true), reportScript,
-    )
+    AppVersionManagementService(appRepository, appVersionRepository, propertyConstraintPort, installedAppRepository, appVersionMigration, outbox, mockk(relaxed = true))
+
+  /** A migration step for property `p-1`, making an entity carry a (compensating) migration. */
+  private val fillStep = MigrationStep.FillEmptyValue(MigrationStepId("m-fill"), PropertyId("p-1"), "x")
 
   private val existingApp = app(id = "app-1", name = "My App")
   private val draftVersion = version(id = "ver-1", appId = "app-1", versionNumber = null, status = AppVersionStatus.DRAFT)
@@ -197,9 +195,9 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `createVersion does not carry over migration steps and scripts of the latest published version`() {
+  fun `createVersion does not carry over migration steps of the latest published version`() {
     val step = MigrationStep.FillEmptyValue(MigrationStepId("m-1"), PropertyId("p-1"), "0")
-    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationSteps = listOf(step), migrationScript = "it")
+    val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationSteps = listOf(step))
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(publishedVersion.copy(entityDefinitions = listOf(entityDef)))
     justRun { appVersionRepository.save(any()) }
@@ -208,8 +206,7 @@ class AppVersionManagementServiceTests {
 
     val draftEntity = result.getOrNull()!!.entityDefinitions.single()
     assertThat(draftEntity.migrationSteps).isEmpty()
-    assertThat(draftEntity.migrationScript).isNull()
-    assertThat(draftEntity.copy(migrationSteps = listOf(step), migrationScript = "it")).isEqualTo(entityDef)
+    assertThat(draftEntity.copy(migrationSteps = listOf(step))).isEqualTo(entityDef)
   }
 
   @Test
@@ -361,13 +358,14 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `publishVersion publishes as Feature bump and enqueues auto-upgrade for installations when a compensating migration dry-run reconciles a breaking change`() {
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns emptyList()
     val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
     val draftProp = publishedProp.copy(nullable = false)
     val publishedWithEntity =
       publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
-    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationScript = "it")
-    val draftWithMigrationScript = draftVersion.copy(entityDefinitions = listOf(draftEntity))
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithMigrationScript, publishedWithEntity)
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationSteps = listOf(fillStep))
+    val draftWithMigrationSteps = draftVersion.copy(entityDefinitions = listOf(draftEntity))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithMigrationSteps, publishedWithEntity)
     justRun { appVersionRepository.save(any()) }
     val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst)
@@ -497,11 +495,13 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `publishVersion succeeds and enqueues auto-upgrade when only a migration script changed`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+  fun `publishVersion succeeds and enqueues auto-upgrade when only migration steps changed`() {
+    every { propertyConstraintPort.checkValue(any(), any(), any()) } returns emptyList()
+    val prop = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
     val publishedWithEntity = publishedVersion.copy(entityDefinitions = listOf(entity))
-    val draftWithMigrationScript = draftVersion.copy(entityDefinitions = listOf(entity.copy(migrationScript = "it")))
-    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithMigrationScript, publishedWithEntity)
+    val draftWithMigrationSteps = draftVersion.copy(entityDefinitions = listOf(entity.copy(migrationSteps = listOf(fillStep))))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftWithMigrationSteps, publishedWithEntity)
     justRun { appVersionRepository.save(any()) }
     val inst = installedApp(id = "inst-1", userId = "user-1", appId = "app-1", versionNumber = "1.1.0")
     every { installedAppRepository.findAllByAppId(AppId("app-1")) } returns listOf(inst)
@@ -509,7 +509,7 @@ class AppVersionManagementServiceTests {
     val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
 
     assertThat(result.isRight()).isTrue()
-    // a migration-script-only change can never be breaking, so the bump stays a plain BUGFIX bump instead of a forced Major
+    // a migration-steps-only change can never be breaking, so the bump stays a plain BUGFIX bump instead of a forced Major
     assertThat(result.getOrNull()?.versionNumber).isEqualTo(VersionNumber("1.1.1"))
     verify(exactly = 1) { outbox.enqueue(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.1.1")) }
     verify(exactly = 0) { installedAppRepository.save(any()) }
@@ -906,7 +906,7 @@ class AppVersionManagementServiceTests {
     val prop = Property(id = PropertyId("p-1"), name = "Category", type = PropertyType.STRING, smartDefault = null)
     val entityDef = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
     val pub = publishedVersion.copy(entityDefinitions = listOf(entityDef))
-    val draftProp = prop.copy(smartDefault = "now.toString()")
+    val draftProp = prop.copy(smartDefault = "today()")
     val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT)
       .copy(entityDefinitions = listOf(entityDef.copy(properties = listOf(draftProp))))
     every { appRepository.findById(AppId("app-1")) } returns existingApp
@@ -1029,7 +1029,7 @@ class AppVersionManagementServiceTests {
     val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
     val draftProp = publishedProp.copy(nullable = false)
     val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
-    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationScript = "it")
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationSteps = listOf(fillStep))
     val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(entityDefinitions = listOf(draftEntity))
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
@@ -1072,13 +1072,13 @@ class AppVersionManagementServiceTests {
     val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
     val draftProp = publishedProp.copy(nullable = false)
     val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
-    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationScript = "it")
+    val draftEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(draftProp), migrationSteps = listOf(fillStep))
     val draft = version(id = "ver-draft", appId = "app-1", versionNumber = "2.0.0", status = AppVersionStatus.DRAFT).copy(entityDefinitions = listOf(draftEntity))
     every { appRepository.findById(AppId("app-1")) } returns existingApp
     every { appVersionRepository.findById(AppVersionId("ver-draft")) } returns draft
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(pub, draft)
     every { appVersionMigration.dryRunMigration(AppId("app-1"), any()) } returns
-      AppVersionMigrationScriptFailedError("Order", "data-1", "", "boom").left()
+      AppVersionMigrationStepFailedError("Order", "data-1", "", "boom").left()
 
     val result = service.computeVersionBump("app-1", "ver-draft")
 
@@ -1087,7 +1087,7 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `computeVersionBump keeps a breaking change classified as breaking without dry-running when draft has no compensating migration script`() {
+  fun `computeVersionBump keeps a breaking change classified as breaking without dry-running when draft has no compensating migration steps`() {
     val publishedProp = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
     val draftProp = publishedProp.copy(nullable = false)
     val pub = publishedVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(publishedProp))))
@@ -1866,7 +1866,7 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `setPropertyDefault fails when smart default is already set`() {
-    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, smartDefault = "42L")
+    val property = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG, smartDefault = "42")
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
@@ -1889,16 +1889,16 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
     justRun { appVersionRepository.save(any()) }
 
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "today()")
 
     assertThat(result.isRight()).isTrue()
     val updatedProp = result.getOrNull()?.entityDefinitions?.first()?.properties?.first()
-    assertThat(updatedProp?.smartDefault).isEqualTo("now.toString()")
+    assertThat(updatedProp?.smartDefault).isEqualTo("today()")
   }
 
   @Test
   fun `setPropertySmartDefault clears smart default when null provided`() {
-    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, smartDefault = "now.toString()")
+    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, smartDefault = "today()")
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
@@ -1913,7 +1913,7 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `setPropertySmartDefault clears smart default when blank provided`() {
-    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, smartDefault = "now.toString()")
+    val property = Property(id = PropertyId("p-1"), name = "CreatedDate", type = PropertyType.DATE, smartDefault = "today()")
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
@@ -1926,15 +1926,15 @@ class AppVersionManagementServiceTests {
     assertThat(updatedProp?.smartDefault).isNull()
   }
 
-  @ParameterizedTest(name = "setPropertySmartDefault fails for {0} type when setting a script")
-  @EnumSource(value = PropertyType::class, names = ["LIST", "OBJECT", "REF"])
+  @ParameterizedTest(name = "setPropertySmartDefault fails for {0} type when setting an expression")
+  @EnumSource(value = PropertyType::class, names = ["LIST", "OBJECT"])
   fun `setPropertySmartDefault fails for types not supporting a smart default`(type: PropertyType) {
     val property = Property(id = PropertyId("p-1"), name = "Prop", type = type)
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
 
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "today()")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
@@ -1942,7 +1942,7 @@ class AppVersionManagementServiceTests {
 
   @Test
   fun `setPropertySmartDefault allows clearing smart default for non-supported types`() {
-    val property = Property(id = PropertyId("p-1"), name = "RefProp", type = PropertyType.REF, smartDefault = "someScript")
+    val property = Property(id = PropertyId("p-1"), name = "ListProp", type = PropertyType.LIST, listItemType = PropertyType.STRING, smartDefault = "someScript")
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(property))
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
@@ -1977,7 +1977,7 @@ class AppVersionManagementServiceTests {
       }
     }
 
-    val result = service.setPropertySmartDefault("app-1", versionId, entityId, propertyId, "now.toString()")
+    val result = service.setPropertySmartDefault("app-1", versionId, entityId, propertyId, "today()")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(expectedError)
@@ -1990,7 +1990,7 @@ class AppVersionManagementServiceTests {
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
 
-    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "now.toString()")
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-1", "today()")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.BOTH_DEFAULTS_SET)
@@ -2191,16 +2191,15 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
-  fun `updateReport rejects a kotlin step whose script does not compile`() {
+  fun `updateReport rejects the removed kotlin step`() {
     val report = Report(id = ReportId("r-1"), name = "Sales Report")
     val version = draftVersionWithNewEntity.copy(reports = listOf(report))
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-    every { reportScript.compileProblem("kaputt(") } returns ReportScriptProblem("Expecting ')'", 1)
 
-    val result = service.updateReport("app-1", "ver-1", "r-1", null, "queries:\n  q: { entity: NewEntity }\ntransforms:\n  q: [{ kotlin: \"kaputt(\" }]\ntabs: []\n")
+    val result = service.updateReport("app-1", "ver-1", "r-1", null, "queries:\n  q: { entity: NewEntity }\ntransforms:\n  q: [{ kotlin: \"rows\" }]\ntabs: []\n")
 
     val error = result.leftOrNull() as InvalidReportDefinitionError
-    assertThat(error.errors.map { it.code to it.path }).containsExactly(ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID to "transforms.q[0].kotlin")
+    assertThat(error.errors.map { it.code to it.path }).containsExactly(ReportDefinitionErrorCode.KOTLIN_STEP_REMOVED to "transforms.q[0].kotlin")
     verify(exactly = 0) { appVersionRepository.save(any()) }
   }
 
@@ -2332,14 +2331,13 @@ class AppVersionManagementServiceTests {
 
     // ids identify a section/line (renames show up as changed names); everything else must be rendered
     assertThat(fieldsOf(EntityDefinition::class.java)).containsExactlyInAnyOrder(
-      "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationSteps", "migrationScript",
-      "configuration",
+      "id", "name", "displayText", "properties", "sortBy", "computedProperties", "aggregations", "migrationSteps", "configuration",
     )
     assertThat(fieldsOf(Property::class.java)).containsExactlyInAnyOrder(
-      "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "valueProposals", "targetEntityId", "listItemType", "itemConstraints",
-      "nestedProperties", "unit", "referenceLookup",
+      "id", "name", "type", "nullable", "constraints", "default", "smartDefault", "legacySmartDefaultScript", "valueProposals", "targetEntityId",
+      "listItemType", "itemConstraints", "nestedProperties", "unit", "referenceLookup",
     )
-    assertThat(fieldsOf(ComputedProperty::class.java)).containsExactlyInAnyOrder("id", "name", "type", "script")
+    assertThat(fieldsOf(ComputedProperty::class.java)).containsExactlyInAnyOrder("id", "name", "type", "expression", "unit", "legacyScript")
     assertThat(fieldsOf(AggregationDefinition::class.java)).containsExactlyInAnyOrder(
       "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy", "periodStart", "sourcePath",
     )
@@ -2473,7 +2471,7 @@ class AppVersionManagementServiceTests {
   fun `publishVersion accepts a configuration entity whose required properties have defaults`() {
     val nested = Property(id = PropertyId("p-n"), name = "Gelb", type = PropertyType.DOUBLE, nullable = false, default = "0.5")
     val obj = Property(id = PropertyId("p-o"), name = "Schwellen", type = PropertyType.OBJECT, nullable = false, nestedProperties = listOf(nested))
-    val smart = Property(id = PropertyId("p-s"), name = "Start", type = PropertyType.DATE, nullable = false, smartDefault = "today")
+    val smart = Property(id = PropertyId("p-s"), name = "Start", type = PropertyType.DATE, nullable = false, smartDefault = "today()")
     val flag = Property(id = PropertyId("p-b"), name = "Aktiv", type = PropertyType.BOOLEAN, nullable = false)
     val config = configEntity.copy(configuration = true, properties = listOf(configRequired, obj, smart, flag))
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(dataEntity, config)))
@@ -2567,47 +2565,6 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isRight()).isTrue()
     assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isEqualTo("Order {id}")
-  }
-
-  // endregion
-
-  // region updateEntityMigrationScript
-
-  @Test
-  fun `updateEntityMigrationScript sets script`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.updateEntityMigrationScript("app-1", "ver-1", "e-1", "it + (\"newProp\" to \"default\")")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.entityDefinitions?.first()?.migrationScript).isEqualTo("it + (\"newProp\" to \"default\")")
-  }
-
-  @Test
-  fun `updateEntityMigrationScript clears script when blank`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", migrationScript = "it")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.updateEntityMigrationScript("app-1", "ver-1", "e-1", "   ")
-
-    assertThat(result.isRight()).isTrue()
-    assertThat(result.getOrNull()?.entityDefinitions?.first()?.migrationScript).isNull()
-  }
-
-  @Test
-  fun `updateEntityMigrationScript fails when entity not found`() {
-    val version = draftVersion.copy(entityDefinitions = emptyList())
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.updateEntityMigrationScript("app-1", "ver-1", "unknown", "it")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.ENTITY_NOT_FOUND)
   }
 
   // endregion
@@ -3939,6 +3896,127 @@ class AppVersionManagementServiceTests {
 
   // endregion
 
+  // region computed property and smart default expressions (ADR 0029)
+
+  private val gewicht = Property(id = PropertyId("p-gewicht"), name = "gewicht", type = PropertyType.DOUBLE)
+  private val groesse = Property(id = PropertyId("p-groesse"), name = "groesse", type = PropertyType.DOUBLE)
+  private val datum = Property(id = PropertyId("p-datum"), name = "datum", type = PropertyType.DATE)
+  private val notiz = Property(id = PropertyId("p-notiz"), name = "notiz", type = PropertyType.STRING)
+  private val adresse = Property(
+    id = PropertyId("p-adresse"),
+    name = "adresse",
+    type = PropertyType.OBJECT,
+    nestedProperties = listOf(Property(id = PropertyId("p-plz"), name = "plz", type = PropertyType.LONG)),
+  )
+  private val koerper = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Koerper", properties = listOf(gewicht, groesse, datum, notiz, adresse))
+  private val settings = EntityDefinition(
+    id = EntityDefinitionId("e-config"),
+    name = "Einstellungen",
+    configuration = true,
+    properties = listOf(Property(id = PropertyId("c-ziel"), name = "zielGewicht", type = PropertyType.DOUBLE)),
+  )
+
+  private fun expressionDraft(vararg entities: EntityDefinition): AppVersion {
+    val version = draftVersion.copy(entityDefinitions = entities.toList())
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+    return version
+  }
+
+  @Test
+  fun `addComputedProperty stores a valid expression with unit`() {
+    expressionDraft(koerper, settings)
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "Abstand", "DOUBLE", "KILOGRAMS", "gewicht - config.zielGewicht + adresse.plz * 0")
+
+    val computed = result.getOrNull()!!.entityDefinitions.first().computedProperties.single()
+    assertThat(computed.expression).isEqualTo("gewicht - config.zielGewicht + adresse.plz * 0")
+    assertThat(computed.unit?.storageGranularity?.let { (it as Enum<*>).name }).isEqualTo("KILOGRAMS")
+  }
+
+  @Test
+  fun `computed property expressions may read computed properties defined before them only`() {
+    val bmi = ComputedProperty(id = ComputedPropertyId("cp-bmi"), name = "bmi", type = PropertyType.DOUBLE, expression = "gewicht / (groesse ^ 2)")
+    val later = ComputedProperty(id = ComputedPropertyId("cp-later"), name = "spaeter", type = PropertyType.DOUBLE)
+    expressionDraft(koerper.copy(computedProperties = listOf(bmi, later)))
+
+    assertThat(service.updateComputedProperty("app-1", "ver-1", "e-1", "cp-later", "spaeter", "DOUBLE", null, "round(bmi, 1)").isRight()).isTrue()
+    assertThat(service.updateComputedProperty("app-1", "ver-1", "e-1", "cp-bmi", "bmi", "DOUBLE", null, "spaeter * 2").leftOrNull())
+      .isEqualTo(InvalidExpressionError(ExpressionErrorCode.UNKNOWN_FIELD, listOf("spaeter")))
+  }
+
+  @ParameterizedTest(name = "invalid computed property expression {0}")
+  @MethodSource("invalidComputedExpressions")
+  fun `addComputedProperty rejects invalid expressions with a reason`(expression: String, type: String, reason: ExpressionErrorCode) {
+    expressionDraft(koerper)
+
+    val result = service.addComputedProperty("app-1", "ver-1", "e-1", "X", type, null, expression)
+
+    assertThat((result.leftOrNull() as InvalidExpressionError).reason).isEqualTo(reason)
+    verify(exactly = 0) { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `addComputedProperty rejects a unit for a non-numeric type and an unknown unit`() {
+    expressionDraft(koerper)
+
+    assertThat(service.addComputedProperty("app-1", "ver-1", "e-1", "X", "STRING", "KILOGRAMS", null).leftOrNull()).isEqualTo(AppVersionError.UNIT_NOT_SUPPORTED)
+    assertThat(service.addComputedProperty("app-1", "ver-1", "e-1", "X", "DOUBLE", "PARSEC", null).leftOrNull()).isEqualTo(AppVersionError.UNIT_GRANULARITY_INVALID)
+  }
+
+  @Test
+  fun `updateComputedProperty replaces a stored Kotlin script by the expression`() {
+    val legacy = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.DOUBLE, legacyScript = "it[\"a\"]")
+    expressionDraft(koerper.copy(computedProperties = listOf(legacy)))
+
+    val result = service.updateComputedProperty("app-1", "ver-1", "e-1", "cp-1", "Total", "DOUBLE", null, "gewicht * 2")
+
+    val updated = result.getOrNull()!!.entityDefinitions.first().computedProperties.single()
+    assertThat(updated.expression).isEqualTo("gewicht * 2")
+    assertThat(updated.legacyScript).isNull()
+  }
+
+  @Test
+  fun `setPropertySmartDefault validates the expression, entry functions and the result type`() {
+    expressionDraft(koerper, settings)
+
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-datum", "coalesce(next_day(datum), today())").isRight()).isTrue()
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-gewicht", "coalesce(last(gewicht), config.zielGewicht)").isRight()).isTrue()
+    assertThat((service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-datum", "today() +").leftOrNull() as InvalidExpressionError).reason)
+      .isEqualTo(ExpressionErrorCode.SYNTAX)
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-datum", "last(\"x\")").leftOrNull())
+      .isEqualTo(InvalidExpressionError(ExpressionErrorCode.FIELD_ARGUMENT_REQUIRED, listOf("last")))
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-gewicht", "datum").leftOrNull())
+      .isEqualTo(InvalidExpressionError(ExpressionErrorCode.RESULT_TYPE, listOf("DOUBLE", "DATE")))
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-gewicht", "config.unbekannt").leftOrNull())
+      .isEqualTo(InvalidExpressionError(ExpressionErrorCode.UNKNOWN_CONFIG_FIELD, listOf("unbekannt")))
+  }
+
+  @Test
+  fun `setPropertySmartDefault accepts last on a REF property and rejects nested properties`() {
+    val schuh = EntityDefinition(id = EntityDefinitionId("e-schuh"), name = "Schuh")
+    val schuhe = Property(id = PropertyId("p-schuhe"), name = "schuhe", type = PropertyType.REF, targetEntityId = schuh.id)
+    expressionDraft(koerper.copy(properties = koerper.properties + schuhe), schuh)
+
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-schuhe", "last(schuhe)").isRight()).isTrue()
+    assertThat(service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-plz", "42", listOf("p-adresse")).leftOrNull())
+      .isEqualTo(AppVersionError.SMART_DEFAULT_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertySmartDefault replaces a stored Kotlin script`() {
+    val legacy = datum.copy(legacySmartDefaultScript = "now.toString()")
+    expressionDraft(koerper.copy(properties = listOf(legacy)))
+
+    val result = service.setPropertySmartDefault("app-1", "ver-1", "e-1", "p-datum", null)
+
+    val updated = result.getOrNull()!!.entityDefinitions.first().properties.single()
+    assertThat(updated.smartDefault).isNull()
+    assertThat(updated.legacySmartDefaultScript).isNull()
+  }
+
+  // endregion
+
   // region updateComputedProperty
 
   @Test
@@ -3964,52 +4042,6 @@ class AppVersionManagementServiceTests {
     every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
 
     val result = service.updateComputedProperty("app-1", "ver-1", "e-1", "unknown-cp", "Total", "LONG")
-
-    assertThat(result.isLeft()).isTrue()
-    assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_NOT_FOUND)
-  }
-
-  // endregion
-
-  // region setComputedPropertyScript
-
-  @Test
-  fun `setComputedPropertyScript sets script on computed property`() {
-    val existing = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG)
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(existing))
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.setComputedPropertyScript("app-1", "ver-1", "e-1", "cp-1", "it[\"qty\"]?.toLongOrNull() ?: 0L")
-
-    assertThat(result.isRight()).isTrue()
-    val updated = result.getOrNull()?.entityDefinitions?.first()?.computedProperties?.first()
-    assertThat(updated?.script).isEqualTo("it[\"qty\"]?.toLongOrNull() ?: 0L")
-  }
-
-  @Test
-  fun `setComputedPropertyScript clears script when null provided`() {
-    val existing = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(existing))
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-    justRun { appVersionRepository.save(any()) }
-
-    val result = service.setComputedPropertyScript("app-1", "ver-1", "e-1", "cp-1", null)
-
-    assertThat(result.isRight()).isTrue()
-    val updated = result.getOrNull()?.entityDefinitions?.first()?.computedProperties?.first()
-    assertThat(updated?.script).isNull()
-  }
-
-  @Test
-  fun `setComputedPropertyScript fails when computed property not found`() {
-    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-    val version = draftVersion.copy(entityDefinitions = listOf(entity))
-    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
-
-    val result = service.setComputedPropertyScript("app-1", "ver-1", "e-1", "unknown-cp", "42L")
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.COMPUTED_PROPERTY_NOT_FOUND)
@@ -4374,7 +4406,7 @@ class AppVersionManagementServiceTests {
     every { installedAppRepository.findById(inst.id) } returns inst
     every {
       appVersionMigration.migrateInstallation(inst.id, AppId("app-1"), VersionNumber("1.1.0"), VersionNumber("1.2.0"))
-    } returns AppVersionMigrationScriptFailedError("Order", "data-1", "1.2.0", "boom").left()
+    } returns AppVersionMigrationStepFailedError("Order", "data-1", "1.2.0", "boom").left()
 
     val result = service.handle(DomainOutboxEvent.AutoUpgradeInstallation("inst-1", "app-1", "1.1.0", "1.2.0"))
 
@@ -4385,6 +4417,20 @@ class AppVersionManagementServiceTests {
   // endregion
 
   companion object {
+    @JvmStatic
+    fun invalidComputedExpressions(): Stream<Arguments> = Stream.of(
+      Arguments.of("gewicht +", "DOUBLE", ExpressionErrorCode.SYNTAX),
+      Arguments.of("magic(gewicht)", "DOUBLE", ExpressionErrorCode.UNKNOWN_FUNCTION),
+      Arguments.of("last(gewicht)", "DOUBLE", ExpressionErrorCode.FUNCTION_NOT_AVAILABLE),
+      Arguments.of("unbekannt * 2", "DOUBLE", ExpressionErrorCode.UNKNOWN_FIELD),
+      Arguments.of("config.zielGewicht", "DOUBLE", ExpressionErrorCode.UNKNOWN_CONFIG_FIELD),
+      Arguments.of("notiz * 2", "DOUBLE", ExpressionErrorCode.OPERAND_TYPE),
+      Arguments.of("days(gewicht, datum)", "DOUBLE", ExpressionErrorCode.ARGUMENT_TYPE),
+      Arguments.of("datum > 3", "BOOLEAN", ExpressionErrorCode.INCOMPARABLE),
+      Arguments.of("if(gewicht > 1, notiz, datum)", "STRING", ExpressionErrorCode.MIXED_TYPES),
+      Arguments.of("datum", "DOUBLE", ExpressionErrorCode.RESULT_TYPE),
+    )
+
 
     @JvmStatic
     fun invalidAggregationInputs(): Stream<Arguments> {
@@ -4526,16 +4572,16 @@ class AppVersionManagementServiceTests {
       val lookupUpdatedEntity = lookupEntity.copy(properties = listOf(lookupRef.copy(referenceLookup = ReferenceLookup(lookupTargetName.id, autoCreate = true))))
 
       val computedAddedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
-      val addedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+      val addedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, expression = "42")
       val computedAddedUpdatedEntity = computedAddedEntity.copy(computedProperties = listOf(addedCp))
 
-      val removedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "42L")
+      val removedCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, expression = "42")
       val computedRemovedEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(removedCp))
       val computedRemovedUpdatedEntity = computedRemovedEntity.copy(computedProperties = emptyList())
 
-      val scriptCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, script = "0L")
+      val scriptCp = ComputedProperty(id = ComputedPropertyId("cp-1"), name = "Total", type = PropertyType.LONG, expression = "0")
       val scriptEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", computedProperties = listOf(scriptCp))
-      val scriptUpdatedEntity = scriptEntity.copy(computedProperties = listOf(scriptCp.copy(script = "42L")))
+      val scriptUpdatedEntity = scriptEntity.copy(computedProperties = listOf(scriptCp.copy(expression = "42")))
 
       val listItemProp = Property(id = PropertyId("p-1"), name = "Tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
       val listItemEntity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(listItemProp))
@@ -4583,9 +4629,6 @@ class AppVersionManagementServiceTests {
         ),
       )
 
-      val migrationEntity = defaultEntity.copy(migrationScript = "old()")
-      val migrationUpdatedEntity = defaultEntity.copy(migrationScript = "new()")
-
       val migrationStepEntity = defaultEntity
       val migrationStepUpdatedEntity = defaultEntity.copy(
         migrationSteps = listOf(MigrationStep.ConvertType(MigrationStepId("step-1"), defaultProp.id)),
@@ -4602,7 +4645,6 @@ class AppVersionManagementServiceTests {
           "entity aggregation", listOf(aggregationEntity), listOf(aggregationUpdatedEntity),
           listOf(listOf("aggregation Total: SUM(Amount)"), listOf("group-by: Category"), listOf("time-bucket: QUARTAL"), listOf("period-start: 10.04.")),
         ),
-        Arguments.of("entity migration script", listOf(migrationEntity), listOf(migrationUpdatedEntity), listOf(listOf("old()"), listOf("new()"))),
         Arguments.of(
           "entity migration step", listOf(migrationStepEntity), listOf(migrationStepUpdatedEntity),
           listOf(listOf("migration-steps:"), listOf("convert-type: Category")),
@@ -4615,15 +4657,15 @@ class AppVersionManagementServiceTests {
         ),
         Arguments.of(
           "added computed property", listOf(computedAddedEntity), listOf(computedAddedUpdatedEntity),
-          listOf(listOf("computed Total: LONG"), listOf("script: 42L")),
+          listOf(listOf("computed Total: LONG"), listOf("expression: 42")),
         ),
         Arguments.of(
           "removed computed property", listOf(computedRemovedEntity), listOf(computedRemovedUpdatedEntity),
           listOf(listOf("computed Total: LONG")),
         ),
         Arguments.of(
-          "changes to computed property script", listOf(scriptEntity), listOf(scriptUpdatedEntity),
-          listOf(listOf("script: 42L"), listOf("script: 0L")),
+          "changes to computed property expression", listOf(scriptEntity), listOf(scriptUpdatedEntity),
+          listOf(listOf("expression: 42"), listOf("expression: 0")),
         ),
         Arguments.of(
           "list item type and item constraints", listOf(listItemEntity), listOf(listItemUpdatedEntity),

@@ -8,21 +8,21 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMigrationStepMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
 import de.chrgroth.james.platform.domain.error.DeveloperTestInstallationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
-import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
+import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
+import de.chrgroth.james.platform.domain.error.InvalidExpressionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
+import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidReportsError
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportPort
-import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
-import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.TestDataGeneratorError
-import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.App
@@ -37,17 +37,19 @@ import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
-import de.chrgroth.james.platform.domain.model.app.propertyPaths
-import de.chrgroth.james.platform.domain.model.app.findPropertyPath
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
+import de.chrgroth.james.platform.domain.model.app.findPropertyPath
+import de.chrgroth.james.platform.domain.model.app.isValidReferenceLookupProperty
+import de.chrgroth.james.platform.domain.model.app.propertyPaths
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationInput
 import de.chrgroth.james.platform.domain.port.`in`.app.AppManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionManagementPort
 import de.chrgroth.james.platform.domain.port.`in`.app.DeveloperTestInstallationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.MigrationStepInput
+import de.chrgroth.james.platform.domain.port.`in`.app.ReportPort
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGenerationOutcome
 import de.chrgroth.james.platform.domain.port.`in`.app.TestDataGeneratorPort
 import de.chrgroth.james.platform.domain.port.`in`.user.UserProfileServicePort
@@ -174,7 +176,7 @@ data class MigrationPreviewPropertyRow(
 
 data class MigrationPreviewObjectRow(
   val index: Int,
-  /** Issues not tied to a single property, e.g. the migration script failing outright. */
+  /** Issues not tied to a single property, e.g. a migration step failing without a property. */
   val objectIssues: List<String>,
   val properties: List<MigrationPreviewPropertyRow>,
   val isValid: Boolean,
@@ -245,6 +247,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var reportTexts: ReportTexts
+
+  @Inject
+  private lateinit var expressionTexts: ExpressionTexts
 
   @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
@@ -1022,24 +1027,8 @@ class DeveloperAppResource {
     )
   }
 
-  @POST
-  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/migration-script")
-  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-  @Produces(MediaType.APPLICATION_JSON)
-  fun updateEntityMigrationScript(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("entityId") entityId: String,
-    @FormParam("migrationScript") migrationScript: String?,
-  ): Response = httpResponseMetrics.timed("rest.developer.entity-migration-script-update") {
-    appVersionManagement.updateEntityMigrationScript(appId, versionId, entityId, migrationScript).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerMigrationScriptSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
-    )
-  }
-
   /**
-   * Interactive preview of [entityId]'s draft migration steps and script (already persisted, see [addMigrationStep]/[updateEntityMigrationScript])
+   * Interactive preview of [entityId]'s draft migration steps (already persisted, see [addMigrationStep])
    * against one of its existing AppData objects at [index] - see docs/adr/0023-migration-steps.md. GET rather than POST since, unlike the
    * import Mapping form, there is no unsaved client-side state to send along: the editor always previews what is currently saved.
    */
@@ -1210,7 +1199,7 @@ class DeveloperAppResource {
     @FormParam("path") path: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.property-smart-default-set") {
     appVersionManagement.setPropertySmartDefault(appId, versionId, entityId, propertyId, smartDefault, parsePath(path)).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerSmartDefaultSavedMessage(), parentPropertyEditorUrl(appId, versionId, entityId, path))).build() },
     )
   }
@@ -1410,12 +1399,14 @@ class DeveloperAppResource {
     @PathParam("entityId") entityId: String,
     @FormParam("name") name: String,
     @FormParam("type") type: String,
+    @FormParam("unit") unit: String?,
+    @FormParam("expression") expression: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.computed-property-add") {
     if (name.isBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
-    appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+    appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type, unit, expression).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
@@ -1431,30 +1422,15 @@ class DeveloperAppResource {
     @PathParam("computedPropertyId") computedPropertyId: String,
     @FormParam("name") name: String,
     @FormParam("type") type: String,
+    @FormParam("unit") unit: String?,
+    @FormParam("expression") expression: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.computed-property-update") {
     if (name.isBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
-    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type, unit, expression).fold(
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
-    )
-  }
-
-  @POST
-  @Path("/apps/{appId}/versions/{versionId}/entities/{entityId}/computed-properties/{computedPropertyId}/script")
-  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-  @Produces(MediaType.APPLICATION_JSON)
-  fun setComputedPropertyScript(
-    @PathParam("appId") appId: String,
-    @PathParam("versionId") versionId: String,
-    @PathParam("entityId") entityId: String,
-    @PathParam("computedPropertyId") computedPropertyId: String,
-    @FormParam("script") script: String?,
-  ): Response = httpResponseMetrics.timed("rest.developer.computed-property-script-set") {
-    appVersionManagement.setComputedPropertyScript(appId, versionId, entityId, computedPropertyId, script).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
-      ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyScriptSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
 
@@ -1831,7 +1807,6 @@ class DeveloperAppResource {
 
   private fun migrationPreviewIssueMessage(issue: MigrationPreviewIssue): String = when (issue) {
     is MigrationPreviewIssue.StepFailed -> issue.reason
-    is MigrationPreviewIssue.ScriptFailed -> issue.reason
     is MigrationPreviewIssue.ConstraintViolated -> PropertyLabelTemplateExtensions.constraintViolationMessage(issue.violation)
   }
 
@@ -2145,6 +2120,10 @@ class DeveloperAppResource {
     else -> msg.commonUnexpectedError()
   }
 
+  /** An invalid expression (ADR 0029) with its details, any other error by its code. */
+  private fun expressionAwareErrorMessage(error: DomainError): String =
+    if (error is InvalidExpressionError) expressionTexts.message(error) else entityErrorMessage(error.code)
+
   private fun entityErrorMessage(code: String): String = when (code) {
     AppVersionError.BLANK_INPUT.code -> msg.commonNameRequired()
     AppVersionError.ENTITY_NAME_ALREADY_EXISTS.code -> devMsg.developerEntityNameExistsError()
@@ -2158,7 +2137,6 @@ class DeveloperAppResource {
     AppVersionError.DEFAULT_NOT_SUPPORTED.code -> devMsg.developerDefaultNotSupportedError()
     AppVersionError.DEFAULT_VALUE_INVALID.code -> devMsg.developerDefaultValueInvalidError()
     AppVersionError.SMART_DEFAULT_NOT_SUPPORTED.code -> devMsg.developerSmartDefaultNotSupportedError()
-    AppVersionError.SMART_DEFAULT_SCRIPT_INVALID.code -> devMsg.developerSmartDefaultScriptInvalidError()
     AppVersionError.VALUE_PROPOSALS_NOT_SUPPORTED.code -> devMsg.developerValueProposalsNotSupportedError()
     AppVersionError.BOTH_DEFAULTS_SET.code -> devMsg.developerBothDefaultsSetError()
     AppVersionError.PROPERTY_IDS_MISMATCH.code -> devMsg.developerPropertyIdsMismatchError()
@@ -2247,7 +2225,7 @@ class DeveloperAppResource {
     private val predefinedSmartDefaultsJson: RawString = RawString(
       ObjectMapper().writeValueAsString(
         PredefinedSmartDefault.byTypeName.mapValues { (_, pds) ->
-          pds.map { mapOf("label" to it.label, "script" to it.script) }
+          pds.map { mapOf("label" to it.label, "expression" to it.expression) }
         }
       )
     )

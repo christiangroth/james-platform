@@ -31,8 +31,8 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
-import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.DurationPropertyLocation
 import jakarta.enterprise.context.ApplicationScoped
@@ -214,7 +214,6 @@ class AppVersionRepositoryAdapter(
     computedProperties = computedProperties.mapNotNull { it.toDomain() },
     aggregations = aggregations.mapNotNull { it.toDomain() },
     migrationSteps = migrationSteps.mapNotNull { it.toDomain() },
-    migrationScript = migrationScript,
     configuration = configuration,
   )
 
@@ -230,7 +229,8 @@ class AppVersionRepositoryAdapter(
     nullable = nullable,
     constraints = constraints.mapNotNull { it.toDomain() }.toSet(),
     default = default,
-    smartDefault = smartDefault,
+    smartDefault = smartDefaultExpression?.takeIf { it.isNotBlank() },
+    legacySmartDefaultScript = smartDefault?.takeIf { it.isNotBlank() },
     valueProposals = valueProposals,
     targetEntityId = targetEntityId?.let { EntityDefinitionId(it) },
     listItemType = listItemType?.let { PropertyType.valueOf(it) },
@@ -255,7 +255,9 @@ class AppVersionRepositoryAdapter(
       id = ComputedPropertyId(id),
       name = name,
       type = propertyType,
-      script = script,
+      expression = expression?.takeIf { it.isNotBlank() },
+      unit = unit?.toDomain()?.takeIf { propertyType.supportsUnit() },
+      legacyScript = script?.takeIf { it.isNotBlank() },
     )
   }
 
@@ -339,7 +341,6 @@ class AppVersionRepositoryAdapter(
     doc.computedProperties = computedProperties.map { it.toDocument() }
     doc.aggregations = aggregations.map { it.toDocument() }
     doc.migrationSteps = migrationSteps.map { it.toDocument() }
-    doc.migrationScript = migrationScript
     doc.configuration = configuration
   }
 
@@ -385,7 +386,8 @@ class AppVersionRepositoryAdapter(
     doc.nullable = nullable
     doc.constraints = constraints.map { it.toDocument() }
     doc.default = default
-    doc.smartDefault = smartDefault
+    doc.smartDefault = legacySmartDefaultScript
+    doc.smartDefaultExpression = smartDefault
     doc.valueProposals = valueProposals
     doc.targetEntityId = targetEntityId?.value
     doc.listItemType = listItemType?.name
@@ -408,7 +410,9 @@ class AppVersionRepositoryAdapter(
     doc.id = id.value
     doc.name = name
     doc.type = type.name
-    doc.script = script
+    doc.script = legacyScript
+    doc.expression = expression
+    doc.unit = unit?.toDocument()
   }
 
   private fun AggregationDefinition.toDocument() = AggregationDefinitionDocument().also { doc ->

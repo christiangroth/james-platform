@@ -26,8 +26,8 @@ class EntityDefinitionDocument {
   var sortBy: List<SortCriteriaDocument> = emptyList()
   var computedProperties: List<ComputedPropertyDocument> = emptyList()
   var aggregations: List<AggregationDefinitionDocument> = emptyList()
+  // Documents written before ADR 0029 may still carry a `migrationScript` (Kotlin): the POJO codec skips it on read, it is no longer supported.
   var migrationSteps: List<MigrationStepDocument> = emptyList()
-  var migrationScript: String? = null
   var configuration: Boolean = false
 }
 
@@ -57,7 +57,12 @@ class PropertyDocument {
   var nullable: Boolean = true
   var constraints: List<ConstraintDocument> = emptyList()
   var default: String? = null
+
+  // Kotlin smart default script written before ADR 0029: read as a legacy script (not evaluated), written back unchanged until replaced.
   var smartDefault: String? = null
+
+  // Smart default expression (ADR 0029).
+  var smartDefaultExpression: String? = null
   var valueProposals: List<String> = emptyList()
   var targetEntityId: String? = null
   var listItemType: String? = null
@@ -96,7 +101,13 @@ class ComputedPropertyDocument {
   lateinit var id: String
   lateinit var name: String
   lateinit var type: String
+
+  // Kotlin script written before ADR 0029: read as a legacy script (not evaluated), written back unchanged until replaced.
   var script: String? = null
+
+  // Expression (ADR 0029) and the unit of its numeric result.
+  var expression: String? = null
+  var unit: PropertyUnitDocument? = null
 }
 
 class AggregationDefinitionDocument {

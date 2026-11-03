@@ -170,7 +170,7 @@ internal sealed interface ExpressionValue {
   }
 }
 
-/** What an expression reads while it is evaluated: the values of fields and of the configuration, and today's date. */
+/** What an expression reads while it is evaluated: the values of fields and of the configuration, today's date and the current time. */
 internal interface ExpressionContext {
   /** The value of a field (e.g. `gewicht`, `rad.name`), null if missing. */
   fun field(name: String): ExpressionValue?
@@ -179,4 +179,10 @@ internal interface ExpressionContext {
   fun config(path: String): ExpressionValue?
 
   val today: LocalDate
+
+  /** The current date and time (`now()`); midnight of [today] where only the date is known. */
+  val now: LocalDateTime get() = today.atStartOfDay()
+
+  /** The value of the field [name] in the entity's latest existing object (`last(field)`); null where there are no such objects (reports). */
+  fun last(name: String): ExpressionValue? = null
 }

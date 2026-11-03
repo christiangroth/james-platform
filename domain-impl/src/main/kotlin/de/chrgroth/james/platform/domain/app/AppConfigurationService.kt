@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultContext
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
@@ -93,7 +94,7 @@ class AppConfigurationService(
 
   /** The stored values of a new configuration object: defaults (in storage form), smart defaults for top-level properties, OBJECT values assembled. */
   private fun defaultData(entity: EntityDefinition): Map<String, String?> {
-    val smartDefaults = if (entity.properties.any { it.smartDefault != null }) smartDefault.computeSmartDefaults(entity, Clock.System.now()) else emptyMap()
+    val smartDefaults = if (entity.properties.any { it.smartDefault != null }) smartDefault.computeSmartDefaults(entity, SmartDefaultContext(Clock.System.now())) else emptyMap()
     return entity.properties.associate { property ->
       val value = defaultValue(property)
       property.id.value to if (value is Map<*, *>) {

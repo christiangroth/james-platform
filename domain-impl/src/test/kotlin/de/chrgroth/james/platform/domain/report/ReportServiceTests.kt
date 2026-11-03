@@ -16,7 +16,6 @@ import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.TextPanelSpec
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -42,11 +41,10 @@ class ReportServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val computedProperty: ComputedPropertyPort = mockk {
-    every { computeValues(any(), any(), any(), any()) } answers { mapOf("c-jahr" to secondArg<Map<String, String?>>()["p-datum"]?.take(4)) }
+    every { computeValues(any(), any(), any(), any(), any()) } answers { mapOf("c-jahr" to secondArg<Map<String, String?>>()["p-datum"]?.take(4)) }
   }
   private val appConfiguration: AppConfigurationPort = mockk()
-  private val reportScript: ReportScriptPort = mockk()
-  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, appConfiguration, reportScript).apply {
+  private val service = ReportService(installedAppRepository, appVersionRepository, appDataRepository, computedProperty, appConfiguration).apply {
     clock = Clock.fixed(Instant.parse("2026-06-15T10:00:00Z"), ZoneOffset.UTC)
   }
 
@@ -108,7 +106,7 @@ class ReportServiceTests {
     val panels = service.renderReport("alice", "inst-1", "r-1").getOrNull()!!.tabs.single().rows.single().panels
 
     assertThat((panels[0] as StatPanelSpec).text).isEqualTo("1.000")
-    verify { computedProperty.computeValues(any(), any(), any(), mapOf("p-z-besucher" to "1000")) }
+    verify { computedProperty.computeValues(any(), any(), any(), mapOf("p-z-besucher" to "1000"), any()) }
   }
 
   @Test
@@ -280,7 +278,7 @@ class ReportServiceTests {
       """,
     )
 
-    verify(exactly = 0) { computedProperty.computeValues(any(), any(), any(), any()) }
+    verify(exactly = 0) { computedProperty.computeValues(any(), any(), any(), any(), any()) }
   }
 
   @Test

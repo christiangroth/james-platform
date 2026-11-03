@@ -1,6 +1,6 @@
 # Migration Steps: Declarative Building Blocks for the Most Common Entity Changes
 
-* Status: accepted
+* Status: accepted; the migration script ("Expert Mode") it composes with was removed by [ADR 0029](0029-expression-language-instead-of-kotlin-scripting.md) - migration steps are the only migration mechanism now
 * Deciders: Chris
 * Date: 2026-09-26
 

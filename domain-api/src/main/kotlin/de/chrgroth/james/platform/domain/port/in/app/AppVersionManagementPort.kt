@@ -34,10 +34,9 @@ interface AppVersionManagementPort {
    * change on [entityId]'s draft not yet covered by an existing step - see docs/adr/0023-migration-steps.md.
    */
   fun suggestMigrationSteps(appId: String, versionId: String, entityId: String): Either<DomainError, List<MigrationStepInput>>
-  fun updateEntityMigrationScript(appId: String, versionId: String, entityId: String, migrationScript: String?): Either<DomainError, AppVersion>
 
   /**
-   * Interactive preview of [entityId]'s draft migration steps and script against one of its existing AppData objects at [index] - see
+   * Interactive preview of [entityId]'s draft migration steps against one of its existing AppData objects at [index] - see
    * docs/adr/0023-migration-steps.md. [index] out of range yields a [MigrationPreviewSample] with a null `previewObject`, not a
    * [DomainError]. Returns an empty sample (`total = 0`) if there is no predecessor Version to migrate from.
    */
@@ -137,9 +136,31 @@ interface AppVersionManagementPort {
   ): Either<DomainError, AppVersion>
   fun reorderProperties(appId: String, versionId: String, entityId: String, propertyIds: List<String>, path: List<String> = emptyList()): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String, path: List<String> = emptyList()): Either<DomainError, AppVersion>
-  fun addComputedProperty(appId: String, versionId: String, entityId: String, name: String, type: String): Either<DomainError, AppVersion>
-  fun updateComputedProperty(appId: String, versionId: String, entityId: String, computedPropertyId: String, name: String, type: String): Either<DomainError, AppVersion>
-  fun setComputedPropertyScript(appId: String, versionId: String, entityId: String, computedPropertyId: String, script: String?): Either<DomainError, AppVersion>
+  /**
+   * Adds a computed property: [type] its result type, [unit] an optional granularity name for numeric results (e.g. `KILOMETERS`), [expression]
+   * its expression (ADR 0029), validated against the entity's properties, the computed properties before it and the configuration.
+   */
+  fun addComputedProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    name: String,
+    type: String,
+    unit: String? = null,
+    expression: String? = null,
+  ): Either<DomainError, AppVersion>
+
+  /** Replaces name, type, unit and expression of a computed property, see [addComputedProperty]; a null or blank [expression] clears it. */
+  fun updateComputedProperty(
+    appId: String,
+    versionId: String,
+    entityId: String,
+    computedPropertyId: String,
+    name: String,
+    type: String,
+    unit: String? = null,
+    expression: String? = null,
+  ): Either<DomainError, AppVersion>
   fun reorderComputedProperties(appId: String, versionId: String, entityId: String, computedPropertyIds: List<String>): Either<DomainError, AppVersion>
   fun deleteComputedProperty(appId: String, versionId: String, entityId: String, computedPropertyId: String): Either<DomainError, AppVersion>
   fun addAggregation(appId: String, versionId: String, entityId: String, input: AggregationInput): Either<DomainError, AppVersion>

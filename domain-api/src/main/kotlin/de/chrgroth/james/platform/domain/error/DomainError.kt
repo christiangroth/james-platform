@@ -83,7 +83,7 @@ enum class AppVersionError(override val code: String) : DomainError {
   DEFAULT_NOT_SUPPORTED("APPVER-024"),
   DEFAULT_VALUE_INVALID("APPVER-025"),
   SMART_DEFAULT_NOT_SUPPORTED("APPVER-026"),
-  SMART_DEFAULT_SCRIPT_INVALID("APPVER-027"),
+  // APPVER-027 was SMART_DEFAULT_SCRIPT_INVALID (Kotlin smart default scripts, replaced by expressions in ADR 0029); code not reused.
   VALUE_PROPOSALS_NOT_SUPPORTED("APPVER-028"),
   COMPUTED_PROPERTY_NOT_FOUND("APPVER-029"),
   COMPUTED_PROPERTY_NAME_ALREADY_EXISTS("APPVER-030"),
@@ -135,6 +135,9 @@ enum class AppVersionError(override val code: String) : DomainError {
   /** The configuration Entity cannot be the target of a REF property (ADR 0027). */
   CONFIGURATION_REFERENCED("APPVER-074"),
   INVALID_CONFIGURATION("APPVER-075"),
+
+  /** A computed property's or smart default's expression is invalid (ADR 0029), see [InvalidExpressionError]. */
+  INVALID_EXPRESSION("APPVER-076"),
   ;
 }
 
@@ -168,7 +171,7 @@ enum class TestDataGeneratorError(override val code: String) : DomainError {
 
 /** See docs/adr/0018-app-version-migration-execution-trigger.md and docs/adr/0023-migration-steps.md. */
 enum class AppVersionMigrationError(override val code: String) : DomainError {
-  SCRIPT_FAILED("MIGRATION-001"),
+  // MIGRATION-001 was SCRIPT_FAILED (Kotlin migration scripts, removed with ADR 0029); code not reused.
   VALIDATION_FAILED_AFTER_MIGRATION("MIGRATION-002"),
   STEP_FAILED("MIGRATION-003"),
   ;
@@ -275,15 +278,6 @@ data class PathedConstraintViolation(
   val violation: PropertyConstraintViolation,
 )
 
-/** An Entity's migration script threw or timed out while migrating one AppData object during an installation upgrade. */
-data class AppVersionMigrationScriptFailedError(
-  val entityName: String,
-  val appDataId: String,
-  val versionNumber: String,
-  val reason: String,
-) : DomainError {
-  override val code: String = AppVersionMigrationError.SCRIPT_FAILED.code
-}
 
 /** An Entity's migration step (see MigrationStep) could not be applied to one AppData object during an installation upgrade, e.g. an unconvertible value. */
 data class AppVersionMigrationStepFailedError(
@@ -295,7 +289,7 @@ data class AppVersionMigrationStepFailedError(
   override val code: String = AppVersionMigrationError.STEP_FAILED.code
 }
 
-/** A migration script ran successfully but its transformed data still violates the new EntityDefinition's constraints. */
+/** The migrated data (after the migration steps) still violates the new EntityDefinition's constraints. */
 data class AppVersionMigrationValidationFailedError(
   val entityName: String,
   val appDataId: String,
@@ -351,6 +345,50 @@ data class InvalidConfigurationError(
   val entityNames: List<String>,
 ) : DomainError {
   override val code: String = AppVersionError.INVALID_CONFIGURATION.code
+}
+
+/** What is wrong with an expression of a computed property or smart default (ADR 0029); the args of [InvalidExpressionError] by code. */
+enum class ExpressionErrorCode {
+  /** args: 1-based position, detail (machine-oriented, e.g. `unexpected ')'`). */
+  SYNTAX,
+
+  /** args: function, allowed functions (comma separated). */
+  UNKNOWN_FUNCTION,
+
+  /** args: function, allowed functions (comma separated). The function exists, but not here (e.g. `last` in a computed property). */
+  FUNCTION_NOT_AVAILABLE,
+
+  /** args: function. `last`/`next_day` need a field name as argument. */
+  FIELD_ARGUMENT_REQUIRED,
+
+  /** args: field name. Neither a field of the entity nor a computed property defined before this one. */
+  UNKNOWN_FIELD,
+
+  /** args: field path after `config.`. The version has no configuration or the configuration no such field. */
+  UNKNOWN_CONFIG_FIELD,
+
+  /** args: operator, type (an expression type: NUMBER, TEXT, BOOLEAN, DATE, DATETIME, TIME). */
+  OPERAND_TYPE,
+
+  /** args: function, 1-based argument, type. */
+  ARGUMENT_TYPE,
+
+  /** args: operator (or `case`), left type, right type. */
+  INCOMPARABLE,
+
+  /** args: function, types (comma separated). */
+  MIXED_TYPES,
+
+  /** args: expected property type (e.g. DOUBLE), actual expression type. */
+  RESULT_TYPE,
+}
+
+/** A computed property's or smart default's expression failed parsing or type checking on save (ADR 0029). */
+data class InvalidExpressionError(
+  val reason: ExpressionErrorCode,
+  val args: List<String> = emptyList(),
+) : DomainError {
+  override val code: String = AppVersionError.INVALID_EXPRESSION.code
 }
 
 data class InvalidReportsError(

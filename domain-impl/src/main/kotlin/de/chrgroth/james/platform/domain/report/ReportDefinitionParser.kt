@@ -14,8 +14,8 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
-import de.chrgroth.james.platform.domain.model.app.ReportAggregateTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateFunction
+import de.chrgroth.james.platform.domain.model.app.ReportAggregateTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAggregateValue
 import de.chrgroth.james.platform.domain.model.app.ReportAsOfTransform
 import de.chrgroth.james.platform.domain.model.app.ReportAxis
@@ -37,7 +37,6 @@ import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
 import de.chrgroth.james.platform.domain.model.app.ReportHeatmapPanel
 import de.chrgroth.james.platform.domain.model.app.ReportJoinKey
 import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
-import de.chrgroth.james.platform.domain.model.app.ReportKotlinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
@@ -47,7 +46,6 @@ import de.chrgroth.james.platform.domain.model.app.ReportReduce
 import de.chrgroth.james.platform.domain.model.app.ReportResampleTransform
 import de.chrgroth.james.platform.domain.model.app.ReportRow
 import de.chrgroth.james.platform.domain.model.app.ReportRuleCheck
-import de.chrgroth.james.platform.domain.model.app.ReportScriptField
 import de.chrgroth.james.platform.domain.model.app.ReportSelectVariable
 import de.chrgroth.james.platform.domain.model.app.ReportSeries
 import de.chrgroth.james.platform.domain.model.app.ReportSeriesStyle
@@ -71,7 +69,6 @@ import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
 import de.chrgroth.james.platform.domain.model.imports.FilterOperator
 import de.chrgroth.james.platform.domain.model.imports.FilterRule
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptProblem
 import java.time.LocalDate
 import java.time.MonthDay
 
@@ -113,7 +110,6 @@ internal object ReportDefinitionParser {
     ReportTopTransform.KEY to setOf("n", "order", "by", "bucket", "periodStart", "as"),
     ReportGoalTransform.KEY to setOf("target", "period", "periodStart", "as", "progress"),
     ReportAggregateTransform.KEY to emptySet(),
-    ReportKotlinTransform.KEY to setOf("fields"),
   )
   private val JOIN_KEY_KEYS = setOf("field", "other")
   private const val AT_START = "start"
@@ -152,7 +148,11 @@ internal object ReportDefinitionParser {
   private val WARNINGS_KEYS = setOf("checks")
   private val PIE_KEYS = setOf("query", "field", "category", "donut")
   private val HEATMAP_KEYS = setOf("query", "field", "reduce", "x", "y", "thresholds")
-  private val SCRIPT_FIELD_TYPES = listOf(PropertyType.LONG, PropertyType.DOUBLE, PropertyType.STRING, PropertyType.DATE, PropertyType.DATETIME, PropertyType.BOOLEAN)
+  /** Key of the removed Kotlin script step (ADR 0029), answered with a dedicated error. */
+  private const val REMOVED_KOTLIN_STEP = "kotlin"
+
+  /** Expression functions reports offer: not those reading an entity's latest object or the current time (smart defaults and computed properties). */
+  private val REPORT_FUNCTIONS = Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS - "now"
   private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
   private const val COUNT_ROWS = "*"
   private val PERIOD_START_BUCKETS = setOf(TimeBucket.JAHR, TimeBucket.QUARTAL)
@@ -179,23 +179,6 @@ internal object ReportDefinitionParser {
     val reader = Reader(lineIndex(text), entities)
     val definition = reader.definition(root)
     return if (reader.errors.isEmpty()) Result(definition, emptyList()) else Result(null, reader.errors.toList())
-  }
-
-  /**
-   * Compiles the scripts of the `kotlin` steps of the valid [definition] parsed from [text] with [compile] and reports each problem as
-   * [ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID] at the step's `kotlin` key. Expensive, so only run on save - not on every execution.
-   */
-  fun scriptErrors(text: String, definition: ReportDefinition, compile: (String) -> ReportScriptProblem?): List<ReportDefinitionError> {
-    val scripts = definition.transforms.flatMap { (query, steps) ->
-      steps.mapIndexedNotNull { i, step -> (step as? ReportKotlinTransform)?.let { Path.ROOT.key("transforms").key(query).index(i).key(ReportKotlinTransform.KEY) to it } }
-    }
-    if (scripts.isEmpty()) return emptyList()
-    val lines = lineIndex(text)
-    return scripts.mapNotNull { (path, step) ->
-      val problem = compile(step.script) ?: return@mapNotNull null
-      val line = path.pointers().firstNotNullOfOrNull { lines[it] }
-      ReportDefinitionError(ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID, path.display(), line, listOf(problem.message, problem.line?.toString().orEmpty()))
-    }
   }
 
   /** Parses a period start as `MM-DD` or `DD.MM.`; 29.02. is rejected (it does not exist most years). */
@@ -516,6 +499,12 @@ internal object ReportDefinitionParser {
 
     private fun transformStep(node: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
       val map = obj(node, path) ?: return null
+      if (map.has(REMOVED_KOTLIN_STEP)) {
+        error(ReportDefinitionErrorCode.KOTLIN_STEP_REMOVED, path.key(REMOVED_KOTLIN_STEP))
+        // the fields the step added are unknown, so later steps and panels are not checked against the result columns
+        pipeline.columns = null
+        return null
+      }
       val steps = map.fieldNames().asSequence().filter { it in TRANSFORM_STEPS }.toList()
       when {
         steps.isEmpty() -> return null.also { error(ReportDefinitionErrorCode.TRANSFORM_STEP_MISSING, path, TRANSFORM_STEPS.joinToString(", ")) }
@@ -532,7 +521,6 @@ internal object ReportDefinitionParser {
         ReportTopTransform.KEY -> topStep(map, value, path, pipeline)
         ReportGoalTransform.KEY -> goalStep(map, value, path, pipeline)
         ReportAggregateTransform.KEY -> aggregateStep(value, path, pipeline)
-        ReportKotlinTransform.KEY -> kotlinStep(map, value, path, pipeline)
         else -> fieldStep(step, map, value, path, pipeline)
       }
     }
@@ -558,16 +546,21 @@ internal object ReportDefinitionParser {
       return ReportCalcTransform(name, source, unit, type)
     }
 
-    private fun expression(source: String, path: Path): Expression? = try {
-      Expression.parse(source)
-    } catch (e: Expression.ParseException) {
-      val function = e.unknownFunction
-      if (function != null) {
-        error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION, path, function, Expression.FUNCTIONS.keys.joinToString(", "))
-      } else {
-        error(ReportDefinitionErrorCode.EXPRESSION_INVALID, path, source, e.position.toString(), e.detail)
+    private fun expression(source: String, path: Path): Expression? {
+      val expression = try {
+        Expression.parse(source)
+      } catch (e: Expression.ParseException) {
+        val function = e.unknownFunction ?: e.fieldArgumentOf
+        if (function != null) {
+          error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION, path, function, REPORT_FUNCTIONS.joinToString(", "))
+        } else {
+          error(ReportDefinitionErrorCode.EXPRESSION_INVALID, path, source, e.position.toString(), e.detail)
+        }
+        return null
       }
-      null
+      val unavailable = expression.functions.firstOrNull { it !in REPORT_FUNCTIONS } ?: return expression
+      error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION, path, unavailable, REPORT_FUNCTIONS.joinToString(", "))
+      return null
     }
 
     /**
@@ -867,42 +860,6 @@ internal object ReportDefinitionParser {
         column.type != null && !column.numeric -> error(ReportDefinitionErrorCode.FIELD_NOT_NUMERIC, path, raw)
         unit != null && column.unit != null && unit.family != column.unit.family -> error(ReportDefinitionErrorCode.GOAL_TARGET_INVALID, path, raw)
       }
-    }
-
-    // endregion
-
-    // region kotlin step
-
-    /**
-     * `{ kotlin: <script>, fields: { name: <type or unit> } }`: the script itself is only checked for being non-blank here (compiling it is
-     * expensive and happens on save, see [de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptPort.compileProblem]); the declared fields
-     * join the result's columns so panels can be validated against them.
-     */
-    private fun kotlinStep(map: ObjectNode, value: JsonNode, path: Path, pipeline: Pipeline): ReportTransform? {
-      val script = nonBlankText(value, path.key(ReportKotlinTransform.KEY), ReportKotlinTransform.KEY)
-      val fieldsPath = path.key("fields")
-      val fields = map.get("fields")?.takeIf { !it.isNull }?.let { node ->
-        obj(node, fieldsPath)?.properties()?.mapNotNull { (name, typeNode) -> scriptField(name, typeNode, fieldsPath.key(name), pipeline) }
-      }.orEmpty()
-      return script?.let { ReportKotlinTransform(it, fields) }
-    }
-
-    /** A declared field of a `kotlin` step: a type name (LONG, DOUBLE, STRING, DATE, DATETIME, BOOLEAN) or a granularity (a DOUBLE in that unit). */
-    private fun scriptField(name: String, node: JsonNode, path: Path, pipeline: Pipeline): ReportScriptField? {
-      val raw = nonBlankText(node, path, name) ?: return null
-      val type = SCRIPT_FIELD_TYPES.find { it.name.equals(raw, ignoreCase = true) }
-      val field = if (type != null) {
-        ReportScriptField(name, type)
-      } else {
-        val granularity = UnitFamily.entries.firstNotNullOfOrNull { granularityByName(it, raw) } ?: return null.also {
-          error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, (SCRIPT_FIELD_TYPES.map { it.name } + ReportFields.GRANULARITY_NAMES).joinToString(", "))
-        }
-        ReportScriptField(name, PropertyType.DOUBLE, PropertyUnit(granularity.family, granularity, granularity))
-      }
-      if (name == ReportAggregate.BUCKET_FIELD || name == pipeline.groupBy) return null.also { error(ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD, path, name) }
-      val role = if (ReportFields.isNumericType(field.type)) ColumnRole.VALUE else ColumnRole.FIELD
-      pipeline.columns?.put(name, ResultColumn(name, role, field.type, field.unit))
-      return field
     }
 
     // endregion

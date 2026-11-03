@@ -77,7 +77,6 @@ data class ApiEntityDto(
   val computedProperties: List<ApiComputedPropertyDto>,
   val aggregations: List<ApiAggregationDto>,
   val migrationSteps: List<ApiMigrationStepDto>,
-  val migrationScript: String?,
   val configuration: Boolean,
 )
 
@@ -88,7 +87,10 @@ data class ApiPropertyDto(
   val nullable: Boolean,
   val constraints: List<ApiConstraintDto>,
   val default: String?,
+  /** Smart default expression (ADR 0029). */
   val smartDefault: String?,
+  /** A Kotlin smart default script stored before ADR 0029: no longer evaluated, to be replaced by [smartDefault]. */
+  val legacySmartDefaultScript: String?,
   val valueProposals: List<String>,
   val targetEntityId: String?,
   val listItemType: String?,
@@ -121,11 +123,17 @@ data class ApiSortCriteriaDto(
   val direction: String,
 )
 
+/**
+ * A computed property: [expression] of the expression language (ADR 0029), [unit] the granularity of a numeric result (e.g. `KILOMETERS`),
+ * [legacyScript] a Kotlin script stored before ADR 0029 that is no longer evaluated.
+ */
 data class ApiComputedPropertyDto(
   val id: String,
   val name: String,
   val type: String,
-  val script: String?,
+  val unit: String?,
+  val expression: String?,
+  val legacyScript: String?,
 )
 
 data class ApiAggregationDto(
@@ -290,7 +298,6 @@ object ApiDtoMapper {
     computedProperties = entity.computedProperties.map { computedProperty(it) },
     aggregations = entity.aggregations.map { aggregation(it) },
     migrationSteps = entity.migrationSteps.map { migrationStep(it) },
-    migrationScript = entity.migrationScript,
     configuration = entity.configuration,
   )
 
@@ -302,6 +309,7 @@ object ApiDtoMapper {
     constraints = property.constraints.map { constraint(it) },
     default = property.default,
     smartDefault = property.smartDefault,
+    legacySmartDefaultScript = property.legacySmartDefaultScript,
     valueProposals = property.valueProposals,
     targetEntityId = property.targetEntityId?.value,
     listItemType = property.listItemType?.name,
@@ -311,7 +319,14 @@ object ApiDtoMapper {
     referenceLookup = property.referenceLookup?.let { ApiReferenceLookupDto(it.propertyId.value, it.autoCreate) },
   )
 
-  private fun computedProperty(computed: ComputedProperty) = ApiComputedPropertyDto(computed.id.value, computed.name, computed.type.name, computed.script)
+  private fun computedProperty(computed: ComputedProperty) = ApiComputedPropertyDto(
+    id = computed.id.value,
+    name = computed.name,
+    type = computed.type.name,
+    unit = computed.unit?.let { granularityName(it.storageGranularity) },
+    expression = computed.expression,
+    legacyScript = computed.legacyScript,
+  )
 
   private fun aggregation(aggregation: AggregationDefinition) = ApiAggregationDto(
     id = aggregation.id.value,

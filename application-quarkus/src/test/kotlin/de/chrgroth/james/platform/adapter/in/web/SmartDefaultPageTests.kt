@@ -1,6 +1,7 @@
 package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
+import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import de.chrgroth.james.platform.domain.model.user.User
 import de.chrgroth.james.platform.domain.model.user.UserId
 import de.chrgroth.james.platform.domain.model.user.UserRole
@@ -17,7 +18,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.ZoneOffset
 import java.util.UUID
 
 @QuarkusTest
@@ -93,7 +93,7 @@ class SmartDefaultPageTests {
 
     given()
       .contentType("application/x-www-form-urlencoded")
-      .formParam("smartDefault", smartDefault.script)
+      .formParam("smartDefault", smartDefault.expressionFor("OrderDate"))
       .`when`()
       .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties/$propertyId/smart-default")
       .then()
@@ -133,7 +133,7 @@ class SmartDefaultPageTests {
   fun `new data form pre-fills DATE property with DATE_TODAY smart default`() {
     val appName = "Smart Default Date App ${System.nanoTime()}"
     val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATE_TODAY)
-    val expectedDate = LocalDate.now(ZoneOffset.UTC).toString()
+    val expectedDate = LocalDate.now(AppTimeZone.zone).toString()
 
     given()
       .queryParam("entityId", entityId)
@@ -146,10 +146,10 @@ class SmartDefaultPageTests {
   }
 
   @Test
-  fun `new data form pre-fills TIME property with TIME_NOW_CURRENT_MINUTE smart default`() {
+  fun `new data form pre-fills TIME property with TIME_NOW smart default`() {
     val appName = "Smart Default Time App ${System.nanoTime()}"
-    val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.TIME_NOW_CURRENT_MINUTE)
-    val expectedHourPrefix = String.format("%02d:", LocalTime.now(ZoneOffset.UTC).hour)
+    val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.TIME_NOW)
+    val expectedHourPrefix = String.format("%02d:", LocalTime.now(AppTimeZone.zone).hour)
 
     given()
       .queryParam("entityId", entityId)
@@ -162,10 +162,10 @@ class SmartDefaultPageTests {
   }
 
   @Test
-  fun `new data form pre-fills DATETIME property with DATETIME_NOW_CURRENT_MINUTE smart default`() {
+  fun `new data form pre-fills DATETIME property with DATETIME_NOW smart default`() {
     val appName = "Smart Default DateTime App ${System.nanoTime()}"
-    val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATETIME_NOW_CURRENT_MINUTE)
-    val expectedDatePrefix = LocalDateTime.now(ZoneOffset.UTC).toLocalDate().toString()
+    val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATETIME_NOW)
+    val expectedDatePrefix = LocalDateTime.now(AppTimeZone.zone).toLocalDate().toString()
 
     given()
       .queryParam("entityId", entityId)
@@ -181,7 +181,7 @@ class SmartDefaultPageTests {
   fun `data defaults endpoint returns freshly computed DATE_TODAY smart default as JSON`() {
     val appName = "Smart Default Defaults Endpoint App ${System.nanoTime()}"
     val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATE_TODAY)
-    val expectedDate = LocalDate.now(ZoneOffset.UTC).toString()
+    val expectedDate = LocalDate.now(AppTimeZone.zone).toString()
 
     val entityHtml = given()
       .queryParam("entityId", entityId)
@@ -214,5 +214,55 @@ class SmartDefaultPageTests {
       .then()
       .statusCode(200)
       .body(containsString("{}"))
+  }
+
+  @Test
+  fun `data defaults endpoint re-evaluates smart defaults with the values entered so far`() {
+    val appName = "Smart Default Reevaluation App ${System.nanoTime()}"
+    val (installedAppId, entityId) = setupAppWithSmartDefault(appName, PredefinedSmartDefault.DATE_TODAY)
+    val expectedDate = LocalDate.now(AppTimeZone.zone).toString()
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("entityId", entityId)
+      .`when`()
+      .post("/ui/user/apps/$installedAppId/data/defaults")
+      .then()
+      .statusCode(200)
+      .contentType(containsString("application/json"))
+      .body(containsString(expectedDate))
+  }
+
+  @Test
+  fun `an invalid smart default expression is rejected with a German message`() {
+    val appName = "Smart Default Invalid App ${System.nanoTime()}"
+    val appId = given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("name", appName)
+      .`when`()
+      .post("/ui/developer/apps")
+      .then()
+      .statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl")
+      .substringAfterLast("/")
+    val versionId = given().`when`().post("/ui/developer/apps/$appId/versions").then().statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl").substringAfterLast("/")
+    val entityId = given().contentType("application/x-www-form-urlencoded").formParam("name", "Order")
+      .`when`().post("/ui/developer/apps/$appId/versions/$versionId/entities").then().statusCode(200)
+      .extract().body().jsonPath().getString("redirectUrl").substringAfterLast("/")
+    given().contentType("application/x-www-form-urlencoded").formParam("name", "datum").formParam("type", "DATE").formParam("nullable", true)
+      .`when`().post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties").then().statusCode(200)
+    val entityHtml = given().`when`().get("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId").then().statusCode(200).extract().body().asString()
+    val propertyId = Regex("""data-property-id="([^"]+)"""").find(entityHtml)?.groupValues?.get(1) ?: ""
+
+    given()
+      .contentType("application/x-www-form-urlencoded")
+      .formParam("smartDefault", "java.time.LocalDate.now()")
+      .`when`()
+      .post("/ui/developer/apps/$appId/versions/$versionId/entities/$entityId/properties/$propertyId/smart-default")
+      .then()
+      .statusCode(200)
+      .body(containsString("\"ok\":false"))
+      .body(containsString("gibt es nicht"))
   }
 }

@@ -38,13 +38,13 @@ interface DeveloperMessages {
   fun developerColSmartDefault(): String
 
   @Message
-  fun developerColScript(): String
+  fun developerColExpression(): String
 
   @Message
   fun developerColProperties(): String
 
   @Message
-  fun developerScriptBadge(): String
+  fun developerExpressionBadge(): String
 
   @Message
   fun developerEntitiesHeading(): String
@@ -239,12 +239,6 @@ interface DeveloperMessages {
   fun developerEditDisplayTextAriaLabel(): String
 
   @Message
-  fun developerMigrationScriptHeading(): String
-
-  @Message
-  fun developerEditMigrationScriptAriaLabel(): String
-
-  @Message
   fun developerSortOrderHeading(): String
 
   @Message
@@ -296,9 +290,6 @@ interface DeveloperMessages {
   fun developerNoReportsReadonly(): String
 
   @Message
-  fun developerScriptLabel(): String
-
-  @Message
   fun developerNoContentMessage(): String
 
   @Message
@@ -341,13 +332,13 @@ interface DeveloperMessages {
   fun developerEditComputedPropertyModalTitle(): String
 
   @Message
-  fun developerScriptKotlinLabel(): String
+  fun developerExpressionLabel(): String
 
   @Message
-  fun developerComputedPropertyScriptHelp(): String
+  fun developerComputedPropertyExpressionHelp(): String
 
   @Message
-  fun developerComputedPropertyScriptPlaceholder(): String
+  fun developerComputedPropertyExpressionPlaceholder(): String
 
   @Message
   fun developerRemoveComputedPropertyModalTitle(): String
@@ -363,15 +354,6 @@ interface DeveloperMessages {
 
   @Message
   fun developerDisplayTextPlaceholder(): String
-
-  @Message
-  fun developerEditMigrationScriptModalTitle(): String
-
-  @Message
-  fun developerMigrationScriptHelp(): String
-
-  @Message
-  fun developerMigrationScriptPlaceholder(): String
 
   @Message
   fun developerIdBadge(): String
@@ -675,9 +657,6 @@ interface DeveloperMessages {
   fun developerDisplayTextSavedMessage(): String
 
   @Message
-  fun developerMigrationScriptSavedMessage(): String
-
-  @Message
   fun developerPropertyNameRequiredError(): String
 
   @Message
@@ -759,9 +738,6 @@ interface DeveloperMessages {
   fun developerComputedPropertyUpdatedMessage(): String
 
   @Message
-  fun developerComputedPropertyScriptSavedMessage(): String
-
-  @Message
   fun developerComputedPropertiesReorderedMessage(): String
 
   @Message
@@ -838,9 +814,6 @@ interface DeveloperMessages {
 
   @Message
   fun developerSmartDefaultNotSupportedError(): String
-
-  @Message
-  fun developerSmartDefaultScriptInvalidError(): String
 
   @Message
   fun developerValueProposalsNotSupportedError(): String

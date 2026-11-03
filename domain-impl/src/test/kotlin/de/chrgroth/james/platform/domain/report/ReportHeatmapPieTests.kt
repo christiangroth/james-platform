@@ -1,6 +1,5 @@
 package de.chrgroth.james.platform.domain.report
 
-import de.chrgroth.james.platform.domain.app.ScriptMetrics
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
@@ -19,15 +18,11 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
-import de.chrgroth.james.platform.domain.model.app.ReportPanelType
 import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
 import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptProblem
-import de.chrgroth.james.platform.domain.port.`in`.app.ReportScriptResult
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -35,9 +30,9 @@ import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 
-/** Heatmap and pie panels and the `kotlin` transformation step (Zählerstände, Arbeitszeiten, Journal). */
+/** Heatmap and pie panels (Zählerstände, Arbeitszeiten, Journal) and the removed `kotlin` transformation step. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class ReportHeatmapPieKotlinTests {
+class ReportHeatmapPieTests {
 
   private val today = LocalDate.of(2026, 6, 15)
   private val seconds = PropertyUnit(UnitFamily.TIME, TimeGranularity.SECONDS, TimeGranularity.HOURS)
@@ -79,8 +74,6 @@ class ReportHeatmapPieKotlinTests {
     data("z2", ablesung, "z-datum" to "2026-03-01", "z-stand" to "1600"),
   )
 
-  private val scripts = ReportScriptService(ScriptMetrics(SimpleMeterRegistry()), 30_000L)
-
   private fun entity(name: String, vararg properties: Property) = EntityDefinition(id = EntityDefinitionId("e-$name"), name = name, properties = properties.toList())
 
   private fun data(id: String, entity: EntityDefinition, vararg values: Pair<String, String?>): AppData {
@@ -99,14 +92,12 @@ class ReportHeatmapPieKotlinTests {
     )
   }
 
-  private fun panels(yaml: String, runner: ReportScriptRunner? = realScripts()): List<PanelSpec> {
+  private fun panels(yaml: String): List<PanelSpec> {
     val result = ReportDefinitionParser.parse(yaml.trimIndent(), entities)
     assertThat(result.errors).isEmpty()
-    val executor = ReportExecutor(entities, data, today, null, runner) { _, _ -> emptyMap() }
+    val executor = ReportExecutor(entities, data, today, null) { _, _ -> emptyMap() }
     return executor.execute("r", "Report", result.definition!!).tabs.single().rows.flatMap { it.panels }
   }
-
-  private fun realScripts() = ReportScriptRunner { script, rows, config, label -> scripts.execute(script, rows, config, today, "Report", label) }
 
   private fun errors(yaml: String) = ReportDefinitionParser.parse(yaml.trimIndent(), entities).errors.map { it.code to it.path }
 
@@ -264,99 +255,41 @@ class ReportHeatmapPieKotlinTests {
 
   // endregion
 
-  // region kotlin step
+  // region removed kotlin step
 
   @Test
-  fun `kotlin step computes rows the declarative steps cannot, e g a break-even date`() {
-    val panels = panels(
-      """
-      queries:
-        staende: { entity: Ablesung, timeField: datum, fields: [datum, stand], sort: [datum] }
-      transforms:
-        staende:
-          - kotlin: |
-              val first = rows.first()
-              val last = rows.last()
-              val days = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.parse(first["datum"]), java.time.LocalDate.parse(last["datum"]))
-              val perDay = (last["stand"]!!.toDouble() - first["stand"]!!.toDouble()) / days
-              val remaining = ((10_000 - last["stand"]!!.toDouble()) / perDay).toLong()
-              listOf(mapOf("breakEven" to java.time.LocalDate.parse(last["datum"]).plusDays(remaining), "proTag" to perDay, "stand" to last["stand"]))
-            fields: { breakEven: DATE, proTag: DOUBLE }
-      tabs:
-        - name: T
-          rows: [[ { table: Break-even, query: staende, columns: [breakEven, proTag, stand] }, { stat: Pro Tag, query: staende, field: proTag } ]]
-      """,
-    )
-
-    val table = panels[0] as TablePanelSpec
-    assertThat(table.rows.single().map { it.text }).containsExactly("04.06.2028", "10,17", "1.600")
-    assertThat((panels[1] as StatPanelSpec).value).isCloseTo(10.169, org.assertj.core.data.Offset.offset(0.001))
-  }
-
-  @Test
-  fun `a failing kotlin step turns the panels of its query into an error, the rest of the report renders`() {
-    val panels = panels(
-      """
-      queries:
-        staende: { entity: Ablesung, timeField: datum, fields: [datum, stand] }
-        journal: { entity: Eintrag, timeField: datum, fields: [datum, bewertung] }
-      transforms:
-        staende: [{ kotlin: "rows", fields: { x: LONG } }, { cumulative: stand }]
-      tabs:
-        - name: T
-          rows: [[ { table: Stände, query: staende }, { timeseries: Stand, query: staende, field: stand }, { table: Journal, query: journal } ]]
-      """,
-      runner = { _, _, _, _ -> ReportScriptResult.Failure("Der Kotlin-Schritt wurde nach 500 ms abgebrochen (Zeitüberschreitung).") },
-    )
-
-    assertThat(panels[0]).isEqualTo(
-      ErrorPanelSpec(ReportPanelType.TABLE, "Stände", "Abfrage „staende“: Der Kotlin-Schritt wurde nach 500 ms abgebrochen (Zeitüberschreitung)."),
-    )
-    assertThat(panels[1]).isInstanceOf(ErrorPanelSpec::class.java)
-    assertThat((panels[2] as TablePanelSpec).rows).hasSize(4)
-  }
-
-  @Test
-  fun `kotlin step validation - declared field types, reserved names and fields panels use`() {
+  fun `the kotlin step is no longer supported, later steps and panels are not checked against its unknown fields`() {
     assertThat(
       errors(
         """
         queries:
-          staende: { entity: Ablesung, timeField: datum, aggregate: { bucket: MONAT, values: { stand: { last: stand } } } }
+          staende: { entity: Ablesung, timeField: datum, fields: [datum, stand] }
         transforms:
-          staende: [{ kotlin: "rows", fields: { a: TEXT, bucket: STRING, ersparnis: CENTS } }, { kotlin: " " }]
+          staende: [{ kotlin: "rows", fields: { x: LONG } }, { cumulative: x }]
         tabs:
           - name: T
-            rows: [[ { table: A, query: staende, columns: [ersparnis, b] } ]]
+            rows: [[ { table: A, query: staende, columns: [x] } ]]
         """,
       ),
-    ).containsExactly(
-      ReportDefinitionErrorCode.INVALID_VALUE to "transforms.staende[0].fields.a",
-      ReportDefinitionErrorCode.DUPLICATE_RESULT_FIELD to "transforms.staende[0].fields.bucket",
-      ReportDefinitionErrorCode.REQUIRED_KEY_MISSING to "transforms.staende[1].kotlin",
-      ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY to "tabs[0].rows[0][0].columns[1]",
-    )
+    ).containsExactly(ReportDefinitionErrorCode.KOTLIN_STEP_REMOVED to "transforms.staende[0].kotlin")
   }
 
   @Test
-  fun `scriptErrors reports compile problems of kotlin steps at their key and line`() {
-    val yaml = """
-      queries:
-        staende: { entity: Ablesung, fields: [stand] }
-      transforms:
-        staende:
-          - { cumulative: stand }
-          - kotlin: "unbekannt(rows)"
-      tabs: []
-    """.trimIndent()
-    val definition = ReportDefinitionParser.parse(yaml, entities).definition!!
-
-    val errors = ReportDefinitionParser.scriptErrors(yaml, definition) { script ->
-      if ("unbekannt" in script) ReportScriptProblem("Unresolved reference 'unbekannt'.", 1) else null
-    }
-
-    assertThat(errors.map { Triple(it.code, it.path, it.line) }).containsExactly(Triple(ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID, "transforms.staende[1].kotlin", 6))
-    assertThat(errors.single().args).containsExactly("Unresolved reference 'unbekannt'.", "1")
+  fun `smart default functions are not offered in reports`() {
+    assertThat(
+      errors(
+        """
+        queries:
+          staende: { entity: Ablesung, timeField: datum, fields: [datum, stand] }
+        transforms:
+          staende: [{ calc: a, expr: "last(stand)" }, { calc: b, expr: "now()" }, { calc: c, expr: "end_of_month(datum)", type: DATE }]
+        tabs: []
+        """,
+      ),
+    ).containsExactly(
+      ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION to "transforms.staende[0].expr",
+      ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_FUNCTION to "transforms.staende[1].expr",
+    )
   }
 
   // endregion
@@ -364,9 +297,9 @@ class ReportHeatmapPieKotlinTests {
   // region arc42 example
 
   @Test
-  fun `the arc42 example of heatmap, pie and kotlin step is valid, compiles and renders without errors`() {
+  fun `the arc42 example of heatmap and pie is valid and renders without errors`() {
     val arc42 = File("../docs/arc42/arc42.md").readLines()
-    val start = arc42.indexOfFirst { it.startsWith("  Heatmap, pie and the Kotlin step, as used by the ports") }
+    val start = arc42.indexOfFirst { it.startsWith("  Heatmap and pie, as used by the ports") }
     val from = arc42.withIndex().first { (i, line) -> i > start && line == "  ```yaml" }.index + 1
     val to = arc42.withIndex().first { (i, line) -> i > from && line == "  ```" }.index
     val yaml = arc42.subList(from, to).joinToString("\n") { it.removePrefix("  ") }
@@ -408,13 +341,12 @@ class ReportHeatmapPieKotlinTests {
 
     val result = ReportDefinitionParser.parse(yaml, all)
     assertThat(result.errors).isEmpty()
-    assertThat(ReportDefinitionParser.scriptErrors(yaml, result.definition!!, scripts::compileProblem)).isEmpty()
 
-    val panels = ReportExecutor(all, rows + configuration, today, configuration, realScripts()) { _, _ -> emptyMap() }
-      .execute("r", "Beispiel", result.definition).tabs.single().rows.flatMap { it.panels }
+    val panels = ReportExecutor(all, rows + configuration, today, configuration) { _, _ -> emptyMap() }
+      .execute("r", "Beispiel", result.definition!!).tabs.single().rows.flatMap { it.panels }
     assertThat(panels).noneMatch { it is ErrorPanelSpec }
-    val breakEven = panels.filterIsInstance<TablePanelSpec>().first { it.title == "Break-even" }
-    assertThat(breakEven.rows.last().last().text).isNotEmpty()
+    val savings = panels.filterIsInstance<TablePanelSpec>().first { it.title == "Ersparnis" }
+    assertThat(savings.rows.last().last().text).isNotEmpty()
   }
 
   // endregion

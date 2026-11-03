@@ -340,13 +340,12 @@ class ReportTexts(
       ReportDefinitionErrorCode.MESSAGE_PLACEHOLDER_UNKNOWN -> checkMsg.reportErrorMessagePlaceholderUnknown("{" + a(0) + "}", a(1))
       ReportDefinitionErrorCode.HEATMAP_NEEDS_DAY -> extensionMsg.reportErrorHeatmapNeedsDay(a(0))
       ReportDefinitionErrorCode.PIE_CATEGORY_MISSING -> extensionMsg.reportErrorPieCategoryMissing(a(0))
-      ReportDefinitionErrorCode.KOTLIN_SCRIPT_INVALID ->
-        if (a(1).isEmpty()) extensionMsg.reportErrorKotlinScriptInvalid(a(0)) else extensionMsg.reportErrorKotlinScriptInvalidAtLine(a(1), a(0))
+      ReportDefinitionErrorCode.KOTLIN_STEP_REMOVED -> extensionMsg.reportErrorKotlinStepRemoved()
     }
   }
 
   /** The German name of an expression type (NUMBER, TEXT, ...) or field type (LONG, STRING, ...) as validation errors mention it. */
-  private fun typeName(type: String): String = when (type) {
+  fun typeName(type: String): String = when (type) {
     "NUMBER", "DOUBLE" -> expressionMsg.expressionTypeNumber()
     "LONG" -> expressionMsg.expressionTypeInteger()
     "TEXT", "STRING" -> expressionMsg.expressionTypeText()

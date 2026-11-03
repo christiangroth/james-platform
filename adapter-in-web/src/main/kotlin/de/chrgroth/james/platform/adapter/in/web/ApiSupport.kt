@@ -2,14 +2,15 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
 import de.chrgroth.james.platform.domain.error.DisplayTextInvalidError
-import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
-import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
-import de.chrgroth.james.platform.domain.error.InvalidReportsError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.error.InvalidAggregationDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidConfigurationError
+import de.chrgroth.james.platform.domain.error.InvalidExpressionError
 import de.chrgroth.james.platform.domain.error.InvalidMigrationStepError
-import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
+import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
+import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
+import de.chrgroth.james.platform.domain.error.InvalidReportsError
 import io.quarkus.security.identity.SecurityIdentity
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.core.MediaType
@@ -58,6 +59,7 @@ object ApiResponses {
     is InvalidReportsError -> error.reportNames
     is InvalidConfigurationError -> error.entityNames
     is InvalidReportDefinitionError -> error.errors.map { ApiReportDtoMapper.errorDetail(it) }
+    is InvalidExpressionError -> listOf(ExpressionTexts.detail(error))
     else -> emptyList()
   }
 }

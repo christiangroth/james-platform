@@ -15,9 +15,6 @@ interface DeveloperMigrationStepMessages {
   fun developerMigrationHeading(): String
 
   @Message
-  fun developerMigrationScriptSubheading(): String
-
-  @Message
   fun developerNoMigrationStepsMessage(): String
 
   @Message

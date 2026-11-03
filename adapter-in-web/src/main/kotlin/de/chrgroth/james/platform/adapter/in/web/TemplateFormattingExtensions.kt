@@ -281,9 +281,13 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun defaultValue(property: Property): String = property.default ?: ""
 
-  /** Returns the smart default script of the property, or empty string if not set. */
+  /** Returns the smart default expression of the property, or empty string if not set. */
   @JvmStatic
   fun smartDefault(property: Property): String = property.smartDefault ?: ""
+
+  /** Returns the Kotlin smart default script stored before ADR 0029 (no longer evaluated), or empty string if there is none. */
+  @JvmStatic
+  fun legacySmartDefaultScript(property: Property): String = property.legacySmartDefaultScript ?: ""
 
   /** Returns the value proposals property IDs as a JSON array string for use in data attributes. */
   @JvmStatic
@@ -413,9 +417,17 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun id(computedProperty: ComputedProperty): String = computedProperty.id.value
 
-  /** Returns the script of the computed property, or empty string if not set. */
+  /** Returns the expression of the computed property, or empty string if not set. */
   @JvmStatic
-  fun script(computedProperty: ComputedProperty): String = computedProperty.script ?: ""
+  fun expression(computedProperty: ComputedProperty): String = computedProperty.expression ?: ""
+
+  /** Returns the Kotlin script stored before ADR 0029 (no longer evaluated), or empty string if there is none. */
+  @JvmStatic
+  fun legacyScript(computedProperty: ComputedProperty): String = computedProperty.legacyScript ?: ""
+
+  /** Returns the granularity name of the computed property's unit (e.g. `KILOMETERS`), or empty string without unit. */
+  @JvmStatic
+  fun unitName(computedProperty: ComputedProperty): String = computedProperty.unit?.storageGranularity?.let { (it as Enum<*>).name } ?: ""
 
   /**
    * Looks up the reference options for one property id in the app-data-new/app-data-edit "propertyId -> options"

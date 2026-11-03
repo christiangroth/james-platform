@@ -26,6 +26,7 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
@@ -33,6 +34,8 @@ import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
+import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
+import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultContext
 import de.chrgroth.james.platform.domain.port.`in`.app.SmartDefaultPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.readmodel.AggregationRepositoryPort
@@ -366,9 +369,10 @@ class UserAppStoreResource {
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     if (entityDef.configuration) return@timed Response.seeOther(URI.create(settingsUrl(installedAppId))).build()
-    val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
+    val computedSmartDefaults = smartDefaultsFor(userId, info, entityDef)
     val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
-    val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, currentData = null)
+    // a REF smart default (e.g. last(schuhe)) is an object id: the lookup field shows the referenced object's text for it
+    val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, currentData = computedSmartDefaults)
     Response.ok(
       UserTemplates.`app-data-new`(
         info = info,
@@ -379,8 +383,47 @@ class UserAppStoreResource {
         objectFieldsJson = objectFieldsJsonFor(entityDef.properties, lookups),
         referenceOptionsJson = referenceOptionsJsonFor(referenceOptions + lookups.referenceOptions),
         referenceLookupsJson = RawString(ObjectMapper().writeValueAsString(lookups.lookups)),
+        smartDefaultDependenciesJson = RawString(ObjectMapper().writeValueAsString(smartDefault.formDependencies(entityDef))),
       ),
     ).build()
+  }
+
+  /**
+   * Re-evaluates the smart defaults of the create form while it is filled in (ADR 0029): [form] carries `entityId` and the `prop_` values entered
+   * so far; answers the smart default values by property id. The form applies those depending on a changed field and not edited by the user.
+   */
+  @POST
+  @Path("/user/apps/{installedAppId}/data/defaults")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  @Produces(MediaType.APPLICATION_JSON)
+  fun reevaluateSmartDefaults(
+    @PathParam("installedAppId") installedAppId: String,
+    form: MultivaluedMap<String, String>,
+  ): Response = httpResponseMetrics.timed("rest.user-app-store.data-smart-defaults") {
+    val userId = securityIdentity.principal.name
+    val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
+      ifLeft = { return@timed Response.ok(emptyMap<String, String>()).build() },
+      ifRight = { it },
+    )
+    val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == form.getFirst("entityId") }
+      ?: return@timed Response.ok(emptyMap<String, String>()).build()
+    val formValues = form.entries
+      .filter { it.key.startsWith(PROPERTY_FORM_PREFIX) }
+      .associate { (key, values) -> key.removePrefix(PROPERTY_FORM_PREFIX) to values.filter { it.isNotEmpty() }.let { if (it.size > 1) encodeListValue(it) else it.firstOrNull() } }
+    Response.ok(smartDefaultsFor(userId, info, entityDef, formValues).filterValues { it != null }).build()
+  }
+
+  /** The smart defaults of [entityDef] for the create form of installation [info], given the [formValues] entered so far (by property id). */
+  private fun smartDefaultsFor(userId: String, info: InstalledAppInfo, entityDef: EntityDefinition, formValues: Map<String, String?> = emptyMap()): Map<String, String?> {
+    if (entityDef.properties.none { it.smartDefault != null }) return emptyMap()
+    val context = SmartDefaultContext(
+      now = Clock.System.now(),
+      formValues = formValues,
+      entries = { appData.listAppData(userId, info.installedApp.id.value).getOrNull().orEmpty() },
+      config = appConfiguration.configurationValues(info.installedApp, info.installedVersion),
+      configEntity = info.installedVersion.configurationEntity,
+    )
+    return smartDefault.computeSmartDefaults(entityDef, context)
   }
 
   @GET
@@ -397,9 +440,9 @@ class UserAppStoreResource {
     )
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return@timed Response.ok(emptyMap<String, String>()).build()
-    val computedSmartDefaults = smartDefault.computeSmartDefaults(entityDef, Clock.System.now())
+    val computedSmartDefaults = smartDefaultsFor(userId, info, entityDef)
     val defaults = entityDef.properties
-      .filter { it.type.supportsDefault() }
+      .filter { it.type.supportsDefault() || it.smartDefault != null }
       .mapNotNull { property -> (property.default ?: computedSmartDefaults[property.id.value])?.let { property.id.value to it } }
       .toMap()
     Response.ok(defaults).build()
@@ -501,13 +544,15 @@ class UserAppStoreResource {
             emptyList()
           } else {
             val config = appConfiguration.configurationValues(info.installedApp, info.installedVersion)
-            val computedValues = computedProperty.computeValues(entityDef, appDataItem.data, Clock.System.now(), config)
+            val computedValues = computedProperty.computeValues(entityDef, appDataItem.data, Clock.System.now(), config, info.installedVersion.configurationEntity)
             entityDef.computedProperties.map { cp ->
+              val raw = computedValues[cp.id.value]
+              val unit = cp.unit
               AppDataComputedPropertyView(
                 id = cp.id.value,
                 name = cp.name,
                 type = cp.type.name,
-                value = computedValues[cp.id.value],
+                value = if (raw != null && unit != null) raw.toBigDecimalOrNull()?.let { formatUnitValue(it, unit.storageGranularity) } ?: raw else raw,
               )
             }
           },
@@ -967,7 +1012,7 @@ class UserAppStoreResource {
         )
         referenceOptions += computeReferenceOptions(userId, installedAppId, entityDefinitions, target)
       }
-      val smartDefaults = if (newProperties.isNotEmpty()) smartDefault.computeSmartDefaults(target, Clock.System.now()) else emptyMap()
+      val smartDefaults = if (newProperties.isNotEmpty()) smartDefault.computeSmartDefaults(target, SmartDefaultContext(Clock.System.now(), entries = { allData })) else emptyMap()
       lookups[prop.id.value] = mapOf(
         "proposals" to proposals,
         "value" to currentText,
@@ -999,3 +1044,6 @@ class UserAppStoreResource {
     private const val MAX_AGGREGATION_TABLE_ROWS = 30
   }
 }
+
+/** Prefix of the form fields carrying property values (`prop_<propertyId>`). */
+private const val PROPERTY_FORM_PREFIX = "prop_"

@@ -3,7 +3,7 @@ package de.chrgroth.james.platform.domain.model.app
 import de.chrgroth.james.platform.domain.error.PropertyConstraintViolation
 
 /**
- * A single finding produced while previewing what a draft Entity's migration steps and script (see [MigrationStep],
+ * A single finding produced while previewing what a draft Entity's migration steps (see [MigrationStep],
  * docs/adr/0023-migration-steps.md) would do to one existing [AppData] object, without running the real
  * dry-run/publish flow. Mirrors [de.chrgroth.james.platform.domain.model.imports.DryRunIssue], but for the
  * migration pipeline rather than the import mapping pipeline.
@@ -14,17 +14,12 @@ sealed interface MigrationPreviewIssue {
   /** A [MigrationStep] could not be applied to [propertyId] (e.g. its source value could not be converted) - see [reason]. */
   data class StepFailed(override val propertyId: PropertyId?, val reason: String) : MigrationPreviewIssue
 
-  /** The Entity's migration script threw, timed out, or did not return a `Map<String, String?>` - see [reason]. */
-  data class ScriptFailed(val reason: String) : MigrationPreviewIssue {
-    override val propertyId: PropertyId? = null
-  }
-
-  /** The migrated object still violates [violation] on [propertyId] after steps and script ran. */
+  /** The migrated object still violates [violation] on [propertyId] after the steps ran. */
   data class ConstraintViolated(override val propertyId: PropertyId, val violation: PropertyConstraintViolation) : MigrationPreviewIssue
 }
 
 /**
- * One existing [AppData] object's values before and after applying a draft Entity's migration steps and script, with
+ * One existing [AppData] object's values before and after applying a draft Entity's migration steps, with
  * the issues found while re-validating the result. [before]/[after] are keyed by [PropertyId.value]; a property
  * dropped between the previous and draft shape (e.g. a `CopyValue` step's source) may only have an entry in [before].
  */

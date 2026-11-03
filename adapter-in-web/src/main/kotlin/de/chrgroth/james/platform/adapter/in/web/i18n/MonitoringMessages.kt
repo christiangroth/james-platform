@@ -65,34 +65,10 @@ interface MonitoringMessages {
   fun monitoringColOperation(): String
 
   @Message
-  fun monitoringScriptingHeading(): String
-
-  @Message
-  fun monitoringScriptExecutionsSectionLabel(): String
-
-  @Message
-  fun monitoringNoScriptStatsMessage(): String
-
-  @Message
-  fun monitoringColEntity(): String
-
-  @Message
-  fun monitoringColProperty(): String
-
-  @Message
   fun monitoringColErrors(): String
 
   @Message
   fun monitoringColTotalMs(): String
-
-  @Message
-  fun monitoringScriptTypeSmartDefaultBadge(): String
-
-  @Message
-  fun monitoringScriptTypeComputedPropertyBadge(): String
-
-  @Message
-  fun monitoringScriptTypeReportBadge(): String
 
   @Message
   fun monitoringImportCleanupHeading(): String

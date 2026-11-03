@@ -5,7 +5,6 @@ import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.right
 import de.chrgroth.james.platform.domain.error.AppDataConstraintViolationError
-import de.chrgroth.james.platform.domain.error.AppVersionMigrationScriptFailedError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationStepFailedError
 import de.chrgroth.james.platform.domain.error.AppVersionMigrationValidationFailedError
 import de.chrgroth.james.platform.domain.error.DomainError
@@ -26,29 +25,20 @@ import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.ValueConversion
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
-import de.chrgroth.james.platform.domain.model.infra.ScriptType
 import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.AppVersionMigrationPort
-import de.chrgroth.james.platform.domain.port.`in`.app.MigrationScriptResult
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
-import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.util.concurrent.Callable
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
-import javax.script.ScriptEngineManager
 
 /**
- * Executes Developer-authored Entity migration scripts as part of the installation upgrade flow, reusing the same JSR-223 Kotlin script
- * sandbox as [ComputedPropertyService]. See docs/adr/0018-app-version-migration-execution-trigger.md.
+ * Executes the declarative migration steps of Entities ([MigrationStep], docs/adr/0023-migration-steps.md) as part of the installation upgrade
+ * flow. See docs/adr/0018-app-version-migration-execution-trigger.md.
  */
 @ApplicationScoped
 @Suppress("Unused")
@@ -57,59 +47,7 @@ class AppVersionMigrationService(
   private val appDataRepository: AppDataRepositoryPort,
   private val appData: AppDataPort,
   private val installedAppRepository: InstalledAppRepositoryPort,
-  private val scriptMetrics: ScriptMetrics,
-  @param:ConfigProperty(name = "app.script.timeout-ms", defaultValue = "500")
-  private val scriptTimeoutMs: Long,
 ) : AppVersionMigrationPort {
-
-  private val scriptExecutor = Executors.newVirtualThreadPerTaskExecutor()
-
-  private val scriptEngineManager: ScriptEngineManager by lazy {
-    ScriptEngineManager(Thread.currentThread().contextClassLoader)
-  }
-
-  private val scriptEngine: javax.script.ScriptEngine? by lazy {
-    scriptEngineManager.getEngineByExtension("kts").also {
-      if (it == null) logger.warn { "Kotlin scripting engine not available – migrations will fail" }
-    }
-  }
-
-  override fun runScript(previousEntity: EntityDefinition, newEntity: EntityDefinition, data: Map<String, String?>): MigrationScriptResult {
-    val script = newEntity.migrationScript ?: return MigrationScriptResult.Success(data)
-    val engine = scriptEngine ?: return MigrationScriptResult.Failure("Kotlin scripting engine not available")
-
-    val startNs = System.nanoTime()
-    var success = true
-    try {
-      val bindings = engine.createBindings()
-      bindings[BINDING_DATA] = data
-      bindings[BINDING_PREVIOUS] = previousEntity
-      bindings[BINDING_NEW] = newEntity
-      val future = scriptExecutor.submit(Callable { engine.eval(buildWrappedScript(script), bindings) })
-      val value = future.get(scriptTimeoutMs, TimeUnit.MILLISECONDS)
-      val migrated = (value as? Map<*, *>)?.entries?.associate { (k, v) -> k.toString() to v?.toString() }
-      return if (migrated != null) {
-        MigrationScriptResult.Success(migrated)
-      } else {
-        success = false
-        MigrationScriptResult.Failure("Migration script for entity ${newEntity.name} did not return a Map<String, String?>")
-      }
-    } catch (e: TimeoutException) {
-      success = false
-      logger.warn { "Migration script timed out after ${scriptTimeoutMs}ms for entity ${newEntity.name}" }
-      return MigrationScriptResult.Failure("Migration script timed out after ${scriptTimeoutMs}ms")
-    } catch (e: ExecutionException) {
-      success = false
-      logger.warn { "Migration script failed for entity ${newEntity.name}: ${e.cause?.message}" }
-      return MigrationScriptResult.Failure(e.cause?.message ?: "Migration script failed")
-    } catch (e: Exception) {
-      success = false
-      logger.warn { "Migration script failed for entity ${newEntity.name}: ${e.message}" }
-      return MigrationScriptResult.Failure(e.message ?: "Migration script failed")
-    } finally {
-      scriptMetrics.record(ScriptType.MIGRATION, newEntity.name, MIGRATION_METRIC_LABEL, (System.nanoTime() - startNs) / 1_000_000L, success)
-    }
-  }
 
   override fun migrateInstallation(installedAppId: InstalledAppId, appId: AppId, fromVersion: VersionNumber, toVersion: VersionNumber): Either<DomainError, Unit> {
     val publishedVersions = appVersionRepository.findAllByAppId(appId)
@@ -122,7 +60,7 @@ class AppVersionMigrationService(
 
     val pendingVersions = publishedVersions.subList(fromIndex + 1, toIndex + 1)
     val entityMigrations = pendingVersions.flatMap { version ->
-      version.entityDefinitions.filter { it.migrationScript != null || it.migrationSteps.isNotEmpty() }.map { version to it }
+      version.entityDefinitions.filter { it.migrationSteps.isNotEmpty() }.map { version to it }
     }
     if (entityMigrations.isEmpty()) return Unit.right()
 
@@ -187,7 +125,7 @@ class AppVersionMigrationService(
           var caughtUpRow = existingAppDataRow
           for (pendingVersion in pendingVersions) {
             val pendingEntity = pendingVersion.entityDefinitions.find { it.id == newEntity.id } ?: continue
-            if (pendingEntity.migrationScript == null && pendingEntity.migrationSteps.isEmpty()) continue
+            if (pendingEntity.migrationSteps.isEmpty()) continue
             val pendingVersionIndex = publishedVersions.indexOfFirst { it.versionNumber == pendingVersion.versionNumber }
             val pendingPreviousEntity = previousEntityDefinition(publishedVersions, pendingVersionIndex, pendingEntity)
             val migratedData = runAndValidate(
@@ -219,7 +157,7 @@ class AppVersionMigrationService(
   }
 
   /**
-   * Builds a [MigrationPreviewObject] for [existingAppData]: applies [newEntity]'s migration steps and script to its data (see
+   * Builds a [MigrationPreviewObject] for [existingAppData]: applies [newEntity]'s migration steps to its data (see
    * [previewMigrationSteps]), then re-validates the result with the same [AppDataPort.validateEntityData] used by the real
    * dry-run/publish flow, so a preview finding can never disagree with what would actually happen. Unlike [runAndValidate], this never
    * aborts early - every stage's issues are collected so the preview always shows the full picture for one object.
@@ -227,15 +165,7 @@ class AppVersionMigrationService(
   private fun previewMigrationObject(previousEntity: EntityDefinition, newEntity: EntityDefinition, existingAppData: AppData, index: Int): MigrationPreviewObject {
     val (afterSteps, issues) = previewMigrationSteps(previousEntity, newEntity, existingAppData.data)
 
-    val afterScript = when (val scriptResult = runScript(previousEntity, newEntity, afterSteps)) {
-      is MigrationScriptResult.Failure -> {
-        issues += MigrationPreviewIssue.ScriptFailed(scriptResult.reason)
-        afterSteps
-      }
-      is MigrationScriptResult.Success -> scriptResult.data
-    }
-
-    val validation = appData.validateEntityData(newEntity, afterScript, existingAppData.installedAppId.value, excludingDataId = existingAppData.id.value)
+    val validation = appData.validateEntityData(newEntity, afterSteps, existingAppData.installedAppId.value, excludingDataId = existingAppData.id.value)
     if (validation is Either.Left) {
       val propertyViolations = (validation.value as? AppDataConstraintViolationError)?.propertyViolations.orEmpty()
       propertyViolations.forEach { (propertyId, violations) ->
@@ -243,7 +173,7 @@ class AppVersionMigrationService(
       }
     }
 
-    return MigrationPreviewObject(index, existingAppData.id, existingAppData.data, afterScript, issues)
+    return MigrationPreviewObject(index, existingAppData.id, existingAppData.data, afterSteps, issues)
   }
 
   /**
@@ -322,8 +252,8 @@ class AppVersionMigrationService(
   }
 
   /**
-   * Applies [newEntity]'s migration building blocks (in order) and then its migration script against [existingAppData], re-validating
-   * the result, logging and returning a [DomainError] on failure at either stage.
+   * Applies [newEntity]'s migration building blocks (in order) against [existingAppData], re-validating the result, logging and returning a
+   * [DomainError] on failure at either stage.
    */
   private fun runAndValidate(
     previousEntity: EntityDefinition,
@@ -340,22 +270,14 @@ class AppVersionMigrationService(
       },
       { it },
     )
-    when (val scriptResult = runScript(previousEntity, newEntity, afterSteps)) {
-      is MigrationScriptResult.Failure -> {
-        logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value}: ${scriptResult.reason}" }
-        return AppVersionMigrationScriptFailedError(newEntity.name, existingAppData.id.value, versionNumber, scriptResult.reason).left()
+    val validation = appData.validateEntityData(newEntity, afterSteps, installedAppId.value, excludingDataId = existingAppData.id.value)
+    return when (validation) {
+      is Either.Left -> {
+        val propertyViolations = (validation.value as? AppDataConstraintViolationError)?.propertyViolations ?: emptyMap()
+        logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value} failed re-validation: $propertyViolations" }
+        AppVersionMigrationValidationFailedError(newEntity.name, existingAppData.id.value, versionNumber, propertyViolations).left()
       }
-      is MigrationScriptResult.Success -> {
-        val validation = appData.validateEntityData(newEntity, scriptResult.data, installedAppId.value, excludingDataId = existingAppData.id.value)
-        return when (validation) {
-          is Either.Left -> {
-            val propertyViolations = (validation.value as? AppDataConstraintViolationError)?.propertyViolations ?: emptyMap()
-            logger.warn { "Migration aborted for $logContext: entity=${newEntity.name} appDataId=${existingAppData.id.value} failed re-validation: $propertyViolations" }
-            AppVersionMigrationValidationFailedError(newEntity.name, existingAppData.id.value, versionNumber, propertyViolations).left()
-          }
-          is Either.Right -> scriptResult.data.right()
-        }
-      }
+      is Either.Right -> afterSteps.right()
     }
   }
 
@@ -497,28 +419,7 @@ class AppVersionMigrationService(
   private fun previousEntityDefinition(publishedVersions: List<AppVersion>, versionIndex: Int, entity: EntityDefinition): EntityDefinition =
     publishedVersions.getOrNull(versionIndex - 1)?.entityDefinitions?.find { it.id == entity.id } ?: entity
 
-  private fun buildWrappedScript(script: String): String = buildString {
-    appendLine("@file:Suppress(\"UNCHECKED_CAST\")")
-    appendLine()
-    appendLine("val it: Map<String, String?> = ($BINDING_DATA ?: emptyMap<String, String?>()) as Map<String, String?>")
-    appendLine(
-      "val previousEntity: de.chrgroth.james.platform.domain.model.app.EntityDefinition = " +
-        "$BINDING_PREVIOUS as de.chrgroth.james.platform.domain.model.app.EntityDefinition",
-    )
-    appendLine(
-      "val newEntity: de.chrgroth.james.platform.domain.model.app.EntityDefinition = " +
-        "$BINDING_NEW as de.chrgroth.james.platform.domain.model.app.EntityDefinition",
-    )
-    appendLine()
-    append(script)
-  }
-
   companion object : KLogging() {
-    private const val BINDING_DATA = "_migrationData"
-    private const val BINDING_PREVIOUS = "_migrationPreviousEntity"
-    private const val BINDING_NEW = "_migrationNewEntity"
-    private const val MIGRATION_METRIC_LABEL = "migration"
-
     /** Caps how many existing AppData objects [resolveMigrationPreviewSample] considers, so the preview stays responsive while editing. */
     private const val MIGRATION_PREVIEW_SAMPLE_LIMIT = 50
   }

@@ -498,8 +498,8 @@ enum class ReportDefinitionErrorCode {
   /** args: query. A pie chart needs a category: `category`, or the group or time bucket of an aggregate query. */
   PIE_CATEGORY_MISSING,
 
-  /** args: compiler message, line within the script (empty if unknown). The script of a `kotlin` step does not compile. */
-  KOTLIN_SCRIPT_INVALID,
+  /** No args. The `kotlin` step was removed (ADR 0029); calculations use `calc` and the other declarative steps. */
+  KOTLIN_STEP_REMOVED,
 }
 
 /** One validation error, located by [path] (e.g. `queries.laeufe.filter[0].op`) and, where known, the 1-based [line] in the YAML source. */

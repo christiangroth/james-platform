@@ -47,6 +47,7 @@
                  data-constraint-max-datetime="{selectedProperty.constraintMaxDatetime}"
                  data-default-value="{selectedProperty.defaultValue}"
                  data-smart-default="{selectedProperty.smartDefault}"
+                 data-legacy-smart-default-script="{selectedProperty.legacySmartDefaultScript}"
                  data-value-proposals="{selectedProperty.valueProposals}"
                  data-target-entity-id="{selectedProperty.targetEntityId}"
                  data-reference-lookup-property-id="{selectedProperty.referenceLookupPropertyId}"
@@ -341,7 +342,7 @@
                                 <span class="app-section-label" style="font-size:0.85rem;">{np.defaultValue}</span>
                                 {/if}
                                 {#if np.smartDefault}
-                                <span class="badge app-badge-muted" style="font-size:0.7rem;" title="{developer:developerColSmartDefault()}: {np.smartDefault}">{developer:developerScriptBadge()}</span>
+                                <code class="small" title="{developer:developerColSmartDefault()}">{np.smartDefault}</code>
                                 {/if}
                                 {#if !np.defaultValue && !np.smartDefault}
                                 <span class="app-section-label" style="font-size:0.75rem;">—</span>
@@ -428,7 +429,11 @@
                             <div class="app-section-label mb-1" style="font-size:0.75rem;">{developer:developerPredefinedLabel()}</div>
                             <div id="predefinedSmartDefaultButtons" class="d-flex flex-wrap gap-1"></div>
                         </div>
-                        <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerSmartDefaultPlaceholder()}" data-testid="smart-default-script-input"></textarea>
+                        <div id="editPropertyLegacySmartDefault" class="alert alert-warning d-none mb-2 small" data-testid="smart-default-legacy-script-hint">
+                            {developerExpression:developerLegacyScriptHint()}
+                            <pre class="mb-0 mt-1" style="white-space:pre-wrap;font-size:0.75rem;"></pre>
+                        </div>
+                        <textarea class="form-control app-form-control form-control-sm" id="editPropertySmartDefault" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerSmartDefaultPlaceholder()}" data-testid="smart-default-expression-input"></textarea>
                     </div>
                 </div>
                 <div id="valueProposalSection" class="d-none">
@@ -559,7 +564,9 @@
                 'DATETIME': 'Datetime',
             };
 
-            var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME'];
+            // Smart defaults (expressions, ADR 0029) are evaluated for top-level properties only; REF e.g. as last(schuhe)
+            var SMART_DEFAULT_SUPPORTED_TYPES = ['LONG', 'DOUBLE', 'BOOLEAN', 'STRING', 'DATE', 'TIME', 'DATETIME', 'REF'];
+            var SMART_DEFAULT_TOP_LEVEL = document.getElementById('editPropertyPath').value === '';
 
             var UNIT_SUPPORTED_TYPES = ['LONG', 'DOUBLE'];
             // The storage granularity can only be freely chosen while the property has no unit configured yet
@@ -677,7 +684,7 @@
                 });
                 document.getElementById('defaultSection').classList.toggle('d-none', defaultGroup == null);
 
-                var supportsSmartDefault = SMART_DEFAULT_SUPPORTED_TYPES.includes(propertyType);
+                var supportsSmartDefault = SMART_DEFAULT_TOP_LEVEL && SMART_DEFAULT_SUPPORTED_TYPES.includes(propertyType);
                 document.getElementById('smartDefaultSection').classList.toggle('d-none', !supportsSmartDefault);
 
                 var supportsValueProposals = propertyType === 'STRING';
@@ -696,7 +703,8 @@
                         btn.setAttribute('data-testid', 'predefined-smart-default-' + pd.label.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
                         btn.textContent = pd.label;
                         btn.addEventListener('click', function () {
-                            document.getElementById('editPropertySmartDefault').value = pd.script;
+                            // the field placeholder (built from char codes, braces would be Qute expressions) stands for this property's name
+                            document.getElementById('editPropertySmartDefault').value = pd.expression.split(String.fromCharCode(123) + 'field' + String.fromCharCode(125)).join(document.getElementById('editPropertyName').value.trim());
                         });
                         predefinedContainer.appendChild(btn);
                     });
@@ -787,6 +795,10 @@
             document.getElementById('defaultTime').value = defaultVal;
             document.getElementById('defaultDatetime').value = defaultVal;
             document.getElementById('editPropertySmartDefault').value = initialData.getAttribute('data-smart-default') || '';
+            var legacySmartDefault = initialData.getAttribute('data-legacy-smart-default-script') || '';
+            var legacySmartDefaultHint = document.getElementById('editPropertyLegacySmartDefault');
+            legacySmartDefaultHint.classList.toggle('d-none', legacySmartDefault === '');
+            legacySmartDefaultHint.querySelector('pre').textContent = legacySmartDefault;
             var rawVp = initialData.getAttribute('data-value-proposals') || '';
             var selectedVpIds = rawVp.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
             buildValueProposalCheckboxes(currentPropertyId, selectedVpIds);

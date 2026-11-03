@@ -1,6 +1,6 @@
 # Computed Property Scripts: Backend Kotlin Scripting with Timeout Guard
 
-* Status: accepted
+* Status: superseded by [ADR 0029](0029-expression-language-instead-of-kotlin-scripting.md) - computed properties and smart defaults are expressions now
 * Deciders: Chris
 * Date: 2026-05-10
 
