@@ -1,6 +1,7 @@
 # Reports: declarative, low-code report definitions
 
-**Status: steps 1 (foundation), 2 (time series and stat panels) and 3 (App configuration, ADR 0027) implemented, steps 4-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
+**Status: steps 1 (foundation), 2 (time series and stat panels), 3 (App configuration, ADR 0027) and 4 (variables and basic transformations)
+implemented, steps 5-8 planned.** Elaborates the Reports epic (#364). The implemented state is described in the
 "Reports" section of [arc42](../arc42/arc42.md#reports); this plan keeps the remaining steps.
 
 ## Motivation

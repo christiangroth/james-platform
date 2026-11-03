@@ -160,9 +160,9 @@ The shared installation is treated as a separate installation. Supported sharing
 
 ### Reports
 
-**Status: steps 1-3 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
-App configuration via `config.*`, see [docs/plans/reports.md](../plans/reports.md) for the remaining steps: variables and transformations, checks,
-heatmap/pie and a Kotlin step, personal dashboards).
+**Status: steps 1-4 of 8 implemented** (declarative definition, queries incl. on-the-fly aggregations, table, text, time series, bar and stat panels,
+App configuration via `config.*`, variables and basic transformations, see [docs/plans/reports.md](../plans/reports.md) for the remaining steps: checks,
+advanced transformations, heatmap/pie and a Kotlin step, personal dashboards).
 
 A Report belongs to one App Version and has a unique name within it. It is **declared** in YAML (`Report.definition`), edited per draft in the version
 editor, and executed backend-side; no Developer-authored code runs in the browser.
@@ -246,9 +246,66 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
         - - { bar: Konzerte pro Ort, query: pro_ort, horizontal: true }
   ```
 
+- **Variables** (`variables`, shown as select controls on top of the report; the selection travels as `var.<name>=<value>` query parameter of the
+  report page and the token API, or as the editor preview's `variables` form field; a missing or unknown selection falls back to the default):
+  `{ type: timeRange, label, default, options }` offers relative periods plus `all` (no restriction; default options: all of them) and is used as
+  `range: $name`; `{ type: select, label, query, field, all, default }` offers the distinct values of a field of a query's (transformed) result, labelled
+  like table cells (references by display text, buckets as `09/2026`), `all: true` adds "Alle" (empty value), `default` is `first` (default), `last`,
+  `all` or a value. A select is used as filter `value: $name` (references compared by display text; "Alle" drops the rule) or - when its field is a
+  time bucket - as `range: $name` (the selected bucket's period). The query feeding a select must not use variables itself. The executed `ReportView`
+  lists each variable with its options and selected value; `report-renderer.js` renders the controls and reloads the report on change.
+- **Transformations** (`transforms: { <query>: [steps] }`, `ReportTransformer`): a pipeline per query applied to its result rows after filter,
+  aggregation, sort and limit; panels, select variables and stat comparisons see the transformed result. Running steps process the rows chronologically
+  (bucket, time field, else creation time) and per group of a grouped aggregate, whatever order they are shown in. Steps add a field (`as`) or replace
+  their source field in place:
+  - `{ calc: <name>, expr: "<expression>", unit: <granularity> }` - a DOUBLE field from a small, safe expression language (`ReportExpression`, no
+    platform access): numbers, result fields and `config.<field>` values (raw storage values, e.g. meters, cents), `+ - * / %`, `^`, parentheses and
+    `abs`, `sqrt`, `round(x[, digits])`, `floor`, `ceil`, `min`, `max`, `coalesce`; missing operands and divisions by zero give no value; `unit` (e.g.
+    `SECONDS`, `KILOGRAMS`) makes the result a unit value;
+  - `{ cumulative: <field>, as }` running total (in place by default), `{ movingAverage: <field>, window: <n>, as }` average over the last n values;
+  - `{ yoy: <field>, as }` the value of the same bucket one year earlier, read from the query over its range shifted back a year (needs a time bucket;
+    default field `<field>_vorjahr`);
+  - `{ forecast: <field>, as }` linear extrapolation to the end of the period - per bucket (the current bucket scaled by elapsed days, completed buckets
+    keep their value, future ones are empty) or over the query's closed range without bucket (default field `<field>_prognose`);
+  - `{ resample: <bucket>, periodStart, fill: forward|none }` one row per bucket from the first to the last with data, carrying the latest row's values
+    ("value valid at"); gaps repeat the previous bucket with `fill: forward` (default). The result is keyed by `bucket` and charted over buckets
+    (not with a grouped aggregate).
+
+  ```yaml
+  variables:
+    jahr: { type: select, label: Jahr, query: jahre, field: bucket, default: last }
+    zeitraum: { type: timeRange, default: last_12_months, options: [last_12_months, this_year, last_year, all] }
+  queries:
+    jahre: { entity: Fahrt, timeField: datum, aggregate: { bucket: JAHR, values: { n: count } } }
+    messungen: { entity: Messung, timeField: datum, range: $zeitraum, fields: [datum, gewicht, fett], sort: [datum] }
+    vertraege: { entity: Arbeitsvertrag, fields: [arbeitgeber, jahresbrutto, wochenstunden] }
+    rente: { entity: Renteninformation, timeField: datum, aggregate: { bucket: JAHR, values: { beitrag: { sum: beitrag } } } }
+    fahrten: { entity: Fahrt, timeField: datum, fields: [datum, distanz], sort: [datum] }
+    versicherung: { entity: Lebensversicherung, timeField: datum, fields: [datum, rueckkaufswert, beitraege] }
+    km_monat: { entity: Fahrt, timeField: datum, range: $jahr, aggregate: { bucket: MONAT, values: { km: { sum: distanz } } } }
+  transforms:
+    messungen:
+      - { calc: bmi, expr: "round(gewicht / 1000 / (config.groesse / 100) ^ 2, 1)" }   # gewicht stored in grams, groesse in cm
+      - { calc: magereMasse, expr: "gewicht * (1 - fett / 100)", unit: GRAMS }
+      - { movingAverage: gewicht, window: 7, as: gewicht_7 }
+    vertraege: [{ calc: brutto40h, expr: "jahresbrutto * 40 / wochenstunden", unit: CENTS }]
+    rente: [{ cumulative: beitrag, as: gesamt }]
+    fahrten: [{ cumulative: distanz, as: kilometerstand }]
+    versicherung: [{ resample: JAHR, fill: forward }]
+    km_monat: [{ yoy: km }, { forecast: km }]
+  tabs:
+    - name: Übersicht
+      rows:
+        - - { timeseries: BMI, query: messungen, field: bmi }
+          - { timeseries: km pro Monat, query: km_monat, series: [{ field: km, style: column }, { field: km_vorjahr }, { field: km_prognose }] }
+        - - { timeseries: Lebensversicherung, query: versicherung, series: [{ field: rueckkaufswert }, { field: beitraege }] }
+  ```
+
 - **Validation** (`ReportDefinitionParser`, on save, on publish and before execution): YAML syntax (duplicate keys rejected), schema (unknown keys are
-  errors; keys reserved for later steps such as `variables`, `transforms`, `checks` or the panel types `pie`/`heatmap`/`warnings` answer "not supported
-  yet"), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
+  errors; keys reserved for later steps such as `checks` or the panel types `pie`/`heatmap`/`warnings` answer "not supported yet"), variables (names,
+  types, defaults and options; `$name` references exist and fit their use; select queries without variables), transformation steps (exactly one step
+  per entry, expressions parse and only read numeric fields of the result so far or numeric configuration fields, output names do not clash, `yoy`
+  needs a bucket, `forecast` a bucket or closed range, `resample` a time field or bucket and no group), entities and fields exist in the version, time fields are DATE/DATETIME, aggregated, charted and reduced fields are numeric, panels only use
   declared queries and their fields, chart series share their x axis and fit their y axis' unit, a comparison has a closed range.
   Every error carries its path (e.g. `queries.konzerte.filter[0].op`) and, where the YAML source locates it, the line. Saving an invalid definition is
   rejected; publishing fails if a report became invalid (e.g. a property it uses was removed). A blank definition is valid (empty report).
@@ -269,7 +326,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   an unsaved definition against a test installation of the draft. Installed Apps list their reports; `/ui/user/apps/{installedAppId}/reports/{reportId}`
   renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
   `{ name, definition }`; like every draft edit they answer with the full draft, `POST` additionally names the new report's id in the `X-Report-Id`
-  header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec).
+  header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec incl. variables; selections as `var.<name>` query parameters).
 
 ### Developer Test Data
 
