@@ -30,7 +30,7 @@ internal data class ResolvedField(
   val objectPath: List<Property> = emptyList(),
 ) {
   val type: PropertyType get() = property?.type ?: computed!!.type
-  val unit: PropertyUnit? get() = property?.unit
+  val unit: PropertyUnit? get() = property?.unit ?: computed?.unit
   val listItemType: PropertyType? get() = property?.listItemType
   val isComputed: Boolean get() = computed != null
 
