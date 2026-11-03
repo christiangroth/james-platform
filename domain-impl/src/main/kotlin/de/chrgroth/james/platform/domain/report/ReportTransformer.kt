@@ -257,7 +257,9 @@ internal class ReportTransformer(
     }.orEmpty()
     val rows = result.rows.map { row ->
       val date = dateOf(query, result, row, step.atEnd)
-      val pool = candidates[step.on?.let { keyOf(row, it.field, result.columns) }]
+      // With a key, a row without key value matches nothing.
+      val on = step.on
+      val pool = if (on == null) candidates[null] else keyOf(row, on.field, result.columns)?.let { candidates[it] }
       val match = date?.let { d -> pool?.lastOrNull { !it.first.isAfter(d) }?.second }
       row.attach(match, step.fields, step.prefix)
     }
