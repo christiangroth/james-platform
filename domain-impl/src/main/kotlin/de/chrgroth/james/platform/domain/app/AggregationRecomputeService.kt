@@ -7,9 +7,12 @@ import de.chrgroth.james.platform.domain.error.AggregationError
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
+import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.readmodel.computeAggregationValues
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
 import de.chrgroth.james.platform.domain.port.`in`.app.AggregationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
+import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -21,7 +24,8 @@ import java.time.Instant
 /**
  * Outbox-driven, full-scan recomputation of a single `AggregationDefinition`'s values (see
  * docs/adr/0020-aggregation-definitions.md) - the O(n) counterpart to `AggregationInlineUpdateService`'s O(1)
- * inline updates, run on [de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition.AggregationRecompute].
+ * inline updates, run on [de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition.AggregationRecompute]. An aggregation over a
+ * computed property evaluates that property's expression per object (with the installation's configuration) before aggregating.
  */
 @ApplicationScoped
 @Suppress("Unused")
@@ -30,6 +34,8 @@ class AggregationRecomputeService(
   private val appVersionRepository: AppVersionRepositoryPort,
   private val appDataRepository: AppDataRepositoryPort,
   private val aggregationRepository: AggregationRepositoryPort,
+  private val computedProperty: ComputedPropertyPort,
+  private val appConfiguration: AppConfigurationPort,
 ) : AggregationPort {
 
   override fun handle(event: DomainOutboxEvent.RecomputeAggregation): Either<DomainError, Unit> {
@@ -58,7 +64,14 @@ class AggregationRecomputeService(
       return Unit.right()
     }
 
-    val items = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, owningEntity.id)
+    val stored = appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, owningEntity.id)
+    val items = if (aggregation.computedSourceIn(owningEntity) == null) {
+      stored
+    } else {
+      val config = appConfiguration.configurationValues(installedApp, appVersion)
+      val now = kotlin.time.Clock.System.now()
+      stored.map { item -> item.copy(data = item.data + computedProperty.computeValues(owningEntity, item.data, now, config, appVersion.configurationEntity)) }
+    }
     val computed = aggregation.computeAggregationValues(installedAppId, items, Instant.now())
     computed.forEach { aggregationRepository.save(it) }
     logger.info {

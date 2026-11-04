@@ -29,7 +29,8 @@ enum class TimeBucket { TAG, WOCHE, MONAT, JAHR, QUARTAL }
 /**
  * Declares a precomputed rollup over instances of the [EntityDefinition] this is part of (analogous to
  * [ComputedProperty]). [sourceProperty] may be a top-level property of that same Entity or a property nested in OBJECT properties, whose
- * enclosing OBJECT properties are then listed in [sourcePath] (outermost first, empty for a top-level property). [groupBy], if set, must be
+ * enclosing OBJECT properties are then listed in [sourcePath] (outermost first, empty for a top-level property), or the id of one of the
+ * Entity's computed properties ([computedSourceIn]; empty [sourcePath]) - its values are evaluated per object when aggregating. [groupBy], if set, must be
  * a top-level property of that same Entity.
  *
  * [refPath], if set, must be a top-level property of that same Entity of type [PropertyType.REF] (Ref-depth 1, see
@@ -62,3 +63,7 @@ data class AggregationDefinition(
   /** The OBJECT properties enclosing [sourceProperty], outermost first; empty when [sourceProperty] is a top-level property. */
   val sourcePath: List<PropertyId> = emptyList(),
 )
+
+/** The computed property of [entity] this aggregation aggregates, null if its source is a stored property. */
+fun AggregationDefinition.computedSourceIn(entity: EntityDefinition): ComputedProperty? =
+  if (sourcePath.isEmpty()) entity.computedProperties.find { it.id.value == sourceProperty.value } else null

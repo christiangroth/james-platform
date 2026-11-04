@@ -16,7 +16,7 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   language, checked on save (no scripting engine, works in the native image). Smart defaults make data entry quick: today, the day after the last entry
   (`next_day(datum)`), the last used value or reference (`last(schuhe)`), end of month, workdays between two dates without configured holidays
   (`workdays(start, ende, config.feiertage)`) - and they follow other fields of the form while it is filled in (e.g. vacation end = start).
-- **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, also over fields nested in object properties,
+- **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, also over fields nested in object properties and over computed properties,
   optional day/week/month/quarter/year bucketing with a configurable period start,
   optional grouping via a `ref` or another property) over an Entity's data in the version editor. Ungrouped values are shown directly on the app installation;
   grouped and/or time-bucketed ones as a compact, capped table.

@@ -120,6 +120,9 @@ interface DeveloperAggregationMessages {
   fun developerAggregationDetailGroupBy(name: String): String
 
   @Message
+  fun developerAggregationComputedSourceLabel(name: String): String
+
+  @Message
   fun developerAggregationDetailPeriodStart(date: String): String
 
   @Message

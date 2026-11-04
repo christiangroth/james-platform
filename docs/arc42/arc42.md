@@ -660,7 +660,10 @@ of a draft; the editor applies the same validation rules as the Version publish 
 
 - A **function** (`SUM`, `COUNT`, `AVG`, `MIN`, `MAX`) applied to a numeric `sourceProperty` (`COUNT` accepts any type). The source may be nested in `object`
   properties (e.g. `bewertung > zufriedenheit`): the definition then also stores the enclosing `object` properties as `sourcePath` (outermost first), and the value is
-  read from the stored `object` JSON along that path. `refPath`, `timeProperty` and `groupBy` stay top-level.
+  read from the stored `object` JSON along that path. `refPath`, `timeProperty` and `groupBy` stay top-level. The source may also be one of the Entity's
+  **computed properties** (by its id, empty `sourcePath`; with an expression, numeric for `SUM`/`AVG`/`MIN`/`MAX`), e.g. `SUM(strecke)` per month with
+  `strecke = sum_of(sessions, bahnlänge * bahnen)`: its expression is evaluated per object (with the installation's configuration) when aggregating, and
+  its unit formats the values.
 - An optional **`refPath`** (a single-hop `ref` property) groups the aggregation's values per instance of the referenced Entity instead of producing one value across all
   instances, e.g. total kilometers per running shoe via a `Lauf.laufschuhId` reference.
 - An optional **`timeBucket`** (`TAG`/`WOCHE`/`MONAT`/`JAHR`/`QUARTAL`) buckets values by day/week/month/year/quarter, derived from an optional `timeProperty` (a
@@ -670,6 +673,10 @@ of a draft; the editor applies the same validation rules as the Version publish 
   years. See ADR [0020](../adr/0020-aggregation-definitions.md), "Configurable period start".
 - An optional **`groupBy`** groups values by another top-level property of the same Entity. `refPath` and `groupBy` are mutually exclusive — there is no combined
   group key, so validation (editor and publish) rejects definitions that set both, and the editor disables one select while the other has a value.
+
+Aggregations over a computed property are never updated by delta: every write to their Entity - and every change of the installation's configuration
+object, which computed properties may read - marks them `STALE` and enqueues a full recompute, as does changing the computed property in a draft (for the
+test installations). A computed property reading `today()` therefore reflects the day of the last recompute.
 
 Values are stored as precomputed read-model documents (reusing the storage convention from ADR [0013](../adr/0013-precomputed-read-models-per-ui-page.md)), each carrying
 a `status` (`UP_TO_DATE`/`STALE`). Single-object writes update affected aggregations inline via a statically derived dependency index; bulk recomputation (e.g. on
