@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.VersionBumpResult
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.user.ApiTokenScope
 import de.chrgroth.james.platform.domain.port.`in`.app.InstalledAppInfo
 import de.chrgroth.james.platform.domain.port.`in`.app.PublishedAppDetail
@@ -283,7 +284,12 @@ object ApiDtoMapper {
     lastChangedAt = data.lastChangedAt,
   )
 
-  private fun decodeValue(property: Property?, raw: String?): Any? = when (property?.type) {
+  private fun decodeValue(property: Property?, raw: String?): Any? = when {
+    property?.isObjectList == true -> decodeListValue(raw).map { decodeObjectValue(it) }
+    else -> decodeTypedValue(property, raw)
+  }
+
+  private fun decodeTypedValue(property: Property?, raw: String?): Any? = when (property?.type) {
     PropertyType.LIST -> decodeListValue(raw)
     PropertyType.OBJECT -> decodeObjectValue(raw)
     else -> raw

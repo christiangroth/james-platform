@@ -138,6 +138,9 @@ enum class AppVersionError(override val code: String) : DomainError {
 
   /** A computed property's or smart default's expression is invalid (ADR 0029), see [InvalidExpressionError]. */
   INVALID_EXPRESSION("APPVER-076"),
+
+  /** A LIST of OBJECTs may only be a top-level property, and the fields of its items only simple values (no REF, LIST or OBJECT). */
+  OBJECT_LIST_NOT_SUPPORTED("APPVER-077"),
   ;
 }
 

@@ -852,6 +852,9 @@ interface DeveloperMessages {
   fun developerListItemTypeInvalidError(): String
 
   @Message
+  fun developerObjectListNotSupportedError(): String
+
+  @Message
   fun developerUnitNotSupportedError(): String
 
   @Message

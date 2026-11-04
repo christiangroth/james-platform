@@ -37,6 +37,7 @@ import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
@@ -2151,6 +2152,7 @@ class DeveloperAppResource {
     AppVersionError.LIST_ITEM_TYPE_NOT_SUPPORTED.code -> devMsg.developerListItemTypeNotSupportedError()
     AppVersionError.LIST_ITEM_TYPE_REQUIRED.code -> devMsg.developerListItemTypeRequiredError()
     AppVersionError.LIST_ITEM_TYPE_INVALID.code -> devMsg.developerListItemTypeInvalidError()
+    AppVersionError.OBJECT_LIST_NOT_SUPPORTED.code -> devMsg.developerObjectListNotSupportedError()
     AppVersionError.UNIT_NOT_SUPPORTED.code -> devMsg.developerUnitNotSupportedError()
     AppVersionError.UNIT_FAMILY_INVALID.code -> devMsg.developerUnitFamilyInvalidError()
     AppVersionError.UNIT_GRANULARITY_INVALID.code -> devMsg.developerUnitGranularityInvalidError()
@@ -2207,7 +2209,7 @@ class DeveloperAppResource {
     val breadcrumb = mutableListOf<PropertyBreadcrumb>()
     val accumulatedIds = mutableListOf<String>()
     for (id in pathIds) {
-      val property = currentProperties.find { it.id.value == id && it.type == PropertyType.OBJECT } ?: return null
+      val property = currentProperties.find { it.id.value == id && it.hasNestedProperties } ?: return null
       accumulatedIds += id
       breadcrumb += PropertyBreadcrumb(id = property.id.value, name = property.name, path = accumulatedIds.joinToString(","))
       currentProperties = property.nestedProperties

@@ -71,7 +71,8 @@ data class Property(
   val listItemType: PropertyType? = null,
   // Constraints applied to each item of a LIST property, using the item type's own constraints (UniqueKey excluded).
   val itemConstraints: Set<PropertyConstraint> = emptySet(),
-  // Properties defining the structure of an OBJECT property. Unused for other types. May recursively contain further OBJECT properties.
+  // Properties defining the structure of an OBJECT property, or of every item of a LIST of OBJECTs ([isObjectList]). Unused for other types.
+  // An OBJECT may recursively contain further OBJECT properties; the items of a LIST of OBJECTs only simple fields (OBJECT_LIST_ITEM_FIELD_TYPES).
   val nestedProperties: List<Property> = emptyList(),
   // Unit assigned to a LONG/DOUBLE property's numeric value, e.g. distance stored in meters. Unused for other types.
   val unit: PropertyUnit? = null,
@@ -226,5 +227,14 @@ enum class PropertyType {
   companion object {
     /** Types that may be used as the item type of a LIST property. Lists of lists are not supported. */
     val LIST_ITEM_TYPES: List<PropertyType> = entries.filter { it != LIST }
+
+    /** Types the fields of a LIST of OBJECTs' items may have: simple values only (no REF, LIST or OBJECT). */
+    val OBJECT_LIST_ITEM_FIELD_TYPES: Set<PropertyType> = setOf(LONG, DOUBLE, BOOLEAN, STRING, DATE, TIME, DATETIME)
   }
 }
+
+/** Whether this is a LIST of OBJECTs: every item is an object with the fields in [Property.nestedProperties]. */
+val Property.isObjectList: Boolean get() = type == PropertyType.LIST && listItemType == PropertyType.OBJECT
+
+/** Whether this property's [Property.nestedProperties] are in use: an OBJECT property or a LIST of OBJECTs. */
+val Property.hasNestedProperties: Boolean get() = type == PropertyType.OBJECT || isObjectList

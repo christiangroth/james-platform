@@ -7,6 +7,10 @@
  * "object-level" div up front (so the underlying inputs keep their values across navigation) and only the
  * active level is shown. Switching levels is pure DOM show/hide - no server requests - and the
  * surrounding entity form is still submitted/saved as a single whole, only from the top level.
+ *
+ * A LIST of OBJECTs (top-level only) is rendered into the same kind of container: one group of its item fields per item,
+ * each named `<prefix>.<fieldId>` like an OBJECT's fields, so the server reads the items by position. Items can be added
+ * (prefilled with the fields' defaults) and removed; yes/no fields use a select so every item submits every field.
  */
 var LIST_VALUE_SEPARATOR = '';
 var objectFieldMessages = {};
@@ -14,6 +18,19 @@ var objectFieldMessages = {};
 function objectFieldScalarInput(field, name, value) {
     if (field.hasUnit) {
         return buildUnitValueField(field, name, value);
+    }
+    if (field.htmlInputType === 'boolean-select') {
+        var booleanSelect = document.createElement('select');
+        booleanSelect.className = 'form-select app-form-control form-select-sm';
+        booleanSelect.name = name;
+        ['false', 'true'].forEach(function (option) {
+            var opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option === 'true' ? (objectFieldMessages.yesLabel || 'true') : (objectFieldMessages.noLabel || 'false');
+            if (String(value) === option) opt.selected = true;
+            booleanSelect.appendChild(opt);
+        });
+        return booleanSelect;
     }
     if (field.htmlInputType === 'checkbox') {
         var wrapper = document.createElement('div');
@@ -265,6 +282,68 @@ function activateObjectLevel(container, path) {
     renderObjectBreadcrumb(container, path);
 }
 
+/**
+ * The items of a LIST of OBJECTs value: an array of item objects (stored value), or - as captured by a form snapshot - an object
+ * holding one value or an array of values (one per item) per field id. Null for no value at all (a fresh create form).
+ */
+function objectListItems(value) {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== 'object') return null;
+    var fieldIds = Object.keys(value);
+    if (fieldIds.length === 0) return null;
+    var count = fieldIds.reduce(function (max, id) { return Math.max(max, Array.isArray(value[id]) ? value[id].length : 1); }, 0);
+    var items = [];
+    for (var i = 0; i < count; i++) {
+        var item = {};
+        fieldIds.forEach(function (id) { item[id] = Array.isArray(value[id]) ? value[id][i] : (i === 0 ? value[id] : undefined); });
+        items.push(item);
+    }
+    return items;
+}
+
+/** One item of a LIST of OBJECTs: its fields (prefilled from `item`, else the fields' defaults) and a remove button. */
+function buildObjectListItem(field, namePrefix, item) {
+    var card = document.createElement('div');
+    card.className = 'object-list-item border rounded p-2 mb-2';
+    card.setAttribute('data-testid', 'object-list-item-' + field.id);
+    var header = document.createElement('div');
+    header.className = 'd-flex justify-content-end';
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-app-secondary btn-sm object-list-remove-item';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.setAttribute('aria-label', objectFieldMessages.removeValueAriaLabel);
+    removeBtn.addEventListener('click', function () { card.remove(); });
+    header.appendChild(removeBtn);
+    card.appendChild(header);
+    field.nestedProperties.forEach(function (nested) {
+        var itemField = nested.type === 'BOOLEAN' ? Object.assign({}, nested, { htmlInputType: 'boolean-select' }) : nested;
+        var value = item ? item[nested.id] : nested.defaultValue;
+        card.appendChild(buildObjectPropertyField(itemField, namePrefix + '.' + nested.id, value));
+    });
+    return card;
+}
+
+/** Renders a LIST of OBJECTs into `container`: its items plus an add button; a fresh create form starts with one item. */
+function buildObjectList(container, field, namePrefix, value) {
+    var items = objectListItems(value);
+    var list = document.createElement('div');
+    list.className = 'object-list-items';
+    (items === null ? [null] : items).forEach(function (item) { list.appendChild(buildObjectListItem(field, namePrefix, item)); });
+    container.appendChild(list);
+    var addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-app-secondary btn-sm object-list-add-item';
+    addBtn.setAttribute('data-testid', 'object-list-add-' + field.id);
+    addBtn.textContent = objectFieldMessages.addValueButton;
+    addBtn.addEventListener('click', function () {
+        var card = buildObjectListItem(field, namePrefix, null);
+        list.appendChild(card);
+        if (typeof initUnitFields === 'function') initUnitFields(card);
+    });
+    container.appendChild(addBtn);
+}
+
 /** Renders the top-level fields for every `.object-property-fields` container found on the page. */
 function renderObjectPropertyFields(objectFields, objectValues, referenceOptions, messages) {
     objectFieldReferenceOptionsData = referenceOptions || {};
@@ -274,6 +353,10 @@ function renderObjectPropertyFields(objectFields, objectValues, referenceOptions
         var field = objectFields[propertyId];
         if (!field) return;
         var value = (objectValues && objectValues[propertyId]) || {};
+        if (field.type === 'LIST') {
+            buildObjectList(container, field, container.getAttribute('data-name-prefix'), value);
+            return;
+        }
 
         container._pathNames = {};
         container._levelsWrapper = document.createElement('div');

@@ -26,7 +26,14 @@ object PropertyValueFormat {
 
   fun formatDate(date: LocalDate): String = DATE_FORMATTER.format(date)
 
-  fun format(property: Property, raw: String): String = format(property.type, property.unit, raw, property.listItemType)
+  fun format(property: Property, raw: String): String =
+    if (property.isObjectList) formatObjectList(property, raw) else format(property.type, property.unit, raw, property.listItemType)
+
+  /** A LIST of OBJECTs as its items separated by ` | `, each item as its formatted field values separated by `, `, e.g. `25m, 40 | 50m, 20`. */
+  private fun formatObjectList(property: Property, raw: String): String = decodeListValue(raw).joinToString(" | ") { item ->
+    val values = runCatching { decodeObjectValue(item) }.getOrDefault(emptyMap())
+    property.nestedProperties.mapNotNull { field -> values[field.id.value]?.toString()?.takeIf { it.isNotBlank() }?.let { format(field, it) } }.joinToString(", ")
+  }
 
   fun format(type: PropertyType, unit: PropertyUnit?, raw: String, listItemType: PropertyType? = null): String = when (type) {
     PropertyType.DATE -> runCatching { LocalDate.parse(raw) }.getOrNull()?.let { DATE_FORMATTER.format(it) } ?: raw

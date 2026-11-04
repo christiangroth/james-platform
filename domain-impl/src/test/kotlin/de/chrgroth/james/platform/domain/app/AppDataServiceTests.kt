@@ -22,6 +22,7 @@ import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.port.`in`.app.PropertyConstraintPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
@@ -853,6 +854,82 @@ class AppDataServiceTests {
 
     assertThat(result.leftOrNull()).isEqualTo(AppDataError.CONFIGURATION_NOT_DELETABLE)
     verify(exactly = 0) { appDataRepository.delete(any()) }
+  }
+
+  // endregion
+
+  // region createAppData LIST of OBJECTs
+
+  private val laneLengthProp = Property(
+    id = PropertyId("lane-length"),
+    name = "bahnlänge",
+    type = PropertyType.LONG,
+    nullable = false,
+    default = "25",
+    unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS),
+  )
+  private val lanesProp = Property(id = PropertyId("lanes"), name = "bahnen", type = PropertyType.LONG, nullable = false)
+  private val sessionsProp = Property(
+    id = PropertyId("sessions"),
+    name = "sessions",
+    type = PropertyType.LIST,
+    listItemType = PropertyType.OBJECT,
+    nullable = false,
+    nestedProperties = listOf(laneLengthProp, lanesProp),
+  )
+  private val swimEntityId = EntityDefinitionId("entity-swim")
+  private val swimEntity = EntityDefinition(id = swimEntityId, name = "Schwimmen", properties = listOf(sessionsProp))
+
+  private fun givenSwimEntity(saved: MutableList<AppData>) {
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion.copy(entityDefinitions = listOf(swimEntity))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, swimEntityId) } returns emptyList()
+    every { propertyConstraint.checkValue(sessionsProp, any(), emptyList()) } returns emptyList()
+    justRun { appDataRepository.save(capture(saved)) }
+  }
+
+  @Test
+  fun `createAppData stores a LIST of OBJECTs item by item, converting units and dropping blank items`() {
+    val saved = mutableListOf<AppData>()
+    givenSwimEntity(saved)
+
+    val data = mapOf(
+      "prop_sessions.lane-length" to listOf("25", "0km 50m", ""),
+      "prop_sessions.lanes" to listOf("40", "20", ""),
+    )
+    val result = service.createAppData(userId, installedAppId.value, swimEntityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    val items = decodeListValue(saved.single().data["sessions"]).map { decodeObjectValue(it) }
+    assertThat(items).containsExactly(mapOf("lane-length" to "25", "lanes" to "40"), mapOf("lane-length" to "50", "lanes" to "20"))
+    verify { propertyConstraint.checkValue(sessionsProp, listOf(mapOf("lane-length" to 25L, "lanes" to 40L), mapOf("lane-length" to 50L, "lanes" to 20L)), emptyList()) }
+  }
+
+  @Test
+  fun `createAppData reports a missing required field of a LIST of OBJECTs item`() {
+    val saved = mutableListOf<AppData>()
+    givenSwimEntity(saved)
+    every { propertyConstraint.checkValueWithPaths(sessionsProp, any(), emptyList()) } returns emptyList()
+
+    val data = mapOf("prop_sessions.lane-length" to listOf("25"), "prop_sessions.lanes" to listOf(""))
+    val result = service.createAppData(userId, installedAppId.value, swimEntityId.value, data)
+
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations["sessions"]).containsExactly(PropertyConstraintViolation.RequiredValueViolation)
+    assertThat(saved).isEmpty()
+  }
+
+  @Test
+  fun `createAppData reports a required LIST of OBJECTs without items`() {
+    val saved = mutableListOf<AppData>()
+    givenSwimEntity(saved)
+    every { propertyConstraint.checkValue(sessionsProp, null, emptyList()) } returns emptyList()
+    every { propertyConstraint.checkValueWithPaths(sessionsProp, any(), emptyList()) } returns emptyList()
+
+    val result = service.createAppData(userId, installedAppId.value, swimEntityId.value, mapOf("prop_sessions.lanes" to listOf("")))
+
+    val error = result.leftOrNull() as AppDataConstraintViolationError
+    assertThat(error.propertyViolations["sessions"]).containsExactly(PropertyConstraintViolation.RequiredValueViolation)
   }
 
   // endregion

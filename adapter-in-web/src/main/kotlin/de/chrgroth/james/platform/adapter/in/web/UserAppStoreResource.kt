@@ -26,6 +26,8 @@ import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
+import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
@@ -87,6 +89,8 @@ data class AppDataPropertyView(
   val unitStorageGranularity: String = "",
   val unitDefaultGranularity: String = "",
   val unitFormatHint: String = "",
+  // A LIST of OBJECTs: rendered client-side by object-property-fields.js like an OBJECT property, one group of fields per item.
+  val objectList: Boolean = false,
 ) {
   fun valueProposalsString(): String = valueProposals.joinToString(",")
 
@@ -538,6 +542,7 @@ class UserAppStoreResource {
               unitStorageGranularity = TemplateFormattingExtensions.unitStorageGranularity(prop),
               unitDefaultGranularity = TemplateFormattingExtensions.unitDefaultGranularity(prop),
               unitFormatHint = TemplateFormattingExtensions.unitFormatHint(prop),
+              objectList = prop.isObjectList,
             )
           },
           computedProperties = if (entityDef.computedProperties.isEmpty()) {
@@ -949,6 +954,7 @@ class UserAppStoreResource {
     "unitStorageGranularity" to TemplateFormattingExtensions.unitStorageGranularity(this),
     "unitDefaultGranularity" to TemplateFormattingExtensions.unitDefaultGranularity(this),
     "unitFormatHint" to TemplateFormattingExtensions.unitFormatHint(this),
+    "defaultValue" to default,
     "nestedProperties" to nestedProperties.map { it.toObjectFieldView() },
   )
 
@@ -958,7 +964,7 @@ class UserAppStoreResource {
    */
   private fun objectFieldsJsonFor(properties: List<Property>, lookups: ReferenceLookupForms): RawString = RawString(
     ObjectMapper().writeValueAsString(
-      properties.filter { it.type == PropertyType.OBJECT }.associate { it.id.value to it.toObjectFieldView() } + lookups.newObjectFields,
+      properties.filter { it.hasNestedProperties }.associate { it.id.value to it.toObjectFieldView() } + lookups.newObjectFields,
     ),
   )
 
@@ -1030,7 +1036,10 @@ class UserAppStoreResource {
   /** Builds the JSON (propertyId -> decoded existing value) used to prefill OBJECT property fields on the edit form. */
   private fun objectValuesJsonFor(properties: List<Property>, data: Map<String, String?>): RawString = RawString(
     ObjectMapper().writeValueAsString(
-      properties.filter { it.type == PropertyType.OBJECT }.associate { it.id.value to decodeObjectValue(data[it.id.value]) },
+      properties.filter { it.hasNestedProperties }.associate { property ->
+        val raw = data[property.id.value]
+        property.id.value to if (property.isObjectList) decodeListValue(raw).map { decodeObjectValue(it) } else decodeObjectValue(raw)
+      },
     ),
   )
 
