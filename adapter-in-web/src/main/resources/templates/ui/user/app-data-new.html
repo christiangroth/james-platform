@@ -56,7 +56,7 @@
                         {prop.name}
                         {#if !prop.nullable}<span class="text-danger ms-1" aria-label="{user:userRequiredAriaLabel()}">*</span>{/if}
                     </label>
-                    {#if prop.type.name == "OBJECT"}
+                    {#if prop.type.name == "OBJECT" || prop.objectList}
                     <div class="object-property-fields" data-property-id="{prop.id}" data-name-prefix="prop_{prop.id}" data-testid="property-input-{prop.id}"></div>
                     {#else if prop.type.name == "LIST"}
                     <div class="list-property-rows" data-property-id="{prop.id}">

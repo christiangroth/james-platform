@@ -256,7 +256,7 @@
                                 {#if prop.type.name == "LIST" && prop.listItemType}
                                 <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="property-list-item-type-{prop.id}">&lt;{prop.listItemTypeLabel}&gt;</span>
                                 {/if}
-                                {#if prop.type.name == "OBJECT"}
+                                {#if prop.type.name == "OBJECT" || prop.objectList}
                                 <br><span class="app-section-label" style="font-size:0.75rem;" data-testid="nested-property-count-{prop.id}">
                                     {#if prop.nestedProperties.isEmpty}{developer:developerNoPropertiesMessage()}{#else}{#if prop.nestedProperties.size == 1}{developer:developerOnePropertyLabel()}{#else}{developer:developerPropertiesCountLabel(prop.nestedProperties.size)}{/if}{/if}
                                 </span>

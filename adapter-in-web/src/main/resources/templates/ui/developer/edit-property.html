@@ -291,7 +291,7 @@
                         <input type="text" class="form-control app-form-control form-control-sm" id="itemConstraintPattern" placeholder="{developer:developerPatternPlaceholder()}" data-testid="item-constraint-pattern">
                     </div>
                 </div>
-                {#if selectedProperty && selectedProperty.type.name == "OBJECT"}
+                {#if selectedProperty && (selectedProperty.type.name == "OBJECT" || selectedProperty.objectList)}
                 <hr style="border-color:var(--color-border);">
                 <div class="d-flex align-items-center mb-2 gap-2">
                     <h3 class="fs-6 fw-semibold mb-0">{developer:developerNestedPropertiesHeading()}</h3>
@@ -326,7 +326,7 @@
                                 {#if np.type.name == "LIST" && np.listItemType}
                                 <br><span class="app-section-label" style="font-size:0.75rem;">&lt;{np.listItemTypeLabel}&gt;</span>
                                 {/if}
-                                {#if np.type.name == "OBJECT"}
+                                {#if np.type.name == "OBJECT" || np.objectList}
                                 <br><span class="app-section-label" style="font-size:0.75rem;">{#if np.nestedProperties.isEmpty}{developer:developerNoPropertiesMessage()}{#else}{#if np.nestedProperties.size == 1}{developer:developerOnePropertyLabel()}{#else}{developer:developerPropertiesCountLabel(np.nestedProperties.size)}{/if}{/if}</span>
                                 {/if}
                             </td>
@@ -1068,7 +1068,7 @@
                 if (!document.getElementById('smartDefaultSection').classList.contains('d-none') && smartDefaultVal !== '') {
                     smartDefaultFormData.set('smartDefault', smartDefaultVal);
                 }
-                var isObjectType = currentType === 'OBJECT';
+                var isObjectType = currentType === 'OBJECT' || (currentType === 'LIST' && document.getElementById('editPropertyListItemType').value === 'OBJECT');
                 var navigateAfterSmartDefault = currentType !== 'STRING' && !isObjectType;
                 var smartDefaultResult = await apiPost(
                     '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/smart-default',

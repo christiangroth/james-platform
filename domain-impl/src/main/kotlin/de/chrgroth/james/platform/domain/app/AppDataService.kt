@@ -24,6 +24,7 @@ import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.parseUnitValue
 import de.chrgroth.james.platform.domain.model.app.uniqueKeyComparisonValues
 import de.chrgroth.james.platform.domain.model.app.uniqueKeyProperties
@@ -291,7 +292,7 @@ class AppDataService(
     val parsedData = mutableMapOf<String, String?>()
     val allViolations = mutableMapOf<String, List<PropertyConstraintViolation>>()
     val allPathedViolations = mutableListOf<PathedConstraintViolation>()
-    val converted = entityDef.properties.associate { it.id to unitConvertedValue(it, storedValueFor(it, data)) }
+    val converted = entityDef.properties.associate { it.id to if (it.isObjectList) objectListValue(it, data) else unitConvertedValue(it, storedValueFor(it, data)) }
     val uniqueKeyValues = uniqueKeyComparison(entityDef, existing) { parseValue(it, converted.getValue(it.id).first) }
     for (property in entityDef.properties) {
       val (storedValue, unitViolations) = converted.getValue(property.id)
@@ -443,6 +444,27 @@ class AppDataService(
     return { property -> uniqueKeyComparisonValues(property, keyProperties, candidate, existingKeys) }
   }
 
+  /**
+   * The stored value of a LIST of OBJECTs from its submitted form fields: one `prop_<listId>.<fieldId>` value per item and field, aligned by
+   * position (as rendered by object-property-fields.js and flattened by the token API). Items whose non-yes/no fields are all blank are
+   * dropped; the fields' units are converted and their required values checked per item. Every item is stored as JSON object by field id.
+   */
+  private fun objectListValue(property: Property, data: Map<String, List<String>>): Pair<String?, List<PropertyConstraintViolation>> {
+    val columns = property.nestedProperties.associateWith { data["prop_${property.id.value}.${it.id.value}"].orEmpty() }
+    val rows = columns.values.maxOfOrNull { it.size } ?: 0
+    val violations = mutableListOf<PropertyConstraintViolation>()
+    val items = (0 until rows).mapNotNull { index ->
+      val raw = columns.mapValues { (_, values) -> values.getOrNull(index)?.takeIf { it.isNotBlank() } }
+      if (raw.none { (field, value) -> field.type != PropertyType.BOOLEAN && value != null }) return@mapNotNull null
+      raw.entries.associate { (field, value) ->
+        val (converted, unitViolations) = unitConvertedValue(field, value)
+        violations += unitViolations + requiredViolations(field, converted)
+        field.id.value to converted
+      }
+    }
+    return (if (items.isEmpty()) null else encodeListValue(items.map { encodeObjectValue(it) })) to violations
+  }
+
   /** Encodes the raw form values submitted for a top-level property into the single string stored in [AppData.data]. */
   private fun storedValueFor(property: Property, data: Map<String, List<String>>): String? {
     val raw = rawPropertyValue(property, data, "prop_")
@@ -505,7 +527,9 @@ class AppDataService(
   private fun parseValue(property: Property, storedValue: String?): Any? {
     if (storedValue.isNullOrBlank()) return null
     return when (property.type) {
-      PropertyType.LIST -> {
+      PropertyType.LIST -> if (property.isObjectList) {
+        decodeListValue(storedValue).map { parseObjectValue(property, decodeObjectValue(it)) }
+      } else {
         val itemType = property.listItemType ?: PropertyType.STRING
         decodeListValue(storedValue).map { parseScalarValue(itemType, it) }
       }

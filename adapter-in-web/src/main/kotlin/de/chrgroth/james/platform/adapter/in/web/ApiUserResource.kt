@@ -295,8 +295,15 @@ object ApiFormValues {
     when (value) {
       null -> result[key] = emptyList()
       is Map<*, *> -> value.forEach { (nestedId, nestedValue) -> flatten("$key.$nestedId", nestedValue, result) }
-      is Collection<*> -> result[key] = value.filterNotNull().map { it.toString() }
+      is Collection<*> -> if (value.any { it is Map<*, *> }) flattenObjectItems(key, value, result) else result[key] = value.filterNotNull().map { it.toString() }
       else -> result[key] = listOf(value.toString())
     }
+  }
+
+  /** The items of a LIST of OBJECTs as one `<key>.<fieldId>` column per field, aligned by item (a field an item lacks is blank). */
+  private fun flattenObjectItems(key: String, items: Collection<*>, result: MutableMap<String, List<String>>) {
+    val objects = items.filterIsInstance<Map<*, *>>()
+    val fieldIds = objects.flatMap { it.keys }.map { it.toString() }.distinct()
+    fieldIds.forEach { fieldId -> result["$key.$fieldId"] = objects.map { item -> item[fieldId]?.toString().orEmpty() } }
   }
 }

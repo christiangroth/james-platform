@@ -9,6 +9,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.Report
+import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.unitFormatHint as domainUnitFormatHint
 import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import de.chrgroth.james.platform.domain.model.user.User
@@ -385,6 +386,10 @@ object TemplateFormattingExtensions {
    */
   @JvmStatic
   fun itemHtmlInputType(property: Property): String = inputTypeFor(property.listItemType)
+
+  /** Whether [property] is a LIST of OBJECTs, rendered client-side like an OBJECT property (one group of fields per item). */
+  @JvmStatic
+  fun objectList(property: Property): Boolean = property.isObjectList
 
   private fun inputTypeFor(type: PropertyType?): String = when (type) {
     PropertyType.BOOLEAN -> "checkbox"

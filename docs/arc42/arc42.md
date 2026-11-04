@@ -75,6 +75,13 @@ James Platform is a personal Low Code system for building and running data-centr
     asked for inline in the form (see ADR [0026](../adr/0026-reference-lookup.md)).
   - For `object` properties: a nested list of Properties, which may themselves be `object` properties (arbitrary nesting depth).
   - For `List` properties: an item type (any type except `List`) and, optionally, item-level constraints.
+  - A **`List` of `object`s** (item type `object`) carries the fields of its items as nested Properties, like an `object` Property, e.g. the sessions of
+    a swimming day `sessions = [{bahnlänge, bahnen}]`. It is only allowed as a top-level Property, and its item fields only as simple values (`long`,
+    `Double`, `boolean`, `String`, `date`, `time`, `datetime`; no `ref`, `List` or `object` - `OBJECT_LIST_NOT_SUPPORTED`). Every item field has its own
+    constraints, default and unit; on save each item's units are converted and its required fields checked, items whose fields are all empty are
+    dropped, and the list's own `min`/`max` size applies to the items. Stored as the list encoding of the items' JSON objects (by field id); the token
+    API reads and writes it as an array of objects. The form renders one group of fields per item with add/remove (a new item starts with the
+    fields' defaults; a create form starts with one item), display texts show it as `25m, 40 | 50m, 20`.
 - **Computed properties** – a Developer may define derived properties by an **expression** of the platform's expression language (see
   [Reports](#reports), "Expression language"; ADR [0029](../adr/0029-expression-language-instead-of-kotlin-scripting.md)) with a result type (`long`,
   `Double`, `String`, `boolean`, `date`, `time`, `datetime`) and, for numbers, an optional unit (a granularity such as `KILOMETERS`; the result is a raw
@@ -118,7 +125,7 @@ James Platform is a personal Low Code system for building and running data-centr
 | `time`     | Time of day                                                                                           |
 | `datetime` | Combined date and time                                                                                |
 | `ref`      | Reference to an object of the same or another Entity within the same App Version                      |
-| `List`     | Ordered list of any type except `List`                                                                |
+| `List`     | Ordered list of any type except `List` (a list of `object`s: repeatable groups of simple fields)     |
 | `object`   | Inline nested object with its own property list (analogous to an anonymous Entity without a global ID) |
 
 Cyclic reference graphs via `ref` are detected and rejected at schema-definition time.

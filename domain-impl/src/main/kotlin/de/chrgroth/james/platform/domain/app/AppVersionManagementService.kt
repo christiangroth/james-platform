@@ -44,6 +44,8 @@ import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
+import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
+import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
@@ -813,6 +815,10 @@ class AppVersionManagementService(
     } else {
       null
     }
+    if (!objectListAllowed(entity, path, propertyType, resolvedItemType)) {
+      logger.warn { "Add property failed: type $propertyType<$resolvedItemType> not supported at path $path (LIST of OBJECTs top-level only, simple item fields)" }
+      return AppVersionError.OBJECT_LIST_NOT_SUPPORTED.left()
+    }
     val targetEntityRequired = propertyType == PropertyType.REF || resolvedItemType == PropertyType.REF
     val resolvedTargetEntityId = resolveTargetEntity(version, targetEntityRequired, targetEntityId).fold({ return it.left() }, { it })
     val newProperty = Property(
@@ -867,9 +873,14 @@ class AppVersionManagementService(
     }
     val constraintsToKeep = if (propertyType == property.type) property.constraints else emptySet()
     val listItemTypeToKeep = if (propertyType == PropertyType.LIST) property.listItemType else null
+    if (!objectListAllowed(entity, path, propertyType, listItemTypeToKeep)) {
+      logger.warn { "Update property failed: type $propertyType not supported at path $path (LIST of OBJECTs top-level only, simple item fields)" }
+      return AppVersionError.OBJECT_LIST_NOT_SUPPORTED.left()
+    }
     val itemConstraintsToKeep = if (propertyType == PropertyType.LIST) property.itemConstraints else emptySet()
     val targetEntityIdToKeep = if (propertyType == PropertyType.REF || listItemTypeToKeep == PropertyType.REF) property.targetEntityId else null
-    val nestedPropertiesToKeep = if (propertyType == PropertyType.OBJECT) property.nestedProperties else emptyList()
+    val keepsNested = propertyType == PropertyType.OBJECT || (propertyType == PropertyType.LIST && listItemTypeToKeep == PropertyType.OBJECT)
+    val nestedPropertiesToKeep = if (keepsNested) property.nestedProperties else emptyList()
     val updatedProperty = property.copy(
       name = name.trim(),
       type = propertyType,
@@ -1143,10 +1154,10 @@ class AppVersionManagementService(
     }
     var parsedItemType: PropertyType? = null
     val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
-      withPropertyListItemType(property, propertyId, listItemType).map {
-        parsedItemType = it.listItemType
-        it
-      }
+      val withItemType = withPropertyListItemType(property, propertyId, listItemType).fold({ return@mutatePropertyAtPath it.left() }, { it })
+      if (!objectListAllowed(entity, path, withItemType.type, withItemType.listItemType)) return@mutatePropertyAtPath AppVersionError.OBJECT_LIST_NOT_SUPPORTED.left()
+      parsedItemType = withItemType.listItemType
+      withItemType.right()
     }.fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) updatedEntity else it })
     appVersionRepository.save(updated)
@@ -1162,7 +1173,13 @@ class AppVersionManagementService(
     val parsedItemType = parseListItemType(listItemType).fold({ return it.left() }, { it })
     val itemConstraintsToKeep = if (parsedItemType == property.listItemType) property.itemConstraints else emptySet()
     val targetEntityIdToKeep = if (parsedItemType == PropertyType.REF) property.targetEntityId else null
-    return property.copy(listItemType = parsedItemType, itemConstraints = itemConstraintsToKeep, targetEntityId = targetEntityIdToKeep).right()
+    val nestedPropertiesToKeep = if (parsedItemType == PropertyType.OBJECT) property.nestedProperties else emptyList()
+    return property.copy(
+      listItemType = parsedItemType,
+      itemConstraints = itemConstraintsToKeep,
+      targetEntityId = targetEntityIdToKeep,
+      nestedProperties = nestedPropertiesToKeep,
+    ).right()
   }
 
   override fun setPropertyItemConstraints(
@@ -1295,7 +1312,7 @@ class AppVersionManagementService(
     if (path.isEmpty()) {
       transform(entity.properties).map { entity.copy(properties = it) }
     } else {
-      val parent = entity.properties.find { it.id.value == path.first() && it.type == PropertyType.OBJECT }
+      val parent = entity.properties.find { it.id.value == path.first() && it.hasNestedProperties }
         ?: return AppVersionError.PROPERTY_NOT_FOUND.left()
       withNestedPropertiesAtPath(parent, path.drop(1), transform).map { updatedParent ->
         entity.copy(properties = entity.properties.map { if (it.id.value == parent.id.value) updatedParent else it })
@@ -1310,7 +1327,7 @@ class AppVersionManagementService(
     if (path.isEmpty()) {
       transform(property.nestedProperties).map { property.copy(nestedProperties = it) }
     } else {
-      val parent = property.nestedProperties.find { it.id.value == path.first() && it.type == PropertyType.OBJECT }
+      val parent = property.nestedProperties.find { it.id.value == path.first() && it.hasNestedProperties }
         ?: return AppVersionError.PROPERTY_NOT_FOUND.left()
       withNestedPropertiesAtPath(parent, path.drop(1), transform).map { updatedParent ->
         property.copy(nestedProperties = property.nestedProperties.map { if (it.id.value == parent.id.value) updatedParent else it })
@@ -1321,9 +1338,19 @@ class AppVersionManagementService(
   private fun propertiesAtPath(entity: EntityDefinition, path: List<String>): List<Property>? {
     var current = entity.properties
     for (id in path) {
-      current = current.find { it.id.value == id && it.type == PropertyType.OBJECT }?.nestedProperties ?: return null
+      current = current.find { it.id.value == id && it.hasNestedProperties }?.nestedProperties ?: return null
     }
     return current
+  }
+
+  /**
+   * Whether a property of [type] (LIST items of [itemType]) may live at [path] in [entity]: a LIST of OBJECTs only as top-level property, and
+   * the fields of its items only of [PropertyType.OBJECT_LIST_ITEM_FIELD_TYPES].
+   */
+  private fun objectListAllowed(entity: EntityDefinition, path: List<String>, type: PropertyType, itemType: PropertyType?): Boolean {
+    if (type == PropertyType.LIST && itemType == PropertyType.OBJECT && path.isNotEmpty()) return false
+    val parent = path.lastOrNull()?.let { parentId -> propertiesAtPath(entity, path.dropLast(1))?.find { it.id.value == parentId } }
+    return parent == null || !parent.isObjectList || type in PropertyType.OBJECT_LIST_ITEM_FIELD_TYPES
   }
 
   /** Mutates the single property identified by [propertyId] within the properties addressed by [path], rebuilding all ancestors. */
@@ -1757,9 +1784,9 @@ class AppVersionManagementService(
     return version.right()
   }
 
-  /** An OBJECT property is only valid once it has at least one nested property, and all of its nested properties are themselves valid (recursively). */
+  /** An OBJECT property (or a LIST of OBJECTs) is only valid once it has at least one nested property, and all of its nested properties are themselves valid (recursively). */
   private fun hasInvalidObjectStructure(properties: List<Property>): Boolean = properties.any {
-    it.type == PropertyType.OBJECT && (it.nestedProperties.isEmpty() || hasInvalidObjectStructure(it.nestedProperties))
+    it.hasNestedProperties && (it.nestedProperties.isEmpty() || hasInvalidObjectStructure(it.nestedProperties))
   }
 
   /**

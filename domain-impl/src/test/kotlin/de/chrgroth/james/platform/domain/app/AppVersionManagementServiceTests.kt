@@ -590,6 +590,17 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `publishVersion fails with InvalidObjectStructureError when a LIST of OBJECTs has no item fields`() {
+    val listProp = Property(id = PropertyId("p-1"), name = "sessions", type = PropertyType.LIST, listItemType = PropertyType.OBJECT)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Schwimmen", properties = listOf(listProp))
+    every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersion.copy(entityDefinitions = listOf(entity)))
+
+    val result = service.publishVersion("app-1", "BUGFIX", releaseNotes)
+
+    assertThat(result.leftOrNull()).isInstanceOf(InvalidObjectStructureError::class.java)
+  }
+
+  @Test
   fun `publishVersion succeeds when an OBJECT property has at least one nested property`() {
     val nestedProp = Property(id = PropertyId("p-2"), name = "Nested", type = PropertyType.STRING)
     val objectProp = Property(id = PropertyId("p-1"), name = "Meta", type = PropertyType.OBJECT, nestedProperties = listOf(nestedProp))
@@ -2027,6 +2038,50 @@ class AppVersionManagementServiceTests {
 
     assertThat(result.isLeft()).isTrue()
     assertThat(result.leftOrNull()).isEqualTo(AppVersionError.PROPERTY_NOT_FOUND)
+  }
+
+  private val objectList = Property(id = PropertyId("p-1"), name = "sessions", type = PropertyType.LIST, listItemType = PropertyType.OBJECT)
+  private val objectHolder = Property(id = PropertyId("p-2"), name = "Meta", type = PropertyType.OBJECT, nestedProperties = listOf(Property(id = PropertyId("n-1"), name = "x", type = PropertyType.STRING)))
+
+  private fun draftWith(vararg properties: Property): AppVersion {
+    val version = draftVersion.copy(entityDefinitions = listOf(EntityDefinition(id = EntityDefinitionId("e-1"), name = "Schwimmen", properties = properties.toList())))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+    return version
+  }
+
+  @Test
+  fun `addProperty adds a simple field to the items of a LIST of OBJECTs`() {
+    draftWith(objectList)
+
+    val result = service.addProperty("app-1", "ver-1", "e-1", "bahnen", "LONG", false, null, null, listOf("p-1"))
+
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.properties?.first()?.nestedProperties).extracting<String> { it.name }.containsExactly("bahnen")
+  }
+
+  @Test
+  fun `addProperty rejects REF, LIST and OBJECT fields in the items of a LIST of OBJECTs`() {
+    draftWith(objectList)
+
+    assertThat(service.addProperty("app-1", "ver-1", "e-1", "o", "OBJECT", true, null, null, listOf("p-1")).leftOrNull()).isEqualTo(AppVersionError.OBJECT_LIST_NOT_SUPPORTED)
+    assertThat(service.addProperty("app-1", "ver-1", "e-1", "l", "LIST", true, null, "STRING", listOf("p-1")).leftOrNull()).isEqualTo(AppVersionError.OBJECT_LIST_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `addProperty and setPropertyListItemType reject a LIST of OBJECTs below the top level`() {
+    draftWith(objectHolder.copy(nestedProperties = objectHolder.nestedProperties + Property(id = PropertyId("n-2"), name = "tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)))
+
+    assertThat(service.addProperty("app-1", "ver-1", "e-1", "items", "LIST", true, null, "OBJECT", listOf("p-2")).leftOrNull()).isEqualTo(AppVersionError.OBJECT_LIST_NOT_SUPPORTED)
+    assertThat(service.setPropertyListItemType("app-1", "ver-1", "e-1", "n-2", "OBJECT", listOf("p-2")).leftOrNull()).isEqualTo(AppVersionError.OBJECT_LIST_NOT_SUPPORTED)
+  }
+
+  @Test
+  fun `setPropertyListItemType keeps the item fields only while the items stay OBJECTs`() {
+    draftWith(objectList.copy(nestedProperties = listOf(Property(id = PropertyId("n-1"), name = "bahnen", type = PropertyType.LONG))))
+
+    val result = service.setPropertyListItemType("app-1", "ver-1", "e-1", "p-1", "STRING", emptyList())
+
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.properties?.first()?.nestedProperties).isEmpty()
   }
 
   // endregion
