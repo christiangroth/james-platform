@@ -7,7 +7,9 @@ import de.chrgroth.james.platform.domain.model.app.ComputedProperty
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import de.chrgroth.james.platform.domain.report.ReportExpressions
 import java.time.LocalDate
@@ -19,6 +21,8 @@ import kotlin.time.Instant
  * How computed properties and smart defaults (ADR 0029) use the expression language ([Expression]) on one object of an entity: fields are the
  * entity's properties by name (properties nested in OBJECT properties as `object.field`), read in their raw storage form typed by the property
  * (references as the referenced object's id, lists and objects as text); `config.<field>` reads the installation's configuration the same way.
+ * List functions ([Expression.LIST_FUNCTIONS]) read a top-level LIST property's items: the fields of a LIST of OBJECTs' items by name, the
+ * item value of a list of simple values as [Expression.ITEM].
  */
 internal object EntityExpressions {
 
@@ -72,6 +76,26 @@ internal object EntityExpressions {
 
   fun value(data: Map<String, String?>, path: List<Property>): ExpressionValue? = ExpressionValue.of(raw(data, path), typeOf(path.last()))
 
+  /** The top-level LIST property [name] among [properties], null if there is none. */
+  fun listProperty(properties: List<Property>, name: String): Property? = properties.find { it.name == name && it.type == PropertyType.LIST }
+
+  /** The expression type of the item field [name] of [list]: a field of a LIST of OBJECTs' items, or [Expression.ITEM] of a list of simple values. */
+  fun itemTypeOf(list: Property, name: String): Known? = if (list.isObjectList) {
+    list.nestedProperties.find { it.name == name }?.let { Known(typeOf(it)) }
+  } else {
+    list.listItemType?.takeIf { name == Expression.ITEM }?.let { Known(ReportExpressions.typeOf(it)) }
+  }
+
+  /** Reads the item field [name] of one stored item of [list] (an item's JSON object for a LIST of OBJECTs, else the item value itself). */
+  fun itemValue(list: Property, item: String, name: String): ExpressionValue? = if (list.isObjectList) {
+    list.nestedProperties.find { it.name == name }?.let { field ->
+      val values = runCatching { decodeObjectValue(item) }.getOrNull() ?: return null
+      ExpressionValue.of(values[field.id.value]?.toString(), typeOf(field))
+    }
+  } else {
+    list.listItemType?.takeIf { name == Expression.ITEM }?.let { ExpressionValue.of(item, ReportExpressions.typeOf(it)) }
+  }
+
   /** [now] as wall-clock date-time in the application's time zone. */
   fun localNow(now: Instant): LocalDateTime = java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atZone(AppTimeZone.zone).toLocalDateTime()
 
@@ -110,23 +134,24 @@ internal object EntityExpressions {
   /** Validates the expression of [computed] on [entity]: it may read the entity's properties and the computed properties defined before it. */
   fun validateComputed(entity: EntityDefinition, computed: ComputedProperty, source: String, configEntity: EntityDefinition?): InvalidExpressionError? {
     val before = entity.computedProperties.takeWhile { it.id != computed.id }
-    return validate(source, Usage.COMPUTED_PROPERTY, computed.type, configEntity) { name ->
+    return validate(source, Usage.COMPUTED_PROPERTY, computed.type, configEntity, entity.properties) { name ->
       resolve(entity.properties, name)?.let { Known(typeOf(it.last())) } ?: before.find { it.name == name }?.let { Known(ReportExpressions.typeOf(it.type)) }
     }
   }
 
   /** Validates the smart default of [property] (a top-level property of [entity]): it may read the entity's properties. */
   fun validateSmartDefault(entity: EntityDefinition, property: Property, source: String, configEntity: EntityDefinition?): InvalidExpressionError? =
-    validate(source, Usage.SMART_DEFAULT, property.type, configEntity) { name -> resolve(entity.properties, name)?.let { Known(typeOf(it.last())) } }
+    validate(source, Usage.SMART_DEFAULT, property.type, configEntity, entity.properties) { name -> resolve(entity.properties, name)?.let { Known(typeOf(it.last())) } }
 
   /** A known field and its type (null: unknown type). */
-  private class Known(val type: ExpressionType?)
+  class Known(val type: ExpressionType?)
 
   private fun validate(
     source: String,
     usage: Usage,
     resultType: PropertyType,
     configEntity: EntityDefinition?,
+    properties: List<Property>,
     field: (String) -> Known?,
   ): InvalidExpressionError? {
     val expression = try {
@@ -151,7 +176,15 @@ internal object EntityExpressions {
         types[identifier] = (field(identifier) ?: return InvalidExpressionError(ExpressionErrorCode.UNKNOWN_FIELD, listOf(identifier))).type
       }
     }
-    val check = expression.check { types[it] }
+    val itemTypes = HashMap<Pair<String, String>, ExpressionType?>()
+    for ((listName, itemNames) in expression.itemIdentifiers) {
+      val list = listProperty(properties, listName) ?: return InvalidExpressionError(ExpressionErrorCode.LIST_FIELD_REQUIRED, listOf(listName))
+      for (itemName in itemNames) {
+        val known = itemTypeOf(list, itemName) ?: return InvalidExpressionError(ExpressionErrorCode.UNKNOWN_ITEM_FIELD, listOf(itemName, listName))
+        itemTypes[listName to itemName] = known.type
+      }
+    }
+    val check = expression.check({ types[it] }, { list, name -> itemTypes[list to name] })
     check.problems.firstOrNull()?.let { problem ->
       val code = when (problem.kind) {
         ExpressionProblem.Kind.OPERAND_TYPE -> ExpressionErrorCode.OPERAND_TYPE
@@ -193,4 +226,20 @@ internal class EntityExpressionContext(
   }
 
   override fun last(name: String): ExpressionValue? = lastValue(name)
+
+  override fun items(name: String): List<ExpressionContext>? {
+    val list = EntityExpressions.listProperty(properties, name) ?: return null
+    return decodeListValue(data[list.id.value]).map { item -> ItemExpressionContext(this) { field -> EntityExpressions.itemValue(list, item, field) } }
+  }
+}
+
+/** One list item inside a list function: its own fields, everything else (configuration, today, now) from the enclosing [parent]. */
+internal class ItemExpressionContext(private val parent: ExpressionContext, private val itemField: (String) -> ExpressionValue?) : ExpressionContext {
+  override fun field(name: String): ExpressionValue? = itemField(name)
+
+  override fun config(path: String): ExpressionValue? = parent.config(path)
+
+  override val today: LocalDate get() = parent.today
+
+  override val now: LocalDateTime get() = parent.now
 }

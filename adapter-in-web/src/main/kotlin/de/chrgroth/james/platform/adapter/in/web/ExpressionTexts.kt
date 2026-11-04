@@ -24,6 +24,8 @@ class ExpressionTexts(
       ExpressionErrorCode.FIELD_ARGUMENT_REQUIRED -> expressionMsg.developerExpressionFieldArgumentRequiredError(a(0))
       ExpressionErrorCode.UNKNOWN_FIELD -> expressionMsg.developerExpressionUnknownFieldError(a(0))
       ExpressionErrorCode.UNKNOWN_CONFIG_FIELD -> expressionMsg.developerExpressionUnknownConfigFieldError(a(0))
+      ExpressionErrorCode.LIST_FIELD_REQUIRED -> expressionMsg.developerExpressionListFieldRequiredError(a(0))
+      ExpressionErrorCode.UNKNOWN_ITEM_FIELD -> expressionMsg.developerExpressionUnknownItemFieldError(a(0), a(1))
       ExpressionErrorCode.OPERAND_TYPE -> reportExpressionMsg.reportErrorExpressionOperandType(a(0), typeName(a(1)))
       ExpressionErrorCode.ARGUMENT_TYPE -> reportExpressionMsg.reportErrorExpressionArgumentType(a(0), a(1), typeName(a(2)))
       ExpressionErrorCode.INCOMPARABLE -> reportExpressionMsg.reportErrorExpressionIncomparable(a(0), typeName(a(1)), typeName(a(2)))

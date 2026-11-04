@@ -185,4 +185,7 @@ internal interface ExpressionContext {
 
   /** The value of the field [name] in the entity's latest existing object (`last(field)`); null where there are no such objects (reports). */
   fun last(name: String): ExpressionValue? = null
+
+  /** The items of the LIST field [name] as contexts reading each item's fields (list functions); null if it is no list (e.g. in reports). */
+  fun items(name: String): List<ExpressionContext>? = null
 }
