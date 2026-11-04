@@ -5,6 +5,8 @@ import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
+import de.chrgroth.james.platform.domain.model.app.ComputedProperty
+import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
@@ -24,9 +26,9 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.time.Instant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.time.Instant
 
 class AggregationInlineUpdateServiceTests {
 
@@ -389,6 +391,47 @@ class AggregationInlineUpdateServiceTests {
 
     verify(exactly = 0) { aggregationRepository.findByAggregationValueId(any()) }
     verify(exactly = 0) { aggregationRepository.save(any()) }
+  }
+
+  // endregion
+
+  // region computed property sources
+
+  private val doubled = ComputedProperty(id = ComputedPropertyId("doubled"), name = "doubled", type = PropertyType.LONG, expression = "Amount * 2")
+  private val computedAggregation = AggregationDefinition(
+    id = AggregationDefinitionId("agg-computed"),
+    name = "Doubled total",
+    function = AggregationFunction.SUM,
+    sourceProperty = PropertyId(doubled.id.value),
+  )
+  private val computedEntity = EntityDefinition(
+    id = EntityDefinitionId("entity-1"),
+    name = "Entity",
+    properties = listOf(amountProp),
+    computedProperties = listOf(doubled),
+    aggregations = listOf(computedAggregation),
+  )
+
+  @Test
+  fun `a write marks aggregations over computed properties stale and enqueues their recompute instead of a delta`() {
+    justRun { aggregationRepository.markStaleByInstalledAppIdAndAggregationDefinitionId(installedAppId, computedAggregation.id) }
+    justRun { outbox.enqueue(any()) }
+
+    service.onAppDataCreated(installedAppId, listOf(computedEntity), computedEntity, appData("d1", mapOf(amountPropId.value to "10")))
+
+    verify { outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId.value, computedAggregation.id.value)) }
+    verify(exactly = 0) { aggregationRepository.save(any()) }
+  }
+
+  @Test
+  fun `a configuration change recomputes the aggregations over computed properties of every entity`() {
+    val config = EntityDefinition(id = EntityDefinitionId("config"), name = "Einstellungen", configuration = true, properties = listOf(amountProp))
+    justRun { aggregationRepository.markStaleByInstalledAppIdAndAggregationDefinitionId(installedAppId, computedAggregation.id) }
+    justRun { outbox.enqueue(any()) }
+
+    service.onAppDataUpdated(installedAppId, listOf(computedEntity, config), config, appData("c", emptyMap()), appData("c", mapOf(amountPropId.value to "1")))
+
+    verify { outbox.enqueue(DomainOutboxEvent.RecomputeAggregation(installedAppId.value, computedAggregation.id.value)) }
   }
 
   // endregion

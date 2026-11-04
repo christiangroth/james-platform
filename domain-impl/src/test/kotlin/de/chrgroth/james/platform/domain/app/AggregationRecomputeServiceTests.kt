@@ -10,6 +10,8 @@ import de.chrgroth.james.platform.domain.model.app.AppId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.AppVersionId
 import de.chrgroth.james.platform.domain.model.app.AppVersionStatus
+import de.chrgroth.james.platform.domain.model.app.ComputedProperty
+import de.chrgroth.james.platform.domain.model.app.ComputedPropertyId
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
@@ -22,6 +24,7 @@ import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueId
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
 import de.chrgroth.james.platform.domain.outbox.DomainOutboxEvent
+import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.out.app.AppDataRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import de.chrgroth.james.platform.domain.port.out.app.InstalledAppRepositoryPort
@@ -31,9 +34,9 @@ import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.time.Instant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.time.Instant
 
 class AggregationRecomputeServiceTests {
 
@@ -41,7 +44,8 @@ class AggregationRecomputeServiceTests {
   private val appVersionRepository: AppVersionRepositoryPort = mockk()
   private val appDataRepository: AppDataRepositoryPort = mockk()
   private val aggregationRepository: AggregationRepositoryPort = mockk()
-  private val service = AggregationRecomputeService(installedAppRepository, appVersionRepository, appDataRepository, aggregationRepository)
+  private val appConfiguration: AppConfigurationPort = mockk()
+  private val service = AggregationRecomputeService(installedAppRepository, appVersionRepository, appDataRepository, aggregationRepository, ComputedPropertyService(), appConfiguration)
 
   private val installedAppId = InstalledAppId("installed-app-1")
   private val appId = AppId("app-1")
@@ -142,5 +146,23 @@ class AggregationRecomputeServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(savedSlot.captured.value).isEqualTo(5.0)
     assertThat(savedSlot.captured.sampleCount).isEqualTo(1)
+  }
+
+  @Test
+  fun `an aggregation over a computed property evaluates its expression per object`() {
+    val doubled = ComputedProperty(id = ComputedPropertyId("doubled"), name = "doubled", type = PropertyType.LONG, expression = "Amount * 2")
+    val computedAggregation = aggregation.copy(sourceProperty = PropertyId(doubled.id.value))
+    val computedEntity = entityDef.copy(computedProperties = listOf(doubled), aggregations = listOf(computedAggregation))
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion.copy(entityDefinitions = listOf(computedEntity))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns listOf(appData("d1", "10"), appData("d2", "5"))
+    every { appConfiguration.configurationValues(any(), any()) } returns emptyMap()
+    justRun { aggregationRepository.deleteAllByInstalledAppIdAndAggregationDefinitionId(installedAppId, aggregation.id) }
+    val savedSlot = slot<AggregationValue>()
+    justRun { aggregationRepository.save(capture(savedSlot)) }
+
+    service.handle(DomainOutboxEvent.RecomputeAggregation(installedAppId.value, aggregation.id.value))
+
+    assertThat(savedSlot.captured.value).isEqualTo(30.0)
   }
 }

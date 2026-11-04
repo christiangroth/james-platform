@@ -4246,6 +4246,25 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `addAggregation accepts a computed property as source, numeric for SUM`() {
+    val amount = Property(id = PropertyId("p-1"), name = "Amount", type = PropertyType.LONG)
+    val doubled = ComputedProperty(id = ComputedPropertyId("c-1"), name = "doubled", type = PropertyType.LONG, expression = "Amount * 2")
+    val label = ComputedProperty(id = ComputedPropertyId("c-2"), name = "label", type = PropertyType.STRING, expression = "'x'")
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(amount), computedProperties = listOf(doubled, label))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+    every { installedAppRepository.findAllByAppId(any()) } returns emptyList()
+    justRun { appVersionRepository.save(any()) }
+
+    val sum = service.addAggregation("app-1", "ver-1", "e-1", AggregationInput(name = "Doubled", function = "SUM", sourceProperty = "c-1"))
+    val sumOfText = service.addAggregation("app-1", "ver-1", "e-1", AggregationInput(name = "Labels", function = "SUM", sourceProperty = "c-2"))
+    val countOfText = service.addAggregation("app-1", "ver-1", "e-1", AggregationInput(name = "Labels", function = "COUNT", sourceProperty = "c-2"))
+
+    assertThat(sum.getOrNull()?.entityDefinitions?.single()?.aggregations?.single()?.sourceProperty).isEqualTo(PropertyId("c-1"))
+    assertThat(sumOfText.leftOrNull()).isEqualTo(AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID)
+    assertThat(countOfText.isRight()).isTrue()
+  }
+
+  @Test
   fun `addAggregation rejects SUM on a non-numeric nested property`() {
     val note = Property(id = PropertyId("p-mood-note"), name = "notiz", type = PropertyType.STRING)
     val rating = Property(id = PropertyId("p-rating"), name = "bewertung", type = PropertyType.OBJECT, nestedProperties = listOf(note))

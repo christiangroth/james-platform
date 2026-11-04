@@ -37,6 +37,7 @@ import de.chrgroth.james.platform.domain.model.app.PredefinedSmartDefault
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
 import de.chrgroth.james.platform.domain.model.app.SortDirection
@@ -1544,7 +1545,9 @@ class DeveloperAppResource {
         function = aggregation.function.name,
         functionLabel = aggregationFunctionLabel(aggregation.function),
         sourceProperty = aggregation.sourceProperty.value,
-        sourcePropertyName = entity.findPropertyPath(aggregation.sourceProperty)?.displayName ?: aggregation.sourceProperty.value,
+        sourcePropertyName = entity.findPropertyPath(aggregation.sourceProperty)?.displayName
+          ?: aggregation.computedSourceIn(entity)?.let { aggregationMsg.developerAggregationComputedSourceLabel(it.name) }
+          ?: aggregation.sourceProperty.value,
         refPath = aggregation.refPath?.value.orEmpty(),
         timeBucket = aggregation.timeBucket?.name.orEmpty(),
         timeProperty = aggregation.timeProperty?.value.orEmpty(),
@@ -1566,9 +1569,21 @@ class DeveloperAppResource {
     aggregation.groupBy?.let { aggregationMsg.developerAggregationDetailGroupBy(nameOf(it.value)) },
   ).joinToString(" · ")
 
-  /** Source property options: top-level properties plus properties nested in OBJECT properties, labeled with their path (`bewertung > zufriedenheit`). */
+  /**
+   * Source property options: top-level properties plus properties nested in OBJECT properties, labeled with their path (`bewertung > zufriedenheit`),
+   * then the computed properties with an expression (evaluated per object when aggregating), labeled `name (berechnet)`.
+   */
   private fun aggregationSourceOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.propertyPaths().map { path ->
     aggregationPropertyOption(path.property).copy(name = path.displayName)
+  } + entity.computedProperties.filter { it.expression != null }.map { computed ->
+    AggregationPropertyOptionRow(
+      id = computed.id.value,
+      name = aggregationMsg.developerAggregationComputedSourceLabel(computed.name),
+      numeric = computed.type == PropertyType.LONG || computed.type == PropertyType.DOUBLE,
+      ref = false,
+      dateTime = false,
+      groupable = false,
+    )
   }
 
   private fun aggregationPropertyOptions(entity: EntityDefinition): List<AggregationPropertyOptionRow> = entity.properties.map { aggregationPropertyOption(it) }

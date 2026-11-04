@@ -7,6 +7,7 @@ import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.buildAggregationDependencyIndex
+import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueId
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
@@ -30,6 +31,9 @@ import java.time.Instant
  * (the changed item's old value equals the stored extreme - a duplicate could still be the true extreme, so this is
  * conservative "in doubt" per the issue), the value is marked STALE and a full recompute is enqueued on the
  * [de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition.AggregationRecompute] outbox partition instead.
+ *
+ * An aggregation over a computed property is always recomputed that way (its values are evaluated from the expression, which may read the
+ * configuration or today), and so are all of them when the installation's configuration object changes.
  */
 @ApplicationScoped
 @Suppress("Unused")
@@ -39,18 +43,34 @@ class AggregationInlineUpdateService(
 ) {
 
   fun onAppDataCreated(installedAppId: InstalledAppId, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition, appData: AppData) {
-    affectedAggregations(entityDefinitions, entityDef).forEach { applyCreate(installedAppId, it, appData) }
+    recomputeComputedSources(installedAppId, entityDefinitions, entityDef)
+    inlineAggregations(entityDefinitions, entityDef).forEach { applyCreate(installedAppId, it, appData) }
   }
 
   fun onAppDataUpdated(installedAppId: InstalledAppId, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition, old: AppData, new: AppData) {
-    affectedAggregations(entityDefinitions, entityDef).forEach { aggregation ->
+    recomputeComputedSources(installedAppId, entityDefinitions, entityDef)
+    inlineAggregations(entityDefinitions, entityDef).forEach { aggregation ->
       applyDelete(installedAppId, aggregation, old)
       applyCreate(installedAppId, aggregation, new)
     }
   }
 
   fun onAppDataDeleted(installedAppId: InstalledAppId, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition, appData: AppData) {
-    affectedAggregations(entityDefinitions, entityDef).forEach { applyDelete(installedAppId, it, appData) }
+    recomputeComputedSources(installedAppId, entityDefinitions, entityDef)
+    inlineAggregations(entityDefinitions, entityDef).forEach { applyDelete(installedAppId, it, appData) }
+  }
+
+  /** The affected aggregations updated by delta: those over a stored property. */
+  private fun inlineAggregations(entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): List<AggregationDefinition> =
+    affectedAggregations(entityDefinitions, entityDef).filter { it.computedSourceIn(entityDef) == null }
+
+  /**
+   * Marks STALE and enqueues a full recompute for the aggregations over computed properties a write to [entityDef] affects: its own ones, or
+   * all of the version's when [entityDef] is the configuration (computed properties may read `config.<field>`).
+   */
+  private fun recomputeComputedSources(installedAppId: InstalledAppId, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition) {
+    val owners = if (entityDef.configuration) entityDefinitions else listOf(entityDef)
+    owners.flatMap { owner -> owner.aggregations.filter { it.computedSourceIn(owner) != null } }.forEach { markStaleAndEnqueueRecompute(installedAppId, it.id) }
   }
 
   /** The [AggregationDefinition]s owned by [entityDef], resolved via the #640 dependency index over [entityDefinitions]. */

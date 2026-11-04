@@ -44,6 +44,7 @@ import de.chrgroth.james.platform.domain.model.app.ReferenceLookup
 import de.chrgroth.james.platform.domain.model.app.Report
 import de.chrgroth.james.platform.domain.model.app.ReportId
 import de.chrgroth.james.platform.domain.model.app.SectionDiff
+import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
 import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.SortCriteria
@@ -1504,6 +1505,8 @@ class AppVersionManagementService(
     val withExpression = withComputedExpression(updatedEntity, updatedComputedProperty, expression, version).fold({ return it.left() }, { it })
     val updated = version.copy(entityDefinitions = version.entityDefinitions.map { if (it.id.value == entityId) withExpression else it })
     appVersionRepository.save(updated)
+    // aggregations over this computed property hold values of the old expression
+    withExpression.aggregations.filter { it.computedSourceIn(withExpression)?.id == computedProperty.id }.forEach { enqueueTestInstallationAggregationRecompute(updated, it.id) }
     logger.info { "Computed property updated: $computedPropertyId in entity $entityId in version $versionId" }
     return updated.right()
   }
@@ -1811,11 +1814,18 @@ class AppVersionManagementService(
   /** The first rule [aggregation] violates, or null if valid - shared by the Version publish and the aggregation editor's form feedback. */
   private fun aggregationDefinitionError(entity: EntityDefinition, aggregation: AggregationDefinition): AppVersionError? {
     if (aggregation.name.isBlank()) return AppVersionError.BLANK_INPUT
-    // the source may be nested in OBJECT properties; its stored sourcePath must still match where the property lives in this entity
-    val sourcePropertyPath = entity.findPropertyPath(aggregation.sourceProperty) ?: return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
-    if (sourcePropertyPath.parentIds != aggregation.sourcePath) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
-    val sourceProperty = sourcePropertyPath.property
-    if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    val computedSource = aggregation.computedSourceIn(entity)
+    if (computedSource != null) {
+      // a computed property's values are evaluated per object; it needs an expression and, for SUM/AVG/MIN/MAX, a numeric result
+      if (computedSource.expression == null) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+      if (aggregation.function.requiresNumericSourceProperty() && computedSource.type !in NUMERIC_PROPERTY_TYPES) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    } else {
+      // the source may be nested in OBJECT properties; its stored sourcePath must still match where the property lives in this entity
+      val sourcePropertyPath = entity.findPropertyPath(aggregation.sourceProperty) ?: return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+      if (sourcePropertyPath.parentIds != aggregation.sourcePath) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+      val sourceProperty = sourcePropertyPath.property
+      if (aggregation.function.requiresNumericSourceProperty() && sourceProperty.type !in NUMERIC_PROPERTY_TYPES) return AppVersionError.AGGREGATION_SOURCE_PROPERTY_INVALID
+    }
     // No combined grouping: groupKeyOf uses a single group key, so refPath and groupBy are mutually exclusive.
     if (aggregation.refPath != null && aggregation.groupBy != null) return AppVersionError.AGGREGATION_REF_PATH_AND_GROUP_BY_EXCLUSIVE
     aggregation.refPath?.let { refPath ->
@@ -2067,7 +2077,7 @@ class AppVersionManagementService(
     entity.properties.find { it.id.value == propertyId }?.name ?: propertyId
 
   private fun aggregationToDslLines(aggregation: AggregationDefinition, entity: EntityDefinition): List<String> {
-    val sourceName = entity.findPropertyPath(aggregation.sourceProperty)?.displayName ?: aggregation.sourceProperty.value
+    val sourceName = entity.findPropertyPath(aggregation.sourceProperty)?.displayName ?: aggregation.computedSourceIn(entity)?.name ?: aggregation.sourceProperty.value
     val lines = mutableListOf("  aggregation ${aggregation.name}: ${aggregation.function}($sourceName)")
     aggregation.refPath?.let { lines.add("    ref-path: ${propertyNameOf(entity, it.value)}") }
     aggregation.groupBy?.let { lines.add("    group-by: ${propertyNameOf(entity, it.value)}") }

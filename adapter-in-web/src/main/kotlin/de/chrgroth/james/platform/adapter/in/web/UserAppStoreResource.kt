@@ -22,10 +22,12 @@ import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyConstraint
 import de.chrgroth.james.platform.domain.model.app.PropertyType
+import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.SortDirection
 import de.chrgroth.james.platform.domain.model.app.TimeBucket
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
+import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
 import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
@@ -704,7 +706,7 @@ class UserAppStoreResource {
         ?.let { value ->
           AggregationView(
             name = aggregation.name,
-            valueFormatted = TemplateFormattingExtensions.formatted(value.value),
+            valueFormatted = formatAggregationValue(aggregation, sourceUnitOf(aggregation, entityDef), value.value),
             stale = value.status == AggregationValueStatus.STALE,
           )
         }
@@ -747,7 +749,7 @@ class UserAppStoreResource {
       return formatBucketLabel(aggregation.timeBucket!!, key)
     }
 
-    val sourceProperty = entityDef.findPropertyPath(aggregation.sourceProperty)?.property
+    val sourceUnit = sourceUnitOf(aggregation, entityDef)
     val rowsWithSortKeys = values.map { value ->
       Triple(value, groupLabelOf(value), periodLabelOf(value))
     }
@@ -762,7 +764,7 @@ class UserAppStoreResource {
       AggregationTableRow(
         periodLabel = periodLabel,
         groupLabel = groupLabel,
-        valueFormatted = formatAggregationValue(aggregation, sourceProperty, value.value),
+        valueFormatted = formatAggregationValue(aggregation, sourceUnit, value.value),
         stale = value.status == AggregationValueStatus.STALE,
       )
     }
@@ -794,9 +796,12 @@ class UserAppStoreResource {
       .associate { it.id.value to computeDisplayText(targetEntity, it.id.value, it.data, context) }
   }
 
-  /** Formats an aggregation's raw numeric value, applying the source property's unit granularity if it has one (COUNT never carries the source property's unit). */
-  private fun formatAggregationValue(aggregation: AggregationDefinition, sourceProperty: Property?, value: Double): String {
-    val unit = sourceProperty?.unit
+  /** The unit of [aggregation]'s source: a (nested) property's or a computed property's unit, null without one. */
+  private fun sourceUnitOf(aggregation: AggregationDefinition, entityDef: EntityDefinition): PropertyUnit? =
+    entityDef.findPropertyPath(aggregation.sourceProperty)?.property?.unit ?: aggregation.computedSourceIn(entityDef)?.unit
+
+  /** Formats an aggregation's raw numeric value, applying the source's unit granularity if it has one (COUNT never carries the source's unit). */
+  private fun formatAggregationValue(aggregation: AggregationDefinition, unit: PropertyUnit?, value: Double): String {
     return if (unit != null && aggregation.function != AggregationFunction.COUNT) {
       formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity)
     } else {
