@@ -1,3 +1,14 @@
+# 0.139.0 (2026.11.04)
+
+## New Features
+* Aggregationen können auch über berechnete Eigenschaften gebildet werden (z. B. Strecke pro Monat aus der berechneten Gesamtstrecke).
+* Berechnete Eigenschaften und Smart-Standardwerte können über Listen rechnen: sum_of, avg_of, min_of, max_of und count_of (z. B. Gesamtstrecke aus Bahnlänge mal Bahnen aller Sessions).
+* Listen von Objekten: Properties können wiederholbare Feldgruppen enthalten (z. B. mehrere Sessions mit Bahnlänge und Bahnen pro Schwimmtag), im Formular per „Hinzufügen“ erfasst.
+
+
+
+---
+
 # 0.138.1 (2026.11.03)
 
 ## Bugfixes / Chore
