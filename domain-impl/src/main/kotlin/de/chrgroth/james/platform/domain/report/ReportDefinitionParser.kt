@@ -151,8 +151,8 @@ internal object ReportDefinitionParser {
   /** Key of the removed Kotlin script step (ADR 0029), answered with a dedicated error. */
   private const val REMOVED_KOTLIN_STEP = "kotlin"
 
-  /** Expression functions reports offer: not those reading an entity's latest object or the current time (smart defaults and computed properties). */
-  private val REPORT_FUNCTIONS = Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS - "now"
+  /** Expression functions reports offer: not those reading an entity's latest object, the current time or list items (fields are rows there). */
+  private val REPORT_FUNCTIONS = Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS - Expression.LIST_FUNCTIONS - "now"
   private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
   private const val COUNT_ROWS = "*"
   private val PERIOD_START_BUCKETS = setOf(TimeBucket.JAHR, TimeBucket.QUARTAL)

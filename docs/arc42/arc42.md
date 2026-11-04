@@ -88,7 +88,7 @@ James Platform is a personal Low Code system for building and running data-centr
   value in that granularity, like a Property's value). Expressions read the object's fields by Property name (Properties nested in `object` Properties
   as `objekt.feld`, references as the referenced object's id, numbers with a unit as raw storage values), the computed properties defined *before*
   them (definition order is the evaluation order), `config.<field>`, `today()` and `now()`; e.g. `round(gewicht / (groesse / 100) ^ 2, 1)` or
-  `if(art == 'Urlaub', 0, sollStunden)`. They are parsed and type checked on save (unknown field or function, wrong operand/argument type, result not
+  `if(art == 'Urlaub', 0, sollStunden)`, over the items of a `List` with the list functions, e.g. `sum_of(sessions, bahnlänge * bahnen)`. They are parsed and type checked on save (unknown field or function, wrong operand/argument type, result not
   fitting the type; `last`/`next_day` are not available), with a German error message, and evaluated purely in Kotlin whenever an object is shown or
   read by a report - an expression without value (missing field, division by zero, a field renamed after saving) yields no value.
   Computed properties are shown on the object's edit page and are fields of reports.
@@ -489,8 +489,14 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     `days(from, to)`, `weekday(d)` (1 = Monday .. 7 = Sunday), `day(d)`, `month(d)`, `year(d)`, `today()`, `date(x)`, `time(x)` (texts such as
     `'2026-01-01'` or `'08:00'` to a date or time), `add_days(d, n)`, `end_of_month(d)`, `workdays(from, to[, holidays])` (Mondays to Fridays, both
     inclusive, without the holidays: a date or a text/configuration `List` of dates). Not in reports: `now()` (the current date-time to the minute,
-    computed properties and smart defaults) and the smart default functions `last(field)`/`next_day(field)` (they take a field name, not a value);
-    reports answer them with `EXPRESSION_UNKNOWN_FUNCTION`.
+    computed properties and smart defaults), the smart default functions `last(field)`/`next_day(field)` (they take a field name, not a value) and
+    the list functions below; reports answer them with `EXPRESSION_UNKNOWN_FUNCTION`.
+  - **List functions** (computed properties and smart defaults): `sum_of(list, expr)`, `avg_of(list, expr)`, `min_of(list, expr)`,
+    `max_of(list, expr)` and `count_of(list[, condition])` take a top-level `List` field and evaluate `expr` per item - inside it, field names are the
+    fields of a `List` of `object`s' item (`sum_of(sessions, bahnlänge * bahnen)`, numbers with a unit as raw storage values) or `item` for the
+    value of a list of simple values (`sum_of(zeiten, item)`), plus `config.<field>`. Items without a value are skipped: `sum_of` of no items is 0,
+    `avg_of`/`min_of`/`max_of` no value, `count_of` counts the items (matching the condition). Validation reports `LIST_FIELD_REQUIRED` (the first
+    argument is no top-level `List`) and `UNKNOWN_ITEM_FIELD` (the item has no such field).
   - **Semantics**: yes/no values count as 1/0 in arithmetic (`max(kopfschmerz, migraene)` is "one of both"); texts compare alphabetically and by
     exact equality, dates, date-times and times chronologically (a text on the other side is read as date/time, e.g. `datum >= '2026-01-01'`). A
     missing operand gives no value in arithmetic, functions and ordering comparisons (as before); `==`/`!=` treat no value as a value of its own

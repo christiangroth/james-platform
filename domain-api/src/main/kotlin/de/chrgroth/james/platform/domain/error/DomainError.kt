@@ -370,6 +370,12 @@ enum class ExpressionErrorCode {
   /** args: field path after `config.`. The version has no configuration or the configuration no such field. */
   UNKNOWN_CONFIG_FIELD,
 
+  /** args: field name. The first argument of a list function (`sum_of`, ...) is no top-level LIST property. */
+  LIST_FIELD_REQUIRED,
+
+  /** args: item field name, list field name. The item of the LIST has no such field (`item` for a list of simple values). */
+  UNKNOWN_ITEM_FIELD,
+
   /** args: operator, type (an expression type: NUMBER, TEXT, BOOLEAN, DATE, DATETIME, TIME). */
   OPERAND_TYPE,
 

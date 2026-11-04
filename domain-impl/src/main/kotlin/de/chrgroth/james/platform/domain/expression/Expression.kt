@@ -30,16 +30,25 @@ import kotlin.math.sqrt
  * - operators by precedence (lowest first): `or`/`||`, `and`/`&&`, `not`/`!`, comparisons `== != < <= > >=` (not chained), `+ -`, `* / %`,
  *   unary `-`, `^` (power, right-associative, binding tighter than a unary minus on its left: `-2^2` = -4), parentheses;
  * - the functions in [FUNCTIONS]; [ENTRY_FUNCTIONS] (`last(field)`, `next_day(field)`) take a field name and read the entity's latest existing
- *   object, so only smart defaults offer them.
+ *   object, so only smart defaults offer them;
+ * - the [LIST_FUNCTIONS] take a LIST field name and an expression evaluated per item (`sum_of(sessions, bahnlänge * bahnen)`): inside it, field
+ *   names are the fields of a LIST of OBJECTs' item, or [ITEM] for the item value of a list of simple values; `config.<field>` as everywhere.
  *
  * Semantics: arithmetic works on numbers, yes/no values count as 1/0. A missing operand, a division by zero or a non-finite result give no value
  * (null); comparisons with a missing operand give no value too, except `==`/`!=` (no value equals only no value). `and`, `or`, `not` and the
- * condition of `if` treat no value as "no", `coalesce`, `if` and `case` provide defaults.
+ * condition of `if` treat no value as "no", `coalesce`, `if` and `case` provide defaults. List functions skip items whose expression has no
+ * value: `sum_of` of no items is 0, `avg_of`/`min_of`/`max_of` of no items no value; `count_of(list[, condition])` counts the (matching) items.
  */
 internal class Expression private constructor(val source: String, private val root: Node) {
 
-  /** The names the expression reads: fields and `config.<field>` references (also the field names of [ENTRY_FUNCTIONS]). */
+  /**
+   * The names the expression reads: fields and `config.<field>` references (also the field names of [ENTRY_FUNCTIONS] and the LIST fields of
+   * [LIST_FUNCTIONS], not the item fields read per item - see [itemIdentifiers]).
+   */
   val identifiers: Set<String> by lazy { buildSet { collect(root, this, entries = true) } }
+
+  /** Per LIST field of a [LIST_FUNCTIONS] call, the item field names its per-item expression reads (without `config.<field>` references). */
+  val itemIdentifiers: Map<String, Set<String>> by lazy { LinkedHashMap<String, MutableSet<String>>().also { collectItems(root, it) } }
 
   /** The names the expression reads from the object itself, i.e. [identifiers] except those only used as field name of an entry function. */
   val directIdentifiers: Set<String> by lazy { buildSet { collect(root, this, entries = false) } }
@@ -60,9 +69,12 @@ internal class Expression private constructor(val source: String, private val ro
    * Infers the result type with [typeOf] answering an identifier's type (null: unknown) and collects type problems, e.g. a text in arithmetic or
    * a date compared with a number. The result type is null when it cannot be told (unknown fields, `null`, problems).
    */
-  fun check(typeOf: (String) -> ExpressionType?): TypeCheck {
+  fun check(typeOf: (String) -> ExpressionType?): TypeCheck = check(typeOf) { _, _ -> null }
+
+  /** Like [check], with [itemTypeOf] answering the type of an item field read inside a list function (list field name, item field name). */
+  fun check(typeOf: (String) -> ExpressionType?, itemTypeOf: (list: String, field: String) -> ExpressionType?): TypeCheck {
     val problems = mutableListOf<ExpressionProblem>()
-    val type = TypeChecker(typeOf, problems).type(root)
+    val type = TypeChecker(typeOf, itemTypeOf, problems).type(root)
     return TypeCheck(type, problems)
   }
 
@@ -119,10 +131,21 @@ internal class Expression private constructor(val source: String, private val ro
       "workdays" to 2..3,
       "last" to 1..1,
       "next_day" to 1..1,
+      "sum_of" to 2..2,
+      "avg_of" to 2..2,
+      "min_of" to 2..2,
+      "max_of" to 2..2,
+      "count_of" to 1..2,
     )
 
     /** Functions taking a field name (not a value) and reading the entity's latest existing object - see [ExpressionContext.last]. */
     val ENTRY_FUNCTIONS: Set<String> = setOf("last", "next_day")
+
+    /** Functions over the items of a LIST field: a LIST field name and an expression evaluated per item - see [ExpressionContext.items]. */
+    val LIST_FUNCTIONS: Set<String> = setOf("sum_of", "avg_of", "min_of", "max_of", "count_of")
+
+    /** The item value inside a list function over a LIST of simple values, e.g. `sum_of(zeiten, item)`. */
+    const val ITEM = "item"
 
     private val KEYWORDS = setOf("and", "or", "not", "true", "false", "null")
     private val ARITHMETIC = setOf("+", "-", "*", "/", "%", "^")
@@ -153,7 +176,30 @@ internal class Expression private constructor(val source: String, private val ro
           collect(node.left, into, entries)
           collect(node.right, into, entries)
         }
-        is Node.Call -> if (entries || node.function !in ENTRY_FUNCTIONS) node.args.forEach { collect(it, into, entries) }
+        is Node.Call -> when {
+          node.function in LIST_FUNCTIONS -> {
+            into += (node.args[0] as Node.Ident).name
+            node.args.drop(1).forEach { inner -> buildSet { collect(inner, this, entries) }.filterTo(into) { configPath(it) != null } }
+          }
+          entries || node.function !in ENTRY_FUNCTIONS -> node.args.forEach { collect(it, into, entries) }
+        }
+      }
+    }
+
+    private fun collectItems(node: Node, into: MutableMap<String, MutableSet<String>>) {
+      when (node) {
+        is Node.Literal, is Node.Ident -> Unit
+        is Node.Unary -> collectItems(node.operand, into)
+        is Node.Binary -> {
+          collectItems(node.left, into)
+          collectItems(node.right, into)
+        }
+        is Node.Call -> if (node.function in LIST_FUNCTIONS) {
+          val names = into.getOrPut((node.args[0] as Node.Ident).name) { LinkedHashSet() }
+          node.args.drop(1).forEach { inner -> buildSet { collect(inner, this, entries = true) }.filterTo(names) { configPath(it) == null } }
+        } else {
+          node.args.forEach { collectItems(it, into) }
+        }
       }
     }
 
@@ -233,6 +279,7 @@ internal class Expression private constructor(val source: String, private val ro
         "last" -> return context.last(fieldName(args[0]))
         "next_day" -> return toDate(context.last(fieldName(args[0])))?.let { ExpressionValue.Date(it.plusDays(1)) }
         "workdays" -> return workdays(eval(args[0]), eval(args[1]), args.getOrNull(2)?.let { eval(it) })
+        in LIST_FUNCTIONS -> return listFunction(node)
       }
       val values = args.map { eval(it) ?: return null }
       return when (node.function) {
@@ -251,6 +298,22 @@ internal class Expression private constructor(val source: String, private val ro
     }
 
     private fun fieldName(node: Node): String = (node as Node.Ident).name
+
+    /** A [LIST_FUNCTIONS] call: its per-item expression evaluated in each item's context; no value if the field is no list. */
+    private fun listFunction(node: Node.Call): ExpressionValue? {
+      val items = context.items(fieldName(node.args[0])) ?: return null
+      val perItem = node.args.getOrNull(1)
+      if (node.function == "count_of") {
+        return number(items.count { item -> perItem == null || truthy(Evaluator(item).eval(perItem)) }.toDouble())
+      }
+      val values = items.mapNotNull { item -> perItem?.let { toNumber(Evaluator(item).eval(it)) } }
+      return when (node.function) {
+        "sum_of" -> number(values.sum())
+        "avg_of" -> values.takeIf { it.isNotEmpty() }?.let { number(it.average()) }
+        "min_of" -> values.minOrNull()?.let { number(it) }
+        else -> values.maxOrNull()?.let { number(it) }
+      }
+    }
 
     /**
      * Mondays to Fridays from [from] to [to] (both inclusive; 0 if [to] lies before [from]) except the dates in [holidays]: a date, or a text
@@ -317,7 +380,11 @@ internal class Expression private constructor(val source: String, private val ro
 
   // region type check
 
-  private class TypeChecker(private val typeOf: (String) -> ExpressionType?, private val problems: MutableList<ExpressionProblem>) {
+  private class TypeChecker(
+    private val typeOf: (String) -> ExpressionType?,
+    private val itemTypeOf: (String, String) -> ExpressionType?,
+    private val problems: MutableList<ExpressionProblem>,
+  ) {
 
     fun type(node: Node): ExpressionType? = when (node) {
       is Node.Literal -> node.value?.type
@@ -367,6 +434,7 @@ internal class Expression private constructor(val source: String, private val ro
     @Suppress("CyclomaticComplexMethod")
     private fun call(node: Node.Call): ExpressionType? {
       val name = node.function
+      if (name in LIST_FUNCTIONS) return listCall(node)
       val types = node.args.map { type(it) }
       return when (name) {
         "coalesce" -> unify(name, types)
@@ -393,6 +461,16 @@ internal class Expression private constructor(val source: String, private val ro
         "time" -> argumentsOf(name, types, TIMES_OF_DAY).let { ExpressionType.TIME }
         else -> argumentsOf(name, types, NUMBERS).let { ExpressionType.NUMBER }
       }
+    }
+
+    /** A list function's per-item expression is typed by the item's fields; all of them compute a number (sum_of etc. of numbers). */
+    private fun listCall(node: Node.Call): ExpressionType {
+      val list = (node.args[0] as Node.Ident).name
+      val perItem = node.args.getOrNull(1) ?: return ExpressionType.NUMBER
+      val itemChecker = TypeChecker({ name -> if (configPath(name) != null) typeOf(name) else itemTypeOf(list, name) }, itemTypeOf, problems)
+      val type = itemChecker.type(perItem)
+      if (node.function != "count_of") numberArgument(node.function, 2, type)
+      return ExpressionType.NUMBER
     }
 
     private fun numberArgument(function: String, position: Int, type: ExpressionType?) {
@@ -589,7 +667,8 @@ internal class Expression private constructor(val source: String, private val ro
         }
       }
       if (args.size !in arity) failAt(start, "wrong number of arguments for '$name'")
-      if (name in ENTRY_FUNCTIONS && args.any { it !is Node.Ident || configPath(it.name) != null }) {
+      val fieldArguments = if (name in LIST_FUNCTIONS) args.take(1) else if (name in ENTRY_FUNCTIONS) args else emptyList()
+      if (fieldArguments.any { it !is Node.Ident || configPath(it.name) != null }) {
         throw ParseException(start + 1, "'$name' needs a field name", fieldArgumentOf = name)
       }
       return Node.Call(name, args)

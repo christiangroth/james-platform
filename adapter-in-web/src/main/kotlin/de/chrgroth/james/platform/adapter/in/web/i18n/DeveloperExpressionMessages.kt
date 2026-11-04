@@ -29,6 +29,12 @@ interface DeveloperExpressionMessages {
   fun developerExpressionUnknownFieldError(field: String): String
 
   @Message
+  fun developerExpressionListFieldRequiredError(field: String): String
+
+  @Message
+  fun developerExpressionUnknownItemFieldError(field: String, list: String): String
+
+  @Message
   fun developerExpressionUnknownConfigFieldError(field: String): String
 
   @Message
