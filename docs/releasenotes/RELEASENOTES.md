@@ -1,3 +1,12 @@
+# 0.139.1 (2026.11.07)
+
+## Bugfixes / Chore
+* Geplante Importe laufen wieder regelmäßig: bisher lief jeder Zeitplan nur einmal und danach nicht mehr.
+
+
+
+---
+
 # 0.139.0 (2026.11.04)
 
 ## New Features
