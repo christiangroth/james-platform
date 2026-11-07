@@ -260,6 +260,16 @@ class DomainOutboxTaskDispatcherTests {
   }
 
   @Test
+  fun `deserialize keeps the due time of a RunScheduledImport event`() {
+    val event = DomainOutboxEvent.RunScheduledImport("def-1", dueAt = java.time.Instant.parse("2026-11-08T01:30:00Z"))
+
+    val deserialized = dispatcher.deserialize(DomainOutboxPartition.Domain, DomainOutboxEvent.RunScheduledImport.KEY, event.serializePayload)
+
+    assertThat(deserialized).isEqualTo(event)
+    assertThat((deserialized as DomainOutboxEvent.RunScheduledImport).deduplicationKey).isEqualTo("RunScheduledImport:def-1:${event.dueAt!!.epochSecond}")
+  }
+
+  @Test
   fun `dispatch routes RunScheduledImport to ImportPort#handle and returns success when it succeeds`() {
     every { importPort.handle(runScheduledImportEvent) } returns Unit.right()
 

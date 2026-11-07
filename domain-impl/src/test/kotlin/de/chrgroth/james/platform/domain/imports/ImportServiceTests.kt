@@ -1138,7 +1138,7 @@ class ImportServiceTests {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
-    justRun { outboxPort.cancel(any(), any()) }
+    justRun { outboxPort.cancelPending(any(), any()) }
     justRun { outboxPort.enqueue(any(), any()) }
 
     val result = service.updateSchedule("user-1", definition.id.value, "0 0 2 * * ?", notifyOnSlack = true, replaceExistingOnRun = true)
@@ -1398,13 +1398,13 @@ class ImportServiceTests {
     justRun { importDefinitionRepository.save(any()) }
     justRun { outboxPort.enqueue(any()) }
     justRun { outboxPort.enqueue(any(), any()) }
-    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    justRun { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
     val result = service.handle(DomainOutboxEvent.RunScheduledImport(definition.id.value))
 
     assertThat(result.isRight()).isTrue()
-    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
-    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value), any()) }
+    verify(exactly = 1) { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    verify(exactly = 1) { outboxPort.enqueue(match { it is DomainOutboxEvent.RunScheduledImport && it.importDefinitionId == definition.id.value && it.dueAt != null }, any()) }
   }
 
   @Test
@@ -1426,7 +1426,7 @@ class ImportServiceTests {
 
     assertThat(result.isRight()).isTrue()
     verify(exactly = 0) { importJobRepository.save(any()) }
-    verify(exactly = 0) { outboxPort.cancel(any(), any()) }
+    verify(exactly = 0) { outboxPort.cancelPending(any(), any()) }
   }
 
   @Test
@@ -1435,13 +1435,13 @@ class ImportServiceTests {
     every { importDefinitionRepository.findById(definition.id) } returns definition
     justRun { importDefinitionRepository.save(any()) }
     justRun { outboxPort.enqueue(any(), any()) }
-    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    justRun { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
     val result = service.handle(DomainOutboxEvent.RunScheduledImport(definition.id.value))
 
     assertThat(result.isRight()).isTrue()
     verify(exactly = 1) { notificationPort.notify(any()) }
-    verify(exactly = 1) { outboxPort.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value), any()) }
+    verify(exactly = 1) { outboxPort.enqueue(match { it is DomainOutboxEvent.RunScheduledImport && it.importDefinitionId == definition.id.value && it.dueAt != null }, any()) }
   }
 
   @Test
@@ -1449,7 +1449,7 @@ class ImportServiceTests {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
-    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    justRun { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
     val enqueued = slot<DomainOutboxEvent.RunScheduledImport>()
     val notBefore = slot<Instant>()
     justRun { outboxPort.enqueue(capture(enqueued), capture(notBefore)) }
@@ -1459,9 +1459,10 @@ class ImportServiceTests {
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isEqualTo("0 0 3 * * ?")
     assertThat(saved.captured.notifyOnSlack).isTrue()
-    assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.RunScheduledImport(definition.id.value))
-    assertThat(notBefore.captured).isNotNull()
-    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    assertThat(enqueued.captured.importDefinitionId).isEqualTo(definition.id.value)
+    assertThat(enqueued.captured.dueAt).isEqualTo(notBefore.captured)
+    assertThat(enqueued.captured.deduplicationKey).isEqualTo("RunScheduledImport:${definition.id.value}:${notBefore.captured.epochSecond}")
+    verify(exactly = 1) { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
   }
 
   @Test
@@ -1470,13 +1471,13 @@ class ImportServiceTests {
     every { importDefinitionRepository.findById(definition.id) } returns definition.copy(schedule = "0 0 3 * * ?")
     val saved = slot<ImportDefinition>()
     justRun { importDefinitionRepository.save(capture(saved)) }
-    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    justRun { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
     val result = service.updateSchedule("user-1", definition.id.value, " ", notifyOnSlack = false, replaceExistingOnRun = false)
 
     assertThat(result.isRight()).isTrue()
     assertThat(saved.captured.schedule).isNull()
-    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    verify(exactly = 1) { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
     verify(exactly = 0) { outboxPort.enqueue(any(), any()) }
   }
 
@@ -1761,13 +1762,13 @@ class ImportServiceTests {
   fun `delete import definition deletes an owned definition and cancels any pending delayed scheduled run`() {
     val definition = importDefinition(selectedDataPath = "items", mapping = readyMapping)
     justRun { importDefinitionRepository.delete(definition.id) }
-    justRun { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    justRun { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
 
     val result = service.deleteImportDefinition("user-1", definition.id.value)
 
     assertThat(result.isRight()).isTrue()
     verify { importDefinitionRepository.delete(definition.id) }
-    verify(exactly = 1) { outboxPort.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
+    verify(exactly = 1) { outboxPort.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:${definition.id.value}") }
   }
 
   @Test

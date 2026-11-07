@@ -158,6 +158,10 @@ pending) and, when a schedule remains set, enqueues a fresh one delayed until th
 (`CronSchedule.nextFireTime`, the library's existing next-occurrence logic - not new cron math). `RunScheduledImport`
 runs on `DomainOutboxPartition.Domain` like the other domain operations above; its handler runs the due import, then
 enqueues its own successor for the following occurrence - self-perpetuating scheduling instead of a poll loop.
+The successor is enqueued while its predecessor is still `PROCESSING`, and the outbox skips a new task whose dedup key
+matches one in progress - so the dedup key carries the run's due time (`RunScheduledImport:<definitionId>:<epochSecond>`).
+With a key shared by all runs, every successor was silently dropped and each schedule fired only once. Cancelling
+therefore goes through `OutboxPort.cancelPending`, which cancels all pending tasks under the definition's key prefix.
 Deleting an `ImportDefinition` cancels its pending event so a deleted definition's scheduled run never fires. This
 removed the poll loop, its 15-minute-granularity due-check, and `CronSchedule.isDue` (superseded by
 `nextFireTime`, its only remaining caller) entirely - not just for scheduled imports, but as a template other

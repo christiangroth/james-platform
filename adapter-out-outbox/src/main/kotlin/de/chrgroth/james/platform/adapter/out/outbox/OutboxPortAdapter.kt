@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.domain.outbox.DomainOutboxPartition
 import de.chrgroth.james.platform.domain.port.out.infra.OutboxPort
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxClient
 import de.chrgroth.quarkus.outbox.domain.OutboxPartitionStatus
+import de.chrgroth.quarkus.outbox.domain.OutboxTaskStatus
 import jakarta.enterprise.context.ApplicationScoped
 import mu.KLogging
 import java.time.Instant
@@ -27,6 +28,14 @@ class OutboxPortAdapter(
   override fun cancel(partition: DomainOutboxPartition, deduplicationKey: String) {
     outbox.cancel(partition, deduplicationKey)
     logger.info { "Cancelled outbox task $deduplicationKey in partition ${partition.key}" }
+  }
+
+  override fun cancelPending(partition: DomainOutboxPartition, deduplicationKeyPrefix: String) {
+    outbox.eventsForPartition(partition)
+      .filter { it.status == OutboxTaskStatus.PENDING }
+      .map { it.deduplicationKey }
+      .filter { it == deduplicationKeyPrefix || it.startsWith("$deduplicationKeyPrefix:") }
+      .forEach { cancel(partition, it) }
   }
 
   override fun reschedule(partition: DomainOutboxPartition, deduplicationKey: String, notBefore: Instant) {
