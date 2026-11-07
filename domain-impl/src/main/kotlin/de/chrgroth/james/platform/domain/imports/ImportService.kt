@@ -499,16 +499,15 @@ class ImportService(
    * schedule never fires again.
    */
   private fun rescheduleNextRun(definition: ImportDefinition) {
-    val dedupKey = "${DomainOutboxEvent.RunScheduledImport.KEY}:${definition.id.value}"
-    outbox.cancel(DomainOutboxPartition.Domain, dedupKey)
+    cancelScheduledRun(definition.id.value)
     val schedule = definition.schedule ?: return
     val nextDue = CronSchedule.nextFireTime(schedule, Instant.now()) ?: return
-    outbox.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value), notBefore = nextDue)
+    outbox.enqueue(DomainOutboxEvent.RunScheduledImport(definition.id.value, dueAt = nextDue), notBefore = nextDue)
   }
 
   /** Cancels [definitionId]'s pending [DomainOutboxEvent.RunScheduledImport], if any, without re-enqueuing - for a definition that is being deleted. */
   private fun cancelScheduledRun(definitionId: String) {
-    outbox.cancel(DomainOutboxPartition.Domain, "${DomainOutboxEvent.RunScheduledImport.KEY}:$definitionId")
+    outbox.cancelPending(DomainOutboxPartition.Domain, DomainOutboxEvent.RunScheduledImport.deduplicationKeyPrefix(definitionId))
   }
 
   override fun selectDataPath(userId: String, importJobId: String, dataPath: String): Either<DomainError, ImportJob> {

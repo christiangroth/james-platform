@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.outbox
 
 import de.chrgroth.quarkus.outbox.domain.ApplicationOutboxEvent
 import de.chrgroth.quarkus.outbox.domain.OutboxEventPriority
+import java.time.Instant
 
 sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
   override val partition: DomainOutboxPartition
@@ -206,23 +207,35 @@ sealed interface DomainOutboxEvent : ApplicationOutboxEvent {
    * Triggers an unattended run of [importDefinitionId]'s already-configured schedule (see
    * `ImportPort.triggerScheduledImport`) and enqueues its own successor for the schedule's next due occurrence -
    * replacing the previous cron-poll loop (`ImportDefinitionScheduleJob`, removed) with delayed dispatch, per ADR
-   * 0019. Deduplicated per definition so a definition never has two of these pending at once;
-   * `ImportPort.updateSchedule`/`deleteImportDefinition` cancel (and, when a schedule remains set, re-enqueue) the
-   * pending event under this same dedup key whenever a definition's schedule changes or the definition is removed.
+   * 0019. The dedup key carries the run's due time ([dueAt]): the successor is enqueued while its predecessor is
+   * still being dispatched, and the outbox treats a task in progress as a duplicate of a new one with the same key -
+   * a key shared by all runs of a definition silently dropped every successor, so each schedule ran only once.
+   * [deduplicationKeyPrefix] names all runs of a definition; `ImportPort.updateSchedule`/`deleteImportDefinition`
+   * cancel every pending one of them (and, when a schedule remains set, enqueue a fresh one) whenever a definition's
+   * schedule changes or the definition is removed, so a definition never has two pending at once.
    * `groupId` = [importDefinitionId], so unrelated definitions dispatch concurrently on
    * [DomainOutboxPartition.Domain]'s multiple workers, while a definition's own runs never overlap each other.
-   * payload = "$importDefinitionId"
+   * payload = "$importDefinitionId" or "$importDefinitionId|$dueAtEpochSecond"
    */
-  data class RunScheduledImport(val importDefinitionId: String) : DomainOutboxEvent {
+  data class RunScheduledImport(val importDefinitionId: String, val dueAt: Instant? = null) : DomainOutboxEvent {
     override val key = KEY
-    override val deduplicationKey = "$KEY:$importDefinitionId"
+    override val deduplicationKey = deduplicationKeyPrefix(importDefinitionId) + (dueAt?.let { ":${it.epochSecond}" } ?: "")
     override val partition = DomainOutboxPartition.Domain
     override val groupId = importDefinitionId
-    override val serializePayload = importDefinitionId
+    override val serializePayload = importDefinitionId + (dueAt?.let { "$PAYLOAD_SEPARATOR${it.epochSecond}" } ?: "")
 
     companion object {
       const val KEY = "RunScheduledImport"
-      fun fromPayload(payload: String): RunScheduledImport = RunScheduledImport(importDefinitionId = payload)
+      private const val PAYLOAD_SEPARATOR = '|'
+
+      /** Common prefix of the dedup keys of all runs of [importDefinitionId] (the bare prefix is the key of a run enqueued before [dueAt] existed). */
+      fun deduplicationKeyPrefix(importDefinitionId: String): String = "$KEY:$importDefinitionId"
+
+      fun fromPayload(payload: String): RunScheduledImport {
+        val id = payload.substringBefore(PAYLOAD_SEPARATOR)
+        val dueAt = payload.substringAfter(PAYLOAD_SEPARATOR, "").toLongOrNull()?.let { Instant.ofEpochSecond(it) }
+        return RunScheduledImport(importDefinitionId = id, dueAt = dueAt)
+      }
     }
   }
 

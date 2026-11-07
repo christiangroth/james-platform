@@ -13,6 +13,12 @@ interface OutboxPort {
   /** Cancels the still-pending task identified by [deduplicationKey] within [partition], if any; a no-op if nothing matches. */
   fun cancel(partition: DomainOutboxPartition, deduplicationKey: String)
 
+  /**
+   * Cancels every still-pending task within [partition] whose dedup key is [deduplicationKeyPrefix] or starts with it followed by `:` - for
+   * events whose key varies per occurrence (e.g. a scheduled run's due time). A task already being dispatched is left alone.
+   */
+  fun cancelPending(partition: DomainOutboxPartition, deduplicationKeyPrefix: String)
+
   /** Moves the still-pending task identified by [deduplicationKey] within [partition] to fire at [notBefore] instead of its previously scheduled time. */
   fun reschedule(partition: DomainOutboxPartition, deduplicationKey: String, notBefore: Instant)
 

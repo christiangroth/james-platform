@@ -100,6 +100,40 @@ class OutboxPortAdapterTests {
   }
 
   @Test
+  fun `cancel pending cancels only pending tasks matching the dedup key prefix`() {
+    every { outbox.eventsForPartition(DomainOutboxPartition.Domain) } returns listOf(
+      libraryTask("RunScheduledImport:def-1", OutboxTaskStatus.PENDING),
+      libraryTask("RunScheduledImport:def-1:1762300800", OutboxTaskStatus.PENDING),
+      libraryTask("RunScheduledImport:def-1:1762214400", OutboxTaskStatus.PROCESSING),
+      libraryTask("RunScheduledImport:def-10:1762300800", OutboxTaskStatus.PENDING),
+      libraryTask("RunScheduledImport:def-2:1762300800", OutboxTaskStatus.PENDING),
+    )
+    every { outbox.cancel(DomainOutboxPartition.Domain, any()) } returns true
+
+    adapter.cancelPending(DomainOutboxPartition.Domain, "RunScheduledImport:def-1")
+
+    verify(exactly = 1) { outbox.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:def-1") }
+    verify(exactly = 1) { outbox.cancel(DomainOutboxPartition.Domain, "RunScheduledImport:def-1:1762300800") }
+    verify(exactly = 2) { outbox.cancel(DomainOutboxPartition.Domain, any()) }
+  }
+
+  private fun libraryTask(deduplicationKey: String, status: OutboxTaskStatus) = LibraryOutboxTask(
+    id = deduplicationKey,
+    partition = "domain",
+    eventType = "RunScheduledImport",
+    payload = "{}",
+    deduplicationKey = deduplicationKey,
+    status = status,
+    attempts = 0,
+    createdAt = Instant.parse("2026-08-17T00:00:00Z"),
+    updatedAt = Instant.parse("2026-08-17T00:00:00Z"),
+    nextRetryAt = null,
+    priority = OutboxEventPriority.MEDIUM,
+    lastError = null,
+    groupId = null,
+  )
+
+  @Test
   fun `tasks by partition are mapped from library tasks`() {
     every { outbox.eventsForPartition(DomainOutboxPartition.Domain) } returns listOf(
       LibraryOutboxTask(
