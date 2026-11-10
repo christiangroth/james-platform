@@ -858,6 +858,31 @@ class AppDataServiceTests {
 
   // endregion
 
+  // region createAppData LIST order
+
+  @Test
+  fun `createAppData stores a LIST of dates ascending and a LIST of texts in entry order`() {
+    val holidays = Property(id = PropertyId("holidays"), name = "feiertage", type = PropertyType.LIST, listItemType = PropertyType.DATE)
+    val tags = Property(id = PropertyId("tags"), name = "tags", type = PropertyType.LIST, listItemType = PropertyType.STRING)
+    val entityId = EntityDefinitionId("entity-config")
+    val entity = EntityDefinition(id = entityId, name = "Einstellungen", properties = listOf(holidays, tags))
+    val saved = mutableListOf<AppData>()
+    every { installedAppRepository.findById(installedAppId) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(appId, VersionNumber("1.0.0")) } returns appVersion.copy(entityDefinitions = listOf(entity))
+    every { appDataRepository.findAllByInstalledAppIdAndEntityType(installedAppId, entityId) } returns emptyList()
+    every { propertyConstraint.checkValue(any(), any(), any()) } returns emptyList()
+    justRun { appDataRepository.save(capture(saved)) }
+
+    val data = mapOf("prop_holidays" to listOf("2026-12-25", "2026-01-01", "", "2026-04-03"), "prop_tags" to listOf("b", "a"))
+    val result = service.createAppData(userId, installedAppId.value, entityId.value, data)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(decodeListValue(saved.single().data["holidays"])).containsExactly("2026-01-01", "2026-04-03", "2026-12-25")
+    assertThat(decodeListValue(saved.single().data["tags"])).containsExactly("b", "a")
+  }
+
+  // endregion
+
   // region createAppData LIST of OBJECTs
 
   private val laneLengthProp = Property(

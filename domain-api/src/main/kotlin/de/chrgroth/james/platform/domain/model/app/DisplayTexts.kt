@@ -41,7 +41,7 @@ object PropertyValueFormat {
     PropertyType.TIME -> runCatching { LocalTime.parse(raw) }.getOrNull()?.let { TIME_FORMATTER.format(it) } ?: raw
     PropertyType.LONG -> raw.toLongOrNull()?.let { formatNumeric(unit, it.toDouble()) } ?: raw
     PropertyType.DOUBLE -> raw.toDoubleOrNull()?.let { formatNumeric(unit, it) } ?: raw
-    PropertyType.LIST -> decodeListValue(raw).joinToString(", ") { item -> listItemType?.let { format(it, null, item) } ?: item }
+    PropertyType.LIST -> sortListItems(listItemType, decodeListValue(raw)).joinToString(", ") { item -> listItemType?.let { format(it, null, item) } ?: item }
     else -> raw
   }
 

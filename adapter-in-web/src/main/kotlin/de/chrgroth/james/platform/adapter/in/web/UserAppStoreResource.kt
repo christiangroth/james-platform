@@ -31,6 +31,7 @@ import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
 import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
+import de.chrgroth.james.platform.domain.model.app.sortListItems
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
@@ -532,7 +533,7 @@ class UserAppStoreResource {
               valueProposals = prop.valueProposals,
               referenceOptions = referenceOptions[prop.id.value] ?: emptyList(),
               listItemType = prop.listItemType?.name,
-              values = if (prop.type == PropertyType.LIST) decodeListValue(appDataItem.data[prop.id.value]) else emptyList(),
+              values = if (prop.type == PropertyType.LIST) sortListItems(prop.listItemType, decodeListValue(appDataItem.data[prop.id.value])) else emptyList(),
               itemHtmlInputType = TemplateFormattingExtensions.itemHtmlInputType(prop),
               step = TemplateFormattingExtensions.constraintStep(prop),
               min = TemplateFormattingExtensions.constraintMin(prop),
