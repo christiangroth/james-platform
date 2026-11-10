@@ -82,14 +82,19 @@ data class ApiUnitRequest @JsonCreator constructor(
   @param:JsonProperty("storageGranularity") val storageGranularity: String?,
   @param:JsonProperty("defaultGranularity") val defaultGranularity: String?,
   @param:JsonProperty("path") val path: List<String>?,
+  @param:JsonProperty("maxDisplayGranularity") val maxDisplayGranularity: String? = null,
 )
 
-/** [unit]: granularity name of a numeric result (e.g. `KILOMETERS`); [expression]: the expression (ADR 0029), blank or missing clears it. */
+/**
+ * [unit]: granularity name of a numeric result (e.g. `KILOMETERS`); [maxUnit]: the largest granularity it is shown in (e.g. `HOURS`, optional);
+ * [expression]: the expression (ADR 0029), blank or missing clears it.
+ */
 data class ApiComputedPropertyRequest @JsonCreator constructor(
   @param:JsonProperty("name") val name: String?,
   @param:JsonProperty("type") val type: String?,
   @param:JsonProperty("unit") val unit: String?,
   @param:JsonProperty("expression") val expression: String?,
+  @param:JsonProperty("maxUnit") val maxUnit: String? = null,
 )
 
 data class ApiAggregationRequest @JsonCreator constructor(

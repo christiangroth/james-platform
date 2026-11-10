@@ -246,6 +246,68 @@ class ReportExpressionLanguageTests {
   }
 
   @Test
+  fun `a calc unit's maxUnit caps the composite display - an overtime balance in hours instead of days`() {
+    val table = panels(
+      """
+      queries:
+        tage: { entity: Arbeitstag, timeField: datum, fields: [datum], sort: [datum] }
+      transforms:
+        tage:
+          - { calc: saldo, expr: "3315", unit: MINUTES, maxUnit: HOURS }
+          - { calc: minus, expr: "-3315", unit: MINUTES, maxUnit: hours }
+          - { calc: tage, expr: "3315", unit: MINUTES }
+          - { aggregate: { values: { summe: { sum: saldo } } } }
+      tabs:
+        - name: T
+          rows: [[{ table: Tage, query: tage }]]
+      """,
+    ).single() as TablePanelSpec
+
+    assertThat(table.texts("summe")).containsExactly("276h 15min")
+    assertThat(table.columns.single { it.key == "summe" }.unit?.granularity).isEqualTo("MINUTES")
+  }
+
+  @Test
+  fun `calc rows show the capped composite and maxUnit needs a unit it is not finer than`() {
+    val table = panels(
+      """
+      queries:
+        tage: { entity: Arbeitstag, timeField: datum, fields: [datum], sort: [datum] }
+      transforms:
+        tage:
+          - { calc: saldo, expr: "3315", unit: MINUTES, maxUnit: HOURS }
+          - { calc: minus, expr: "-3315", unit: MINUTES, maxUnit: hours }
+          - { calc: tage, expr: "3315", unit: MINUTES }
+      tabs:
+        - name: T
+          rows: [[{ table: Tage, query: tage }]]
+      """,
+    ).single() as TablePanelSpec
+
+    assertThat(table.texts("saldo").first()).isEqualTo("55h 15min")
+    assertThat(table.texts("minus").first()).isEqualTo("-55h -15min")
+    assertThat(table.texts("tage").first()).isEqualTo("2d 7h 15min")
+    assertThat(
+      errors(
+        """
+        queries:
+          tage: { entity: Arbeitstag, timeField: datum, fields: [datum] }
+        transforms:
+          tage:
+            - { calc: a, expr: "1", maxUnit: HOURS }
+            - { calc: b, expr: "1", unit: MINUTES, maxUnit: SECONDS }
+            - { calc: c, expr: "1", unit: MINUTES, maxUnit: KILOMETERS }
+        tabs: []
+        """,
+      ),
+    ).containsExactly(
+      ReportDefinitionErrorCode.REQUIRED_KEY_MISSING to "transforms.tage[0]",
+      ReportDefinitionErrorCode.INVALID_VALUE to "transforms.tage[1].maxUnit",
+      ReportDefinitionErrorCode.INVALID_VALUE to "transforms.tage[2].maxUnit",
+    )
+  }
+
+  @Test
   fun `list functions in reports read configuration lists only, with known item fields of comparable types`() {
     assertThat(
       errors(

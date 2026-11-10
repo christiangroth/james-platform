@@ -133,12 +133,14 @@ interface AppVersionManagementPort {
     storageGranularity: String?,
     defaultGranularity: String?,
     path: List<String> = emptyList(),
+    maxDisplayGranularity: String? = null,
   ): Either<DomainError, AppVersion>
   fun reorderProperties(appId: String, versionId: String, entityId: String, propertyIds: List<String>, path: List<String> = emptyList()): Either<DomainError, AppVersion>
   fun deleteProperty(appId: String, versionId: String, entityId: String, propertyId: String, path: List<String> = emptyList()): Either<DomainError, AppVersion>
   /**
    * Adds a computed property: [type] its result type, [unit] an optional granularity name for numeric results (e.g. `KILOMETERS`), [expression]
-   * its expression (ADR 0029), validated against the entity's properties, the computed properties before it and the configuration.
+   * its expression (ADR 0029), validated against the entity's properties, the computed properties before it and the configuration. [maxUnit]
+   * optionally caps the largest granularity the result is shown in (e.g. `HOURS`), same family as [unit] and not finer than it.
    */
   fun addComputedProperty(
     appId: String,
@@ -148,6 +150,7 @@ interface AppVersionManagementPort {
     type: String,
     unit: String? = null,
     expression: String? = null,
+    maxUnit: String? = null,
   ): Either<DomainError, AppVersion>
 
   /** Replaces name, type, unit and expression of a computed property, see [addComputedProperty]; a null or blank [expression] clears it. */
@@ -160,6 +163,7 @@ interface AppVersionManagementPort {
     type: String,
     unit: String? = null,
     expression: String? = null,
+    maxUnit: String? = null,
   ): Either<DomainError, AppVersion>
   fun reorderComputedProperties(appId: String, versionId: String, entityId: String, computedPropertyIds: List<String>): Either<DomainError, AppVersion>
   fun deleteComputedProperty(appId: String, versionId: String, entityId: String, computedPropertyId: String): Either<DomainError, AppVersion>

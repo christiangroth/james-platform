@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyId
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
+import de.chrgroth.james.platform.domain.model.app.TimeGranularity
 import de.chrgroth.james.platform.domain.model.app.UnitFamily
 import de.chrgroth.james.platform.domain.port.out.app.AppVersionRepositoryPort
 import io.quarkus.test.junit.QuarkusTest
@@ -136,5 +137,23 @@ class AppVersionRepositoryTests {
     assertThat(reloaded.computedProperties.map { it.legacyScript }).containsExactly("42.0", null)
     assertThat(reloaded.computedProperties.last().expression).isEqualTo("1 + 2")
     assertThat(reloaded.computedProperties.last().unit).isEqualTo(kilometers)
+  }
+
+  @Test
+  fun `a unit's largest display granularity round-trips and is absent for units stored without it`() {
+    val id = UUID.randomUUID().toString()
+    appVersionDocumentRepository.mongoCollection().withDocumentClass(Document::class.java).insertOne(legacyVersion(id))
+    val loaded = appVersionRepository.findById(AppVersionId(id))!!
+    val minutesUpToHours = PropertyUnit(UnitFamily.TIME, TimeGranularity.MINUTES, TimeGranularity.MINUTES, TimeGranularity.HOURS)
+    val minutes = PropertyUnit(UnitFamily.TIME, TimeGranularity.MINUTES, TimeGranularity.HOURS)
+    val entity = loaded.entityDefinitions.single()
+    val saldo = ComputedProperty(ComputedPropertyId("cp-saldo"), "saldo", PropertyType.DOUBLE, expression = "1", unit = minutesUpToHours)
+    val dauer = ComputedProperty(ComputedPropertyId("cp-dauer"), "dauer", PropertyType.DOUBLE, expression = "2", unit = minutes)
+
+    appVersionRepository.save(loaded.copy(entityDefinitions = listOf(entity.copy(computedProperties = entity.computedProperties + saldo + dauer))))
+    val reloaded = appVersionRepository.findById(AppVersionId(id))!!.entityDefinitions.single().computedProperties.associateBy { it.name }
+
+    assertThat(reloaded.getValue("saldo").unit).isEqualTo(minutesUpToHours)
+    assertThat(reloaded.getValue("dauer").unit?.maxDisplayGranularity).isNull()
   }
 }

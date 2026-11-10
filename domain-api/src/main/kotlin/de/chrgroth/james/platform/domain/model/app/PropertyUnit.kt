@@ -104,15 +104,27 @@ enum class VolumeGranularity(override val symbol: String, override val factorToS
  * the field's fixed smallest granularity — chosen once at field creation and immutable afterward, so changing it
  * requires recreating the field (see ADR 0016); a `CopyValue` migration step can carry existing values over into
  * the new field, converting granularity via [ValueConversion.convertGranularity] (see ADR 0023). [defaultGranularity]
- * is only a UI default for new input and may change freely at any time.
+ * is only a UI default for new input and may change freely at any time. [maxDisplayGranularity] optionally caps the largest
+ * granularity a composite value is shown in (e.g. `HOURS`: "55h 15min" instead of "2d 7h 15min"); without it all of the family's
+ * granularities are used. It only affects display and may change freely, too.
  */
 data class PropertyUnit(
   val family: UnitFamily,
   val storageGranularity: Granularity,
   val defaultGranularity: Granularity,
+  val maxDisplayGranularity: Granularity? = null,
 ) {
   init {
     require(storageGranularity.family == family) { "storageGranularity $storageGranularity does not belong to family $family" }
     require(defaultGranularity.family == family) { "defaultGranularity $defaultGranularity does not belong to family $family" }
+    require(maxDisplayGranularity == null || isValidMaxDisplayGranularity(storageGranularity, maxDisplayGranularity)) {
+      "maxDisplayGranularity $maxDisplayGranularity must belong to family $family and not be finer than storageGranularity $storageGranularity"
+    }
+  }
+
+  companion object {
+    /** Whether [maxDisplay] can cap the display of values stored in [storage]: the same family and at least as coarse as [storage]. */
+    fun isValidMaxDisplayGranularity(storage: Granularity, maxDisplay: Granularity): Boolean =
+      maxDisplay.family == storage.family && maxDisplay.factorToSmallestUnit >= storage.factorToSmallestUnit
   }
 }

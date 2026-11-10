@@ -11,6 +11,7 @@ import de.chrgroth.james.platform.domain.expression.Expression
 import de.chrgroth.james.platform.domain.expression.ExpressionProblem
 import de.chrgroth.james.platform.domain.expression.ExpressionType
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.Granularity
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.RelativePeriod
@@ -99,7 +100,7 @@ internal object ReportDefinitionParser {
   private const val USE_RANGE = "range"
   private const val USE_FILTER = "filter"
   private val TRANSFORM_KEYS = mapOf(
-    ReportCalcTransform.KEY to setOf("expr", "unit", "type"),
+    ReportCalcTransform.KEY to setOf("expr", "unit", "maxUnit", "type"),
     ReportCumulativeTransform.KEY to setOf("as"),
     ReportMovingAverageTransform.KEY to setOf("window", "as"),
     ReportYoyTransform.KEY to setOf("as"),
@@ -532,7 +533,11 @@ internal object ReportDefinitionParser {
       val exprPath = path.key("expr")
       val source = required(map, "expr", path)?.let { nonBlankText(it, exprPath, "expr") }
       val expression = source?.let { expression(it, exprPath) }
-      val unit = map.get("unit")?.let { unit(it, path.key("unit")) }
+      val parsedUnit = map.get("unit")?.let { unit(it, path.key("unit")) }
+      val maxUnit = map.get("maxUnit")?.let { node ->
+        if (!map.has("unit")) null.also { error(ReportDefinitionErrorCode.REQUIRED_KEY_MISSING, path, "unit") } else parsedUnit?.let { maxUnit(node, path.key("maxUnit"), it) }
+      }
+      val unit = parsedUnit?.copy(maxDisplayGranularity = maxUnit)
       val declared = map.get("type")?.let { node -> keyed(node, path.key("type"), ReportExpressions.RESULT_TYPES) { it.name } }
       val inferred = expression?.let { expressionType(it, exprPath, pipeline.columns, pipeline.queryName) }
       if (declared != null && unit != null && !ReportFields.isNumericType(declared)) error(ReportDefinitionErrorCode.KEY_CONFLICT, path.key("unit"), "unit", "type")
@@ -543,7 +548,8 @@ internal object ReportDefinitionParser {
       val type = expected ?: ReportExpressions.propertyTypeOf(inferred)
       val role = if (ReportFields.isNumericType(type)) ColumnRole.VALUE else ColumnRole.FIELD
       if (name != null) output(name, null, namePath, pipeline, ResultColumn(name, role, type, unit?.takeIf { ReportFields.isNumericType(type) }))
-      if (name == null || source == null || expression == null || (map.has("unit") && unit == null) || (map.has("type") && declared == null)) return null
+      val invalidKeys = (map.has("unit") && unit == null) || (map.has("maxUnit") && maxUnit == null) || (map.has("type") && declared == null)
+      if (name == null || source == null || expression == null || invalidKeys) return null
       return ReportCalcTransform(name, source, unit, type)
     }
 
@@ -641,6 +647,20 @@ internal object ReportDefinitionParser {
       val granularity = UnitFamily.entries.firstNotNullOfOrNull { granularityByName(it, raw) }
         ?: return null.also { error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, ReportFields.GRANULARITY_NAMES.joinToString(", ")) }
       return PropertyUnit(granularity.family, granularity, granularity)
+    }
+
+    /**
+     * `maxUnit` of a calculated field with `unit`: the largest granularity its composite value is shown in (e.g. `HOURS`: "55h 15min" instead of
+     * "2d 7h 15min"), of the unit's family and not finer than the unit.
+     */
+    private fun maxUnit(node: JsonNode, path: Path, unit: PropertyUnit): Granularity? {
+      val raw = nonBlankText(node, path, "maxUnit") ?: return null
+      val granularity = granularityByName(unit.family, raw)?.takeIf { PropertyUnit.isValidMaxDisplayGranularity(unit.storageGranularity, it) }
+      if (granularity == null) {
+        val allowed = ReportFields.GRANULARITY_NAMES.filter { name -> granularityByName(unit.family, name)?.let { PropertyUnit.isValidMaxDisplayGranularity(unit.storageGranularity, it) } == true }
+        error(ReportDefinitionErrorCode.INVALID_VALUE, path, raw, allowed.joinToString(", "))
+      }
+      return granularity
     }
 
     /** cumulative, movingAverage, yoy and forecast: a numeric source field and an output field (`as`). */

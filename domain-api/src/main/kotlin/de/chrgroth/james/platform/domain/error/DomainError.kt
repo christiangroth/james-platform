@@ -141,6 +141,9 @@ enum class AppVersionError(override val code: String) : DomainError {
 
   /** A LIST of OBJECTs may only be a top-level property, and the fields of its items only simple values (no REF, LIST or OBJECT). */
   OBJECT_LIST_NOT_SUPPORTED("APPVER-077"),
+
+  /** A unit's largest display granularity is unknown, of another family or finer than its storage granularity (or given without a unit). */
+  UNIT_MAX_DISPLAY_GRANULARITY_INVALID("APPVER-078"),
   ;
 }
 

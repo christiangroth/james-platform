@@ -391,7 +391,7 @@ internal class ReportExecutor(
   internal fun formatNumber(value: Double, unit: PropertyUnit?): String {
     if (unit == null) return PropertyValueFormat.formatNumber(value)
     val scale = if (unit.family.compositeFormat) 0 else 2
-    return formatUnitValue(BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP), unit.storageGranularity)
+    return formatUnitValue(BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP), unit)
   }
 
   /** Result fields of a query in their natural order: the aggregate's (bucket, group, values) or the queried fields. */

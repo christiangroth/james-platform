@@ -77,6 +77,9 @@ class PropertyUnitDocument {
   lateinit var family: String
   lateinit var storageGranularity: String
   lateinit var defaultGranularity: String
+
+  // Optional, missing in documents stored before it existed: the largest granularity a composite value is shown in.
+  var maxDisplayGranularity: String? = null
 }
 
 class ConstraintDocument {

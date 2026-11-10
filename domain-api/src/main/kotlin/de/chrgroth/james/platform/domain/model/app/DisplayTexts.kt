@@ -46,7 +46,7 @@ object PropertyValueFormat {
   }
 
   private fun formatNumeric(unit: PropertyUnit?, value: Double): String =
-    if (unit != null) formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity) else formatNumber(value)
+    if (unit != null) formatUnitValue(BigDecimal.valueOf(value), unit) else formatNumber(value)
 }
 
 /**
