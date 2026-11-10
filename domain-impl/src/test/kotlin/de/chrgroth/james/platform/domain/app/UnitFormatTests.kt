@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.granularityByName
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.app.parseUnitValue
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -87,6 +88,39 @@ class UnitFormatTests {
 
     assertThat(formatted).isEqualTo("15km 400m")
     assertThat(parseUnitValue(formatted, DistanceGranularity.METERS)).isEqualByComparingTo(BigDecimal("15400"))
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+    "3315, , 2d 7h 15min",
+    "3315, HOURS, 55h 15min",
+    "74460, HOURS, 1241h",
+    "-3315, HOURS, -55h -15min",
+    "90, HOURS, 1h 30min",
+    "3315, MINUTES, 3315min",
+  )
+  fun `a unit's largest display granularity caps time composites, without it days are used`(minutes: String, maxDisplay: String?, expected: String) {
+    val unit = PropertyUnit(UnitFamily.TIME, TimeGranularity.MINUTES, TimeGranularity.MINUTES, maxDisplay?.let { TimeGranularity.valueOf(it) })
+    val formatted = formatUnitValue(BigDecimal(minutes), unit)
+
+    assertThat(formatted).isEqualTo(expected)
+    assertThat(parseUnitValue(formatted, TimeGranularity.MINUTES)).isEqualByComparingTo(BigDecimal(minutes))
+  }
+
+  @Test
+  fun `the largest display granularity caps other composite families too`() {
+    val meters = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.METERS, DistanceGranularity.METERS)
+
+    assertThat(formatUnitValue(BigDecimal("15400"), meters)).isEqualTo("15400m")
+  }
+
+  @Test
+  fun `the largest display granularity belongs to the unit's family and is not finer than its storage granularity`() {
+    assertThat(PropertyUnit.isValidMaxDisplayGranularity(TimeGranularity.MINUTES, TimeGranularity.HOURS)).isTrue()
+    assertThat(PropertyUnit.isValidMaxDisplayGranularity(TimeGranularity.MINUTES, TimeGranularity.MINUTES)).isTrue()
+    assertThat(PropertyUnit.isValidMaxDisplayGranularity(TimeGranularity.MINUTES, TimeGranularity.SECONDS)).isFalse()
+    assertThat(PropertyUnit.isValidMaxDisplayGranularity(TimeGranularity.MINUTES, DistanceGranularity.KILOMETERS)).isFalse()
+    assertThatThrownBy { PropertyUnit(UnitFamily.TIME, TimeGranularity.HOURS, TimeGranularity.HOURS, TimeGranularity.MINUTES) }.isInstanceOf(IllegalArgumentException::class.java)
   }
 
   @Test

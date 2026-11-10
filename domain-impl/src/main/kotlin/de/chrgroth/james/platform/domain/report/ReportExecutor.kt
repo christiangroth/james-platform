@@ -23,6 +23,7 @@ import de.chrgroth.james.platform.domain.model.app.HeatmapThresholdSpec
 import de.chrgroth.james.platform.domain.model.app.PanelSpec
 import de.chrgroth.james.platform.domain.model.app.PiePanelSpec
 import de.chrgroth.james.platform.domain.model.app.PieSliceSpec
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
@@ -262,6 +263,7 @@ internal class ReportExecutor(
       configNumber = ::configNumber,
       configValue = ::configValue,
       label = ::text,
+      configList = ::configList,
       previousYear = { index ->
         // Year over year: the same query over the range one year earlier, with the steps before the yoy step; an open range covers it already.
         if (range == null || (range.from == null && range.to == null)) return@ReportTransformer null
@@ -389,7 +391,7 @@ internal class ReportExecutor(
   internal fun formatNumber(value: Double, unit: PropertyUnit?): String {
     if (unit == null) return PropertyValueFormat.formatNumber(value)
     val scale = if (unit.family.compositeFormat) 0 else 2
-    return formatUnitValue(BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP), unit.storageGranularity)
+    return formatUnitValue(BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP), unit)
   }
 
   /** Result fields of a query in their natural order: the aggregate's (bucket, group, values) or the queried fields. */
@@ -479,6 +481,13 @@ internal class ReportExecutor(
     val raw = configRaw(field) ?: return null
     if (field.type == PropertyType.REF) return ExpressionValue.Text(displayTexts.displayTextOf(raw))
     return ExpressionValue.of(raw, ReportExpressions.typeOf(field.type))
+  }
+
+  /** A configuration LIST field ([path] being the field) for list functions in expressions: the top-level LIST property and its raw value. */
+  internal fun configList(path: String): Pair<Property, String?>? {
+    val field = configField(path) ?: return null
+    val list = field.property?.takeIf { it.type == PropertyType.LIST && field.objectPath.isEmpty() } ?: return null
+    return list to configRaw(field)
   }
 
   /**

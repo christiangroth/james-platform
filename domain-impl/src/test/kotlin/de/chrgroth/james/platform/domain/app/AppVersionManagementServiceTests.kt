@@ -2397,7 +2397,7 @@ class AppVersionManagementServiceTests {
       "id", "name", "function", "sourceProperty", "refPath", "timeBucket", "timeProperty", "groupBy", "periodStart", "sourcePath",
     )
     assertThat(fieldsOf(Report::class.java)).containsExactlyInAnyOrder("id", "name", "definition")
-    assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity")
+    assertThat(fieldsOf(PropertyUnit::class.java)).containsExactlyInAnyOrder("family", "storageGranularity", "defaultGranularity", "maxDisplayGranularity")
     assertThat(fieldsOf(ReferenceLookup::class.java)).containsExactlyInAnyOrder("propertyId", "autoCreate")
   }
 
@@ -3790,6 +3790,23 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `setPropertyUnit sets and validates the largest display granularity`() {
+    val property = Property(id = PropertyId("p-1"), name = "Saldo", type = PropertyType.LONG)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Tag", properties = listOf(property))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns draftVersion.copy(entityDefinitions = listOf(entity))
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "TIME", "MINUTES", "HOURS", maxDisplayGranularity = "HOURS")
+
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.properties?.first()?.unit)
+      .isEqualTo(PropertyUnit(UnitFamily.TIME, TimeGranularity.MINUTES, TimeGranularity.HOURS, TimeGranularity.HOURS))
+    assertThat(service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "TIME", "MINUTES", "HOURS", maxDisplayGranularity = "SECONDS").leftOrNull())
+      .isEqualTo(AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID)
+    assertThat(service.setPropertyUnit("app-1", "ver-1", "e-1", "p-1", "TIME", "MINUTES", "HOURS", maxDisplayGranularity = "KILOMETERS").leftOrNull())
+      .isEqualTo(AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID)
+  }
+
+  @Test
   fun `setPropertyUnit clears unit when family is blank`() {
     val existingUnit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS)
     val property = Property(id = PropertyId("p-1"), name = "Distance", type = PropertyType.LONG, unit = existingUnit)
@@ -4009,6 +4026,19 @@ class AppVersionManagementServiceTests {
 
     assertThat((result.leftOrNull() as InvalidExpressionError).reason).isEqualTo(reason)
     verify(exactly = 0) { appVersionRepository.save(any()) }
+  }
+
+  @Test
+  fun `computed properties take an optional largest display granularity of their unit's family`() {
+    expressionDraft(koerper)
+
+    val computed = service.addComputedProperty("app-1", "ver-1", "e-1", "Dauer", "DOUBLE", "MINUTES", "1", maxUnit = "HOURS").getOrNull()!!
+      .entityDefinitions.first().computedProperties.single()
+    assertThat(computed.unit).isEqualTo(PropertyUnit(UnitFamily.TIME, TimeGranularity.MINUTES, TimeGranularity.MINUTES, TimeGranularity.HOURS))
+    assertThat(service.addComputedProperty("app-1", "ver-1", "e-1", "X", "DOUBLE", "MINUTES", null, maxUnit = "SECONDS").leftOrNull())
+      .isEqualTo(AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID)
+    assertThat(service.addComputedProperty("app-1", "ver-1", "e-1", "X", "DOUBLE", null, null, maxUnit = "HOURS").leftOrNull())
+      .isEqualTo(AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID)
   }
 
   @Test
@@ -4680,6 +4710,9 @@ class AppVersionManagementServiceTests {
       val unitUpdatedEntity = unitEntity.copy(
         properties = listOf(unitProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS))),
       )
+      val maxDisplayEntity = unitUpdatedEntity.copy(
+        properties = listOf(unitProp.copy(unit = PropertyUnit(UnitFamily.DISTANCE, DistanceGranularity.METERS, DistanceGranularity.KILOMETERS, DistanceGranularity.METERS))),
+      )
 
       val displayTextEntity = defaultEntity.copy(displayText = "Order A")
       val displayTextUpdatedEntity = defaultEntity.copy(displayText = "Order B")
@@ -4756,6 +4789,10 @@ class AppVersionManagementServiceTests {
         Arguments.of(
           "property unit", listOf(unitEntity), listOf(unitUpdatedEntity),
           listOf(listOf("unit: DISTANCE", "granularity: METERS", "default: KILOMETERS")),
+        ),
+        Arguments.of(
+          "unit max display granularity", listOf(unitUpdatedEntity), listOf(maxDisplayEntity),
+          listOf(listOf("unit: DISTANCE", "max display: METERS")),
         ),
       )
     }

@@ -78,12 +78,14 @@ fun granularityByName(family: UnitFamily, name: String?): Granularity? {
  * Formats [value] (expressed in [storageGranularity]) as a unit-suffixed composite string, e.g. "15km 400m", accepted back by [parseUnitValue].
  * [UnitFamily.CURRENCY] is the exception: it is shown as a single euro amount with two decimals, e.g. "12,50€", instead of "12€ 50ct".
  * Any other family without [UnitFamily.compositeFormat] is shown as a single amount in [storageGranularity], e.g. "75,3kg" or "2300kcal".
+ * [maxDisplayGranularity] caps the largest granularity of a composite, e.g. `HOURS` gives "55h 15min" instead of "2d 7h 15min".
  */
-fun formatUnitValue(value: BigDecimal, storageGranularity: Granularity): String {
+fun formatUnitValue(value: BigDecimal, storageGranularity: Granularity, maxDisplayGranularity: Granularity? = null): String {
   if (storageGranularity.family == UnitFamily.CURRENCY) return formatCurrencyValue(value, storageGranularity)
   if (!storageGranularity.family.compositeFormat) return "${value.stripTrailingZeros().toPlainString().replace('.', ',')}${storageGranularity.symbol}"
 
-  val granularities = granularitiesOf(storageGranularity.family).sortedByDescending { it.factorToSmallestUnit }
+  val maxFactor = maxDisplayGranularity?.takeIf { it.family == storageGranularity.family }?.factorToSmallestUnit ?: Long.MAX_VALUE
+  val granularities = granularitiesOf(storageGranularity.family).filter { it.factorToSmallestUnit <= maxFactor }.sortedByDescending { it.factorToSmallestUnit }
   var remaining = value.multiply(BigDecimal(storageGranularity.factorToSmallestUnit))
   val parts = mutableListOf<String>()
   granularities.forEachIndexed { index, granularity ->
@@ -97,6 +99,9 @@ fun formatUnitValue(value: BigDecimal, storageGranularity: Granularity): String 
   }
   return if (parts.isEmpty()) "0${granularities.last().symbol}" else parts.joinToString(" ")
 }
+
+/** Formats [value] (expressed in [unit]'s storage granularity) like [formatUnitValue], capped at the unit's [PropertyUnit.maxDisplayGranularity]. */
+fun formatUnitValue(value: BigDecimal, unit: PropertyUnit): String = formatUnitValue(value, unit.storageGranularity, unit.maxDisplayGranularity)
 
 private const val CURRENCY_DECIMALS = 2
 

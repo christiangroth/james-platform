@@ -55,6 +55,8 @@ James Platform is a personal Low Code system for building and running data-centr
 ### Entities and Properties
 
 - A Version defines **Entities** and **Reports**.
+- `List` values of dates, date-times, times and numbers are stored and shown ascending (e.g. the holidays of a configuration); other lists (texts,
+  references, yes/no, objects) keep the order their items were entered in.
 - An Entity has:
   - A name unique within the App.
   - A globally unique internal ID (immutable).
@@ -145,8 +147,14 @@ numeric field and a User enter values as unit-suffixed text (e.g. `15km 400m`) i
   `KILOMETERS`), `CurrencyGranularity` (`CENTS`, `EUROS`), `MassGranularity` (`MILLIGRAMS`, `GRAMS`, `KILOGRAMS`),
   `EnergyGranularity` (`KILOJOULES`, `KILOCALORIES`, `WATT_HOURS`, `KILOWATT_HOURS`, exact via millijoules) or
   `VolumeGranularity` (`MILLILITERS`, `LITERS`, `CUBIC_METERS`), matching the unit's `family`.
-- `TIME` and `DISTANCE` values are displayed as a composite over all granularities (`15km 400m`); `MASS`, `ENERGY` and `VOLUME`
+- `TIME` and `DISTANCE` values are displayed as a composite over all granularities (`15km 400m`, `2d 7h 15min`); `MASS`, `ENERGY` and `VOLUME`
   values as a single amount in the storage granularity (`75,3kg`, `2300kcal`), since mixed granularities (`2kWh 300kcal`) do not read well.
+- An optional **`maxDisplayGranularity`** caps the largest granularity of a composite (the storage granularity is the smallest): with `HOURS` a
+  balance of 3315 minutes reads `55h 15min` instead of `2d 7h 15min`, a yearly sum `1241h` (negative values `-55h -15min`). It must belong to the
+  unit's family and must not be finer than `storageGranularity`; without it all granularities are used, as before. It only affects display (every
+  formatted unit value: object views, display texts, reports) and may change freely - no breaking change. It is set in the property editor
+  ("Größte Anzeige-Einheit"), for properties, nested properties and computed properties (`maxUnit`), and via the token API
+  (`PUT …/properties/{propertyId}/unit` with `maxDisplayGranularity`, computed properties with `maxUnit`); report `calc` steps take `maxUnit`.
 - `CURRENCY` always means euros: there is no currency code and no exchange-rate conversion. Unlike the other
   families, a currency value is displayed as a single euro amount with two decimals (`12,50€`) rather than
   as a composite (`12€ 50ct`).
@@ -318,7 +326,9 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     (see below) over the row's result fields and `config.<field>` values; `type` is `LONG` (rounded), `DOUBLE`, `STRING`, `BOOLEAN`, `DATE`,
     `DATETIME` or `TIME` - without it the type follows from the expression (a comparison gives `BOOLEAN`, a `case` of texts `STRING`, unknown: `DOUBLE`
     as before typed results existed); `unit` (e.g. `SECONDS`, `MINUTES`, `KILOGRAMS`) makes a numeric result a unit value (shorthand for a `DOUBLE` in
-    that unit);
+    that unit); `maxUnit` (with `unit`, same family, not finer) caps its largest display granularity like a Property unit's
+    `maxDisplayGranularity`, e.g. `{ calc: saldo, expr: "netto - soll", unit: MINUTES, maxUnit: HOURS }` shows "55h 15min" instead of "2d 7h 15min"
+    (aggregated values keep it);
   - `{ cumulative: <field>, as }` running total (in place by default), `{ movingAverage: <field>, window: <n>, as }` average over the last n values;
   - `{ yoy: <field>, as }` the value of the same bucket one year earlier, read from the query over its range shifted back a year (needs a time bucket;
     default field `<field>_vorjahr`);
@@ -489,14 +499,20 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     `days(from, to)`, `weekday(d)` (1 = Monday .. 7 = Sunday), `day(d)`, `month(d)`, `year(d)`, `today()`, `date(x)`, `time(x)` (texts such as
     `'2026-01-01'` or `'08:00'` to a date or time), `add_days(d, n)`, `end_of_month(d)`, `workdays(from, to[, holidays])` (Mondays to Fridays, both
     inclusive, without the holidays: a date or a text/configuration `List` of dates). Not in reports: `now()` (the current date-time to the minute,
-    computed properties and smart defaults), the smart default functions `last(field)`/`next_day(field)` (they take a field name, not a value) and
-    the list functions below; reports answer them with `EXPRESSION_UNKNOWN_FUNCTION`.
-  - **List functions** (computed properties and smart defaults): `sum_of(list, expr)`, `avg_of(list, expr)`, `min_of(list, expr)`,
-    `max_of(list, expr)` and `count_of(list[, condition])` take a top-level `List` field and evaluate `expr` per item - inside it, field names are the
-    fields of a `List` of `object`s' item (`sum_of(sessions, bahnlänge * bahnen)`, numbers with a unit as raw storage values) or `item` for the
-    value of a list of simple values (`sum_of(zeiten, item)`), plus `config.<field>`. Items without a value are skipped: `sum_of` of no items is 0,
-    `avg_of`/`min_of`/`max_of` no value, `count_of` counts the items (matching the condition). Validation reports `LIST_FIELD_REQUIRED` (the first
-    argument is no top-level `List`) and `UNKNOWN_ITEM_FIELD` (the item has no such field).
+    computed properties and smart defaults) and the smart default functions `last(field)`/`next_day(field)` (they take a field name, not a value);
+    reports answer them with `EXPRESSION_UNKNOWN_FUNCTION`.
+  - **List functions**: `sum_of(list, expr)`, `avg_of(list, expr)`, `min_of(list, expr)`, `max_of(list, expr)`, `count_of(list[, condition])` and
+    `valid_at(list, key, at, value)` take a top-level `List` field - of the object or of the configuration as `config.<field>` - and evaluate their
+    per-item expressions per item: inside them, field names are the fields of a `List` of `object`s' item (`sum_of(sessions, bahnlänge * bahnen)`,
+    numbers with a unit as raw storage values) or `item` for the value of a list of simple values (`sum_of(zeiten, item)`), plus `config.<field>`.
+    Items without a value are skipped: `sum_of` of no items is 0, `avg_of`/`min_of`/`max_of` no value, `count_of` counts the items (matching the
+    condition). `valid_at` picks the item valid at a point: `key` and `value` are read per item, `at` outside the list (in the row or object), and the
+    result is `value` of the item with the greatest `key` not after `at` (on equal keys the later item), no value before the first item - e.g.
+    `valid_at(config.sollzeiten, ab, datum, sollzeit_pro_tag)` for target hours that change with each contract change; the result has the type of
+    `value`, `key` must be comparable with `at`. Computed properties and smart defaults read lists of the object and of the configuration; reports
+    only configuration lists (result rows hold no list items). Validation reports `LIST_FIELD_REQUIRED` (the first argument is no top-level `List`;
+    in reports `EXPRESSION_LIST_FIELD_REQUIRED`, also for a list that is no configuration field) and `UNKNOWN_ITEM_FIELD` (the item has no such
+    field; in reports `EXPRESSION_UNKNOWN_ITEM_FIELD`).
   - **Semantics**: yes/no values count as 1/0 in arithmetic (`max(kopfschmerz, migraene)` is "one of both"); texts compare alphabetically and by
     exact equality, dates, date-times and times chronologically (a text on the other side is read as date/time, e.g. `datum >= '2026-01-01'`). A
     missing operand gives no value in arithmetic, functions and ordering comparisons (as before); `==`/`!=` treat no value as a value of its own
@@ -616,7 +632,9 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   ECharts calendar per year) and matrix heatmap, thresholds as piecewise and otherwise a continuous visual map (vendored webjar, loaded only on report
   pages; resized via `ResizeObserver`, so charts in hidden tabs render once shown), so the chart library stays swappable.
 - **UI and API:** the version editor lists, creates, renames, edits (YAML textarea with validation feedback) and deletes reports of a draft and previews
-  an unsaved definition against a test installation of the draft. Installed Apps list their reports; `/ui/user/apps/{installedAppId}/reports/{reportId}`
+  an unsaved definition against a test installation of the draft. Installed Apps list their reports as tiles with the report icon above
+  the Entities (no heading of their own), and every App tile on the user dashboard (`/ui/user/dashboard`) links the App and its reports - the tiles show
+  no Entities or object counts, so the dashboard loads no App data; `/ui/user/apps/{installedAppId}/reports/{reportId}`
   renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
   `{ name, definition }`; like every draft edit they answer with the full draft, `POST` additionally names the new report's id in the `X-Report-Id`
   header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec incl. variables; selections as `var.<name>` query parameters).
@@ -1072,7 +1090,7 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
     version bump preview, draft creation/deletion (`POST /{appId}/versions`, `DELETE /{appId}/versions/{versionId}`), draft editing (entities, properties,
     constraints, defaults, smart defaults (`PUT …/properties/{propertyId}/smart-default` with `{ "value": "<expression>" }`), units, computed properties
     (`POST …/entities/{entityId}/computed-properties` and `PUT …/computed-properties/{computedPropertyId}` with
-    `{ "name", "type", "unit", "expression" }`; an invalid expression answers `400` with code `APPVER-076` and the reason in `details`), aggregations,
+    `{ "name", "type", "unit", "maxUnit", "expression" }`; an invalid expression answers `400` with code `APPVER-076` and the reason in `details`), aggregations,
     migration steps, the configuration flag (`PUT …/entities/{entityId}/configuration`
     with `{ "value": true }`), reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
     (`POST /{appId}/versions/publish`).
@@ -1261,7 +1279,7 @@ this has been missed historically.
 | Mapping           | The configuration, held by a single import definition, of how each source field maps to a Property of the definition's target Entity. |
 | Reference lookup   | A `find`-only rule, configured per REF Property in a Mapping, that resolves a source value to an existing object of the referenced Entity. Never creates a referenced object as a side effect. |
 | Dry run           | A non-persisting preview of an import's Accept step, surfacing per-object validation issues before any data is written. |
-| Property Unit     | An optional unit (`family`, `storageGranularity`, `defaultGranularity`) attached to a `long`/`Double` Property; values are always stored numerically in `storageGranularity`. See ADR [0016](../adr/0016-property-units-storage-granularity.md). |
+| Property Unit     | An optional unit (`family`, `storageGranularity`, `defaultGranularity`, optional `maxDisplayGranularity`) attached to a `long`/`Double` Property; values are always stored numerically in `storageGranularity`. See ADR [0016](../adr/0016-property-units-storage-granularity.md). |
 | Unit family       | The kind of unit a Property Unit belongs to: `TIME`, `DISTANCE`, `CURRENCY` (euros only), `MASS`, `ENERGY` or `VOLUME`. Determines which granularity enum (`TimeGranularity`/`DistanceGranularity`/`CurrencyGranularity`/`MassGranularity`/`EnergyGranularity`/`VolumeGranularity`) applies. |
 | Storage granularity | A Property Unit's fixed smallest representable unit, chosen at field creation and immutable afterward. |
 | Outbox            | A persistent queue for at-least-once execution of long-running domain operations (import, deletion, migration). Scoped to a single "domain" partition, no rate limiting. See ADR [0019](../adr/0019-persistent-outbox-for-long-running-domain-operations.md). |

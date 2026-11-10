@@ -14,6 +14,8 @@ import de.chrgroth.james.platform.domain.model.app.ReportDefinitionErrorCode
 import de.chrgroth.james.platform.domain.model.app.StatPanelSpec
 import de.chrgroth.james.platform.domain.model.app.TablePanelSpec
 import de.chrgroth.james.platform.domain.model.app.VersionNumber
+import de.chrgroth.james.platform.domain.model.app.encodeListValue
+import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
@@ -32,6 +34,13 @@ class ReportExpressionLanguageTests {
     properties = listOf(
       Property(PropertyId("p-eintritt"), "eintritt", PropertyType.DATE),
       Property(PropertyId("p-wochenstunden"), "wochenstunden", PropertyType.DOUBLE),
+      Property(
+        PropertyId("p-sollzeiten"),
+        "sollzeiten",
+        PropertyType.LIST,
+        listItemType = PropertyType.OBJECT,
+        nestedProperties = listOf(Property(PropertyId("p-s-ab"), "ab", PropertyType.DATE), Property(PropertyId("p-s-stunden"), "stunden", PropertyType.DOUBLE)),
+      ),
     ),
   )
 
@@ -87,7 +96,14 @@ class ReportExpressionLanguageTests {
     )
   }
 
-  private val config = data("cfg", einstellungen, mapOf("p-eintritt" to "2026-01-01", "p-wochenstunden" to "40"))
+  private val sollzeiten = encodeListValue(
+    listOf(
+      encodeObjectValue(mapOf("p-s-ab" to "2026-03-01", "p-s-stunden" to "6")),
+      encodeObjectValue(mapOf("p-s-ab" to "2026-01-01", "p-s-stunden" to "8")),
+    ),
+  )
+
+  private val config = data("cfg", einstellungen, mapOf("p-eintritt" to "2026-01-01", "p-wochenstunden" to "40", "p-sollzeiten" to sollzeiten))
 
   private fun tag(id: String, datum: String, beginn: String?, ende: String?, pause: Long?, art: String) =
     data(id, arbeitstag, mapOf("p-a-datum" to datum, "p-a-beginn" to beginn, "p-a-ende" to ende, "p-a-pause" to pause?.toString(), "p-a-art" to art))
@@ -205,6 +221,114 @@ class ReportExpressionLanguageTests {
     assertThat(bar.xAxis.categories).containsExactly("Arbeit", "Urlaub", "Wochenende")
     val timeseries = panels[2] as ChartPanelSpec
     assertThat(timeseries.xAxis.categories).containsExactly("2025", "2026")
+  }
+
+  @Test
+  fun `valid_at picks the target hours of the configuration list item valid at the row's date`() {
+    val table = panels(
+      """
+      queries:
+        tage: { entity: Arbeitstag, timeField: datum, fields: [datum], sort: [datum] }
+      transforms:
+        tage:
+          - { calc: soll, expr: "valid_at(config.sollzeiten, ab, datum, stunden) * 60", unit: MINUTES }
+          - { calc: ab, expr: "valid_at(config.sollzeiten, ab, datum, ab)" }
+      tabs:
+        - name: T
+          rows: [[{ table: Tage, query: tage }]]
+      """,
+    ).single() as TablePanelSpec
+
+    assertThat(table.column("datum")).containsExactly("2025-12-31", "2026-02-02", "2026-03-02", "2026-03-03", "2026-03-07")
+    assertThat(table.column("soll")).containsExactly(null, "480.0", "360.0", "360.0", "360.0")
+    assertThat(table.columns.single { it.key == "ab" }.type).isEqualTo("DATE")
+    assertThat(table.column("ab")).containsExactly(null, "2026-01-01", "2026-03-01", "2026-03-01", "2026-03-01")
+  }
+
+  @Test
+  fun `a calc unit's maxUnit caps the composite display - an overtime balance in hours instead of days`() {
+    val table = panels(
+      """
+      queries:
+        tage: { entity: Arbeitstag, timeField: datum, fields: [datum], sort: [datum] }
+      transforms:
+        tage:
+          - { calc: saldo, expr: "3315", unit: MINUTES, maxUnit: HOURS }
+          - { calc: minus, expr: "-3315", unit: MINUTES, maxUnit: hours }
+          - { calc: tage, expr: "3315", unit: MINUTES }
+          - { aggregate: { values: { summe: { sum: saldo } } } }
+      tabs:
+        - name: T
+          rows: [[{ table: Tage, query: tage }]]
+      """,
+    ).single() as TablePanelSpec
+
+    assertThat(table.texts("summe")).containsExactly("276h 15min")
+    assertThat(table.columns.single { it.key == "summe" }.unit?.granularity).isEqualTo("MINUTES")
+  }
+
+  @Test
+  fun `calc rows show the capped composite and maxUnit needs a unit it is not finer than`() {
+    val table = panels(
+      """
+      queries:
+        tage: { entity: Arbeitstag, timeField: datum, fields: [datum], sort: [datum] }
+      transforms:
+        tage:
+          - { calc: saldo, expr: "3315", unit: MINUTES, maxUnit: HOURS }
+          - { calc: minus, expr: "-3315", unit: MINUTES, maxUnit: hours }
+          - { calc: tage, expr: "3315", unit: MINUTES }
+      tabs:
+        - name: T
+          rows: [[{ table: Tage, query: tage }]]
+      """,
+    ).single() as TablePanelSpec
+
+    assertThat(table.texts("saldo").first()).isEqualTo("55h 15min")
+    assertThat(table.texts("minus").first()).isEqualTo("-55h -15min")
+    assertThat(table.texts("tage").first()).isEqualTo("2d 7h 15min")
+    assertThat(
+      errors(
+        """
+        queries:
+          tage: { entity: Arbeitstag, timeField: datum, fields: [datum] }
+        transforms:
+          tage:
+            - { calc: a, expr: "1", maxUnit: HOURS }
+            - { calc: b, expr: "1", unit: MINUTES, maxUnit: SECONDS }
+            - { calc: c, expr: "1", unit: MINUTES, maxUnit: KILOMETERS }
+        tabs: []
+        """,
+      ),
+    ).containsExactly(
+      ReportDefinitionErrorCode.REQUIRED_KEY_MISSING to "transforms.tage[0]",
+      ReportDefinitionErrorCode.INVALID_VALUE to "transforms.tage[1].maxUnit",
+      ReportDefinitionErrorCode.INVALID_VALUE to "transforms.tage[2].maxUnit",
+    )
+  }
+
+  @Test
+  fun `list functions in reports read configuration lists only, with known item fields of comparable types`() {
+    assertThat(
+      errors(
+        """
+        queries:
+          tage: { entity: Arbeitstag, timeField: datum, fields: [datum, art] }
+        transforms:
+          tage:
+            - { calc: a, expr: "count_of(art)" }
+            - { calc: b, expr: "valid_at(config.wochenstunden, ab, datum, stunden)" }
+            - { calc: c, expr: "valid_at(config.sollzeiten, beginn, datum, stunden)" }
+            - { calc: d, expr: "valid_at(config.sollzeiten, ab, art == 'A', stunden)" }
+        tabs: []
+        """,
+      ),
+    ).containsExactly(
+      ReportDefinitionErrorCode.EXPRESSION_LIST_FIELD_REQUIRED to "transforms.tage[0].expr",
+      ReportDefinitionErrorCode.EXPRESSION_LIST_FIELD_REQUIRED to "transforms.tage[1].expr",
+      ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_ITEM_FIELD to "transforms.tage[2].expr",
+      ReportDefinitionErrorCode.EXPRESSION_INCOMPARABLE to "transforms.tage[3].expr",
+    )
   }
 
   @Test

@@ -527,6 +527,7 @@ class ApiDeveloperResource(
       storageGranularity = request?.storageGranularity?.takeIf { it.isNotBlank() },
       defaultGranularity = request?.defaultGranularity?.takeIf { it.isNotBlank() },
       path = request?.path.orEmpty(),
+      maxDisplayGranularity = request?.maxDisplayGranularity?.takeIf { it.isNotBlank() },
     )
   }
 
@@ -545,7 +546,7 @@ class ApiDeveloperResource(
     @PathParam("entityId") entityId: String,
     request: ApiComputedPropertyRequest?,
   ): Response = edit("computed-property-add", appId) {
-    appVersionManagement.addComputedProperty(appId, versionId, entityId, request?.name.orEmpty(), request?.type.orEmpty(), request?.unit, request?.expression)
+    appVersionManagement.addComputedProperty(appId, versionId, entityId, request?.name.orEmpty(), request?.type.orEmpty(), request?.unit, request?.expression, request?.maxUnit)
   }
 
   @PUT
@@ -560,7 +561,7 @@ class ApiDeveloperResource(
     @PathParam("computedPropertyId") computedPropertyId: String,
     request: ApiComputedPropertyRequest?,
   ): Response = edit("computed-property-update", appId) {
-    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, request?.name.orEmpty(), request?.type.orEmpty(), request?.unit, request?.expression)
+    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, request?.name.orEmpty(), request?.type.orEmpty(), request?.unit, request?.expression, request?.maxUnit)
   }
 
   @DELETE

@@ -176,11 +176,24 @@ class ReportPageTests {
     val installedAppId = userAppStore.installApp(USERNAME, draft.appId).getOrNull()!!.id.value
     addKonzert(draft, installedAppId, "Die Ärzte", "2026-05-01")
 
-    given().`when`().get("/ui/user/apps/$installedAppId")
+    val appPage = given().`when`().get("/ui/user/apps/$installedAppId")
       .then()
       .statusCode(200)
       .body(containsString("data-testid=\"report-tile\""))
       .body(containsString("/ui/user/apps/$installedAppId/reports/${draft.reportId}"))
+      .extract().asString()
+    // The reports come first, above the entities, without a heading of their own (the report icon says it).
+    assertThat(appPage.indexOf("data-testid=\"app-reports\"")).isLessThan(appPage.indexOf("data-testid=\"entity-heading\""))
+    assertThat(appPage).doesNotContain(">Reports</h2>")
+
+    // The dashboard tile links the app and embeds its reports, without entity object counts.
+    given().`when`().get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("href=\"/ui/user/apps/$installedAppId\""))
+      .body(containsString("data-testid=\"installed-app-report-link\""))
+      .body(containsString("href=\"/ui/user/apps/$installedAppId/reports/${draft.reportId}\""))
+      .body(not(containsString("data-testid=\"entity-count\"")))
 
     given().`when`().get("/ui/user/apps/$installedAppId/reports/${draft.reportId}")
       .then()

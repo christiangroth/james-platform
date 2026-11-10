@@ -27,6 +27,12 @@ interface ReportExpressionMessages {
   @Message
   fun reportErrorExpressionResultType(expected: String, actual: String): String
 
+  @Message
+  fun reportErrorExpressionListFieldRequired(field: String): String
+
+  @Message
+  fun reportErrorExpressionUnknownItemField(field: String, list: String): String
+
   // endregion
 
   // region type names

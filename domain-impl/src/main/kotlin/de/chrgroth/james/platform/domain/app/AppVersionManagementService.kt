@@ -1223,6 +1223,7 @@ class AppVersionManagementService(
     storageGranularity: String?,
     defaultGranularity: String?,
     path: List<String>,
+    maxDisplayGranularity: String?,
   ): Either<DomainError, AppVersion> {
     val version = getDraftVersion(appId, versionId).fold({ return it.left() }, { it })
     val entity = version.entityDefinitions.find { it.id.value == entityId } ?: run {
@@ -1231,7 +1232,7 @@ class AppVersionManagementService(
     }
     var resolvedUnit: PropertyUnit? = null
     val updatedEntity = mutatePropertyAtPath(entity, path, propertyId) { property ->
-      withPropertyUnit(property, propertyId, family, storageGranularity, defaultGranularity).map {
+      withPropertyUnit(property, propertyId, family, storageGranularity, defaultGranularity, maxDisplayGranularity).map {
         resolvedUnit = it.unit
         it
       }
@@ -1248,6 +1249,7 @@ class AppVersionManagementService(
     family: String?,
     storageGranularity: String?,
     defaultGranularity: String?,
+    maxDisplayGranularity: String?,
   ): Either<DomainError, Property> {
     val trimmedFamily = family?.trim()?.takeIf { it.isNotBlank() } ?: return property.copy(unit = null).right()
     if (!property.type.supportsUnit()) {
@@ -1266,7 +1268,18 @@ class AppVersionManagementService(
       logger.warn { "Set property unit failed: invalid default granularity: $defaultGranularity for family $parsedFamily" }
       return AppVersionError.UNIT_GRANULARITY_INVALID.left()
     }
-    return property.copy(unit = PropertyUnit(parsedFamily, parsedStorageGranularity, parsedDefaultGranularity)).right()
+    val parsedMaxDisplayGranularity = maxDisplayGranularity(parsedStorageGranularity, maxDisplayGranularity).fold({ return it.left() }, { it })
+    return property.copy(unit = PropertyUnit(parsedFamily, parsedStorageGranularity, parsedDefaultGranularity, parsedMaxDisplayGranularity)).right()
+  }
+
+  /** The optional largest display granularity of a unit stored in [storage]: of the same family and not finer than [storage]. */
+  private fun maxDisplayGranularity(storage: Granularity, name: String?): Either<DomainError, Granularity?> {
+    val trimmed = name?.trim()?.takeIf { it.isNotEmpty() } ?: return null.right()
+    val granularity = parseGranularity(storage.family, trimmed)?.takeIf { PropertyUnit.isValidMaxDisplayGranularity(storage, it) } ?: run {
+      logger.warn { "Unit rejected: invalid max display granularity $trimmed for storage granularity $storage" }
+      return AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID.left()
+    }
+    return granularity.right()
   }
 
   private fun parseGranularity(family: UnitFamily, value: String?): Granularity? = granularityByName(family, value)
@@ -1432,6 +1445,7 @@ class AppVersionManagementService(
     type: String,
     unit: String?,
     expression: String?,
+    maxUnit: String?,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Add computed property failed: blank name" }
@@ -1454,7 +1468,7 @@ class AppVersionManagementService(
       logger.warn { "Add computed property failed: name already exists: $name in entity $entityId" }
       return AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val computedUnit = computedPropertyUnit(propertyType, unit).fold({ return it.left() }, { it })
+    val computedUnit = computedPropertyUnit(propertyType, unit, maxUnit).fold({ return it.left() }, { it })
     val newComputedProperty = ComputedProperty(id = ComputedPropertyId(UUID.randomUUID().toString()), name = name.trim(), type = propertyType, unit = computedUnit)
     val updatedEntity = entity.copy(computedProperties = entity.computedProperties + newComputedProperty)
     val withExpression = withComputedExpression(updatedEntity, newComputedProperty, expression, version).fold({ return it.left() }, { it })
@@ -1473,6 +1487,7 @@ class AppVersionManagementService(
     type: String,
     unit: String?,
     expression: String?,
+    maxUnit: String?,
   ): Either<DomainError, AppVersion> {
     if (name.isBlank()) {
       logger.warn { "Update computed property failed: blank name" }
@@ -1499,7 +1514,7 @@ class AppVersionManagementService(
       logger.warn { "Update computed property failed: name already exists: $name in entity $entityId" }
       return AppVersionError.COMPUTED_PROPERTY_NAME_ALREADY_EXISTS.left()
     }
-    val computedUnit = computedPropertyUnit(propertyType, unit).fold({ return it.left() }, { it })
+    val computedUnit = computedPropertyUnit(propertyType, unit, maxUnit).fold({ return it.left() }, { it })
     val updatedComputedProperty = computedProperty.copy(name = name.trim(), type = propertyType, unit = computedUnit)
     val updatedEntity = entity.copy(computedProperties = entity.computedProperties.map { if (it.id.value == computedPropertyId) updatedComputedProperty else it })
     val withExpression = withComputedExpression(updatedEntity, updatedComputedProperty, expression, version).fold({ return it.left() }, { it })
@@ -1511,9 +1526,18 @@ class AppVersionManagementService(
     return updated.right()
   }
 
-  /** The unit of a computed property from a granularity name (e.g. `KILOMETERS`, stored and shown in that granularity); numeric types only. */
-  private fun computedPropertyUnit(type: PropertyType, unit: String?): Either<DomainError, PropertyUnit?> {
-    val name = unit?.trim()?.takeIf { it.isNotEmpty() } ?: return null.right()
+  /**
+   * The unit of a computed property from a granularity name (e.g. `KILOMETERS`, stored and shown in that granularity), capped for display at
+   * [maxUnit] if given; numeric types only.
+   */
+  private fun computedPropertyUnit(type: PropertyType, unit: String?, maxUnit: String?): Either<DomainError, PropertyUnit?> {
+    val name = unit?.trim()?.takeIf { it.isNotEmpty() } ?: run {
+      if (!maxUnit.isNullOrBlank()) {
+        logger.warn { "Computed property unit rejected: max unit $maxUnit without unit" }
+        return AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID.left()
+      }
+      return null.right()
+    }
     if (!type.supportsUnit()) {
       logger.warn { "Computed property unit rejected: type $type does not support units" }
       return AppVersionError.UNIT_NOT_SUPPORTED.left()
@@ -1522,7 +1546,8 @@ class AppVersionManagementService(
       logger.warn { "Computed property unit rejected: unknown granularity $name" }
       return AppVersionError.UNIT_GRANULARITY_INVALID.left()
     }
-    return PropertyUnit(granularity.family, granularity, granularity).right()
+    val maxDisplay = maxDisplayGranularity(granularity, maxUnit).fold({ return it.left() }, { it })
+    return PropertyUnit(granularity.family, granularity, granularity, maxDisplay).right()
   }
 
   /**
@@ -2045,7 +2070,7 @@ class AppVersionManagementService(
     }
     for (cp in entity.computedProperties) {
       lines.add("  computed ${cp.name}: ${cp.type}")
-      cp.unit?.let { lines.add("    unit: ${it.storageGranularity}") }
+      cp.unit?.let { lines.add("    unit: ${it.storageGranularity}${it.maxDisplayGranularity?.let { max -> " (max display: $max)" }.orEmpty()}") }
       cp.expression?.let { lines.add("    expression: $it") }
       cp.legacyScript?.let { lines.add("    kotlin-script (no longer supported): $it") }
     }
@@ -2094,7 +2119,8 @@ class AppVersionManagementService(
     lines.add("$indent${prop.name}: ${prop.type}$nullable$constraintsStr")
     val unit = prop.unit
     if (unit != null) {
-      lines.add("$indent  unit: ${unit.family} (granularity: ${unit.storageGranularity}, default: ${unit.defaultGranularity})")
+      val maxDisplay = unit.maxDisplayGranularity?.let { ", max display: $it" }.orEmpty()
+      lines.add("$indent  unit: ${unit.family} (granularity: ${unit.storageGranularity}, default: ${unit.defaultGranularity}$maxDisplay)")
     }
     if (prop.default != null) {
       lines.add("$indent  default: ${prop.default}")

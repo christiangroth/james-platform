@@ -107,7 +107,6 @@ import io.quarkus.qute.TemplateData
 @TemplateData(target = AggregationEditorRow::class)
 @TemplateData(target = AggregationPropertyOptionRow::class)
 @TemplateData(target = PropertyBreadcrumb::class)
-@TemplateData(target = EntityDataCount::class)
 @TemplateData(target = DashboardInstalledApp::class)
 @TemplateData(target = ReleaseNotesEntry::class)
 @TemplateData(target = ReleaseNotesMinorVersionGroup::class)

@@ -56,6 +56,7 @@
                  data-unit-family="{selectedProperty.unitFamily}"
                  data-unit-storage-granularity="{selectedProperty.unitStorageGranularity}"
                  data-unit-default-granularity="{selectedProperty.unitDefaultGranularity}"
+                 data-unit-max-display-granularity="{selectedProperty.unitMaxDisplayGranularity}"
                  data-item-constraint-min-long="{selectedProperty.itemConstraintMinLong}"
                  data-item-constraint-max-long="{selectedProperty.itemConstraintMaxLong}"
                  data-item-constraint-min-double="{selectedProperty.itemConstraintMinDouble}"
@@ -419,6 +420,13 @@
                             </select>
                         </div>
                     </div>
+                    <div class="mb-2">
+                        <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="editPropertyUnitMaxDisplayGranularity">{developerUnit:developerUnitMaxDisplayGranularityLabel()}</label>
+                        <select class="form-select app-form-control form-select-sm" id="editPropertyUnitMaxDisplayGranularity" data-testid="edit-property-unit-max-display-granularity-select">
+                            <option value="">{developerUnit:developerUnitMaxDisplayGranularityAll()}</option>
+                        </select>
+                        <div class="form-text">{developerUnit:developerUnitMaxDisplayGranularityHint()}</div>
+                    </div>
                 </div>
                 <div id="smartDefaultSection" class="d-none">
                     <hr style="border-color:var(--color-border);">
@@ -589,6 +597,17 @@
                     });
                     select.value = current;
                 });
+                // The largest display granularity is optional: no selection shows composites over all of the family's granularities.
+                var maxDisplaySelect = document.getElementById('editPropertyUnitMaxDisplayGranularity');
+                var currentMaxDisplay = preserveValues ? maxDisplaySelect.value : '';
+                maxDisplaySelect.innerHTML = '<option value="">{developerUnit:developerUnitMaxDisplayGranularityAll()}</option>';
+                unitGranularitiesFor(family).forEach(function (g) {
+                    var option = document.createElement('option');
+                    option.value = g.value;
+                    option.textContent = g.symbol;
+                    maxDisplaySelect.appendChild(option);
+                });
+                maxDisplaySelect.value = currentMaxDisplay;
             }
 
             function applyUnitVisibility(propertyType) {
@@ -779,6 +798,7 @@
             populateUnitGranularityOptions(initialUnitFamily, false);
             document.getElementById('editPropertyUnitStorageGranularity').value = initialData.getAttribute('data-unit-storage-granularity') || '';
             document.getElementById('editPropertyUnitDefaultGranularity').value = initialData.getAttribute('data-unit-default-granularity') || '';
+            document.getElementById('editPropertyUnitMaxDisplayGranularity').value = initialData.getAttribute('data-unit-max-display-granularity') || '';
             document.getElementById('itemConstraintMinLong').value = initialData.getAttribute('data-item-constraint-min-long') || '';
             document.getElementById('itemConstraintMaxLong').value = initialData.getAttribute('data-item-constraint-max-long') || '';
             document.getElementById('itemConstraintMinDouble').value = initialData.getAttribute('data-item-constraint-min-double') || '';
@@ -1019,6 +1039,8 @@
                         var unitDefaultGranularity = document.getElementById('editPropertyUnitDefaultGranularity').value;
                         if (unitStorageGranularity !== '') unitFormData.set('storageGranularity', unitStorageGranularity);
                         if (unitDefaultGranularity !== '') unitFormData.set('defaultGranularity', unitDefaultGranularity);
+                        var unitMaxDisplayGranularity = document.getElementById('editPropertyUnitMaxDisplayGranularity').value;
+                        if (unitMaxDisplayGranularity !== '') unitFormData.set('maxDisplayGranularity', unitMaxDisplayGranularity);
                     }
                     var unitResult = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/properties/' + propertyId + '/unit',

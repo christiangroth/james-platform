@@ -113,10 +113,12 @@ data class ApiConstraintDto(
   val value: String?,
 )
 
+/** [maxDisplayGranularity]: the largest granularity a composite value is shown in (e.g. `HOURS`), null for all of the family's. */
 data class ApiUnitDto(
   val family: String,
   val storageGranularity: String,
   val defaultGranularity: String,
+  val maxDisplayGranularity: String? = null,
 )
 
 data class ApiSortCriteriaDto(
@@ -126,7 +128,7 @@ data class ApiSortCriteriaDto(
 
 /**
  * A computed property: [expression] of the expression language (ADR 0029), [unit] the granularity of a numeric result (e.g. `KILOMETERS`),
- * [legacyScript] a Kotlin script stored before ADR 0029 that is no longer evaluated.
+ * [maxUnit] the largest granularity it is shown in (e.g. `HOURS`, null for all), [legacyScript] a Kotlin script stored before ADR 0029 that is no longer evaluated.
  */
 data class ApiComputedPropertyDto(
   val id: String,
@@ -135,6 +137,7 @@ data class ApiComputedPropertyDto(
   val unit: String?,
   val expression: String?,
   val legacyScript: String?,
+  val maxUnit: String? = null,
 )
 
 data class ApiAggregationDto(
@@ -321,7 +324,7 @@ object ApiDtoMapper {
     listItemType = property.listItemType?.name,
     itemConstraints = property.itemConstraints.map { constraint(it) },
     nestedProperties = property.nestedProperties.map { property(it) },
-    unit = property.unit?.let { ApiUnitDto(it.family.name, granularityName(it.storageGranularity), granularityName(it.defaultGranularity)) },
+    unit = property.unit?.let { ApiUnitDto(it.family.name, granularityName(it.storageGranularity), granularityName(it.defaultGranularity), it.maxDisplayGranularity?.let(::granularityName)) },
     referenceLookup = property.referenceLookup?.let { ApiReferenceLookupDto(it.propertyId.value, it.autoCreate) },
   )
 
@@ -332,6 +335,7 @@ object ApiDtoMapper {
     unit = computed.unit?.let { granularityName(it.storageGranularity) },
     expression = computed.expression,
     legacyScript = computed.legacyScript,
+    maxUnit = computed.unit?.maxDisplayGranularity?.let(::granularityName),
   )
 
   private fun aggregation(aggregation: AggregationDefinition) = ApiAggregationDto(

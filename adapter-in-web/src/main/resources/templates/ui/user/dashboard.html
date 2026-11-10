@@ -29,40 +29,45 @@
             <!-- Installed app tiles -->
             {#for info in installedApps}
             <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                <a href="/ui/user/apps/{info.installedAppId}" class="text-decoration-none" data-testid="installed-app-tile" aria-label="{user:userOpenInstalledAppAriaLabel(info.appName)}">
-                    <div class="card app-card p-3 h-100 d-flex flex-column" style="cursor:pointer;">
-                        <div class="fw-semibold fs-6 mb-1" data-testid="installed-app-name">{info.appName}</div>
-                        <div class="app-section-label mb-1" data-testid="installed-app-version">v{info.installedVersion.versionNumber}</div>
-                        {#if !info.appActive}
-                        <div class="app-section-label mb-1" style="font-size:0.75rem;" data-testid="installed-app-deactivated-info">
-                            <i class="bi bi-info-circle" aria-hidden="true"></i> {user:userAppDeactivatedBadge()}
-                        </div>
-                        {/if}
-                        {#if !info.entityCounts.isEmpty}
-                        <div class="mb-2">
-                            {#for ec in info.entityCounts}
-                            <div class="app-section-label" style="font-size:0.75rem;" data-testid="entity-count">{ec.entityName}: {ec.count}</div>
-                            {/for}
-                        </div>
-                        {/if}
-                        <div class="mt-auto d-flex align-items-center gap-2">
-                            {#if info.autoUpdatePending}
-                            <span class="app-section-label" style="font-size:0.75rem;" data-testid="update-pending-hint">
-                                <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {userAppUpdate:userAppUpdatePendingHint(info.latestVersion.versionNumber)}
-                            </span>
-                            {/if}
-                            {#if info.manualUpdateRequired}
-                            <button type="button"
-                                    class="btn btn-app-primary btn-sm"
-                                    data-testid="upgrade-button"
-                                    data-installed-app-id="{info.installedAppId}"
-                                    onclick="event.preventDefault(); upgradeApp('{info.installedAppId}', this)">
-                                {user:userUpgradeToVersionButton(info.latestVersion.versionNumber)}
-                            </button>
-                            {/if}
-                        </div>
+                {! The whole tile opens the app (stretched link); report links and the upgrade button sit above it, so no links are nested !}
+                <div class="card app-card p-3 h-100 d-flex flex-column position-relative" data-testid="installed-app-card">
+                    <a href="/ui/user/apps/{info.installedAppId}" class="text-decoration-none stretched-link" data-testid="installed-app-tile" aria-label="{user:userOpenInstalledAppAriaLabel(info.appName)}">
+                        <span class="d-block fw-semibold fs-6 mb-1 app-tile-title" data-testid="installed-app-name">{info.appName}</span>
+                    </a>
+                    <div class="app-section-label mb-1" data-testid="installed-app-version">v{info.installedVersion.versionNumber}</div>
+                    {#if !info.appActive}
+                    <div class="app-section-label mb-1" style="font-size:0.75rem;" data-testid="installed-app-deactivated-info">
+                        <i class="bi bi-info-circle" aria-hidden="true"></i> {user:userAppDeactivatedBadge()}
                     </div>
-                </a>
+                    {/if}
+                    {#if !info.installedVersion.reports.isEmpty}
+                    <ul class="list-unstyled mb-2 app-tile-links" data-testid="installed-app-reports">
+                        {#for rep in info.installedVersion.sortedReports}
+                        <li>
+                            <a href="/ui/user/apps/{info.installedAppId}/reports/{rep.id}" class="app-tile-link" data-testid="installed-app-report-link" aria-label="{report:reportOpenAriaLabel(rep.name)}">
+                                <i class="bi bi-bar-chart-line me-1" aria-hidden="true"></i>{rep.name}
+                            </a>
+                        </li>
+                        {/for}
+                    </ul>
+                    {/if}
+                    <div class="mt-auto d-flex align-items-center gap-2">
+                        {#if info.autoUpdatePending}
+                        <span class="app-section-label" style="font-size:0.75rem;" data-testid="update-pending-hint">
+                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {userAppUpdate:userAppUpdatePendingHint(info.latestVersion.versionNumber)}
+                        </span>
+                        {/if}
+                        {#if info.manualUpdateRequired}
+                        <button type="button"
+                                class="btn btn-app-primary btn-sm app-tile-link"
+                                data-testid="upgrade-button"
+                                data-installed-app-id="{info.installedAppId}"
+                                onclick="upgradeApp('{info.installedAppId}', this)">
+                            {user:userUpgradeToVersionButton(info.latestVersion.versionNumber)}
+                        </button>
+                        {/if}
+                    </div>
+                </div>
             </div>
             {/for}
         </div>

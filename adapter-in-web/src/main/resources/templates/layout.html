@@ -318,6 +318,23 @@
             color: var(--color-text-muted);
             font-size: .8rem;
         }
+        /* Tile title inside a stretched link (the whole tile is clickable) */
+        .app-tile-title {
+            color: var(--color-text-primary);
+        }
+        /* Links and buttons inside a tile with a stretched link: kept above the stretched link so they stay clickable on their own */
+        .app-tile-link {
+            position: relative;
+            z-index: 2;
+        }
+        .app-tile-links a.app-tile-link {
+            color: var(--color-action);
+            font-size: .85rem;
+            text-decoration: none;
+        }
+        .app-tile-links a.app-tile-link:hover {
+            text-decoration: underline;
+        }
         /* Transparent table used in dark cards (health, config) */
         .app-table {
             --bs-table-color: var(--color-text-primary);

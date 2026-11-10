@@ -327,6 +327,8 @@ class ReportTexts(
       ReportDefinitionErrorCode.EXPRESSION_MIXED_TYPES ->
         expressionMsg.reportErrorExpressionMixedTypes(a(0), a(1).split(",").joinToString(", ") { typeName(it.trim()) })
       ReportDefinitionErrorCode.EXPRESSION_RESULT_TYPE -> expressionMsg.reportErrorExpressionResultType(typeName(a(0)), typeName(a(1)))
+      ReportDefinitionErrorCode.EXPRESSION_LIST_FIELD_REQUIRED -> expressionMsg.reportErrorExpressionListFieldRequired(a(0))
+      ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_ITEM_FIELD -> expressionMsg.reportErrorExpressionUnknownItemField(a(0), a(1))
       ReportDefinitionErrorCode.TRANSFORM_NEEDS_BUCKET -> transformMsg.reportErrorTransformNeedsBucket(a(0), a(1))
       ReportDefinitionErrorCode.FORECAST_NEEDS_PERIOD -> transformMsg.reportErrorForecastNeedsPeriod(a(0))
       ReportDefinitionErrorCode.RESAMPLE_NEEDS_TIME -> transformMsg.reportErrorResampleNeedsTime(a(0))

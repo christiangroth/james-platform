@@ -194,7 +194,7 @@ class DeveloperAndUserFlowIT {
       .body(containsString(appName))
       .extract().body().asString()
 
-    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)" class="text-decoration-none" data-testid="installed-app-tile"""")
+    val installedAppId = Regex("""href="/ui/user/apps/([^"]+)" class="[^"]*" data-testid="installed-app-tile"""")
       .find(dashboardHtml)?.groupValues?.get(1)
     assertTrue(!installedAppId.isNullOrBlank(), "Expected to find an installedAppId on the user dashboard for '$appName'")
 

@@ -327,6 +327,10 @@ object TemplateFormattingExtensions {
   @JvmStatic
   fun unitDefaultGranularity(property: Property): String = (property.unit?.defaultGranularity as? Enum<*>)?.name ?: ""
 
+  /** Returns the unit's largest display granularity name (e.g. "HOURS"), or empty string if none is set or the property has no unit configured. */
+  @JvmStatic
+  fun unitMaxDisplayGranularity(property: Property): String = (property.unit?.maxDisplayGranularity as? Enum<*>)?.name ?: ""
+
   /** Returns the symbol of the unit's storage granularity (e.g. "s"), or empty string if the property has no unit configured. */
   @JvmStatic
   fun unitStorageGranularitySymbol(property: Property): String = property.unit?.storageGranularity?.symbol ?: ""
@@ -433,6 +437,10 @@ object TemplateFormattingExtensions {
   /** Returns the granularity name of the computed property's unit (e.g. `KILOMETERS`), or empty string without unit. */
   @JvmStatic
   fun unitName(computedProperty: ComputedProperty): String = computedProperty.unit?.storageGranularity?.let { (it as Enum<*>).name } ?: ""
+
+  /** The largest display granularity name of a computed property's unit (e.g. `HOURS`), empty without one. */
+  @JvmStatic
+  fun maxUnitName(computedProperty: ComputedProperty): String = computedProperty.unit?.maxDisplayGranularity?.let { (it as Enum<*>).name } ?: ""
 
   /**
    * Looks up the reference options for one property id in the app-data-new/app-data-edit "propertyId -> options"

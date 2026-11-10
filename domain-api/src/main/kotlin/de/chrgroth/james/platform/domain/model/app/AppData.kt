@@ -4,6 +4,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import de.chrgroth.james.platform.domain.model.imports.ImportConnectionId
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 @JvmInline
 value class AppDataId(val value: String)
@@ -43,6 +46,20 @@ fun encodeListValue(items: List<String>): String = items.joinToString(LIST_VALUE
 
 /** Decodes a LIST property's stored string back into its individual item values. */
 fun decodeListValue(raw: String?): List<String> = if (raw.isNullOrEmpty()) emptyList() else raw.split(LIST_VALUE_SEPARATOR)
+
+/**
+ * The item values of a LIST of [itemType] in their natural order: dates, date-times, times and numbers ascending (items that do not parse last,
+ * in their given order); every other item type (texts, references, yes/no, objects) keeps the order the items were entered in.
+ */
+fun sortListItems(itemType: PropertyType?, items: List<String>): List<String> = when (itemType) {
+  PropertyType.DATE -> items.sortedByParsed { runCatching { LocalDate.parse(it) }.getOrNull() }
+  PropertyType.DATETIME -> items.sortedByParsed { runCatching { LocalDateTime.parse(it) }.getOrNull() }
+  PropertyType.TIME -> items.sortedByParsed { runCatching { LocalTime.parse(it) }.getOrNull() }
+  PropertyType.LONG, PropertyType.DOUBLE -> items.sortedByParsed { it.trim().toBigDecimalOrNull() }
+  else -> items
+}
+
+private fun <T : Comparable<T>> List<String>.sortedByParsed(parse: (String) -> T?): List<String> = sortedWith(compareBy(nullsLast<T>()) { parse(it) })
 
 private val objectMapper = jacksonObjectMapper()
 

@@ -31,6 +31,7 @@ import de.chrgroth.james.platform.domain.model.app.computedSourceIn
 import de.chrgroth.james.platform.domain.model.app.hasNestedProperties
 import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
+import de.chrgroth.james.platform.domain.model.app.sortListItems
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
@@ -532,7 +533,7 @@ class UserAppStoreResource {
               valueProposals = prop.valueProposals,
               referenceOptions = referenceOptions[prop.id.value] ?: emptyList(),
               listItemType = prop.listItemType?.name,
-              values = if (prop.type == PropertyType.LIST) decodeListValue(appDataItem.data[prop.id.value]) else emptyList(),
+              values = if (prop.type == PropertyType.LIST) sortListItems(prop.listItemType, decodeListValue(appDataItem.data[prop.id.value])) else emptyList(),
               itemHtmlInputType = TemplateFormattingExtensions.itemHtmlInputType(prop),
               step = TemplateFormattingExtensions.constraintStep(prop),
               min = TemplateFormattingExtensions.constraintMin(prop),
@@ -559,7 +560,7 @@ class UserAppStoreResource {
                 id = cp.id.value,
                 name = cp.name,
                 type = cp.type.name,
-                value = if (raw != null && unit != null) raw.toBigDecimalOrNull()?.let { formatUnitValue(it, unit.storageGranularity) } ?: raw else raw,
+                value = if (raw != null && unit != null) raw.toBigDecimalOrNull()?.let { formatUnitValue(it, unit) } ?: raw else raw,
               )
             }
           },
@@ -803,7 +804,7 @@ class UserAppStoreResource {
   /** Formats an aggregation's raw numeric value, applying the source's unit granularity if it has one (COUNT never carries the source's unit). */
   private fun formatAggregationValue(aggregation: AggregationDefinition, unit: PropertyUnit?, value: Double): String {
     return if (unit != null && aggregation.function != AggregationFunction.COUNT) {
-      formatUnitValue(BigDecimal.valueOf(value), unit.storageGranularity)
+      formatUnitValue(BigDecimal.valueOf(value), unit)
     } else {
       TemplateFormattingExtensions.formatted(value)
     }

@@ -8,6 +8,7 @@ import de.chrgroth.james.platform.adapter.`in`.web.i18n.AppMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperAggregationMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperMigrationStepMessages
+import de.chrgroth.james.platform.adapter.`in`.web.i18n.DeveloperUnitMessages
 import de.chrgroth.james.platform.adapter.`in`.web.i18n.ReportMessages
 import de.chrgroth.james.platform.domain.error.AppError
 import de.chrgroth.james.platform.domain.error.AppVersionError
@@ -237,6 +238,9 @@ class DeveloperAppResource {
 
   @Inject
   private lateinit var migrationStepMsg: DeveloperMigrationStepMessages
+
+  @Inject
+  private lateinit var unitMsg: DeveloperUnitMessages
 
   @Inject
   private lateinit var reportMsg: ReportMessages
@@ -1301,8 +1305,9 @@ class DeveloperAppResource {
     @FormParam("storageGranularity") storageGranularity: String?,
     @FormParam("defaultGranularity") defaultGranularity: String?,
     @FormParam("path") path: String?,
+    @FormParam("maxDisplayGranularity") maxDisplayGranularity: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.property-unit-set") {
-    appVersionManagement.setPropertyUnit(appId, versionId, entityId, propertyId, family, storageGranularity, defaultGranularity, parsePath(path)).fold(
+    appVersionManagement.setPropertyUnit(appId, versionId, entityId, propertyId, family, storageGranularity, defaultGranularity, parsePath(path), maxDisplayGranularity).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerUnitSavedMessage(), entityEditorUrl(appId, versionId, entityId, path))).build() },
     )
@@ -1403,11 +1408,12 @@ class DeveloperAppResource {
     @FormParam("type") type: String,
     @FormParam("unit") unit: String?,
     @FormParam("expression") expression: String?,
+    @FormParam("maxUnit") maxUnit: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.computed-property-add") {
     if (name.isBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
-    appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type, unit, expression).fold(
+    appVersionManagement.addComputedProperty(appId, versionId, entityId, name.trim(), type, unit, expression, maxUnit).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyAddedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -1426,11 +1432,12 @@ class DeveloperAppResource {
     @FormParam("type") type: String,
     @FormParam("unit") unit: String?,
     @FormParam("expression") expression: String?,
+    @FormParam("maxUnit") maxUnit: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.computed-property-update") {
     if (name.isBlank()) {
       return@timed Response.ok(DeveloperApiResult(false, devMsg.developerComputedPropertyNameRequiredError())).build()
     }
-    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type, unit, expression).fold(
+    appVersionManagement.updateComputedProperty(appId, versionId, entityId, computedPropertyId, name.trim(), type, unit, expression, maxUnit).fold(
       ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerComputedPropertyUpdatedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
@@ -2171,6 +2178,7 @@ class DeveloperAppResource {
     AppVersionError.UNIT_NOT_SUPPORTED.code -> devMsg.developerUnitNotSupportedError()
     AppVersionError.UNIT_FAMILY_INVALID.code -> devMsg.developerUnitFamilyInvalidError()
     AppVersionError.UNIT_GRANULARITY_INVALID.code -> devMsg.developerUnitGranularityInvalidError()
+    AppVersionError.UNIT_MAX_DISPLAY_GRANULARITY_INVALID.code -> unitMsg.developerUnitMaxDisplayGranularityInvalidError()
     AppVersionError.APP_INACTIVE.code -> devMsg.developerAppInactiveError()
     AppVersionError.CONFIGURATION_ALREADY_DEFINED.code -> appConfigMsg.appConfigAlreadyDefinedError()
     AppVersionError.CONFIGURATION_REFERENCED.code -> appConfigMsg.appConfigReferencedError()

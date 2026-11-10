@@ -332,13 +332,14 @@
                             data-computed-property-name="{cp.name}"
                             data-computed-property-type="{cp.type}"
                             data-computed-property-unit="{cp.unitName}"
+                            data-computed-property-max-unit="{cp.maxUnitName}"
                             data-computed-property-expression="{cp.expression}"
                             data-computed-property-legacy-script="{cp.legacyScript}">
                             <td class="drag-handle" style="cursor:grab;color:var(--color-text-muted);" title="{developer:developerDragToReorderTitle()}" data-testid="computed-property-drag-handle">
                                 <i class="bi bi-grip-vertical" aria-hidden="true"></i>
                             </td>
                             <td data-testid="computed-property-name">{cp.name}</td>
-                            <td>{cp.type.propertyTypeLabel}{#if cp.unitName} <span class="app-section-label" style="font-size:0.75rem;">({cp.unitName})</span>{/if}</td>
+                            <td>{cp.type.propertyTypeLabel}{#if cp.unitName} <span class="app-section-label" style="font-size:0.75rem;">({cp.unitName}{#if cp.maxUnitName} ≤ {cp.maxUnitName}{/if})</span>{/if}</td>
                             <td>
                                 {#if cp.expression}
                                 <code class="small" data-testid="computed-property-expression-{cp.id}">{cp.expression}</code>
@@ -878,6 +879,13 @@
                             </select>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="addComputedPropertyMaxUnit">{developerUnit:developerUnitMaxDisplayGranularityLabel()}</label>
+                            <select class="form-select app-form-control computed-property-unit-select" id="addComputedPropertyMaxUnit" name="maxUnit" data-testid="computed-property-max-unit-select">
+                                <option value="">{developerUnit:developerUnitMaxDisplayGranularityAll()}</option>
+                            </select>
+                            <div class="form-text">{developerUnit:developerUnitMaxDisplayGranularityHint()}</div>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label form-label-sm" style="color:var(--color-text-muted);">{developer:developerExpressionLabel()}</label>
                             <p class="app-section-label mb-2" style="font-size:0.75rem;">{developer:developerComputedPropertyExpressionHelp()}</p>
                             <textarea class="form-control app-form-control form-control-sm" id="addComputedPropertyExpression" name="expression" rows="3" style="font-family:monospace;font-size:0.8rem;" placeholder="{developer:developerComputedPropertyExpressionPlaceholder()}" data-testid="computed-property-expression-add-input"></textarea>
@@ -930,6 +938,13 @@
                             <select class="form-select app-form-control form-select-sm computed-property-unit-select" id="editComputedPropertyUnit" name="unit" data-testid="edit-computed-property-unit-select">
                                 <option value="">{developerExpression:developerComputedPropertyUnitNone()}</option>
                             </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-sm" style="color:var(--color-text-muted);" for="editComputedPropertyMaxUnit">{developerUnit:developerUnitMaxDisplayGranularityLabel()}</label>
+                            <select class="form-select app-form-control form-select-sm computed-property-unit-select" id="editComputedPropertyMaxUnit" name="maxUnit" data-testid="edit-computed-property-max-unit-select">
+                                <option value="">{developerUnit:developerUnitMaxDisplayGranularityAll()}</option>
+                            </select>
+                            <div class="form-text">{developerUnit:developerUnitMaxDisplayGranularityHint()}</div>
                         </div>
                         <hr style="border-color:var(--color-border);">
                         <div class="app-section-label mb-1" style="font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">{developer:developerExpressionLabel()}</div>
@@ -2097,6 +2112,7 @@
                         document.getElementById('editComputedPropertyName').value = row.getAttribute('data-computed-property-name');
                         document.getElementById('editComputedPropertyType').value = row.getAttribute('data-computed-property-type');
                         document.getElementById('editComputedPropertyUnit').value = row.getAttribute('data-computed-property-unit') || '';
+                        document.getElementById('editComputedPropertyMaxUnit').value = row.getAttribute('data-computed-property-max-unit') || '';
                         document.getElementById('editComputedPropertyExpression').value = row.getAttribute('data-computed-property-expression') || '';
                         var legacyScript = row.getAttribute('data-computed-property-legacy-script') || '';
                         var legacyHint = document.getElementById('editComputedPropertyLegacyScript');
@@ -2133,6 +2149,7 @@
                     formData.set('name', document.getElementById('editComputedPropertyName').value);
                     formData.set('type', document.getElementById('editComputedPropertyType').value);
                     formData.set('unit', document.getElementById('editComputedPropertyUnit').value);
+                    formData.set('maxUnit', document.getElementById('editComputedPropertyMaxUnit').value);
                     formData.set('expression', document.getElementById('editComputedPropertyExpression').value);
                     var result = await apiPost(
                         '/ui/developer/apps/' + appId + '/versions/' + versionId + '/entities/' + entityId + '/computed-properties/' + computedPropertyId,

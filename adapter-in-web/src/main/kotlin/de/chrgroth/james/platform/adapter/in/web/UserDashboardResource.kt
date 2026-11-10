@@ -2,7 +2,6 @@ package de.chrgroth.james.platform.adapter.`in`.web
 
 import de.chrgroth.james.platform.domain.model.app.AppVersion
 import de.chrgroth.james.platform.domain.model.app.InstallationUpdateState
-import de.chrgroth.james.platform.domain.port.`in`.app.AppDataPort
 import de.chrgroth.james.platform.domain.port.`in`.app.UserAppStorePort
 import de.chrgroth.james.platform.domain.port.out.user.UserRepositoryPort
 import io.quarkus.security.Authenticated
@@ -15,18 +14,12 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 
-data class EntityDataCount(
-  val entityName: String,
-  val count: Int,
-)
-
 data class DashboardInstalledApp(
   val installedAppId: String,
   val appName: String,
   val appActive: Boolean,
   val installedVersion: AppVersion,
   val latestVersion: AppVersion,
-  val entityCounts: List<EntityDataCount>,
 ) {
   private val updateState: InstallationUpdateState get() = InstallationUpdateState.of(installedVersion.versionNumber, latestVersion.versionNumber)
 
@@ -52,9 +45,6 @@ class UserDashboardResource {
   private lateinit var userAppStore: UserAppStorePort
 
   @Inject
-  private lateinit var appData: AppDataPort
-
-  @Inject
   private lateinit var httpResponseMetrics: HttpResponseMetrics
 
   @GET
@@ -65,22 +55,14 @@ class UserDashboardResource {
   fun userDashboard(): Any = httpResponseMetrics.timed("page.dashboard.user") {
     val userId = securityIdentity.principal.name
     val installedApps = userAppStore.getInstalledApps(userId)
+    // Tiles show the app and its reports only - no entity object counts, so no app data is loaded for the dashboard.
     val dashboardApps = installedApps.map { info ->
-      val allAppData = appData.listAppData(userId, info.installedAppId).getOrNull() ?: emptyList()
-      val countsByEntity = allAppData.groupingBy { it.entityType.value }.eachCount()
-      val entityCounts = info.installedVersion.dataEntities.map { entity ->
-        EntityDataCount(
-          entityName = entity.name,
-          count = countsByEntity.getOrDefault(entity.id.value, 0),
-        )
-      }
       DashboardInstalledApp(
         installedAppId = info.installedAppId,
         appName = info.appName,
         appActive = info.appActive,
         installedVersion = info.installedVersion,
         latestVersion = info.latestVersion,
-        entityCounts = entityCounts,
       )
     }
     UserTemplates.dashboard(userId, dashboardApps)

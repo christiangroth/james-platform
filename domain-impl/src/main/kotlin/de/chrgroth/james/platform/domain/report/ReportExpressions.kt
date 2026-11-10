@@ -1,9 +1,11 @@
 package de.chrgroth.james.platform.domain.report
 
+import de.chrgroth.james.platform.domain.expression.EntityExpressions
 import de.chrgroth.james.platform.domain.expression.Expression
 import de.chrgroth.james.platform.domain.expression.ExpressionContext
 import de.chrgroth.james.platform.domain.expression.ExpressionType
 import de.chrgroth.james.platform.domain.expression.ExpressionValue
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import java.time.LocalDate
 import kotlin.math.roundToLong
@@ -73,7 +75,8 @@ internal object ReportExpressions {
 
 /**
  * The context an expression is evaluated in for one result row: its fields typed by the result's [columns] (unknown types are guessed,
- * references read as their display text via [label]), `config.<field>` via [config] and [today].
+ * references read as their display text via [label]), `config.<field>` via [config], configuration LISTs for list functions via [configList]
+ * (the LIST property and its raw value) and [today].
  */
 internal class ReportRowContext(
   private val values: Map<String, String?>,
@@ -81,6 +84,7 @@ internal class ReportRowContext(
   private val config: (String) -> ExpressionValue?,
   override val today: LocalDate,
   private val label: (ResultColumn, String?) -> String,
+  private val configList: (String) -> Pair<Property, String?>? = { null },
 ) : ExpressionContext {
 
   override fun field(name: String): ExpressionValue? {
@@ -91,4 +95,6 @@ internal class ReportRowContext(
   }
 
   override fun config(path: String): ExpressionValue? = config.invoke(path)
+
+  override fun configItems(path: String): List<ExpressionContext>? = configList(path)?.let { (list, raw) -> EntityExpressions.itemContexts(this, list, raw) }
 }

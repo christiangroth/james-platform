@@ -23,6 +23,7 @@ import de.chrgroth.james.platform.domain.model.app.REFERENCE_LOOKUP_FORM_PREFIX
 import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
+import de.chrgroth.james.platform.domain.model.app.sortListItems
 import de.chrgroth.james.platform.domain.model.app.encodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.parseUnitValue
@@ -480,7 +481,8 @@ class AppDataService(
     val key = "$keyPrefix${property.id.value}"
     return when (property.type) {
       PropertyType.LIST -> {
-        val nonBlankValues = (data[key] ?: emptyList()).filter { it.isNotBlank() }
+        // Dates, times and numbers are kept ascending (e.g. a holiday added later lands in place, not at the end); other lists keep their entry order.
+        val nonBlankValues = sortListItems(property.listItemType, (data[key] ?: emptyList()).filter { it.isNotBlank() })
         if (nonBlankValues.isEmpty()) null else encodeListValue(nonBlankValues)
       }
       PropertyType.OBJECT -> {

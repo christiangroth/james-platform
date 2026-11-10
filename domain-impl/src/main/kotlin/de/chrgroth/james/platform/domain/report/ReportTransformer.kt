@@ -2,6 +2,7 @@ package de.chrgroth.james.platform.domain.report
 
 import de.chrgroth.james.platform.domain.expression.Expression
 import de.chrgroth.james.platform.domain.expression.ExpressionValue
+import de.chrgroth.james.platform.domain.model.app.Property
 import de.chrgroth.james.platform.domain.model.app.PropertyType
 import de.chrgroth.james.platform.domain.model.app.PropertyUnit
 import de.chrgroth.james.platform.domain.model.app.ReportAggregate
@@ -46,6 +47,7 @@ internal class ReportTransformer(
   private val otherQuery: (name: String) -> Pair<ReportQuery, QueryResult>? = { null },
   private val configValue: (path: String) -> ExpressionValue? = { null },
   private val label: (column: ResultColumn, raw: String?) -> String = { _, raw -> raw.orEmpty() },
+  private val configList: (path: String) -> Pair<Property, String?>? = { null },
 ) {
   private val expressions = HashMap<String, Expression?>()
 
@@ -89,7 +91,7 @@ internal class ReportTransformer(
     val numeric = ReportFields.isNumericType(step.type)
     val column = ResultColumn(step.name, if (numeric) ColumnRole.VALUE else ColumnRole.FIELD, step.type, step.unit?.takeIf { numeric })
     val rows = result.rows.map { row ->
-      val value = expression?.evaluate(ReportRowContext(row.values, result.columns, configValue, today, label))
+      val value = expression?.evaluate(ReportRowContext(row.values, result.columns, configValue, today, label, configList))
       row.with(step.name, ReportExpressions.raw(value, step.type))
     }
     return result.copy(columns = result.columns + (step.name to column), rows = rows)

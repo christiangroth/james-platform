@@ -9,13 +9,15 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   `boolean`, `String`, `date`, `time`, `datetime`, `ref`, `List`, `object`) — no infrastructure or CRUD boilerplate to write. Several unique-key properties
   of an Entity form one composite key (e.g. time stamp + meter). A `List` of `object`s holds repeatable groups of fields, e.g. the sessions of a swimming
   day (lane length + lanes), entered with "+ add" in the form. Numeric properties can carry a unit (time, distance, currency, mass, energy, volume) and accept
-  unit-suffixed input such as `15km 400m` or `75,3kg`.
+  unit-suffixed input such as `15km 400m` or `75,3kg`; a unit's largest display unit can be capped, e.g. hours: `55h 15min` instead of `2d 7h 15min`.
+  Lists of dates, times and numbers are kept in ascending order.
 - **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
   forward) and Snapshot mode (reusable form templates). References can be entered as text with proposals, creating unknown targets on save.
 - **Computed Properties & Smart Defaults** – Derived values (e.g. BMI, pace, sums, yes/no as number) and form defaults written in the platform's small expression
   language, checked on save (no scripting engine, works in the native image). Smart defaults make data entry quick: today, the day after the last entry
   (`next_day(datum)`), the last used value or reference (`last(schuhe)`), end of month, workdays between two dates without configured holidays
-  (`workdays(start, ende, config.feiertage)`) - and they follow other fields of the form while it is filled in (e.g. vacation end = start).
+  (`workdays(start, ende, config.feiertage)`), the value valid at a date from a list such as the target hours per contract period
+  (`valid_at(config.sollzeiten, ab, datum, sollzeit_pro_tag)`) - and they follow other fields of the form while it is filled in (e.g. vacation end = start).
 - **Aggregations** – Developers declare precomputed rollups (SUM/COUNT/AVG/MIN/MAX, also over fields nested in object properties and over computed properties,
   optional day/week/month/quarter/year bucketing with a configurable period start,
   optional grouping via a `ref` or another property) over an Entity's data in the version editor. Ungrouped values are shown directly on the app installation;
@@ -35,7 +37,7 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   reference, records / top-N per group or year and goals vs. actuals (also as stat with progress bar). Checks find gaps (e.g. a missing monthly
   payslip or meter reading, one entry per workday/week/month, skipping holidays and vacation from a configuration list or an Entity) and rule violations
   (values out of range, missing required values) and list them in a warnings panel with a counter on the tab. The version editor validates definitions with line
-  numbers and previews them against a test installation; Users open the reports of their installed Apps. Queries run backend-side on the installation's
+  numbers and previews them against a test installation; Users open the reports of their installed Apps, directly from the App tiles on the dashboard. Queries run backend-side on the installation's
   data only.
 - **App Configuration** – An App Version may mark one Entity as its configuration: a singleton with exactly one object per installation, created from
   the defaults on install and upgrade and maintained by the User under "Einstellungen". Reports read it as `config.<field>` (filter values, thresholds,

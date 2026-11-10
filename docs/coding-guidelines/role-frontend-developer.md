@@ -148,6 +148,8 @@ All app-specific CSS classes are defined in the `<style>` block in `layout.html`
 | `.app-table` | Transparent table for use inside dark cards |
 | `.app-section-label` | Muted small subtitle / section label inside cards |
 | `.app-section-header` | Muted uppercase header label (e.g. "ENTITIES", "REPORTS") |
+| `.app-tile-title` | Tile title inside a Bootstrap `.stretched-link` that makes the whole tile clickable |
+| `.app-tile-link` | Link or button inside a stretched-link tile, kept above the stretched link (e.g. the report links on dashboard app tiles); `.app-tile-links` styles a list of them |
 | `.app-navbar` | Navbar background |
 | `.app-form-control` | Dark-themed form input – add alongside Bootstrap `.form-control` |
 | `.app-select` | Dark-themed select dropdown – add alongside Bootstrap `.form-select` |

@@ -31,13 +31,16 @@ import kotlin.math.sqrt
  *   unary `-`, `^` (power, right-associative, binding tighter than a unary minus on its left: `-2^2` = -4), parentheses;
  * - the functions in [FUNCTIONS]; [ENTRY_FUNCTIONS] (`last(field)`, `next_day(field)`) take a field name and read the entity's latest existing
  *   object, so only smart defaults offer them;
- * - the [LIST_FUNCTIONS] take a LIST field name and an expression evaluated per item (`sum_of(sessions, bahnlänge * bahnen)`): inside it, field
- *   names are the fields of a LIST of OBJECTs' item, or [ITEM] for the item value of a list of simple values; `config.<field>` as everywhere.
+ * - the [LIST_FUNCTIONS] take a LIST field name (or a `config.<field>` LIST) and an expression evaluated per item (`sum_of(sessions, bahnlänge * bahnen)`):
+ *   inside it, field names are the fields of a LIST of OBJECTs' item, or [ITEM] for the item value of a list of simple values; `config.<field>` as
+ *   everywhere. `valid_at(list, key, at, value)` picks the item valid at a point: `key` and `value` are read per item, `at` outside the list
+ *   (`valid_at(config.sollzeiten, ab, datum, sollzeit_pro_tag)`).
  *
  * Semantics: arithmetic works on numbers, yes/no values count as 1/0. A missing operand, a division by zero or a non-finite result give no value
  * (null); comparisons with a missing operand give no value too, except `==`/`!=` (no value equals only no value). `and`, `or`, `not` and the
  * condition of `if` treat no value as "no", `coalesce`, `if` and `case` provide defaults. List functions skip items whose expression has no
- * value: `sum_of` of no items is 0, `avg_of`/`min_of`/`max_of` of no items no value; `count_of(list[, condition])` counts the (matching) items.
+ * value: `sum_of` of no items is 0, `avg_of`/`min_of`/`max_of` of no items no value; `count_of(list[, condition])` counts the (matching) items;
+ * `valid_at` gives `value` of the item with the greatest `key` not after `at` (the later item on equal keys), no value if there is none.
  */
 internal class Expression private constructor(val source: String, private val root: Node) {
 
@@ -136,13 +139,23 @@ internal class Expression private constructor(val source: String, private val ro
       "min_of" to 2..2,
       "max_of" to 2..2,
       "count_of" to 1..2,
+      "valid_at" to 4..4,
     )
 
     /** Functions taking a field name (not a value) and reading the entity's latest existing object - see [ExpressionContext.last]. */
     val ENTRY_FUNCTIONS: Set<String> = setOf("last", "next_day")
 
     /** Functions over the items of a LIST field: a LIST field name and an expression evaluated per item - see [ExpressionContext.items]. */
-    val LIST_FUNCTIONS: Set<String> = setOf("sum_of", "avg_of", "min_of", "max_of", "count_of")
+    val LIST_FUNCTIONS: Set<String> = setOf("sum_of", "avg_of", "min_of", "max_of", "count_of", "valid_at")
+
+    /** The list function picking the item valid at a point: `valid_at(list, key, at, value)`. */
+    private const val VALID_AT = "valid_at"
+
+    /** The arguments of a [LIST_FUNCTIONS] call read per item (`at` of `valid_at` is read outside the list). */
+    private fun itemArguments(node: Node.Call): List<Node> = if (node.function == VALID_AT) listOf(node.args[1], node.args[3]) else node.args.drop(1)
+
+    /** The arguments of a [LIST_FUNCTIONS] call read outside the list, in the enclosing context. */
+    private fun outerArguments(node: Node.Call): List<Node> = if (node.function == VALID_AT) listOf(node.args[2]) else emptyList()
 
     /** The item value inside a list function over a LIST of simple values, e.g. `sum_of(zeiten, item)`. */
     const val ITEM = "item"
@@ -179,7 +192,8 @@ internal class Expression private constructor(val source: String, private val ro
         is Node.Call -> when {
           node.function in LIST_FUNCTIONS -> {
             into += (node.args[0] as Node.Ident).name
-            node.args.drop(1).forEach { inner -> buildSet { collect(inner, this, entries) }.filterTo(into) { configPath(it) != null } }
+            itemArguments(node).forEach { inner -> buildSet { collect(inner, this, entries) }.filterTo(into) { configPath(it) != null } }
+            outerArguments(node).forEach { collect(it, into, entries) }
           }
           entries || node.function !in ENTRY_FUNCTIONS -> node.args.forEach { collect(it, into, entries) }
         }
@@ -196,7 +210,8 @@ internal class Expression private constructor(val source: String, private val ro
         }
         is Node.Call -> if (node.function in LIST_FUNCTIONS) {
           val names = into.getOrPut((node.args[0] as Node.Ident).name) { LinkedHashSet() }
-          node.args.drop(1).forEach { inner -> buildSet { collect(inner, this, entries = true) }.filterTo(names) { configPath(it) == null } }
+          itemArguments(node).forEach { inner -> buildSet { collect(inner, this, entries = true) }.filterTo(names) { configPath(it) == null } }
+          outerArguments(node).forEach { collectItems(it, into) }
         } else {
           node.args.forEach { collectItems(it, into) }
         }
@@ -301,7 +316,10 @@ internal class Expression private constructor(val source: String, private val ro
 
     /** A [LIST_FUNCTIONS] call: its per-item expression evaluated in each item's context; no value if the field is no list. */
     private fun listFunction(node: Node.Call): ExpressionValue? {
-      val items = context.items(fieldName(node.args[0])) ?: return null
+      val list = fieldName(node.args[0])
+      val configList = configPath(list)
+      val items = (if (configList != null) context.configItems(configList) else context.items(list)) ?: return null
+      if (node.function == VALID_AT) return validAt(items, node.args[1], eval(node.args[2]), node.args[3])
       val perItem = node.args.getOrNull(1)
       if (node.function == "count_of") {
         return number(items.count { item -> perItem == null || truthy(Evaluator(item).eval(perItem)) }.toDouble())
@@ -313,6 +331,19 @@ internal class Expression private constructor(val source: String, private val ro
         "min_of" -> values.minOrNull()?.let { number(it) }
         else -> values.maxOrNull()?.let { number(it) }
       }
+    }
+
+    /** `valid_at`: [value] of the item with the greatest [key] not after [at]; on equal keys the later item wins. */
+    private fun validAt(items: List<ExpressionContext>, key: Node, at: ExpressionValue?, value: Node): ExpressionValue? {
+      if (at == null) return null
+      var best: Pair<ExpressionValue, ExpressionContext>? = null
+      for (item in items) {
+        val itemKey = Evaluator(item).eval(key) ?: continue
+        val notAfter = ExpressionValue.compare(itemKey, at)?.let { it <= 0 } ?: false
+        val later = best?.let { (bestKey, _) -> ExpressionValue.compare(itemKey, bestKey)?.let { it >= 0 } ?: false } ?: true
+        if (notAfter && later) best = itemKey to item
+      }
+      return best?.let { (_, item) -> Evaluator(item).eval(value) }
     }
 
     /**
@@ -463,11 +494,18 @@ internal class Expression private constructor(val source: String, private val ro
       }
     }
 
-    /** A list function's per-item expression is typed by the item's fields; all of them compute a number (sum_of etc. of numbers). */
-    private fun listCall(node: Node.Call): ExpressionType {
+    /**
+     * A list function's per-item expression is typed by the item's fields; all but `valid_at` compute a number (sum_of etc. of numbers), `valid_at`
+     * the type of its value, its key being comparable with the point it is valid at.
+     */
+    private fun listCall(node: Node.Call): ExpressionType? {
       val list = (node.args[0] as Node.Ident).name
-      val perItem = node.args.getOrNull(1) ?: return ExpressionType.NUMBER
       val itemChecker = TypeChecker({ name -> if (configPath(name) != null) typeOf(name) else itemTypeOf(list, name) }, itemTypeOf, problems)
+      if (node.function == VALID_AT) {
+        comparable(VALID_AT, itemChecker.type(node.args[1]), type(node.args[2]))
+        return itemChecker.type(node.args[3])
+      }
+      val perItem = node.args.getOrNull(1) ?: return ExpressionType.NUMBER
       val type = itemChecker.type(perItem)
       if (node.function != "count_of") numberArgument(node.function, 2, type)
       return ExpressionType.NUMBER
@@ -667,8 +705,9 @@ internal class Expression private constructor(val source: String, private val ro
         }
       }
       if (args.size !in arity) failAt(start, "wrong number of arguments for '$name'")
-      val fieldArguments = if (name in LIST_FUNCTIONS) args.take(1) else if (name in ENTRY_FUNCTIONS) args else emptyList()
-      if (fieldArguments.any { it !is Node.Ident || configPath(it.name) != null }) {
+      val listArgument = args.take(1).takeIf { name in LIST_FUNCTIONS }.orEmpty()
+      val entryArguments = args.takeIf { name in ENTRY_FUNCTIONS }.orEmpty()
+      if (listArgument.any { it !is Node.Ident } || entryArguments.any { it !is Node.Ident || configPath(it.name) != null }) {
         throw ParseException(start + 1, "'$name' needs a field name", fieldArgumentOf = name)
       }
       return Node.Call(name, args)

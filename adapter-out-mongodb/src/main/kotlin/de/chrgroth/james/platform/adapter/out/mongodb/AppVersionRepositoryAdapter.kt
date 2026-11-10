@@ -244,7 +244,9 @@ class AppVersionRepositoryAdapter(
     val parsedFamily = runCatching { UnitFamily.valueOf(family) }.getOrNull() ?: return null
     val storage = granularityOrNull(parsedFamily, storageGranularity) ?: return null
     val default = granularityOrNull(parsedFamily, defaultGranularity) ?: return null
-    return runCatching { PropertyUnit(family = parsedFamily, storageGranularity = storage, defaultGranularity = default) }.getOrNull()
+    // An unknown or no longer valid max display granularity only loses the display cap, never the unit itself.
+    val maxDisplay = maxDisplayGranularity?.let { granularityOrNull(parsedFamily, it) }?.takeIf { PropertyUnit.isValidMaxDisplayGranularity(storage, it) }
+    return runCatching { PropertyUnit(family = parsedFamily, storageGranularity = storage, defaultGranularity = default, maxDisplayGranularity = maxDisplay) }.getOrNull()
   }
 
   private fun granularityOrNull(family: UnitFamily, name: String): Granularity? = granularityByName(family, name)
@@ -402,6 +404,7 @@ class AppVersionRepositoryAdapter(
     doc.family = family.name
     doc.storageGranularity = storageGranularity.enumName()
     doc.defaultGranularity = defaultGranularity.enumName()
+    doc.maxDisplayGranularity = maxDisplayGranularity?.enumName()
   }
 
   private fun Granularity.enumName(): String = (this as Enum<*>).name
