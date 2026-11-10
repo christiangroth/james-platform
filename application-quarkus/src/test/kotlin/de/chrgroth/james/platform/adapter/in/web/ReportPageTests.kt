@@ -186,6 +186,15 @@ class ReportPageTests {
     assertThat(appPage.indexOf("data-testid=\"app-reports\"")).isLessThan(appPage.indexOf("data-testid=\"entity-heading\""))
     assertThat(appPage).doesNotContain(">Reports</h2>")
 
+    // The dashboard tile links the app and embeds its reports, without entity object counts.
+    given().`when`().get("/ui/user/dashboard")
+      .then()
+      .statusCode(200)
+      .body(containsString("href=\"/ui/user/apps/$installedAppId\""))
+      .body(containsString("data-testid=\"installed-app-report-link\""))
+      .body(containsString("href=\"/ui/user/apps/$installedAppId/reports/${draft.reportId}\""))
+      .body(not(containsString("data-testid=\"entity-count\"")))
+
     given().`when`().get("/ui/user/apps/$installedAppId/reports/${draft.reportId}")
       .then()
       .statusCode(200)
