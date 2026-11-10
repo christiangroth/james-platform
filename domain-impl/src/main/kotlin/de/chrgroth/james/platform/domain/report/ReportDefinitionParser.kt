@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import de.chrgroth.james.platform.domain.expression.EntityExpressions
 import de.chrgroth.james.platform.domain.expression.Expression
 import de.chrgroth.james.platform.domain.expression.ExpressionProblem
 import de.chrgroth.james.platform.domain.expression.ExpressionType
@@ -152,7 +153,7 @@ internal object ReportDefinitionParser {
   private const val REMOVED_KOTLIN_STEP = "kotlin"
 
   /** Expression functions reports offer: not those reading an entity's latest object, the current time or list items (fields are rows there). */
-  private val REPORT_FUNCTIONS = Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS - Expression.LIST_FUNCTIONS - "now"
+  private val REPORT_FUNCTIONS = Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS - "now"
   private const val COMPARE_PREVIOUS_PERIOD = "previous_period"
   private const val COUNT_ROWS = "*"
   private val PERIOD_START_BUCKETS = setOf(TimeBucket.JAHR, TimeBucket.QUARTAL)
@@ -569,16 +570,29 @@ internal object ReportDefinitionParser {
      */
     private fun expressionType(expression: Expression, path: Path, columns: Map<String, ResultColumn>?, query: String): ExpressionType? {
       val types = HashMap<String, ExpressionType?>()
+      val configFields = HashMap<String, ResolvedField>()
       expression.identifiers.forEach { identifier ->
         types[identifier] = if (Expression.configPath(identifier) != null) {
-          configField(identifier, path)?.let { ReportExpressions.typeOf(it.type) }
+          configField(identifier, path)?.also { configFields[identifier] = it }?.let { ReportExpressions.typeOf(it.type) }
         } else {
           val column = columns?.get(identifier)
           if (columns != null && column == null) error(ReportDefinitionErrorCode.COLUMN_NOT_IN_QUERY, path, identifier, query)
           ReportExpressions.typeOf(column?.type)
         }
       }
-      val check = expression.check { types[it] }
+      val itemTypes = HashMap<Pair<String, String>, ExpressionType?>()
+      expression.itemIdentifiers.forEach { (list, itemNames) ->
+        // Result rows hold no list items, so list functions read configuration LISTs only (e.g. `valid_at(config.sollzeiten, ab, datum, stunden)`).
+        if (Expression.configPath(list) == null) return@forEach error(ReportDefinitionErrorCode.EXPRESSION_LIST_FIELD_REQUIRED, path, list)
+        val field = configFields[list] ?: return@forEach
+        val listProperty = field.property?.takeIf { it.type == PropertyType.LIST && field.objectPath.isEmpty() }
+          ?: return@forEach error(ReportDefinitionErrorCode.EXPRESSION_LIST_FIELD_REQUIRED, path, list)
+        itemNames.forEach { name ->
+          val known = EntityExpressions.itemTypeOf(listProperty, name)
+          if (known == null) error(ReportDefinitionErrorCode.EXPRESSION_UNKNOWN_ITEM_FIELD, path, name, list) else itemTypes[list to name] = known.type
+        }
+      }
+      val check = expression.check({ types[it] }, { list, name -> itemTypes[list to name] })
       check.problems.forEach { problem ->
         val code = when (problem.kind) {
           ExpressionProblem.Kind.OPERAND_TYPE -> ReportDefinitionErrorCode.EXPRESSION_OPERAND_TYPE

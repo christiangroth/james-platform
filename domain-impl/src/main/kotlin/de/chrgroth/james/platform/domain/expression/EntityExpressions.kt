@@ -21,8 +21,8 @@ import kotlin.time.Instant
  * How computed properties and smart defaults (ADR 0029) use the expression language ([Expression]) on one object of an entity: fields are the
  * entity's properties by name (properties nested in OBJECT properties as `object.field`), read in their raw storage form typed by the property
  * (references as the referenced object's id, lists and objects as text); `config.<field>` reads the installation's configuration the same way.
- * List functions ([Expression.LIST_FUNCTIONS]) read a top-level LIST property's items: the fields of a LIST of OBJECTs' items by name, the
- * item value of a list of simple values as [Expression.ITEM].
+ * List functions ([Expression.LIST_FUNCTIONS]) read a top-level LIST property's items (of the object, or of the configuration as `config.<field>`):
+ * the fields of a LIST of OBJECTs' items by name, the item value of a list of simple values as [Expression.ITEM].
  */
 internal object EntityExpressions {
 
@@ -95,6 +95,10 @@ internal object EntityExpressions {
   } else {
     list.listItemType?.takeIf { name == Expression.ITEM }?.let { ExpressionValue.of(item, ReportExpressions.typeOf(it)) }
   }
+
+  /** The stored items ([raw]) of [list] as contexts reading each item's fields, everything else from [parent]. */
+  fun itemContexts(parent: ExpressionContext, list: Property, raw: String?): List<ExpressionContext> =
+    decodeListValue(raw).map { item -> ItemExpressionContext(parent) { field -> itemValue(list, item, field) } }
 
   /** [now] as wall-clock date-time in the application's time zone. */
   fun localNow(now: Instant): LocalDateTime = java.time.Instant.ofEpochMilli(now.toEpochMilliseconds()).atZone(AppTimeZone.zone).toLocalDateTime()
@@ -178,7 +182,8 @@ internal object EntityExpressions {
     }
     val itemTypes = HashMap<Pair<String, String>, ExpressionType?>()
     for ((listName, itemNames) in expression.itemIdentifiers) {
-      val list = listProperty(properties, listName) ?: return InvalidExpressionError(ExpressionErrorCode.LIST_FIELD_REQUIRED, listOf(listName))
+      val list = Expression.configPath(listName).let { path -> if (path != null) configEntity?.let { listProperty(it.properties, path) } else listProperty(properties, listName) }
+        ?: return InvalidExpressionError(ExpressionErrorCode.LIST_FIELD_REQUIRED, listOf(listName))
       for (itemName in itemNames) {
         val known = itemTypeOf(list, itemName) ?: return InvalidExpressionError(ExpressionErrorCode.UNKNOWN_ITEM_FIELD, listOf(itemName, listName))
         itemTypes[listName to itemName] = known.type
@@ -229,7 +234,12 @@ internal class EntityExpressionContext(
 
   override fun items(name: String): List<ExpressionContext>? {
     val list = EntityExpressions.listProperty(properties, name) ?: return null
-    return decodeListValue(data[list.id.value]).map { item -> ItemExpressionContext(this) { field -> EntityExpressions.itemValue(list, item, field) } }
+    return EntityExpressions.itemContexts(this, list, data[list.id.value])
+  }
+
+  override fun configItems(path: String): List<ExpressionContext>? {
+    val list = configEntity?.let { EntityExpressions.listProperty(it.properties, path) } ?: return null
+    return EntityExpressions.itemContexts(this, list, config[list.id.value])
   }
 }
 
@@ -238,6 +248,8 @@ internal class ItemExpressionContext(private val parent: ExpressionContext, priv
   override fun field(name: String): ExpressionValue? = itemField(name)
 
   override fun config(path: String): ExpressionValue? = parent.config(path)
+
+  override fun configItems(path: String): List<ExpressionContext>? = parent.configItems(path)
 
   override val today: LocalDate get() = parent.today
 

@@ -125,7 +125,7 @@ internal class ReportChecker(private val executor: ReportExecutor, private val d
     }
   }
 
-  private fun context(result: QueryResult, row: ResultRow) = ReportRowContext(row.values, result.columns, executor::configValue, today, executor::text)
+  private fun context(result: QueryResult, row: ResultRow) = ReportRowContext(row.values, result.columns, executor::configValue, today, executor::text, executor::configList)
 
   private fun bound(raw: String, unit: PropertyUnit?): Double? =
     if (ReportFields.configPath(raw) != null) executor.configNumber(raw, unit) else ReportValues.parseNumber(raw, unit)

@@ -459,6 +459,12 @@ enum class ReportDefinitionErrorCode {
    */
   EXPRESSION_RESULT_TYPE,
 
+  /** args: field. A list function (`sum_of`, `valid_at`, ...) in a report reads a configuration LIST only (`config.<field>`), the field is none. */
+  EXPRESSION_LIST_FIELD_REQUIRED,
+
+  /** args: item field, list. The items of the configuration LIST read by a list function have no such field. */
+  EXPRESSION_UNKNOWN_ITEM_FIELD,
+
   /** args: step, query. The step needs a time bucket (an aggregate with `bucket` or a preceding `resample`). */
   TRANSFORM_NEEDS_BUCKET,
 
