@@ -176,11 +176,15 @@ class ReportPageTests {
     val installedAppId = userAppStore.installApp(USERNAME, draft.appId).getOrNull()!!.id.value
     addKonzert(draft, installedAppId, "Die Ärzte", "2026-05-01")
 
-    given().`when`().get("/ui/user/apps/$installedAppId")
+    val appPage = given().`when`().get("/ui/user/apps/$installedAppId")
       .then()
       .statusCode(200)
       .body(containsString("data-testid=\"report-tile\""))
       .body(containsString("/ui/user/apps/$installedAppId/reports/${draft.reportId}"))
+      .extract().asString()
+    // The reports come first, above the entities, without a heading of their own (the report icon says it).
+    assertThat(appPage.indexOf("data-testid=\"app-reports\"")).isLessThan(appPage.indexOf("data-testid=\"entity-heading\""))
+    assertThat(appPage).doesNotContain(">Reports</h2>")
 
     given().`when`().get("/ui/user/apps/$installedAppId/reports/${draft.reportId}")
       .then()

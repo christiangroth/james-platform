@@ -48,9 +48,6 @@ interface ReportMessages {
   // region report page
 
   @Message
-  fun reportsHeading(): String
-
-  @Message
   fun reportOpenAriaLabel(name: String): String
 
   @Message
