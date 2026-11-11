@@ -1,3 +1,12 @@
+# 0.139.3 (2026.11.11)
+
+## Bugfixes / Chore
+* quarkus-outbox auf 0.10.2 aktualisiert: geplante Importe laufen nach einem Neustart wieder alle zuverlässig.
+
+
+
+---
+
 # 0.139.2 (2026.11.10)
 
 ## Bugfixes / Chore
