@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.ChartXAxisSpec
 import de.chrgroth.james.platform.domain.model.app.ChartXAxisType
 import de.chrgroth.james.platform.domain.model.app.ChartYAxisSpec
 import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
+import de.chrgroth.james.platform.domain.expression.DisplayTextExpressions
 import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.ErrorPanelSpec
@@ -124,7 +125,7 @@ internal class ReportExecutor(
   private val configEntity = entities.find { it.configuration }
   private val entityById = entities.associateBy { it.id.value }
   private val appDataById by lazy { allAppData.associateBy { it.id.value } }
-  private val displayTexts = DisplayTextResolver(entityById, allAppData)
+  private val displayTexts = DisplayTextResolver(entityById, allAppData, DisplayTextExpressions)
   private val computedCache = HashMap<String, Map<String, String?>>()
   private val results = HashMap<String, QueryResult>()
 

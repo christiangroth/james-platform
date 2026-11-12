@@ -50,6 +50,94 @@ object PropertyValueFormat {
 }
 
 /**
+ * Evaluates the `${ expression }` placeholders of display texts (see [DisplayTextTemplate]) with the platform's expression language; implemented
+ * in the domain, so adapters only pass it on to [DisplayTextResolver].
+ */
+fun interface DisplayTextExpressionEvaluator {
+  /** The expression [source] evaluated for one object ([data] by property id), formatted like a `{property}` value; empty if it has no value or fails. */
+  fun evaluate(entity: EntityDefinition, data: Map<String, String?>, source: String): String
+}
+
+/**
+ * A display text template split into its parts: literal text, `{property}` placeholders and `${expression}` placeholders (an expression may contain
+ * `}` inside quotes or in nested braces). An unclosed `${` stays literal text when rendering and is reported by [unclosedExpression] on save.
+ */
+object DisplayTextTemplate {
+
+  sealed interface Part {
+    data class Text(val text: String) : Part
+    data class PropertyRef(val name: String) : Part
+    data class Expression(val source: String) : Part
+  }
+
+  fun parse(template: String): List<Part> {
+    val parts = mutableListOf<Part>()
+    val text = StringBuilder()
+    val flush = {
+      if (text.isNotEmpty()) parts += Part.Text(text.toString())
+      text.clear()
+    }
+    var i = 0
+    while (i < template.length) {
+      val c = template[i]
+      val end = if (c == '$' && template.startsWith("{", i + 1)) expressionEnd(template, i + 2) else -1
+      if (end >= 0) {
+        flush()
+        parts += Part.Expression(template.substring(i + 2, end))
+        i = end + 1
+        continue
+      }
+      val close = if (c == '{') template.indexOf('}', i + 1) else -1
+      if (close > i + 1) {
+        flush()
+        parts += Part.PropertyRef(template.substring(i + 1, close))
+        i = close + 1
+        continue
+      }
+      text.append(c)
+      i++
+    }
+    flush()
+    return parts
+  }
+
+  /** The names of the `{property}` placeholders (without the id placeholder). */
+  fun propertyNames(template: String): Set<String> = parse(template).filterIsInstance<Part.PropertyRef>().map { it.name }.filter { it != "id" }.toSet()
+
+  fun expressions(template: String): List<String> = parse(template).filterIsInstance<Part.Expression>().map { it.source }
+
+  /** Whether the template contains a `${` that is never closed. */
+  fun unclosedExpression(template: String): Boolean {
+    var i = 0
+    while (true) {
+      val start = template.indexOf("\${", i)
+      if (start < 0) return false
+      val end = expressionEnd(template, start + 2)
+      if (end < 0) return true
+      i = end + 1
+    }
+  }
+
+  /** The index of the `}` closing an expression whose source starts at [from], -1 if it is not closed. */
+  private fun expressionEnd(template: String, from: Int): Int {
+    var depth = 0
+    var quote: Char? = null
+    var i = from
+    while (i < template.length) {
+      val c = template[i]
+      when {
+        quote != null -> if (c == '\\') i++ else if (c == quote) quote = null
+        c == '"' || c == '\'' -> quote = c
+        c == '{' -> depth++
+        c == '}' -> if (depth == 0) return i else depth--
+      }
+      i++
+    }
+    return -1
+  }
+}
+
+/**
  * Resolves Entity display texts within one installation. Placeholder values are formatted via [PropertyValueFormat]; a REF placeholder shows
  * the referenced object's own display text (at most [MAX_REF_DEPTH] levels deep, so reference cycles terminate), else its id. Without a
  * display text template, the generic reference text (Entity name, id and unique key values) is used.
@@ -57,6 +145,7 @@ object PropertyValueFormat {
 class DisplayTextResolver(
   private val entityById: Map<String, EntityDefinition>,
   allAppData: List<AppData>,
+  private val expressions: DisplayTextExpressionEvaluator? = null,
 ) {
   private val appDataById: Map<String, AppData> by lazy { allAppData.associateBy { it.id.value } }
 
@@ -72,16 +161,27 @@ class DisplayTextResolver(
     if (entityDef == null) return dataId
     val template = entityDef.displayText ?: return referenceText(entityDef, dataId, data)
     val propertiesByName = entityDef.properties.associateBy { it.name }
-    val result = TOKEN_REGEX.replace(template) { match ->
-      val key = match.groupValues[1]
-      if (key == "id") {
-        dataId
-      } else {
-        val property = propertiesByName[key]
-        if (property == null) "<?>" else formatValue(property, data[property.id.value], depth)
+    val parts = DisplayTextTemplate.parse(template)
+    val joined = parts.joinToString("") { part ->
+      when (part) {
+        is DisplayTextTemplate.Part.Text -> part.text
+        is DisplayTextTemplate.Part.PropertyRef -> if (part.name == "id") {
+          dataId
+        } else {
+          propertiesByName[part.name]?.let { formatValue(it, data[it.id.value], depth) } ?: "<?>"
+        }
+        is DisplayTextTemplate.Part.Expression -> expressionText(entityDef, propertiesByName, data, part.source, depth)
       }
-    }.trim()
+    }
+    // an empty expression result leaves its separators behind: runs of blanks collapse, so `${kommentar} ${...}` has no leading space
+    val result = (if (parts.any { it is DisplayTextTemplate.Part.Expression }) joined.replace(BLANK_RUNS, " ") else joined).trim()
     return result.ifBlank { referenceText(entityDef, dataId, data) }
+  }
+
+  /** A placeholder naming just a property is formatted like `{property}` (references as display text); anything else is evaluated, never throwing. */
+  private fun expressionText(entityDef: EntityDefinition, propertiesByName: Map<String, Property>, data: Map<String, String?>, source: String, depth: Int): String {
+    propertiesByName[source.trim()]?.let { return formatValue(it, data[it.id.value], depth) }
+    return runCatching { expressions?.evaluate(entityDef, data, source) }.getOrNull().orEmpty()
   }
 
   private fun formatValue(property: Property, raw: String?, depth: Int): String {
@@ -100,7 +200,7 @@ class DisplayTextResolver(
   }
 
   companion object {
-    private val TOKEN_REGEX = Regex("\\{([^}]+)\\}")
+    private val BLANK_RUNS = Regex("[ \\t]{2,}")
 
     /** How many REF levels a display text resolves, e.g. Zählerstand -> Zähler -> Zuhause; deeper references show their id. */
     const val MAX_REF_DEPTH = 2

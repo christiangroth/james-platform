@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.DisplayTextExpressionEvaluator
 import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
@@ -210,6 +211,9 @@ class UserAppStoreResource {
 
   @Inject
   private lateinit var computedProperty: ComputedPropertyPort
+
+  @Inject
+  private lateinit var displayTextExpressions: DisplayTextExpressionEvaluator
 
   @Inject
   private lateinit var aggregationRepository: AggregationRepositoryPort
@@ -516,7 +520,11 @@ class UserAppStoreResource {
           referenceText = computeReferenceText(entityDef, appDataItem.id.value, appDataItem.data),
           displayText = computeDisplayText(
             entityDef, appDataItem.id.value, appDataItem.data,
-            DisplayTextContext(info.installedVersion.entityDefinitions.associateBy { it.id.value }, appData.listAppData(userId, installedAppId).getOrNull().orEmpty()),
+            DisplayTextContext(
+              info.installedVersion.entityDefinitions.associateBy { it.id.value },
+              appData.listAppData(userId, installedAppId).getOrNull().orEmpty(),
+              displayTextExpressions,
+            ),
           ),
           importProvenance = appDataItem.importProvenance?.let {
             AppDataImportProvenanceView(connectionName = it.connectionName, sourceUrl = it.sourceUrl)
@@ -664,7 +672,7 @@ class UserAppStoreResource {
   private fun settingsUrl(installedAppId: String): String = "/ui/user/apps/$installedAppId/settings"
 
   private fun buildEntityTab(entityDef: EntityDefinition, entityById: Map<String, EntityDefinition>, allAppData: List<AppData>): EntityTab {
-    val context = DisplayTextContext(entityById, allAppData)
+    val context = DisplayTextContext(entityById, allAppData, displayTextExpressions)
     val entityRows = allAppData
       .filter { it.entityType.value == entityDef.id.value }
       .let { rows -> applySortCriteria(rows, entityDef, entityById, allAppData) }
@@ -792,7 +800,7 @@ class UserAppStoreResource {
     val refPath = aggregation.refPath ?: return emptyMap()
     val refProperty = entityDef.properties.find { it.id == refPath } ?: return emptyMap()
     val targetEntity = refProperty.targetEntityId?.let { entityById[it.value] } ?: return emptyMap()
-    val context = DisplayTextContext(entityById, allAppData)
+    val context = DisplayTextContext(entityById, allAppData, displayTextExpressions)
     return allAppData.filter { it.entityType == targetEntity.id }
       .associate { it.id.value to computeDisplayText(targetEntity, it.id.value, it.data, context) }
   }
@@ -900,11 +908,11 @@ class UserAppStoreResource {
    * referenced object's own display text when [context] can resolve it, else its id.
    */
   private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>, context: DisplayTextContext? = null): String =
-    (context?.resolver ?: DisplayTextResolver(emptyMap(), emptyList())).displayText(entityDef, dataId, data)
+    (context?.resolver ?: DisplayTextResolver(emptyMap(), emptyList(), displayTextExpressions)).displayText(entityDef, dataId, data)
 
   /** What [computeDisplayText] needs to resolve REF placeholders: the installed version's entities and the installation's data. */
-  private class DisplayTextContext(entityById: Map<String, EntityDefinition>, allAppData: List<AppData>) {
-    val resolver = DisplayTextResolver(entityById, allAppData)
+  private class DisplayTextContext(entityById: Map<String, EntityDefinition>, allAppData: List<AppData>, expressions: DisplayTextExpressionEvaluator) {
+    val resolver = DisplayTextResolver(entityById, allAppData, expressions)
   }
 
   private fun computeReferenceText(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String {
@@ -930,7 +938,7 @@ class UserAppStoreResource {
     val refProperties = collectReferenceProperties(entityDef.properties)
     if (refProperties.isEmpty()) return emptyMap()
     val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
-    val context = DisplayTextContext(entityDefinitions.associateBy { it.id.value }, allData)
+    val context = DisplayTextContext(entityDefinitions.associateBy { it.id.value }, allData, displayTextExpressions)
     return refProperties.associate { prop ->
       val targetEntity = entityDefinitions.find { it.id == prop.targetEntityId }
       val options = targetEntity?.let { target ->

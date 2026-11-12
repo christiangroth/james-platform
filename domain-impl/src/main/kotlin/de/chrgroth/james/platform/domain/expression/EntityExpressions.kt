@@ -133,6 +133,7 @@ internal object EntityExpressions {
   enum class Usage(val functions: Set<String>) {
     COMPUTED_PROPERTY(Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS),
     SMART_DEFAULT(Expression.FUNCTIONS.keys),
+    DISPLAY_TEXT(Expression.FUNCTIONS.keys - Expression.ENTRY_FUNCTIONS),
   }
 
   /** Validates the expression of [computed] on [entity]: it may read the entity's properties and the computed properties defined before it. */
@@ -146,6 +147,12 @@ internal object EntityExpressions {
   /** Validates the smart default of [property] (a top-level property of [entity]): it may read the entity's properties. */
   fun validateSmartDefault(entity: EntityDefinition, property: Property, source: String, configEntity: EntityDefinition?): InvalidExpressionError? =
     validate(source, Usage.SMART_DEFAULT, property.type, configEntity, entity.properties) { name -> resolve(entity.properties, name)?.let { Known(typeOf(it.last())) } }
+
+  /** Validates a `${ expression }` placeholder of the display text of [entity]: it may read all its properties (nullable ones too) and computed properties, no configuration. */
+  fun validateDisplayText(entity: EntityDefinition, source: String): InvalidExpressionError? =
+    validate(source, Usage.DISPLAY_TEXT, PropertyType.STRING, null, entity.properties) { name ->
+      resolve(entity.properties, name)?.let { Known(typeOf(it.last())) } ?: entity.computedProperties.find { it.name == name }?.let { Known(ReportExpressions.typeOf(it.type)) }
+    }
 
   /** A known field and its type (null: unknown type). */
   class Known(val type: ExpressionType?)

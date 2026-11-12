@@ -11,7 +11,10 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.DayOfWeek
 import java.time.Duration
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAccessor
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -29,7 +32,7 @@ import kotlin.math.sqrt
  * - field names (letters incl. umlauts, digits, `_` and `.`, e.g. `gewicht`, `rad.name`, `garantiert.ablauf`) and `config.<field>`;
  * - operators by precedence (lowest first): `or`/`||`, `and`/`&&`, `not`/`!`, comparisons `== != < <= > >=` (not chained), `+ -`, `* / %`,
  *   unary `-`, `^` (power, right-associative, binding tighter than a unary minus on its left: `-2^2` = -4), parentheses;
- * - the functions in [FUNCTIONS]; [ENTRY_FUNCTIONS] (`last(field)`, `next_day(field)`) take a field name and read the entity's latest existing
+ * - the functions in [FUNCTIONS] (`format(date, "dd.MM")` formats a date, date-time or time by a `DateTimeFormatter` pattern, German names); [ENTRY_FUNCTIONS] (`last(field)`, `next_day(field)`) take a field name and read the entity's latest existing
  *   object, so only smart defaults offer them;
  * - the [LIST_FUNCTIONS] take a LIST field name (or a `config.<field>` LIST) and an expression evaluated per item (`sum_of(sessions, bahnlänge * bahnen)`):
  *   inside it, field names are the fields of a LIST of OBJECTs' item, or [ITEM] for the item value of a list of simple values; `config.<field>` as
@@ -119,6 +122,7 @@ internal class Expression private constructor(val source: String, private val ro
       "case" to 3..ANY,
       "present" to 1..1,
       "concat" to 1..ANY,
+      "format" to 2..2,
       "minutes" to 2..2,
       "days" to 2..2,
       "weekday" to 1..1,
@@ -163,6 +167,8 @@ internal class Expression private constructor(val source: String, private val ro
     private val KEYWORDS = setOf("and", "or", "not", "true", "false", "null")
     private val ARITHMETIC = setOf("+", "-", "*", "/", "%", "^")
     private val COMPARISONS = listOf("==", "!=", "<=", ">=", "<", ">")
+    private fun formatterOrNull(pattern: String): DateTimeFormatter? = runCatching { DateTimeFormatter.ofPattern(pattern, Locale.GERMANY) }.getOrNull()
+
     private const val MAX_DECIMALS = 10
     private const val MINUTES_PER_DAY = 24 * 60
     private const val SECONDS_PER_MINUTE = 60.0
@@ -307,12 +313,25 @@ internal class Expression private constructor(val source: String, private val ro
         "date" -> toDate(values[0])?.let { ExpressionValue.Date(it) }
         "time" -> toTime(values[0])?.let { ExpressionValue.Time(it) }
         "add_days" -> toDate(values[0])?.let { date -> toNumber(values[1])?.let { ExpressionValue.Date(date.plusDays(it.toLong())) } }
+        "format" -> formatTemporal(values[0], values[1])
         "end_of_month" -> toDate(values[0])?.let { ExpressionValue.Date(it.withDayOfMonth(it.lengthOfMonth())) }
         else -> numeric(node.function, values.map { toNumber(it) ?: return null })
       }
     }
 
     private fun fieldName(node: Node): String = (node as Node.Ident).name
+
+    /** `format(value, pattern)`: a date, date-time or time (or a text holding one) as text by a `DateTimeFormatter` pattern, e.g. `dd.MM`; no value if the pattern does not fit the value. */
+    private fun formatTemporal(value: ExpressionValue, pattern: ExpressionValue): ExpressionValue? {
+      val formatter = formatterOrNull(toText(pattern).orEmpty()) ?: return null
+      val temporal: TemporalAccessor = when (value) {
+        is ExpressionValue.Time -> value.value
+        is ExpressionValue.Date -> value.value
+        is ExpressionValue.DateTime -> value.value
+        else -> toDateTime(value) ?: toTime(value) ?: return null
+      }
+      return runCatching { ExpressionValue.Text(formatter.format(temporal)) }.getOrNull()
+    }
 
     /** A [LIST_FUNCTIONS] call: its per-item expression evaluated in each item's context; no value if the field is no list. */
     private fun listFunction(node: Node.Call): ExpressionValue? {
@@ -477,6 +496,7 @@ internal class Expression private constructor(val source: String, private val ro
         }
         "present" -> ExpressionType.BOOLEAN
         "concat" -> ExpressionType.TEXT
+        "format" -> argumentsOf(name, types.take(1), TEMPORALS).let { ExpressionType.TEXT }
         "today", "now" -> if (name == "now") ExpressionType.DATETIME else ExpressionType.DATE
         "add_days" -> {
           argumentsOf(name, types.take(1), DATES)
@@ -537,6 +557,7 @@ internal class Expression private constructor(val source: String, private val ro
       private val NUMBERS = setOf(ExpressionType.NUMBER, ExpressionType.BOOLEAN)
       private val DATES = setOf(ExpressionType.DATE, ExpressionType.DATETIME, ExpressionType.TEXT)
       private val TIMES_OF_DAY = setOf(ExpressionType.TIME, ExpressionType.DATETIME, ExpressionType.TEXT)
+      private val TEMPORALS = setOf(ExpressionType.DATE, ExpressionType.DATETIME, ExpressionType.TIME, ExpressionType.TEXT)
     }
   }
 
@@ -705,6 +726,8 @@ internal class Expression private constructor(val source: String, private val ro
         }
       }
       if (args.size !in arity) failAt(start, "wrong number of arguments for '$name'")
+      val pattern = (args.getOrNull(1) as? Node.Literal)?.value.takeIf { name == "format" }
+      if (pattern is ExpressionValue.Text && formatterOrNull(pattern.value) == null) failAt(start, "invalid format pattern '${pattern.value}'")
       val listArgument = args.take(1).takeIf { name in LIST_FUNCTIONS }.orEmpty()
       val entryArguments = args.takeIf { name in ENTRY_FUNCTIONS }.orEmpty()
       if (listArgument.any { it !is Node.Ident } || entryArguments.any { it !is Node.Ident || configPath(it.name) != null }) {

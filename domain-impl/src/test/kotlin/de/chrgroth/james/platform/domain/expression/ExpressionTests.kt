@@ -216,6 +216,20 @@ class ExpressionTests {
     assertThat(ExpressionValue.of("krank", null)).isEqualTo(Text("krank"))
   }
 
+  @Test
+  fun `format renders dates, date-times and times by a pattern, no value for anything else`() {
+    val row = mapOf("datum" to Date(LocalDate.of(2026, 8, 3)), "ts" to DateTime(LocalDateTime.of(2026, 8, 3, 6, 5)), "t" to Time(LocalTime.of(6, 5)), "n" to Num(1.0))
+    assertThat(value("format(datum, 'dd.MM')", row)).isEqualTo(Text("03.08"))
+    assertThat(value("format(datum, \"d. MMMM yyyy\")", row)).isEqualTo(Text("3. August 2026"))
+    assertThat(value("format(ts, 'dd.MM. HH:mm')", row)).isEqualTo(Text("03.08. 06:05"))
+    assertThat(value("format(t, 'HH:mm')", row)).isEqualTo(Text("06:05"))
+    assertThat(value("format('2026-08-03', 'yyyy')", row)).isEqualTo(Text("2026"))
+    assertThat(value("format(t, 'dd.MM')", row)).isNull()
+    assertThat(value("format(fehlt, 'dd.MM')", row)).isNull()
+    assertThat(type("format(datum, 'dd')", mapOf("datum" to ExpressionType.DATE)).type).isEqualTo(ExpressionType.TEXT)
+    assertThat(parseError("format(datum, 'qqqqqq')").detail).contains("invalid format pattern")
+  }
+
   // endregion
 
   // region type check

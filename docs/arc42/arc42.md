@@ -64,6 +64,21 @@ James Platform is a personal Low Code system for building and running data-centr
   - An optional **display text template** – a string that interpolates property values (e.g. `{firstName} {lastName}`) into a human-readable label shown for each object in list views and `ref` pickers, instead of a raw ID.
     Values are formatted for display (dates `dd.MM.yyyy`, German number separators, unit properties as e.g. `10km 234m`); a `ref` placeholder shows the
     referenced object's own display text (up to two reference levels deep, e.g. meter reading → meter → home), falling back to its id.
+    `{property}` placeholders only accept non-nullable properties. For anything richer there are **expression placeholders** in the style of Kotlin
+    string templates: `${ expression }` evaluates an expression of the platform's expression language (see [Reports](#reports), "Expression language") with the
+    Entity's properties (optional ones too) and **computed properties** readable by name; no `config.<field>` and no `last`/`next_day`. The result is
+    formatted like a `{property}` value (dates `dd.MM.yyyy`, times `HH:mm`, German numbers - so a year as number reads `2.026`, use
+    `format(datum, 'yyyy')` -, yes/no as `ja`/`nein`); a placeholder naming just a property (`${beginn}`, optional ones too) or computed property
+    (`${netto}`, with its unit) is formatted exactly like `{…}` including units and references. The new function `format(date, 'pattern')` formats a
+    date, date-time or time by a Java `DateTimeFormatter` pattern with German names (`format(von, 'dd.MM')`, `format(datum, 'EEE, d. MMMM')`).
+    Empty values: an expression without value renders as empty text (never an error), and in a template with at least one `${…}` placeholder runs of
+    blanks collapse and the result is trimmed, so an empty optional value leaves neither a leading space nor a double space; use `if`/`coalesce` for
+    other defaults (`${coalesce(kommentar, 'ohne')}`). A template whose result is empty falls back to the generic reference text. `{prop}` templates
+    behave exactly as before. Expressions are checked when the template is saved (unknown field/function, syntax, types, invalid `format` pattern:
+    a German message with the reason); evaluation failures at render time (e.g. after a property was removed) only render empty. Examples (app Arbeit):
+    Urlaub `${kommentar} ${format(start, "dd.MM")}-${format(ende, "dd.MM")} ({tage} Tage)` shows `Sommer 03.08-14.08 (9,5 Tage)`, without a
+    comment `03.08-14.08 (9,5 Tage)`; Arbeitstag `{datum} ${tagesart} ${beginn} ${ende} ${netto}` shows `03.08.2026 Arbeitstag 06:00 15:00 8h 30min` -
+    `tagesart` and `netto` are computed properties, an Arbeitstag without times just drops them.
 - A Property has:
   - A name unique within the Entity (mutable).
   - An ID unique within the Entity (immutable).
@@ -495,7 +510,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     parentheses. Keywords are whole words (`order` is a field).
   - **Functions**: `abs`, `sqrt`, `round(x[, digits])`, `floor`, `ceil`, `min(..)`, `max(..)`, `coalesce(..)` (first value), `if(cond, then, else)`,
     `case(x, key1, value1, key2, value2, ..[, default])` (the value after the first key equal to `x`), `present(x)` (has a non-blank value),
-    `concat(..)` (texts, no value as empty), `minutes(from, to)` (two times of day - an end before the start lies on the next day - or two date-times),
+    `concat(..)` (texts, no value as empty), `format(date, 'dd.MM')` (a date, date-time or time as text by a `DateTimeFormatter` pattern, German names;
+    the pattern is checked on save), `minutes(from, to)` (two times of day - an end before the start lies on the next day - or two date-times),
     `days(from, to)`, `weekday(d)` (1 = Monday .. 7 = Sunday), `day(d)`, `month(d)`, `year(d)`, `today()`, `date(x)`, `time(x)` (texts such as
     `'2026-01-01'` or `'08:00'` to a date or time), `add_days(d, n)`, `end_of_month(d)`, `workdays(from, to[, holidays])` (Mondays to Fridays, both
     inclusive, without the holidays: a date or a text/configuration `List` of dates). Not in reports: `now()` (the current date-time to the minute,

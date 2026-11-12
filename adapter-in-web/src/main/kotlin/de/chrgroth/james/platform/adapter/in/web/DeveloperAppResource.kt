@@ -947,7 +947,7 @@ class DeveloperAppResource {
     @FormParam("displayText") displayText: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.entity-display-text-update") {
     appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }

@@ -2610,6 +2610,33 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `updateEntityDisplayText allows a nullable property inside an expression placeholder`() {
+    val prop = Property(id = PropertyId("p-1"), name = "Tag", type = PropertyType.STRING, nullable = true)
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order", properties = listOf(prop))
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order \${Tag}")
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(result.getOrNull()?.entityDefinitions?.first()?.displayText).isEqualTo("Order \${Tag}")
+  }
+
+  @Test
+  fun `updateEntityDisplayText rejects an invalid expression with its reason`() {
+    val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
+    val version = draftVersion.copy(entityDefinitions = listOf(entity))
+    every { appVersionRepository.findById(AppVersionId("ver-1")) } returns version
+
+    val unknownField = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order \${Tag}")
+    val syntax = service.updateEntityDisplayText("app-1", "ver-1", "e-1", "Order \${1 +")
+
+    assertThat((unknownField.leftOrNull() as? InvalidExpressionError)?.reason).isEqualTo(ExpressionErrorCode.UNKNOWN_FIELD)
+    assertThat((syntax.leftOrNull() as? InvalidExpressionError)?.reason).isEqualTo(ExpressionErrorCode.SYNTAX)
+  }
+
+  @Test
   fun `updateEntityDisplayText allows id token`() {
     val entity = EntityDefinition(id = EntityDefinitionId("e-1"), name = "Order")
     val version = draftVersion.copy(entityDefinitions = listOf(entity))
