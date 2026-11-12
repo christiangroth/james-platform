@@ -1,3 +1,22 @@
+# 0.140.0 (2026.11.12)
+
+## New Features
+* Neue Objekte lassen sich direkt über ein Plus oben rechts in den Kacheln der Übersicht und der Installationsseite anlegen; nach dem Speichern geht es dorthin zurück.
+﻿* Release Notes einer veröffentlichten App-Version lassen sich nachträglich korrigieren, in der Entwickler-Ansicht der Version und über die API.
+* Anzeigetexte von Objekten können jetzt Ausdrücke enthalten (etwa `${kommentar} ${format(start, "dd.MM")}`), auch mit optionalen und berechneten Eigenschaften; leere Werte lassen kein überflüssiges Leerzeichen zurück.
+* Neue Funktion `format(datum, "dd.MM")` für Datums- und Zeitangaben in Ausdrücken.
+* Jeder Report zeigt oben rechts einen Hinweise-Indikator mit Anzahl, eingefärbt nach dem schwersten Level; ein Klick öffnet alle Hinweise, Warnungen und Fehler des Reports.
+* Prüfungen eines Reports haben optional ein Level (Hinweis, Warnung, Fehler).
+* Auswahl-Variablen können mit `default: current` den aktuellen Zeitraum (z. B. das laufende Jahr) vorauswählen.
+* Die Report-Ausführung der API liefert die Hinweise samt Level mit.
+
+## Bugfixes / Chore
+* Seiten der App-Oberfläche laden deutlich schneller, vor allem Bearbeiten-Formulare, Entitäts-Seiten und Berichte großer Installationen.
+
+
+
+---
+
 # 0.139.3 (2026.11.11)
 
 ## Bugfixes / Chore
