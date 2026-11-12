@@ -13,7 +13,9 @@ import de.chrgroth.james.platform.domain.error.InvalidObjectStructureError
 import de.chrgroth.james.platform.domain.error.InvalidReferenceLookupError
 import de.chrgroth.james.platform.domain.error.InvalidReportDefinitionError
 import de.chrgroth.james.platform.domain.error.InvalidReportsError
+import de.chrgroth.james.platform.domain.expression.DisplayTextExpressions
 import de.chrgroth.james.platform.domain.expression.EntityExpressions
+import de.chrgroth.james.platform.domain.model.app.DisplayTextTemplate
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationDefinitionId
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
@@ -233,8 +235,9 @@ class AppVersionManagementService(
       val nonNullablePropNames = entity.properties.filter { !it.nullable }.map { it.name }.toSet()
       val usedPropNames = extractPropertyNames(dt)
       val invalidNames = usedPropNames - nonNullablePropNames
-      if (invalidNames.isNotEmpty()) {
-        logger.warn { "Publish version failed: entity ${entity.id.value} has invalid display text references: $invalidNames" }
+      val expressionError = DisplayTextExpressions.validate(entity, dt)
+      if (invalidNames.isNotEmpty() || expressionError != null) {
+        logger.warn { "Publish version failed: entity ${entity.id.value} has invalid display text references: $invalidNames $expressionError" }
         entity.name
       } else null
     }
@@ -507,6 +510,10 @@ class AppVersionManagementService(
       if (invalidPropNames.isNotEmpty()) {
         logger.warn { "Update entity display text failed: template references nullable/unknown properties: $invalidPropNames in entity $entityId" }
         return AppVersionError.DISPLAY_TEXT_USES_NULLABLE_PROPERTY.left()
+      }
+      DisplayTextExpressions.validate(entity, trimmedDisplayText)?.let { error ->
+        logger.warn { "Update entity display text failed: invalid expression in entity $entityId: ${error.reason} ${error.args}" }
+        return error.left()
       }
     }
     val updatedEntity = entity.copy(displayText = trimmedDisplayText)
@@ -1889,11 +1896,7 @@ class AppVersionManagementService(
     return null
   }
 
-  private fun extractPropertyNames(template: String): Set<String> =
-    Regex("\\{([^}]+)\\}").findAll(template)
-      .map { it.groupValues[1] }
-      .filter { it != "id" }
-      .toSet()
+  private fun extractPropertyNames(template: String): Set<String> = DisplayTextTemplate.propertyNames(template)
 
   private fun removePropertyFromDisplayText(displayText: String?, propertyName: String): String? {
     if (displayText.isNullOrBlank()) return displayText

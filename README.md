@@ -13,6 +13,7 @@ single-developer tool on a personal VPS and provides a web UI for managing users
   Lists of dates, times and numbers are kept in ascending order.
 - **Generic Data UI** – A full create/edit/list UI is generated from each Entity definition: sortable list views, constraint-validated forms, Focus mode (carry values
   forward) and Snapshot mode (reusable form templates). References can be entered as text with proposals, creating unknown targets on save.
+  Display texts of objects can use expressions in the style of string templates, e.g. `${kommentar} ${format(start, "dd.MM")} ({tage} Tage)`.
 - **Computed Properties & Smart Defaults** – Derived values (e.g. BMI, pace, sums, yes/no as number) and form defaults written in the platform's small expression
   language, checked on save (no scripting engine, works in the native image). Smart defaults make data entry quick: today, the day after the last entry
   (`next_day(datum)`), the last used value or reference (`last(schuhe)`), end of month, workdays between two dates without configured holidays

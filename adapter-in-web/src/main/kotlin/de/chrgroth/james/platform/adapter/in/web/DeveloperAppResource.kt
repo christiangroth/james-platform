@@ -771,6 +771,24 @@ class DeveloperAppResource {
     )
   }
 
+  /** Corrects the release notes of a published version (modal on the version page), then shows the version page again. */
+  @POST
+  @Path("/apps/{appId}/versions/{versionId}/release-notes")
+  @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+  fun updateReleaseNotes(
+    @PathParam("appId") appId: String,
+    @PathParam("versionId") versionId: String,
+    @FormParam("releaseNotes") releaseNotes: String?,
+  ): Response = httpResponseMetrics.timed("rest.developer.version-release-notes") {
+    val developerId = currentDeveloperUserIdValue()
+      ?: return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    if (appManagement.getApp(appId, developerId).isLeft()) {
+      return@timed Response.seeOther(URI.create("/ui/developer/dashboard")).build()
+    }
+    appVersionManagement.updateReleaseNotes(appId, versionId, releaseNotes.orEmpty())
+    Response.seeOther(URI.create("/ui/developer/apps/$appId/versions/$versionId")).build()
+  }
+
   @POST
   @Path("/apps/{appId}/versions/publish")
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -947,7 +965,7 @@ class DeveloperAppResource {
     @FormParam("displayText") displayText: String?,
   ): Response = httpResponseMetrics.timed("rest.developer.entity-display-text-update") {
     appVersionManagement.updateEntityDisplayText(appId, versionId, entityId, displayText).fold(
-      ifLeft = { error -> Response.ok(DeveloperApiResult(false, entityErrorMessage(error.code))).build() },
+      ifLeft = { error -> Response.ok(DeveloperApiResult(false, expressionAwareErrorMessage(error))).build() },
       ifRight = { Response.ok(DeveloperApiResult(true, devMsg.developerDisplayTextSavedMessage(), "/ui/developer/apps/$appId/versions/$versionId/entities/$entityId")).build() },
     )
   }
