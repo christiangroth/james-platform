@@ -32,8 +32,37 @@
                 {! The whole tile opens the app (stretched link); report links and the upgrade button sit above it, so no links are nested !}
                 <div class="card app-card p-3 h-100 d-flex flex-column position-relative" data-testid="installed-app-card">
                     <a href="/ui/user/apps/{info.installedAppId}" class="text-decoration-none stretched-link" data-testid="installed-app-tile" aria-label="{user:userOpenInstalledAppAriaLabel(info.appName)}">
-                        <span class="d-block fw-semibold fs-6 mb-1 app-tile-title" data-testid="installed-app-name">{info.appName}</span>
+                        <span class="d-block fw-semibold fs-6 mb-1 pe-4 app-tile-title" data-testid="installed-app-name">{info.appName}</span>
                     </a>
+                    {! Plus button top right: creates a new object and returns to the dashboard afterwards (one entity: link, several: dropdown to pick the entity) !}
+                    {#if info.installedVersion.dataEntities.size == 1}
+                    {#let addEntity=info.installedVersion.dataEntities.get(0)}
+                    <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={addEntity.id}&returnUrl=/ui/user/dashboard"
+                       class="btn btn-app-secondary btn-sm app-tile-link position-absolute top-0 end-0 m-2"
+                       data-testid="installed-app-add-button"
+                       title="{msg:commonAdd()}"
+                       aria-label="{user:userAddMoreDataAriaLabel()}">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    </a>
+                    {/let}
+                    {#else if info.installedVersion.dataEntities.size > 1}
+                    <div class="dropdown app-tile-link position-absolute top-0 end-0 m-2" data-testid="installed-app-add-dropdown">
+                        <button type="button"
+                                class="btn btn-app-secondary btn-sm"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                data-testid="installed-app-add-button"
+                                title="{msg:commonAdd()}"
+                                aria-label="{user:userAddMoreDataAriaLabel()}">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                            {#for addEntity in info.installedVersion.dataEntities}
+                            <li><a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={addEntity.id}&returnUrl=/ui/user/dashboard" class="dropdown-item" data-testid="installed-app-add-entity">{addEntity.name}</a></li>
+                            {/for}
+                        </ul>
+                    </div>
+                    {/if}
                     <div class="app-section-label mb-1" data-testid="installed-app-version">v{info.installedVersion.versionNumber}</div>
                     {#if !info.appActive}
                     <div class="app-section-label mb-1" style="font-size:0.75rem;" data-testid="installed-app-deactivated-info">

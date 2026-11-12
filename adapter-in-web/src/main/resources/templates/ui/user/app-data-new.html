@@ -46,6 +46,7 @@
 
             <form id="createDataForm">
                 <input type="hidden" name="entityTypeId" value="{entity.id}">
+                <input type="hidden" name="returnUrl" value="{returnUrl}">
 
                 {#if entity.properties.isEmpty}
                 <p class="app-section-label mb-3" data-testid="no-properties">{user:userNoPropertiesDefinedMessage()}</p>
@@ -154,7 +155,7 @@
                 {/if}
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="{entityListUrl}" class="btn btn-app-secondary btn-sm" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}" data-testid="cancel-button">
+                    <a href="{cancelUrl}" class="btn btn-app-secondary btn-sm" title="{msg:commonCancel()}" aria-label="{msg:commonCancel()}" data-testid="cancel-button">
                         <i class="bi bi-x-lg" aria-hidden="true"></i>
                     </a>
                     <button type="submit" class="btn btn-app-primary btn-sm" title="{msg:commonSave()}" aria-label="{msg:commonSave()}" data-testid="submit-button">

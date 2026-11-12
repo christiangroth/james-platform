@@ -9,6 +9,9 @@ interface AppDataRepositoryPort {
   fun findAllByInstalledAppId(installedAppId: InstalledAppId): List<AppData>
   fun findAllByInstalledAppIdAndEntityType(installedAppId: InstalledAppId, entityType: EntityDefinitionId): List<AppData>
 
+  /** The objects of the installation whose entity type is one of [entityTypes] (a single query; empty set yields an empty list). */
+  fun findAllByInstalledAppIdAndEntityTypes(installedAppId: InstalledAppId, entityTypes: Set<EntityDefinitionId>): List<AppData>
+
   /** Returns every stored AppData object across all installed apps. Acceptable only for one-time startup migrations, never for request handling. */
   fun findAll(): List<AppData>
   fun findById(id: AppDataId): AppData?
