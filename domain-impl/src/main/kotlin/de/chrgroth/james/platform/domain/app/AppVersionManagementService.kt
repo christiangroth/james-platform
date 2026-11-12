@@ -161,6 +161,22 @@ class AppVersionManagementService(
     return version.right()
   }
 
+  override fun updateReleaseNotes(appId: String, versionId: String, releaseNotes: String): Either<DomainError, AppVersion> {
+    val version = getVersion(appId, versionId).fold(ifLeft = { return it.left() }, ifRight = { it })
+    if (version.status != AppVersionStatus.PUBLISHED) {
+      logger.warn { "Update release notes failed: version $versionId of app $appId is not published" }
+      return AppVersionError.VERSION_NOT_PUBLISHED.left()
+    }
+    val trimmedReleaseNotes = releaseNotes.trim().takeIf { it.isNotBlank() } ?: run {
+      logger.warn { "Update release notes failed: blank release notes for version $versionId of app $appId" }
+      return AppVersionError.BLANK_RELEASE_NOTES.left()
+    }
+    val updated = version.copy(releaseNotes = trimmedReleaseNotes)
+    appVersionRepository.save(updated)
+    logger.info { "Release notes updated for version $versionId of app $appId" }
+    return updated.right()
+  }
+
   override fun publishVersion(appId: String, bumpType: String?, releaseNotes: String): Either<DomainError, AppVersion> {
     val app = appRepository.findById(AppId(appId)) ?: run {
       logger.warn { "Publish version failed: app not found: $appId" }

@@ -15,6 +15,8 @@ interface AppVersionManagementPort {
   fun createVersion(appId: String): Either<DomainError, AppVersion>
   fun getVersion(appId: String, versionId: String): Either<DomainError, AppVersion>
   fun publishVersion(appId: String, bumpType: String?, releaseNotes: String): Either<DomainError, AppVersion>
+  /** Corrects the release notes of an already published version (e.g. a typo or broken encoding); blank notes are rejected like on publish. */
+  fun updateReleaseNotes(appId: String, versionId: String, releaseNotes: String): Either<DomainError, AppVersion>
   fun deleteDraftVersion(appId: String, versionId: String): Either<DomainError, Unit>
   fun computeVersionBump(appId: String, draftVersionId: String): Either<DomainError, VersionBumpResult>
   fun addEntity(appId: String, versionId: String, name: String): Either<DomainError, AppVersion>

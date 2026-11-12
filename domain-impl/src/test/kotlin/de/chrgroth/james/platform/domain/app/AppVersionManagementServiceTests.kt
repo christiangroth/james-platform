@@ -316,6 +316,27 @@ class AppVersionManagementServiceTests {
   }
 
   @Test
+  fun `updateReleaseNotes replaces notes of a published version`() {
+    every { appVersionRepository.findById(publishedVersion.id) } returns publishedVersion
+    justRun { appVersionRepository.save(any()) }
+
+    val result = service.updateReleaseNotes(publishedVersion.appId.value, publishedVersion.id.value, "  Fixed notes  ")
+
+    assertThat(result.getOrNull()?.releaseNotes).isEqualTo("Fixed notes")
+    verify { appVersionRepository.save(match { it.id == publishedVersion.id && it.releaseNotes == "Fixed notes" }) }
+  }
+
+  @Test
+  fun `updateReleaseNotes rejects drafts and blank notes`() {
+    every { appVersionRepository.findById(draftVersion.id) } returns draftVersion
+    every { appVersionRepository.findById(publishedVersion.id) } returns publishedVersion
+
+    assertThat(service.updateReleaseNotes(draftVersion.appId.value, draftVersion.id.value, "Notes").leftOrNull()).isEqualTo(AppVersionError.VERSION_NOT_PUBLISHED)
+    assertThat(service.updateReleaseNotes(publishedVersion.appId.value, publishedVersion.id.value, "  ").leftOrNull()).isEqualTo(AppVersionError.BLANK_RELEASE_NOTES)
+    verify(exactly = 0) { appVersionRepository.save(any()) }
+  }
+
+  @Test
   fun `publishVersion succeeds as feature bump`() {
     every { appVersionRepository.findAllByAppId(AppId("app-1")) } returns listOf(draftVersionWithNewEntity, publishedVersion)
     justRun { appVersionRepository.save(any()) }

@@ -1093,7 +1093,7 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
     `{ "name", "type", "unit", "maxUnit", "expression" }`; an invalid expression answers `400` with code `APPVER-076` and the reason in `details`), aggregations,
     migration steps, the configuration flag (`PUT …/entities/{entityId}/configuration`
     with `{ "value": true }`), reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
-    (`POST /{appId}/versions/publish`).
+    (`POST /{appId}/versions/publish`; `PUT /{appId}/versions/{versionId}/release-notes` with `{ "releaseNotes" }` corrects the notes of a published version).
 
 ## Error Handling
 
