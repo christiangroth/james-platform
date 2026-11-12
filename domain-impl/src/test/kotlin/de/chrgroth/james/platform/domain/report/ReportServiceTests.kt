@@ -59,6 +59,8 @@ class ReportServiceTests {
     ReportFixtures.konzertData("k-4", "2024-01-20", "b-1", "Hamburg", 3_000),
   )
 
+  private val requestedEntityTypes = mutableListOf<Set<EntityDefinitionId>>()
+
   private fun withReport(definition: String, entities: List<EntityDefinition> = ReportFixtures.entities) {
     val version = AppVersion(
       id = AppVersionId("ver-1"),
@@ -72,7 +74,11 @@ class ReportServiceTests {
     )
     every { installedAppRepository.findById(InstalledAppId("inst-1")) } returns installedApp
     every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns version
-    every { appDataRepository.findAllByInstalledAppId(InstalledAppId("inst-1")) } returns data
+    every { appDataRepository.findAllByInstalledAppIdAndEntityTypes(InstalledAppId("inst-1"), any()) } answers {
+      val types = secondArg<Set<EntityDefinitionId>>()
+      requestedEntityTypes += types
+      data.filter { it.entityType in types }
+    }
   }
 
   private fun table(definition: String): TablePanelSpec {
@@ -107,6 +113,23 @@ class ReportServiceTests {
 
     assertThat((panels[0] as StatPanelSpec).text).isEqualTo("1.000")
     verify { computedProperty.computeValues(any(), any(), any(), mapOf("p-z-besucher" to "1000"), any()) }
+  }
+
+  @Test
+  fun `loads only the queried entities and the ones reachable through references`() {
+    withReport(
+      """
+      queries:
+        k: { entity: Konzert, fields: [jahr] }
+      tabs:
+        - name: T
+          rows: [[{ table: Konzerte, query: k }]]
+      """,
+    )
+
+    service.renderReport("alice", "inst-1", "r-1")
+
+    assertThat(requestedEntityTypes.single()).containsExactlyInAnyOrder(ReportFixtures.konzert.id, ReportFixtures.band.id)
   }
 
   @Test

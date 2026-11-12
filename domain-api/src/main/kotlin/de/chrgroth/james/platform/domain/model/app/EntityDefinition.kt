@@ -238,3 +238,25 @@ val Property.isObjectList: Boolean get() = type == PropertyType.LIST && listItem
 
 /** Whether this property's [Property.nestedProperties] are in use: an OBJECT property or a LIST of OBJECTs. */
 val Property.hasNestedProperties: Boolean get() = type == PropertyType.OBJECT || isObjectList
+
+/**
+ * The ids of [roots] plus every entity reachable from them through REF properties (also LISTs of REFs and nested ones) of [all]: exactly the entity
+ * types whose objects are needed to resolve references (display texts, reference paths) of objects of [roots].
+ */
+fun referencedEntityClosure(roots: Collection<EntityDefinition>, all: List<EntityDefinition>): Set<EntityDefinitionId> {
+  val byId = all.associateBy { it.id }
+  val result = LinkedHashSet<EntityDefinitionId>()
+  val pending = ArrayDeque(roots.map { it.id })
+  while (pending.isNotEmpty()) {
+    val id = pending.removeFirst()
+    if (!result.add(id)) continue
+    byId[id]?.let { entity -> referenceTargetIds(entity.properties).filter { it !in result }.forEach { pending.addLast(it) } }
+  }
+  return result
+}
+
+private fun referenceTargetIds(properties: List<Property>): List<EntityDefinitionId> =
+  properties.flatMap { property ->
+    listOfNotNull(property.targetEntityId.takeIf { property.type == PropertyType.REF || property.listItemType == PropertyType.REF }) +
+      referenceTargetIds(property.nestedProperties)
+  }

@@ -10,11 +10,13 @@ import de.chrgroth.james.platform.domain.error.ReportError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppDataId
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 import de.chrgroth.james.platform.domain.model.app.InstalledApp
 import de.chrgroth.james.platform.domain.model.app.InstalledAppId
 import de.chrgroth.james.platform.domain.model.app.ReportDefinition
 import de.chrgroth.james.platform.domain.model.app.ReportDefinitionError
 import de.chrgroth.james.platform.domain.model.app.ReportView
+import de.chrgroth.james.platform.domain.model.app.referencedEntityClosure
 import de.chrgroth.james.platform.domain.model.infra.AppTimeZone
 import de.chrgroth.james.platform.domain.port.`in`.app.AppConfigurationPort
 import de.chrgroth.james.platform.domain.port.`in`.app.ComputedPropertyPort
@@ -97,7 +99,8 @@ class ReportService(
       { it },
     )
     // Sandbox boundary: only this installation's objects are ever loaded.
-    val appData = appDataRepository.findAllByInstalledAppId(installedApp.id)
+    // Only the queried entities, the ones reachable from them through references (display texts, reference paths) and the configuration entity are needed.
+    val appData = appDataRepository.findAllByInstalledAppIdAndEntityTypes(installedApp.id, requiredEntityTypes(version, parsed))
     val now = KotlinClock.System.now()
     val configuration = configurationObject(installedApp, version, appData)
     val configValues = configuration?.data.orEmpty()
@@ -107,6 +110,12 @@ class ReportService(
       computedProperty.computeValues(entity, data, now, configValues, configEntity)
     }
     return executor.execute(reportId, name, parsed, variables).right()
+  }
+
+  /** The entity types a report needs data of: its queries' entities, the configuration entity and everything reachable from these through REF properties. */
+  private fun requiredEntityTypes(version: AppVersion, definition: ReportDefinition): Set<EntityDefinitionId> {
+    val roots = definition.queries.mapNotNull { query -> version.entityDefinitions.find { it.name == query.entity } } + listOfNotNull(version.configurationEntity)
+    return referencedEntityClosure(roots, version.entityDefinitions)
   }
 
   /** The installation's configuration object (ADR 0027); not created yet, a transient one carrying the defaults. */

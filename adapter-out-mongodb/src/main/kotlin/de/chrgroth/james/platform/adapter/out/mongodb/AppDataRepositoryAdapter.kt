@@ -33,6 +33,20 @@ class AppDataRepositoryAdapter(
       ).list().map { it.toDomain() }
     }
 
+  override fun findAllByInstalledAppIdAndEntityTypes(installedAppId: InstalledAppId, entityTypes: Set<EntityDefinitionId>): List<AppData> =
+    if (entityTypes.isEmpty()) {
+      emptyList()
+    } else {
+      mongoQueryMetrics.timed("app_data.findAllByInstalledAppIdAndEntityTypes") {
+        appDataDocumentRepository.find(
+          Filters.and(
+            Filters.eq(INSTALLED_APP_ID_FIELD, installedAppId.value),
+            Filters.`in`(ENTITY_TYPE_FIELD, entityTypes.map { it.value }),
+          ),
+        ).list().map { it.toDomain() }
+      }
+    }
+
   override fun findAll(): List<AppData> =
     mongoQueryMetrics.timed("app_data.findAll") {
       appDataDocumentRepository.listAll().map { it.toDomain() }

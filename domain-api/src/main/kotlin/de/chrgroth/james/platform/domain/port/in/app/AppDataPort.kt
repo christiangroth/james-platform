@@ -4,6 +4,7 @@ import arrow.core.Either
 import de.chrgroth.james.platform.domain.error.DomainError
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
+import de.chrgroth.james.platform.domain.model.app.EntityDefinitionId
 
 interface AppDataPort {
   fun createAppData(
@@ -14,6 +15,9 @@ interface AppDataPort {
   ): Either<DomainError, AppData>
 
   fun listAppData(userId: String, installedAppId: String): Either<DomainError, List<AppData>>
+
+  /** Like [listAppData], but only the objects of the given entity types (loaded with a single filtered query). */
+  fun listAppDataOfEntities(userId: String, installedAppId: String, entityTypes: Set<EntityDefinitionId>): Either<DomainError, List<AppData>>
 
   fun getAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, AppData>
 

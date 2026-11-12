@@ -634,7 +634,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
 - **UI and API:** the version editor lists, creates, renames, edits (YAML textarea with validation feedback) and deletes reports of a draft and previews
   an unsaved definition against a test installation of the draft. Installed Apps list their reports as tiles with the report icon above
   the Entities (no heading of their own), and every App tile on the user dashboard (`/ui/user/dashboard`) links the App and its reports - the tiles show
-  no Entities or object counts, so the dashboard loads no App data; `/ui/user/apps/{installedAppId}/reports/{reportId}`
+  no Entities or object counts, so the dashboard loads no App data. A plus button in the tile's top right creates an object (a dropdown picks the Entity when the App has several), and so does one on every Entity tile of the App page; both pass a validated local `returnUrl` so saving returns to the page the User came from; `/ui/user/apps/{installedAppId}/reports/{reportId}`
   renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
   `{ name, definition }`; like every draft edit they answer with the full draft, `POST` additionally names the new report's id in the `X-Report-Id`
   header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec incl. variables; selections as `var.<name>` query parameters).

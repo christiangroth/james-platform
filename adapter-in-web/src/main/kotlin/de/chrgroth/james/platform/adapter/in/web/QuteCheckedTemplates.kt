@@ -210,6 +210,9 @@ object UserTemplates {
     smartDefaults: Map<String, String?>,
     referenceOptions: Map<String, List<AppDataRow>>,
     entityListUrl: String,
+    /** Validated local path to return to after saving ("" = the entity list), and the URL the cancel button leads to. */
+    returnUrl: String,
+    cancelUrl: String,
     objectFieldsJson: RawString,
     referenceOptionsJson: RawString,
     referenceLookupsJson: RawString,

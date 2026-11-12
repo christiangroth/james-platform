@@ -109,6 +109,16 @@ class AppDataService(
     return appDataList.sortedByDescending { it.lastChangedAt }.right()
   }
 
+  override fun listAppDataOfEntities(userId: String, installedAppId: String, entityTypes: Set<EntityDefinitionId>): Either<DomainError, List<AppData>> {
+    val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
+    if (installedApp == null || installedApp.userId != userId) {
+      logger.warn { "List app data failed: installed app not found: $installedAppId for user: $userId" }
+      return AppDataError.INSTALLED_APP_NOT_FOUND.left()
+    }
+    val appDataList = appDataRepository.findAllByInstalledAppIdAndEntityTypes(InstalledAppId(installedAppId), entityTypes)
+    return appDataList.sortedByDescending { it.lastChangedAt }.right()
+  }
+
   override fun getAppData(userId: String, installedAppId: String, dataId: String): Either<DomainError, AppData> {
     val installedApp = installedAppRepository.findById(InstalledAppId(installedAppId))
     if (installedApp == null || installedApp.userId != userId) {
