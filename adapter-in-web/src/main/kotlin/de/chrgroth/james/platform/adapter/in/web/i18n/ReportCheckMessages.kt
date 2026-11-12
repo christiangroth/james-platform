@@ -40,5 +40,29 @@ interface ReportCheckMessages {
   @Message
   fun reportWarningsCountLabel(): String
 
+  @Message
+  fun reportNoticesButton(): String
+
+  @Message
+  fun reportNoticesTitle(): String
+
+  @Message
+  fun reportNoticesNone(): String
+
+  @Message
+  fun reportNoticesClose(): String
+
+  @Message
+  fun reportNoticesInfo(): String
+
+  @Message
+  fun reportNoticesWarning(): String
+
+  @Message
+  fun reportNoticesError(): String
+
+  @Message
+  fun reportNoticesTruncated(): String
+
   // endregion
 }

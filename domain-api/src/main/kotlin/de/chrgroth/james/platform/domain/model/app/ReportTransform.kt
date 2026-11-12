@@ -35,7 +35,8 @@ data class ReportTimeRangeVariable(
 /**
  * `{ type: select, query: jahre, field: bucket }`: the distinct non-empty values of [field] in the result of [query] (in result order) are
  * the options, labelled like table cells (references by display text, buckets as `09/2026`). With [includeAll] an extra first option "Alle"
- * (empty value) drops the filter rules using the variable. [default]: [FIRST] (default), [LAST], [ALL_VALUE] (needs [includeAll]) or a value.
+ * (empty value) drops the filter rules using the variable. [default]: [FIRST] (default), [LAST], [CURRENT] (the time bucket containing today, else
+ * the newest value), [ALL_VALUE] (needs [includeAll]) or a value.
  * Used as a range, the field must be the time bucket of an aggregate query: the selected bucket's period becomes the range.
  */
 data class ReportSelectVariable(
@@ -49,6 +50,7 @@ data class ReportSelectVariable(
   companion object {
     const val FIRST = "first"
     const val LAST = "last"
+    const val CURRENT = "current"
     const val ALL_VALUE = "all"
   }
 }

@@ -33,6 +33,8 @@ data class ApiReportViewDto(
   val name: String,
   val tabs: List<ApiReportTabDto>,
   val variables: List<ApiReportVariableDto> = emptyList(),
+  val notices: List<ApiReportNoticeDto> = emptyList(),
+  val totalNotices: Int = 0,
 )
 
 /** A report variable's control: [type] `timeRange`/`select`, its options (an empty value meaning "all") and the [selected] value. */
@@ -101,6 +103,10 @@ data class ApiHeatmapCellDto(val x: String, val y: String?, val value: Double, v
 
 data class ApiHeatmapThresholdDto(val value: Double, val color: String)
 
+/** One notice of the report (header indicator and modal): [level] `info`/`warning`/`error`, [check] the check it stems from (null: a failed panel), [label] what it is about. */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ApiReportNoticeDto(val level: String, val check: String?, val label: String?, val message: String)
+
 /** One finding of a warnings panel: [severity] `warning`/`error`, [label] the period or row it is about. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ApiReportWarningDto(val check: String, val severity: String, val label: String?, val message: String)
@@ -159,6 +165,8 @@ object ApiReportDtoMapper {
     variables = view.variables.map { variable ->
       ApiReportVariableDto(variable.name, variable.label, variable.type, variable.options.map { ApiReportVariableOptionDto(it.value, it.label) }, variable.selected)
     },
+    notices = view.notices.map { ApiReportNoticeDto(it.level, it.check, it.label, it.message) },
+    totalNotices = view.totalNotices,
   )
 
   /** Query (or form) parameter prefix carrying a variable selection, e.g. `var.zeitraum=last_month`. */

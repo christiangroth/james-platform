@@ -314,7 +314,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   report page and the token API, or as the editor preview's `variables` form field; a missing or unknown selection falls back to the default):
   `{ type: timeRange, label, default, options }` offers relative periods plus `all` (no restriction; default options: all of them) and is used as
   `range: $name`; `{ type: select, label, query, field, all, default }` offers the distinct values of a field of a query's (transformed) result, labelled
-  like table cells (references by display text, buckets as `09/2026`), `all: true` adds "Alle" (empty value), `default` is `first` (default), `last`,
+  like table cells (references by display text, buckets as `09/2026`), `all: true` adds "Alle" (empty value), `default` is `first` (default), `last`, `current` (the time bucket containing today, e.g. the current year; the newest value if there is none),
   `all` or a value. A select is used as filter `value: $name` (references compared by display text; "Alle" drops the rule) or - when its field is a
   time bucket - as `range: $name` (the selected bucket's period). The query feeding a select must not use variables itself. The executed `ReportView`
   lists each variable with its options and selected value; `report-renderer.js` renders the controls and reloads the report on change.
@@ -556,8 +556,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   ```
 
 - **Checks** (`checks: { <name>: ... }`, `ReportChecker`): declarative warning rules over the report's queries (with the current variable selections),
-  each with exactly one type, an optional `message` (German default text otherwise) and `severity` `warning` (default) or `error`. Only checks shown by a
-  `{ warnings: <title>, checks: [names] }` panel run (without `checks`: all of them, in declaration order); each tab counts the findings of its
+  each with exactly one type, an optional `message` (German default text otherwise) and `level` `info`, `warning` (default) or `error` (shown as Hinweis, Warnung, Fehler; `severity` is accepted as former name). All checks run for every report execution; their findings - plus panels that failed at runtime, as errors - are the report's **notices** (`ReportView.notices`, capped at 500 with `totalNotices`, also in the token API's report execution response as `notices` with `level`, `check`, `label`, `message`). The report page template shows them as the standard way: an indicator (bell with count, colored by the most severe level, neutral without notices) top right of the report header opens a modal listing the notices grouped by Hinweis, Warnung, Fehler (`JamesReports.renderNotices`). For backwards compatibility the 
+  `{ warnings: <title>, checks: [names] }` panel still lists the findings of selected checks (without `checks`: all of them, in declaration order); each tab counts the findings of its
   warnings panels (every check once) and shows the number on its label. Checks only read the own installation - cross-app checks belong to personal
   dashboards (step 8).
   - **Gap detection** `{ gap: <query>, every: WERKTAG|TAG|WOCHE|MONAT|QUARTAL|JAHR, exclude, current }`: at least one row of the query (a plain query
@@ -585,7 +585,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
       gap: arbeitstage
       every: WERKTAG
       exclude: [config.feiertage, { query: urlaub, field: von, to: bis }]
-    ablesung: { gap: ablesungen, every: MONAT, severity: error }
+    ablesung: { gap: ablesungen, every: MONAT, level: error }
     stunden: { rule: arbeitstage, field: stunden, max: config.maxStunden, message: "{datum}: {value} Stunden" }
     ende: { rule: arbeitstage, required: [ende], when: [beginn] }
   tabs:
@@ -619,7 +619,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   cells with raw and formatted value; a chart panel an x axis (`category` with labels, or `time`), y axes with unit symbol and series of points with
   plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison; a pie panel its slices (label, value,
   text, percentage), display unit and donut flag; a heatmap panel its mode (`calendar` with `from`/`to`, or `matrix` with x/y categories), cells
-  (x, y, value, text), min/max and thresholds in the display unit; a warnings panel its findings (check, severity, label, message; capped at 500); a
+  (x, y, value, text), min/max and thresholds in the display unit; the view the report notices (level, check, label, message); a warnings panel its findings (check, severity, label, message; capped at 500); a
   panel whose query failed at runtime only its type, title and `error` message - and each tab the number of findings of its warnings
   panels). Values are formatted like display texts
   (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`,

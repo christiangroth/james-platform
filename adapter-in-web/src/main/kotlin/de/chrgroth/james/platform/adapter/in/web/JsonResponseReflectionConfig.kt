@@ -59,6 +59,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection
     ApiReportUnitDto::class,
     ApiReportCellDto::class,
     ApiReportWarningDto::class,
+    ApiReportNoticeDto::class,
     ApiPieSliceDto::class,
     ApiHeatmapDto::class,
     ApiHeatmapCellDto::class,

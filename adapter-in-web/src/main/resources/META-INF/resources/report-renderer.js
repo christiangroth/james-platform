@@ -629,7 +629,8 @@ var JamesReports = (function (global) {
             var item = el('li', 'd-flex gap-2 align-items-baseline py-1');
             item.setAttribute('data-testid', 'report-warning');
             item.setAttribute('data-severity', warning.severity);
-            var marker = el('span', error ? 'text-danger' : 'text-warning', error ? '●' : '▲');
+            var info = warning.severity === 'info';
+            var marker = el('span', error ? 'text-danger' : info ? 'text-info' : 'text-warning', error ? '●' : info ? 'ℹ' : '▲');
             marker.setAttribute('aria-hidden', 'true');
             item.appendChild(marker);
             var body = el('span');
@@ -646,8 +647,72 @@ var JamesReports = (function (global) {
 
     // endregion
 
+    // region notices
+
+    var NOTICE_LEVELS = [
+        { key: 'error', marker: '●', text: 'text-danger', badge: 'text-bg-danger', icon: 'bi-bell-fill' },
+        { key: 'warning', marker: '▲', text: 'text-warning', badge: 'text-bg-warning', icon: 'bi-bell-fill' },
+        { key: 'info', marker: 'ℹ', text: 'text-info', badge: 'text-bg-info', icon: 'bi-bell-fill' }
+    ];
+
+    /**
+     * The report's notices (view.notices: checks' findings and failed panels with level info/warning/error) in the page header: elements.button
+     * gets data-level (the most severe level, "none" without notices), elements.icon the bell, elements.count the number (hidden without
+     * notices), elements.body the list in the notices modal, grouped by level (most severe first) with texts.error/warning/info as headings.
+     */
+    function renderNotices(elements, view, texts) {
+        texts = texts || {};
+        var notices = (view && view.notices) || [];
+        var total = (view && view.totalNotices) || notices.length;
+        var worst = null;
+        NOTICE_LEVELS.forEach(function (level) {
+            if (!worst && notices.some(function (n) { return n.level === level.key; })) worst = level;
+        });
+        if (elements.button) elements.button.setAttribute('data-level', worst ? worst.key : 'none');
+        if (elements.icon) elements.icon.className = 'bi ' + (worst ? worst.icon + ' ' + worst.text : 'bi-bell text-muted');
+        if (elements.count) {
+            elements.count.className = 'badge rounded-pill' + (worst ? ' ' + worst.badge : ' d-none');
+            elements.count.textContent = worst ? String(total) : '';
+        }
+        var body = elements.body;
+        if (!body) return;
+        body.textContent = '';
+        if (!worst) {
+            body.appendChild(el('p', 'app-section-label mb-0', texts.none || ''));
+            return;
+        }
+        NOTICE_LEVELS.forEach(function (level) {
+            var group = notices.filter(function (n) { return n.level === level.key; });
+            if (group.length === 0) return;
+            var section = el('section', 'mb-3');
+            section.setAttribute('data-testid', 'report-notices-group');
+            section.setAttribute('data-level', level.key);
+            section.appendChild(el('h3', 'fs-6 fw-semibold ' + level.text, (texts[level.key] || level.key) + ' (' + group.length + ')'));
+            var list = el('ul', 'list-unstyled mb-0');
+            group.forEach(function (notice) {
+                var item = el('li', 'd-flex gap-2 align-items-baseline py-1');
+                item.setAttribute('data-testid', 'report-notice');
+                item.setAttribute('data-level', level.key);
+                var marker = el('span', level.text, level.marker);
+                marker.setAttribute('aria-hidden', 'true');
+                item.appendChild(marker);
+                var text = el('span');
+                if (notice.label) text.appendChild(el('span', 'fw-semibold me-2 text-nowrap', notice.label));
+                text.appendChild(document.createTextNode(notice.message));
+                item.appendChild(text);
+                list.appendChild(item);
+            });
+            section.appendChild(list);
+            body.appendChild(section);
+        });
+        if (total > notices.length) body.appendChild(el('p', 'app-section-label small mb-0', texts.truncated || ''));
+    }
+
+    // endregion
+
     return {
         render: render,
+        renderNotices: renderNotices,
         registerRenderer: registerRenderer,
         setChartAdapter: setChartAdapter,
         chart: chart
