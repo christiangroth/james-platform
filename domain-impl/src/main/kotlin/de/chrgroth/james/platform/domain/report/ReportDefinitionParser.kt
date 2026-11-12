@@ -141,7 +141,7 @@ internal object ReportDefinitionParser {
   private val STAT_KEYS = setOf("query", "field", "reduce", "compare", "thresholds", "config", "goal")
   private val STAT_QUERY_KEYS = listOf("query", "field", "reduce", "compare", "goal")
   private val THRESHOLD_KEYS = setOf("value", "color")
-  private val CHECK_COMMON_KEYS = setOf("message", "severity")
+  private val CHECK_COMMON_KEYS = setOf("message", "level", "severity")
   private val GAP_KEYS = setOf(ReportGapCheck.KEY, "every", "exclude", "current") + CHECK_COMMON_KEYS
   private val RULE_KEYS = setOf(ReportRuleCheck.KEY, "field", "expr", "min", "max", "required", "when") + CHECK_COMMON_KEYS
   private val CHECK_TYPES = listOf(ReportGapCheck.KEY, ReportRuleCheck.KEY)
@@ -938,7 +938,9 @@ internal object ReportDefinitionParser {
       val query = nonBlankText(map.get(type), path.key(type), type)
       val info = query?.let { declaredQuery(it, path.key(type)) }
       val message = map.get("message")?.let { text(it, path.key("message")) }?.trim()?.takeIf { it.isNotEmpty() }
-      val severity = map.get("severity")?.let { keyed(it, path.key("severity"), ReportCheckSeverity.entries) { s -> s.key } } ?: ReportCheckSeverity.WARNING
+      // `severity` is the former name of `level`.
+      val levelKey = if (map.has("level")) "level" else "severity"
+      val severity = map.get(levelKey)?.let { keyed(it, path.key(levelKey), ReportCheckSeverity.entries) { s -> s.key } } ?: ReportCheckSeverity.WARNING
       val at = CheckAt(name, query, info, map, path, message, severity)
       return if (type == ReportGapCheck.KEY) gapCheck(at) else ruleCheck(at)
     }

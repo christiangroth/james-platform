@@ -357,6 +357,8 @@ class ReportPageTests {
       .then()
       .statusCode(200)
       .body(containsString("data-text-warnings-empty=\"Keine Warnungen.\""))
+      .body(containsString("data-testid=\"report-notices-button\""))
+      .body(containsString("data-text-warning=\"Warnung\""))
   }
 
   @Test

@@ -81,6 +81,50 @@ class ReportCheckTests {
   private fun errors(yaml: String) = ReportDefinitionParser.parse(yaml.trimIndent(), entities).errors.map { it.code to it.path }
 
   @Test
+  fun `the view lists the notices of all checks with their level, independent of warnings panels`() {
+    val view = view(
+      """
+      queries:
+        fahrten: { entity: Fahrt, timeField: datum, range: { from: 2026-01-01, to: 2026-04-30 } }
+      checks:
+        quartal: { gap: fahrten, every: QUARTAL, current: true, message: "Kein Eintrag im {period}", level: info }
+        monatlich: { gap: fahrten, every: MONAT, message: "Keine Fahrt im {period}" }
+        jaehrlich: { gap: fahrten, every: JAHR, current: true, severity: error }
+      tabs:
+        - name: P
+          rows: [[ { table: Fahrten, query: fahrten } ]]
+      """,
+    )
+
+    assertThat(view.tabs.single().warnings).isEqualTo(0)
+    assertThat(view.totalNotices).isEqualTo(view.notices.size)
+    assertThat(view.notices.map { Triple(it.check, it.level, it.label) }).containsExactly(
+      Triple("quartal", "info", "Q2/2026"),
+      Triple("monatlich", "warning", "04/2026"),
+      Triple("monatlich", "warning", "02/2026"),
+    )
+  }
+
+  @Test
+  fun `a check level info, warning or error is parsed, an unknown level is rejected and warning is the default`() {
+    val base = """
+      queries:
+        fahrten: { entity: Fahrt, timeField: datum }
+      checks:
+        a: { gap: fahrten, every: MONAT, level: info }
+        b: { gap: fahrten, every: MONAT, level: error }
+        c: { gap: fahrten, every: MONAT }
+        d: { gap: fahrten, every: MONAT, severity: error }
+      tabs:
+        - name: P
+          rows: [[ { warnings: W } ]]
+      """
+    val definition = ReportDefinitionParser.parse(base.trimIndent(), entities).definition!!
+    assertThat(definition.checks.map { it.severity.key }).containsExactly("info", "error", "warning", "error")
+    assertThat(errors(base.replace("level: info", "level: dringend")).map { it.first }).contains(ReportDefinitionErrorCode.INVALID_VALUE)
+  }
+
+  @Test
   fun `a monthly gap check reports missing months newest first and counts them on the tab`() {
     val view = view(
       """
