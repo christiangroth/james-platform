@@ -37,10 +37,10 @@
         {#else}
         <div class="modal fade" id="report-notices-modal" tabindex="-1" aria-labelledby="report-notices-title" aria-hidden="true" data-testid="report-notices-modal">
             <div class="modal-dialog modal-dialog-scrollable modal-lg">
-                <div class="modal-content">
+                <div class="modal-content app-modal-content">
                     <div class="modal-header">
                         <h2 class="modal-title fs-5" id="report-notices-title">{reportCheck:reportNoticesTitle()}</h2>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{reportCheck:reportNoticesClose()}"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{reportCheck:reportNoticesClose()}"></button>
                     </div>
                     <div class="modal-body" id="report-notices-body" data-testid="report-notices-body"
                          data-text-none="{reportCheck:reportNoticesNone()}"

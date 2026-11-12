@@ -327,6 +327,36 @@
             position: relative;
             z-index: 2;
         }
+        /* A tile's add menu (several entities): above the tile links of its own and the following tiles (z-index 2), so the open
+           menu is never covered by them; themed instead of Bootstrap's fixed dark menu, entries sized for touch */
+        .app-tile-add {
+            z-index: 3;
+        }
+        .app-add-menu {
+            --bs-dropdown-bg: var(--color-bg-card);
+            --bs-dropdown-border-color: var(--color-border);
+            --bs-dropdown-color: var(--color-text-primary);
+            --bs-dropdown-link-color: var(--color-text-primary);
+            --bs-dropdown-link-hover-color: var(--color-text-primary);
+            --bs-dropdown-link-hover-bg: var(--color-bg-nested);
+            --bs-dropdown-link-active-color: var(--color-text-primary);
+            --bs-dropdown-link-active-bg: var(--color-bg-nested);
+            --bs-dropdown-header-color: var(--color-text-muted);
+            min-width: 12rem;
+            max-width: calc(100vw - 2rem);
+            box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .25);
+        }
+        .app-add-menu .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            padding-top: .5rem;
+            padding-bottom: .5rem;
+            white-space: normal;
+        }
+        .app-add-menu .dropdown-item .bi {
+            color: var(--color-text-muted);
+        }
         .app-tile-links a.app-tile-link {
             color: var(--color-action);
             font-size: .85rem;
