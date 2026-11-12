@@ -529,7 +529,15 @@ data class ReportView(
   val name: String,
   val tabs: List<ReportViewTab>,
   val variables: List<ReportVariableSpec> = emptyList(),
+  val notices: List<ReportNotice> = emptyList(),
+  val totalNotices: Int = 0,
 )
+
+/**
+ * One notice of the report, shown in the page header's notices modal: a finding of a check ([check] its name) or a panel that failed at
+ * runtime ([check] null, [label] the panel title). [level] is `info`, `warning` or `error`.
+ */
+data class ReportNotice(val level: String, val check: String?, val label: String?, val message: String)
 
 /**
  * A variable's control: [type] `timeRange` or `select`, its [options] (value and display label, an empty value meaning "all") and the

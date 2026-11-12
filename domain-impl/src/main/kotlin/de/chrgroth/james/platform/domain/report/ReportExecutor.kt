@@ -13,6 +13,7 @@ import de.chrgroth.james.platform.domain.model.app.ChartXAxisSpec
 import de.chrgroth.james.platform.domain.model.app.ChartXAxisType
 import de.chrgroth.james.platform.domain.model.app.ChartYAxisSpec
 import de.chrgroth.james.platform.domain.model.app.CurrencyGranularity
+import de.chrgroth.james.platform.domain.expression.DisplayTextExpressions
 import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.ErrorPanelSpec
@@ -35,6 +36,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportAxis
 import de.chrgroth.james.platform.domain.model.app.ReportCalcTransform
 import de.chrgroth.james.platform.domain.model.app.ReportChartPanel
 import de.chrgroth.james.platform.domain.model.app.ReportCheck
+import de.chrgroth.james.platform.domain.model.app.ReportCheckSeverity
 import de.chrgroth.james.platform.domain.model.app.ReportColumn
 import de.chrgroth.james.platform.domain.model.app.ReportCumulativeTransform
 import de.chrgroth.james.platform.domain.model.app.ReportDateRange
@@ -45,6 +47,7 @@ import de.chrgroth.james.platform.domain.model.app.ReportGoalTransform
 import de.chrgroth.james.platform.domain.model.app.ReportHeatmapPanel
 import de.chrgroth.james.platform.domain.model.app.ReportJoinTransform
 import de.chrgroth.james.platform.domain.model.app.ReportMovingAverageTransform
+import de.chrgroth.james.platform.domain.model.app.ReportNotice
 import de.chrgroth.james.platform.domain.model.app.ReportPanel
 import de.chrgroth.james.platform.domain.model.app.ReportPanelType
 import de.chrgroth.james.platform.domain.model.app.ReportPiePanel
@@ -85,6 +88,7 @@ import de.chrgroth.james.platform.domain.model.app.decodeListValue
 import de.chrgroth.james.platform.domain.model.app.decodeObjectValue
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
 import de.chrgroth.james.platform.domain.model.imports.FilterMode
+import de.chrgroth.james.platform.domain.model.readmodel.encodeTimeBucket
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
 import de.chrgroth.james.platform.domain.model.readmodel.nextTimeBucket
 import java.math.BigDecimal
@@ -124,7 +128,7 @@ internal class ReportExecutor(
   private val configEntity = entities.find { it.configuration }
   private val entityById = entities.associateBy { it.id.value }
   private val appDataById by lazy { allAppData.associateBy { it.id.value } }
-  private val displayTexts = DisplayTextResolver(entityById, allAppData)
+  private val displayTexts = DisplayTextResolver(entityById, allAppData, DisplayTextExpressions)
   private val computedCache = HashMap<String, Map<String, String?>>()
   private val results = HashMap<String, QueryResult>()
 
@@ -161,16 +165,20 @@ internal class ReportExecutor(
     this.definition = definition
     this.checker = ReportChecker(this, definition, today)
     val variables = definition.variables.map { variableSpec(it, selections[it.name]) }
-    return ReportView(
+    val panelErrors = mutableListOf<ReportNotice>()
+    val view = ReportView(
       reportId = reportId,
       name = name,
       tabs = definition.tabs.map { tab ->
         val rows = tab.rows.map { row -> ReportViewRow(row.panels.mapNotNull { panel(it, definition) }) }
+        rows.flatMap { it.panels }.filterIsInstance<ErrorPanelSpec>().forEach { panelErrors += ReportNotice(ReportCheckSeverity.ERROR.key, null, it.title, it.message) }
         val checks = tab.rows.flatMap { it.panels }.filterIsInstance<ReportWarningsPanel>().flatMap { panelChecks(it) }.distinctBy { it.name }
         ReportViewTab(tab.name, rows, checks.sumOf { warningsOf(it).size })
       },
       variables = variables,
     )
+    val notices = panelErrors.distinct() + definition.checks.flatMap { check -> warningsOf(check).map { ReportNotice(it.severity, it.check, it.label, it.message) } }
+    return view.copy(notices = notices.take(MAX_NOTICES), totalNotices = notices.size)
   }
 
   // region checks
@@ -219,6 +227,7 @@ internal class ReportExecutor(
       variable.default == ReportSelectVariable.ALL_VALUE && variable.includeAll -> ""
       variable.default == ReportSelectVariable.FIRST -> values.firstOrNull().orEmpty()
       variable.default == ReportSelectVariable.LAST -> values.lastOrNull().orEmpty()
+      variable.default == ReportSelectVariable.CURRENT -> currentValue(column?.bucket, result?.periodStart, values)
       variable.default in values -> variable.default
       else -> values.firstOrNull().orEmpty()
     }
@@ -227,6 +236,12 @@ internal class ReportExecutor(
     val filterValue = value.takeIf { it.isNotEmpty() }?.let { if (column?.type == PropertyType.REF) displayTexts.displayTextOf(it) else it }
     variableStates[variable.name] = VariableState(value, range, filterValue)
     return ReportVariableSpec(variable.name, variable.label ?: variable.name, SELECT_TYPE, options, value)
+  }
+
+  /** The default `current` of a select variable: the bucket containing today, else the newest (greatest) value. */
+  private fun currentValue(bucket: TimeBucket?, periodStart: MonthDay?, values: List<String>): String {
+    val current = bucket?.let { encodeTimeBucket(it, today, periodStart) }
+    return if (current != null && current in values) current else values.maxOrNull().orEmpty()
   }
 
   /** The range a query runs with: a variable's selection, or its own (relative ranges resolved against today). */
@@ -961,6 +976,9 @@ internal class ReportExecutor(
 
     /** Platform cap for the findings one warnings panel ships to the browser. */
     const val MAX_WARNINGS = 500
+
+    /** Platform cap for the notices a report ships to the browser (the page header's notices modal). */
+    const val MAX_NOTICES = 500
 
     private const val YES = "ja"
     private const val NO = "nein"

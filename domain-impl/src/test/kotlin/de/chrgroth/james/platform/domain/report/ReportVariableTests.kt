@@ -81,6 +81,30 @@ class ReportVariableTests {
   }
 
   @Test
+  fun `default current selects the bucket containing today, else the newest value`() {
+    val yaml = """
+      variables:
+        jahr: { type: select, query: jahre, field: bucket, default: current }
+      queries:
+        jahre: { entity: Fahrt, timeField: datum, aggregate: { bucket: JAHR, values: { n: count } } }
+        km: { entity: Fahrt, timeField: datum, range: ${'$'}jahr, aggregate: { sum: distanz } }
+      tabs:
+        - name: T
+          rows: [[{ stat: Km, query: km }]]
+      """
+    // Today is in 2026, which exists.
+    val current = view(yaml)
+    assertThat(current.variables.single().selected).isEqualTo("2026")
+    assertThat(current.stat()).isEqualTo(25_000.0)
+    // The current year (2027) has no entries: the newest existing one is used.
+    val definition = ReportDefinitionParser.parse(yaml.trimIndent(), ReportFixtures.entities).definition!!
+    val later = ReportExecutor(ReportFixtures.entities, data, LocalDate.of(2027, 2, 1), null) { _, _ -> emptyMap() }.execute("r", "V", definition)
+    assertThat(later.variables.single().selected).isEqualTo("2026")
+    // An explicit selection still wins.
+    assertThat(view(yaml, mapOf("jahr" to "2025")).variables.single().selected).isEqualTo("2025")
+  }
+
+  @Test
   fun `a select variable in a filter value filters by the selection, all drops the rule`() {
     val yaml = """
       variables:

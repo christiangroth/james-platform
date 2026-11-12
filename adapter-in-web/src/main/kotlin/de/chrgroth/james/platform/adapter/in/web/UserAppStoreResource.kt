@@ -15,6 +15,7 @@ import de.chrgroth.james.platform.domain.model.app.AggregationDefinition
 import de.chrgroth.james.platform.domain.model.app.AggregationFunction
 import de.chrgroth.james.platform.domain.model.app.AppData
 import de.chrgroth.james.platform.domain.model.app.AppVersion
+import de.chrgroth.james.platform.domain.model.app.DisplayTextExpressionEvaluator
 import de.chrgroth.james.platform.domain.model.app.DisplayTextResolver
 import de.chrgroth.james.platform.domain.model.app.EntityDefinition
 import de.chrgroth.james.platform.domain.model.app.PropertyValueFormat
@@ -33,6 +34,7 @@ import de.chrgroth.james.platform.domain.model.app.isObjectList
 import de.chrgroth.james.platform.domain.model.app.encodeListValue
 import de.chrgroth.james.platform.domain.model.app.sortListItems
 import de.chrgroth.james.platform.domain.model.app.formatUnitValue
+import de.chrgroth.james.platform.domain.model.app.referencedEntityClosure
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValue
 import de.chrgroth.james.platform.domain.model.readmodel.AggregationValueStatus
 import de.chrgroth.james.platform.domain.model.readmodel.formatTimeBucketLabel
@@ -212,6 +214,9 @@ class UserAppStoreResource {
   private lateinit var computedProperty: ComputedPropertyPort
 
   @Inject
+  private lateinit var displayTextExpressions: DisplayTextExpressionEvaluator
+
+  @Inject
   private lateinit var aggregationRepository: AggregationRepositoryPort
 
   @Inject
@@ -319,7 +324,9 @@ class UserAppStoreResource {
       return@timed Response.seeOther(URI.create(if (configuration) settingsUrl(installedAppId) else "/ui/user/apps/$installedAppId")).build()
     }
     val entityById = info.installedVersion.entityDefinitions.associateBy { it.id.value }
-    val allAppData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+    // Only this entity's objects plus the ones its references (display texts, sort criteria, aggregation groups) lead to are needed.
+    val neededEntityTypes = referencedEntityClosure(listOf(entityDef), info.installedVersion.entityDefinitions)
+    val allAppData = appData.listAppDataOfEntities(userId, installedAppId, neededEntityTypes).getOrNull() ?: emptyList()
     val entityTab = buildEntityTab(entityDef, entityById, allAppData)
     val aggregations = buildAggregationViews(entityDef, installedAppId, entityById, allAppData)
 
@@ -367,6 +374,7 @@ class UserAppStoreResource {
   fun newAppDataForm(
     @PathParam("installedAppId") installedAppId: String,
     @QueryParam("entityId") entityId: String?,
+    @QueryParam("returnUrl") returnUrlParam: String?,
   ): Response = httpResponseMetrics.timed("page.user-app-store.data-new") {
     val userId = securityIdentity.principal.name
     val info = userAppStore.getInstalledApp(userId, installedAppId).fold(
@@ -376,10 +384,12 @@ class UserAppStoreResource {
     val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == entityId }
       ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
     if (entityDef.configuration) return@timed Response.seeOther(URI.create(settingsUrl(installedAppId))).build()
-    val computedSmartDefaults = smartDefaultsFor(userId, info, entityDef)
-    val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
+    val returnUrl = LocalReturnUrl.validated(returnUrlParam)
+    val allData = lazy { appData.listAppData(userId, installedAppId).getOrNull().orEmpty() }
+    val computedSmartDefaults = smartDefaultsFor(userId, info, entityDef, allData = allData)
+    val referenceOptions = computeReferenceOptions(allData, info.installedVersion.entityDefinitions, entityDef)
     // a REF smart default (e.g. last(schuhe)) is an object id: the lookup field shows the referenced object's text for it
-    val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, currentData = computedSmartDefaults)
+    val lookups = referenceLookupForms(allData, info.installedVersion.entityDefinitions, entityDef, currentData = computedSmartDefaults)
     Response.ok(
       UserTemplates.`app-data-new`(
         info = info,
@@ -387,6 +397,8 @@ class UserAppStoreResource {
         smartDefaults = computedSmartDefaults,
         referenceOptions = referenceOptions,
         entityListUrl = entityListUrl(installedAppId, entityDef.id.value, info.installedVersion),
+        returnUrl = returnUrl.orEmpty(),
+        cancelUrl = returnUrl ?: entityListUrl(installedAppId, entityDef.id.value, info.installedVersion),
         objectFieldsJson = objectFieldsJsonFor(entityDef.properties, lookups),
         referenceOptionsJson = referenceOptionsJsonFor(referenceOptions + lookups.referenceOptions),
         referenceLookupsJson = RawString(ObjectMapper().writeValueAsString(lookups.lookups)),
@@ -421,12 +433,18 @@ class UserAppStoreResource {
   }
 
   /** The smart defaults of [entityDef] for the create form of installation [info], given the [formValues] entered so far (by property id). */
-  private fun smartDefaultsFor(userId: String, info: InstalledAppInfo, entityDef: EntityDefinition, formValues: Map<String, String?> = emptyMap()): Map<String, String?> {
+  private fun smartDefaultsFor(
+    userId: String,
+    info: InstalledAppInfo,
+    entityDef: EntityDefinition,
+    formValues: Map<String, String?> = emptyMap(),
+    allData: Lazy<List<AppData>> = lazy { appData.listAppData(userId, info.installedApp.id.value).getOrNull().orEmpty() },
+  ): Map<String, String?> {
     if (entityDef.properties.none { it.smartDefault != null }) return emptyMap()
     val context = SmartDefaultContext(
       now = Clock.System.now(),
       formValues = formValues,
-      entries = { appData.listAppData(userId, info.installedApp.id.value).getOrNull().orEmpty() },
+      entries = { allData.value },
       config = appConfiguration.configurationValues(info.installedApp, info.installedVersion),
       configEntity = info.installedVersion.configurationEntity,
     )
@@ -480,7 +498,8 @@ class UserAppStoreResource {
       },
       ifRight = {
         val version = userAppStore.getInstalledApp(userId, installedAppId).getOrNull()?.installedVersion
-        Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), entityListUrl(installedAppId, entityTypeId, version))).build()
+        val redirectUrl = LocalReturnUrl.validated(form.getFirst("returnUrl")) ?: entityListUrl(installedAppId, entityTypeId, version)
+        Response.ok(DeveloperApiResult(true, userMsg.userDataCreatedMessage(), redirectUrl)).build()
       },
     )
   }
@@ -502,8 +521,9 @@ class UserAppStoreResource {
       ifRight = { appDataItem ->
         val entityDef = info.installedVersion.entityDefinitions.find { it.id.value == appDataItem.entityType.value }
           ?: return@timed Response.seeOther(URI.create("/ui/user/apps/$installedAppId")).build()
-        val referenceOptions = computeReferenceOptions(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef)
-        val lookups = referenceLookupForms(userId, installedAppId, info.installedVersion.entityDefinitions, entityDef, appDataItem.data)
+        val allData = lazy { appData.listAppData(userId, installedAppId).getOrNull().orEmpty() }
+        val referenceOptions = computeReferenceOptions(allData, info.installedVersion.entityDefinitions, entityDef)
+        val lookups = referenceLookupForms(allData, info.installedVersion.entityDefinitions, entityDef, appDataItem.data)
         val detail = AppDataDetail(
           id = appDataItem.id.value,
           installedAppId = installedAppId,
@@ -516,7 +536,7 @@ class UserAppStoreResource {
           referenceText = computeReferenceText(entityDef, appDataItem.id.value, appDataItem.data),
           displayText = computeDisplayText(
             entityDef, appDataItem.id.value, appDataItem.data,
-            DisplayTextContext(info.installedVersion.entityDefinitions.associateBy { it.id.value }, appData.listAppData(userId, installedAppId).getOrNull().orEmpty()),
+            DisplayTextContext(info.installedVersion.entityDefinitions.associateBy { it.id.value }, allData.value, displayTextExpressions),
           ),
           importProvenance = appDataItem.importProvenance?.let {
             AppDataImportProvenanceView(connectionName = it.connectionName, sourceUrl = it.sourceUrl)
@@ -664,7 +684,7 @@ class UserAppStoreResource {
   private fun settingsUrl(installedAppId: String): String = "/ui/user/apps/$installedAppId/settings"
 
   private fun buildEntityTab(entityDef: EntityDefinition, entityById: Map<String, EntityDefinition>, allAppData: List<AppData>): EntityTab {
-    val context = DisplayTextContext(entityById, allAppData)
+    val context = DisplayTextContext(entityById, allAppData, displayTextExpressions)
     val entityRows = allAppData
       .filter { it.entityType.value == entityDef.id.value }
       .let { rows -> applySortCriteria(rows, entityDef, entityById, allAppData) }
@@ -792,7 +812,7 @@ class UserAppStoreResource {
     val refPath = aggregation.refPath ?: return emptyMap()
     val refProperty = entityDef.properties.find { it.id == refPath } ?: return emptyMap()
     val targetEntity = refProperty.targetEntityId?.let { entityById[it.value] } ?: return emptyMap()
-    val context = DisplayTextContext(entityById, allAppData)
+    val context = DisplayTextContext(entityById, allAppData, displayTextExpressions)
     return allAppData.filter { it.entityType == targetEntity.id }
       .associate { it.id.value to computeDisplayText(targetEntity, it.id.value, it.data, context) }
   }
@@ -900,11 +920,11 @@ class UserAppStoreResource {
    * referenced object's own display text when [context] can resolve it, else its id.
    */
   private fun computeDisplayText(entityDef: EntityDefinition?, dataId: String, data: Map<String, String?>, context: DisplayTextContext? = null): String =
-    (context?.resolver ?: DisplayTextResolver(emptyMap(), emptyList())).displayText(entityDef, dataId, data)
+    (context?.resolver ?: DisplayTextResolver(emptyMap(), emptyList(), displayTextExpressions)).displayText(entityDef, dataId, data)
 
   /** What [computeDisplayText] needs to resolve REF placeholders: the installed version's entities and the installation's data. */
-  private class DisplayTextContext(entityById: Map<String, EntityDefinition>, allAppData: List<AppData>) {
-    val resolver = DisplayTextResolver(entityById, allAppData)
+  private class DisplayTextContext(entityById: Map<String, EntityDefinition>, allAppData: List<AppData>, expressions: DisplayTextExpressionEvaluator) {
+    val resolver = DisplayTextResolver(entityById, allAppData, expressions)
   }
 
   private fun computeReferenceText(entityDef: EntityDefinition, dataId: String, data: Map<String, String?>): String {
@@ -926,11 +946,11 @@ class UserAppStoreResource {
     }
 
   /** Builds the selectable Reference options (id + label) for each Reference property of the given entity, including nested ones. */
-  private fun computeReferenceOptions(userId: String, installedAppId: String, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): Map<String, List<AppDataRow>> {
+  private fun computeReferenceOptions(allDataLoader: Lazy<List<AppData>>, entityDefinitions: List<EntityDefinition>, entityDef: EntityDefinition): Map<String, List<AppDataRow>> {
     val refProperties = collectReferenceProperties(entityDef.properties)
     if (refProperties.isEmpty()) return emptyMap()
-    val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
-    val context = DisplayTextContext(entityDefinitions.associateBy { it.id.value }, allData)
+    val allData = allDataLoader.value
+    val context = DisplayTextContext(entityDefinitions.associateBy { it.id.value }, allData, displayTextExpressions)
     return refProperties.associate { prop ->
       val targetEntity = entityDefinitions.find { it.id == prop.targetEntityId }
       val options = targetEntity?.let { target ->
@@ -992,15 +1012,14 @@ class UserAppStoreResource {
    * further properties as a pseudo-OBJECT field tree with their defaults, plus the reference options its own REF properties need.
    */
   private fun referenceLookupForms(
-    userId: String,
-    installedAppId: String,
+    allDataLoader: Lazy<List<AppData>>,
     entityDefinitions: List<EntityDefinition>,
     entityDef: EntityDefinition,
     currentData: Map<String, String?>?,
   ): ReferenceLookupForms {
     val lookupProperties = entityDef.properties.mapNotNull { prop -> prop.referenceLookupTarget(entityDefinitions)?.let { Triple(prop, it.first, it.second) } }
     if (lookupProperties.isEmpty()) return ReferenceLookupForms(emptyMap(), emptyMap(), emptyMap())
-    val allData = appData.listAppData(userId, installedAppId).getOrNull() ?: emptyList()
+    val allData = allDataLoader.value
     val lookups = mutableMapOf<String, Map<String, Any?>>()
     val newObjectFields = mutableMapOf<String, Map<String, Any?>>()
     val referenceOptions = mutableMapOf<String, List<AppDataRow>>()
@@ -1022,7 +1041,7 @@ class UserAppStoreResource {
           "nullable" to true,
           "nestedProperties" to newProperties.map { it.toObjectFieldView() },
         )
-        referenceOptions += computeReferenceOptions(userId, installedAppId, entityDefinitions, target)
+        referenceOptions += computeReferenceOptions(allDataLoader, entityDefinitions, target)
       }
       val smartDefaults = if (newProperties.isNotEmpty()) smartDefault.computeSmartDefaults(target, SmartDefaultContext(Clock.System.now(), entries = { allData })) else emptyMap()
       lookups[prop.id.value] = mapOf(

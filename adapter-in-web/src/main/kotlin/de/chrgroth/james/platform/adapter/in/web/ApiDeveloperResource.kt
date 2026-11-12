@@ -142,6 +142,16 @@ class ApiDeveloperResource(
     owned(appId) { appVersionManagement.publishVersion(appId, request?.bumpType, request?.releaseNotes.orEmpty()).toVersionResponse() }
   }
 
+  @PUT
+  @Path("/{appId}/versions/{versionId}/release-notes")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RolesAllowed(ApiTokenRoles.DEVELOPER_RELEASE)
+  fun updateReleaseNotes(@PathParam("appId") appId: String, @PathParam("versionId") versionId: String, request: ApiReleaseNotesRequest?): Response =
+    httpResponseMetrics.timed("api.developer.version-release-notes") {
+      owned(appId) { appVersionManagement.updateReleaseNotes(appId, versionId, request?.releaseNotes.orEmpty()).toVersionResponse() }
+    }
+
   // endregion
 
   // region drafts

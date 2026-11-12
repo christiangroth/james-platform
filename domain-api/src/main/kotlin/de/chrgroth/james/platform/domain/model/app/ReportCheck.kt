@@ -1,8 +1,8 @@
 package de.chrgroth.james.platform.domain.model.app
 
 /**
- * A declarative check (`checks: { <name>: ... }`), executed backend-side over a query of the report; its findings are shown in `warnings` panels
- * and counted on their tab. [message] may use `{placeholder}`s (see each check type); without one a German default text is used.
+ * A declarative check (`checks: { <name>: ... }`), executed backend-side over a query of the report; its findings are listed in the report's notices (header indicator and modal)
+ * and, for backwards compatibility, in `warnings` panels (counted on their tab). [message] may use `{placeholder}`s (see each check type); without one a German default text is used.
  */
 sealed interface ReportCheck {
   val name: String
@@ -27,7 +27,9 @@ sealed interface ReportCheck {
   }
 }
 
+/** The level of a check's findings (`level: info|warning|error`, default warning): shown as Hinweis, Warnung or Fehler in the report's notices. */
 enum class ReportCheckSeverity(val key: String) {
+  INFO("info"),
   WARNING("warning"),
   ERROR("error"),
 }
@@ -122,5 +124,5 @@ data class WarningsPanelSpec(
   override val type: ReportPanelType get() = ReportPanelType.WARNINGS
 }
 
-/** One finding of [check]: [severity] `warning`/`error`, [label] what it is about (missing period, the row's date or bucket), [message]. */
+/** One finding of [check]: [severity] `info`/`warning`/`error`, [label] what it is about (missing period, the row's date or bucket), [message]. */
 data class WarningSpec(val check: String, val severity: String, val label: String?, val message: String)

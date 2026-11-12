@@ -124,6 +124,11 @@ data class ApiReportRequest @JsonCreator constructor(
   @param:JsonProperty("definition") val definition: String?,
 )
 
+/** Corrected release notes of a published version. */
+data class ApiReleaseNotesRequest @JsonCreator constructor(
+  @param:JsonProperty("releaseNotes") val releaseNotes: String?,
+)
+
 data class ApiPublishRequest @JsonCreator constructor(
   @param:JsonProperty("bumpType") val bumpType: String?,
   @param:JsonProperty("releaseNotes") val releaseNotes: String?,

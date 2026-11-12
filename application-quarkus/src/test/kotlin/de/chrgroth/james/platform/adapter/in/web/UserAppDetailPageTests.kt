@@ -175,6 +175,34 @@ class UserAppDetailPageTests {
   }
 
   @Test
+  fun `entity tiles offer a plus button that returns to the installation page after saving`() {
+    val appName = "Tile Add App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entity1Id = addEntity(appId, versionId, "Entity One")
+    addEntity(appId, versionId, "Entity Two")
+    val installedAppId = publishAndInstall(appId, appName)
+
+    val html = given().`when`().get("/ui/user/apps/$installedAppId").then().statusCode(200).extract().body().asString()
+
+    assertTrue(html.contains("data/new?entityId=$entity1Id&returnUrl=/ui/user/apps/$installedAppId"), "Expected a plus button returning to the installation page")
+    assertTrue(html.contains("data-testid=\"entity-tile-add-button\""), "Expected the plus button on the entity tile")
+  }
+
+  @Test
+  fun `new data form keeps a local return url and ignores foreign ones`() {
+    val appName = "Return Url App ${System.nanoTime()}"
+    val (appId, versionId) = createApp(appName)
+    val entityId = addEntity(appId, versionId, "Entity One")
+    val installedAppId = publishAndInstall(appId, appName)
+
+    val local = given().`when`().get("/ui/user/apps/$installedAppId/data/new?entityId=$entityId&returnUrl=/ui/user/dashboard").then().statusCode(200).extract().body().asString()
+    val foreign = given().`when`().get("/ui/user/apps/$installedAppId/data/new?entityId=$entityId&returnUrl=https://evil.example/").then().statusCode(200).extract().body().asString()
+
+    assertTrue(local.contains("name=\"returnUrl\" value=\"/ui/user/dashboard\""), "Expected the local return url to be kept")
+    assertTrue(!foreign.contains("evil.example"), "Expected a foreign return url to be dropped")
+  }
+
+  @Test
   fun `entity detail page shows breadcrumbs and data table for the selected entity`() {
     val appName = "Entity Nav App ${System.nanoTime()}"
     val (appId, versionId) = createApp(appName)

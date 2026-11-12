@@ -15,6 +15,14 @@
             {#if info.installedApp.test}
             <span class="badge app-badge-muted" data-testid="test-installation-badge">{user:userTestInstallationBadge()}</span>
             {/if}
+            {#if errors.isEmpty}
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto d-inline-flex align-items-center gap-1" id="report-notices-button"
+                    data-bs-toggle="modal" data-bs-target="#report-notices-modal" data-level="none" data-testid="report-notices-button"
+                    title="{reportCheck:reportNoticesButton()}" aria-label="{reportCheck:reportNoticesButton()}">
+                <i class="bi bi-bell" id="report-notices-icon" aria-hidden="true"></i>
+                <span class="badge rounded-pill d-none" id="report-notices-count" data-testid="report-notices-count"></span>
+            </button>
+            {/if}
         </div>
 
         {#if !errors.isEmpty}
@@ -27,6 +35,22 @@
             </ul>
         </div>
         {#else}
+        <div class="modal fade" id="report-notices-modal" tabindex="-1" aria-labelledby="report-notices-title" aria-hidden="true" data-testid="report-notices-modal">
+            <div class="modal-dialog modal-dialog-scrollable modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="report-notices-title">{reportCheck:reportNoticesTitle()}</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{reportCheck:reportNoticesClose()}"></button>
+                    </div>
+                    <div class="modal-body" id="report-notices-body" data-testid="report-notices-body"
+                         data-text-none="{reportCheck:reportNoticesNone()}"
+                         data-text-info="{reportCheck:reportNoticesInfo()}"
+                         data-text-warning="{reportCheck:reportNoticesWarning()}"
+                         data-text-error="{reportCheck:reportNoticesError()}"
+                         data-text-truncated="{reportCheck:reportNoticesTruncated()}"></div>
+                </div>
+            </div>
+        </div>
         <div id="report-view" data-testid="report-view"
              data-text-empty="{report:reportTableEmpty()}"
              data-text-truncated="{report:reportTableTruncated()}"
@@ -50,6 +74,19 @@
         (function () {
             var container = document.getElementById('report-view');
             var view = JSON.parse(document.getElementById('report-view-data').textContent);
+            var notices = document.getElementById('report-notices-body');
+            JamesReports.renderNotices({
+                button: document.getElementById('report-notices-button'),
+                icon: document.getElementById('report-notices-icon'),
+                count: document.getElementById('report-notices-count'),
+                body: notices
+            }, view, {
+                none: notices.getAttribute('data-text-none'),
+                info: notices.getAttribute('data-text-info'),
+                warning: notices.getAttribute('data-text-warning'),
+                error: notices.getAttribute('data-text-error'),
+                truncated: notices.getAttribute('data-text-truncated')
+            });
             JamesReports.render(container, view, {
                 empty: container.getAttribute('data-text-empty'),
                 truncated: container.getAttribute('data-text-truncated'),

@@ -230,6 +230,9 @@ interface DeveloperMessages {
   fun developerReleaseNotesLabel(): String
 
   @Message
+  fun developerEditReleaseNotesTitle(): String
+
+  @Message
   fun developerEntityHeading(name: String): String
 
   @Message

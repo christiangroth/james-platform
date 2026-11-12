@@ -64,6 +64,21 @@ James Platform is a personal Low Code system for building and running data-centr
   - An optional **display text template** – a string that interpolates property values (e.g. `{firstName} {lastName}`) into a human-readable label shown for each object in list views and `ref` pickers, instead of a raw ID.
     Values are formatted for display (dates `dd.MM.yyyy`, German number separators, unit properties as e.g. `10km 234m`); a `ref` placeholder shows the
     referenced object's own display text (up to two reference levels deep, e.g. meter reading → meter → home), falling back to its id.
+    `{property}` placeholders only accept non-nullable properties. For anything richer there are **expression placeholders** in the style of Kotlin
+    string templates: `${ expression }` evaluates an expression of the platform's expression language (see [Reports](#reports), "Expression language") with the
+    Entity's properties (optional ones too) and **computed properties** readable by name; no `config.<field>` and no `last`/`next_day`. The result is
+    formatted like a `{property}` value (dates `dd.MM.yyyy`, times `HH:mm`, German numbers - so a year as number reads `2.026`, use
+    `format(datum, 'yyyy')` -, yes/no as `ja`/`nein`); a placeholder naming just a property (`${beginn}`, optional ones too) or computed property
+    (`${netto}`, with its unit) is formatted exactly like `{…}` including units and references. The new function `format(date, 'pattern')` formats a
+    date, date-time or time by a Java `DateTimeFormatter` pattern with German names (`format(von, 'dd.MM')`, `format(datum, 'EEE, d. MMMM')`).
+    Empty values: an expression without value renders as empty text (never an error), and in a template with at least one `${…}` placeholder runs of
+    blanks collapse and the result is trimmed, so an empty optional value leaves neither a leading space nor a double space; use `if`/`coalesce` for
+    other defaults (`${coalesce(kommentar, 'ohne')}`). A template whose result is empty falls back to the generic reference text. `{prop}` templates
+    behave exactly as before. Expressions are checked when the template is saved (unknown field/function, syntax, types, invalid `format` pattern:
+    a German message with the reason); evaluation failures at render time (e.g. after a property was removed) only render empty. Examples (app Arbeit):
+    Urlaub `${kommentar} ${format(start, "dd.MM")}-${format(ende, "dd.MM")} ({tage} Tage)` shows `Sommer 03.08-14.08 (9,5 Tage)`, without a
+    comment `03.08-14.08 (9,5 Tage)`; Arbeitstag `{datum} ${tagesart} ${beginn} ${ende} ${netto}` shows `03.08.2026 Arbeitstag 06:00 15:00 8h 30min` -
+    `tagesart` and `netto` are computed properties, an Arbeitstag without times just drops them.
 - A Property has:
   - A name unique within the Entity (mutable).
   - An ID unique within the Entity (immutable).
@@ -314,7 +329,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   report page and the token API, or as the editor preview's `variables` form field; a missing or unknown selection falls back to the default):
   `{ type: timeRange, label, default, options }` offers relative periods plus `all` (no restriction; default options: all of them) and is used as
   `range: $name`; `{ type: select, label, query, field, all, default }` offers the distinct values of a field of a query's (transformed) result, labelled
-  like table cells (references by display text, buckets as `09/2026`), `all: true` adds "Alle" (empty value), `default` is `first` (default), `last`,
+  like table cells (references by display text, buckets as `09/2026`), `all: true` adds "Alle" (empty value), `default` is `first` (default), `last`, `current` (the time bucket containing today, e.g. the current year; the newest value if there is none),
   `all` or a value. A select is used as filter `value: $name` (references compared by display text; "Alle" drops the rule) or - when its field is a
   time bucket - as `range: $name` (the selected bucket's period). The query feeding a select must not use variables itself. The executed `ReportView`
   lists each variable with its options and selected value; `report-renderer.js` renders the controls and reloads the report on change.
@@ -495,7 +510,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
     parentheses. Keywords are whole words (`order` is a field).
   - **Functions**: `abs`, `sqrt`, `round(x[, digits])`, `floor`, `ceil`, `min(..)`, `max(..)`, `coalesce(..)` (first value), `if(cond, then, else)`,
     `case(x, key1, value1, key2, value2, ..[, default])` (the value after the first key equal to `x`), `present(x)` (has a non-blank value),
-    `concat(..)` (texts, no value as empty), `minutes(from, to)` (two times of day - an end before the start lies on the next day - or two date-times),
+    `concat(..)` (texts, no value as empty), `format(date, 'dd.MM')` (a date, date-time or time as text by a `DateTimeFormatter` pattern, German names;
+    the pattern is checked on save), `minutes(from, to)` (two times of day - an end before the start lies on the next day - or two date-times),
     `days(from, to)`, `weekday(d)` (1 = Monday .. 7 = Sunday), `day(d)`, `month(d)`, `year(d)`, `today()`, `date(x)`, `time(x)` (texts such as
     `'2026-01-01'` or `'08:00'` to a date or time), `add_days(d, n)`, `end_of_month(d)`, `workdays(from, to[, holidays])` (Mondays to Fridays, both
     inclusive, without the holidays: a date or a text/configuration `List` of dates). Not in reports: `now()` (the current date-time to the minute,
@@ -556,8 +572,8 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   ```
 
 - **Checks** (`checks: { <name>: ... }`, `ReportChecker`): declarative warning rules over the report's queries (with the current variable selections),
-  each with exactly one type, an optional `message` (German default text otherwise) and `severity` `warning` (default) or `error`. Only checks shown by a
-  `{ warnings: <title>, checks: [names] }` panel run (without `checks`: all of them, in declaration order); each tab counts the findings of its
+  each with exactly one type, an optional `message` (German default text otherwise) and `level` `info`, `warning` (default) or `error` (shown as Hinweis, Warnung, Fehler; `severity` is accepted as former name). All checks run for every report execution; their findings - plus panels that failed at runtime, as errors - are the report's **notices** (`ReportView.notices`, capped at 500 with `totalNotices`, also in the token API's report execution response as `notices` with `level`, `check`, `label`, `message`). The report page template shows them as the standard way: an indicator (bell with count, colored by the most severe level, neutral without notices) top right of the report header opens a modal listing the notices grouped by Hinweis, Warnung, Fehler (`JamesReports.renderNotices`). For backwards compatibility the 
+  `{ warnings: <title>, checks: [names] }` panel still lists the findings of selected checks (without `checks`: all of them, in declaration order); each tab counts the findings of its
   warnings panels (every check once) and shows the number on its label. Checks only read the own installation - cross-app checks belong to personal
   dashboards (step 8).
   - **Gap detection** `{ gap: <query>, every: WERKTAG|TAG|WOCHE|MONAT|QUARTAL|JAHR, exclude, current }`: at least one row of the query (a plain query
@@ -585,7 +601,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
       gap: arbeitstage
       every: WERKTAG
       exclude: [config.feiertage, { query: urlaub, field: von, to: bis }]
-    ablesung: { gap: ablesungen, every: MONAT, severity: error }
+    ablesung: { gap: ablesungen, every: MONAT, level: error }
     stunden: { rule: arbeitstage, field: stunden, max: config.maxStunden, message: "{datum}: {value} Stunden" }
     ende: { rule: arbeitstage, required: [ende], when: [beginn] }
   tabs:
@@ -619,7 +635,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
   cells with raw and formatted value; a chart panel an x axis (`category` with labels, or `time`), y axes with unit symbol and series of points with
   plotted value and formatted text; a stat panel the value, its text, threshold color and the comparison; a pie panel its slices (label, value,
   text, percentage), display unit and donut flag; a heatmap panel its mode (`calendar` with `from`/`to`, or `matrix` with x/y categories), cells
-  (x, y, value, text), min/max and thresholds in the display unit; a warnings panel its findings (check, severity, label, message; capped at 500); a
+  (x, y, value, text), min/max and thresholds in the display unit; the view the report notices (level, check, label, message); a warnings panel its findings (check, severity, label, message; capped at 500); a
   panel whose query failed at runtime only its type, title and `error` message - and each tab the number of findings of its warnings
   panels). Values are formatted like display texts
   (`PropertyValueFormat`, `DisplayTextResolver` in `domain-api`, shared with the generic data UI): dates `dd.MM.yyyy`, units via `formatUnitValue`,
@@ -634,7 +650,7 @@ editor, and executed backend-side; no Developer-authored code runs in the browse
 - **UI and API:** the version editor lists, creates, renames, edits (YAML textarea with validation feedback) and deletes reports of a draft and previews
   an unsaved definition against a test installation of the draft. Installed Apps list their reports as tiles with the report icon above
   the Entities (no heading of their own), and every App tile on the user dashboard (`/ui/user/dashboard`) links the App and its reports - the tiles show
-  no Entities or object counts, so the dashboard loads no App data; `/ui/user/apps/{installedAppId}/reports/{reportId}`
+  no Entities or object counts, so the dashboard loads no App data. A plus button in the tile's top right creates an object (a dropdown picks the Entity when the App has several), and so does one on every Entity tile of the App page; both pass a validated local `returnUrl` so saving returns to the page the User came from; `/ui/user/apps/{installedAppId}/reports/{reportId}`
   renders one. Token API: `GET`/`POST /api/v1/developer/apps/{appId}/versions/{versionId}/reports`, `PUT`/`DELETE …/reports/{reportId}` (body
   `{ name, definition }`; like every draft edit they answer with the full draft, `POST` additionally names the new report's id in the `X-Report-Id`
   header and as `Location`) and `GET /api/v1/user/apps/{installedAppId}/reports/{reportId}` (panel spec incl. variables; selections as `var.<name>` query parameters).
@@ -1093,7 +1109,7 @@ Scripts and agents use personal access tokens instead of a session (see ADR [002
     `{ "name", "type", "unit", "maxUnit", "expression" }`; an invalid expression answers `400` with code `APPVER-076` and the reason in `details`), aggregations,
     migration steps, the configuration flag (`PUT …/entities/{entityId}/configuration`
     with `{ "value": true }`), reports (list/create/update/delete with YAML `definition`) below `/{appId}/versions/{versionId}/…`) and release
-    (`POST /{appId}/versions/publish`).
+    (`POST /{appId}/versions/publish`; `PUT /{appId}/versions/{versionId}/release-notes` with `{ "releaseNotes" }` corrects the notes of a published version).
 
 ## Error Handling
 
