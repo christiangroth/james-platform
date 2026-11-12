@@ -30,6 +30,16 @@ This applies whenever a single command execution is time-limited (e.g. the Claud
 - **Scope the build to the module(s) you touched** for a fast, reliable local signal, e.g. `./gradlew :module-name:test` or `:module-name:compileKotlin` instead of the whole-repo `build`.
 - **Push the branch and open the PR**, then rely on the `gradle.yml` workflow (triggered automatically on every push) as the authoritative full-build gate. Poll with `gh pr checks` (short, non-blocking calls) to confirm it goes green rather than reproducing the whole build locally.
 
+## Agent Briefing (local Windows sessions)
+
+Facts agents otherwise spend many tool calls rediscovering — read this instead of searching:
+
+- **Run Gradle via `./scripts/gradle-scoped.ps1 <tasks...>`** (e.g. `./scripts/gradle-scoped.ps1 :domain-impl:test --tests '*ReportServiceTests'`). It sets `JAVA_HOME` to the Temurin 25 JDK in `~/.jdks`, takes the GitHub Packages credentials (`GITHUB_ACTOR`/`GHCR_PAT`) from `gh auth token`, and prints one line on success or only the failures (full log in a temp file). Plain `./gradlew` fails locally without those variables.
+- **Modules:** `domain-api` (ports, models, errors), `domain-impl` (services, report/expression engine), `adapter-in-web` (JAX-RS resources, Qute templates under `src/main/resources/templates`, German texts in `src/main/resources/messages/*_de.properties` + message bundle interfaces in `i18n/`), `adapter-out-mongodb`, `adapter-in-outbox`, `application-quarkus` (Quarkus app + `@QuarkusTest` page/API tests).
+- **Token JSON API** (`/api/v1`): DTOs in `ApiDtos.kt`/`ApiRequests.kt`; every response DTO must be registered in `JsonResponseReflectionConfig` for the native image (checked by `JsonResponseReflectionConfigTests`).
+- **Line endings:** working copies are checked out with CRLF (`core.autocrlf`), commits are normalized to LF. Edit files with the Edit tool instead of string-replace scripts that assume `\n`.
+- **Output size:** read files with an offset/limit or `grep -n` instead of whole, and filter command output (e.g. `gh pr checks` instead of full run logs).
+
 ## Task Completion
 
 A task is only complete once:
