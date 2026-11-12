@@ -1,3 +1,12 @@
+# 0.140.1 (2026.11.12)
+
+## Bugfixes / Chore
+* Lokale Builds für Entwicklungs-Agenten vereinfacht.
+
+
+
+---
+
 # 0.140.0 (2026.11.12)
 
 ## New Features
