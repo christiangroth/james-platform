@@ -101,7 +101,7 @@
                     {! The whole tile opens the entity (stretched link); the plus button sits above it, so no links are nested !}
                     <div class="card app-card p-3 h-100 d-flex flex-column position-relative" data-testid="entity-tile-card">
                         <a href="/ui/user/apps/{info.installedAppId}/entities/{tab.entityId}" class="text-decoration-none stretched-link" data-testid="entity-tile" aria-label="{user:userOpenEntityAriaLabel(tab.entityName)}">
-                            <span class="d-block fw-semibold fs-6 mb-1 pe-4 app-tile-title" data-testid="entity-tile-name">{tab.entityName}</span>
+                            <span class="d-block fw-semibold fs-6 mb-1 pe-5 app-tile-title" data-testid="entity-tile-name">{tab.entityName}</span>
                         </a>
                         <div class="app-section-label" data-testid="entity-tile-count">{user:userEntityDataCountLabel(tab.rows.size)}</div>
                         <a href="/ui/user/apps/{info.installedAppId}/data/new?entityId={tab.entityId}&returnUrl=/ui/user/apps/{info.installedAppId}"
