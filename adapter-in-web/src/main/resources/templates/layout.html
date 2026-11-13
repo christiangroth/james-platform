@@ -327,10 +327,14 @@
             position: relative;
             z-index: 2;
         }
-        /* A tile's add menu (several entities): above the tile links of its own and the following tiles (z-index 2), so the open
-           menu is never covered by them; themed instead of Bootstrap's fixed dark menu, entries sized for touch */
+        /* A tile's add menu (several entities): above the tile links of its own and the following tiles (z-index 2); the open one
+           additionally above the add buttons of the following tiles (z-index 3), so the open menu is never covered; themed instead of
+           Bootstrap's fixed dark menu, entries sized for touch */
         .app-tile-add {
             z-index: 3;
+        }
+        .app-tile-add:has(.dropdown-menu.show) {
+            z-index: 10;
         }
         .app-add-menu {
             --bs-dropdown-bg: var(--color-bg-card);
