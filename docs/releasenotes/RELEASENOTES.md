@@ -1,3 +1,12 @@
+# 0.140.3 (2026.11.13)
+
+## Bugfixes / Chore
+* Dashboard: Das geöffnete Hinzufügen-Menü einer App-Kachel wird nicht mehr von den Plus-Buttons der folgenden Kacheln überdeckt.
+
+
+
+---
+
 # 0.140.2 (2026.11.12)
 
 ## Bugfixes / Chore
