@@ -1,3 +1,12 @@
+# 0.140.4 (2026.11.25)
+
+## Bugfixes / Chore
+* Automatische Importe, die wegen einer geänderten Datenstruktur der Quelle angehalten wurden, laufen wieder an, sobald ein manueller Import einmal übernommen wurde.
+
+
+
+---
+
 # 0.140.3 (2026.11.13)
 
 ## Bugfixes / Chore
