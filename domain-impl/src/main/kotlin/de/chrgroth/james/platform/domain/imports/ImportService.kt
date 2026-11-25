@@ -770,6 +770,9 @@ class ImportService(
       return ImportError.IMPORT_JOB_NOT_READY.left()
     }
 
+    // accepting confirms the job's source structure: it becomes the drift baseline for later unattended runs, so a
+    // changed source (e.g. a new field) can be re-baselined by one interactive import instead of blocking them forever
+    importDefinitionRepository.save(definition.copy(lastKnownSchema = existing.detectedSchema, lastChangedAt = Instant.now()))
     val updated = existing.copy(status = ImportStatus.ACCEPTING, lastChangedAt = Instant.now())
     importJobRepository.save(updated)
     outbox.enqueue(DomainOutboxEvent.AcceptDryRun(importJobId = updated.id.value, userId = userId, replaceExisting = replaceExisting))
