@@ -948,6 +948,7 @@ class ImportServiceTests {
     every { importJobRepository.findById(job.id) } returns job
     val saved = slot<ImportJob>()
     justRun { importJobRepository.save(capture(saved)) }
+    justRun { importDefinitionRepository.save(any()) }
     val enqueued = slot<DomainOutboxEvent.AcceptDryRun>()
     justRun { outboxPort.enqueue(capture(enqueued)) }
 
@@ -959,6 +960,37 @@ class ImportServiceTests {
     assertThat(enqueued.captured).isEqualTo(DomainOutboxEvent.AcceptDryRun(importJobId = job.id.value, userId = "user-1", replaceExisting = false))
     verify(exactly = 0) { appDataRepository.save(any()) }
     verify(exactly = 0) { importJobRepository.delete(any()) }
+  }
+
+  @Test
+  fun `accept dry run re-baselines the definition's last known schema so later scheduled runs no longer report drift`() {
+    every { installedAppRepository.findById(InstalledAppId("installed-1")) } returns installedApp
+    every { appVersionRepository.findByAppIdAndVersionNumber(AppId("app-1"), VersionNumber("1.0.0")) } returns appVersion
+    val newSchema = listOf(
+      SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true),
+      SchemaProperty("newField", mapOf(SchemaPropertyType.STRING to 1), mandatory = true),
+    )
+    val job = importJob(
+      status = ImportStatus.READY,
+      payload = """{"items":[{"name":"Alice","newField":"x"}]}""",
+      detectedSchema = newSchema,
+      selectedDataPath = "items",
+      mapping = readyMapping,
+    )
+    val staleDefinition = importDefinitionRepository.findById(job.importDefinitionId)!!
+      .copy(lastKnownSchema = listOf(SchemaProperty("name", mapOf(SchemaPropertyType.STRING to 1), mandatory = true)))
+    every { importDefinitionRepository.findById(job.importDefinitionId) } returns staleDefinition
+    every { importJobRepository.findById(job.id) } returns job
+    justRun { importJobRepository.save(any()) }
+    val savedDefinition = slot<ImportDefinition>()
+    justRun { importDefinitionRepository.save(capture(savedDefinition)) }
+    justRun { outboxPort.enqueue(any()) }
+
+    val result = service.acceptDryRun("user-1", job.id.value, replaceExisting = false)
+
+    assertThat(result.isRight()).isTrue()
+    assertThat(savedDefinition.captured.lastKnownSchema).isEqualTo(newSchema)
+    assertThat(SchemaDrift.detected(savedDefinition.captured.lastKnownSchema, newSchema)).isFalse()
   }
 
   @Test
